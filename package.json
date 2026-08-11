@@ -27,7 +27,8 @@
 		"test:quality:linting": "tsx src/tests/code-quality-tests.ts linting",
 		"test:quality:structure": "tsx src/tests/code-quality-tests.ts structure",
 		"test:quality:dependencies": "tsx src/tests/code-quality-tests.ts dependencies",
-		"test:all": "pnpm test:quality && pnpm test:features"
+		"test:unit": "tsx src/tests/unit-utils-tests.ts",
+		"test:all": "pnpm test:unit && pnpm test:quality && pnpm test:features"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",

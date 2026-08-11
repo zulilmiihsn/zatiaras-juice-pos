@@ -20,6 +20,7 @@
 	import Tag from 'lucide-svelte/icons/tag';
 	import { dataService } from '$lib/services/dataService';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import AddonFormModal from '$lib/components/menu/addonFormModal.svelte';
 	import { createToastManager } from '$lib/utils/ui';
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 
@@ -1760,80 +1761,18 @@
 	{/if}
 
 	<!-- Modal untuk tambah/edit ekstra -->
-	{#if showEkstraForm}
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-			role="dialog"
-			aria-modal="true"
-			onclick={(e) =>
-				e.target === e.currentTarget &&
-				((showEkstraForm = false), (ekstraForm = { name: '', harga: '' }), (editEkstraId = null))}
-			onkeydown={(e) =>
-				e.key === 'Escape' &&
-				((showEkstraForm = false), (ekstraForm = { name: '', harga: '' }), (editEkstraId = null))}
-			onkeypress={(e) =>
-				e.key === 'Enter' &&
-				((showEkstraForm = false), (ekstraForm = { name: '', harga: '' }), (editEkstraId = null))}
-			tabindex="-1"
-		>
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-			<div
-				class="animate-slideUpModal relative mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-				role="document"
-				onclick={(e) => e.stopPropagation()}
-			>
-				<h2 class="mb-4 text-center text-lg font-bold text-gray-800">
-					{editEkstraId ? 'Edit Tambahan' : 'Tambah Tambahan'}
-				</h2>
-				<form class="flex flex-col gap-4" onsubmit={saveEkstra} autocomplete="off">
-					<div class="flex flex-col gap-2">
-						<label for="ekstra-name" class="font-semibold text-gray-700">Nama Tambahan</label>
-						<input
-							type="text"
-							class="w-full rounded-xl border border-gray-300 px-4 py-3 text-base transition-all focus:border-transparent focus:ring-2 focus:ring-green-500"
-							bind:value={ekstraForm.name}
-							required
-							placeholder="Contoh: Es Teh Manis"
-						/>
-					</div>
-					<div class="flex flex-col gap-2">
-						<label for="ekstra-harga" class="font-semibold text-gray-700">Harga Tambahan</label>
-						<div class="relative">
-							<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
-								>Rp</span
-							>
-							<input
-								type="text"
-								class="w-full rounded-xl border border-gray-300 py-3 pr-4 pl-12 text-base transition-all focus:border-transparent focus:ring-2 focus:ring-green-500"
-								bind:value={ekstraForm.harga}
-								required
-								placeholder="0"
-							/>
-						</div>
-					</div>
-					<div class="mt-4 flex gap-2">
-						<button
-							type="submit"
-							class="flex-1 rounded-xl bg-green-500 py-3 font-semibold text-white shadow-lg shadow-green-200 transition-all duration-200 hover:bg-green-600 active:bg-green-700"
-							>Simpan</button
-						>
-						<button
-							type="button"
-							class="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-200 active:bg-gray-300"
-							onclick={() => {
-								showEkstraForm = false;
-								ekstraForm = { name: '', harga: '' };
-								editEkstraId = null;
-							}}>Batal</button
-						>
-					</div>
-				</form>
-			</div>
-		</div>
-	{/if}
+	<AddonFormModal
+		open={showEkstraForm}
+		isEdit={!!editEkstraId}
+		name={ekstraForm.name}
+		harga={ekstraForm.harga}
+		onSubmit={saveEkstra}
+		onClose={() => {
+			showEkstraForm = false;
+			ekstraForm = { name: '', harga: '' };
+			editEkstraId = null;
+		}}
+	/>
 
 	<!-- Modal konfirmasi hapus menu -->
 	{#if showDeleteModal}

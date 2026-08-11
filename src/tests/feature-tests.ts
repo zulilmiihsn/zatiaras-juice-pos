@@ -18,21 +18,19 @@ export const dashboardTests = {
 			description: 'Dashboard harus bisa load data omzet, transaksi, profit, item terjual',
 			test: async () => {
 				try {
-					// Test dashboard data loading
-					const mockData = {
-						omzet: 1000000,
-						jumlahTransaksi: 50,
-						profit: 300000,
-						itemTerjual: 150
-					};
-
-					// Simulate data loading
-					await new Promise((resolve) => setTimeout(resolve, 100));
+					const transactions = [
+						{ amount: 500000, qty: 75, cost: 350000 },
+						{ amount: 500000, qty: 75, cost: 350000 }
+					];
+					const omzet = transactions.reduce((sum, t) => sum + t.amount, 0);
+					const itemTerjual = transactions.reduce((sum, t) => sum + t.qty, 0);
+					const totalCost = transactions.reduce((sum, t) => sum + t.cost, 0);
+					const profit = omzet - totalCost;
 
 					return {
 						success: true,
-						message: 'Dashboard data loaded successfully',
-						data: mockData
+						message: 'Dashboard data calculated successfully',
+						data: { omzet, jumlahTransaksi: transactions.length, profit, itemTerjual }
 					};
 				} catch (error) {
 					return {

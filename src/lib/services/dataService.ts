@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '$lib/database/supabaseClient';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { get as storeGet } from 'svelte/store';
 import { selectedBranch } from '$lib/stores/selectedBranch';
 import { smartCache, CacheUtils, CACHE_KEYS } from '$lib/utils/cache';
@@ -18,7 +19,7 @@ import {
 } from '$lib/utils/offline';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
-async function getCachedPosKas7Hari(supabase: any) {
+async function getCachedPosKas7Hari(supabase: SupabaseClient) {
 	const todayStr = getTodayWita();
 	const branch = storeGet(selectedBranch) || 'default';
 	const cacheKey = `pos_kas_7hari_${branch}_${todayStr}`;
@@ -59,7 +60,7 @@ async function getCachedPosKas7Hari(supabase: any) {
 }
 
 // Fungsi cache harian untuk rata-rata transaksi/hari
-async function getAvgTransaksiHarian(supabase: any): Promise<number> {
+async function getAvgTransaksiHarian(supabase: SupabaseClient): Promise<number> {
 	const todayStr = getTodayWita();
 	const branch = storeGet(selectedBranch) || 'default';
 	const cacheKey = `avg_transaksi_${branch}_${todayStr}`;
@@ -81,9 +82,9 @@ async function getAvgTransaksiHarian(supabase: any): Promise<number> {
 	const kas7 = await getCachedPosKas7Hari(supabase);
 	let avgTransaksi = 0;
 	if (kas7) {
-		const transaksiPerHari: { [key: string]: Set<any> } = {};
+		const transaksiPerHari: { [key: string]: Set<string> } = {};
 		for (const tanggal of hariLabels) {
-			transaksiPerHari[tanggal] = new Set<any>();
+			transaksiPerHari[tanggal] = new Set<string>();
 		}
 		for (const t of kas7) {
 			const waktu = new Date(t.waktu);
@@ -95,7 +96,7 @@ async function getAvgTransaksiHarian(supabase: any): Promise<number> {
 				transaksiPerHari[tanggal].add(t.transaction_id);
 			}
 		}
-		const totalTransaksi7Hari = (Object.values(transaksiPerHari) as Set<any>[]).reduce(
+		const totalTransaksi7Hari = (Object.values(transaksiPerHari) as Set<string>[]).reduce(
 			(sum, set) => sum + set.size,
 			0
 		);
@@ -106,7 +107,7 @@ async function getAvgTransaksiHarian(supabase: any): Promise<number> {
 }
 
 // Fungsi cache mingguan untuk jam paling ramai (7 hari terakhir)
-async function getJamRamaiMingguan(supabase: any): Promise<string> {
+async function getJamRamaiMingguan(supabase: SupabaseClient): Promise<string> {
 	const todayStr = getTodayWita();
 	const branch = storeGet(selectedBranch) || 'default';
 	const cacheKey = `jam_ramai_mingguan_${branch}_${todayStr}`;
@@ -150,7 +151,7 @@ async function getJamRamaiMingguan(supabase: any): Promise<string> {
 // Data service untuk fetching dengan smart caching
 export class DataService {
 	private static instance: DataService;
-	private supabase: any;
+	private supabase: SupabaseClient;
 	private isInitialLoad = true; // Add flag to prevent double fetching
 
 	constructor() {
@@ -323,7 +324,7 @@ export class DataService {
 
 						if (validProdukIds.length > 0) {
 							bestSellersResult = validProdukIds.map((produk_id: string) => {
-								const prod = allProducts.find((p: any) => p.id === produk_id);
+								const prod = allProducts?.find((p: any) => p.id === produk_id);
 								return {
 									name: prod?.name || '-',
 									image: prod?.gambar || '',
