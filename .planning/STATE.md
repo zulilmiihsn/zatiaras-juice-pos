@@ -6,8 +6,8 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
 - **Tanggal**: 2026-08-12
 - **Milestone**: v2.0 — Stabilisasi & Quality
-- **Phase Aktif**: **Development baseline cleanup** — perubahan masih berjalan di branch `codex/a94-development`
-- **Pekerjaan Terakhir**: Cleanup dimulai dari HEAD `a94d7f8`; perubahan masih belum di-commit, tetapi seluruh gate rilis lokal sudah lulus.
+- **Phase Aktif**: **Development baseline cleanup** — release terverifikasi di branch `codex/a94-development`
+- **Pekerjaan Terakhir**: Baseline dari `a94d7f8` dirilis melalui commit `c94fdaa`; dependency audit, backup D1, deploy Cloudflare, dan live UAT sudah lulus.
 
 ## Riwayat Milestone
 
@@ -27,7 +27,14 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 - `pnpm build` → lulus
 - `pnpm test:e2e:pos` → 2/2 lulus
 - `pnpm test:release` → lulus
-- **Batas bukti**: run ini hanya memverifikasi baseline lokal; production deploy dan live proof tidak dilakukan.
+- `pnpm audit` → lulus, tidak ada known vulnerability; jalur transitive `@esbuild-kit/core-utils > esbuild` dipaksa ke `0.25.12`
+- Schema tiga D1 production → migration `0015` dan `0016` sudah terpasang; tidak dijalankan ulang
+- Backup tiga shard → manifest `D:\ZatiarasPOS-Backups\backup-2026-08-12T04-44-27-662Z-1133ee28-185a-4529-a0b5-43542b198f7a\manifest.sha256.json` terverifikasi
+- Realtime Worker → version `e69aebae-1ced-49ac-a52f-dd0b0d202033` berhasil dideploy
+- Cloudflare Pages → deployment `78163363.zatiaraspos.pages.dev` berhasil dideploy
+- Smoke production → root `200`, login `200`, protected API `401`, Worker health `200`
+- Service worker → SHA-256 lokal/live sama: `31636b14565920cdd1ab5e83460e99d246b2ef2491a455a2d7a38fd2b538f858`
+- Live UAT Samarinda → checkout, dua client realtime, dan cleanup transaksi/ledger terverifikasi
 
 ## Artefak Perencanaan
 
@@ -71,7 +78,6 @@ src/
 
 ## Follow-up Saat Ini
 
-- Commit cleanup setelah diff final ditinjau.
 - Perbarui daftar tech debt hanya dari temuan yang masih dapat direproduksi pada baseline baru.
 
 ## Keputusan Arsitektural Yang Sudah Dibuat
