@@ -219,6 +219,80 @@ async function validateLogin(baseUrl, credential, attempt = 0) {
 	if (!logoutResponse.ok) throw new Error(`Logout validasi gagal untuk ${credential.branch}`);
 }
 
+async function validateIngredientYield(baseUrl, credential) {
+	const csrfResponse = await fetch(`${baseUrl}/api/csrf`);
+	if (!csrfResponse.ok) throw new Error('UAT yield: CSRF gagal');
+	const csrf = await csrfResponse.json();
+	const csrfCookie = cookiePair(getSetCookies(csrfResponse.headers), 'zatiaras_csrf');
+	const loginResponse = await fetch(`${baseUrl}/api/veriflogin`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'X-CSRF-Token': csrf.token,
+			Cookie: csrfCookie
+		},
+		body: JSON.stringify(credential)
+	});
+	if (!loginResponse.ok) throw new Error(`UAT yield: login gagal HTTP ${loginResponse.status}`);
+	const sid = cookiePair(getSetCookies(loginResponse.headers), 'zatiaras_sid');
+	const cookie = `${csrfCookie}; ${sid}`;
+	const id = `uat-yield-${Date.now()}`;
+	let created = false;
+	try {
+		const createResponse = await fetch(`${baseUrl}/api/bahan`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-Token': csrf.token,
+				Cookie: cookie
+			},
+			body: JSON.stringify({
+				branch: credential.branch,
+				payload: {
+					id,
+					nama: 'UAT Yield Sementara',
+					satuan: 'gram',
+					stok_saat_ini: 0,
+					ambang_stok: 0,
+					yield_persen: 65,
+					jumlah_beli_terakhir: 10_000,
+					biaya_beli_terakhir: 300_000,
+					biaya_per_satuan: 1
+				}
+			})
+		});
+		if (!createResponse.ok)
+			throw new Error(`UAT yield: create gagal HTTP ${createResponse.status}`);
+		created = true;
+		const listResponse = await fetch(
+			`${baseUrl}/api/bahan?branch=${encodeURIComponent(credential.branch)}`,
+			{ headers: { Cookie: cookie } }
+		);
+		if (!listResponse.ok) throw new Error(`UAT yield: read gagal HTTP ${listResponse.status}`);
+		const rows = await listResponse.json();
+		const row = Array.isArray(rows) ? rows.find((item) => item?.id === id) : null;
+		if (
+			!row ||
+			Number(row.yield_persen) !== 65 ||
+			Math.abs(Number(row.biaya_per_satuan) - 46.1538) > 0.0001
+		) {
+			throw new Error('UAT yield: kalkulasi server tidak sesuai');
+		}
+	} finally {
+		if (created) {
+			const cleanup = await fetch(`${baseUrl}/api/bahan?id=${encodeURIComponent(id)}`, {
+				method: 'DELETE',
+				headers: { 'X-CSRF-Token': csrf.token, Cookie: cookie }
+			});
+			if (!cleanup.ok) throw new Error(`UAT yield: cleanup gagal HTTP ${cleanup.status}`);
+		}
+		await fetch(`${baseUrl}/api/logout`, {
+			method: 'POST',
+			headers: { 'X-CSRF-Token': csrf.token, Cookie: cookie }
+		}).catch(() => undefined);
+	}
+}
+
 function protectWithDpapi(plaintext, env) {
 	if (process.platform !== 'win32')
 		throw new Error('Handoff terenkripsi saat ini wajib Windows DPAPI');
@@ -423,6 +497,11 @@ async function main() {
 			const owner = verified.accounts.find(
 				(item) => item.branch === options.uatBranch && item.role === 'pemilik'
 			);
+			await validateIngredientYield(options.baseUrl, {
+				branch: options.uatBranch,
+				username: owner.username,
+				password: owner.password
+			});
 			await runUat(
 				{
 					live: true,
