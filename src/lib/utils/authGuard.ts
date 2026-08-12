@@ -8,6 +8,25 @@ import {
 	readOfflineSessionSnapshot
 } from '$lib/auth/offlineSession';
 
+type SessionPayload = {
+	authenticated: boolean;
+	user?: Record<string, unknown>;
+	expiresAt?: number | string;
+};
+
+function isSessionPayload(value: unknown): value is SessionPayload {
+	if (typeof value !== 'object' || value === null || !('authenticated' in value)) return false;
+	const candidate = value as Record<string, unknown>;
+	if (typeof candidate.authenticated !== 'boolean') return false;
+	if (!candidate.authenticated) return true;
+	return (
+		typeof candidate.user === 'object' &&
+		candidate.user !== null &&
+		!Array.isArray(candidate.user) &&
+		Number.isFinite(Number(candidate.expiresAt))
+	);
+}
+
 /**
  * Enhanced auth guard dengan security features
  * Implements session validation, rate limiting, dan security checks
@@ -28,7 +47,7 @@ export class AuthGuard {
 	/**
 	 * Fetch session payload from server
 	 */
-	private async fetchSessionPayload(): Promise<any | null> {
+	private async fetchSessionPayload(): Promise<SessionPayload | null> {
 		const response = await fetch('/api/session', {
 			method: 'GET',
 			credentials: 'include'
@@ -38,7 +57,8 @@ export class AuthGuard {
 			return null;
 		}
 
-		return response.json();
+		const payload: unknown = await response.json();
+		return isSessionPayload(payload) ? payload : null;
 	}
 
 	private allowOfflinePosAccess(): boolean {
@@ -56,11 +76,11 @@ export class AuthGuard {
 		return true;
 	}
 
-	private persistValidatedSession(payload: Record<string, unknown>): void {
+	private persistValidatedSession(payload: SessionPayload): void {
 		if (!payload?.authenticated || !payload?.user || !Number.isFinite(Number(payload.expiresAt))) {
 			return;
 		}
-		const user = payload.user as Record<string, unknown>;
+		const user = payload.user;
 		persistOfflineSessionSnapshot(user, Number(payload.expiresAt));
 		setUserRole(String(user.role || ''), user);
 		window.dispatchEvent(new CustomEvent('auth-session-refreshed'));

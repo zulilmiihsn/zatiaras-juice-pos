@@ -15,6 +15,13 @@ export interface BusinessAnalystDateRange {
 
 // AI 1: Data Requirement Analyzer
 export function buildIdentifyDataRequirementsPrompt(question: string, todayWita: string): string {
+	const currentMonthStart = `${todayWita.slice(0, 7)}-01`;
+	const currentDate = new Date(`${todayWita}T00:00:00.000Z`);
+	const twoMonthsAgo = new Date(
+		Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - 2, 1)
+	)
+		.toISOString()
+		.slice(0, 10);
 	return `Anda adalah AI yang bertugas mengidentifikasi kebutuhan data dari pertanyaan user untuk analisis laporan bisnis.
 
 TANGGAL SAAT INI: ${todayWita} (WITA)
@@ -58,7 +65,7 @@ ATURAN TANGGAL:
 - Gunakan tanggal Indonesia (WITA)
 - Tanggal saat ini: ${todayWita}
 - Untuk "X bulan terakhir" (1, 2, 3, 4, 5, 6, dst), hitung dari AWAL BULAN X bulan yang lalu hingga hari ini
-  Contoh: "2 bulan terakhir" dari 2025-09-07 = 2025-07-01 hingga 2025-09-07
+  Contoh: "2 bulan terakhir" dari ${todayWita} = ${twoMonthsAgo} hingga ${todayWita}
 - Untuk "X hari terakhir" (1, 2, 3, 7, 14, 30, dst), hitung dari X hari yang lalu hingga hari ini
 - Untuk "X minggu terakhir" (1, 2, 3, 4, dst), hitung dari X minggu yang lalu hingga hari ini
 - Untuk "X hari pertama bulan ini" (1, 2, 3, 5, 7, 10, dst), hitung dari tanggal 1 hingga X bulan ini
@@ -73,8 +80,8 @@ ATURAN TANGGAL:
 CONTOH OUTPUT:
 {
   "periode": {
-    "start": "2025-09-01",
-    "end": "2025-09-07",
+    "start": "${currentMonthStart}",
+    "end": "${todayWita}",
     "type": "daily"
   },
   "jenisData": ["produk_terlaris", "transaksi_kasir"],
@@ -84,10 +91,10 @@ CONTOH OUTPUT:
 }
 
 CONTOH BERDASARKAN TANGGAL SAAT INI (${todayWita}):
-- "Produk apa yang paling laris?" → periode: "2025-09-01 to ${todayWita}", jenisData: ["produk_terlaris", "transaksi_kasir"], prioritas: "product_analysis", scope: "product_performance"
-- "Bagaimana tren penjualan 2 bulan terakhir?" → periode: "2025-07-01 to ${todayWita}", jenisData: ["buku_kas", "daily_trends"], prioritas: "trend_analysis", scope: "trend_analysis"
+- "Produk apa yang paling laris?" → periode: "${currentMonthStart} to ${todayWita}", jenisData: ["produk_terlaris", "transaksi_kasir"], prioritas: "product_analysis", scope: "product_performance"
+- "Bagaimana tren penjualan 2 bulan terakhir?" → periode: "${twoMonthsAgo} to ${todayWita}", jenisData: ["buku_kas", "daily_trends"], prioritas: "trend_analysis", scope: "trend_analysis"
 - "Berapa pendapatan hari ini?" → periode: "${todayWita} to ${todayWita}", jenisData: ["buku_kas"], prioritas: "financial_analysis", scope: "revenue_analysis"
-- "Metode pembayaran apa yang paling banyak digunakan?" → periode: "2025-09-01 to ${todayWita}", jenisData: ["buku_kas", "payment_analysis"], prioritas: "operational_analysis", scope: "operational_efficiency"
+- "Metode pembayaran apa yang paling banyak digunakan?" → periode: "${currentMonthStart} to ${todayWita}", jenisData: ["buku_kas", "payment_analysis"], prioritas: "operational_analysis", scope: "operational_efficiency"
 
 Pertanyaan user: "${question}"`;
 }

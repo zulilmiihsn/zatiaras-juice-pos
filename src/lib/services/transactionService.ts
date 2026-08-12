@@ -3,7 +3,9 @@ import {
 	dbGetPage,
 	dbPost,
 	type DataPage,
-	type DataRecord
+	type DataRecord,
+	type ReadResource,
+	type WriteResource
 } from '$lib/services/dataApiClient';
 
 export class TransactionService {
@@ -14,11 +16,8 @@ export class TransactionService {
 		return TransactionService.instance;
 	}
 
-	async getRows(
-		table: string,
-		params: Record<string, string> = {}
-	): Promise<Record<string, any>[]> {
-		return dbGet(table, params) as Promise<Record<string, any>[]>;
+	async getRows(table: ReadResource, params: Record<string, string> = {}): Promise<DataRecord[]> {
+		return dbGet(table, params);
 	}
 
 	async getRowsPage<T extends DataRecord = DataRecord>(
@@ -30,27 +29,34 @@ export class TransactionService {
 	}
 
 	async getOne(
-		table: string,
+		table: ReadResource,
 		params: Record<string, string> = {}
-	): Promise<Record<string, any> | null> {
+	): Promise<DataRecord | null> {
 		const rows = await dbGet(table, { limit: '1', ...params });
-		return (rows[0] as Record<string, any>) || null;
+		return rows[0] || null;
 	}
 
-	async insertRows(table: string, payload: Record<string, unknown> | Record<string, unknown>[]) {
+	async insertRows(
+		table: WriteResource,
+		payload: Record<string, unknown> | Record<string, unknown>[]
+	) {
 		return dbPost(table, 'insert', payload);
 	}
 
-	async updateRows(table: string, payload: Record<string, unknown>, where: Record<string, string>) {
+	async updateRows(
+		table: WriteResource,
+		payload: Record<string, unknown>,
+		where: Record<string, string>
+	) {
 		return dbPost(table, 'update', payload, where);
 	}
 
-	async deleteRows(table: string, where: Record<string, string>) {
+	async deleteRows(table: WriteResource, where: Record<string, string>) {
 		return dbPost(table, 'delete', {}, where);
 	}
 
 	async fetchAllDataParallel(
-		table: string,
+		table: ReadResource,
 		startTime: string,
 		endTime: string,
 		_filters: Record<string, unknown> = {}

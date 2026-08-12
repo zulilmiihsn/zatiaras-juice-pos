@@ -196,15 +196,20 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 		}
 		// Hash password baru
 		const hashedPassword = await bcrypt.hash(passwordBaru, 10);
-		// Update username dan password
-		await db
-			.update(profil)
-			.set({
-				username: usernameBaru,
-				password: hashedPassword,
-				updated_at: new Date().toISOString()
-			})
-			.where(and(eq(profil.cabang_id, branchId), eq(profil.id, user.id)));
+		// Perubahan kredensial dan pencabutan seluruh sesi user harus atomik.
+		// D1 batch menjamin password baru tidak pernah aktif bersama sesi lama.
+		await rawDb.batch([
+			rawDb
+				.prepare(
+					`UPDATE profil
+					 SET username = ?, password = ?, updated_at = ?
+					 WHERE cabang_id = ? AND id = ?`
+				)
+				.bind(usernameBaru, hashedPassword, new Date().toISOString(), branchId, user.id),
+			rawDb
+				.prepare('DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?')
+				.bind(branchId, user.id)
+		]);
 
 		await publishBranchEvent(
 			platform?.env as Record<string, unknown> | undefined,

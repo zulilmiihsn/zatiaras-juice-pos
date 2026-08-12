@@ -133,14 +133,24 @@ export function createHppState() {
 				});
 				return;
 			}
-			await transactionService.insertRows('hpp_purchases', {
+			const inserted = await transactionService.insertRows('bahan', {
 				nama: item.nama,
 				satuan: item.satuan,
-				stok_saat_ini: item.purchase_qty,
+				stok_saat_ini: 0,
 				ambang_stok: 0,
 				jumlah_beli_terakhir: item.purchase_qty,
 				biaya_beli_terakhir: item.purchase_cost,
 				biaya_per_satuan: item.biaya_per_satuan
+			});
+			const bahanId = inserted.data?.[0]?.id;
+			if (typeof bahanId !== 'string' && typeof bahanId !== 'number') {
+				throw new Error('Bahan baru tersimpan tanpa ID yang valid');
+			}
+			await transactionService.insertRows('bahan_mutasi', {
+				bahan_id: String(bahanId),
+				delta_jumlah: item.purchase_qty,
+				source: 'purchase',
+				catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`
 			});
 		}
 	};

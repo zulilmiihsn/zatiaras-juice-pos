@@ -9,10 +9,11 @@ const chromePath =
 	process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const cdpPort = Number(process.env.CDP_PORT || 9333);
 const headless = process.env.HEADLESS !== '0';
-const password = process.env.UAT_PASSWORD;
+const ownerPassword = process.env.UAT_OWNER_PASSWORD || process.env.UAT_PASSWORD;
+const cashierPassword = process.env.UAT_KASIR_PASSWORD || process.env.UAT_PASSWORD;
 
-if (!password) {
-	throw new Error('UAT_PASSWORD wajib diisi melalui environment');
+if (!ownerPassword || !cashierPassword) {
+	throw new Error('UAT_OWNER_PASSWORD dan UAT_KASIR_PASSWORD wajib diisi');
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -161,7 +162,7 @@ function jsString(value) {
 	return JSON.stringify(String(value));
 }
 
-async function loginByUi(cdp, sessionId, username) {
+async function loginByUi(cdp, sessionId, username, password) {
 	await cdp.send('Page.navigate', { url: `${baseUrl}/login` }, sessionId);
 	await waitForLoad(cdp, sessionId);
 	await waitUntil(
@@ -408,6 +409,7 @@ async function cleanupTransaction(cdp, sessionId, transactionId) {
 let chrome;
 let cdp;
 let owner;
+let cashier;
 let transactionId;
 let transactionCleaned = false;
 try {
@@ -415,10 +417,10 @@ try {
 	cdp = await connectBrowser();
 
 	owner = await newPage(cdp, `${baseUrl}/login`);
-	const cashier = await newPage(cdp, `${baseUrl}/login`);
+	cashier = await newPage(cdp, `${baseUrl}/login`);
 
-	await loginByUi(cdp, owner.sessionId, 'pemilik');
-	await loginByUi(cdp, cashier.sessionId, 'kasir');
+	await loginByUi(cdp, owner.sessionId, 'pemilik', ownerPassword);
+	await loginByUi(cdp, cashier.sessionId, 'kasir', cashierPassword);
 
 	await cdp.send('Page.navigate', { url: `${baseUrl}/` }, owner.sessionId);
 	await waitForLoad(cdp, owner.sessionId);
@@ -469,6 +471,17 @@ try {
 } finally {
 	if (cdp && owner && transactionId && !transactionCleaned) {
 		await cleanupTransaction(cdp, owner.sessionId, transactionId).catch(() => undefined);
+	}
+	if (cdp) {
+		for (const page of [owner, cashier]) {
+			if (page) {
+				await evaluate(
+					cdp,
+					page.sessionId,
+					"fetch('/api/logout', { method: 'POST', credentials: 'include' }).then(() => true)"
+				).catch(() => undefined);
+			}
+		}
 	}
 	cdp?.close();
 	await chrome?.cleanup();

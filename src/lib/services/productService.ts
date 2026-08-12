@@ -2,7 +2,12 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import type { Product, Category, AddOn } from '$lib/types/product';
 import { smartCache, CACHE_KEYS } from '$lib/utils/cache';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
-import { dbGet, dbGetStrict } from '$lib/services/dataApiClient';
+import {
+	dbGet,
+	dbGetStrict,
+	type DataRecord,
+	type ReadResource
+} from '$lib/services/dataApiClient';
 import { catalogStore } from '$lib/utils/idbStores';
 import {
 	isPosCatalogSnapshot,
@@ -12,7 +17,7 @@ import {
 
 interface TableSnapshot {
 	version: 1;
-	data: Record<string, any>[];
+	data: DataRecord[];
 	updated_at: string;
 }
 
@@ -30,7 +35,7 @@ export class ProductService {
 		return ProductService.instance;
 	}
 
-	private async getCachedTable(table: string, cacheKey: string, offlineKeyPrefix: string) {
+	private async getCachedTable(table: ReadResource, cacheKey: string, offlineKeyPrefix: string) {
 		const branch = selectedBranch.value || 'default';
 		const offlineKey = `table:${offlineKeyPrefix}:${branch}`;
 		const stored = await idbGet<unknown>(offlineKey, catalogStore);

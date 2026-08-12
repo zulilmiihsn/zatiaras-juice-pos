@@ -28,11 +28,57 @@ async function parseError(response: Response, operation: string): Promise<Error>
 	return new Error(`${operation} gagal: ${detail}`);
 }
 
+function isDataRecord(value: unknown): value is DataRecord {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseRows<T extends DataRecord>(value: unknown, operation: string): T[] {
+	if (!Array.isArray(value) || !value.every(isDataRecord)) {
+		throw new Error(`${operation} gagal: format respons data tidak valid`);
+	}
+	return value as T[];
+}
+
+function parsePage<T extends DataRecord>(value: unknown, operation: string): DataPage<T> {
+	if (!isDataRecord(value)) throw new Error(`${operation} gagal: format halaman tidak valid`);
+	const data = parseRows<T>(value.data, operation);
+	if (value.nextCursor !== null && typeof value.nextCursor !== 'string') {
+		throw new Error(`${operation} gagal: cursor tidak valid`);
+	}
+	if (typeof value.hasMore !== 'boolean') {
+		throw new Error(`${operation} gagal: status pagination tidak valid`);
+	}
+	return { data, nextCursor: value.nextCursor, hasMore: value.hasMore };
+}
+
+function parseMutation<T extends DataRecord>(
+	value: unknown,
+	operation: string
+): DataMutationResult<T> {
+	if (!isDataRecord(value) || typeof value.ok !== 'boolean') {
+		throw new Error(`${operation} gagal: format respons mutasi tidak valid`);
+	}
+	let data: T[] | undefined;
+	if (value.data !== undefined) {
+		if (isDataRecord(value.data)) data = [value.data as T];
+		else if (Array.isArray(value.data) && value.data.every(isDataRecord)) data = value.data as T[];
+		else throw new Error(`${operation} gagal: data mutasi tidak valid`);
+	}
+	if (value.duplicate !== undefined && typeof value.duplicate !== 'boolean') {
+		throw new Error(`${operation} gagal: status duplikat tidak valid`);
+	}
+	return {
+		ok: value.ok,
+		data,
+		duplicate: value.duplicate as boolean | undefined
+	};
+}
+
 // ─── Table → per-resource URL map ────────────────────────────────────────
 // Resource route RESTful pengganti god endpoint /api/data.
 // Tambahkan entry di sini saat tabel baru ditambahkan.
 
-const READ_ROUTES: Record<string, string> = {
+const READ_ROUTES = {
 	produk: '/api/produk',
 	kategori: '/api/kategori',
 	tambahan: '/api/tambahan',
@@ -50,9 +96,9 @@ const READ_ROUTES: Record<string, string> = {
 	best_sellers_summary: '/api/dashboard/best-sellers',
 	pos_kas_7hari: '/api/dashboard/pos-kas-7hari',
 	laporan_aggregate: '/api/reports/aggregate'
-};
+} as const;
 
-const WRITE_ROUTES: Record<string, string> = {
+const WRITE_ROUTES = {
 	produk: '/api/produk',
 	kategori: '/api/kategori',
 	tambahan: '/api/tambahan',
@@ -65,7 +111,10 @@ const WRITE_ROUTES: Record<string, string> = {
 	profil: '/api/profil',
 	sesi_toko: '/api/sesi-toko',
 	pengaturan: '/api/pengaturan'
-};
+} as const;
+
+export type ReadResource = keyof typeof READ_ROUTES;
+export type WriteResource = keyof typeof WRITE_ROUTES;
 
 // ─── GET helpers ──────────────────────────────────────────────────────────
 
@@ -75,7 +124,7 @@ const WRITE_ROUTES: Record<string, string> = {
  * `branch` tetap disertakan karena beberapa route menggunakannya.
  */
 export async function dbGet<T extends DataRecord = DataRecord>(
-	table: string,
+	table: ReadResource,
 	params: Record<string, string> = {}
 ): Promise<T[]> {
 	const url = READ_ROUTES[table];
@@ -83,7 +132,7 @@ export async function dbGet<T extends DataRecord = DataRecord>(
 	const qs = new URLSearchParams({ branch: currentBranch(), ...params }).toString();
 	const response = await fetch(`${url}?${qs}`);
 	if (!response.ok) throw await parseError(response, `GET ${table}`);
-	return (await response.json()) as T[];
+	return parseRows<T>(await response.json(), `GET ${table}`);
 }
 
 export const dbGetStrict = dbGet;
@@ -109,7 +158,7 @@ export async function dbGetPage<T extends DataRecord = DataRecord>(
 
 	const response = await fetch(`${url}?${query.toString()}`);
 	if (!response.ok) throw await parseError(response, `GET ${table} page`);
-	return (await response.json()) as DataPage<T>;
+	return parsePage<T>(await response.json(), `GET ${table} page`);
 }
 
 export async function dbGetAll<T extends DataRecord = DataRecord>(
@@ -140,7 +189,7 @@ export async function dbGetAll<T extends DataRecord = DataRecord>(
  * Body shape disesuaikan agar kompatibel dengan format WriteBody di server.
  */
 export async function dbPost<T extends DataRecord = DataRecord>(
-	table: string,
+	table: WriteResource,
 	action: 'insert' | 'update' | 'delete',
 	payload: DataRecord | DataRecord[],
 	where?: Record<string, string>
@@ -155,7 +204,7 @@ export async function dbPost<T extends DataRecord = DataRecord>(
 			body: JSON.stringify({ payload, branch: currentBranch() })
 		});
 		if (!response.ok) throw await parseError(response, `POST ${table}/insert`);
-		return (await response.json()) as DataMutationResult<T>;
+		return parseMutation<T>(await response.json(), `POST ${table}/insert`);
 	}
 
 	if (action === 'update') {
@@ -165,12 +214,12 @@ export async function dbPost<T extends DataRecord = DataRecord>(
 			body: JSON.stringify({ payload, branch: currentBranch(), where })
 		});
 		if (!response.ok) throw await parseError(response, `PATCH ${table}`);
-		return (await response.json()) as DataMutationResult<T>;
+		return parseMutation<T>(await response.json(), `PATCH ${table}`);
 	}
 
 	// action === 'delete' — where clause lewat query param (seperti di route DELETE handler).
 	const qs = new URLSearchParams({ branch: currentBranch(), ...where }).toString();
 	const response = await fetchWithCsrfRetry(`${url}?${qs}`, { method: 'DELETE' });
 	if (!response.ok) throw await parseError(response, `DELETE ${table}`);
-	return (await response.json()) as DataMutationResult<T>;
+	return parseMutation<T>(await response.json(), `DELETE ${table}`);
 }

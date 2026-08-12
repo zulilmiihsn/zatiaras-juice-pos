@@ -26,6 +26,8 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'deepseek/deepseek-chat';
 const AI_WINDOW_MS = 15 * 60 * 1000;
 const AI_MAX_REQUESTS = 30;
+const OPENROUTER_TIMEOUT_MS = 15_000;
+const MAX_REPORT_RANGE_DAYS = 732;
 
 interface ChatMessage {
 	role: 'system' | 'user' | 'assistant';
@@ -45,28 +47,56 @@ async function callOpenRouter(
 	systemMessage: ChatMessage,
 	opts: OpenRouterOpts
 ): Promise<string> {
-	const response = await fetch(OPENROUTER_API_URL, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': 'https://zatiaraspos.com',
-			'X-Title': opts.title
-		},
-		body: JSON.stringify({
-			model: MODEL,
-			messages: [systemMessage],
-			max_tokens: opts.maxTokens,
-			temperature: opts.temperature
-		})
-	});
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+	let response: Response;
+	try {
+		response = await fetch(OPENROUTER_API_URL, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+				'HTTP-Referer': 'https://zatiaraspos.com',
+				'X-Title': opts.title
+			},
+			body: JSON.stringify({
+				model: MODEL,
+				messages: [systemMessage],
+				max_tokens: opts.maxTokens,
+				temperature: opts.temperature
+			}),
+			signal: controller.signal
+		});
+	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw new Error(`${opts.errorLabel}: upstream timeout`);
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeout);
+	}
 
 	if (!response.ok) {
 		throw new Error(`${opts.errorLabel}: ${response.status}`);
 	}
 
-	const data = await response.json();
-	return data.choices?.[0]?.message?.content ?? '';
+	const data: unknown = await response.json();
+	if (
+		typeof data !== 'object' ||
+		data === null ||
+		!('choices' in data) ||
+		!Array.isArray(data.choices) ||
+		typeof data.choices[0] !== 'object' ||
+		data.choices[0] === null ||
+		!('message' in data.choices[0]) ||
+		typeof data.choices[0].message !== 'object' ||
+		data.choices[0].message === null ||
+		!('content' in data.choices[0].message) ||
+		typeof data.choices[0].message.content !== 'string'
+	) {
+		throw new Error(`${opts.errorLabel}: respons upstream tidak valid`);
+	}
+	return data.choices[0].message.content;
 }
 
 /** Bersihkan markdown code-fence (```json ... ```) dari output AI. */
@@ -90,21 +120,80 @@ function toYMDWita(date: Date): string {
 	return `${yyyy}-${mm}-${dd}`;
 }
 
-// AI 1: Data Requirement Analyzer
-async function identifyDataRequirements(
-	question: string,
-	apiKey: string
-): Promise<{
-	periode: {
-		start: string;
-		end: string;
-		type: 'daily' | 'weekly' | 'monthly' | 'yearly';
-	};
+type DataRequirements = {
+	periode: { start: string; end: string; type: 'daily' | 'weekly' | 'monthly' | 'yearly' };
 	jenisData: string[];
 	prioritas: string;
 	scope: string;
 	reasoning: string;
-}> {
+};
+
+const PERIOD_TYPES = new Set<DataRequirements['periode']['type']>([
+	'daily',
+	'weekly',
+	'monthly',
+	'yearly'
+]);
+const SAFE_AI_LABEL = /^[a-z0-9_-]{1,40}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseIsoDate(value: unknown): Date | null {
+	if (typeof value !== 'string' || !ISO_DATE.test(value)) return null;
+	const date = new Date(`${value}T00:00:00.000Z`);
+	return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
+}
+
+function parseDataRequirements(value: unknown, fallbackDate: string): DataRequirements {
+	if (typeof value !== 'object' || value === null) {
+		throw new Error('output bukan object JSON');
+	}
+	const root = value as Record<string, unknown>;
+	const periode =
+		typeof root.periode === 'object' && root.periode !== null
+			? (root.periode as Record<string, unknown>)
+			: root;
+	const startDate = parseIsoDate(periode.start ?? root.start) ?? parseIsoDate(fallbackDate)!;
+	const endDate = parseIsoDate(periode.end ?? root.end) ?? parseIsoDate(fallbackDate)!;
+	if (startDate > endDate) throw new Error('rentang tanggal terbalik');
+	const rangeDays = Math.floor((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1;
+	if (rangeDays > MAX_REPORT_RANGE_DAYS) {
+		throw new Error(`rentang tanggal melebihi ${MAX_REPORT_RANGE_DAYS} hari`);
+	}
+	const typeValue = periode.type ?? root.type;
+	const type =
+		typeof typeValue === 'string' &&
+		PERIOD_TYPES.has(typeValue as DataRequirements['periode']['type'])
+			? (typeValue as DataRequirements['periode']['type'])
+			: 'daily';
+	const jenisData = Array.isArray(root.jenisData)
+		? root.jenisData
+				.filter((item): item is string => typeof item === 'string' && SAFE_AI_LABEL.test(item))
+				.slice(0, 12)
+		: [];
+	const safeLabel = (candidate: unknown, fallback: string) =>
+		typeof candidate === 'string' && SAFE_AI_LABEL.test(candidate) ? candidate : fallback;
+
+	return {
+		periode: {
+			start: startDate.toISOString().slice(0, 10),
+			end: endDate.toISOString().slice(0, 10),
+			type
+		},
+		jenisData,
+		prioritas: safeLabel(root.prioritas, 'general_analysis'),
+		scope: safeLabel(root.scope, 'general_analysis'),
+		reasoning:
+			typeof root.reasoning === 'string'
+				? root.reasoning.trim().slice(0, 500)
+				: 'Kebutuhan data diidentifikasi berdasarkan pertanyaan user'
+	};
+}
+
+// AI 1: Data Requirement Analyzer
+async function identifyDataRequirements(
+	question: string,
+	apiKey: string
+): Promise<DataRequirements> {
 	// Hitung tanggal saat ini dalam WITA
 	const now = new Date();
 	const todayWita = toYMDWita(now);
@@ -125,18 +214,8 @@ async function identifyDataRequirements(
 	try {
 		const cleanContent = stripJsonFence(content);
 
-		const parsed = JSON.parse(cleanContent);
-		return {
-			periode: {
-				start: parsed.periode?.start || parsed.start || new Date().toISOString().split('T')[0],
-				end: parsed.periode?.end || parsed.end || new Date().toISOString().split('T')[0],
-				type: parsed.periode?.type || parsed.type || 'daily'
-			},
-			jenisData: parsed.jenisData || [],
-			prioritas: parsed.prioritas || 'general_analysis',
-			scope: parsed.scope || 'general_analysis',
-			reasoning: parsed.reasoning || 'Kebutuhan data diidentifikasi berdasarkan pertanyaan user'
-		};
+		const parsed: unknown = JSON.parse(cleanContent);
+		return parseDataRequirements(parsed, todayWita);
 	} catch (error) {
 		// Tidak ada fallback, langsung error
 		throw new Error(`AI 1 gagal mengidentifikasi kebutuhan data: ${error}`);

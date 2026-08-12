@@ -21,6 +21,10 @@ const MODULE_FILE = fileURLToPath(import.meta.url);
 const UAT_PRODUCT_ID = 'uat-produk-es-teh';
 const UAT_ENV_KEYS = Object.freeze([
 	'UAT_PASSWORD',
+	'UAT_KASIR_PASSWORD',
+	'UAT_OWNER_PASSWORD',
+	'UAT_KASIR_USERNAME',
+	'UAT_OWNER_USERNAME',
 	'CLOUDFLARE_API_TOKEN',
 	'CLOUDFLARE_ACCOUNT_ID'
 ]);
@@ -101,8 +105,14 @@ export function buildMinimalChildEnv(secrets, processEnv = process.env) {
 }
 
 function requireSecrets(secrets) {
-	for (const key of UAT_ENV_KEYS) {
+	for (const key of ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID']) {
 		if (!secrets[key]) throw new Error(`${key} wajib diisi`);
+	}
+	if (!secrets.UAT_KASIR_PASSWORD && !secrets.UAT_PASSWORD) {
+		throw new Error('UAT_KASIR_PASSWORD wajib diisi');
+	}
+	if (!secrets.UAT_OWNER_PASSWORD && !secrets.UAT_PASSWORD) {
+		throw new Error('UAT_OWNER_PASSWORD wajib diisi');
 	}
 }
 
@@ -171,6 +181,18 @@ async function login(fetchImpl, baseUrl, branch, username, password) {
 			role: String(payload?.user?.role ?? '')
 		}
 	};
+}
+
+async function logout(fetchImpl, baseUrl, auth) {
+	if (!auth?.cookie) return;
+	const response = await fetchImpl(`${baseUrl}/api/logout`, {
+		method: 'POST',
+		headers: {
+			Cookie: auth.cookie,
+			'X-CSRF-Token': auth.csrfToken
+		}
+	});
+	if (!response.ok) throw new Error(`Logout ${auth.user?.username ?? 'UAT'} gagal`);
 }
 
 async function requestJson(fetchImpl, baseUrl, path, { auth, method = 'GET', body } = {}) {
@@ -697,144 +719,31 @@ export async function runUat(
 	if (existing && existing.status !== 'cleaned' && !options.cleanupOnly) {
 		throw new Error(`Journal belum selesai; jalankan --cleanup-only untuk ${options.branch}`);
 	}
-	const password = secrets.UAT_PASSWORD;
-	const cashier = await login(fetchImpl, options.baseUrl, options.branch, 'kasir', password);
-	const owner = await login(fetchImpl, options.baseUrl, options.branch, 'pemilik', password);
-	if (cashier.user.role && cashier.user.role !== 'kasir')
-		throw new Error('Role akun kasir tidak cocok');
-	if (owner.user.role && owner.user.role !== 'pemilik')
-		throw new Error('Role akun pemilik tidak cocok');
-	if (options.cleanupOnly) {
-		if (!existing || existing.status === 'cleaned') throw new Error('Tidak ada journal unresolved');
-		const cleaned = await cleanupJournal({
-			journalPath,
-			journal: existing,
-			owner,
-			fetchImpl,
-			baseUrl: options.baseUrl,
-			config,
-			runner,
-			childEnv,
-			secrets,
-			repoRoot
-		});
-		return { ok: true, cleanupOnly: true, status: cleaned.status, journalPath };
-	}
-	const activeResult = await requestJson(
-		fetchImpl,
-		options.baseUrl,
-		`/api/sesi-toko?branch=${encodeURIComponent(options.branch)}&is_active=true&limit=2`,
-		{ auth: cashier }
-	);
-	if (!activeResult.ok) throw new Error(`Preflight sesi toko gagal: HTTP ${activeResult.status}`);
-	const activeSessions = rows(activeResult.body);
-	if (activeSessions.length !== 1) throw new HumanNeededError('active_store_session');
-	const activeSessionId = String(activeSessions[0]?.id ?? '');
-	if (!activeSessionId) throw new Error('Sesi toko aktif tidak memiliki ID');
-	const productResult = await requestJson(
-		fetchImpl,
-		options.baseUrl,
-		`/api/produk?branch=${encodeURIComponent(options.branch)}`,
-		{ auth: cashier }
-	);
-	if (
-		!productResult.ok ||
-		!rows(productResult.body).some((product) => String(product?.id) === UAT_PRODUCT_ID)
-	) {
-		throw new Error('Produk UAT yang diizinkan tidak tersedia');
-	}
-	const rawSockets = await Promise.all([
-		socketFactory({
-			baseUrl: options.baseUrl,
-			branch: options.branch,
-			cookie: cashier.cookie,
-			label: 'client-a'
-		}),
-		socketFactory({
-			baseUrl: options.baseUrl,
-			branch: options.branch,
-			cookie: cashier.cookie,
-			label: 'client-b'
-		})
-	]);
-	const collectors = rawSockets.map(
-		(socket, index) => new RealtimeCollector(socket, `client-${index + 1}`)
-	);
-	const idempotencyKey = idempotencyFactory();
-	if (!IDEMPOTENCY_PATTERN.test(idempotencyKey))
-		throw new Error('Generated idempotency key tidak valid');
-	let journal = {
-		base_url: options.baseUrl,
-		branch: options.branch,
-		configured_database_name: database.name,
-		configured_database_id: database.id,
-		idempotency_key: idempotencyKey,
-		store_session_id: activeSessionId,
-		status: 'pending',
-		created_at: new Date().toISOString()
-	};
-	let journalCreated = false;
+	const cashierPassword = secrets.UAT_KASIR_PASSWORD || secrets.UAT_PASSWORD;
+	const ownerPassword = secrets.UAT_OWNER_PASSWORD || secrets.UAT_PASSWORD;
+	const cashierUsername = secrets.UAT_KASIR_USERNAME || 'kasir';
+	const ownerUsername = secrets.UAT_OWNER_USERNAME || 'pemilik';
+	let cashier;
+	let owner;
 	try {
-		journal = await atomicWriteJournal(journalPath, journal);
-		journalCreated = true;
-		const items = [{ product_id: UAT_PRODUCT_ID, jumlah: 1, add_on_ids: [] }];
-		const quote = await requestJson(fetchImpl, options.baseUrl, '/api/pos/quote', {
-			method: 'POST',
-			auth: cashier,
-			body: { items }
-		});
-		if (!quote.ok || !quote.body?.quote_token) {
-			throw new Error(`Quote UAT gagal: HTTP ${quote.status}`);
-		}
-		const checkoutBody = {
-			idempotency_key: idempotencyKey,
-			nama_pelanggan: 'UAT Operasional',
-			metode_bayar: 'tunai',
-			cash_received: 10000,
-			items,
-			mode: 'online',
-			quote_token: quote.body.quote_token
-		};
-		journal = await checkoutWithRecovery({
+		cashier = await login(
 			fetchImpl,
-			baseUrl: options.baseUrl,
-			cashier,
-			body: checkoutBody,
-			journal,
-			journalPath,
-			config,
-			runner,
-			childEnv,
-			secrets,
-			repoRoot
-		});
-		const predicate = exactRealtimePredicate({
-			branch: options.branch,
-			transactionId: journal.transaction_id,
-			bukuKasId: journal.buku_kas_id
-		});
-		await Promise.all(collectors.map((collector) => collector.waitFor(predicate)));
-		journal = {
-			...journal,
-			status: 'realtime_verified',
-			realtime_clients: 2,
-			realtime_verified_at: new Date().toISOString()
-		};
-		await atomicWriteJournal(journalPath, journal);
-		return {
-			ok: true,
-			status: 'passed',
-			branch: options.branch,
-			activeSessionId,
-			realtimeClientsVerified: 2,
-			journalPath
-		};
-	} finally {
-		for (const collector of collectors) collector.close();
-		if (journalCreated) {
-			await cleanupJournal({
+			options.baseUrl,
+			options.branch,
+			cashierUsername,
+			cashierPassword
+		);
+		owner = await login(fetchImpl, options.baseUrl, options.branch, ownerUsername, ownerPassword);
+		if (cashier.user.role && cashier.user.role !== 'kasir')
+			throw new Error('Role akun kasir tidak cocok');
+		if (owner.user.role && owner.user.role !== 'pemilik')
+			throw new Error('Role akun pemilik tidak cocok');
+		if (options.cleanupOnly) {
+			if (!existing || existing.status === 'cleaned')
+				throw new Error('Tidak ada journal unresolved');
+			const cleaned = await cleanupJournal({
 				journalPath,
-				journal: (await readJournal(journalPath)) ?? journal,
+				journal: existing,
 				owner,
 				fetchImpl,
 				baseUrl: options.baseUrl,
@@ -844,7 +753,139 @@ export async function runUat(
 				secrets,
 				repoRoot
 			});
+			return { ok: true, cleanupOnly: true, status: cleaned.status, journalPath };
 		}
+		const activeResult = await requestJson(
+			fetchImpl,
+			options.baseUrl,
+			`/api/sesi-toko?branch=${encodeURIComponent(options.branch)}&is_active=true&limit=2`,
+			{ auth: cashier }
+		);
+		if (!activeResult.ok) throw new Error(`Preflight sesi toko gagal: HTTP ${activeResult.status}`);
+		const activeSessions = rows(activeResult.body);
+		if (activeSessions.length !== 1) throw new HumanNeededError('active_store_session');
+		const activeSessionId = String(activeSessions[0]?.id ?? '');
+		if (!activeSessionId) throw new Error('Sesi toko aktif tidak memiliki ID');
+		const productResult = await requestJson(
+			fetchImpl,
+			options.baseUrl,
+			`/api/produk?branch=${encodeURIComponent(options.branch)}`,
+			{ auth: cashier }
+		);
+		if (
+			!productResult.ok ||
+			!rows(productResult.body).some((product) => String(product?.id) === UAT_PRODUCT_ID)
+		) {
+			throw new Error('Produk UAT yang diizinkan tidak tersedia');
+		}
+		const rawSockets = await Promise.all([
+			socketFactory({
+				baseUrl: options.baseUrl,
+				branch: options.branch,
+				cookie: cashier.cookie,
+				label: 'client-a'
+			}),
+			socketFactory({
+				baseUrl: options.baseUrl,
+				branch: options.branch,
+				cookie: cashier.cookie,
+				label: 'client-b'
+			})
+		]);
+		const collectors = rawSockets.map(
+			(socket, index) => new RealtimeCollector(socket, `client-${index + 1}`)
+		);
+		const idempotencyKey = idempotencyFactory();
+		if (!IDEMPOTENCY_PATTERN.test(idempotencyKey))
+			throw new Error('Generated idempotency key tidak valid');
+		let journal = {
+			base_url: options.baseUrl,
+			branch: options.branch,
+			configured_database_name: database.name,
+			configured_database_id: database.id,
+			idempotency_key: idempotencyKey,
+			store_session_id: activeSessionId,
+			status: 'pending',
+			created_at: new Date().toISOString()
+		};
+		let journalCreated = false;
+		try {
+			journal = await atomicWriteJournal(journalPath, journal);
+			journalCreated = true;
+			const items = [{ product_id: UAT_PRODUCT_ID, jumlah: 1, add_on_ids: [] }];
+			const quote = await requestJson(fetchImpl, options.baseUrl, '/api/pos/quote', {
+				method: 'POST',
+				auth: cashier,
+				body: { items }
+			});
+			if (!quote.ok || !quote.body?.quote_token) {
+				throw new Error(`Quote UAT gagal: HTTP ${quote.status}`);
+			}
+			const checkoutBody = {
+				idempotency_key: idempotencyKey,
+				nama_pelanggan: 'UAT Operasional',
+				metode_bayar: 'tunai',
+				cash_received: 10000,
+				items,
+				mode: 'online',
+				quote_token: quote.body.quote_token
+			};
+			journal = await checkoutWithRecovery({
+				fetchImpl,
+				baseUrl: options.baseUrl,
+				cashier,
+				body: checkoutBody,
+				journal,
+				journalPath,
+				config,
+				runner,
+				childEnv,
+				secrets,
+				repoRoot
+			});
+			const predicate = exactRealtimePredicate({
+				branch: options.branch,
+				transactionId: journal.transaction_id,
+				bukuKasId: journal.buku_kas_id
+			});
+			await Promise.all(collectors.map((collector) => collector.waitFor(predicate)));
+			journal = {
+				...journal,
+				status: 'realtime_verified',
+				realtime_clients: 2,
+				realtime_verified_at: new Date().toISOString()
+			};
+			await atomicWriteJournal(journalPath, journal);
+			return {
+				ok: true,
+				status: 'passed',
+				branch: options.branch,
+				activeSessionId,
+				realtimeClientsVerified: 2,
+				journalPath
+			};
+		} finally {
+			for (const collector of collectors) collector.close();
+			if (journalCreated) {
+				await cleanupJournal({
+					journalPath,
+					journal: (await readJournal(journalPath)) ?? journal,
+					owner,
+					fetchImpl,
+					baseUrl: options.baseUrl,
+					config,
+					runner,
+					childEnv,
+					secrets,
+					repoRoot
+				});
+			}
+		}
+	} finally {
+		await Promise.allSettled([
+			logout(fetchImpl, options.baseUrl, cashier),
+			logout(fetchImpl, options.baseUrl, owner)
+		]);
 	}
 }
 
@@ -973,6 +1014,7 @@ function makeFakeFetch({
 				[`zatiaras_sid=${username}`]
 			);
 		}
+		if (parsed.pathname === '/api/logout') return fakeResponse(200, { success: true });
 		if (parsed.pathname === '/api/sesi-toko') return fakeResponse(200, activeSessions);
 		if (parsed.pathname === '/api/produk') return fakeResponse(200, [{ id: UAT_PRODUCT_ID }]);
 		if (parsed.pathname === '/api/pos/quote')
@@ -1134,7 +1176,7 @@ async function assertFullFakeRunAndExactRealtime() {
 				Object.keys(call.options.env)
 					.filter((key) => UAT_ENV_KEYS.includes(key))
 					.sort(),
-				[...UAT_ENV_KEYS].sort()
+				['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'UAT_PASSWORD']
 			);
 		}
 	} finally {

@@ -67,6 +67,37 @@ const aiChatSource = readFileSync(
 	'utf8'
 );
 assert.match(aiChatSource, /text\.length > 2000/);
+assert.match(aiChatSource, /OPENROUTER_TIMEOUT_MS = 15_000/);
+assert.match(aiChatSource, /signal: controller\.signal/);
+assert.match(aiChatSource, /parseDataRequirements\(parsed, todayWita\)/);
+
+const hppCrudSource = readFileSync(
+	new URL('../lib/services/manajemenmenuCrud.ts', import.meta.url),
+	'utf8'
+);
+assert.doesNotMatch(hppCrudSource, /hpp_purchases/);
+assert.match(hppCrudSource, /insertRows\('bahan'/);
+assert.match(hppCrudSource, /insertRows\('bahan_mutasi'/);
+
+const credentialRouteSource = readFileSync(
+	new URL('../routes/api/gantikeamanan/+server.ts', import.meta.url),
+	'utf8'
+);
+assert.match(credentialRouteSource, /rawDb\.batch/);
+assert.match(
+	credentialRouteSource,
+	/DELETE FROM auth_sessions WHERE cabang_id = \? AND user_id = \?/
+);
+
+const rotationSource = readFileSync(
+	new URL('../../scripts/rotate-production-credentials.mjs', import.meta.url),
+	'utf8'
+);
+assert.match(rotationSource, /Rotasi production memerlukan --live/);
+assert.match(rotationSource, /canonicalizeExternalPath/);
+assert.match(rotationSource, /parseAndVerifyInfo/);
+assert.match(rotationSource, /ConvertFrom-SecureString/);
+assert.match(rotationSource, /DELETE FROM auth_sessions/);
 
 const reportChunks = chunkReportIds(
 	Array.from({ length: D1_REPORT_ID_CHUNK_SIZE * 2 + 7 }, (_, index) => `kas-${index}`)
