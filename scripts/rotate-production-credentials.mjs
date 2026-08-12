@@ -50,14 +50,16 @@ function parseArgs(argv) {
 		outputDir: null,
 		baseUrl: null,
 		uatBranch: null,
-		journalDir: null
+		journalDir: null,
+		verifyHandoff: null
 	};
 	const valued = new Set([
 		'--env-file',
 		'--output-dir',
 		'--base-url',
 		'--uat-branch',
-		'--journal-dir'
+		'--journal-dir',
+		'--verify-handoff'
 	]);
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -72,10 +74,13 @@ function parseArgs(argv) {
 			if (arg === '--base-url') options.baseUrl = value;
 			if (arg === '--uat-branch') options.uatBranch = value;
 			if (arg === '--journal-dir') options.journalDir = value;
+			if (arg === '--verify-handoff') options.verifyHandoff = value;
 		} else throw new Error(`Argumen tidak diizinkan: ${arg}`);
 	}
 	if (!options.live) throw new Error('Rotasi production memerlukan --live');
-	if (!options.outputDir) throw new Error('--output-dir absolut di luar workspace wajib diisi');
+	if (!options.verifyHandoff && !options.outputDir) {
+		throw new Error('--output-dir absolut di luar workspace wajib diisi');
+	}
 	if (options.uatBranch && !GROUPS.some((group) => group.branches.includes(options.uatBranch))) {
 		throw new Error('--uat-branch tidak termasuk allowlist');
 	}
@@ -84,6 +89,9 @@ function parseArgs(argv) {
 	}
 	if (options.baseUrl && new URL(options.baseUrl).protocol !== 'https:') {
 		throw new Error('--base-url production wajib HTTPS');
+	}
+	if (options.verifyHandoff && !options.baseUrl) {
+		throw new Error('--verify-handoff memerlukan --base-url');
 	}
 	return options;
 }
@@ -167,7 +175,7 @@ function cookiePair(cookies, name) {
 	return cookie ? cookie.split(';')[0] : '';
 }
 
-async function validateLogin(baseUrl, credential) {
+async function validateLogin(baseUrl, credential, attempt = 0) {
 	const csrfResponse = await fetch(`${baseUrl}/api/csrf`);
 	if (!csrfResponse.ok) throw new Error(`Validasi CSRF gagal untuk ${credential.branch}`);
 	const csrf = await csrfResponse.json();
@@ -187,8 +195,17 @@ async function validateLogin(baseUrl, credential) {
 		})
 	});
 	const payload = await loginResponse.json().catch(() => null);
+	if (loginResponse.status === 503 && attempt < 4) {
+		const retryAfter = Number(loginResponse.headers.get('retry-after') || 2);
+		await new Promise((resolveDelay) =>
+			setTimeout(resolveDelay, Math.max(1, Math.min(retryAfter, 5)) * 1000)
+		);
+		return validateLogin(baseUrl, credential, attempt + 1);
+	}
 	if (!loginResponse.ok || !payload?.success || payload?.user?.role !== credential.role) {
-		throw new Error(`Validasi login gagal untuk ${credential.branch}/${credential.role}`);
+		throw new Error(
+			`Validasi login gagal untuk ${credential.branch}/${credential.role}: HTTP ${loginResponse.status}, code ${String(payload?.code ?? 'UNKNOWN')}`
+		);
 	}
 	const sid = cookiePair(getSetCookies(loginResponse.headers), 'zatiaras_sid');
 	if (!sid) throw new Error(`Session validasi tidak tersedia untuk ${credential.branch}`);
@@ -220,6 +237,56 @@ function protectWithDpapi(plaintext, env) {
 	return result.stdout.trim();
 }
 
+function unprotectWithDpapi(ciphertext, env) {
+	if (process.platform !== 'win32')
+		throw new Error('Handoff terenkripsi saat ini wajib Windows DPAPI');
+	const script =
+		"$cipher=[Console]::In.ReadToEnd(); $secure=$cipher | ConvertTo-SecureString; [Net.NetworkCredential]::new('', $secure).Password";
+	const result = spawnSync('rtk', ['powershell', '-NoProfile', '-Command', script], {
+		input: ciphertext.trim(),
+		env,
+		encoding: 'utf8',
+		stdio: ['pipe', 'pipe', 'pipe'],
+		windowsHide: true,
+		maxBuffer: 1024 * 1024
+	});
+	if (result.error) throw result.error;
+	if (result.status !== 0 || !result.stdout.trim()) throw new Error('Dekripsi DPAPI gagal');
+	return result.stdout;
+}
+
+async function verifyCredentialHandoff(handoffPath, baseUrl, processEnv = process.env) {
+	const encrypted = await readFile(resolve(handoffPath), 'utf8');
+	const plaintext = unprotectWithDpapi(encrypted, childEnv({}, processEnv));
+	let handoff;
+	try {
+		handoff = JSON.parse(plaintext);
+	} catch {
+		throw new Error('Payload handoff bukan JSON valid');
+	}
+	if (!Array.isArray(handoff?.accounts) || handoff.accounts.length !== 10) {
+		throw new Error('Handoff wajib memuat tepat 10 akun');
+	}
+	for (const account of handoff.accounts) {
+		if (
+			!GROUPS.some((group) => group.branches.includes(account?.branch)) ||
+			!ROLES.includes(account?.role) ||
+			typeof account?.username !== 'string' ||
+			typeof account?.password !== 'string'
+		) {
+			throw new Error('Entry handoff tidak valid');
+		}
+	}
+	if (new Set(handoff.accounts.map((item) => item.password)).size !== 10) {
+		throw new Error('Password handoff tidak unik');
+	}
+	for (const account of handoff.accounts) {
+		await validateLogin(baseUrl, account);
+		await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+	}
+	return { accountCount: handoff.accounts.length, accounts: handoff.accounts };
+}
+
 export async function rotateProductionCredentials(options, processEnv = process.env) {
 	const secrets = await loadAllowlistedEnv(options.envFile, ENV_KEYS, { processEnv });
 	for (const key of ENV_KEYS) if (!secrets[key]) throw new Error(`${key} wajib diisi`);
@@ -248,7 +315,9 @@ export async function rotateProductionCredentials(options, processEnv = process.
 		throw new Error('Generator menghasilkan password duplikat');
 	}
 	for (const credential of credentials) {
-		credential.passwordHash = await bcrypt.hash(credential.password, 12);
+		// Samakan cost dengan jalur perubahan password aplikasi. Cost 12 dapat
+		// melampaui CPU budget Pages Worker dan memunculkan 503 saat login.
+		credential.passwordHash = await bcrypt.hash(credential.password, 10);
 	}
 	if (new Set(credentials.map((item) => item.passwordHash)).size !== credentials.length) {
 		throw new Error('Hash kredensial tidak unik');
@@ -287,6 +356,7 @@ export async function rotateProductionCredentials(options, processEnv = process.
 
 		for (const credential of credentials) {
 			await validateLogin(options.baseUrl, credential);
+			await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
 		}
 
 		if (options.uatBranch) {
@@ -338,6 +408,45 @@ export async function rotateProductionCredentials(options, processEnv = process.
 
 async function main() {
 	const options = parseArgs(process.argv.slice(2));
+	if (options.verifyHandoff) {
+		const verified = await verifyCredentialHandoff(
+			options.verifyHandoff,
+			options.baseUrl,
+			process.env
+		);
+		if (options.uatBranch) {
+			const secrets = await loadAllowlistedEnv(options.envFile, ENV_KEYS);
+			for (const key of ENV_KEYS) if (!secrets[key]) throw new Error(`${key} wajib diisi`);
+			const cashier = verified.accounts.find(
+				(item) => item.branch === options.uatBranch && item.role === 'kasir'
+			);
+			const owner = verified.accounts.find(
+				(item) => item.branch === options.uatBranch && item.role === 'pemilik'
+			);
+			await runUat(
+				{
+					live: true,
+					baseUrl: options.baseUrl,
+					branch: options.uatBranch,
+					envFile: null,
+					journalDir: options.journalDir,
+					cleanupOnly: false
+				},
+				{
+					processEnv: {
+						...process.env,
+						...secrets,
+						UAT_KASIR_USERNAME: cashier.username,
+						UAT_KASIR_PASSWORD: cashier.password,
+						UAT_OWNER_USERNAME: owner.username,
+						UAT_OWNER_PASSWORD: owner.password
+					}
+				}
+			);
+		}
+		console.log(`PASS validasi ${verified.accountCount} akun dari handoff terenkripsi`);
+		return;
+	}
 	if (!options.baseUrl) throw new Error('--base-url wajib diisi untuk validasi seluruh akun');
 	const result = await rotateProductionCredentials(options);
 	console.log(
