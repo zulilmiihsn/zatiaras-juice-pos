@@ -5,7 +5,25 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getDb, getRawDb, payloadRows, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody, sanitizeUpdatePayload, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import { parseDataLimit } from '$lib/server/dataPagination';
+import {
+	calculateEffectiveUnitCost,
+	isValidYieldPercent,
+	normalizeYieldPercent
+} from '$lib/utils/ingredientCost';
 import type { RequestHandler } from './$types';
+
+function nonNegativeNumber(value: unknown, label: string): number {
+	const parsed = Number(value ?? 0);
+	if (!Number.isFinite(parsed) || parsed < 0) throw kitError(400, `${label} tidak valid`);
+	return parsed;
+}
+
+function yieldPercent(value: unknown): number {
+	if (!isValidYieldPercent(value)) {
+		throw kitError(400, 'Yield bahan harus lebih dari 0% dan maksimal 100%');
+	}
+	return normalizeYieldPercent(value);
+}
 
 /**
  * /api/bahan — Resource route untuk tabel `bahan` (bahan baku & stok).
@@ -39,15 +57,21 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
-	const rows = payloadRows(body.payload, branch).map((row) => ({
-		...row,
-		satuan: row.satuan || 'gram',
-		stok_saat_ini: Number(row.stok_saat_ini || 0),
-		ambang_stok: Number(row.ambang_stok || 0),
-		biaya_per_satuan: Number(row.biaya_per_satuan || 0),
-		jumlah_beli_terakhir: Number(row.jumlah_beli_terakhir || 0),
-		biaya_beli_terakhir: Number(row.biaya_beli_terakhir || 0)
-	})) as Array<Record<string, any>>;
+	const rows = payloadRows(body.payload, branch).map((row) => {
+		const purchaseQuantity = nonNegativeNumber(row.jumlah_beli_terakhir, 'Jumlah beli');
+		const purchaseCost = nonNegativeNumber(row.biaya_beli_terakhir, 'Biaya beli');
+		const usableYield = yieldPercent(row.yield_persen ?? 100);
+		return {
+			...row,
+			satuan: row.satuan || 'gram',
+			stok_saat_ini: nonNegativeNumber(row.stok_saat_ini, 'Stok'),
+			ambang_stok: nonNegativeNumber(row.ambang_stok, 'Minimum stok'),
+			yield_persen: usableYield,
+			biaya_per_satuan: calculateEffectiveUnitCost(purchaseCost, purchaseQuantity, usableYield),
+			jumlah_beli_terakhir: purchaseQuantity,
+			biaya_beli_terakhir: purchaseCost
+		};
+	}) as Array<typeof bahan.$inferInsert>;
 	await db.insert(bahan).values(rows as (typeof bahan.$inferInsert)[]);
 	await publish(platform, branch, 'bahan', 'insert', { id: rows[0]?.id });
 	await auditDataChange(rawDb, branch, session, 'bahan', 'insert', rows[0]?.id, {
@@ -67,19 +91,52 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
 	const safePayload = sanitizeUpdatePayload(body.payload as Record<string, unknown>);
+	const current = await db
+		.select({
+			jumlah_beli_terakhir: bahan.jumlah_beli_terakhir,
+			biaya_beli_terakhir: bahan.biaya_beli_terakhir,
+			yield_persen: bahan.yield_persen
+		})
+		.from(bahan)
+		.where(and(eq(bahan.cabang_id, branch), eq(bahan.id, String(body.where.id))))
+		.get();
+	if (!current) throw kitError(404, 'Bahan tidak ditemukan');
 	// Coerce field numerik bila ada di payload.
 	if ('stok_saat_ini' in safePayload)
-		safePayload.stok_saat_ini = Number(safePayload.stok_saat_ini || 0);
+		safePayload.stok_saat_ini = nonNegativeNumber(safePayload.stok_saat_ini, 'Stok');
 	if ('ambang_stok' in safePayload) {
-		safePayload.ambang_stok = Number(safePayload.ambang_stok || 0);
+		safePayload.ambang_stok = nonNegativeNumber(safePayload.ambang_stok, 'Minimum stok');
 	}
-	if ('biaya_per_satuan' in safePayload)
-		safePayload.biaya_per_satuan = Number(safePayload.biaya_per_satuan || 0);
 	if ('jumlah_beli_terakhir' in safePayload) {
-		safePayload.jumlah_beli_terakhir = Number(safePayload.jumlah_beli_terakhir || 0);
+		safePayload.jumlah_beli_terakhir = nonNegativeNumber(
+			safePayload.jumlah_beli_terakhir,
+			'Jumlah beli'
+		);
 	}
 	if ('biaya_beli_terakhir' in safePayload) {
-		safePayload.biaya_beli_terakhir = Number(safePayload.biaya_beli_terakhir || 0);
+		safePayload.biaya_beli_terakhir = nonNegativeNumber(
+			safePayload.biaya_beli_terakhir,
+			'Biaya beli'
+		);
+	}
+	if ('yield_persen' in safePayload) {
+		safePayload.yield_persen = yieldPercent(safePayload.yield_persen);
+	}
+	const costInputsChanged = ['jumlah_beli_terakhir', 'biaya_beli_terakhir', 'yield_persen'].some(
+		(key) => key in safePayload
+	);
+	delete safePayload.biaya_per_satuan;
+	if (costInputsChanged) {
+		const purchaseQuantity = Number(
+			safePayload.jumlah_beli_terakhir ?? current.jumlah_beli_terakhir
+		);
+		const purchaseCost = Number(safePayload.biaya_beli_terakhir ?? current.biaya_beli_terakhir);
+		const usableYield = Number(safePayload.yield_persen ?? current.yield_persen ?? 100);
+		safePayload.biaya_per_satuan = calculateEffectiveUnitCost(
+			purchaseCost,
+			purchaseQuantity,
+			usableYield
+		);
 	}
 	await db
 		.update(bahan)

@@ -7,6 +7,11 @@ import { formatRupiah, parseRupiah } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createHppCalculator } from '$lib/utils/manajemenmenuHpp';
+import {
+	calculateEffectiveUnitCost,
+	isValidYieldPercent,
+	normalizeYieldPercent
+} from '$lib/utils/ingredientCost';
 import type { Ingredient, ProductRecipe, HppSettings } from '$lib/types/product';
 
 interface BahanHppConfig {
@@ -37,6 +42,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 		satuan: 'gram',
 		stok_saat_ini: '',
 		ambang_stok: '',
+		yield_persen: '100',
 		jumlah_beli_terakhir: '',
 		biaya_beli_terakhir: ''
 	});
@@ -111,6 +117,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 				satuan: bahan.satuan || 'gram',
 				stok_saat_ini: formatRupiah(bahan.stok_saat_ini) || '0',
 				ambang_stok: formatRupiah(bahan.ambang_stok) || '0',
+				yield_persen: String(normalizeYieldPercent(bahan.yield_persen)),
 				jumlah_beli_terakhir: formatRupiah(bahan.jumlah_beli_terakhir),
 				biaya_beli_terakhir: formatRupiah(bahan.biaya_beli_terakhir)
 			};
@@ -121,6 +128,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 				satuan: 'gram',
 				stok_saat_ini: '',
 				ambang_stok: '',
+				yield_persen: '100',
 				jumlah_beli_terakhir: '',
 				biaya_beli_terakhir: ''
 			};
@@ -135,6 +143,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 			satuan: 'gram',
 			stok_saat_ini: '',
 			ambang_stok: '',
+			yield_persen: '100',
 			jumlah_beli_terakhir: '',
 			biaya_beli_terakhir: ''
 		};
@@ -145,21 +154,22 @@ export function createBahanHppState(config: BahanHppConfig) {
 			config.showNotif('Nama bahan wajib diisi', 'warning');
 			return;
 		}
+		if (!isValidYieldPercent(bahanForm.yield_persen)) {
+			config.showNotif('Yield bahan harus lebih dari 0% dan maksimal 100%', 'warning');
+			return;
+		}
+		const purchaseQuantity = Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir));
+		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
+		const yieldPercent = normalizeYieldPercent(bahanForm.yield_persen);
 		const payload = {
 			nama: bahanForm.nama.trim(),
 			satuan: bahanForm.satuan || 'gram',
 			stok_saat_ini: Math.max(0, parseRupiah(bahanForm.stok_saat_ini)),
 			ambang_stok: Math.max(0, parseRupiah(bahanForm.ambang_stok)),
-			jumlah_beli_terakhir: Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir)),
-			biaya_beli_terakhir: Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir)),
-			biaya_per_satuan:
-				parseRupiah(bahanForm.jumlah_beli_terakhir) > 0
-					? Math.round(
-							(parseRupiah(bahanForm.biaya_beli_terakhir) /
-								parseRupiah(bahanForm.jumlah_beli_terakhir)) *
-								100
-						) / 100
-					: 0
+			yield_persen: yieldPercent,
+			jumlah_beli_terakhir: purchaseQuantity,
+			biaya_beli_terakhir: purchaseCost,
+			biaya_per_satuan: calculateEffectiveUnitCost(purchaseCost, purchaseQuantity, yieldPercent)
 		};
 		try {
 			await bahanCrud.save(payload, editBahanId);

@@ -4,6 +4,12 @@
 	import { goto } from '$app/navigation';
 	import { createManajemenmenuState } from '$lib/stores/manajemenmenuState.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
+	import {
+		calculateEffectiveUnitCost,
+		calculateUsableQuantity,
+		isValidYieldPercent,
+		normalizeYieldPercent
+	} from '$lib/utils/ingredientCost';
 
 	// Komponen Icon
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
@@ -703,7 +709,7 @@
 			tabindex="-1"
 		>
 			<div
-				class="animate-slideUpModal relative mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+				class="animate-slideUpModal relative mx-4 max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
 				role="document"
 			>
 				<h2 class="mb-4 text-center text-lg font-bold text-gray-800">
@@ -796,7 +802,7 @@
 							</select>
 						</div>
 						<div class="flex flex-col gap-2">
-							<label for="bahan-stock" class="font-semibold text-gray-700">Stok Awal</label>
+							<label for="bahan-stock" class="font-semibold text-gray-700">Stok Siap Pakai</label>
 							<input
 								id="bahan-stock"
 								type="text"
@@ -818,10 +824,31 @@
 							placeholder="0"
 						/>
 					</div>
+					<div class="flex flex-col gap-2">
+						<label for="bahan-yield" class="font-semibold text-gray-700">Yield Siap Pakai</label>
+						<div class="relative">
+							<input
+								id="bahan-yield"
+								type="text"
+								inputmode="decimal"
+								class="w-full rounded-xl border border-gray-300 py-3 pr-12 pl-4 text-base focus:ring-2 focus:ring-amber-300"
+								bind:value={s.bahanForm.yield_persen}
+								required
+								placeholder="100"
+							/>
+							<span class="absolute top-1/2 right-4 -translate-y-1/2 font-semibold text-gray-400"
+								>%</span
+							>
+						</div>
+						<p class="text-xs leading-relaxed text-gray-500">
+							Persentase bahan setelah kulit, biji, batang, atau bagian terbuang. Gunakan 100% untuk
+							bahan tanpa susut.
+						</p>
+					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div class="flex flex-col gap-2">
 							<label for="bahan-purchase-jumlah" class="font-semibold text-gray-700"
-								>Jumlah Beli</label
+								>Jumlah Beli Kotor</label
 							>
 							<input
 								id="bahan-purchase-jumlah"
@@ -833,7 +860,8 @@
 							/>
 						</div>
 						<div class="flex flex-col gap-2">
-							<label for="bahan-purchase-cost" class="font-semibold text-gray-700">Harga Beli</label
+							<label for="bahan-purchase-cost" class="font-semibold text-gray-700"
+								>Harga Beli Total</label
 							>
 							<div class="relative">
 								<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
@@ -850,15 +878,32 @@
 							</div>
 						</div>
 					</div>
-					{#if Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0) > 0}
-						<div class="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-							HPP bahan Rp {formatRupiah(
-								Math.round(
-									Number(String(s.bahanForm.biaya_beli_terakhir).replace(/\./g, '') || 0) /
-										Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 1)
-								)
-							)}
-							per {s.bahanForm.satuan}
+					{#if Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0) > 0 && isValidYieldPercent(s.bahanForm.yield_persen)}
+						<div class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+							<div class="font-semibold">
+								Siap dipakai {formatRupiah(
+									calculateUsableQuantity(
+										Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0),
+										normalizeYieldPercent(s.bahanForm.yield_persen)
+									)
+								)}
+								{s.bahanForm.satuan}
+							</div>
+							<div class="mt-1 font-bold text-amber-800">
+								HPP efektif Rp {formatRupiah(
+									Math.round(
+										calculateEffectiveUnitCost(
+											Number(String(s.bahanForm.biaya_beli_terakhir).replace(/\./g, '') || 0),
+											Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0),
+											normalizeYieldPercent(s.bahanForm.yield_persen)
+										)
+									)
+								)} per {s.bahanForm.satuan}
+							</div>
+						</div>
+					{:else if Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0) > 0}
+						<div class="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+							Yield harus lebih dari 0% dan maksimal 100%.
 						</div>
 					{/if}
 					<div class="mt-4 flex gap-2">

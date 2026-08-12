@@ -89,7 +89,11 @@
 										{/if}
 									</span>
 									<span class="block text-xs text-amber-700">
-										HPP Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))} per {bahan.satuan}
+										HPP efektif Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))} per
+										{bahan.satuan}
+									</span>
+									<span class="block text-xs text-amber-700">
+										Yield siap pakai {Number(bahan.yield_persen || 100).toLocaleString('id-ID')}%
 									</span>
 									{#if Number(bahan.ambang_stok || 0) > 0 && Number(bahan.stok_saat_ini || 0) <= Number(bahan.ambang_stok || 0)}
 										<span

@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+	check,
+	index,
+	integer,
+	real,
+	sqliteTable,
+	text,
+	uniqueIndex
+} from 'drizzle-orm/sqlite-core';
 
 const now = () => sql`CURRENT_TIMESTAMP`;
 
@@ -74,6 +82,7 @@ export const bahan = sqliteTable(
 		satuan: text('satuan').notNull().default('gram'),
 		stok_saat_ini: real('stok_saat_ini').notNull().default(0),
 		ambang_stok: real('ambang_stok').notNull().default(0),
+		yield_persen: real('yield_persen').notNull().default(100),
 		biaya_per_satuan: real('biaya_per_satuan').notNull().default(0),
 		jumlah_beli_terakhir: real('jumlah_beli_terakhir').notNull().default(0),
 		biaya_beli_terakhir: real('biaya_beli_terakhir').notNull().default(0),
@@ -83,7 +92,8 @@ export const bahan = sqliteTable(
 	},
 	(table) => [
 		index('idx_bahan_branch_created').on(table.cabang_id, table.created_at),
-		index('idx_bahan_branch_name').on(table.cabang_id, table.nama)
+		index('idx_bahan_branch_name').on(table.cabang_id, table.nama),
+		check('chk_bahan_yield_persen', sql`${table.yield_persen} > 0 AND ${table.yield_persen} <= 100`)
 	]
 );
 

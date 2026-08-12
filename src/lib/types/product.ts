@@ -51,6 +51,7 @@ export interface Ingredient {
 	satuan: string;
 	stok_saat_ini: number;
 	ambang_stok?: number;
+	yield_persen?: number;
 	biaya_per_satuan?: number;
 	jumlah_beli_terakhir?: number;
 	biaya_beli_terakhir?: number;
