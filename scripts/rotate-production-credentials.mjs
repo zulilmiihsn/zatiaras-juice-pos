@@ -61,6 +61,7 @@ function parseArgs(argv) {
 	]);
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
+		if (arg === '--' && index === 0) continue;
 		if (arg === '--live') options.live = true;
 		else if (valued.has(arg)) {
 			const value = argv[index + 1];
