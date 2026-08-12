@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { PackageOpen, RefreshCw } from 'lucide-svelte';
+	import PackageOpen from 'lucide-svelte/icons/package-open';
+	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { PosCategory, PosProduct } from '$lib/stores/posState.svelte';
 
@@ -72,14 +73,10 @@
 					</div>
 				{:else}
 					{#each filteredProducts as p (p.id)}
-						<div
-							class="flex cursor-pointer items-center justify-between rounded-lg border border-pink-100 bg-white px-3 py-2 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)] transition-all duration-200 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98]"
-							tabindex="0"
+						<button
+							type="button"
+							class="flex w-full cursor-pointer items-center justify-between rounded-lg border border-pink-100 bg-white px-3 py-2 text-left shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)] transition-all duration-200 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98]"
 							onclick={() => onSelectProduct(p)}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') onSelectProduct(p);
-							}}
-							role="button"
 							aria-label="Tambah {p.nama} ke keranjang"
 						>
 							<div class="flex min-w-0 flex-1 flex-col">
@@ -93,7 +90,7 @@
 									>Rp {formatRupiah(p.harga ?? 0)}</span
 								>
 							</div>
-						</div>
+						</button>
 					{/each}
 				{/if}
 			</div>
@@ -131,14 +128,10 @@
 					</div>
 				{:else}
 					{#each filteredProducts as p (p.id)}
-						<div
-							class="flex aspect-[3/4] max-h-[260px] min-h-[140px] cursor-pointer flex-col items-center justify-between rounded-xl border border-pink-100 bg-white p-3 shadow-[0_4px_12px_-2px_rgba(236,72,153,0.05)] transition-all duration-200 hover:border-pink-300 hover:shadow-md active:scale-[0.98] md:max-h-[320px] md:min-h-[180px] md:gap-3 md:rounded-2xl md:p-6"
-							tabindex="0"
+						<button
+							type="button"
+							class="flex aspect-[3/4] max-h-[260px] min-h-[140px] w-full cursor-pointer flex-col items-center justify-between rounded-xl border border-pink-100 bg-white p-3 shadow-[0_4px_12px_-2px_rgba(236,72,153,0.05)] transition-all duration-200 hover:border-pink-300 hover:shadow-md active:scale-[0.98] md:max-h-[320px] md:min-h-[180px] md:gap-3 md:rounded-2xl md:p-6"
 							onclick={() => onSelectProduct(p)}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') onSelectProduct(p);
-							}}
-							role="button"
 							aria-label="Tambah {p.nama} ke keranjang"
 						>
 							{#if p.gambar && !imageError[String(p.id)]}
@@ -169,7 +162,7 @@
 									Rp {formatRupiah(p.harga ?? 0)}
 								</div>
 							</div>
-						</div>
+						</button>
 					{/each}
 				{/if}
 			</div>

@@ -16,12 +16,18 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 ## Kandidat teknis
 
 - [ ] Catat `RELEASE_COMMIT_SHA` dari summary quick task: `[isi SHA]`
-- [ ] Pastikan commit tersebut berisi tepat sembilan file source/docs handover.
-- [ ] Pastikan branch `dev` di origin memuat commit tersebut.
+- [ ] Tinjau manifest/diff `RELEASE_COMMIT_SHA`; catat seluruh file source, test, dependency, dan dokumen yang masuk release.
+- [ ] Pastikan branch release yang disepakati di origin memuat commit tersebut; jangan menganggap `origin/dev` sudah sinkron dengan branch lokal.
 - [ ] Pastikan tidak ada SQL, manifest, `.env`, cookie, token, atau secret dalam commit.
 - [ ] Pastikan tidak ada Cloudflare deployment yang dilakukan oleh task handover.
 - [ ] Backup production baru memiliki tiga shard, manifest terverifikasi, dan `COMPLETE`.
 - [ ] Lokasi backup berada di luar repository/workspace dan ACL terbatas.
+- [ ] Jalankan `rtk pnpm test:unit`; catat SHA, waktu, dan hasil regresi unit/domain tanpa menyebutnya sebagai build atau E2E.
+- [ ] Jalankan `rtk pnpm test:all`; pastikan operations, quality, dan unit tercatat, tanpa menyebutnya sebagai build atau E2E.
+- [ ] Jalankan `rtk pnpm test:release` dari `RELEASE_COMMIT_SHA`; pastikan `test:all`, build, dan E2E POS lokal tercatat sebagai tiga tahap gate release.
+- [ ] Jangan membawa status lulus dari commit/run lama; tahap gagal atau tidak dijalankan tetap berstatus belum diterima.
+- [ ] Bila release membawa file SQL baru di `drizzle/`, ikuti prosedur migrasi terkontrol di `OPERATIONS-RUNBOOK.md`.
+- [ ] Terapkan setiap file migrasi secara manual dan berurutan dengan `wrangler d1 execute` ke Samarinda, Balikpapan, dan Berau; simpan bukti per shard.
 
 ## UAT pemilik
 
@@ -54,9 +60,11 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 
 - [ ] Pemilik menyatakan UAT diterima secara eksplisit.
 - [ ] Fetch ulang branch dan tag lokal/remote.
-- [ ] Pastikan `v2.0.2` belum ada lokal maupun remote.
-- [ ] Pastikan `RELEASE_COMMIT_SHA` tetap menunjuk commit sembilan file, bukan commit metadata.
-- [ ] Buat annotated tag `v2.0.2` tepat pada `RELEASE_COMMIT_SHA`.
+- [ ] Tentukan `RELEASE_TAG`; cek tag lokal dan remote. Jika tag sudah ada, verifikasi targetnya atau pilih versi baru—jangan menimpa tag release.
+- [ ] Pastikan `RELEASE_COMMIT_SHA` tetap menunjuk commit kandidat yang manifest/diff-nya sudah ditinjau, bukan commit metadata.
+- [ ] Pastikan gate `rtk pnpm test:release` terbaru dijalankan tepat dari `RELEASE_COMMIT_SHA` dan semua tahap berhasil.
+- [ ] Jika ada migrasi, pastikan file SQL yang sama sudah berhasil pada tiga shard dan bukti backup pra-migrasi tersedia.
+- [ ] Buat annotated tag baru tepat pada `RELEASE_COMMIT_SHA`.
 - [ ] Push tag setelah persetujuan.
 - [ ] Lakukan deployment hanya melalui keputusan/release workflow terpisah.
 - [ ] Verifikasi live setelah deployment terpisah.
@@ -64,8 +72,8 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 Perintah tag untuk dijalankan nanti, bukan bagian task otomatis ini:
 
 ```powershell
-rtk git tag -a v2.0.2 <RELEASE_COMMIT_SHA> -m "ZatiarasPOS owner handover v2.0.2"
-rtk git push origin v2.0.2
+rtk git tag -a <RELEASE_TAG> <RELEASE_COMMIT_SHA> -m "ZatiarasPOS owner handover <RELEASE_TAG>"
+rtk git push origin <RELEASE_TAG>
 ```
 
 ## Rotasi dan dukungan

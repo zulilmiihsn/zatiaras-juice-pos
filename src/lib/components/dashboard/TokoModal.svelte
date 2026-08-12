@@ -101,7 +101,7 @@
 {#if show}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-		onclick={() => (show = false)}
+		onclick={(event) => event.target === event.currentTarget && (show = false)}
 		onkeydown={(e) => e.key === 'Escape' && (show = false)}
 		role="dialog"
 		aria-modal="true"
@@ -112,7 +112,6 @@
 	>
 		<div
 			class="modal-slideup mx-auto box-border w-full max-w-[95vw] rounded-2xl bg-white p-8 shadow-2xl md:p-12 lg:max-w-lg lg:p-10 xl:max-w-xl xl:p-12 2xl:max-w-2xl 2xl:p-16"
-			onclick={(event) => event.stopPropagation()}
 			role="document"
 		>
 			{#if isBukaToko}

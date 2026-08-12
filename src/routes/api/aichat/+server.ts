@@ -423,6 +423,13 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 			);
 		}
 
+		if (text.length > 2000) {
+			return json(
+				{ success: false, error: 'Teks transaksi terlalu panjang', code: 'VALIDATION_ERROR' },
+				{ status: 400 }
+			);
+		}
+
 		// Get API key from environment
 		const apiKey = env.OPENROUTER_API_KEY;
 

@@ -214,7 +214,6 @@
 			<div
 				class="animate-slideUpModal mx-4 flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl"
 				role="document"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<!-- Header -->
 				<div class="flex-shrink-0 border-b border-gray-100 bg-white px-6 py-4">
@@ -585,7 +584,6 @@
 			<div
 				class="animate-slideUpModal mx-4 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl"
 				role="document"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<!-- Header -->
 				<div class="flex-shrink-0 border-b border-gray-100 p-6">
@@ -707,7 +705,6 @@
 			<div
 				class="animate-slideUpModal relative mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
 				role="document"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<h2 class="mb-4 text-center text-lg font-bold text-gray-800">
 					{s.editEkstraId ? 'Edit Tambahan' : 'Tambah Tambahan'}
@@ -768,7 +765,6 @@
 			<div
 				class="animate-slideUpModal relative mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
 				role="document"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<h2 class="mb-4 text-center text-lg font-bold text-gray-800">
 					{s.editBahanId ? 'Edit Bahan' : 'Tambah Bahan'}
@@ -894,7 +890,6 @@
 			<div
 				class="animate-slideUpModal relative mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
 				role="document"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<h2 class="mb-4 text-center text-lg font-bold text-gray-800">Ubah Stok Bahan</h2>
 				<form class="flex flex-col gap-4" onsubmit={s.saveMutasiBahan} autocomplete="off">

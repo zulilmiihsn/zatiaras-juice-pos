@@ -81,7 +81,6 @@
 			ontouchstart={onTouchStart}
 			ontouchmove={onTouchMove}
 			ontouchend={onTouchEnd}
-			onclick={(e) => e.stopPropagation()}
 			tabindex="-1"
 		>
 			<div class="sheet-dragbar" role="presentation"></div>

@@ -4,6 +4,7 @@ import { resepProduk } from '$lib/database/schema';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getDb, getRawDb, payloadRows, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
+import { parseDataLimit } from '$lib/server/dataPagination';
 import type { RequestHandler } from './$types';
 
 /**
@@ -17,7 +18,7 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const db = getDb(platform, branch);
-	const limit = Number(url.searchParams.get('limit') || 200);
+	const limit = parseDataLimit(url.searchParams.get('limit'));
 	const productId = url.searchParams.get('produk_id');
 
 	const filters: SQL[] = [eq(resepProduk.cabang_id, branch)];

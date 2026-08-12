@@ -1,115 +1,134 @@
-# 🍹 ZatiarasPOS
+<!-- generated-by: gsd-doc-writer -->
 
-**Zatiaras POS** adalah aplikasi Point of Sale (POS) modern yang dirancang khusus untuk bisnis retailnya Zatiaras dengan fitur multi-branch yang powerful.
+# ZatiarasPOS
 
-## ✨ Tentang Aplikasi
+ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pemilik, dan pengelola operasional Zatiaras.
 
-ZatiarasPOS dibuat untuk menjadi solusi lengkap untuk mengelola operasional usaha Zatiaras dengan interface yang user-friendly dan fitur yang komprehensif. Aplikasi ini dibangun dengan teknologi modern untuk memberikan pengalaman terbaik bagi kasir, manajer, dan pemilik bisnis.
+## Fitur saat ini
 
-## 🎯 Fitur Utama
+- POS tunai dan non-tunai dengan sesi buka/tutup toko, struk, item tambahan, dan item kustom khusus pemilik.
+- Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
+- Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
+- Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
+- PWA untuk instalasi perangkat. Mode offline terbatas pada alur POS yang memakai katalog tersimpan dan antrean transaksi di IndexedDB; antrean diputar ulang saat koneksi kembali.
+- Notifikasi perubahan per cabang melalui WebSocket. Klien memuat ulang data terkait ketika menerima event; jalur ini bukan pengganti penyimpanan transaksi di D1.
 
-### 🏠 Dashboard & Analytics
+## Arsitektur ringkas
 
-- **Metrik Real-time**: Omzet, transaksi, item terjual, profit
-- **Grafik Pendapatan**: Visualisasi 7 hari terakhir dengan animasi
-- **Menu Terlaris**: Ranking produk dengan statistik penjualan
-- **Statistik WITA**: Analisis berdasarkan waktu Indonesia Tengah
+| Bagian   | Implementasi                                                                                    |
+| -------- | ----------------------------------------------------------------------------------------------- |
+| Aplikasi | Svelte 5, SvelteKit 2, TypeScript, Tailwind CSS 4, Vite 6                                       |
+| Runtime  | Cloudflare Pages melalui `@sveltejs/adapter-cloudflare`                                         |
+| Database | Cloudflare D1 dengan tiga binding grup: Samarinda, Balikpapan, dan Berau                        |
+| Aset     | Cloudflare R2 melalui binding `STORAGE`                                                         |
+| Realtime | Worker `zatiaraspos-realtime` dan `RealtimeDurableObject`                                       |
+| Skema    | Drizzle ORM; sumber skema ada di `src/lib/database/schema.ts` dan SQL migrasi ada di `drizzle/` |
 
-### 💰 Point of Sale (POS)
+Checkout menghitung ulang nilai transaksi di server, memakai token harga bertanda tangan, dan menyimpan transaksi secara idempoten. Pada skema terkini, checkout juga memperbarui `ringkasan_penjualan_harian` dan `penjualan_produk_harian`; nilai buku kas disimpan pada `buku_kas.nominal`.
 
-- Interface kasir yang intuitif dan responsif
-- Pencarian produk dengan fuzzy search
-- Manajemen cart dengan kalkulasi otomatis
-- Multiple payment methods (Tunai/Non-tunai)
-- Real-time inventory synchronization
+Autentikasi memakai cookie sesi `httpOnly`, pemeriksaan peran di endpoint, perlindungan CSRF untuk mutasi API, dan rate limit untuk jalur sensitif. Daftar ini mencatat kontrol yang ada di kode, bukan sertifikasi atau jaminan keamanan menyeluruh.
 
-### 📊 Sistem Transaksi
+## Prasyarat
 
-- **Buka/Tutup Toko**: Manajemen sesi dengan modal awal
-- Pencatatan pemasukan & pengeluaran
-- Kategorisasi transaksi (Usaha/Lainnya)
-- Offline support dengan pending transactions
+- Node.js dan pnpm. Repository belum menetapkan versi runtime melalui `engines`, `.nvmrc`, atau `.node-version`.
+- Wrangler tersedia dari dependency proyek setelah instalasi.
+- Kredensial Cloudflare hanya diperlukan untuk operasi remote, backup, dan deployment.
 
-### 📈 Laporan & Analytics
+## Instalasi
 
-- Laporan harian dan multi-day
-- Filter berdasarkan tanggal WITA
-- Breakdown pemasukan & pengeluaran
-- Analisis profit & laba
-- Real-time report updates
+```bash
+git clone https://github.com/zulilmiihsn/zatiaraspos.git
+cd zatiaraspos
+pnpm install
+```
 
-### ⚙️ Manajemen Sistem
+## Mulai cepat
 
-- **Keamanan**: PIN protection, role-based access
-- **Menu Management**: Pengaturan produk dan kategori
-- **Printer Settings**: Konfigurasi printer
-- **Branch Management**: Multi-cabang support
+1. Salin contoh environment dan isi minimal `POS_PRICE_SIGNING_KEY` dengan nilai acak sepanjang sedikitnya 32 karakter. `OPENROUTER_API_KEY` hanya diperlukan untuk fitur AI.
 
-## 🏗️ Arsitektur Teknologi
+   ```bash
+   cp .env.example .env.local
+   ```
 
-### Frontend
+2. Siapkan D1 lokal. Perintah ini menerapkan migrasi ke binding lokal Samarinda dan memuat seed UAT.
 
-- **SvelteKit 5.0** - Framework modern dengan performa tinggi
-- **TypeScript** - Type safety dan developer experience
-- **Tailwind CSS** - Utility-first CSS framework
-- **PWA Support** - Installable dengan offline capabilities
+   ```bash
+   pnpm d1:setup:local
+   ```
 
-### Backend & Database
+3. Jalankan server pengembangan.
 
-- **Cloudflare Pages** - Edge SSR via SvelteKit `adapter-cloudflare`
-- **Cloudflare D1** - Database SQLite di edge, **di-shard per grup cabang** (3 DB terpisah: samarinda/balikpapan/berau)
-- **Cloudflare R2** - Penyimpanan gambar produk (disajikan via proxy same-origin `/api/upload?key=...`, di-cache 1 tahun)
-- **Durable Objects** - Realtime (WebSocket Hibernation) + rate limiting akurat lintas-isolate
-- **Drizzle ORM** - Query type-safe + generate migration; diterapkan via `wrangler d1 execute`
-- **Custom Auth System** - Sesi cookie (httpOnly, SameSite=Lax) + PIN, terisolasi per cabang
-- **Laporan via tabel agregat harian** - `daily_sales_summary` / `daily_product_sales` diisi saat checkout → laporan cepat tanpa scan transaksi mentah
+   ```bash
+   pnpm dev
+   ```
 
-### Performance & Security
+4. Buka URL lokal yang dicetak Vite, lalu masuk dengan profil dari seed UAT.
 
-- **Smart Caching** - Multi-layer caching system
-- **Real-time Updates** - Live synchronization
-- **Security Middleware** - XSS protection, rate limiting
-- **Input Validation** - Sanitasi dan validasi data
+## Contoh alur penggunaan
 
-## 🎨 Design & UX
+### Transaksi kasir
 
-- **Mobile-First Design** - Optimized untuk perangkat mobile
-- **Touch Gestures** - Swipe navigation, long press insights
-- **Smooth Animations** - Transisi yang halus dan engaging
-- **Responsive Layout** - Adaptif untuk berbagai ukuran layar
-- **Accessibility** - Keyboard navigation dan screen reader support
+1. Pilih cabang dan masuk sebagai kasir.
+2. Buka sesi toko dengan modal awal.
+3. Buka `/pos`, pilih produk, tentukan metode bayar, lalu selesaikan transaksi.
+4. Hasil transaksi masuk ke buku kas dan riwayat; stok atau bahan dikurangi hanya jika pelacakannya aktif.
 
-## 🚀 Keunggulan
+### Pengelolaan oleh pemilik
 
-- **Multi-Branch Ready** - Support untuk multiple cabang
-- **Offline Capability** - Bisa beroperasi tanpa internet
-- **Real-time Sync** - Data selalu up-to-date
-- **Performance Optimized** - Caching dan optimization
-- **Security First** - Keamanan tingkat enterprise
-- **User Experience** - Interface yang intuitif dan mudah digunakan
+1. Masuk sebagai pemilik.
+2. Kelola produk, bahan, resep, HPP, dan pengaturan dari `/pengaturan`.
+3. Tinjau performa di dashboard atau buka `/laporan` untuk rentang tanggal yang dipilih.
 
-## 🎭 Target Pengguna
+## Migrasi D1
 
-- **Kasir** - Interface yang simple dan cepat
-- **Manajer** - Laporan dan analisis yang detail
-- **Pemilik** - Overview bisnis yang komprehensif
-- **Admin** - Manajemen sistem yang powerful
+Perubahan skema dimulai dari `src/lib/database/schema.ts`. Buat file SQL Drizzle, tinjau SQL yang dihasilkan, lalu terapkan file tersebut dengan Wrangler. `drizzle-kit generate` tidak mengubah database.
 
-## 🛠️ Catatan Teknis & Perbaikan Mendatang
+```bash
+pnpm exec drizzle-kit generate
+```
 
-Status arsitektur saat ini: type-safe (`svelte-check` 0 error), checkout idempoten, rate limiting **fail-closed**, laporan dibaca dari tabel agregat harian, dan **satu field kanonik `amount`** di `buku_kas` (kolom `nominal` redundan sudah dihapus, migrasi `0009`).
+Untuk database lokal, jalankan migrasi terhadap binding yang sedang diuji. Setup lokal bawaan hanya menyiapkan grup Samarinda.
 
-Perbaikan **opsional** (tidak mendesak — aplikasi sudah berfungsi & teruji):
+```bash
+pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --local --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
+```
 
-- **Pecah god-endpoint `/api/data` menjadi resource routes per-tabel.**
-  Saat ini satu endpoint men-dispatch berdasarkan `?table=`. Memecah menjadi route RESTful per-resource (mis. `/api/produk`, `/api/buku-kas`) lebih lazim & mudah dipelihara. Logikanya sudah dimodularisasi internal ke `src/lib/server/dataReadHandlers.ts` & `dataWriteHandlers.ts`, jadi tinggal pemisahan route-nya.
+Sebelum migrasi remote, buat backup tiga shard ke direktori absolut di luar repository/workspace.
 
-- **Otomasi migrasi 3-shard.** D1 di-shard menjadi 3 database (`DB_SAMARINDA_GROUP`, `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`). Migrasi & backfill saat ini diterapkan manual ke tiap DB. Buat satu script yang menjalankan `wrangler d1 execute` untuk semua shard sekaligus (lokal `--local` & prod `--remote`) agar tidak ada DB yang terlewat.
+```bash
+pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
+```
 
-## 🌟 Visi
+Terapkan file SQL yang sama secara manual ke ketiga binding remote. Ganti `NNNN_nama_migrasi.sql` dengan file baru yang sudah ditinjau.
 
-Zatiaras POS hadir untuk mengubah cara bisnis retail dan restoran mengelola operasional mereka. Dengan teknologi modern dan design yang user-friendly, kami berkomitmen memberikan solusi POS terbaik yang memudahkan pengguna dalam menjalankan bisnis mereka.
+```bash
+pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
+pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
+pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
+```
 
----
+Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil tiap binding sebelum melanjutkan deployment.
 
-\_Dibuat dengan ❤️ untuk Zatiaras
+## Pengujian
+
+| Perintah            | Cakupan                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `pnpm check`        | Sinkronisasi SvelteKit dan pemeriksaan TypeScript/Svelte                                               |
+| `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                        |
+| `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan |
+| `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                          |
+| `pnpm test:release` | `test:all`, build produksi, lalu Playwright E2E POS lokal                                              |
+
+Suite lokal khusus juga tersedia untuk checkout, CSP, CSRF, workflow akhir, rate limit, dan load test. Lihat seluruh script `test:*` di `package.json`; beberapa suite menyiapkan D1 lokal dan dapat membuat serta membersihkan data UAT.
+
+## Build dan deployment
+
+```bash
+pnpm build
+pnpm deploy:check
+pnpm deploy:all
+```
+
+`deploy:all` memeriksa konfigurasi, membangun aplikasi, menerapkan Worker realtime, lalu menerapkan output Pages. Perintah ini tidak menerapkan migrasi D1.
+
+Runbook operasi backup dan pemulihan tersedia di [OPERATIONS-RUNBOOK.md](OPERATIONS-RUNBOOK.md).

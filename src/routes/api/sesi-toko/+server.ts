@@ -5,6 +5,7 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getDb, getRawDb, payloadRows, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody, sanitizeUpdatePayload, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import { requirePageAccess } from '$lib/server/pageAccess';
+import { parseDataLimit } from '$lib/server/dataPagination';
 import type { RequestHandler } from './$types';
 
 /**
@@ -16,7 +17,7 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const db = getDb(platform, branch);
-	const limit = Number(url.searchParams.get('limit') || 200);
+	const limit = parseDataLimit(url.searchParams.get('limit'));
 	const id = url.searchParams.get('id');
 	const active = url.searchParams.get('is_active');
 

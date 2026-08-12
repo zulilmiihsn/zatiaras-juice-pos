@@ -1,42 +1,41 @@
-# 🧠 ZatiarasPOS — STATE.md
+# ZatiarasPOS — STATE.md
 
 _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
-## 📌 Status Saat Ini
+## Status Saat Ini
 
-- **Tanggal**: 2026-07-30
+- **Tanggal**: 2026-08-12
 - **Milestone**: v2.0 — Stabilisasi & Quality
-- **Phase Aktif**: **Owner handover** — kandidat teknis siap, penerimaan manusia tertunda
-- **Pekerjaan Terakhir**: Backup production 3 shard, live UAT dengan cleanup nol residu, paket handover owner, dan kandidat `ebef6e1` sudah dipush ke `origin/dev`.
+- **Phase Aktif**: **Development baseline cleanup** — perubahan masih berjalan di branch `codex/a94-development`
+- **Pekerjaan Terakhir**: Cleanup dimulai dari HEAD `a94d7f8`; perubahan masih belum di-commit, tetapi seluruh gate rilis lokal sudah lulus.
 
-## 🎉 Milestone Tercapai
+## Riwayat Milestone
 
-- ✅ **Fase 1** — Formatting & Dead Code Cleanup
-- ✅ **Fase 2** — Type Safety (0 `any` di routes)
-- ✅ **Fase 3** — Svelte 5 Migration (semua stores → runes, `$:` → `$derived/$effect`)
-- ✅ **Fase 4** — Component Extraction (13 komponen baru di `components/`)
-- ✅ **Fase 5** — Deduplikasi & Polish
-- ✅ **`pnpm check`** → 0 errors
-- 🔄 **Phase 3** — POS checkout reliability, loading/error states, offline/realtime smoke, premium cashier UI polish
+- **Fase 1** — Formatting & dead-code cleanup historis
+- **Fase 2** — Perbaikan type safety; beberapa penggunaan `any` masih ada dan bukan klaim nol
+- **Fase 3** — Migrasi state utama ke Svelte 5 rune stores
+- **Fase 4** — Ekstraksi komponen dashboard, laporan, POS, dan komponen bersama
+- **Fase 5** — Deduplikasi dan polish
+- **Phase 3 aktif** — POS checkout reliability, loading/error states, offline/realtime smoke, premium cashier UI polish
 
-## ✅ Verifikasi Terakhir
+## Verifikasi Terakhir
 
-- `pnpm test:all` → 30/30 passed (8 code quality, 22 feature tests)
-- `pnpm deploy:check` → deploy config ready
-- `https://zatiaraspos.pages.dev` → 200 OK
-- `https://zatiaraspos.pages.dev/login` → 200 OK
-- `https://zatiaraspos.pages.dev/api/data?table=produk&branch=samarinda` tanpa session → 401 Unauthorized
-- `https://zatiaraspos.pages.dev/api/realtime?branch=samarinda` tanpa session → 401 Unauthorized
-- `wrangler deployments list --config wrangler.realtime.jsonc` → realtime worker deployments visible
+- `pnpm check` → lulus, 0 errors dan 0 warnings
+- `pnpm lint` → lulus
+- `pnpm test:unit` → lulus
+- `pnpm test:all` → lulus
+- `pnpm build` → lulus
+- `pnpm test:e2e:pos` → 2/2 lulus
+- `pnpm test:release` → lulus
+- **Batas bukti**: run ini hanya memverifikasi baseline lokal; production deploy dan live proof tidak dilakukan.
 
-## 🛠️ Setup Yang Sudah Selesai
+## Artefak Perencanaan
 
-- ✅ Context7 MCP terpasang di `mcp_config.json` dengan API key
-- ✅ GSD framework di-install via `npx get-shit-done-cc@latest` → `.claude/`
-- ✅ `.planning/` structure dibuat (PROJECT, ROADMAP, STATE, codebase/)
-- ✅ `DDS.md` dan `PHASES.md` ada di root proyek
+- `.planning/` memuat `PROJECT.md`, `ROADMAP.md`, `STATE.md`, dan analisis codebase.
+- `.claude/` memuat workflow perencanaan lokal. Keberadaannya tidak berarti package GSD menjadi dependency aplikasi.
+- Konfigurasi MCP dan credential developer berada di luar kontrak repository dan tidak dicatat di file ini.
 
-## 🗂️ Arsitektur Codebase (Ringkasan)
+## Arsitektur Codebase (Ringkasan)
 
 ```
 src/
@@ -44,20 +43,20 @@ src/
 ├── app.html            # HTML shell + PWA meta
 ├── app.css             # Global styles (Tailwind base)
 ├── lib/
-│   ├── auth/           # auth.ts — PIN-based session management
+│   ├── auth/           # auth.ts — login username/password dan state autentikasi klien
 │   ├── components/
-│   │   ├── shared/     # 9 komponen reusable (bottomNav, topBar, modals, dll)
-│   │   ├── dashboard/  # DashboardMetrics, WeeklyChart, TokoModal [NEW]
-│   │   ├── laporan/    # LaporanFilter, LaporanSummaryCards, LaporanAccordion [NEW]
-│   │   └── pos/        # ProductGrid, CartPreview, CustomItemModal [NEW]
+│   │   ├── shared/     # navigasi, modal/sheet, toast, status, dan PWA dialog
+│   │   ├── dashboard/  # metrik, WeeklyChart, dan TokoModal
+│   │   ├── laporan/    # filter, summary, laba-rugi, AI, dan accordion laporan
+│   │   └── pos/        # ProductGrid, CartPreview, dan modal item kustom
 │   ├── config/         # env.ts — environment variable access
-│   ├── constants/      # navigation.ts — NAV_ITEMS, getNavIndex [NEW]
+│   ├── constants/      # navigation.ts — NAV_ITEMS dan getNavIndex
 │   ├── database/       # schema.ts — Cloudflare D1 schema via Drizzle
 │   ├── server/         # Server-side logic (sessionStore)
-│   ├── services/       # dataService, sesiTokoService [NEW], aiAnalysis
+│   ├── services/       # dataApiClient, sesiTokoService, aiAnalysisService, dan service domain
 │   ├── stores/         # Svelte 5 rune stores (userRole, selectedBranch, securitySettings, posGridView)
 │   ├── types/          # TypeScript interfaces (product, user, transaction, laporan, store)
-│   └── utils/          # 20+ utility files (touchNavigation, refreshBus, ui, dateTime, dll)
+│   └── utils/          # touchNavigation, refreshBus, UI, date/time, dan utility domain
 └── routes/
     ├── +layout.svelte  # Root layout (auth guard, bottomNav, PWA)
     ├── +page.svelte    # Dashboard (modular, thin orchestrator)
@@ -70,15 +69,15 @@ src/
     └── api/            # Server-side API endpoints
 ```
 
-## ⚠️ Tech Debt Tersisa
+## Follow-up Saat Ini
 
-- `pos/bayar/+page.svelte` masih punya beberapa `non_reactive_update` warnings (cart, customerName, paymentMethod)
-- `modalSheet.svelte` masih pakai Svelte 4 `createEventDispatcher` — bisa migrasi ke rune callbacks di Fase 6
+- Commit cleanup setelah diff final ditinjau.
+- Perbarui daftar tech debt hanya dari temuan yang masih dapat direproduksi pada baseline baru.
 
-## 🔑 Keputusan Arsitektural Yang Sudah Dibuat
+## Keputusan Arsitektural Yang Sudah Dibuat
 
 1. Auth pakai custom session (cookie-based), BUKAN Supabase Auth
-2. CSRF protection aktif untuk route POST `/api/veriflogin`, `/api/gantikeamanan`, `/api/logout`
+2. CSRF protection aktif untuk mutasi API setelah login; login dan logout termasuk route yang dikecualikan
 3. Cloudflare D1 dipakai sebagai data store utama, dengan Drizzle schema dan branch-scoped server access
 4. Offline-first via IndexedDB (`idb-keyval`)
 5. Toast standardized ke `createToastManager()` dari `$lib/utils/ui`
@@ -87,18 +86,18 @@ src/
 8. Nav constants di `$lib/constants/navigation`
 9. Window event bus di `$lib/utils/refreshBus`
 
-## 📝 Instruksi Untuk AI (Antigravity/Claude)
+## Instruksi Untuk AI (Antigravity/Claude)
 
 Saat menerima task di proyek ini:
 
-1. Baca `PROJECT.md` untuk memahami prinsip yang tidak boleh dilanggar
-2. Cek `ROADMAP.md` untuk tahu prioritas saat ini
-3. Update `STATE.md` ini setelah menyelesaikan task signifikan
+1. Baca `.planning/PROJECT.md` untuk memahami prinsip yang tidak boleh dilanggar
+2. Cek `.planning/ROADMAP.md` untuk tahu prioritas saat ini
+3. Update `.planning/STATE.md` ini setelah menyelesaikan task signifikan
 4. Gunakan Context7 MCP untuk fetch dokumentasi Svelte 5 / Supabase jika diperlukan
 5. Jangan ubah UI/UX yang sudah ada kecuali diminta secara eksplisit
 
 ## Quick Tasks Completed
 
-| ID | Task | Commit | Status |
-| --- | --- | --- | --- |
+| ID         | Task                                        | Commit    | Status                                                                                                                   |
+| ---------- | ------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
 | 260730-1am | Harden production backup and owner handover | `ebef6e1` | `human_needed` — 8/8 teknis terverifikasi; owner UAT, transfer akses, rotasi credential, dan persetujuan tag masih wajib |

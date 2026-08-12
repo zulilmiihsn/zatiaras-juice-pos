@@ -55,6 +55,38 @@ rtk pnpm d1:backup -- --verify-manifest D:\ZatiarasPOS-Backups\<run-id>\manifest
 
 Jangan membuka, menyalin, mengirim, atau memasukkan SQL/manifest ke Git, chat, tiket, atau dokumen. Pemilik menentukan retensi sesuai kebutuhan hukum dan kapasitas. Jangan menghapus snapshot lama otomatis; verifikasi backup baru sebelum penghapusan manual yang disetujui.
 
+## Gate perubahan dan release
+
+Jalankan gate sesuai tujuan; ketiganya bukan nama berbeda untuk pemeriksaan yang sama:
+
+| Perintah                | Cakupan                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `rtk pnpm test:unit`    | Regresi hardening, store, antrean offline, integritas POS, keluaran struk, dan pengelompokan laporan.     |
+| `rtk pnpm test:all`     | `test:operations`, `test:quality`, lalu seluruh `test:unit`. Tidak menjalankan build atau Playwright POS. |
+| `rtk pnpm test:release` | Seluruh `test:all`, build production, lalu E2E POS lokal melalui Playwright. Ini gate kandidat release.   |
+
+Pasang browser Playwright lebih dulu pada mesin release baru bila belum tersedia:
+
+```powershell
+rtk pnpm test:e2e:install
+```
+
+Jalankan `rtk pnpm test:release` dari commit yang akan diberi tag atau di-deploy. Catat waktu, SHA commit, dan hasil setiap tahap secara terpisah. Jangan memakai hasil run lama sebagai bukti commit baru; kegagalan atau tahap yang tidak dijalankan berarti gate release belum terpenuhi.
+
+## Migrasi D1 terkontrol
+
+Migrasi bukan pemeriksaan harian. Jalankan hanya sebagai perubahan production yang disetujui, setelah backup tiga shard menghasilkan `COMPLETE` dan manifestnya lolos verifikasi. File sumber migrasi berada di `drizzle/` dan harus diterapkan berurutan. Tidak ada perintah package yang menerapkan migrasi ke semua shard sekaligus; operator wajib menjalankan `wrangler d1 execute` dan mencatat hasil setiap shard secara terpisah.
+
+Ganti `<migration-file.sql>` dengan nama file SQL yang sudah direview, lalu jalankan file yang sama pada ketiga database yang tercantum di `wrangler.pages.jsonc`:
+
+```powershell
+rtk pnpm exec wrangler d1 execute zatiaras-samarinda-group --config wrangler.pages.jsonc --remote --file drizzle/<migration-file.sql>
+rtk pnpm exec wrangler d1 execute zatiaras-balikpapan-group --config wrangler.pages.jsonc --remote --file drizzle/<migration-file.sql>
+rtk pnpm exec wrangler d1 execute zatiaras-berau-group --config wrangler.pages.jsonc --remote --file drizzle/<migration-file.sql>
+```
+
+Sebelum pindah ke file migrasi berikutnya, pastikan file saat ini berhasil pada Samarinda, Balikpapan, dan Berau. Bila satu shard gagal, hentikan urutan, simpan bukti shard yang sudah/belum berubah, dan eskalasi; jangan mengulang buta atau menganggap shard lain ikut termigrasi. Setelah semua shard selesai, jalankan smoke check read-only dan gate release yang relevan sebelum deployment.
+
 ## Insiden antrean offline
 
 1. Catat perangkat, cabang, waktu, jumlah `pending/failed`, dan pesan yang tampil.

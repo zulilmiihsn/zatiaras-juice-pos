@@ -58,17 +58,16 @@
 	onClose={s.closeNotifModal}
 />
 
+<!-- Page swipe is optional; visible navigation remains the primary control. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-white"
 	ontouchstart={swipeNav.handleTouchStart}
 	ontouchmove={swipeNav.handleTouchMove}
 	ontouchend={swipeNav.handleTouchEnd}
-	onkeydown={(e) => e.key === 'Escape' && swipeNav.handleGlobalClick(e as unknown as Event)}
-	role="main"
-	aria-label="Halaman catat pemasukan pengeluaran"
-	tabindex="-1"
 >
 	<main
+		aria-label="Halaman catat pemasukan pengeluaran"
 		class="page-content min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto"
 		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>

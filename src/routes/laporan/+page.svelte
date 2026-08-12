@@ -22,18 +22,17 @@
 	/>
 {/if}
 
+<!-- Page swipe is optional; visible navigation remains the primary control. -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
 	class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-white"
 	ontouchstart={swipeNav.handleTouchStart}
 	ontouchmove={swipeNav.handleTouchMove}
 	ontouchend={swipeNav.handleTouchEnd}
 	onclick={swipeNav.handleGlobalClick}
-	onkeydown={(e) => e.key === 'Escape' && swipeNav.handleGlobalClick(e as unknown as Event)}
-	role="main"
-	tabindex="-1"
-	aria-label="Halaman laporan keuangan"
 >
 	<main
+		aria-label="Halaman laporan keuangan"
 		class="page-content min-h-0 w-full max-w-full flex-1 overflow-x-hidden"
 		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>
@@ -259,17 +258,3 @@
 		</div>
 	</main>
 </div>
-
-<style>
-	.filter-sheet-anim {
-		animation: slideUp 0.22s cubic-bezier(0.4, 1.4, 0.6, 1) 1;
-	}
-	@keyframes slideUp {
-		from {
-			transform: translateY(100%);
-		}
-		to {
-			transform: translateY(0);
-		}
-	}
-</style>

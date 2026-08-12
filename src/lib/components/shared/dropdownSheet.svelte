@@ -13,7 +13,7 @@
 		onSelect?: (value: string) => void;
 	} = $props();
 
-	let selected = $state(value);
+	let selected = $state('');
 
 	$effect(() => {
 		if (open) selected = value;
@@ -31,7 +31,7 @@
 {#if open}
 	<div
 		class="modal-backdrop"
-		onclick={close}
+		onclick={(event) => event.target === event.currentTarget && close()}
 		onkeydown={(e) => e.key === 'Escape' && close()}
 		role="dialog"
 		aria-label="Modal pilih opsi"
@@ -39,7 +39,7 @@
 		tabindex="-1"
 		onkeypress={(e) => e.key === 'Enter' && close()}
 	>
-		<div class="sheet" onclick={(e) => e.stopPropagation()} role="document">
+		<div class="sheet" role="document">
 			<div class="sheet-header">Pilih Opsi</div>
 			<div class="dropdown-list">
 				{#each options as opt (opt.value)}

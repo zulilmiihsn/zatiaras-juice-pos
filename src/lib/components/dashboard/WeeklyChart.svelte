@@ -44,6 +44,11 @@
 		selectedBarIndex = null;
 	}
 
+	function showBarValue(i: number) {
+		selectedBarIndex = i;
+		showBarInsight = true;
+	}
+
 	onDestroy(() => {
 		if (barHoldTimeout) clearTimeout(barHoldTimeout);
 	});
@@ -72,18 +77,22 @@
 		{:else}
 			{#each weeklyIncome as income, i (i)}
 				<div class="relative flex flex-1 flex-col items-center">
-					<div
+					<button
+						type="button"
 						class="w-6 cursor-pointer rounded-t bg-green-400 transition-all duration-700 md:w-8 lg:w-10"
+						aria-label="{getLast7DaysLabelsWITA()[i]}: Rp {formatRupiah(income)}"
 						style="height: {barsVisible && income > 0 && weeklyMax > 0
 							? Math.max(Math.min((income / weeklyMax) * 96, 96), 4)
 							: 0}px"
 						onpointerdown={() => handleBarPointerDown(i)}
 						onpointerup={handleBarPointerUp}
 						onpointerleave={handleBarPointerUp}
+						onfocus={() => showBarValue(i)}
+						onblur={handleBarPointerUp}
 						ontouchstart={() => handleBarPointerDown(i)}
 						ontouchend={handleBarPointerUp}
 						ontouchcancel={handleBarPointerUp}
-					></div>
+					></button>
 					<div class="mt-1 text-xs md:text-sm">{getLast7DaysLabelsWITA()[i]}</div>
 					{#if showBarInsight && selectedBarIndex === i}
 						<div

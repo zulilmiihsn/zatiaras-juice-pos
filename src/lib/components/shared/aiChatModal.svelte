@@ -336,6 +336,7 @@
 						onkeydown={handleKeyPress}
 						placeholder="Ceritakan transaksi Anda..."
 						disabled={isLoading}
+						maxlength="2000"
 						class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 						rows="2"
 					>

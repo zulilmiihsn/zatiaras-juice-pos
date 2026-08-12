@@ -3,15 +3,13 @@
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';
 	import { formatRupiah } from '$lib/utils/currency';
-	import {
-		AlertTriangle,
-		Clock3,
-		Download,
-		FileWarning,
-		RefreshCw,
-		ShieldAlert,
-		Trash2
-	} from 'lucide-svelte';
+	import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+	import Clock3 from 'lucide-svelte/icons/clock-3';
+	import Download from 'lucide-svelte/icons/download';
+	import FileWarning from 'lucide-svelte/icons/file-warning';
+	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
+	import ShieldAlert from 'lucide-svelte/icons/shield-alert';
+	import Trash2 from 'lucide-svelte/icons/trash-2';
 
 	let {
 		open = false,

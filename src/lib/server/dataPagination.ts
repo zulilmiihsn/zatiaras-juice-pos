@@ -1,3 +1,5 @@
+import { error as kitError } from '@sveltejs/kit';
+
 export const DEFAULT_DATA_LIMIT = 200;
 export const MAX_DATA_LIMIT = 500;
 
@@ -12,24 +14,17 @@ export type CursorPage<T> = {
 	hasMore: boolean;
 };
 
-export class DataQueryValidationError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'DataQueryValidationError';
-	}
-}
-
 export function parseDataLimit(
 	raw: string | null,
 	defaultLimit = DEFAULT_DATA_LIMIT,
 	maxLimit = MAX_DATA_LIMIT
 ): number {
 	if (raw == null || raw.trim() === '') return defaultLimit;
-	if (!/^\d+$/.test(raw)) throw new DataQueryValidationError('limit harus berupa bilangan bulat');
+	if (!/^\d+$/.test(raw)) throw kitError(400, 'limit harus berupa bilangan bulat');
 
 	const value = Number(raw);
 	if (!Number.isSafeInteger(value) || value < 1 || value > maxLimit) {
-		throw new DataQueryValidationError(`limit harus antara 1 dan ${maxLimit}`);
+		throw kitError(400, `limit harus antara 1 dan ${maxLimit}`);
 	}
 	return value;
 }
@@ -40,7 +35,7 @@ export function encodeDataCursor(cursor: DataCursor): string {
 
 export function decodeDataCursor(raw: string | null): DataCursor | null {
 	if (!raw) return null;
-	if (raw.length > 1024) throw new DataQueryValidationError('cursor terlalu panjang');
+	if (raw.length > 1024) throw kitError(400, 'cursor terlalu panjang');
 
 	try {
 		const value = JSON.parse(atob(raw)) as Partial<DataCursor>;
@@ -54,7 +49,7 @@ export function decodeDataCursor(raw: string | null): DataCursor | null {
 		}
 		return { sortValue: value.sortValue, id: value.id };
 	} catch {
-		throw new DataQueryValidationError('cursor tidak valid');
+		throw kitError(400, 'cursor tidak valid');
 	}
 }
 

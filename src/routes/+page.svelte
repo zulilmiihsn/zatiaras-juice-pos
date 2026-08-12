@@ -280,17 +280,17 @@
 </div>
 <div bind:this={sentinelRef} style="height:1px;width:100%"></div>
 
+<!-- Page swipe is optional; visible navigation remains the primary control. -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
 	class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-white"
 	ontouchstart={swipeNav.handleTouchStart}
 	ontouchmove={swipeNav.handleTouchMove}
 	ontouchend={swipeNav.handleTouchEnd}
 	onclick={swipeNav.handleGlobalClick}
-	onkeydown={(e) => e.key === 'Escape' && swipeNav.handleGlobalClick(e as unknown as Event)}
-	role="main"
-	tabindex="-1"
 >
 	<main
+		aria-label="Dashboard"
 		class="page-content min-h-0 w-full max-w-full flex-1 overflow-x-hidden md:mx-auto md:max-w-3xl md:rounded-2xl md:bg-white md:shadow-xl lg:max-w-5xl"
 	>
 		<div class="px-4 pt-2 pb-4 md:px-8 md:pt-4 md:pb-8 lg:px-12 lg:pt-6 lg:pb-10">
@@ -421,31 +421,3 @@
 		<!-- BottomNav hanya muncul di mobile -->
 	</div>
 </div>
-
-<style>
-	.modal-slideup {
-		animation: modalSlideUp 0.28s cubic-bezier(0.4, 1.4, 0.6, 1);
-	}
-	@keyframes modalSlideUp {
-		from {
-			transform: translateY(64px);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-	@keyframes glow {
-		0%,
-		100% {
-			box-shadow: 0 0 0 0 #ec489980;
-		}
-		50% {
-			box-shadow: 0 0 16px 4px #ec489980;
-		}
-	}
-	.animate-glow {
-		animation: glow 1.5s ease-in-out 1;
-	}
-</style>

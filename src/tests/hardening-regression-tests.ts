@@ -20,6 +20,7 @@ import { hashPin, validateNewPin, verifyPinHash } from '$lib/server/pinHash';
 import { buildMonitoringSourceStatus } from '$lib/server/monitoringStatus';
 import { getBestSellersSummary, getWeeklyIncomeSummary } from '$lib/server/dashboardQueries';
 import type { DrizzleDb } from '$lib/server/branchResolver';
+import { parseDataLimit } from '$lib/server/dataPagination';
 
 assert.equal(isPublicProductImageKey('produk/123e4567-e89b-12d3-a456-426614174000.webp'), true);
 assert.equal(isPublicProductImageKey('arsip/samarinda/arsip.json'), false);
@@ -44,6 +45,28 @@ assert.match(
 	checkoutItemCountError(Array(CHECKOUT_MAX_LINE_ITEMS + 1).fill({})) || '',
 	/Maksimal 100/
 );
+assert.equal(parseDataLimit(null), 200);
+assert.equal(parseDataLimit('25'), 25);
+assert.equal(parseDataLimit(null, 50), 50);
+assert.throws(
+	() => parseDataLimit('0'),
+	(error: unknown) => {
+		const candidate = error as { status?: unknown; body?: { message?: unknown } };
+		return (
+			candidate.status === 400 &&
+			typeof candidate.body?.message === 'string' &&
+			/antara 1 dan 500/.test(candidate.body.message)
+		);
+	}
+);
+assert.throws(() => parseDataLimit('-1'), /bilangan bulat/);
+assert.throws(() => parseDataLimit('501'), /antara 1 dan 500/);
+
+const aiChatSource = readFileSync(
+	new URL('../routes/api/aichat/+server.ts', import.meta.url),
+	'utf8'
+);
+assert.match(aiChatSource, /text\.length > 2000/);
 
 const reportChunks = chunkReportIds(
 	Array.from({ length: D1_REPORT_ID_CHUNK_SIZE * 2 + 7 }, (_, index) => `kas-${index}`)

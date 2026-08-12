@@ -51,7 +51,8 @@ test('owner completes authoritative cash checkout through POS UI', async ({ page
 		const product = page.getByRole('button', {
 			name: 'Tambah Es Teh UAT ke keranjang'
 		});
-		await expect(product).toBeVisible();
+		// First POS load compiles the catalog route in dev mode; allow the same cold-start budget as login.
+		await expect(product).toBeVisible({ timeout: 60_000 });
 		await product.click();
 		await page.getByRole('button', { name: 'Tambah ke Keranjang' }).click();
 		await page.getByRole('button', { name: 'Bayar', exact: true }).click();

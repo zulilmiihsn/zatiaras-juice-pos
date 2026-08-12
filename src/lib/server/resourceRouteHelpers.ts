@@ -3,6 +3,7 @@ import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { auditDataChange, getDb, getRawDb, payloadRows, publish } from '$lib/server/dataApiHelpers';
 import type { BranchId } from '$lib/server/branchResolver';
 import type { RealtimeTable } from '$lib/server/realtimePublisher';
+import { parseDataLimit } from '$lib/server/dataPagination';
 
 /**
  * Helper bersama untuk resource routes RESTful (pengganti dispatch /api/data).
@@ -106,7 +107,7 @@ export function makeResourceRoute(config: ResourceRouteConfig): {
 
 	const GET: RequestHandler = async ({ url, platform, locals }) => {
 		const context = buildContext(platform, locals, url.searchParams.get('branch'));
-		const limit = Number(url.searchParams.get('limit') || config.defaultLimit || 200);
+		const limit = parseDataLimit(url.searchParams.get('limit'), config.defaultLimit);
 		return json(await config.read(context, limit));
 	};
 

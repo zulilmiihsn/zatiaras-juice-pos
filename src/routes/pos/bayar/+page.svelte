@@ -8,14 +8,12 @@
 	import { formatRupiah } from '$lib/utils/currency';
 	import { PAYMENT } from '$lib/constants/ui';
 	import { formatOrderDetails } from '$lib/utils/orderDetails';
-	import {
-		Banknote,
-		CreditCard,
-		ReceiptText,
-		ShoppingBag,
-		UserRound,
-		WifiOff
-	} from 'lucide-svelte';
+	import Banknote from 'lucide-svelte/icons/banknote';
+	import CreditCard from 'lucide-svelte/icons/credit-card';
+	import ReceiptText from 'lucide-svelte/icons/receipt-text';
+	import ShoppingBag from 'lucide-svelte/icons/shopping-bag';
+	import UserRound from 'lucide-svelte/icons/user-round';
+	import WifiOff from 'lucide-svelte/icons/wifi-off';
 	import { createBayarState } from '$lib/stores/bayarState.svelte';
 
 	const s = createBayarState();

@@ -6,20 +6,6 @@ const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
-	compilerOptions: {
-		warningFilter: (warning) => {
-			// Suppress specific compiler warnings
-			const suppressed = [
-				'a11y_',
-				'state_referenced_locally',
-				'svelte_component_deprecated',
-				'css_unused_selector'
-			];
-			if (suppressed.some((prefix) => warning.code.startsWith(prefix))) return false;
-			return true;
-		}
-	},
-
 	kit: {
 		csp: {
 			mode: 'auto',

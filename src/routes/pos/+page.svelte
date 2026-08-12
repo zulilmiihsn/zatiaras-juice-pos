@@ -20,7 +20,10 @@
 	import { NOTIF, POS_SKELETON } from '$lib/constants/ui';
 	import type { CartItem } from '$lib/types/cart';
 	import { ICE_OPTIONS, SUGAR_OPTIONS } from '$lib/utils/orderDetails';
-	import { CloudAlert, Database, Plus, Search } from 'lucide-svelte';
+	import CloudAlert from 'lucide-svelte/icons/cloud-alert';
+	import Database from 'lucide-svelte/icons/database';
+	import Plus from 'lucide-svelte/icons/plus';
+	import Search from 'lucide-svelte/icons/search';
 	let currentUserRole = $state('');
 	$effect(() => {
 		currentUserRole = userRole.value || '';
@@ -346,28 +349,22 @@
 		}
 		goToBayar();
 	}
-	function handleStopPropagation(e: Event): void {
-		e.stopPropagation();
-	}
 	function handleRemoveCartItem(idx: number): void {
 		removeCartItem(idx);
 	}
-	function handleKeydownOpenAddOnModal(product: PosProduct, e: KeyboardEvent): void {
-		if (e.key === 'Enter') openAddOnModal(product);
-	}
 </script>
 
+<!-- Page swipe is optional; visible navigation remains the primary control. -->
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
 	class="flex min-h-[100dvh] w-full max-w-full flex-col overflow-x-hidden overflow-y-auto bg-white"
 	ontouchstart={swipeNav.handleTouchStart}
 	ontouchmove={swipeNav.handleTouchMove}
 	ontouchend={swipeNav.handleTouchEnd}
 	onclick={swipeNav.handleGlobalClick}
-	onkeydown={(e) => e.key === 'Escape' && swipeNav.handleGlobalClick(e as unknown as Event)}
-	role="button"
-	tabindex="0"
 >
 	<main
+		aria-label="Kasir POS"
 		class="page-content w-full max-w-full flex-1 overflow-x-hidden"
 		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>
@@ -511,11 +508,7 @@
 			<ModalSheet bind:open={showCartModal} title="Keranjang" onClose={closeCartModal}>
 				<div
 					class="min-h-0 flex-1 overflow-y-auto px-0 py-2"
-					onclick={handleStopPropagation}
-					onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
 					style="scrollbar-width:none;-ms-overflow-style:none;"
-					role="button"
-					tabindex="0"
 				>
 					{#each cart as item, idx (cartItemKey(item))}
 						<div
@@ -590,11 +583,7 @@
 			>
 				<div
 					class="addon-list addon-modal-content min-h-0 flex-1 overflow-y-auto pb-48"
-					onclick={handleStopPropagation}
-					onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
 					style="scrollbar-width:none;-ms-overflow-style:none;"
-					role="button"
-					tabindex="0"
 				>
 					{#if selectedProduct && selectedProduct.tipe === 'minuman'}
 						<div class="mt-4 mb-2 text-base font-semibold text-gray-800">Jenis Gula</div>

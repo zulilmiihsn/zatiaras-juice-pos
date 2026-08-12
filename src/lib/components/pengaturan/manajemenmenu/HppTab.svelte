@@ -123,12 +123,15 @@
 
 				<div class="flex flex-col gap-4">
 					<div class="flex flex-col gap-1.5">
-						<label class="ml-1 text-xs font-semibold text-gray-600">Sewa Kios</label>
+						<label for="hpp-sewa-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
+							>Sewa Kios</label
+						>
 						<div class="relative">
 							<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
 								>Rp</span
 							>
 							<input
+								id="hpp-sewa-bulanan"
 								class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-11 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 								type="text"
 								placeholder="0"
@@ -139,12 +142,15 @@
 					</div>
 					<div class="flex gap-4">
 						<div class="flex flex-1 flex-col gap-1.5">
-							<label class="ml-1 text-xs font-semibold text-gray-600">Listrik</label>
+							<label for="hpp-listrik-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
+								>Listrik</label
+							>
 							<div class="relative">
 								<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
 									>Rp</span
 								>
 								<input
+									id="hpp-listrik-bulanan"
 									class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-11 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 									type="text"
 									placeholder="0"
@@ -154,12 +160,15 @@
 							</div>
 						</div>
 						<div class="flex flex-1 flex-col gap-1.5">
-							<label class="ml-1 text-xs font-semibold text-gray-600">Air Bersih</label>
+							<label for="hpp-air-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
+								>Air Bersih</label
+							>
 							<div class="relative">
 								<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
 									>Rp</span
 								>
 								<input
+									id="hpp-air-bulanan"
 									class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-11 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 									type="text"
 									placeholder="0"
@@ -170,12 +179,15 @@
 						</div>
 					</div>
 					<div class="flex flex-col gap-1.5">
-						<label class="ml-1 text-xs font-semibold text-gray-600">Gaji Karyawan</label>
+						<label for="hpp-gaji-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
+							>Gaji Karyawan</label
+						>
 						<div class="relative">
 							<span class="absolute top-1/2 left-4 -translate-y-1/2 font-medium text-gray-400"
 								>Rp</span
 							>
 							<input
+								id="hpp-gaji-bulanan"
 								class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-11 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 								type="text"
 								placeholder="0"
@@ -185,7 +197,7 @@
 						</div>
 					</div>
 					<div class="flex flex-col gap-1.5">
-						<label class="ml-1 text-xs font-semibold text-gray-600"
+						<label for="hpp-lainnya-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
 							>Lain-lain (Internet, Keamanan)</label
 						>
 						<div class="relative">
@@ -193,6 +205,7 @@
 								>Rp</span
 							>
 							<input
+								id="hpp-lainnya-bulanan"
 								class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-11 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 								type="text"
 								placeholder="0"
@@ -202,10 +215,11 @@
 						</div>
 					</div>
 					<div class="mt-2 flex flex-col gap-1.5 border-t border-gray-50 pt-4">
-						<label class="ml-1 text-xs font-semibold text-gray-600"
+						<label for="hpp-target-item-bulanan" class="ml-1 text-xs font-semibold text-gray-600"
 							>Target Penjualan (Item/Bulan)</label
 						>
 						<input
+							id="hpp-target-item-bulanan"
 							class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-100"
 							type="text"
 							placeholder="1000"

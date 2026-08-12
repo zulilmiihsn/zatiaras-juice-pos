@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import { ShoppingCart } from 'lucide-svelte';
+	import ShoppingCart from 'lucide-svelte/icons/shopping-cart';
 	import { formatRupiah } from '$lib/utils/currency';
 
 	let {
@@ -53,6 +53,8 @@
 </script>
 
 {#if cart.length > 0}
+	<!-- Swipe-to-clear is optional; explicit cart and payment controls remain keyboard accessible. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={cartPreviewRef}
 		class="fixed right-3 bottom-16 left-3 z-20 flex min-h-[68px] items-center justify-between rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-3 text-base font-medium text-white shadow-xl shadow-pink-500/30 md:right-6 md:left-6"
