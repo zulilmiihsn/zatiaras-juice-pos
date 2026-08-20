@@ -1,100 +1,61 @@
-# 🍹 ZatiarasPOS
+<div align="center">
 
-**Zatiaras POS** adalah aplikasi Point of Sale (POS) modern yang dirancang khusus untuk bisnis retailnya Zatiaras dengan fitur multi-branch yang powerful.
+# 💳 Zatiaras POS — Commercial Multi-Branch Retail & Revenue Engine
 
-## ✨ Tentang Aplikasi
+A production-grade, offline-resilient Point of Sale (POS) and inventory management platform built to scale daily commercial operations across retail branches.
 
-ZatiarasPOS dibuat untuk menjadi solusi lengkap untuk mengelola operasional usaha Zatiaras dengan interface yang user-friendly dan fitur yang komprehensif. Aplikasi ini dibangun dengan teknologi modern untuk memberikan pengalaman terbaik bagi kasir, manajer, dan pemilik bisnis.
+[![Live Demo](https://img.shields.io/badge/Live_Application-Vercel-black?style=flat-square&logo=vercel)](https://zatiaraspos.vercel.app)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)](https://kit.svelte.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-## 🎯 Fitur Utama
+[Explore Application](https://zatiaraspos.vercel.app) • [Business Value](#-business-value--problem-solved) • [Key Capabilities](#-key-capabilities) • [System Architecture](#-system-architecture)
 
-### 🏠 Dashboard & Analytics
-
-- **Metrik Real-time**: Omzet, transaksi, item terjual, profit
-- **Grafik Pendapatan**: Visualisasi 7 hari terakhir dengan animasi
-- **Menu Terlaris**: Ranking produk dengan statistik penjualan
-- **Statistik WITA**: Analisis berdasarkan waktu Indonesia Tengah
-
-### 💰 Point of Sale (POS)
-
-- Interface kasir yang intuitif dan responsif
-- Pencarian produk dengan fuzzy search
-- Manajemen cart dengan kalkulasi otomatis
-- Multiple payment methods (Tunai/Non-tunai)
-- Real-time inventory synchronization
-
-### 📊 Sistem Transaksi
-
-- **Buka/Tutup Toko**: Manajemen sesi dengan modal awal
-- Pencatatan pemasukan & pengeluaran
-- Kategorisasi transaksi (Usaha/Lainnya)
-- Offline support dengan pending transactions
-
-### 📈 Laporan & Analytics
-
-- Laporan harian dan multi-day
-- Filter berdasarkan tanggal WITA
-- Breakdown pemasukan & pengeluaran
-- Analisis profit & laba
-- Real-time report updates
-
-### ⚙️ Manajemen Sistem
-
-- **Keamanan**: PIN protection, role-based access
-- **Menu Management**: Pengaturan produk dan kategori
-- **Printer Settings**: Konfigurasi printer
-- **Branch Management**: Multi-cabang support
-
-## 🏗️ Arsitektur Teknologi
-
-### Frontend
-
-- **SvelteKit 5.0** - Framework modern dengan performa tinggi
-- **TypeScript** - Type safety dan developer experience
-- **Tailwind CSS** - Utility-first CSS framework
-- **PWA Support** - Installable dengan offline capabilities
-
-### Backend & Database
-
-- **Supabase** - PostgreSQL database dengan real-time features
-- **Custom Auth System** - Authentication yang aman dan fleksibel
-- **Multi-branch Support** - Database terpisah per cabang
-
-### Performance & Security
-
-- **Smart Caching** - Multi-layer caching system
-- **Real-time Updates** - Live synchronization
-- **Security Middleware** - XSS protection, rate limiting
-- **Input Validation** - Sanitasi dan validasi data
-
-## 🎨 Design & UX
-
-- **Mobile-First Design** - Optimized untuk perangkat mobile
-- **Touch Gestures** - Swipe navigation, long press insights
-- **Smooth Animations** - Transisi yang halus dan engaging
-- **Responsive Layout** - Adaptif untuk berbagai ukuran layar
-- **Accessibility** - Keyboard navigation dan screen reader support
-
-## 🚀 Keunggulan
-
-- **Multi-Branch Ready** - Support untuk multiple cabang
-- **Offline Capability** - Bisa beroperasi tanpa internet
-- **Real-time Sync** - Data selalu up-to-date
-- **Performance Optimized** - Caching dan optimization
-- **Security First** - Keamanan tingkat enterprise
-- **User Experience** - Interface yang intuitif dan mudah digunakan
-
-## 🎭 Target Pengguna
-
-- **Kasir** - Interface yang simple dan cepat
-- **Manajer** - Laporan dan analisis yang detail
-- **Pemilik** - Overview bisnis yang komprehensif
-- **Admin** - Manajemen sistem yang powerful
-
-## 🌟 Visi
-
-Zatiaras POS hadir untuk mengubah cara bisnis retail dan restoran mengelola operasional mereka. Dengan teknologi modern dan design yang user-friendly, kami berkomitmen memberikan solusi POS terbaik yang memudahkan pengguna dalam menjalankan bisnis mereka.
+</div>
 
 ---
 
-_Dibuat dengan ❤️ untuk Zatiaras
+## 💼 Business Value & Problem Solved
+
+Independent retail and F&B businesses frequently struggle with fragmented inventory tracking, cash leaks during shift handovers, and system downtime during unstable internet connectivity.
+
+**Zatiaras POS** was engineered as an all-in-one business operations solution:
+- **Prevents Revenue Leakage**: Automated shift drawer tracking balances opening cash, daily cash in/out, and expected closing drawer amounts.
+- **Continuous Business Uptime**: Full offline-first transaction support ensures cashiers never stop selling even when connectivity drops.
+- **Actionable Decision Analytics**: Real-time sales velocities and product rankings empower managers to make data-driven restock decisions.
+
+---
+
+## ⚡ Key Capabilities
+
+### 🛒 High-Velocity Checkout Terminal
+- Instant product fuzzy-filtering and single-click cart management.
+- Multi-channel payment reconciliation (Cash, QRIS, Bank Transfer).
+- Automated receipt calculation and thermal printer connectivity.
+
+### 🏢 Multi-Branch & Drawer Ledger
+- Branch-scoped database separation and role-based permissions (Cashier vs Manager).
+- Opening/Closing shift audits with WITA time-zone financial reports.
+- Comprehensive expense and operating cost categorization.
+
+### 🛡️ Resilience & Security
+- Instant local caching for lightning-fast responsiveness under high load.
+- PIN-protected manager override actions and immutable transaction logs.
+
+---
+
+## 🛠️ System Architecture
+
+```text
+├── Presentation Layer : SvelteKit 5, TypeScript, Tailwind CSS, PWA
+├── Data & Real-time   : Supabase (PostgreSQL), Row-Level Security (RLS)
+├── State & Caching    : Multi-tier offline memory & indexed storage cache
+└── Infrastructure     : Vercel Cloud Edge Network
+```
+
+---
+
+<div align="center">
+  Crafted by <a href="https://github.com/zulilmiihsn"><strong>Zul Ilmi Ihsan</strong></a> • AI Product Engineer
+</div>
