@@ -15,7 +15,7 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 
 ## Kandidat teknis
 
-- [x] Catat `RELEASE_COMMIT_SHA` dari candidate HEAD: `25fa022002ca308a162fedf5d9c672d2433858e7`
+- [x] Catat `RELEASE_COMMIT_SHA` dari candidate HEAD: `08873d7616d0ac33b80cdc67e323306b602fe72d`
 - [x] Tinjau manifest/diff `RELEASE_COMMIT_SHA`; catat seluruh file source, test, dependency, dan dokumen yang masuk release.
 - [ ] Pastikan branch release yang disepakati di origin memuat commit tersebut (saat ini branch lokal ahead 3, siap di-push ke origin).
 - [x] Pastikan tidak ada SQL, manifest, `.env`, cookie, token, atau secret dalam commit.
