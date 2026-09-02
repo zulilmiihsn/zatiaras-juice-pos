@@ -267,6 +267,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const paymentMethod = normalizePaymentMethod(body.metode_bayar);
 	const customerName = sanitizeShortText(body.nama_pelanggan, 60);
 
+	interface RawCheckoutItem {
+		custom_price?: number;
+		jumlah?: number;
+	}
+
 	const requestFingerprint = computeTransactionFingerprint({
 		branch,
 		storeSessionId: body.store_session_id,
@@ -274,13 +279,13 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		items: rawItems,
 		totalAmount: quoteData
 			? quoteData.total_amount
-			: rawItems.reduce(
-					(s: number, i: any) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
+			: (rawItems as RawCheckoutItem[]).reduce(
+					(s: number, i) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
 					0
 				),
 		totalQty: quoteData
 			? quoteData.total_qty
-			: rawItems.reduce((s: number, i: any) => s + Number(i.jumlah || 0), 0),
+			: (rawItems as RawCheckoutItem[]).reduce((s: number, i) => s + Number(i.jumlah || 0), 0),
 		paymentMethod,
 		customerName
 	});

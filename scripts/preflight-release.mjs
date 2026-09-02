@@ -35,6 +35,33 @@ try {
 	execSync('pnpm test:all', { stdio: 'inherit' });
 	console.log('✅ All release gate tests passed.');
 
+	// 4. Record build artifact hashes
+	const { readdirSync, readFileSync, writeFileSync, existsSync } = await import('node:fs');
+	const { createHash } = await import('node:crypto');
+	const buildDir = '.svelte-kit/cloudflare';
+	const artifactsManifest = {
+		recorded_at: new Date().toISOString(),
+		commit_sha: headSha,
+		artifacts: {}
+	};
+	if (existsSync(buildDir)) {
+		const files = readdirSync(buildDir, { recursive: true }).filter(
+			(f) => typeof f === 'string' && !f.includes('node_modules')
+		);
+		for (const f of files.slice(0, 50)) {
+			try {
+				const full = `${buildDir}/${f}`;
+				const stat = await import('node:fs').then((fs) => fs.statSync(full));
+				if (stat.isFile()) {
+					const buf = readFileSync(full);
+					artifactsManifest.artifacts[f] = createHash('sha256').update(buf).digest('hex');
+				}
+			} catch {}
+		}
+	}
+	writeFileSync('build-artifacts.json', JSON.stringify(artifactsManifest, null, 2), 'utf8');
+	console.log('✅ Recorded build artifact SHA-256 hashes in build-artifacts.json.');
+
 	console.log(
 		'🎉 Release Preflight COMPLETE: Candidate is ready for production migration and deployment!'
 	);

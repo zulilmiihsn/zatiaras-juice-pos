@@ -50,6 +50,12 @@ if (!archive || typeof archive !== 'object' || !archive.meta || !Array.isArray(a
 }
 
 const { meta, buku_kas, transaksi_kasir = [] } = archive;
+const schemaVersion = Number(meta.schema_version || 1);
+if (![1, 2].includes(schemaVersion)) {
+	console.error(`ERROR: Versi skema arsip tidak didukung: ${meta.schema_version} (didukung: 1, 2)`);
+	process.exit(1);
+}
+
 const archiveId = meta.archive_id || meta.id || 'unknown';
 const branch = meta.branch || 'samarinda';
 
@@ -64,6 +70,7 @@ const resolvedBinding = argValue('--binding') || BRANCH_TO_BINDING[branch] || 'D
 
 console.log('=== ZatiarasPOS Archive Validation ===');
 console.log(`Archive ID    : ${archiveId}`);
+console.log(`Schema Version: ${schemaVersion}`);
 console.log(`Branch        : ${branch}`);
 console.log(`Target Binding: ${resolvedBinding}`);
 console.log(`Before Year   : ${meta.before_year || 'unknown'}`);
@@ -137,8 +144,9 @@ if (archiveId && archiveId !== 'unknown') {
 	);
 }
 
-// 2. Insert buku_kas rows
+// 2. Insert buku_kas rows with historical-restored marking
 for (const b of buku_kas) {
+	const restoredDeskripsi = b.deskripsi ? `[ARSIP RESTORED] ${b.deskripsi}` : '[ARSIP RESTORED]';
 	sqlLines.push(
 		`INSERT OR REPLACE INTO buku_kas (
 			id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi,
@@ -146,8 +154,8 @@ for (const b of buku_kas) {
 			request_fingerprint, receipt_snapshot, id_sesi_toko, created_at, updated_at
 		) VALUES (
 			${sqlVal(b.id)}, ${sqlVal(b.cabang_id || branch)}, ${sqlVal(b.waktu)},
-			${sqlVal(b.sumber || 'arsip_restored')}, ${sqlVal(b.tipe)}, ${sqlVal(b.jenis)},
-			${sqlVal(b.nominal)}, ${sqlVal(b.jumlah)}, ${sqlVal(b.deskripsi)},
+			'arsip_restored', ${sqlVal(b.tipe)}, ${sqlVal(b.jenis)},
+			${sqlVal(b.nominal)}, ${sqlVal(b.jumlah)}, ${sqlVal(restoredDeskripsi)},
 			${sqlVal(b.nama_pelanggan)}, ${sqlVal(b.metode_bayar)}, ${sqlVal(b.transaction_id)},
 			${sqlVal(b.idempotency_key)}, ${sqlVal(b.request_fingerprint)}, ${sqlVal(b.receipt_snapshot)},
 			${sqlVal(b.id_sesi_toko)}, ${sqlVal(b.created_at)}, ${sqlVal(b.updated_at || new Date().toISOString())}
@@ -173,6 +181,13 @@ for (const t of transaksi_kasir) {
 		);`
 	);
 }
+
+// 4. Audit Log restore di pengaturan
+sqlLines.push(
+	`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+	 VALUES (${sqlVal(randomUUID())}, ${sqlVal(branch)}, ${sqlVal('archive_restore_' + archiveId)}, ${sqlVal(JSON.stringify({ restored_at: new Date().toISOString(), archive_id: archiveId, sha256 }))}, ${sqlVal(new Date().toISOString())})
+	 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at;`
+);
 
 sqlLines.push('COMMIT;');
 

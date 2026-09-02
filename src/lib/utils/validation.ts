@@ -158,3 +158,82 @@ export function validateTime(time: string): ValidationResult {
 
 	return { isValid: true, errors: [] };
 }
+
+// ── Schema Runtime Validators (DEBT-001) ──────────────────────────────────
+
+export interface RuntimeValidation<T> {
+	success: boolean;
+	data?: T;
+	error?: string;
+}
+
+export function validateCheckoutPayload(input: unknown): RuntimeValidation<{
+	items: Array<{ product_id?: string; jumlah: number; [key: string]: unknown }>;
+	metode_bayar: string;
+	idempotency_key: string;
+	cash_received?: number;
+	customer_name?: string;
+}> {
+	if (!input || typeof input !== 'object') {
+		return { success: false, error: 'Payload transaksi harus berupa object' };
+	}
+	const obj = input as Record<string, unknown>;
+	if (!Array.isArray(obj.items) || obj.items.length === 0) {
+		return { success: false, error: 'Item transaksi tidak boleh kosong' };
+	}
+	for (const it of obj.items) {
+		if (
+			!it ||
+			typeof it !== 'object' ||
+			typeof (it as Record<string, unknown>).jumlah !== 'number'
+		) {
+			return { success: false, error: 'Setiap item harus memiliki jumlah valid' };
+		}
+	}
+	if (typeof obj.idempotency_key !== 'string' || obj.idempotency_key.length < 8) {
+		return { success: false, error: 'idempotency_key harus berupa string minimal 8 karakter' };
+	}
+	const metode = typeof obj.metode_bayar === 'string' ? obj.metode_bayar : 'tunai';
+	return {
+		success: true,
+		data: {
+			items: obj.items as Array<{ product_id?: string; jumlah: number }>,
+			metode_bayar: metode,
+			idempotency_key: obj.idempotency_key,
+			cash_received: typeof obj.cash_received === 'number' ? obj.cash_received : undefined,
+			customer_name: typeof obj.nama_pelanggan === 'string' ? obj.nama_pelanggan : undefined
+		}
+	};
+}
+
+export function validateTaxConfigPayload(input: unknown): RuntimeValidation<{
+	enabled: boolean;
+	rate: number;
+	apply_threshold: boolean;
+	threshold?: number;
+	nama?: string;
+}> {
+	if (!input || typeof input !== 'object') {
+		return { success: false, error: 'Payload konfigurasi pajak harus berupa object' };
+	}
+	const obj = input as Record<string, unknown>;
+	if (typeof obj.enabled !== 'boolean') {
+		return { success: false, error: 'Field enabled harus bertipe boolean' };
+	}
+	const rate = Number(obj.rate);
+	if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
+		return { success: false, error: 'Rate pajak harus antara 0 dan 1 (0% - 100%)' };
+	}
+	const threshold =
+		typeof obj.threshold === 'number' && Number.isFinite(obj.threshold) ? obj.threshold : undefined;
+	return {
+		success: true,
+		data: {
+			enabled: obj.enabled,
+			rate,
+			apply_threshold: Boolean(obj.apply_threshold),
+			threshold,
+			nama: typeof obj.nama === 'string' ? obj.nama : undefined
+		}
+	};
+}

@@ -1,6 +1,7 @@
 import {
 	getTaxSettings,
 	saveTaxSettings,
+	syncTaxSettingsWithServer,
 	DEFAULT_TAX_SETTINGS,
 	calculateTaxes
 } from '$lib/services/taxService';
@@ -11,8 +12,15 @@ export function createTaxSettingsState() {
 	let isSaving = $state<boolean>(false);
 	let saveSuccessMessage = $state<string | null>(null);
 
+	async function syncWithServer(branch?: string) {
+		const synced = await syncTaxSettingsWithServer(branch);
+		settings = synced;
+		return synced;
+	}
+
 	function refresh() {
 		settings = getTaxSettings();
+		void syncWithServer();
 	}
 
 	function persist() {
@@ -101,6 +109,7 @@ export function createTaxSettingsState() {
 			return saveSuccessMessage;
 		},
 		refresh,
+		syncWithServer,
 		setMasterTaxEnabled,
 		toggleTax,
 		updateTaxPercentage,

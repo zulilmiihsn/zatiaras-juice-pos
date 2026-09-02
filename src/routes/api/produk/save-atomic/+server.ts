@@ -2,6 +2,7 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody } from '$lib/server/resourceRouteHelpers';
+import type { D1PreparedStatement } from '@cloudflare/workers-types';
 import type { RequestHandler } from './$types';
 
 interface AtomicProductInput {
@@ -131,7 +132,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		}
 	}
 
-	const statements: any[] = [];
+	const statements: D1PreparedStatement[] = [];
 
 	if (isEdit) {
 		statements.push(

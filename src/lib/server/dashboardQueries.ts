@@ -88,7 +88,7 @@ export async function getBestSellersSummary(
 		.bind(branch, startDate, endDate)
 		.all();
 
-	return (rows.results || []).map((row: any) => ({
+	return ((rows.results || []) as Array<Record<string, unknown>>).map((row) => ({
 		...row,
 		nama_produk: String(row.nama_produk || '')
 			.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')

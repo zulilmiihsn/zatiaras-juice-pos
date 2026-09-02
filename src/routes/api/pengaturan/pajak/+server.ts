@@ -2,6 +2,7 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody } from '$lib/server/resourceRouteHelpers';
+import { validateTaxConfigPayload } from '$lib/utils/validation';
 import type { RequestHandler } from './$types';
 
 export interface BranchTaxConfig {
@@ -59,16 +60,18 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = await parseBody<{ config?: Partial<BranchTaxConfig> }>(request);
+	const body = await parseBody<{ config?: unknown }>(request);
 	if (!body?.config) {
 		throw kitError(400, 'Payload konfigurasi pajak tidak valid');
 	}
 
-	const input = body.config;
-	const rate = Number(input.rate ?? 0.005);
-	if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
-		throw kitError(400, 'Tarif pajak harus antara 0% dan 100%');
+	const validated = validateTaxConfigPayload(body.config);
+	if (!validated.success || !validated.data) {
+		throw kitError(400, validated.error || 'Payload konfigurasi pajak tidak valid');
 	}
+
+	const input = validated.data;
+	const rate = input.rate;
 
 	const threshold = Number(input.threshold ?? 500_000_000);
 	if (!Number.isFinite(threshold) || threshold < 0) {

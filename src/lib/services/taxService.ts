@@ -1,5 +1,11 @@
 const browser = typeof window !== 'undefined';
-import type { TaxSettings, TaxCalculationResult, TaxItemBreakdown } from '$lib/types/pajak';
+import type {
+	TaxSettings,
+	TaxCalculationResult,
+	TaxItemBreakdown,
+	TaxItemConfig,
+	TaxType
+} from '$lib/types/pajak';
 
 export const TAX_STORAGE_KEY = 'zatiara_tax_settings';
 
@@ -35,8 +41,30 @@ export const DEFAULT_TAX_SETTINGS: TaxSettings = {
 	]
 };
 
+function parseTaxItem(item: unknown): TaxItemConfig {
+	const t = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+	const tipe =
+		typeof t.tipe === 'string' && ['pph_final', 'pbjt_restoran', 'ppn', 'custom'].includes(t.tipe)
+			? (t.tipe as TaxType)
+			: 'custom';
+	const persentase =
+		typeof t.persentase === 'number' && Number.isFinite(t.persentase) ? t.persentase : 0;
+	return {
+		id: String(t.id || `tax_${Date.now()}`),
+		nama: String(t.nama || 'Pajak'),
+		tipe,
+		persentase,
+		isEnabled: Boolean(t.isEnabled),
+		deskripsi: typeof t.deskripsi === 'string' ? t.deskripsi : undefined,
+		useThreshold500Juta: Boolean(t.useThreshold500Juta)
+	};
+}
+
+const inFlightSync = new Map<string, Promise<TaxSettings>>();
+
 /**
  * Memuat konfigurasi pajak dari localStorage (per branch) atau default
+ * Menjalankan migrasi legacy key dan auto-sinkronisasi ke server D1 di background
  */
 export function getTaxSettings(branch?: string): TaxSettings {
 	if (!browser) {
@@ -49,9 +77,27 @@ export function getTaxSettings(branch?: string): TaxSettings {
 			localStorage.getItem('selectedBranch') ||
 			'samarinda'
 		).toLowerCase();
-		const raw =
-			localStorage.getItem(`zatiaras_tax_settings_${targetBranch}`) ||
-			localStorage.getItem(TAX_STORAGE_KEY);
+
+		// Migrasi legacy key jika ada
+		const legacyRaw = localStorage.getItem(TAX_STORAGE_KEY);
+		const branchKey = `zatiaras_tax_settings_${targetBranch}`;
+		let raw = localStorage.getItem(branchKey);
+
+		if (!raw && legacyRaw) {
+			raw = legacyRaw;
+			localStorage.setItem(branchKey, legacyRaw);
+			// Auto push legacy config to server D1
+			void syncTaxSettingsWithServer(targetBranch);
+		}
+
+		// Trigger auto-sync di background agar cache selalu fresh dari D1
+		if (!inFlightSync.has(targetBranch)) {
+			const syncPromise = syncTaxSettingsWithServer(targetBranch).finally(() => {
+				inFlightSync.delete(targetBranch);
+			});
+			inFlightSync.set(targetBranch, syncPromise);
+		}
+
 		if (!raw) {
 			return DEFAULT_TAX_SETTINGS;
 		}
@@ -60,18 +106,9 @@ export function getTaxSettings(branch?: string): TaxSettings {
 			return DEFAULT_TAX_SETTINGS;
 		}
 
-		// Pastikan semua field valid dan gabungkan jika ada preset baru
 		return {
 			isTaxEnabled: typeof parsed.isTaxEnabled === 'boolean' ? parsed.isTaxEnabled : true,
-			taxes: parsed.taxes.map((t: any) => ({
-				id: String(t.id || `tax_${Date.now()}`),
-				nama: String(t.nama || 'Pajak Kustom'),
-				tipe: t.tipe || 'custom',
-				persentase: typeof t.persentase === 'number' && !isNaN(t.persentase) ? t.persentase : 0,
-				isEnabled: Boolean(t.isEnabled),
-				deskripsi: t.deskripsi ? String(t.deskripsi) : undefined,
-				useThreshold500Juta: Boolean(t.useThreshold500Juta)
-			}))
+			taxes: parsed.taxes.map(parseTaxItem)
 		};
 	} catch {
 		return DEFAULT_TAX_SETTINGS;
@@ -91,7 +128,15 @@ export async function syncTaxSettingsWithServer(branch?: string): Promise<TaxSet
 		).toLowerCase();
 		const res = await fetch(`/api/pengaturan/pajak?branch=${targetBranch}`);
 		if (res.ok) {
-			const json = await res.json();
+			const json = (await res.json()) as {
+				ok?: boolean;
+				data?: {
+					enabled: boolean;
+					nama?: string;
+					rate?: number;
+					apply_threshold?: boolean;
+				};
+			};
 			if (json.ok && json.data) {
 				const serverCfg = json.data;
 				const localSettings: TaxSettings = {

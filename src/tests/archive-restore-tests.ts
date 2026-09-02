@@ -78,7 +78,23 @@ assert.equal(gasSummary.count, 1);
 assert.equal(gasSummary.total_nominal, 50_000);
 
 // 3. Behavioral Report Aggregator with Active vs Archived Parity
-function calculateReportFinancials(activeRows: any[], archivedSummaries: any[], posGross: number) {
+interface CashRow {
+	nominal?: number;
+	tipe: string;
+	jenis: string;
+}
+
+interface SummaryRow {
+	total_nominal?: number;
+	tipe: string;
+	jenis: string;
+}
+
+function calculateReportFinancials(
+	activeRows: CashRow[],
+	archivedSummaries: SummaryRow[],
+	posGross: number
+) {
 	let income = posGross;
 	let expense = 0;
 	let omzetUsaha = posGross;

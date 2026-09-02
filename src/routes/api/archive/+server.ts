@@ -127,8 +127,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		.run()
 		.catch(() => {});
 
+	const archiveJobId = crypto.randomUUID();
+
 	try {
-		// Conflict Detection: Pastikan tidak ada sesi toko yang sedang aktif di cabang ini
+		// Conflict Detection 1: Pastikan tidak ada sesi toko yang sedang aktif di cabang ini
 		const activeSession = (await rawDb
 			.prepare(`SELECT id FROM sesi_toko WHERE cabang_id = ? AND is_active = 1 LIMIT 1`)
 			.bind(branch)
@@ -141,6 +143,43 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				'Konflik arsip: Sesi toko masih aktif di cabang ini. Tutup sesi kasir terlebih dahulu.'
 			);
 		}
+
+		// Conflict Detection 2: Pastikan tidak ada antrean offline yang tertunda
+		const pendingQueue = (await rawDb
+			.prepare(
+				`SELECT count(*) as cnt FROM antrean_offline WHERE cabang_id = ? AND status IN ('pending', 'syncing')`
+			)
+			.bind(branch)
+			.first()
+			.catch(() => null)) as { cnt?: number } | null;
+
+		if (pendingQueue && Number(pendingQueue.cnt) > 0) {
+			throw kitError(
+				409,
+				`Konflik arsip: Ada ${pendingQueue.cnt} transaksi offline yang belum tersinkronisasi. Selesaikan sinkronisasi terlebih dahulu.`
+			);
+		}
+
+		// Job Tracking: Catat awal proses pengarsipan
+		await rawDb
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+				 VALUES (?, ?, 'archive_job', ?, ?)
+				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
+			)
+			.bind(
+				crypto.randomUUID(),
+				branch,
+				JSON.stringify({
+					id: archiveJobId,
+					status: 'running',
+					year,
+					started_at: new Date().toISOString()
+				}),
+				new Date().toISOString()
+			)
+			.run()
+			.catch(() => {});
 
 		const [bukuKasResult, transaksiKasirResult] = await Promise.all([
 			rawDb
@@ -162,6 +201,27 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 		const total = bukuKas.length + transaksiKasir.length;
 		if (total === 0) {
+			await rawDb
+				.prepare(
+					`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+					 VALUES (?, ?, 'archive_job', ?, ?)
+					 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
+				)
+				.bind(
+					crypto.randomUUID(),
+					branch,
+					JSON.stringify({
+						id: archiveJobId,
+						status: 'completed',
+						year,
+						total: 0,
+						completed_at: new Date().toISOString()
+					}),
+					new Date().toISOString()
+				)
+				.run()
+				.catch(() => {});
+
 			return json({
 				ok: true,
 				count: 0,
@@ -172,6 +232,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		const archiveId = crypto.randomUUID();
 		const archive = {
 			meta: {
+				schema_version: 2,
 				archive_id: archiveId,
 				branch,
 				before_year: year,
@@ -307,6 +368,29 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			await rawDb.batch(batchStatements);
 		}
 
+		await rawDb
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+				 VALUES (?, ?, 'archive_job', ?, ?)
+				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
+			)
+			.bind(
+				crypto.randomUUID(),
+				branch,
+				JSON.stringify({
+					id: archiveJobId,
+					status: 'completed',
+					year,
+					key,
+					checksum,
+					counts: archive.meta.counts,
+					completed_at: new Date().toISOString()
+				}),
+				new Date().toISOString()
+			)
+			.run()
+			.catch(() => {});
+
 		return json({
 			ok: true,
 			count: total,
@@ -315,6 +399,28 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			content,
 			counts: archive.meta.counts
 		});
+	} catch (err) {
+		await rawDb
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+				 VALUES (?, ?, 'archive_job', ?, ?)
+				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
+			)
+			.bind(
+				crypto.randomUUID(),
+				branch,
+				JSON.stringify({
+					id: archiveJobId,
+					status: 'failed',
+					year,
+					error: err instanceof Error ? err.message : String(err),
+					failed_at: new Date().toISOString()
+				}),
+				new Date().toISOString()
+			)
+			.run()
+			.catch(() => {});
+		throw err;
 	} finally {
 		await rawDb
 			.prepare(

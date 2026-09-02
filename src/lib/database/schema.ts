@@ -359,7 +359,7 @@ export const pengaturan = sqliteTable(
 	},
 	(table) => [
 		index('idx_pengaturan_branch').on(table.cabang_id),
-		index('idx_pengaturan_branch_kunci').on(table.cabang_id, table.kunci)
+		uniqueIndex('idx_pengaturan_branch_kunci').on(table.cabang_id, table.kunci)
 	]
 );
 
