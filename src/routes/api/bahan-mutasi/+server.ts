@@ -53,14 +53,14 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		throw kitError(400, 'Mutasi bahan tidak valid');
 	}
 
-	// Validasi: bahan harus ada.
+	// [CATATAN]: Validasi: bahan harus ada.
 	const item = (await rawDb
 		.prepare(`SELECT id FROM bahan WHERE cabang_id = ? AND id = ? LIMIT 1`)
 		.bind(branch, bahanId)
 		.first()) as { id: string } | null;
 	if (!item) throw kitError(404, 'Bahan tidak ditemukan');
 
-	// Atomic: update stok bahan + catat mutasi dalam satu batch D1 (transaksional).
+	// [CATATAN]: Atomic: update stok bahan + catat mutasi dalam satu batch D1 (transaksional).
 	const now = new Date().toISOString();
 	try {
 		await rawDb.batch([
@@ -105,7 +105,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		throw error;
 	}
 
-	// Mutasi menyentuh 2 resource: publish event untuk bahan (stok berubah) DAN bahan_mutasi.
+	// [CATATAN]: Mutasi menyentuh 2 resource: publish event untuk bahan (stok berubah) DAN bahan_mutasi.
 	await publish(platform, branch, 'bahan', 'update', { id: bahanId });
 	await publish(platform, branch, 'bahan_mutasi', 'insert', { id: row.id });
 	await auditDataChange(rawDb, branch, session, 'bahan_mutasi', 'insert', row.id, {

@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import Store from '@lucide/svelte/icons/store';
+	import Lock from '@lucide/svelte/icons/lock';
+	import X from '@lucide/svelte/icons/x';
 	import { transactionService } from '$lib/services/transactionService';
 	import { bukaToko, tutupToko } from '$lib/services/sesiTokoService';
 	import { getNowWita, getTodayWita, witaToUtcISO } from '$lib/utils/dateTime';
@@ -47,21 +50,23 @@
 
 		let kas: BukuKasRecord[] = Array.isArray(kasRaw) ? kasRaw : [];
 
-		// Penjualan tunai (semua pemasukan tunai)
+		// [CATATAN]: Penjualan tunai (semua pemasukan tunai)
 		const penjualanTunai = kas
 			.filter((t) => t.tipe === 'in' && t.metode_bayar === 'tunai')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
-		// Pengeluaran tunai
+		// [CATATAN]: Pengeluaran tunai
 		const pengeluaranTunai = kas
 			.filter((t) => t.tipe === 'out' && t.metode_bayar === 'tunai')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
 		const modalAwalValue = sesiAktif.kas_awal || 0;
-		// Total penjualan = semua pemasukan (in) dari sumber pos
+		// [CATATAN]: Total penjualan = semua pemasukan (in)
 		const totalPenjualan = kas
-			.filter((t) => t.tipe === 'in' && t.sumber === 'pos')
+			.filter((t) => t.tipe === 'in')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
-		// Uang kasir seharusnya
+
+		// [CATATAN]: Uang kasir = modal awal + pemasukan tunai - pengeluaran tunai
 		const uangKasir = modalAwalValue + penjualanTunai - pengeluaranTunai;
+
 		ringkasanTutup = {
 			modalAwal: modalAwalValue,
 			totalPenjualan,
@@ -72,146 +77,194 @@
 	}
 
 	async function handleBukaToko() {
-		const modalAwalRaw = Number((modalAwalInput || '').replace(/\D/g, ''));
-		if (!modalAwalRaw || isNaN(modalAwalRaw) || modalAwalRaw < 0) {
-			pinErrorToko = 'Modal awal wajib diisi dan valid';
+		pinErrorToko = '';
+		const modalClean = modalAwalInput.replace(/\./g, '').replace(/[^0-9]/g, '');
+		const modalAwal = parseInt(modalClean, 10);
+		if (isNaN(modalAwal) || modalAwal < 0) {
+			pinErrorToko = 'Masukkan modal awal kas yang valid';
 			return;
 		}
-		await bukaToko(modalAwalRaw, witaToUtcISO(getTodayWita(), getNowWita().split('T')[1]));
-		show = false;
-		onTokoStatusChanged();
+		try {
+			const waktuBuka = witaToUtcISO(getTodayWita(), getNowWita().split('T')[1] || '08:00:00');
+			await bukaToko(modalAwal, waktuBuka);
+			show = false;
+			onTokoStatusChanged();
+		} catch (err: any) {
+			pinErrorToko = err?.message || 'Gagal membuka toko';
+		}
 	}
 
 	async function handleTutupToko() {
-		if (!sesiAktif) return;
-		await tutupToko(sesiAktif.id, witaToUtcISO(getTodayWita(), getNowWita().split('T')[1]));
-		show = false;
-		onTokoStatusChanged();
+		pinErrorToko = '';
+		if (!sesiAktif?.id) {
+			pinErrorToko = 'Tidak ada sesi aktif yang ditemukan';
+			return;
+		}
+		try {
+			const waktuTutup = witaToUtcISO(getTodayWita(), getNowWita().split('T')[1] || '22:00:00');
+			await tutupToko(sesiAktif.id, waktuTutup);
+			show = false;
+			onTokoStatusChanged();
+		} catch (err: any) {
+			pinErrorToko = err?.message || 'Gagal menutup toko';
+		}
 	}
 
 	function formatModalAwalInput(e: Event) {
-		let value = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, ''); // Remove non-numeric characters
-		if (value.length > 0) {
-			value = formatRupiah(value); // Format as Rupiah
+		const input = e.target as HTMLInputElement;
+		const raw = input.value.replace(/[^0-9]/g, '');
+		if (!raw) {
+			modalAwalInput = '';
+			return;
 		}
-		modalAwalInput = value;
+		const num = parseInt(raw, 10);
+		modalAwalInput = isNaN(num) ? '' : formatRupiah(num);
 	}
 </script>
 
 {#if show}
+	<!-- Modal Backdrop Overlay -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+		class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+		transition:fade={{ duration: 180 }}
 		onclick={(event) => event.target === event.currentTarget && (show = false)}
 		onkeydown={(e) => e.key === 'Escape' && (show = false)}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Modal buka tutup toko"
-		onkeyup={(e) => e.key === 'Enter' && (show = false)}
+		aria-label="Modal status sesi toko"
 		tabindex="-1"
-		onkeypress={(e) => e.key === 'Enter' && (show = false)}
 	>
 		<div
-			class="modal-slideup mx-auto box-border w-full max-w-[95vw] rounded-2xl bg-white p-8 shadow-2xl md:p-12 lg:max-w-lg lg:p-10 xl:max-w-xl xl:p-12 2xl:max-w-2xl 2xl:p-16"
+			class="relative mx-auto w-full max-w-md rounded-[28px] border border-pink-100 bg-white p-6 shadow-2xl md:p-8"
+			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 			role="document"
 		>
+			<!-- Close Button -->
+			<button
+				type="button"
+				onclick={() => (show = false)}
+				class="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 active:scale-95"
+				aria-label="Tutup dialog"
+			>
+				<X size={16} class="stroke-[2.2]" />
+			</button>
+
 			{#if isBukaToko}
-				<div class="mb-4 flex flex-col items-center">
-					<div class="mb-2 text-4xl">🍹</div>
-					<h2 class="mb-1 text-xl font-bold text-pink-500">Buka Toko</h2>
-					<div class="mb-2 text-sm text-gray-400">Yuk, buka toko dan mulai hari ini.</div>
+				<div class="mb-5 flex flex-col items-center text-center">
+					<div
+						class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600"
+					>
+						<Store size={28} class="stroke-[2.2]" />
+					</div>
+					<h2 class="text-xl font-bold tracking-tight text-slate-900">Buka Sesi Toko</h2>
+					<p class="mt-1 text-xs font-medium text-slate-500">
+						Masukkan modal kas awal untuk memulai sesi kasir hari ini.
+					</p>
 				</div>
-				<div class="mb-4">
+
+				<div class="mb-5">
+					<label for="modal-kas-input" class="mb-1.5 block text-xs font-bold text-slate-700"
+						>Modal Awal Kas</label
+					>
 					<div class="relative">
 						<span
-							class="absolute top-1/2 left-4 -translate-y-1/2 font-semibold text-pink-400 select-none"
+							class="absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-bold text-pink-500 select-none"
 							>Rp</span
 						>
 						<input
+							id="modal-kas-input"
 							type="text"
 							inputmode="numeric"
 							pattern="[0-9]*"
 							min="0"
 							bind:value={modalAwalInput}
 							oninput={formatModalAwalInput}
-							class="w-full rounded-xl border-2 border-pink-200 bg-pink-50 py-3 pr-4 pl-12 text-lg font-bold text-gray-800 placeholder-pink-300 shadow-sm transition outline-none focus:ring-2 focus:ring-pink-300"
-							placeholder="Modal awal kas hari ini"
+							class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-3 pr-4 pl-11 text-base font-bold text-slate-900 placeholder-slate-400 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							placeholder="0"
 						/>
 					</div>
 				</div>
+
 				{#if pinErrorToko}
 					<div
-						class="fixed top-20 left-1/2 z-50 rounded-xl bg-red-500 px-6 py-3 text-white shadow-lg transition-all duration-300 ease-out"
-						style="transform: translateX(-50%);"
-						in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-						out:fade={{ duration: 200 }}
+						class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-600"
 					>
 						{pinErrorToko}
 					</div>
 				{/if}
+
 				<button
-					class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-pink-400 py-3 text-lg font-extrabold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-100"
+					type="button"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
 					onclick={handleBukaToko}
 				>
-					<span class="text-2xl">🍹</span>
+					<Store size={18} class="stroke-[2.2]" />
 					<span>Buka Toko Sekarang</span>
 				</button>
 			{:else}
-				<div class="mb-4 flex flex-col items-center">
-					<div class="mb-2 text-4xl">🔒</div>
-					<h2 class="mb-1 text-xl font-bold text-pink-500">Tutup Toko</h2>
-					<div class="mb-2 text-center text-sm text-gray-400">
-						Terima kasih atas kerja keras hari ini! Cek ringkasan sebelum tutup toko.
+				<div class="mb-5 flex flex-col items-center text-center">
+					<div
+						class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600"
+					>
+						<Lock size={26} class="stroke-[2.2]" />
+					</div>
+					<h2 class="text-xl font-bold tracking-tight text-slate-900">Tutup Sesi Toko</h2>
+					<p class="mt-1 text-xs font-medium text-slate-500">
+						Cek dan pastikan ringkasan uang kasir sebelum menutup sesi.
+					</p>
+				</div>
+
+				<div class="mb-5 space-y-2 text-xs font-medium text-slate-600">
+					<div class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+						<span>Modal Awal Kas</span>
+						<span class="font-bold text-slate-900">Rp {formatRupiah(ringkasanTutup.modalAwal)}</span
+						>
+					</div>
+					<div class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+						<span>Total Penjualan</span>
+						<span class="font-bold text-slate-900"
+							>Rp {formatRupiah(ringkasanTutup.totalPenjualan)}</span
+						>
+					</div>
+					<div
+						class="flex items-center justify-between rounded-xl bg-emerald-50/70 p-3 text-emerald-800"
+					>
+						<span>Pemasukan Tunai</span>
+						<span class="font-bold">Rp {formatRupiah(ringkasanTutup.pemasukanTunai)}</span>
+					</div>
+					<div class="flex items-center justify-between rounded-xl bg-rose-50/70 p-3 text-rose-800">
+						<span>Pengeluaran Tunai</span>
+						<span class="font-bold">Rp {formatRupiah(ringkasanTutup.pengeluaranTunai)}</span>
+					</div>
+
+					<div
+						class="mt-3 flex flex-col items-center justify-center rounded-2xl border-2 border-pink-500/20 bg-pink-50/50 p-4 text-center"
+					>
+						<span class="text-xs font-bold text-pink-700">Uang Kasir Seharusnya (Fisik)</span>
+						<span class="mt-1 text-2xl font-black tracking-tight text-pink-600">
+							Rp {formatRupiah(ringkasanTutup.uangKasir)}
+						</span>
+						<span class="mt-1 text-[11px] text-slate-400"
+							>Pastikan uang fisik di laci kasir sesuai</span
+						>
 					</div>
 				</div>
-				<div class="mb-4 space-y-3 text-base text-gray-700">
+
+				{#if pinErrorToko}
 					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
+						class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-600"
 					>
-						<span>Modal Awal</span><span>Rp {formatRupiah(ringkasanTutup.modalAwal)}</span>
+						{pinErrorToko}
 					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Total Penjualan</span><span>Rp {formatRupiah(ringkasanTutup.totalPenjualan)}</span
-						>
-					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Pemasukan Tunai</span><span>Rp {formatRupiah(ringkasanTutup.pemasukanTunai)}</span
-						>
-					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Pengeluaran Tunai</span><span
-							>Rp {formatRupiah(ringkasanTutup.pengeluaranTunai)}</span
-						>
-					</div>
-					<div class="mb-1 flex flex-col items-center">
-						<div class="mb-1 text-center text-base font-bold text-pink-600 md:text-lg">
-							Uang Kasir Seharusnya
-						</div>
-						<div
-							class="mx-8 flex w-full max-w-xs flex-col items-center justify-center rounded-xl border-2 border-pink-400 bg-white px-2 py-5 shadow-sm md:mx-16"
-						>
-							<div class="mb-1 text-4xl">💸</div>
-							<span
-								class="animate-glow text-2xl font-extrabold whitespace-nowrap text-pink-600 md:text-3xl"
-								>Rp {formatRupiah(ringkasanTutup.uangKasir)}</span
-							>
-							<div class="mt-2 text-center text-xs text-gray-400">
-								Pastikan uang kasir sesuai sebelum tutup toko
-							</div>
-						</div>
-					</div>
-				</div>
+				{/if}
+
 				<button
-					class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-pink-400 py-3 text-lg font-extrabold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-100"
+					type="button"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
 					onclick={handleTutupToko}
 				>
-					<span class="text-2xl">🔒</span>
-					<span>Tutup Toko Sekarang</span>
+					<Lock size={18} class="stroke-[2.2]" />
+					<span>Konfirmasi & Tutup Toko</span>
 				</button>
 			{/if}
 		</div>

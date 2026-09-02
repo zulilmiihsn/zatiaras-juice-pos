@@ -17,8 +17,8 @@ export function chunkReportIds(ids: string[], size = D1_REPORT_ID_CHUNK_SIZE): s
 	return chunks;
 }
 
-// ── fetchReportData ────────────────────────────────────────────────────────
-// Query buku_kas berpaginasi untuk rentang waktu, plus transaksi_kasir terkait POS.
+// [CATATAN]: ── fetchReportData ────────────────────────────────────────────────────────
+// [CATATAN]: Query buku_kas berpaginasi untuk rentang waktu, plus transaksi_kasir terkait POS.
 
 async function fetchAllData(
 	db: Db,
@@ -69,7 +69,7 @@ async function fetchAllData(
 		if (data.length > 0) {
 			allData = [...allData, ...data];
 
-			// Jika data kurang dari pageSize, berarti sudah habis
+			// [CATATAN]: Jika data kurang dari pageSize, berarti sudah habis
 			if (data.length < pageSize) {
 				hasMore = false;
 			} else {
@@ -97,16 +97,16 @@ export async function fetchReportData(
 	startDate: string,
 	endDate: string
 ): Promise<ReportData> {
-	// Ambil data untuk periode yang diminta dengan pagination
+	// [CATATAN]: Ambil data untuk periode yang diminta dengan pagination
 	const [bukuKasPos, bukuKasManual] = await Promise.all([
 		fetchAllData(db, requestedBranch, startDate, endDate, { sumber: 'pos' }),
 		fetchAllData(db, requestedBranch, startDate, endDate, { excludeSumber: 'pos' })
 	]);
 
-	// Ambil data transaksi_kasir dengan relasi produk untuk data POS
+	// [CATATAN]: Ambil data transaksi_kasir dengan relasi produk untuk data POS
 	const transaksiKasirData: Row[] = [];
 	if (bukuKasPos && bukuKasPos.length > 0) {
-		// Ambil buku_kas_id dari data POS
+		// [CATATAN]: Ambil buku_kas_id dari data POS
 		const bukuKasIds = bukuKasPos
 			.map((item: Row) => item.id)
 			.filter((id): id is string | number => typeof id === 'string' || typeof id === 'number')
@@ -131,8 +131,8 @@ export async function fetchReportData(
 	return { bukuKasPos, bukuKasManual, transaksiKasirData };
 }
 
-// ── aggregateMonthly ───────────────────────────────────────────────────────
-// Agregasi pemasukan/pengeluaran/laba + payment methods + produk terlaris per bulan.
+// [CATATAN]: ── aggregateMonthly ───────────────────────────────────────────────────────
+// [CATATAN]: Agregasi pemasukan/pengeluaran/laba + payment methods + produk terlaris per bulan.
 
 export interface FormattedMonth {
 	month: string;
@@ -146,7 +146,7 @@ export interface FormattedMonth {
 }
 
 export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): FormattedMonth[] {
-	// Hitung data per bulan untuk periode yang diminta (untuk analisis detail)
+	// [CATATAN]: Hitung data per bulan untuk periode yang diminta (untuk analisis detail)
 	const requestedMonthlyData: Record<
 		string,
 		{
@@ -159,7 +159,7 @@ export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): For
 		}
 	> = {};
 
-	// Proses data periode yang diminta per bulan
+	// [CATATAN]: Proses data periode yang diminta per bulan
 	for (const item of laporan) {
 		const date = new Date(item.waktu as string | number);
 		const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -188,7 +188,7 @@ export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): For
 			requestedMonthlyData[monthKey].transaksi += 1;
 		}
 
-		// Hitung metode pembayaran per bulan
+		// [CATATAN]: Hitung metode pembayaran per bulan
 		const pm = (item.metode_bayar as string) || 'lainnya';
 		if (!requestedMonthlyData[monthKey].paymentMethods[pm]) {
 			requestedMonthlyData[monthKey].paymentMethods[pm] = { jumlah: 0, nominal: 0 };
@@ -196,10 +196,10 @@ export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): For
 		requestedMonthlyData[monthKey].paymentMethods[pm].jumlah += 1;
 		requestedMonthlyData[monthKey].paymentMethods[pm].nominal += amount;
 
-		// Hitung produk terlaris per bulan - akan dihitung terpisah menggunakan transaksiKasirData
+		// [CATATAN]: Hitung produk terlaris per bulan - akan dihitung terpisah menggunakan transaksiKasirData
 	}
 
-	// Hitung produk terlaris per bulan menggunakan data transaksi_kasir
+	// [CATATAN]: Hitung produk terlaris per bulan menggunakan data transaksi_kasir
 	for (const item of transaksiKasirData || []) {
 		const date = new Date((item.created_at || item.waktu) as string | number);
 		const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -227,7 +227,7 @@ export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): For
 		}
 	}
 
-	// Format data per bulan untuk AI
+	// [CATATAN]: Format data per bulan untuk AI
 	return Object.entries(requestedMonthlyData)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([monthKey, data]) => {
@@ -256,8 +256,8 @@ export function aggregateMonthly(laporan: Row[], transaksiKasirData: Row[]): For
 		});
 }
 
-// ── computeAnalytics ───────────────────────────────────────────────────────
-// Breakdown pembayaran, jam ramai, tren harian, statistik, best/worst day.
+// [CATATAN]: ── computeAnalytics ───────────────────────────────────────────────────────
+// [CATATAN]: Breakdown pembayaran, jam ramai, tren harian, statistik, best/worst day.
 
 interface DailyPerformanceItem {
 	date: string;
@@ -284,7 +284,7 @@ export function computeAnalytics(
 	bukuKasPos: Row[],
 	totalPemasukan: number
 ): ReportAnalytics {
-	// Breakdown metode pembayaran & pola waktu
+	// [CATATAN]: Breakdown metode pembayaran & pola waktu
 	const paymentBreakdown: Record<string, { jumlah: number; nominal: number }> = {};
 	interface LaporanItem {
 		metode_bayar?: string;
@@ -299,7 +299,7 @@ export function computeAnalytics(
 		paymentBreakdown[pm].nominal += typedT.amount || typedT.nominal || 0;
 	}
 
-	// Hitung jam ramai dari transaksi POS
+	// [CATATAN]: Hitung jam ramai dari transaksi POS
 	const hourCount: Record<string, number> = {};
 	for (const t of bukuKasPos || []) {
 		const waktu = new Date(t.waktu as string | number);
@@ -313,7 +313,7 @@ export function computeAnalytics(
 		.slice(0, 3)
 		.map(([h, c]) => `${h}:00 (${c} trx)`);
 
-	// Analisis tren harian untuk insight lebih mendalam
+	// [CATATAN]: Analisis tren harian untuk insight lebih mendalam
 	const dailyTrend: Record<string, { count: number; revenue: number; avgTicket: number }> = {};
 	for (const t of bukuKasPos || []) {
 		const waktu = new Date(t.waktu as string | number);
@@ -328,14 +328,14 @@ export function computeAnalytics(
 		dailyTrend[dateKey].revenue += revenue;
 	}
 
-	// Hitung rata-rata per transaksi
+	// [CATATAN]: Hitung rata-rata per transaksi
 	Object.keys(dailyTrend).forEach((date) => {
 		if (dailyTrend[date].count > 0) {
 			dailyTrend[date].avgTicket = dailyTrend[date].revenue / dailyTrend[date].count;
 		}
 	});
 
-	// Analisis performa harian
+	// [CATATAN]: Analisis performa harian
 	const dailyPerformance = Object.entries(dailyTrend)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([date, data]) => ({
@@ -348,7 +348,7 @@ export function computeAnalytics(
 			...data
 		}));
 
-	// Hitung statistik keseluruhan
+	// [CATATAN]: Hitung statistik keseluruhan
 	const totalDays = dailyPerformance.length;
 	const avgTransactionsPerDay =
 		totalDays > 0 ? dailyPerformance.reduce((sum, day) => sum + day.count, 0) / totalDays : 0;
@@ -359,7 +359,7 @@ export function computeAnalytics(
 			? totalPemasukan / (bukuKasPos?.length || 1)
 			: 0;
 
-	// Identifikasi hari terbaik dan terburuk
+	// [CATATAN]: Identifikasi hari terbaik dan terburuk
 	const emptyDay: DailyPerformanceItem = {
 		date: '',
 		formattedDate: '',
@@ -389,8 +389,8 @@ export function computeAnalytics(
 	};
 }
 
-// ── buildReportContext ─────────────────────────────────────────────────────
-// Rangkai string konteks laporan untuk prompt AI.
+// [CATATAN]: ── buildReportContext ─────────────────────────────────────────────────────
+// [CATATAN]: Rangkai string konteks laporan untuk prompt AI.
 
 export interface RangeContext {
 	requested: {

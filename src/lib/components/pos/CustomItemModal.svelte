@@ -2,6 +2,8 @@
 	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { CartItem } from '$lib/types/cart';
+	import Minus from '@lucide/svelte/icons/minus';
+	import Plus from '@lucide/svelte/icons/plus';
 
 	let { show = $bindable(false), onAdd } = $props<{
 		show: boolean;
@@ -9,10 +11,12 @@
 	}>();
 
 	let customItemName = $state('');
-	let customItemPriceRaw = '';
+	let customItemPriceRaw = $state('');
 	let customItemPriceFormatted = $state('');
 	let customItemNote = $state('');
 	let jumlah = $state(1);
+
+	let totalPrice = $derived((Number(customItemPriceRaw) || 0) * jumlah);
 
 	function handleCustomPriceInput(e: Event): void {
 		const target = e.target as HTMLInputElement;
@@ -51,7 +55,7 @@
 			catatan: customItemNote.trim()
 		});
 		show = false;
-		// reset
+		// Reset
 		customItemName = '';
 		customItemPriceRaw = '';
 		customItemPriceFormatted = '';
@@ -67,24 +71,25 @@
 {#if show}
 	<ModalSheet
 		bind:open={show}
-		title={customItemName ? customItemName : 'Menu Kustom'}
+		title={customItemName.trim() || 'Menu Kustom Baru'}
 		onClose={() => (show = false)}
 	>
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div
-			class="addon-list addon-modal-content min-h-0 flex-1 overflow-y-auto pb-48"
+			class="addon-list addon-modal-content min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pb-6"
 			onclick={handleStopPropagation}
-			onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
 			style="scrollbar-width:none;-ms-overflow-style:none;"
-			role="button"
-			tabindex="0"
 		>
-			<div class="mt-4 mb-6">
-				<label class="mb-2 block text-base font-semibold text-gray-800" for="custom-nama"
-					>Nama Menu</label
+			<div>
+				<label
+					class="mb-1.5 block text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+					for="custom-nama"
 				>
+					Nama Menu
+				</label>
 				<input
 					id="custom-nama"
-					class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base font-semibold text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
+					class="min-h-[46px] w-full rounded-2xl border border-slate-200/90 bg-slate-50/60 px-3.5 py-2.5 text-sm font-bold text-slate-800 transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
 					type="text"
 					bind:value={customItemName}
 					required
@@ -92,17 +97,21 @@
 					placeholder="Contoh: Jus Mangga Spesial"
 				/>
 			</div>
-			<div class="mb-6">
-				<label class="mt-4 mb-2 block text-base font-semibold text-gray-800" for="custom-harga"
-					>Harga</label
+
+			<div>
+				<label
+					class="mb-1.5 block text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+					for="custom-harga"
 				>
+					Harga Satuan
+				</label>
 				<div class="relative">
-					<span class="absolute top-1/2 left-4 -translate-y-1/2 font-semibold text-gray-400"
-						>Rp</span
-					>
+					<span class="absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-bold text-slate-400">
+						Rp
+					</span>
 					<input
 						id="custom-harga"
-						class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-3 pl-10 text-base font-semibold text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
+						class="min-h-[46px] w-full rounded-2xl border border-slate-200/90 bg-slate-50/60 py-2.5 pr-3.5 pl-10 text-sm font-bold text-slate-800 transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
 						type="text"
 						inputmode="numeric"
 						pattern="[0-9]*"
@@ -115,46 +124,64 @@
 					/>
 				</div>
 			</div>
-			<div class="mb-6">
-				<label class="mt-4 mb-2 block text-base font-semibold text-gray-800" for="custom-catatan"
-					>Catatan</label
+
+			<div>
+				<label
+					class="mb-1.5 block text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+					for="custom-catatan"
 				>
+					Catatan Tambahan
+				</label>
 				<textarea
 					id="custom-catatan"
-					class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base font-normal text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
+					class="w-full resize-none rounded-2xl border border-slate-200/90 bg-slate-50/60 p-3 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
 					bind:value={customItemNote}
 					maxlength="100"
 					rows="2"
-					placeholder="Contoh: Tanpa gula, es sedikit, dsb"
-				></textarea>
-			</div>
-			<div class="mt-0 mb-2 text-base font-semibold text-gray-800">Jumlah</div>
-			<div class="mb-4 flex items-center justify-center gap-3">
-				<button
-					class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-					type="button"
-					onclick={decQty}>-</button
-				>
-				<input
-					class="w-12 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center text-lg font-semibold text-gray-800 outline-none"
-					type="number"
-					min="1"
-					max="99"
-					bind:value={jumlah}
-				/>
-				<button
-					class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-					type="button"
-					onclick={incQty}>+</button
-				>
-			</div>
-			<div class="mt-2 flex gap-3">
-				<button
-					type="button"
-					class="mb-1 w-full rounded-lg bg-pink-500 px-6 py-3 text-lg font-bold text-white shadow transition-colors duration-150 hover:bg-pink-600 active:bg-pink-700"
-					onclick={handleAdd}>Tambah ke Keranjang</button
-				>
+					placeholder="Contoh: Tanpa gula, es sedikit..."></textarea>
 			</div>
 		</div>
+
+		{#snippet footer()}
+			<div class="flex items-center gap-3">
+				<!-- Stepper Quantity -->
+				<div
+					class="flex items-center rounded-full border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs"
+				>
+					<button
+						type="button"
+						class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:text-pink-600 active:scale-90"
+						onclick={decQty}
+						aria-label="Kurangi jumlah"
+					>
+						<Minus class="h-4 w-4 stroke-[2.5]" />
+					</button>
+					<span class="w-8 text-center text-sm font-extrabold text-slate-800 select-none">
+						{jumlah}
+					</span>
+					<button
+						type="button"
+						class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:text-pink-600 active:scale-90"
+						onclick={incQty}
+						aria-label="Tambah jumlah"
+					>
+						<Plus class="h-4 w-4 stroke-[2.5]" />
+					</button>
+				</div>
+
+				<!-- Big CTA Add Button -->
+				<button
+					type="button"
+					disabled={!customItemName.trim() ||
+						!customItemPriceRaw ||
+						Number(customItemPriceRaw) <= 0}
+					class="flex min-h-[48px] flex-1 cursor-pointer items-center justify-between rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+					onclick={handleAdd}
+				>
+					<span>Tambah ke Pesanan</span>
+					<span>Rp {formatRupiah(totalPrice)}</span>
+				</button>
+			</div>
+		{/snippet}
 	</ModalSheet>
 {/if}

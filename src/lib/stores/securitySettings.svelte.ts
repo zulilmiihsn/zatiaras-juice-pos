@@ -4,7 +4,7 @@ interface SecuritySettings {
 	lockedPages: string[] | null;
 }
 
-// Initialize store with data from localStorage if available
+// [CATATAN]: Initialize store with data from localStorage if available
 const initialValue = browser
 	? (() => {
 			try {
@@ -29,7 +29,7 @@ export const securitySettings = new SecuritySettingsState();
 
 export function setSecuritySettings(settings: SecuritySettings) {
 	securitySettings.value = settings;
-	// Persist to localStorage
+	// [CATATAN]: Persist to localStorage
 	if (browser) {
 		try {
 			localStorage.setItem(
@@ -46,7 +46,7 @@ export function setSecuritySettings(settings: SecuritySettings) {
 
 export function clearSecuritySettings() {
 	securitySettings.value = null;
-	// Clear from localStorage
+	// [CATATAN]: Clear from localStorage
 	if (browser) {
 		try {
 			localStorage.removeItem('zatiaras_security_settings');

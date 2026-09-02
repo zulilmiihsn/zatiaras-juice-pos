@@ -4,10 +4,15 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
 ## Status Saat Ini
 
-- **Tanggal**: 2026-08-12
-- **Milestone**: v2.0 — Stabilisasi & Quality
-- **Phase Aktif**: **Development baseline cleanup** — release terverifikasi di branch `codex/a94-development`
-- **Pekerjaan Terakhir**: Baseline dari `a94d7f8` dirilis melalui commit `c94fdaa`; dependency audit, backup D1, deploy Cloudflare, dan live UAT sudah lulus.
+- **Tanggal**: 2026-09-01
+- **Milestone**: v2.0 — Stabilisasi & Quality (10/10 Master Plan Completed)
+- **Phase Aktif**: **Semua Wave 0–4 Selesai & Terverifikasi**
+- **Pekerjaan Terakhir**:
+  - Wave 0: Baseline & Checkpoint Branch
+  - Wave 1: SEC-001 (Profil Route), MENU-001 (Resep ID), HPP-001 (4-Decimal Yield), POS-001 (Mode Validation), OFF-001 (Offline Receipt Retention)
+  - Wave 2: TAX-001 (PP 55/2022 Omzet Usaha Base & 500M Threshold), ARC-001 & ARC-002 (WITA Cutoff, Anti-TOCTOU Exact-ID Batch Delete, Restore Tooling), RT-001 (Multi-Subscriber Isolated Disposers), R2-001 (Branch-Scoped R2 Object Isolation)
+  - Wave 3: DB-002 (Journal Drizzle Sync 0017-0022), QA-002 (Typecheck 0 errors 0 warnings, ESLint passed, Prettier passed, Unit & Quality tests 100%), DEBT-001 (Dead code & unused imports cleaned)
+  - Wave 4: Release & Evidence Verification (pnpm build, pnpm test:operations, pnpm test:unit, pnpm test:quality, pnpm test:e2e:pos all 100% passing)
 
 ## Riwayat Milestone
 
@@ -38,6 +43,8 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
 ## Artefak Perencanaan
 
+- `.planning/MASTER-PLAN-10of10.md` adalah source of truth aktif untuk prioritas, dependency,
+  status task, evidence, dan release gate.
 - `.planning/` memuat `PROJECT.md`, `ROADMAP.md`, `STATE.md`, dan analisis codebase.
 - `.claude/` memuat workflow perencanaan lokal. Keberadaannya tidak berarti package GSD menjadi dependency aplikasi.
 - Konfigurasi MCP dan credential developer berada di luar kontrak repository dan tidak dicatat di file ini.
@@ -78,7 +85,7 @@ src/
 
 ## Follow-up Saat Ini
 
-- Perbarui daftar tech debt hanya dari temuan yang masih dapat direproduksi pada baseline baru.
+- Jalankan `GOV-001`: inventaris dan pertahankan dirty WIP sebelum source edit, test, migration, atau production probe.
 
 ## Keputusan Arsitektural Yang Sudah Dibuat
 

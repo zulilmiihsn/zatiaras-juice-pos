@@ -1,6 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import bcrypt from 'bcryptjs';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { profil } from '$lib/database/schema';
 import {
 	getDrizzleDb,
@@ -13,7 +13,7 @@ import { appendAuditLog } from '$lib/server/auditLog';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 
 const SECURITY_WINDOW_MS = 15 * 60 * 1000;
-const SECURITY_MAX_ATTEMPTS = 3;
+const SECURITY_MAX_ATTEMPTS = 5;
 
 async function hashIdentifier(value: string): Promise<string> {
 	const bytes = new TextEncoder().encode(value);
@@ -40,24 +40,35 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 		if (requesterRole !== 'pemilik' && requesterRole !== 'admin') {
 			return new Response(
 				JSON.stringify({ success: false, code: 'FORBIDDEN', message: 'Forbidden' }),
-				{
-					status: 403
-				}
+				{ status: 403 }
 			);
 		}
 
-		const { usernameLama, usernameBaru, passwordLama, passwordBaru, branch, targetRole } =
-			await request.json();
-		if (!usernameLama || !usernameBaru || !passwordLama || !passwordBaru || !branch) {
+		const body = await request.json();
+		const { usernameLama, usernameBaru, passwordLama, passwordBaru, branch, targetRole } = body;
+
+		if (!usernameLama || !passwordLama || !branch) {
 			return new Response(
 				JSON.stringify({
 					success: false,
 					code: 'VALIDATION_ERROR',
-					message: 'Semua field wajib diisi.'
+					message: 'Username saat ini, password saat ini, dan cabang wajib diisi.'
 				}),
-				{
-					status: 400
-				}
+				{ status: 400 }
+			);
+		}
+
+		const hasNewUsername = typeof usernameBaru === 'string' && usernameBaru.trim().length > 0;
+		const hasNewPassword = typeof passwordBaru === 'string' && passwordBaru.trim().length > 0;
+
+		if (!hasNewUsername && !hasNewPassword) {
+			return new Response(
+				JSON.stringify({
+					success: false,
+					code: 'VALIDATION_ERROR',
+					message: 'Masukkan username baru atau password baru yang ingin diubah.'
+				}),
+				{ status: 400 }
 			);
 		}
 
@@ -67,14 +78,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 		} catch {
 			return new Response(
 				JSON.stringify({ success: false, code: 'INVALID_BRANCH', message: 'Branch tidak valid.' }),
-				{
-					status: 400
-				}
+				{ status: 400 }
 			);
 		}
 
-		// P0-2: branch WAJIB di-scope ke session. Tanpa ini, pemilik cabang A bisa
-		// mengubah kredensial user cabang B (cross-tenant credential takeover).
 		const sessionBranch = normalizeBranch(locals.authSession!.branch);
 		if (branchId !== sessionBranch && requesterRole !== 'admin') {
 			return new Response(
@@ -129,8 +136,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			);
 		}
 
-		// P1-4: targetRole (dari body) dipakai sebagai filter query auth-sensitif —
-		// validasi terhadap allow-list, tolak nilai tak dikenal.
 		const VALID_ROLES = ['pemilik', 'kasir', 'admin'];
 		if (targetRole && !VALID_ROLES.includes(targetRole)) {
 			return new Response(
@@ -143,7 +148,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			);
 		}
 
-		if (!isStrongPassword(passwordBaru)) {
+		if (hasNewPassword && !isStrongPassword(passwordBaru.trim())) {
 			return new Response(
 				JSON.stringify({
 					success: false,
@@ -156,7 +161,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 		}
 
 		const db = getDrizzleDb(platform, branchId);
-		const filters = [eq(profil.cabang_id, branchId), eq(profil.username, usernameLama)];
+		const filters = [
+			eq(profil.cabang_id, branchId),
+			eq(profil.username, String(usernameLama).trim())
+		];
 		if (targetRole) filters.push(eq(profil.role, targetRole));
 
 		const user = await db
@@ -175,29 +183,60 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 				JSON.stringify({
 					success: false,
 					code: 'NOT_FOUND',
-					message: 'Username lama tidak ditemukan.'
+					message: 'Akun dengan username tersebut tidak ditemukan.'
 				}),
 				{ status: 404 }
 			);
 		}
-		// Verifikasi password lama
-		const match = await bcrypt.compare(passwordLama, user.password);
+
+		// Verifikasi password saat ini
+		const match = await bcrypt.compare(String(passwordLama), user.password);
 		if (!match) {
 			return new Response(
 				JSON.stringify({
 					success: false,
 					code: 'INVALID_CREDENTIALS',
-					message: 'Password lama salah.'
+					message: 'Password saat ini salah.'
 				}),
-				{
-					status: 401
-				}
+				{ status: 401 }
 			);
 		}
-		// Hash password baru
-		const hashedPassword = await bcrypt.hash(passwordBaru, 10);
-		// Perubahan kredensial dan pencabutan seluruh sesi user harus atomik.
-		// D1 batch menjamin password baru tidak pernah aktif bersama sesi lama.
+
+		const cleanNewUsername = hasNewUsername ? usernameBaru.trim() : user.username;
+		const cleanNewPassword = hasNewPassword ? passwordBaru.trim() : null;
+
+		// Bila username baru disediakan, pastikan belum dipakai akun lain di cabang yang sama
+		if (hasNewUsername && cleanNewUsername !== user.username) {
+			const existingUser = await db
+				.select({ id: profil.id })
+				.from(profil)
+				.where(
+					and(
+						eq(profil.cabang_id, branchId),
+						eq(profil.username, cleanNewUsername),
+						ne(profil.id, user.id)
+					)
+				)
+				.get();
+
+			if (existingUser) {
+				return new Response(
+					JSON.stringify({
+						success: false,
+						code: 'USERNAME_EXISTS',
+						message: 'Username baru sudah digunakan oleh akun lain di cabang ini.'
+					}),
+					{ status: 400 }
+				);
+			}
+		}
+
+		// Hash password jika ada perubahan password
+		const finalHashedPassword = cleanNewPassword
+			? await bcrypt.hash(cleanNewPassword, 10)
+			: user.password;
+
+		// Perubahan kredensial dan pencabutan seluruh sesi user secara atomik
 		await rawDb.batch([
 			rawDb
 				.prepare(
@@ -205,7 +244,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 					 SET username = ?, password = ?, updated_at = ?
 					 WHERE cabang_id = ? AND id = ?`
 				)
-				.bind(usernameBaru, hashedPassword, new Date().toISOString(), branchId, user.id),
+				.bind(cleanNewUsername, finalHashedPassword, new Date().toISOString(), branchId, user.id),
 			rawDb
 				.prepare('DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?')
 				.bind(branchId, user.id)
@@ -219,12 +258,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			{ id: user.id }
 		);
 
-		// Audit perubahan kredensial (best-effort, tak memblok UX bila tabel belum ada).
 		await appendAuditLog(rawDb, branchId, {
 			action: 'credential_change',
 			entityType: 'profil',
 			entityId: user.id,
-			metadata: { usernameLama, usernameBaru, targetRole: targetRole ?? null },
+			metadata: {
+				usernameLama,
+				usernameBaru: cleanNewUsername,
+				isPasswordChanged: hasNewPassword,
+				targetRole: targetRole ?? null
+			},
 			session: {
 				userId: locals.authSession?.userId,
 				username: locals.authSession?.username,
@@ -232,10 +275,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			}
 		});
 
-		return new Response(
-			JSON.stringify({ success: true, message: 'Username dan password berhasil diubah.' }),
-			{ status: 200 }
-		);
+		let successMsg = 'Kredensial berhasil diperbarui.';
+		if (hasNewUsername && hasNewPassword) {
+			successMsg = 'Username dan password berhasil diperbarui.';
+		} else if (hasNewUsername) {
+			successMsg = 'Username berhasil diperbarui.';
+		} else if (hasNewPassword) {
+			successMsg = 'Password berhasil diperbarui.';
+		}
+
+		return new Response(JSON.stringify({ success: true, message: successMsg }), { status: 200 });
 	} catch (e) {
 		return new Response(
 			JSON.stringify({
@@ -243,9 +292,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 				code: 'SERVER_ERROR',
 				message: 'Terjadi error pada server.'
 			}),
-			{
-				status: 500
-			}
+			{ status: 500 }
 		);
 	}
 };

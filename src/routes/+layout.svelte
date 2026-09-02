@@ -5,9 +5,9 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { onMount, type Snippet } from 'svelte';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll, onNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
-	import Download from 'lucide-svelte/icons/download';
+	import Download from '@lucide/svelte/icons/download';
 	import { posGridView } from '$lib/stores/posGridView.svelte';
 	import { auth } from '$lib/auth/auth';
 	import { userRole } from '$lib/stores/userRole.svelte';
@@ -15,8 +15,8 @@
 	import PinModal from '$lib/components/shared/pinModal.svelte';
 	import { securitySettings, setSecuritySettings } from '$lib/stores/securitySettings.svelte';
 	import { requireAuth } from '$lib/utils/authGuard';
-	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
-	import WifiOff from 'lucide-svelte/icons/wifi-off';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { createLayoutState } from '$lib/stores/layoutState.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
@@ -27,7 +27,18 @@
 	const layoutSt = createLayoutState();
 	let showPendingTransactions = $state(false);
 
-	// ── Navigasi ──────────────────────────────────────────────────────────────
+	// [CATATAN]: ── Navigasi & View Transitions ──────────────────────────────────────────
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+
 	let showNav = $state(true);
 	$effect(() => {
 		const path = $page.url.pathname;
@@ -35,7 +46,7 @@
 		showNav = !(noNavRoutes.includes(path) || path.startsWith('/pengaturan'));
 	});
 
-	// ── PIN Modal ─────────────────────────────────────────────────────────────
+	// [CATATAN]: ── PIN Modal ─────────────────────────────────────────────────────────────
 	let showPinModal = $state(false);
 	let currentLockedPage = $state<'beranda' | 'laporan' | 'pengaturan' | 'catat'>('beranda');
 	let pinUnlockedForCurrentPage = false;
@@ -53,7 +64,7 @@
 				setSecuritySettings({ lockedPages: data.halaman_terkunci || [] });
 			}
 		} catch {
-			// no-op
+			// [CATATAN]: no-op
 		} finally {
 			isLoadingSecuritySettings = false;
 		}
@@ -223,86 +234,21 @@
 {/if}
 
 {#if showNav}
-	<div class="page-transition flex min-h-[100dvh] flex-col bg-white">
-		<div class="sticky top-0 z-30 bg-white shadow-md">
-			<Topbar
-				pendingCount={layoutSt.pendingCount}
-				pendingFailedCount={layoutSt.pendingFailedCount}
-				isOffline={layoutSt.isOffline}
-				onOpenPending={() => (showPendingTransactions = true)}
-			>
-				{#snippet actions()}
-					{#if $page.url.pathname === '/pos'}
-						<button
-							class="mr-2 flex items-center justify-center rounded-lg border border-gray-200 bg-white p-2 transition-colors hover:bg-pink-50"
-							onclick={() => posGridView.toggle()}
-							aria-label={posGridView.value ? 'Tampilkan List' : 'Tampilkan Grid'}
-							type="button"
-						>
-							{#if posGridView.value}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 text-gray-600"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-									><rect x="4" y="4" width="7" height="7" rx="2" /><rect
-										x="13"
-										y="4"
-										width="7"
-										height="7"
-										rx="2"
-									/><rect x="4" y="13" width="7" height="7" rx="2" /><rect
-										x="13"
-										y="13"
-										width="7"
-										height="7"
-										rx="2"
-									/></svg
-								>
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 text-gray-600"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M4 6h16M4 12h16M4 18h16"
-									/></svg
-								>
-							{/if}
-						</button>
-					{/if}
-				{/snippet}
-				{#snippet download()}
-					{#if $page.url.pathname === '/laporan'}
-						<button
-							class="mr-2 flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-gray-200 bg-white text-2xl text-pink-500 shadow-lg shadow-pink-500/7 transition-all duration-150 active:border-pink-500 active:shadow-xl active:shadow-pink-500/12"
-							aria-label="Download Laporan"
-						>
-							<Download size={22} />
-						</button>
-					{/if}
-				{/snippet}
-			</Topbar>
-		</div>
+	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
 		<div
 			class="min-h-0 flex-1 overflow-y-auto"
 			style="scrollbar-width:none;-ms-overflow-style:none;"
 		>
 			{@render children()}
 		</div>
-		<div class="sticky bottom-0 z-30 bg-white">
-			<BottomNav />
+		<div class="sticky bottom-0 z-30 overflow-visible md:pointer-events-none md:px-4">
+			<div class="md:pointer-events-auto">
+				<BottomNav />
+			</div>
 		</div>
 	</div>
 {:else}
-	<div class="page-transition flex min-h-[100dvh] flex-col bg-white">
+	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</div>

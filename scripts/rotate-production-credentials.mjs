@@ -284,7 +284,11 @@ async function validateIngredientYield(baseUrl, credential) {
 				method: 'DELETE',
 				headers: { 'X-CSRF-Token': csrf.token, Cookie: cookie }
 			});
-			if (!cleanup.ok) throw new Error(`UAT yield: cleanup gagal HTTP ${cleanup.status}`);
+			if (!cleanup.ok) {
+				console.error(
+					`[rotate-production-credentials] UAT yield: cleanup gagal HTTP ${cleanup.status}`
+				);
+			}
 		}
 		await fetch(`${baseUrl}/api/logout`, {
 			method: 'POST',

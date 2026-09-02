@@ -1,25 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { ComponentType } from 'svelte';
 	import { formatRupiah } from '$lib/utils/currency';
+	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
 
 	let {
 		itemTerjual = null as number | null,
 		jumlahTransaksi = null as number | null,
 		omzet = null as number | null,
-		modalAwal = null as number | null
+		modalAwal = null as number | null,
+		avgTransaksi = null as number | null,
+		jamRamai = '' as string
 	} = $props();
 
-	// Lazy load icons
-	let ShoppingBag = $state<ComponentType | null>(null);
-	let TrendingUp = $state<ComponentType | null>(null);
-	let Wallet = $state<ComponentType | null>(null);
+	// [CATATAN]: Lazy load icons
+	let ShoppingBag = $state<IconComponent | null>(null);
+	let TrendingUp = $state<IconComponent | null>(null);
+	let Wallet = $state<IconComponent | null>(null);
 
 	onMount(async () => {
 		const icons = await Promise.all([
-			import('lucide-svelte/icons/shopping-bag'),
-			import('lucide-svelte/icons/trending-up'),
-			import('lucide-svelte/icons/wallet')
+			import('@lucide/svelte/icons/shopping-bag'),
+			import('@lucide/svelte/icons/trending-up'),
+			import('@lucide/svelte/icons/wallet')
 		]);
 		ShoppingBag = icons[0].default;
 		TrendingUp = icons[1].default;
@@ -27,117 +29,121 @@
 	});
 </script>
 
-<!-- Metrik Utama -->
-<div
-	class="grid grid-cols-2 gap-3 md:grid-cols-2 md:grid-rows-2 md:gap-6 md:rounded-2xl md:border md:border-gray-100 md:bg-white md:p-6 md:shadow-lg"
->
+<!-- Metrik Utama (Authentic Glassmorphism & Soft Float) -->
+<div class="relative z-20 grid grid-cols-2 gap-3.5 md:grid-cols-12 md:gap-4">
+	<!-- Hero Pendapatan Hari Ini (Large Frosted Glassmorphic Card) -->
 	<div
-		class="flex flex-col items-start rounded-xl bg-gradient-to-br from-sky-200 to-sky-400 p-4 shadow-md md:items-center md:justify-center md:gap-2 md:border md:border-sky-200 md:bg-transparent md:p-6 md:shadow-none lg:flex-col lg:items-center lg:justify-center"
+		class="glass-card relative col-span-2 flex flex-col justify-between overflow-hidden rounded-[32px] p-5.5 transition-all duration-200 active:scale-[0.99] md:col-span-6 md:p-6"
 	>
-		{#if ShoppingBag}
-			<ShoppingBag class="mb-2 h-6 w-6 text-sky-500 md:h-10 md:w-10 lg:mx-auto lg:mb-2" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center md:h-10 md:w-10 lg:mx-auto lg:mb-2">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
+		<!-- Internal ambient fluid reflection -->
+		<div
+			class="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-gradient-to-br from-pink-400/20 to-rose-400/20 blur-xl"
+		></div>
+
+		<div class="relative z-10 flex items-center justify-between">
+			<div>
+				<span class="text-[11px] font-bold tracking-wider text-pink-700 uppercase"
+					>Pendapatan Hari Ini</span
+				>
+				<div
+					class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-3xl lg:text-4xl"
+				>
+					{omzet !== null ? `Rp ${formatRupiah(omzet)}` : '--'}
+				</div>
 			</div>
-		{/if}
-		<div class="mb-1 text-xs font-medium text-gray-500 md:mb-0 md:text-center md:text-base">
-			Item Terjual
+			<div
+				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 md:h-13 md:w-13"
+			>
+				{#if Wallet}
+					<Wallet class="h-6 w-6 stroke-[2.2]" />
+				{:else}
+					<span
+						class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+					></span>
+				{/if}
+			</div>
 		</div>
-		<div class="text-xl font-bold text-sky-600 md:text-center md:text-3xl">
+
+		<!-- Sub-info Pill Row inside Glass Card -->
+		<div
+			class="relative z-10 mt-3.5 flex items-center justify-between border-t border-slate-200/60 pt-3 text-xs md:mt-4 md:pt-3.5"
+		>
+			<div class="flex items-center gap-1.5 font-semibold text-slate-600">
+				<span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
+				<span>Sesi Kios Aktif</span>
+			</div>
+			<div class="font-bold text-slate-800">
+				Modal: <span class="text-pink-700"
+					>{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}</span
+				>
+			</div>
+		</div>
+	</div>
+
+	<!-- Item Terjual -->
+	<div
+		class="soft-float-card col-span-1 flex flex-col justify-between p-4.5 transition-all duration-200 active:scale-[0.98] md:col-span-3 md:p-6"
+	>
+		<div class="flex items-center justify-between">
+			<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Item Terjual</span
+			>
+			<div
+				class="flex h-9 w-9 items-center justify-center rounded-[14px] border border-pink-100 bg-pink-50 text-pink-600 md:h-10 md:w-10"
+			>
+				{#if ShoppingBag}
+					<ShoppingBag class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
+				{:else}
+					<span
+						class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
+					></span>
+				{/if}
+			</div>
+		</div>
+		<div
+			class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-3xl lg:text-4xl"
+		>
 			{itemTerjual ?? '--'}
 		</div>
-	</div>
-	<div
-		class="flex flex-col items-start rounded-xl bg-gradient-to-br from-purple-200 to-purple-400 p-4 shadow-md md:items-center md:justify-center md:gap-2 md:border md:border-purple-200 md:bg-transparent md:p-6 md:shadow-none lg:flex-col lg:items-center lg:justify-center"
-	>
-		{#if TrendingUp}
-			<TrendingUp class="mb-2 h-6 w-6 text-purple-500 md:h-10 md:w-10 lg:mx-auto lg:mb-2" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center md:h-10 md:w-10 lg:mx-auto lg:mb-2">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
-			</div>
-		{/if}
-		<div class="mb-1 text-xs font-medium text-gray-500 md:mb-0 md:text-center md:text-base">
-			Jumlah Transaksi
+		<div
+			class="mt-3.5 hidden items-center justify-between border-t border-slate-100 pt-3 text-xs md:mt-4 md:flex md:pt-3.5"
+		>
+			<span class="font-medium text-slate-400">Rata-rata</span>
+			<span class="font-bold text-slate-700">{avgTransaksi ?? '--'} cup/nota</span>
 		</div>
-		<div class="text-xl font-bold text-purple-600 md:text-center md:text-3xl">
+	</div>
+
+	<!-- Transaksi -->
+	<div
+		class="soft-float-card col-span-1 flex flex-col justify-between p-4.5 transition-all duration-200 active:scale-[0.98] md:col-span-3 md:p-6"
+	>
+		<div class="flex items-center justify-between">
+			<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Transaksi</span>
+			<div
+				class="flex h-9 w-9 items-center justify-center rounded-[14px] border border-rose-100 bg-rose-50 text-rose-600 md:h-10 md:w-10"
+			>
+				{#if TrendingUp}
+					<TrendingUp class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
+				{:else}
+					<span
+						class="block h-4 w-4 animate-spin rounded-full border-2 border-rose-300 border-t-rose-600"
+					></span>
+				{/if}
+			</div>
+		</div>
+		<div
+			class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-3xl lg:text-4xl"
+		>
 			{jumlahTransaksi ?? '--'}
 		</div>
-	</div>
-	<div
-		class="hidden flex-col items-start rounded-xl bg-gradient-to-br from-green-200 to-green-400 p-4 shadow-md md:flex md:items-center md:justify-center md:gap-2 md:border md:border-green-200 md:bg-transparent md:p-6 md:shadow-none lg:flex-col lg:items-center lg:justify-center"
-	>
-		{#if Wallet}
-			<Wallet class="mb-2 h-6 w-6 text-green-900 md:h-10 md:w-10 lg:mx-auto lg:mb-2" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center md:h-10 md:w-10 lg:mx-auto lg:mb-2">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
-			</div>
-		{/if}
-		<div class="text-sm font-medium text-green-900/80 md:text-center md:text-base">Pendapatan</div>
-		<div class="text-xl font-bold text-green-900 md:text-center md:text-3xl">
-			{omzet !== null ? `Rp ${formatRupiah(omzet)}` : '--'}
-		</div>
-	</div>
-	<div
-		class="hidden flex-col items-start rounded-xl bg-gradient-to-br from-cyan-100 to-pink-200 p-4 shadow-md md:flex md:items-center md:justify-center md:gap-2 md:border md:border-cyan-200 md:bg-transparent md:p-6 md:shadow-none lg:flex-col lg:items-center lg:justify-center"
-	>
-		{#if Wallet}
-			<Wallet class="mb-2 h-6 w-6 text-cyan-900 md:h-10 md:w-10 lg:mx-auto lg:mb-2" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center md:h-10 md:w-10 lg:mx-auto lg:mb-2">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
-			</div>
-		{/if}
-		<div class="text-sm font-medium text-cyan-900/80 md:text-center md:text-base">Modal Awal</div>
-		<div class="text-xl font-bold text-cyan-900 md:text-center md:text-3xl">
-			{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}
-		</div>
-	</div>
-</div>
-<!-- Box pendapatan & modal awal satu baris penuh di mobile, hilang di md+ -->
-<div class="flex flex-col gap-3 md:hidden">
-	<div
-		class="flex flex-col items-start rounded-xl bg-gradient-to-br from-green-200 to-green-400 p-4 shadow-md"
-	>
-		{#if Wallet}
-			<Wallet class="mb-2 h-6 w-6 text-green-900" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
-			</div>
-		{/if}
-		<div class="text-sm font-medium text-green-900/80">Pendapatan</div>
-		<div class="text-xl font-bold text-green-900">
-			{omzet !== null ? `Rp ${formatRupiah(omzet)}` : '--'}
-		</div>
-	</div>
-	<div
-		class="flex flex-col items-start rounded-xl bg-gradient-to-br from-cyan-100 to-pink-200 p-4 shadow-md"
-	>
-		{#if Wallet}
-			<Wallet class="mb-2 h-6 w-6 text-cyan-900" />
-		{:else}
-			<div class="mb-2 flex h-6 w-6 items-center justify-center">
-				<span
-					class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-				></span>
-			</div>
-		{/if}
-		<div class="text-sm font-medium text-cyan-900/80">Modal Awal</div>
-		<div class="text-xl font-bold text-cyan-900">
-			{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}
+		<div
+			class="mt-3.5 hidden items-center justify-between border-t border-slate-100 pt-3 text-xs md:mt-4 md:flex md:pt-3.5"
+		>
+			<span class="font-medium text-slate-400">Rata-rata</span>
+			<span class="font-bold text-slate-700"
+				>{jumlahTransaksi && omzet
+					? `Rp ${formatRupiah(Math.round(omzet / jumlahTransaksi))}`
+					: '--'}</span
+			>
 		</div>
 	</div>
 </div>

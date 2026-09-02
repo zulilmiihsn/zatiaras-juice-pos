@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { fade, fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+
 	let {
 		options = [],
 		value = '',
@@ -31,15 +34,14 @@
 {#if open}
 	<div
 		class="modal-backdrop"
+		transition:fade={{ duration: 180 }}
 		onclick={(event) => event.target === event.currentTarget && close()}
 		onkeydown={(e) => e.key === 'Escape' && close()}
 		role="dialog"
 		aria-label="Modal pilih opsi"
-		onkeyup={(e) => e.key === 'Enter' && close()}
 		tabindex="-1"
-		onkeypress={(e) => e.key === 'Enter' && close()}
 	>
-		<div class="sheet" role="document">
+		<div class="sheet" role="document" transition:fly={{ y: 240, duration: 220, easing: cubicOut }}>
 			<div class="sheet-header">Pilih Opsi</div>
 			<div class="dropdown-list">
 				{#each options as opt (opt.value)}
@@ -61,7 +63,9 @@
 		right: 0;
 		top: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.18);
+		background: rgba(15, 23, 42, 0.4);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 		z-index: 100;
 		display: flex;
 		align-items: flex-end;
@@ -72,29 +76,18 @@
 		max-width: 420px;
 		margin: 0 auto;
 		background: #fff;
-		border-radius: 18px 18px 0 0;
-		box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+		border-radius: 24px 24px 0 0;
+		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
 		min-height: 120px;
-		padding: 2rem 1.5rem 1.5rem 1.5rem;
+		padding: 1.75rem 1.5rem 1.5rem 1.5rem;
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		animation: slideUp 0.22s cubic-bezier(0.4, 1.4, 0.6, 1) 1;
-	}
-	@keyframes slideUp {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
 	}
 	.sheet-header {
 		font-size: 1.15rem;
-		font-weight: 600;
-		color: #ff5fa2;
+		font-weight: 700;
+		color: #db2777;
 		text-align: center;
 	}
 	.dropdown-list {
@@ -105,23 +98,20 @@
 	.dropdown-item {
 		width: 100%;
 		background: #fff;
-		color: #ff5fa2;
-		border: 1.5px solid #f3c6db;
-		border-radius: 10px;
+		color: #db2777;
+		border: 1.5px solid #fce7f3;
+		border-radius: 14px;
 		padding: 0.8rem 1rem;
-		font-size: 1.08rem;
-		font-weight: 500;
+		font-size: 1rem;
+		font-weight: 600;
 		text-align: left;
-		transition:
-			background 0.18s,
-			color 0.18s,
-			border 0.18s;
+		transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 	}
 	.dropdown-item.active,
 	.dropdown-item:active,
 	.dropdown-item:hover {
-		background: #ff5fa2;
+		background: #db2777;
 		color: #fff;
-		border-color: #ff5fa2;
+		border-color: #db2777;
 	}
 </style>

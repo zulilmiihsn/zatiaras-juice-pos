@@ -12,7 +12,7 @@ function bytesToHex(bytes: Uint8Array): string {
 	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function hexToBytes(value: string): Uint8Array | null {
+function hexToBytes(value: string): Uint8Array<ArrayBuffer> | null {
 	if (!/^[0-9a-f]+$/i.test(value) || value.length % 2 !== 0) return null;
 	const bytes = new Uint8Array(value.length / 2);
 	for (let index = 0; index < value.length; index += 2) {
@@ -21,7 +21,11 @@ function hexToBytes(value: string): Uint8Array | null {
 	return bytes;
 }
 
-async function derivePin(pin: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+async function derivePin(
+	pin: string,
+	salt: Uint8Array<ArrayBuffer>,
+	iterations: number
+): Promise<Uint8Array<ArrayBuffer>> {
 	const key = await crypto.subtle.importKey(
 		'raw',
 		new TextEncoder().encode(pin),

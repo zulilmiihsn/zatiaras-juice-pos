@@ -5,9 +5,9 @@ import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { browser } from '$app/environment';
 import { NOTIF } from '$lib/constants/ui';
-import Crown from 'lucide-svelte/icons/crown';
-import CreditCard from 'lucide-svelte/icons/credit-card';
-import User from 'lucide-svelte/icons/user';
+import Crown from '@lucide/svelte/icons/crown';
+import CreditCard from '@lucide/svelte/icons/credit-card';
+import User from '@lucide/svelte/icons/user';
 import type { Component } from 'svelte';
 
 type IconComponent = Component<Record<string, unknown>>;
@@ -67,8 +67,7 @@ export function createPengaturanState() {
 	function handleInstallPWA() {
 		if (browser && isPwaLibraryLoaded) {
 			const pwaInstall = document.querySelector('pwa-install') as
-				| (HTMLElement & { showDialog: (show: boolean) => void })
-				| null;
+				(HTMLElement & { showDialog: (show: boolean) => void }) | null;
 			if (pwaInstall) {
 				pwaInstall.showDialog(true);
 			}
@@ -119,17 +118,20 @@ export function createPengaturanState() {
 
 			isLoading = false;
 
-			LogOut = (await import('lucide-svelte/icons/log-out')).default as unknown as IconComponent;
-			Shield = (await import('lucide-svelte/icons/shield')).default as unknown as IconComponent;
-			Palette = (await import('lucide-svelte/icons/palette')).default as unknown as IconComponent;
-			Database = (await import('lucide-svelte/icons/database')).default as unknown as IconComponent;
-			HelpCircle = (await import('lucide-svelte/icons/help-circle'))
+			LogOut = (await import('@lucide/svelte/icons/log-out')).default as unknown as IconComponent;
+			Shield = (await import('@lucide/svelte/icons/shield')).default as unknown as IconComponent;
+			Palette = (await import('@lucide/svelte/icons/palette')).default as unknown as IconComponent;
+			Database = (await import('@lucide/svelte/icons/database'))
 				.default as unknown as IconComponent;
-			Settings = (await import('lucide-svelte/icons/settings')).default as unknown as IconComponent;
-			Bell = (await import('lucide-svelte/icons/bell')).default as unknown as IconComponent;
-			Download = (await import('lucide-svelte/icons/download')).default as unknown as IconComponent;
-			Printer = (await import('lucide-svelte/icons/printer')).default as unknown as IconComponent;
-			History = (await import('lucide-svelte/icons/history')).default as unknown as IconComponent;
+			HelpCircle = (await import('@lucide/svelte/icons/help-circle'))
+				.default as unknown as IconComponent;
+			Settings = (await import('@lucide/svelte/icons/settings'))
+				.default as unknown as IconComponent;
+			Bell = (await import('@lucide/svelte/icons/bell')).default as unknown as IconComponent;
+			Download = (await import('@lucide/svelte/icons/download'))
+				.default as unknown as IconComponent;
+			Printer = (await import('@lucide/svelte/icons/printer')).default as unknown as IconComponent;
+			History = (await import('@lucide/svelte/icons/history')).default as unknown as IconComponent;
 		} catch (error) {
 			ErrorHandler.logError(error, 'loadPengaturanPage');
 		}

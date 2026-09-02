@@ -161,8 +161,8 @@ src/
 
 ### Internal Boundaries
 
-| Boundary               | Communication       | Notes            |
-| ---------------------- | ------------------- | ---------------- |
+| Boundary              | Communication       | Notes            |
+| --------------------- | ------------------- | ---------------- |
 | [module A ↔ module B] | [API/events/direct] | [considerations] |
 
 ## Sources

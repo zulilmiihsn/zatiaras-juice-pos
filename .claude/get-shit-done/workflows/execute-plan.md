@@ -378,7 +378,7 @@ HRS=$(( DURATION_MIN / 60 ))
   MIN=$(( DURATION_MIN % 60 ))
 DURATION="${HRS}h ${MIN}m"
 else
-  DURATION="${DURATION_MIN} min"
+DURATION="${DURATION_MIN} min"
 fi
 
 ````

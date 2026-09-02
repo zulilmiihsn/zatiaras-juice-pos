@@ -3,13 +3,13 @@
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';
 	import { formatRupiah } from '$lib/utils/currency';
-	import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
-	import Clock3 from 'lucide-svelte/icons/clock-3';
-	import Download from 'lucide-svelte/icons/download';
-	import FileWarning from 'lucide-svelte/icons/file-warning';
-	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
-	import ShieldAlert from 'lucide-svelte/icons/shield-alert';
-	import Trash2 from 'lucide-svelte/icons/trash-2';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import Clock3 from '@lucide/svelte/icons/clock-3';
+	import Download from '@lucide/svelte/icons/download';
+	import FileWarning from '@lucide/svelte/icons/file-warning';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	let {
 		open = false,
@@ -289,7 +289,7 @@
 
 {#if pendingRemoval}
 	<div
-		class="fixed inset-0 z-[130] flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
+		class="fixed inset-0 z-[100000] flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-pending-title"

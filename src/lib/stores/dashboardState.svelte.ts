@@ -4,7 +4,7 @@ import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
-import type { DashboardStats, WeeklyIncomeData, BestSeller } from '$lib/types';
+import type { DashboardStats, WeeklyIncomeData, BestSeller, TopUsedIngredient } from '$lib/types';
 
 export function createDashboardState() {
 	let omzet = $state(0);
@@ -14,6 +14,11 @@ export function createDashboardState() {
 	let totalItem = $state(0);
 	let avgTransaksi = $state(0);
 	let jamRamai = $state('');
+	let penjualanTunai = $state(0);
+	let penjualanNonTunai = $state(0);
+	let lowStockCount = $state(0);
+	let lowStockNames = $state<string[]>([]);
+	let topIngredients = $state<TopUsedIngredient[]>([]);
 
 	let weeklyIncome = $state<number[]>([]);
 	let weeklyMax = $state(1);
@@ -48,6 +53,13 @@ export function createDashboardState() {
 			Number(data?.totalItem || 0),
 			Number(data?.avgTransaksi || 0),
 			String(data?.jamRamai || ''),
+			Number(data?.penjualanTunai || 0),
+			Number(data?.penjualanNonTunai || 0),
+			Number(data?.lowStockCount || 0),
+			(data?.lowStockNames || []).join(','),
+			(data?.topIngredients || [])
+				.map((i) => `${i.id}:${i.terpakai}:${i.stok_saat_ini}:${i.is_low}`)
+				.join(';'),
 			weekly.length,
 			weekly.reduce((sum, value) => sum + Number(value || 0), 0),
 			Number(weeklyData?.weeklyMax || 1),
@@ -65,6 +77,11 @@ export function createDashboardState() {
 		totalItem = data.totalItem;
 		avgTransaksi = data.avgTransaksi;
 		jamRamai = data.jamRamai;
+		penjualanTunai = Number(data.penjualanTunai || 0);
+		penjualanNonTunai = Number(data.penjualanNonTunai || 0);
+		lowStockCount = Number(data.lowStockCount || 0);
+		lowStockNames = Array.isArray(data.lowStockNames) ? data.lowStockNames : [];
+		topIngredients = Array.isArray(data.topIngredients) ? data.topIngredients : [];
 	}
 
 	function applyDashboardPayload(
@@ -86,15 +103,15 @@ export function createDashboardState() {
 
 	async function loadDashboardData() {
 		try {
-			// Load dashboard stats dengan cache
+			// [CATATAN]: Load dashboard stats dengan cache
 			const dashboardStats = await dashboardService.getDashboardStats();
 
-			// Load best sellers dengan cache
+			// [CATATAN]: Load best sellers dengan cache
 			isLoadingBestSellers = true;
 			const nextBestSellers = await dashboardService.getBestSellers();
 			isLoadingBestSellers = false;
 
-			// Load weekly income dengan cache
+			// [CATATAN]: Load weekly income dengan cache
 			const weeklyData = await dashboardService.getWeeklyIncome();
 			applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
 			await reportCacheMetrics('dashboard');
@@ -128,9 +145,14 @@ export function createDashboardState() {
 		}, delayMs);
 	}
 
+	let realtimeDisposers: Array<() => void> = [];
+
 	function setupRealtimeSubscriptions() {
-		realtimeManager.subscribe('buku_kas', async () => scheduleDashboardRealtimeRefresh());
-		realtimeManager.subscribe('transaksi_kasir', async () => scheduleDashboardRealtimeRefresh());
+		realtimeDisposers.forEach((d) => d());
+		realtimeDisposers = [
+			realtimeManager.subscribe('buku_kas', async () => scheduleDashboardRealtimeRefresh()),
+			realtimeManager.subscribe('transaksi_kasir', async () => scheduleDashboardRealtimeRefresh())
+		];
 	}
 
 	$effect(() => {
@@ -145,7 +167,8 @@ export function createDashboardState() {
 		})();
 
 		return () => {
-			realtimeManager.unsubscribeAll();
+			realtimeDisposers.forEach((d) => d());
+			realtimeDisposers = [];
 			if (dashboardRefreshTimer) {
 				clearTimeout(dashboardRefreshTimer);
 				dashboardRefreshTimer = null;
@@ -175,7 +198,7 @@ export function createDashboardState() {
 		weeklyMax = 1;
 		bestSellers = [];
 		isLoadingDashboard = true;
-		// Async dalam effect: jalankan via fire-and-forget
+		// [CATATAN]: Async dalam effect: jalankan via fire-and-forget
 		(async () => {
 			await cacheOrchestrator.invalidateDashboardCaches();
 			await loadDashboardData();
@@ -207,6 +230,21 @@ export function createDashboardState() {
 		},
 		get jamRamai() {
 			return jamRamai;
+		},
+		get penjualanTunai() {
+			return penjualanTunai;
+		},
+		get penjualanNonTunai() {
+			return penjualanNonTunai;
+		},
+		get lowStockCount() {
+			return lowStockCount;
+		},
+		get lowStockNames() {
+			return lowStockNames;
+		},
+		get topIngredients() {
+			return topIngredients;
 		},
 		get weeklyIncome() {
 			return weeklyIncome;

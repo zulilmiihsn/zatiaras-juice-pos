@@ -31,15 +31,16 @@ If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool t
 **These documents are consumed by other GSD commands:**
 
 **`/gsd-plan-phase`** loads relevant codebase docs when creating implementation plans:
-| Phase Type | Documents Loaded |
-|------------|------------------|
-| UI, frontend, components | CONVENTIONS.md, STRUCTURE.md |
-| API, backend, endpoints | ARCHITECTURE.md, CONVENTIONS.md |
-| database, schema, models | ARCHITECTURE.md, STACK.md |
-| testing, tests | TESTING.md, CONVENTIONS.md |
-| integration, external API | INTEGRATIONS.md, STACK.md |
-| refactor, cleanup | CONCERNS.md, ARCHITECTURE.md |
-| setup, config | STACK.md, STRUCTURE.md |
+
+| Phase Type                | Documents Loaded                |
+| ------------------------- | ------------------------------- |
+| UI, frontend, components  | CONVENTIONS.md, STRUCTURE.md    |
+| API, backend, endpoints   | ARCHITECTURE.md, CONVENTIONS.md |
+| database, schema, models  | ARCHITECTURE.md, STACK.md       |
+| testing, tests            | TESTING.md, CONVENTIONS.md      |
+| integration, external API | INTEGRATIONS.md, STACK.md       |
+| refactor, cleanup         | CONCERNS.md, ARCHITECTURE.md    |
+| setup, config             | STACK.md, STRUCTURE.md          |
 
 **`/gsd-execute-phase`** references codebase docs to:
 

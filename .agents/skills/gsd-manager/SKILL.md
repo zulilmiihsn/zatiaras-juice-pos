@@ -26,8 +26,8 @@ Designed for power users who want to parallelize work across phases from one ter
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/manager.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/manager.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

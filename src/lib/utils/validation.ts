@@ -1,4 +1,4 @@
-// Validation utilities untuk sistem POS Zatiaras
+// [CATATAN]: Validation utilities untuk sistem POS Zatiaras
 
 export interface ValidationRule {
 	required?: boolean;
@@ -15,7 +15,7 @@ export interface ValidationResult {
 	errors: string[];
 }
 
-// Sanitasi input untuk mencegah XSS dan injection
+// [CATATAN]: Sanitasi input untuk mencegah XSS dan injection
 export function sanitizeInput(input: string): string {
 	if (typeof input !== 'string') return '';
 
@@ -28,7 +28,7 @@ export function sanitizeInput(input: string): string {
 		.replace(/iframe/gi, ''); // Remove iframe tags
 }
 
-// Validasi nomor (untuk harga, quantity, dll)
+// [CATATAN]: Validasi nomor (untuk harga, quantity, dll)
 export function validateNumber(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -60,7 +60,7 @@ export function validateNumber(value: unknown, rules: ValidationRule = {}): Vali
 	return { isValid: errors.length === 0, errors };
 }
 
-// Validasi teks
+// [CATATAN]: Validasi teks
 export function validateText(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -97,7 +97,7 @@ export function validateText(value: unknown, rules: ValidationRule = {}): Valida
 	return { isValid: errors.length === 0, errors };
 }
 
-// Validasi password (simplified - untuk demo)
+// [CATATAN]: Validasi password (simplified - untuk demo)
 export function validatePasswordDemo(password: string): ValidationResult {
 	return validateText(password, {
 		required: true,
@@ -105,7 +105,7 @@ export function validatePasswordDemo(password: string): ValidationResult {
 	});
 }
 
-// Validasi pemasukan/pengeluaran
+// [CATATAN]: Validasi pemasukan/pengeluaran
 export function validateIncomeExpense(data: {
 	nominal?: unknown;
 	jenis?: unknown;
@@ -113,7 +113,7 @@ export function validateIncomeExpense(data: {
 }): ValidationResult {
 	const errors: string[] = [];
 
-	// Validasi nominal
+	// [CATATAN]: Validasi nominal
 	const amountValidation = validateNumber(data.nominal, {
 		required: true,
 		min: 0
@@ -122,12 +122,12 @@ export function validateIncomeExpense(data: {
 		errors.push(`Nominal: ${amountValidation.errors.join(', ')}`);
 	}
 
-	// Validasi jenis
+	// [CATATAN]: Validasi jenis
 	if (!data.jenis) {
 		errors.push('Jenis harus dipilih');
 	}
 
-	// Validasi deskripsi
+	// [CATATAN]: Validasi deskripsi
 	const descriptionValidation = validateText(data.deskripsi, {
 		required: true,
 		minLength: 3,
@@ -140,7 +140,7 @@ export function validateIncomeExpense(data: {
 	return { isValid: errors.length === 0, errors };
 }
 
-// Validasi waktu
+// [CATATAN]: Validasi waktu
 export function validateTime(time: string): ValidationResult {
 	const errors: string[] = [];
 

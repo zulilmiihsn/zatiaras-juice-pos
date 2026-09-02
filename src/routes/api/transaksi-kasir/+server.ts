@@ -61,7 +61,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 		}
 	}
 
-	// Deteksi apakah kolom snapshot sudah ada (migrasi skema bertahap antar-DB).
+	// [CATATAN]: Deteksi apakah kolom snapshot sudah ada (migrasi skema bertahap antar-DB).
 	const hasSnapshots = await hasDatabaseColumn(rawDb, branch, 'transaksi_kasir', 'nama_produk');
 	const snapshotSelect = hasSnapshots
 		? `nama_produk, harga_dasar, total_tambahan, snapshot_tambahan, gula, es, catatan, snapshot_hpp, nominal_hpp`
@@ -95,7 +95,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');
 
-	// Blokir: transaksi POS harus lewat /api/pos/transaction (yang juga maintain agregat harian).
+	// [CATATAN]: Blokir: transaksi POS harus lewat /api/pos/transaction (yang juga maintain agregat harian).
 	throw kitError(409, 'Transaksi POS harus lewat /api/pos/transaction');
 };
 
@@ -109,8 +109,8 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 
 	const rawDb = getRawDb(platform, branch);
 
-	// P0-4: kumpulkan apa yang harus DIKEMBALIKAN sebelum baris dihapus.
-	// Stok produk: dari item POS (jumlah per produk, hanya yang lacak_stok).
+	// [CATATAN]: P0-4: kumpulkan apa yang harus DIKEMBALIKAN sebelum baris dihapus.
+	// [CATATAN]: Stok produk: dari item POS (jumlah per produk, hanya yang lacak_stok).
 	const itemRows = ((
 		await rawDb
 			.prepare(
@@ -126,8 +126,8 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 		throw kitError(409, 'Transaksi POS tidak konsisten dengan buku kas');
 	}
 
-	// Stok bahan: balikkan PERSIS mutasi yang ditulis checkout (bukan re-compute resep
-	// yang bisa sudah berubah). Kegagalan query harus membatalkan seluruh void.
+	// [CATATAN]: Stok bahan: balikkan PERSIS mutasi yang ditulis checkout (bukan re-compute resep
+	// [CATATAN]: yang bisa sudah berubah). Kegagalan query harus membatalkan seluruh void.
 	const mutasiRows = ((
 		await rawDb
 			.prepare(
@@ -190,7 +190,7 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 		);
 	}
 
-	// P0-5: hapus item + kas dalam SATU batch (atomik) — bukan dua HTTP non-atomik.
+	// [CATATAN]: P0-5: hapus item + kas dalam SATU batch (atomik) — bukan dua HTTP non-atomik.
 	statements.push(
 		rawDb
 			.prepare(`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND transaction_id = ?`)

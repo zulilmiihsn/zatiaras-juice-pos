@@ -190,7 +190,7 @@ autonomous: true
 
 # Plan 02 - Protected features (needs auth)
 wave: 2
-depends_on: ["01"]
+depends_on: ['01']
 files_modified: [src/features/dashboard.ts]
 autonomous: true
 ```

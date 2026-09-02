@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let {
 		show = $bindable(false),
@@ -64,7 +66,7 @@
 		}
 	}
 
-	// Cleanup on component destroy
+	// [CATATAN]: Cleanup on component destroy
 	onDestroy(() => {
 		if (errorTimeout) clearTimeout(errorTimeout);
 	});
@@ -72,12 +74,14 @@
 
 {#if show}
 	<div
-		class="fixed inset-0 z-40 flex items-center justify-center transition-transform duration-300 ease-out"
+		class="fixed inset-0 z-40 flex items-center justify-center"
 		style="top: 58px; bottom: 58px; background: linear-gradient(to bottom right, #f472b6, #ec4899, #a855f7);"
+		transition:fade={{ duration: 200 }}
 	>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<div
 				class="w-full max-w-sm rounded-3xl border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
+				transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 			>
 				<div class="mb-4 text-center">
 					<div

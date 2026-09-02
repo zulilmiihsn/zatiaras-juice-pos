@@ -1,6 +1,6 @@
-// System-prompt builder functions untuk /api/aichat.
-// Dipisahkan dari +server.ts agar file utama lebih ringkas.
-// Teks prompt IDENTIK byte-for-byte dengan versi sebelumnya — jangan diubah.
+// [CATATAN]: System-prompt builder functions untuk /api/aichat.
+// [CATATAN]: Dipisahkan dari +server.ts agar file utama lebih ringkas.
+// [CATATAN]: Teks prompt IDENTIK byte-for-byte dengan versi sebelumnya — jangan diubah.
 
 /** Bentuk dateRange yang dikonsumsi prompt AI 2 (Business Analyst). */
 export interface BusinessAnalystDateRange {
@@ -13,7 +13,7 @@ export interface BusinessAnalystDateRange {
 	dataRequirements?: { jenisData?: string[]; prioritas?: string; scope?: string };
 }
 
-// AI 1: Data Requirement Analyzer
+// [CATATAN]: AI 1: Data Requirement Analyzer
 export function buildIdentifyDataRequirementsPrompt(question: string, todayWita: string): string {
 	const currentMonthStart = `${todayWita.slice(0, 7)}-01`;
 	const currentDate = new Date(`${todayWita}T00:00:00.000Z`);
@@ -99,7 +99,7 @@ CONTOH BERDASARKAN TANGGAL SAAT INI (${todayWita}):
 Pertanyaan user: "${question}"`;
 }
 
-// AI 2: Business Analyst
+// [CATATAN]: AI 2: Business Analyst
 export function buildAnalyzeBusinessDataPrompt(
 	question: string,
 	reportData: string,
@@ -196,7 +196,7 @@ SPESIFIKASI ANALISIS BISNIS JUS:
 Pertanyaan pengguna: "${question}"`;
 }
 
-// AI 3: Transaction Analyzer
+// [CATATAN]: AI 3: Transaction Analyzer
 export function buildAnalyzeTransactionTextPrompt(text: string, productData: string): string {
 	return `Halo! Saya adalah Asisten AI untuk aplikasi POS Zatiaras. Saya di sini untuk membantu Anda mencatat dan mengelola transaksi bisnis dengan mudah dan akurat.
 

@@ -18,5 +18,15 @@ assert.equal(calculateUsableQuantity(-1, 65), 0);
 assert.equal(calculateEffectiveUnitCost(300_000, 10_000, 65), 46.1538);
 assert.equal(calculateEffectiveUnitCost(300_000, 10_000, 100), 30);
 assert.equal(calculateEffectiveUnitCost(300_000, 0, 65), 0);
+assert.equal(calculateEffectiveUnitCost(300_000, 10), 30_000);
+assert.equal(calculateEffectiveUnitCost(15_000, 3), 5_000);
+assert.equal(calculateEffectiveUnitCost(10_000, '5'), 2_000);
+assert.equal(calculateEffectiveUnitCost(300_000, 0), 0);
+assert.equal(calculateEffectiveUnitCost(300_000, -1), 0);
+assert.equal(calculateEffectiveUnitCost(-100, 10), 0);
+assert.equal(calculateEffectiveUnitCost(undefined, 10), 0);
+assert.equal(calculateEffectiveUnitCost(10_000, null), 0);
+assert.equal(calculateEffectiveUnitCost(NaN, 5), 0);
+assert.equal(calculateEffectiveUnitCost(1000, 3), 333.3333);
 
-console.log('ingredient-yield-tests: 12 assertions passed');
+console.log('ingredient-yield-tests: 22 assertions passed');

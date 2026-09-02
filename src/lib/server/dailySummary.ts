@@ -13,8 +13,8 @@ export async function buildDailySummaryReversalStatements(
 	branch: BranchId,
 	transactionId: string
 ): Promise<{ found: boolean; statements: D1PreparedStatement[] }> {
-	// Agregat kontribusi transaksi: tanggal WITA dari created_at item, dan
-	// metode bayar dari buku_kas induknya.
+	// [CATATAN]: Agregat kontribusi transaksi: tanggal WITA dari created_at item, dan
+	// [CATATAN]: metode bayar dari buku_kas induknya.
 	const header = (await rawDb
 		.prepare(
 			`SELECT
@@ -50,7 +50,7 @@ export async function buildDailySummaryReversalStatements(
 	const nonCashDelta = isCash ? 0 : gross;
 	const now = new Date().toISOString();
 
-	// Kontribusi per produk untuk daily_product_sales.
+	// [CATATAN]: Kontribusi per produk untuk daily_product_sales.
 	const products =
 		(
 			(await rawDb

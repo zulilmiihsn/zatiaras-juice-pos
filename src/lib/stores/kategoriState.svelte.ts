@@ -67,15 +67,15 @@ export function createKategoriState(deps: KategoriDeps) {
 	) {
 		try {
 			const menus = deps.getMenus();
-			for (const menuId of menuIds) {
-				await menuCrud.updateCategory(menuId, kategoriId);
-			}
+			if (menuIds.length) await menuCrud.updateCategories(menuIds, kategoriId);
 			if (oldKategoriId) {
 				const menusInOldKategori = menus.filter((m) => m.kategori_id === oldKategoriId);
 				const menusToRemove = menusInOldKategori.filter((m) => !menuIds.includes(m.id));
-				for (const menu of menusToRemove) {
-					await menuCrud.updateCategory(menu.id, null);
-				}
+				if (menusToRemove.length)
+					await menuCrud.updateCategories(
+						menusToRemove.map((menu) => menu.id),
+						null
+					);
 			}
 		} catch (error) {
 			ErrorHandler.logError(error, 'updateMenuCategories');

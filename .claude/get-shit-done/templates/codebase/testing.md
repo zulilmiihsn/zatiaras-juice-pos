@@ -40,7 +40,7 @@ Template for `.planning/codebase/TESTING.md` - captures test framework and patte
 **Location:**
 
 - [Pattern: e.g., "*.test.ts alongside source files"]
-- [Alternative: e.g., "__tests__/ directory" or "separate tests/ tree"]
+- [Alternative: e.g., "**tests**/ directory" or "separate tests/ tree"]
 
 **Naming:**
 
@@ -225,7 +225,7 @@ it('should reject on failure', async () => {
 **Snapshot Testing:**
 
 - [Usage: e.g., "for React components only" or "not used"]
-- [Location: e.g., "__snapshots__/ directory"]
+- [Location: e.g., "**snapshots**/ directory"]
 
 ---
 

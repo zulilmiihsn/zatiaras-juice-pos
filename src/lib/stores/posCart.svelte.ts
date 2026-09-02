@@ -1,0 +1,177 @@
+import { browser } from '$app/environment';
+import { calculateCartTotal } from '$lib/utils/performance';
+import type { CartItem } from '$lib/types/cart';
+import type { PosProduct, PosAddOn } from '$lib/stores/posState.svelte';
+
+export function createPosCart() {
+	let cart = $state<CartItem[]>([]);
+
+	function saveToStorage(items: CartItem[]) {
+		if (!browser) return;
+		try {
+			localStorage.setItem('pos_cart', JSON.stringify(items));
+		} catch {
+			// [CATATAN]: Abaikan jika kuota penyimpanan penuh
+		}
+	}
+
+	// [CATATAN]: Inisialisasi data keranjang dari localStorage saat di browser
+	if (browser) {
+		try {
+			const saved = localStorage.getItem('pos_cart');
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				if (Array.isArray(parsed)) {
+					cart = parsed;
+				}
+			}
+		} catch {
+			// [CATATAN]: Abaikan jika format localStorage rusak
+		}
+	}
+
+	// [CATATAN]: Derived calculations otomatis (Svelte 5 Runes)
+	const cartTotal = $derived(calculateCartTotal(cart));
+	const totalItems = $derived(cartTotal.items);
+	const totalHarga = $derived(cartTotal.total);
+
+	function calculateItemKey(
+		productId: string | number,
+		addOnIds: Array<string | number>,
+		porsi: string,
+		sugar: string,
+		ice: string,
+		note: string
+	): string {
+		const sortedAddOns = [...addOnIds].sort().join(',');
+		return `${productId}-${porsi || 'reguler'}-${sortedAddOns}-${sugar}-${ice}-${note.trim()}`;
+	}
+
+	function cartItemKey(item: CartItem): string {
+		return [
+			item.product.id,
+			item.porsi || 'reguler',
+			(item.addOns || [])
+				.map((a) => a.id)
+				.sort()
+				.join(','),
+			item.gula,
+			item.es,
+			item.catatan
+		].join('|');
+	}
+
+	function addItem(
+		product: PosProduct,
+		addOnsSelected: PosAddOn[],
+		porsi: 'reguler' | 'jumbo',
+		sugar: string,
+		ice: string,
+		quantity: number,
+		note: string
+	): void {
+		const addOnIds = addOnsSelected.map((a) => a.id);
+		const targetKey = calculateItemKey(product.id, addOnIds, porsi, sugar, ice, note);
+
+		const existingIdx = cart.findIndex((item) => {
+			const itemAddOnIds = (item.addOns || []).map((a) => a.id);
+			const currentKey = calculateItemKey(
+				item.product.id,
+				itemAddOnIds,
+				item.porsi || 'reguler',
+				item.gula,
+				item.es,
+				item.catatan || ''
+			);
+			return currentKey === targetKey;
+		});
+
+		if (existingIdx !== -1) {
+			cart = cart.map((item, idx) =>
+				idx === existingIdx ? { ...item, jumlah: item.jumlah + quantity } : item
+			);
+		} else {
+			cart = [
+				...cart,
+				{
+					product,
+					addOns: addOnsSelected,
+					porsi,
+					gula: sugar,
+					es: ice,
+					jumlah: quantity,
+					catatan: note.trim()
+				}
+			];
+		}
+		saveToStorage(cart);
+	}
+
+	function addCustomItem(item: CartItem): void {
+		cart = [...cart, item];
+		saveToStorage(cart);
+	}
+
+	function removeItem(index: number): void {
+		cart = cart.filter((_, i) => i !== index);
+		saveToStorage(cart);
+	}
+
+	function clearCart(): void {
+		cart = [];
+		saveToStorage(cart);
+	}
+
+	function reloadFromStorage(): void {
+		if (!browser) return;
+		try {
+			const saved = localStorage.getItem('pos_cart');
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				cart = Array.isArray(parsed) ? parsed : [];
+			} else {
+				cart = [];
+			}
+		} catch {
+			cart = [];
+		}
+	}
+
+	function updateItemQuantity(index: number, quantity: number): void {
+		if (quantity <= 0) {
+			removeItem(index);
+			return;
+		}
+		cart = cart.map((item, idx) => (idx === index ? { ...item, jumlah: quantity } : item));
+		saveToStorage(cart);
+	}
+
+	return {
+		get items() {
+			return cart;
+		},
+		set items(val: CartItem[]) {
+			cart = val;
+			saveToStorage(cart);
+		},
+		get cartTotal() {
+			return cartTotal;
+		},
+		get totalItems() {
+			return totalItems;
+		},
+		get totalHarga() {
+			return totalHarga;
+		},
+		addItem,
+		addCustomItem,
+		updateItemQuantity,
+		removeItem,
+		clearCart,
+		reloadFromStorage,
+		cartItemKey,
+		calculateItemKey
+	};
+}
+
+export const posCart = createPosCart();

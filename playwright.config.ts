@@ -17,7 +17,7 @@ export default defineConfig({
 		...devices['Desktop Chrome']
 	},
 	webServer: {
-		command: 'pnpm dev --host 127.0.0.1 --mode e2e',
+		command: 'pnpm dev --force --host 127.0.0.1 --mode e2e',
 		url: 'http://127.0.0.1:5173/login',
 		reuseExistingServer: false,
 		timeout: 120_000,

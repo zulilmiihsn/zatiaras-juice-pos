@@ -6,7 +6,7 @@
  */
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 
-// Security configuration
+// [CATATAN]: Security configuration
 const SECURITY_CONFIG = {
 	RATE_LIMIT_WINDOW: 15 * 60 * 1000, // 15 minutes
 	MAX_REQUESTS_PER_WINDOW: 100,
@@ -14,7 +14,7 @@ const SECURITY_CONFIG = {
 	LOGIN_BLOCK_DURATION: 30 * 60 * 1000 // 30 minutes
 };
 
-// Rate limiting storage
+// [CATATAN]: Rate limiting storage
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 const loginAttempts = new Map<string, { count: number; blockedUntil: number }>();
 
@@ -149,7 +149,7 @@ export const securityUtils = {
 				credentials: 'include'
 			}).catch(() => undefined);
 		} catch {
-			// best-effort telemetry — failure is non-critical
+			// [CATATAN]: best-effort telemetry — failure is non-critical
 		}
 	}
 };

@@ -11,6 +11,8 @@ import {
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { dbGet } from '$lib/services/dataApiClient';
 import { REPORT_CACHE_VERSION } from '$lib/constants/cache';
+import type { TopUsedIngredient } from '$lib/types';
+import { calculateTaxes } from '$lib/services/taxService';
 
 async function getCachedPosKas7Hari() {
 	const todayStr = getTodayWita();
@@ -141,11 +143,73 @@ export class DashboardService {
 						(s: number, row: Record<string, any>) => s + (row.total_hpp || 0),
 						0
 					);
+					const penjualanTunai = summary.reduce(
+						(s: number, row: Record<string, any>) => s + (row.penjualan_tunai || 0),
+						0
+					);
+					const penjualanNonTunai = summary.reduce(
+						(s: number, row: Record<string, any>) => s + (row.penjualan_nontunai || 0),
+						0
+					);
 
-					const [avgTransaksi, jamRamai] = await Promise.all([
-						getAvgTransaksiHarian(),
-						getJamRamaiMingguan()
+					const avgTransaksi = await getAvgTransaksiHarian();
+					const jamRamai = await getJamRamaiMingguan();
+					const [bahanRes, mutasiRes] = await Promise.all([
+						dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
+						dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
 					]);
+
+					const lowStockBahan = Array.isArray(bahanRes)
+						? bahanRes.filter(
+								(b) => Number(b.stok_saat_ini ?? 0) <= Number(b.ambang_stok ?? b.stok_minimum ?? 5)
+							)
+						: [];
+					const lowStockCount = lowStockBahan.length;
+					const lowStockNames = lowStockBahan
+						.slice(0, 3)
+						.map((b) => String(b.nama || b.nama_bahan || 'Bahan'));
+
+					const todayYmd = getTodayWita();
+					const usageByBahan: Record<string, number> = {};
+					if (Array.isArray(mutasiRes)) {
+						for (const m of mutasiRes) {
+							if (m.created_at && m.delta_jumlah) {
+								const mDate = formatDateYmdWita(m.created_at);
+								if (mDate === todayYmd && Number(m.delta_jumlah) < 0) {
+									const bId = String(m.bahan_id || '');
+									if (bId) {
+										usageByBahan[bId] = (usageByBahan[bId] || 0) + Math.abs(Number(m.delta_jumlah));
+									}
+								}
+							}
+						}
+					}
+
+					let topIngredients: TopUsedIngredient[] = [];
+					if (Array.isArray(bahanRes) && bahanRes.length > 0) {
+						topIngredients = bahanRes
+							.map((b) => {
+								const bId = String(b.id || '');
+								const terpakai = usageByBahan[bId] || 0;
+								const stok = Number(b.stok_saat_ini ?? 0);
+								const ambang = Number(b.ambang_stok ?? b.stok_minimum ?? 5);
+								return {
+									id: bId,
+									nama: String(b.nama || 'Bahan'),
+									satuan: String(b.satuan || 'item'),
+									terpakai,
+									stok_saat_ini: stok,
+									ambang_stok: ambang,
+									is_low: stok <= ambang
+								};
+							})
+							.sort((a, b) => {
+								if (b.terpakai !== a.terpakai) return b.terpakai - a.terpakai;
+								if (a.is_low !== b.is_low) return a.is_low ? -1 : 1;
+								return a.stok_saat_ini - b.stok_saat_ini;
+							})
+							.slice(0, 4);
+					}
 
 					return {
 						itemTerjual,
@@ -155,6 +219,11 @@ export class DashboardService {
 						totalItem: itemTerjual,
 						avgTransaksi,
 						jamRamai,
+						penjualanTunai,
+						penjualanNonTunai,
+						lowStockCount,
+						lowStockNames,
+						topIngredients,
 						weeklyIncome: [],
 						weeklyMax: 1,
 						bestSellers: []
@@ -177,10 +246,74 @@ export class DashboardService {
 					.filter((t: Record<string, any>) => t.tipe === 'out')
 					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
 
-				const [avgTransaksi, jamRamai] = await Promise.all([
-					getAvgTransaksiHarian(),
-					getJamRamaiMingguan()
+				const penjualanTunai = kas
+					.filter((t: Record<string, any>) => t.metode_bayar === 'tunai')
+					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+				const penjualanNonTunai = kas
+					.filter(
+						(t: Record<string, any>) => t.metode_bayar === 'non-tunai' || t.metode_bayar === 'qris'
+					)
+					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+
+				const avgTransaksi = await getAvgTransaksiHarian();
+				const jamRamai = await getJamRamaiMingguan();
+				const [bahanRes, mutasiRes] = await Promise.all([
+					dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
+					dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
 				]);
+
+				const lowStockBahan = Array.isArray(bahanRes)
+					? bahanRes.filter(
+							(b) => Number(b.stok_saat_ini ?? 0) <= Number(b.ambang_stok ?? b.stok_minimum ?? 5)
+						)
+					: [];
+				const lowStockCount = lowStockBahan.length;
+				const lowStockNames = lowStockBahan
+					.slice(0, 3)
+					.map((b) => String(b.nama || b.nama_bahan || 'Bahan'));
+
+				const todayYmdFallback = getTodayWita();
+				const usageByBahanFallback: Record<string, number> = {};
+				if (Array.isArray(mutasiRes)) {
+					for (const m of mutasiRes) {
+						if (m.created_at && m.delta_jumlah) {
+							const mDate = formatDateYmdWita(m.created_at);
+							if (mDate === todayYmdFallback && Number(m.delta_jumlah) < 0) {
+								const bId = String(m.bahan_id || '');
+								if (bId) {
+									usageByBahanFallback[bId] =
+										(usageByBahanFallback[bId] || 0) + Math.abs(Number(m.delta_jumlah));
+								}
+							}
+						}
+					}
+				}
+
+				let topIngredientsFallback: TopUsedIngredient[] = [];
+				if (Array.isArray(bahanRes) && bahanRes.length > 0) {
+					topIngredientsFallback = bahanRes
+						.map((b) => {
+							const bId = String(b.id || '');
+							const terpakai = usageByBahanFallback[bId] || 0;
+							const stok = Number(b.stok_saat_ini ?? 0);
+							const ambang = Number(b.ambang_stok ?? b.stok_minimum ?? 5);
+							return {
+								id: bId,
+								nama: String(b.nama || 'Bahan'),
+								satuan: String(b.satuan || 'item'),
+								terpakai,
+								stok_saat_ini: stok,
+								ambang_stok: ambang,
+								is_low: stok <= ambang
+							};
+						})
+						.sort((a, b) => {
+							if (b.terpakai !== a.terpakai) return b.terpakai - a.terpakai;
+							if (a.is_low !== b.is_low) return a.is_low ? -1 : 1;
+							return a.stok_saat_ini - b.stok_saat_ini;
+						})
+						.slice(0, 4);
+				}
 
 				return {
 					itemTerjual,
@@ -190,6 +323,11 @@ export class DashboardService {
 					totalItem: itemTerjual,
 					avgTransaksi,
 					jamRamai,
+					penjualanTunai,
+					penjualanNonTunai,
+					lowStockCount,
+					lowStockNames,
+					topIngredients: topIngredientsFallback,
 					weeklyIncome: [],
 					weeklyMax: 1,
 					bestSellers: []
@@ -210,11 +348,23 @@ export class DashboardService {
 
 				const summaryItems = await dbGet('best_sellers_summary', { start: startUtc, end: endUtc });
 				if (summaryItems.length) {
-					return summaryItems.map((item: Record<string, any>) => ({
-						nama: item.nama_produk || '-',
-						image: '',
-						total_qty: Number(item.total_qty || 0)
-					}));
+					const combined = new Map<string, { nama: string; image: string; total_qty: number }>();
+					for (const item of summaryItems) {
+						const cleanName = String(item.nama_produk || '-')
+							.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
+							.trim();
+						const key = item.produk_id ? String(item.produk_id) : cleanName;
+						const current = combined.get(key) || {
+							nama: cleanName,
+							image: String(item.image || item.gambar || ''),
+							total_qty: 0
+						};
+						current.total_qty += Number(item.total_qty || 0);
+						combined.set(key, current);
+					}
+					return Array.from(combined.values())
+						.sort((a, b) => b.total_qty - a.total_qty)
+						.slice(0, 3);
 				}
 
 				const items = await dbGet<Record<string, any>>('transaksi_kasir', {
@@ -236,7 +386,10 @@ export class DashboardService {
 				const allProducts = await dbGet<Record<string, any>>('produk', {});
 				return topIds.map((id) => {
 					const prod = allProducts.find((p) => p.id === id);
-					return { nama: prod?.nama || '-', image: prod?.gambar || '', total_qty: grouped[id] };
+					const cleanName = String(prod?.nama || '-')
+						.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
+						.trim();
+					return { nama: cleanName, image: prod?.gambar || '', total_qty: grouped[id] };
 				});
 			},
 			{ ttl: 300000, backgroundRefresh: true }
@@ -344,7 +497,7 @@ export class DashboardService {
 				const totalPemasukan = pemasukan.reduce((s, t) => s + ((t.nominal as number) || 0), 0);
 				const totalPengeluaran = pengeluaran.reduce((s, t) => s + ((t.nominal as number) || 0), 0);
 				const labaKotor = totalPemasukan - totalPengeluaran;
-				const pajak = labaKotor > 0 ? Math.round(labaKotor * 0.005) : 0;
+				const taxResult = calculateTaxes(totalPemasukan, labaKotor);
 
 				return {
 					data: {
@@ -353,8 +506,14 @@ export class DashboardService {
 							pengeluaran: totalPengeluaran,
 							saldo: labaKotor,
 							labaKotor,
-							pajak,
-							labaBersih: labaKotor - pajak
+							pajak: taxResult.totalPajak,
+							labaBersih: taxResult.labaBersih,
+							taxBreakdown: taxResult.breakdowns.map((b) => ({
+								nama: b.nama,
+								persentase: b.persentase,
+								nominal: b.nominalPajak
+							})),
+							taxLabel: taxResult.activeTaxesLabel
 						},
 						pemasukanUsaha: pemasukan.filter((t) => t.jenis === 'pendapatan_usaha'),
 						pemasukanLain: pemasukan.filter((t) => t.jenis === 'lainnya'),

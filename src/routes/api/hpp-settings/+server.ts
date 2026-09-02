@@ -30,6 +30,7 @@ type HppPayload = {
 	air_bulanan?: number;
 	gaji_bulanan?: number;
 	lainnya_bulanan?: number;
+	rincian_biaya?: string | unknown[];
 	target_item_bulanan?: number;
 };
 
@@ -44,6 +45,13 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	const input = (Array.isArray(body.payload) ? body.payload[0] : body.payload) as HppPayload;
 	const id = `${branch}:default`;
 	const now = new Date().toISOString();
+	const rincianBiayaStr =
+		typeof input.rincian_biaya === 'string'
+			? input.rincian_biaya
+			: input.rincian_biaya
+				? JSON.stringify(input.rincian_biaya)
+				: null;
+
 	const row = {
 		id,
 		cabang_id: branch,
@@ -52,6 +60,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 		air_bulanan: Number(input.air_bulanan || 0),
 		gaji_bulanan: Number(input.gaji_bulanan || 0),
 		lainnya_bulanan: Number(input.lainnya_bulanan || 0),
+		rincian_biaya: rincianBiayaStr,
 		target_item_bulanan: Math.max(1, Number(input.target_item_bulanan || 1000))
 	};
 
@@ -60,15 +69,16 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 		.prepare(
 			`INSERT INTO pengaturan_hpp (
 				id, cabang_id, sewa_bulanan, listrik_bulanan, air_bulanan,
-				gaji_bulanan, lainnya_bulanan, target_item_bulanan, created_at, updated_at
+				gaji_bulanan, lainnya_bulanan, rincian_biaya, target_item_bulanan, created_at, updated_at
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
 				sewa_bulanan = excluded.sewa_bulanan,
 				listrik_bulanan = excluded.listrik_bulanan,
 				air_bulanan = excluded.air_bulanan,
 				gaji_bulanan = excluded.gaji_bulanan,
 				lainnya_bulanan = excluded.lainnya_bulanan,
+				rincian_biaya = excluded.rincian_biaya,
 				target_item_bulanan = excluded.target_item_bulanan,
 				updated_at = excluded.updated_at`
 		)
@@ -80,6 +90,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 			row.air_bulanan,
 			row.gaji_bulanan,
 			row.lainnya_bulanan,
+			row.rincian_biaya,
 			row.target_item_bulanan,
 			now,
 			now
@@ -90,3 +101,5 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	await auditDataChange(rawDb, branch, session, 'hpp_settings', 'upsert', id, row);
 	return json({ ok: true, data: [row] });
 };
+
+export const POST: RequestHandler = PUT;

@@ -122,10 +122,13 @@ export class ProductService {
 		return this.getCachedTable('tambahan', CACHE_KEYS.ADDONS, 'addons') as unknown as AddOn[];
 	}
 
-	async getIngredients() {
+	async getIngredients(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
+		if (forceRefresh) {
+			await smartCache.invalidate(`ingredients_${branch}`);
+		}
 		return smartCache.get(`ingredients_${branch}`, async () => dbGet('bahan'), {
-			ttl: 180000,
+			ttl: 30000,
 			backgroundRefresh: true
 		});
 	}

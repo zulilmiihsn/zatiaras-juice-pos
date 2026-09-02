@@ -61,6 +61,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				custom_price: item.product_id ? null : normalizeMoney(item.custom_price),
 				jumlah,
 				add_on_ids: uniqueStrings((item.add_on_ids ?? []).map(String)),
+				porsi: item.porsi ? sanitizeShortText(item.porsi, 20) : 'reguler',
 				gula: sanitizeShortText(item.gula, 30),
 				es: sanitizeShortText(item.es, 30),
 				catatan: sanitizeShortText(item.catatan, 240)

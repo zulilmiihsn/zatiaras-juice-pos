@@ -1,6 +1,16 @@
-import type { AddOn, Category, Product } from '$lib/types/product';
+import type { AddOn, Category, Product, Ingredient } from '$lib/types/product';
 
 export type PosCatalogSource = 'network' | 'cache' | 'unavailable';
+
+export interface PosRecipeItem {
+	id: string;
+	produk_id: string;
+	bahan_id: string;
+	porsi?: string | null;
+	jumlah_per_item: number;
+	satuan_resep?: string | null;
+	jumlah_dasar_per_item?: number | null;
+}
 
 export interface PosCatalogSnapshot {
 	version: 2;
@@ -8,6 +18,8 @@ export interface PosCatalogSnapshot {
 	products: Product[];
 	categories: Category[];
 	addOns: AddOn[];
+	ingredients?: Ingredient[];
+	recipes?: PosRecipeItem[];
 	fetched_at: string;
 	expires_at: string;
 	signing_key_id: string;

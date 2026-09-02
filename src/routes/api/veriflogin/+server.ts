@@ -148,7 +148,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 				}
 			);
 		}
-		// Verifikasi hash password
+		// [CATATAN]: Verifikasi hash password
 		const match = await bcrypt.compare(password, user.password);
 		if (!match) {
 			await appendAuditLog(rawDb, branchId, {
@@ -167,10 +167,17 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			);
 		}
 
+		// [CATATAN]: Validasi ketat role user dari database
+		const VALID_ROLES = new Set(['kasir', 'pemilik']);
+		const rawRole = String(user.role || '')
+			.toLowerCase()
+			.trim();
+		const normalizedRole = VALID_ROLES.has(rawRole) ? (rawRole as 'kasir' | 'pemilik') : 'kasir';
+
 		const authSession = await createAuthSession(platform, {
 			userId: user.id,
 			username: user.username,
-			role: user.role,
+			role: normalizedRole,
 			branch: branchId
 		});
 
@@ -195,7 +202,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			maxAge: 60 * 60 * 24
 		});
 
-		// Sukses login
+		// [CATATAN]: Sukses login
 		return new Response(
 			JSON.stringify({
 				success: true,

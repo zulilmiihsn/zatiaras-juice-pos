@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import PlusCircle from 'lucide-svelte/icons/plus-circle';
-	import Trash from 'lucide-svelte/icons/trash';
+	import PlusCircle from '@lucide/svelte/icons/plus-circle';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Search from '@lucide/svelte/icons/search';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { AddOn } from '$lib/types/product';
 
@@ -22,80 +23,88 @@
 
 <div in:fade={{ duration: 150 }} class="flex min-h-0 flex-1 flex-col">
 	<!-- Fixed Header Section -->
-	<div class="flex-shrink-0 bg-white px-4">
+	<div class="flex-shrink-0 bg-transparent px-4 pb-2.5 md:px-6">
 		<!-- Search Bar -->
-		<div class="relative mb-3 flex items-center">
-			<svg
-				class="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				viewBox="0 0 24 24"
-				><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
-			>
-			<input
-				type="text"
-				class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-3 pl-10 text-base text-gray-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-				placeholder="Cari tambahan..."
-				bind:value={searchEkstra}
-			/>
-		</div>
-		<!-- Header Daftar Tambahan -->
-		<div class="mb-2 flex items-center justify-between">
-			<h2 class="text-lg font-bold text-gray-800">Daftar Tambahan</h2>
+		<div class="mx-auto max-w-5xl">
+			<div class="relative flex items-center">
+				<span
+					class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400"
+				>
+					<Search class="h-4.5 w-4.5" />
+				</span>
+				<input
+					type="text"
+					class="min-h-[44px] w-full rounded-full border border-slate-200/80 bg-white/95 py-2.5 pr-4 pl-10 text-sm text-slate-900 shadow-xs backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
+					placeholder="Cari tambahan..."
+					bind:value={searchEkstra}
+				/>
+			</div>
 		</div>
 	</div>
 
 	<!-- Scrollable Tambahan List -->
 	<div class="flex-1 overflow-y-auto">
-		<div class="px-4 pb-6">
+		<div class="mx-auto max-w-5xl px-4 pb-24 md:px-6">
 			{#if isLoadingEkstra}
-				<div class="flex min-h-screen flex-col gap-2">
-					{#each Array(4) as _, i}
-						<div
-							class="flex animate-pulse items-center justify-between rounded-xl border border-green-200 bg-gradient-to-br from-green-50 via-purple-50 to-green-100 px-4 py-3 shadow-md"
-						></div>
+				<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
+					{#each Array(4) as _}
+						<div class="h-16 animate-pulse rounded-2xl bg-zinc-100"></div>
 					{/each}
 				</div>
 			{:else if ekstraList.length === 0}
 				<div
-					class="pointer-events-none flex min-h-[30vh] flex-col items-center justify-center py-12 text-center"
+					class="pointer-events-none flex min-h-[40vh] flex-col items-center justify-center py-12 text-center"
 				>
-					<PlusCircle class="mb-4 h-12 w-12 text-green-300" />
-					<div class="mb-1 text-base font-semibold text-gray-700">Belum ada Tambahan</div>
-					<div class="text-sm text-gray-400">Silakan tambahkan tambahan terlebih dahulu.</div>
+					<div
+						class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-400"
+					>
+						<PlusCircle class="h-6 w-6" />
+					</div>
+					<div class="text-sm font-semibold text-zinc-700 md:text-base">Belum ada Tambahan</div>
+					<div class="mt-1 text-xs text-zinc-400 md:text-sm">
+						Tekan tombol (+) di pojok kanan bawah untuk menambah menu tambahan / ekstra.
+					</div>
 				</div>
 			{:else}
-				<div class="flex flex-col gap-2">
-					{#each ekstraList.filter((ekstra) => ekstra.nama
+				<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
+					{#each ekstraList.filter((e) => e.nama
 							.toLowerCase()
 							.includes(searchEkstra.trim().toLowerCase())) as ekstra}
 						<div
-							class="flex cursor-pointer items-center justify-between rounded-xl border border-green-200 bg-green-100 px-4 py-3 shadow-sm transition-all hover:bg-green-200"
+							class="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md active:scale-[0.99] md:p-4.5"
 							role="button"
 							tabindex="0"
 							onclick={() => openEkstraForm(ekstra)}
 							onkeydown={(e) => e.key === 'Enter' && openEkstraForm(ekstra)}
-							onkeypress={(e) => e.key === 'Enter' && openEkstraForm(ekstra)}
 						>
-							<div class="flex flex-col">
-								<span class="mb-0.5 truncate text-base font-semibold text-green-900"
-									>{ekstra.nama}</span
-								>
-								<span class="truncate text-xs text-green-700">Rp {formatRupiah(ekstra.harga)}</span>
+							<div class="min-w-0 flex-1">
+								<div class="truncate text-sm font-bold text-zinc-900 md:text-base">
+									{ekstra.nama}
+								</div>
+								<div class="mt-0.5 flex items-center gap-2">
+									<span class="text-xs font-bold text-pink-600 md:text-sm">
+										Rp {formatRupiah(ekstra.harga)}
+									</span>
+									{#if ekstra.bahan_id && ekstra.jumlah_bahan}
+										<span
+											class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 ring-inset md:text-xs"
+										>
+											{ekstra.jumlah_bahan}
+											{ekstra.satuan_resep || 'gram'}
+										</span>
+									{/if}
+								</div>
 							</div>
-							<div class="ml-2">
-								<button
-									class="rounded-full border border-red-200 bg-red-50 p-3 hover:bg-red-100"
-									onclick={(e) => {
-										e.stopPropagation();
-										confirmDeleteEkstra(ekstra.id);
-									}}
-									aria-label="Hapus Tambahan"
-								>
-									<Trash class="h-5 w-5 text-red-600" />
-								</button>
-							</div>
+							<button
+								class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 md:h-9 md:w-9"
+								onclick={(e) => {
+									e.stopPropagation();
+									confirmDeleteEkstra(ekstra.id);
+								}}
+								aria-label="Hapus Tambahan"
+							>
+								<Trash2 class="h-4 w-4 md:h-4.5 md:w-4.5" />
+							</button>
 						</div>
 					{/each}
 				</div>

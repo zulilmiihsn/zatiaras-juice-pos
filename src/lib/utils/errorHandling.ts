@@ -58,17 +58,17 @@ export class ErrorHandler {
 		}
 
 		if (error && typeof error === 'object') {
-			// Handle PostgrestError
+			// [CATATAN]: Handle PostgrestError
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
 
-			// Handle error_description
+			// [CATATAN]: Handle error_description
 			if ('error_description' in error && typeof error.error_description === 'string') {
 				return error.error_description;
 			}
 
-			// Handle any other object with message property
+			// [CATATAN]: Handle any other object with message property
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
@@ -123,7 +123,7 @@ export class ErrorHandler {
 	static formatForUser(error: unknown): string {
 		const message = this.extractErrorMessage(error);
 
-		// Map common error messages to user-friendly versions
+		// [CATATAN]: Map common error messages to user-friendly versions
 		const userFriendlyMessages: Record<string, string> = {
 			'Failed to fetch': 'Gagal mengambil data dari server',
 			'Network Error': 'Koneksi internet bermasalah',

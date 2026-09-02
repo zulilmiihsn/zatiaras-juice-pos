@@ -1,5 +1,5 @@
 import { error as kitError } from '@sveltejs/kit';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { produk } from '$lib/database/schema';
 import { makeResourceRoute } from '$lib/server/resourceRouteHelpers';
 
@@ -20,11 +20,27 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 		await db.insert(produk).values(rows as (typeof produk.$inferInsert)[]);
 	},
 	update: async ({ db, branch }, body) => {
-		const { id, kategori_id: kategoriId } = body.where || {};
-		if (id == null && kategoriId === undefined) {
-			throw kitError(400, 'id atau kategori_id diperlukan');
+		const { id, ids, kategori_id: kategoriId } = body.where || {};
+		const productIds = ids
+			?.split(',')
+			.map((value) => value.trim())
+			.filter(Boolean);
+		if (id == null && !productIds?.length && kategoriId === undefined) {
+			throw kitError(400, 'id, ids, atau kategori_id diperlukan');
 		}
 		const payload = body.payload as Partial<typeof produk.$inferInsert>;
+
+		if (productIds?.length && id == null) {
+			await db
+				.update(produk)
+				.set(payload)
+				.where(and(eq(produk.cabang_id, branch), inArray(produk.id, productIds)));
+			return {
+				action: 'bulk_update',
+				entityId: null,
+				metadata: { ids: productIds, fields: Object.keys(payload) }
+			};
+		}
 
 		if (kategoriId !== undefined && id == null) {
 			await db

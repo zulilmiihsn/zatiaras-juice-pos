@@ -13,6 +13,23 @@ export function createHppCalculator(sources: HppSources) {
 	const getOverheadMonthly = () => {
 		const settings = sources.getSettings();
 		if (!settings) return 0;
+		if (settings.rincian_biaya) {
+			try {
+				const items =
+					typeof settings.rincian_biaya === 'string'
+						? JSON.parse(settings.rincian_biaya)
+						: settings.rincian_biaya;
+				if (Array.isArray(items) && items.length > 0) {
+					return items.reduce((sum, item) => {
+						const raw =
+							typeof item.nominal === 'number'
+								? item.nominal
+								: Number(String(item.nominal || 0).replace(/\./g, ''));
+						return sum + (Number.isNaN(raw) ? 0 : raw);
+					}, 0);
+				}
+			} catch {}
+		}
 		return (
 			Number(settings.sewa_bulanan || 0) +
 			Number(settings.listrik_bulanan || 0) +
@@ -27,21 +44,32 @@ export function createHppCalculator(sources: HppSources) {
 		return Math.round(getOverheadMonthly() / target);
 	};
 
-	const getProductRecipeCost = (productId: string | number) =>
-		sources
+	const getProductRecipeCost = (
+		productId: string | number,
+		porsi: 'reguler' | 'jumbo' = 'reguler'
+	) => {
+		const allRecipes = sources
 			.getRecipes()
-			.filter((recipe) => String(recipe.produk_id) === String(productId))
-			.reduce(
-				(total, recipe) =>
-					total +
-					Number(recipe.jumlah_per_item || 0) *
-						Number(ingredient(recipe.bahan_id)?.biaya_per_satuan || 0),
-				0
-			);
+			.filter((recipe) => String(recipe.produk_id) === String(productId));
+		let recipes = allRecipes.filter((r) => (r.porsi || 'reguler') === porsi);
+		if (!recipes.length && porsi === 'jumbo') {
+			recipes = allRecipes.filter((r) => (r.porsi || 'reguler') === 'reguler');
+		}
+		if (!recipes.length) {
+			recipes = allRecipes;
+		}
+		return recipes.reduce((total, recipe) => {
+			const qty = Number(recipe.jumlah_dasar_per_item ?? recipe.jumlah_per_item ?? 0);
+			return total + qty * Number(ingredient(recipe.bahan_id)?.biaya_per_satuan || 0);
+		}, 0);
+	};
 
-	const getProductHpp = (menu: Product) =>
-		Math.round(getProductRecipeCost(menu.id) + getOverheadPerItem());
-	const getProductMargin = (menu: Product) => Number(menu.harga || 0) - getProductHpp(menu);
+	const getProductHpp = (menu: Product, porsi: 'reguler' | 'jumbo' = 'reguler') =>
+		Math.round(getProductRecipeCost(menu.id, porsi) + getOverheadPerItem());
+	const getProductMargin = (menu: Product, porsi: 'reguler' | 'jumbo' = 'reguler') => {
+		const price = porsi === 'jumbo' ? (menu.harga_jumbo ?? menu.harga ?? 0) : (menu.harga ?? 0);
+		return Number(price || 0) - getProductHpp(menu, porsi);
+	};
 
 	return {
 		getBahanName: (id: string | number) => ingredient(id)?.nama || 'Bahan',

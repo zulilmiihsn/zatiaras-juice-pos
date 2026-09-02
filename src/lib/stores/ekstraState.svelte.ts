@@ -1,18 +1,26 @@
 import { createEkstraCrud } from '$lib/services/manajemenmenuCrud';
 import { formatRupiah, parseRupiah } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
-import type { AddOn } from '$lib/types/product';
+import { convertToBaseUnit } from '$lib/utils/unitConversion';
+import type { AddOn, Ingredient } from '$lib/types/product';
 
 interface EkstraDeps {
 	showNotif: (msg: string, type: string) => void;
 	afterUpdate: () => Promise<void>;
+	getBahanList: () => Ingredient[];
 }
 
 export function createEkstraState(deps: EkstraDeps) {
 	const ekstraCrud = createEkstraCrud();
 
 	let ekstraList = $state<(AddOn & { harga: number })[]>([]);
-	let ekstraForm = $state({ nama: '', harga: '' });
+	let ekstraForm = $state({
+		nama: '',
+		harga: '',
+		bahan_id: '',
+		jumlah_bahan: '',
+		satuan_resep: ''
+	});
 	let showEkstraForm = $state(false);
 	let editEkstraId = $state<string | number | null>(null);
 	let showDeleteEkstraModal = $state(false);
@@ -37,17 +45,32 @@ export function createEkstraState(deps: EkstraDeps) {
 			editEkstraId = ekstra.id;
 			ekstraForm.nama = ekstra.nama;
 			ekstraForm.harga = formatRupiah(ekstra.harga);
+			ekstraForm.bahan_id = ekstra.bahan_id ? String(ekstra.bahan_id) : '';
+			ekstraForm.jumlah_bahan =
+				ekstra.jumlah_bahan !== null && ekstra.jumlah_bahan !== undefined
+					? String(ekstra.jumlah_bahan)
+					: '';
+			ekstraForm.satuan_resep = ekstra.satuan_resep || '';
 		} else {
 			editEkstraId = null;
 			ekstraForm.nama = '';
 			ekstraForm.harga = '';
+			ekstraForm.bahan_id = '';
+			ekstraForm.jumlah_bahan = '';
+			ekstraForm.satuan_resep = '';
 		}
 	}
 
 	function closeEkstraForm() {
 		showEkstraForm = false;
 		editEkstraId = null;
-		ekstraForm = { nama: '', harga: '' };
+		ekstraForm = {
+			nama: '',
+			harga: '',
+			bahan_id: '',
+			jumlah_bahan: '',
+			satuan_resep: ''
+		};
 	}
 
 	async function saveEkstra() {
@@ -60,12 +83,43 @@ export function createEkstraState(deps: EkstraDeps) {
 			deps.showNotif('Harga wajib diisi dan harus lebih dari 0', 'warning');
 			return;
 		}
+
+		let bahan_id: string | null = null;
+		let jumlah_bahan: number | null = null;
+		let satuan_resep: string | null = null;
+		let jumlah_dasar_per_item: number | null = null;
+
+		if (ekstraForm.bahan_id) {
+			bahan_id = String(ekstraForm.bahan_id);
+			const bahan = deps.getBahanList().find((b) => String(b.id) === bahan_id);
+			jumlah_bahan = parseFloat(ekstraForm.jumlah_bahan) || 0;
+			satuan_resep = ekstraForm.satuan_resep || bahan?.satuan || 'gram';
+			const baseUnit = bahan?.satuan || 'gram';
+			const packSize = bahan?.isi_per_kemasan || 1;
+			jumlah_dasar_per_item = convertToBaseUnit(jumlah_bahan, satuan_resep, baseUnit, packSize);
+		}
+
 		try {
-			await ekstraCrud.save({ nama: ekstraForm.nama, harga }, editEkstraId);
+			await ekstraCrud.save(
+				{
+					nama: ekstraForm.nama,
+					harga,
+					bahan_id,
+					jumlah_bahan,
+					satuan_resep,
+					jumlah_dasar_per_item
+				},
+				editEkstraId
+			);
 			await fetchEkstra();
 			showEkstraForm = false;
-			ekstraForm.nama = '';
-			ekstraForm.harga = '';
+			ekstraForm = {
+				nama: '',
+				harga: '',
+				bahan_id: '',
+				jumlah_bahan: '',
+				satuan_resep: ''
+			};
 			editEkstraId = null;
 		} catch (error) {
 			deps.showNotif('Gagal menyimpan ekstra: ' + ErrorHandler.extractErrorMessage(error), 'error');

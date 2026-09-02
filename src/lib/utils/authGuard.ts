@@ -94,7 +94,7 @@ export class AuthGuard {
 		if (!navigator.onLine) return this.allowOfflinePosAccess();
 
 		try {
-			// Rate limiting check
+			// [CATATAN]: Rate limiting check
 			const clientId = this.getClientIdentifier();
 			if (!RateLimiter.isAllowed(`auth_${clientId}`)) {
 				goto('/login?reason=rate_limit');
@@ -142,7 +142,7 @@ export class AuthGuard {
 	 * Get client identifier for rate limiting
 	 */
 	private getClientIdentifier(): string {
-		// Use user agent hash for client identification
+		// [CATATAN]: Use user agent hash for client identification
 		const userAgent = navigator.userAgent;
 		const hash = this.simpleHash(userAgent);
 		return `client_${hash}`;
@@ -168,17 +168,17 @@ export class AuthGuard {
 		const attempts = this.loginAttempts.get(clientId) || 0;
 		this.loginAttempts.set(clientId, attempts + 1);
 
-		// Block after 5 failed attempts
+		// [CATATAN]: Block after 5 failed attempts
 		if (attempts >= 4) {
 			LoginSecurity.recordFailedLogin(clientId);
 		}
 	}
 }
 
-// Export singleton instance
+// [CATATAN]: Export singleton instance
 export const authGuard = AuthGuard.getInstance();
 
-// Legacy function exports for backward compatibility
+// [CATATAN]: Legacy function exports for backward compatibility
 export async function requireAuth(): Promise<boolean> {
 	return authGuard.requireAuth();
 }

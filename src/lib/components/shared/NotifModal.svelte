@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+
 	export type NotifModalType = 'warning' | 'success' | 'error';
 
 	let {
@@ -15,11 +18,22 @@
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-xs"
+		transition:fade={{ duration: 180 }}
+		onclick={(event) => event.target === event.currentTarget && onClose()}
+		onkeydown={(e) => e.key === 'Escape' && onClose()}
+		role="dialog"
+		aria-modal="true"
+		aria-label="Modal pemberitahuan"
+		tabindex="-1"
+	>
 		<div
-			class="notif-modal flex w-full max-w-xs flex-col items-center rounded-2xl border-2 bg-white px-8 py-7 shadow-2xl"
+			class="flex w-full max-w-xs flex-col items-center rounded-3xl border-2 bg-white px-8 py-7 shadow-2xl"
 			class:border-red-500={type === 'error'}
 			class:border-yellow-400={type !== 'error'}
+			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
+			role="document"
 		>
 			<div
 				class="mb-3 flex h-16 w-16 items-center justify-center rounded-full"
@@ -58,26 +72,9 @@
 			<div class="mb-4 text-center text-base font-medium text-gray-700">{message}</div>
 			<button
 				type="button"
-				class="mt-2 rounded-xl bg-pink-500 px-6 py-2 font-bold text-white shadow transition-colors hover:bg-pink-600 active:scale-[0.98]"
+				class="mt-2 rounded-xl bg-pink-500 px-6 py-2 font-bold text-white shadow transition-all hover:bg-pink-600 active:scale-[0.98]"
 				onclick={onClose}>Tutup</button
 			>
 		</div>
 	</div>
 {/if}
-
-<style>
-	.notif-modal {
-		animation: notif-modal-in 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	@keyframes notif-modal-in {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-</style>

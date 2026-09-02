@@ -19,8 +19,18 @@ function notifyPendingChanged() {
 	}
 }
 
-export async function addPendingTransaction(trx: unknown): Promise<PendingTransaction> {
-	const pending = normalizePendingTransaction(trx);
+export async function addPendingTransaction(
+	trx: unknown,
+	branch?: string
+): Promise<PendingTransaction> {
+	const activeBranch =
+		branch ||
+		(typeof trx === 'object' && trx && 'branch' in trx
+			? String((trx as any).branch)
+			: typeof window !== 'undefined'
+				? localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda'
+				: 'samarinda');
+	const pending = normalizePendingTransaction(trx, { branch: activeBranch });
 	await idbUpdate(
 		PENDING_KEY,
 		(existing: PendingTransaction[] | undefined) => {

@@ -17,14 +17,14 @@
 </script>
 
 {#if showFilter}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-black/30">
-		<div
-			class="filter-sheet-anim mx-auto w-full max-w-md rounded-t-2xl bg-white p-6 pb-8 shadow-lg"
-		>
-			<div class="mb-6 flex items-center justify-between">
-				<h3 class="text-lg font-bold text-gray-800">Filter Laporan</h3>
+	<div
+		class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+	>
+		<div class="mx-auto w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
+			<div class="mb-5 flex items-center justify-between">
+				<h3 class="text-base font-bold text-slate-900">Filter Laporan</h3>
 				<button
-					class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
+					class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 transition-colors hover:bg-slate-200"
 					onclick={() => (showFilter = false)}
 					aria-label="Tutup filter"
 				>

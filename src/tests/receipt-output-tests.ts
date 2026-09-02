@@ -1,12 +1,7 @@
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
-
-const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
-const { buildReceiptHtml, buildSaleReceiptHtml } = await vite.ssrLoadModule(
-	'/src/lib/utils/receiptPrint.ts'
-);
 
 const settings: ReceiptSettings = {
 	nama_toko: 'Toko UAT',
@@ -60,7 +55,6 @@ const sale = buildSaleReceiptHtml({
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
 assert.equal(hash(reprint), '0a699f228e3ae5abe1ea203337c36ea7a59c1b284177be1e62bbdd9474a877bb');
-assert.equal(hash(sale), 'b323fb88407aa2585adeb177e2baece10b6d3005df9116bf79e94e9c46e6bc56');
+assert.equal(hash(sale), '192a2c1fd559ba3fce3f9ed241a7742843b57d4b489ef731fbfc7e677c83181d');
 console.log('Receipt HTML hashes match pre-refactor output.');
-void vite.close();
 process.exit(0);

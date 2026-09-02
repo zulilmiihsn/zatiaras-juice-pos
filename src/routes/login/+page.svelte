@@ -6,17 +6,24 @@
 	import { securityUtils } from '$lib/utils/security';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import type { BranchType } from '$lib/stores/selectedBranch.svelte';
-
 	import { isAuthenticated } from '$lib/utils/authGuard';
 
-	let userRole = $state('');
+	import User from '@lucide/svelte/icons/user';
+	import Lock from '@lucide/svelte/icons/lock';
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import Store from '@lucide/svelte/icons/store';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
+	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+
 	let username = $state('');
 	let password = $state('');
+	let showPassword = $state(false);
 	let isLoading = $state(false);
 	let hydrated = $state(false);
 	let errorMessage = $state('');
 
-	// Form validation
+	// [CATATAN]: Form validation
 	let usernameError = $state('');
 	let passwordError = $state('');
 
@@ -25,7 +32,7 @@
 		selectedBranch.value = branch as BranchType;
 	});
 
-	// Validate form
+	// [CATATAN]: Validate form
 	function validateForm(): boolean {
 		let isValid = true;
 		const usernameValidation = validateText(username, {
@@ -41,19 +48,18 @@
 		return isValid;
 	}
 
-	let showLottieSuccess = $state(false);
-
-	let showLottieError = $state(false);
-	let lottieErrorTimeout: ReturnType<typeof setTimeout> | null = null;
+	let showSuccessModal = $state(false);
+	let showErrorModal = $state(false);
+	let errorTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async function handleSubmit() {
 		errorMessage = '';
 		if (!validateForm()) return;
 		if (!securityUtils.checkFormRateLimit('login')) {
 			errorMessage = 'Terlalu banyak percobaan login. Silakan coba lagi dalam 1 menit.';
-			showLottieError = true;
-			if (lottieErrorTimeout) clearTimeout(lottieErrorTimeout);
-			lottieErrorTimeout = setTimeout(() => (showLottieError = false), 1200);
+			showErrorModal = true;
+			if (errorTimeout) clearTimeout(errorTimeout);
+			errorTimeout = setTimeout(() => (showErrorModal = false), 1200);
 			return;
 		}
 		const sanitizedUsername = sanitizeInput(username);
@@ -64,16 +70,16 @@
 				username: sanitizedUsername,
 				reason: 'suspicious_activity'
 			});
-			showLottieError = true;
-			if (lottieErrorTimeout) clearTimeout(lottieErrorTimeout);
-			lottieErrorTimeout = setTimeout(() => (showLottieError = false), 1200);
+			showErrorModal = true;
+			if (errorTimeout) clearTimeout(errorTimeout);
+			errorTimeout = setTimeout(() => (showErrorModal = false), 1200);
 			return;
 		}
 		isLoading = true;
 		try {
 			await loginWithUsername(sanitizedUsername, sanitizedPassword, branch);
-			showLottieSuccess = true;
-			await new Promise((resolve) => setTimeout(resolve, 1200));
+			showSuccessModal = true;
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 			goto('/');
 		} catch (e: unknown) {
 			errorMessage = e instanceof Error ? e.message : 'Login gagal';
@@ -81,9 +87,9 @@
 				username: sanitizedUsername,
 				reason: 'invalid_credentials'
 			});
-			showLottieError = true;
-			if (lottieErrorTimeout) clearTimeout(lottieErrorTimeout);
-			lottieErrorTimeout = setTimeout(() => (showLottieError = false), 1200);
+			showErrorModal = true;
+			if (errorTimeout) clearTimeout(errorTimeout);
+			errorTimeout = setTimeout(() => (showErrorModal = false), 1200);
 		} finally {
 			isLoading = false;
 		}
@@ -114,338 +120,212 @@
 			errorMessage = reasonMessages[reason];
 		}
 
-		// Jika sudah login, redirect ke dashboard
+		// [CATATAN]: Jika sudah login, redirect ke dashboard
 		if (await isAuthenticated()) {
 			goto('/');
 			return;
-		}
-
-		if (userRole === 'kasir') {
-			// Session and security settings are loaded through backend APIs.
-			// const lockedPages = data?.halaman_terkunci || ['laporan', 'beranda'];
-			// if (lockedPages.includes('beranda')) {
-			//   // showPinModal = true; // Hapus semua logic showPinModal
-			// }
 		}
 	});
 </script>
 
 <div
-	class="page-content flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-200 via-pink-100 to-pink-300 p-4"
+	class="page-content flex min-h-[100dvh] w-full items-center justify-center bg-[#faf7f8] p-4 sm:p-6"
 >
-	<div class="w-full max-w-sm">
-		<!-- Logo dan Header -->
-		<div class="mb-8 text-center">
+	<!-- Clean, Solid Centered Card -->
+	<div
+		class="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-7 shadow-xl shadow-slate-200/60 sm:p-9"
+	>
+		<!-- Logo & Brand Header -->
+		<div class="mb-7 text-center">
 			<div
-				class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg shadow-pink-500/20"
+				class="mx-auto mb-3.5 flex h-16 w-16 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50/80 shadow-2xs"
 			>
 				<img src="/img/logo.svg" alt="Logo ZatiarasPOS" class="h-10 w-10 object-contain" />
 			</div>
-			<h1 class="mb-1 text-2xl font-bold text-gray-800">ZatiarasPOS</h1>
-			<p class="text-sm font-semibold text-pink-400">Aplikasi Kasir by Zatiaras</p>
+			<h1 class="text-2xl font-black tracking-tight text-slate-900">Zatiaras POS</h1>
+			<p class="mt-1 text-xs font-semibold text-slate-400">Masuk untuk memulai kasir</p>
 		</div>
 
-		<!-- Login Form -->
-		<div class="rounded-3xl border border-white/40 bg-white/30 p-8 shadow-2xl backdrop-blur-xl">
-			<h2 class="mb-6 text-center text-lg font-semibold text-gray-800">Masuk ke ZatiarasPOS</h2>
-
-			<!-- Error Message -->
-			{#if errorMessage}
-				<div class="mb-6 rounded-2xl border border-red-200/50 bg-red-50/80 p-4 backdrop-blur-sm">
-					<div class="flex items-center">
-						<div class="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
-							<svg class="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-								<path
-									fill-rule="evenodd"
-									d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</div>
-						<span class="text-sm font-medium text-red-700">{errorMessage}</span>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Floating Success Notification with Checkmark Animation -->
-			{#if showLottieSuccess}
-				<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-					<div
-						class="animate-fadeInUp flex flex-col items-center rounded-2xl border border-pink-200 bg-white/95 px-8 py-6 shadow-2xl backdrop-blur-sm"
-					>
-						<div class="checkmark-circle">
-							<svg class="checkmark" viewBox="0 0 52 52">
-								<circle class="checkmark-circle-path" cx="26" cy="26" r="25" fill="none" />
-								<path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-							</svg>
-						</div>
-						<div class="mt-4 text-lg font-bold text-pink-500">Login Berhasil!</div>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Floating Lottie Error Notification -->
-			{#if showLottieError}
-				<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-					<div
-						class="animate-fadeInUp flex flex-col items-center rounded-2xl border border-red-200 bg-white/80 px-8 py-6 shadow-2xl"
-					>
-						<div
-							class="mb-2 flex h-[90px] w-[90px] items-center justify-center rounded-full bg-red-100"
-						>
-							<svg
-								class="h-16 w-16 text-red-500"
-								fill="none"
-								viewBox="0 0 64 64"
-								stroke="currentColor"
-								stroke-width="3"
-							>
-								<circle
-									cx="32"
-									cy="32"
-									r="30"
-									stroke="currentColor"
-									stroke-width="3"
-									fill="#fee2e2"
-								/>
-								<line
-									x1="22"
-									y1="22"
-									x2="42"
-									y2="42"
-									stroke="currentColor"
-									stroke-width="4"
-									stroke-linecap="round"
-								/>
-								<line
-									x1="42"
-									y1="22"
-									x2="22"
-									y2="42"
-									stroke="currentColor"
-									stroke-width="4"
-									stroke-linecap="round"
-								/>
-							</svg>
-						</div>
-						<div class="mt-2 text-lg font-bold text-red-500">{errorMessage || 'Login Gagal!'}</div>
-					</div>
-				</div>
-			{/if}
-
-			<form
-				data-hydrated={hydrated}
-				onsubmit={(e) => {
-					e.preventDefault();
-					handleSubmit();
-				}}
-				class="space-y-5"
+		<!-- Error Banner -->
+		{#if errorMessage}
+			<div
+				class="mb-5 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs font-bold text-rose-700"
 			>
-				<!-- Username Field -->
-				<div>
-					<label for="username" class="mb-2 block text-sm font-medium text-gray-700">
-						Username
-					</label>
-					<div class="relative">
-						<input
-							id="username"
-							type="text"
-							bind:value={username}
-							oninput={handleUsernameChange}
-							onkeypress={handleKeyPress}
-							class="block w-full rounded-xl border border-gray-200 bg-white/80 px-4 py-3 text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-pink-400 focus:ring-2 focus:ring-pink-100 focus:outline-none"
-							placeholder="Masukkan username"
-							autocomplete="username"
-							required
-						/>
-						<span class="absolute top-1/2 right-3 -translate-y-1/2 text-pink-400">
-							<svg
-								class="h-6 w-6"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-								/></svg
-							>
-						</span>
-					</div>
-					{#if usernameError}
-						<div class="mt-1 text-xs text-red-500">{usernameError}</div>
-					{/if}
-				</div>
-				<!-- Password Field -->
-				<div>
-					<label for="password" class="mb-2 block text-sm font-medium text-gray-700">
-						Password
-					</label>
-					<div class="relative">
-						<input
-							id="password"
-							type="password"
-							bind:value={password}
-							oninput={handlePasswordChange}
-							onkeypress={handleKeyPress}
-							class="block w-full rounded-xl border border-gray-200 bg-white/80 px-4 py-3 text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-pink-400 focus:ring-2 focus:ring-pink-100 focus:outline-none"
-							placeholder="Masukkan password"
-							autocomplete="current-password"
-							required
-						/>
-						<span class="absolute top-1/2 right-3 -translate-y-1/2 text-pink-400">
-							<svg
-								class="h-6 w-6"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-								/></svg
-							>
-						</span>
-					</div>
-					{#if passwordError}
-						<div class="mt-1 text-xs text-red-500">{passwordError}</div>
-					{/if}
-				</div>
-				<!-- Submit Button -->
-				<button
-					type="submit"
-					class="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-500 py-3 font-bold text-white shadow-lg shadow-pink-500/10 transition-colors duration-200 hover:bg-pink-600 focus:ring-2 focus:ring-pink-300 focus:outline-none active:bg-pink-700"
-					disabled={!hydrated || isLoading}
+				<AlertCircle class="h-4.5 w-4.5 shrink-0 text-rose-600" />
+				<span class="flex-1">{errorMessage}</span>
+			</div>
+		{/if}
+
+		<!-- Success Notification Overlay -->
+		{#if showSuccessModal}
+			<div
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
+			>
+				<div
+					class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
 				>
-					{#if isLoading}
-						<svg
-							class="h-5 w-5 animate-spin"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							viewBox="0 0 24 24"
-							><circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"
-							></path></svg
-						>
-						<span>Memproses...</span>
-					{:else}
-						<span>Masuk</span>
-					{/if}
-				</button>
-			</form>
-		</div>
-	</div>
-</div>
+					<div
+						class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600"
+					>
+						<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
+					</div>
+					<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
+					<div class="text-xs text-slate-400">Membuka aplikasi...</div>
+				</div>
+			</div>
+		{/if}
 
-<!-- Dropdown Cabang di pojok kanan bawah tanpa icon -->
-<div class="fixed right-4 bottom-4 z-40">
-	<div
-		class="flex min-w-[120px] items-center justify-end rounded-2xl border border-white/40 bg-white/30 px-4 py-2 shadow-lg backdrop-blur-xl"
-		style="box-shadow: 0 4px 24px 0 rgba(255, 182, 193, 0.12);"
-	>
-		<select
-			class="cursor-pointer border-none bg-transparent px-1 py-0.5 text-sm font-semibold text-gray-700 outline-none focus:ring-0 focus:outline-none"
-			bind:value={branch}
-			aria-label="Pilih Cabang"
+		<!-- Error Notification Overlay -->
+		{#if showErrorModal}
+			<div
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
+			>
+				<div
+					class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
+				>
+					<div
+						class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600"
+					>
+						<AlertCircle class="h-9 w-9 stroke-[2.5]" />
+					</div>
+					<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
+					<div class="text-xs text-slate-400">
+						{errorMessage || 'Periksa username dan password'}
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<form
+			data-hydrated={hydrated}
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleSubmit();
+			}}
+			class="space-y-4"
 		>
-			<option value="samarinda">Samarinda</option>
-			<option value="berau">Berau</option>
-			<option value="balikpapan">Balikpapan</option>
-			<option value="samarinda2">Samarinda 2</option>
-			<option value="balikpapan2">Balikpapan 2</option>
-		</select>
+			<!-- Username Field -->
+			<div>
+				<label
+					for="username"
+					class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase"
+				>
+					Username
+				</label>
+				<div class="relative">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+						<User class="h-4.5 w-4.5" />
+					</span>
+					<input
+						id="username"
+						type="text"
+						bind:value={username}
+						oninput={handleUsernameChange}
+						onkeypress={handleKeyPress}
+						class="block w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-4 pl-10 text-sm font-bold text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						placeholder="Masukkan username"
+						autocomplete="username"
+						required
+					/>
+				</div>
+				{#if usernameError}
+					<div class="mt-1 text-xs font-bold text-rose-500">{usernameError}</div>
+				{/if}
+			</div>
+
+			<!-- Password Field with Visibility Toggle -->
+			<div>
+				<label
+					for="password"
+					class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase"
+				>
+					Password
+				</label>
+				<div class="relative">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+						<Lock class="h-4.5 w-4.5" />
+					</span>
+					<input
+						id="password"
+						type={showPassword ? 'text' : 'password'}
+						bind:value={password}
+						oninput={handlePasswordChange}
+						onkeypress={handleKeyPress}
+						class="block w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-11 pl-10 text-sm font-bold text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						placeholder="Masukkan password"
+						autocomplete="current-password"
+						required
+					/>
+					<button
+						type="button"
+						class="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3.5 text-slate-400 hover:text-slate-600"
+						onclick={() => (showPassword = !showPassword)}
+						aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+					>
+						{#if showPassword}
+							<EyeOff class="h-4.5 w-4.5" />
+						{:else}
+							<Eye class="h-4.5 w-4.5" />
+						{/if}
+					</button>
+				</div>
+				{#if passwordError}
+					<div class="mt-1 text-xs font-bold text-rose-500">{passwordError}</div>
+				{/if}
+			</div>
+
+			<!-- Branch Selector -->
+			<div>
+				<label
+					for="branch"
+					class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase"
+				>
+					Cabang
+				</label>
+				<div class="relative">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+						<Store class="h-4.5 w-4.5" />
+					</span>
+					<select
+						id="branch"
+						class="block w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-8 pl-10 text-sm font-bold text-slate-900 transition outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						bind:value={branch}
+						aria-label="Pilih Cabang"
+					>
+						<option value="samarinda">Samarinda</option>
+						<option value="berau">Berau</option>
+						<option value="balikpapan">Balikpapan</option>
+						<option value="samarinda2">Samarinda 2</option>
+						<option value="balikpapan2">Balikpapan 2</option>
+					</select>
+				</div>
+			</div>
+
+			<!-- Submit Button -->
+			<button
+				type="submit"
+				class="mt-2 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 text-sm font-black text-white shadow-lg shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={!hydrated || isLoading}
+			>
+				{#if isLoading}
+					<svg
+						class="h-5 w-5 animate-spin"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						viewBox="0 0 24 24"
+					>
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+						></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+					</svg>
+					<span>Memproses...</span>
+				{:else}
+					<span>Masuk</span>
+				{/if}
+			</button>
+		</form>
+
+		<div class="mt-6 text-center text-xs font-semibold text-slate-400">Zatiaras POS © 2026</div>
 	</div>
 </div>
-
-<style>
-	@keyframes fadeInUp {
-		from {
-			opacity: 0;
-			transform: translateY(32px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-	.animate-fadeInUp {
-		animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	/* Checkmark Animation */
-	.checkmark-circle {
-		width: 90px;
-		height: 90px;
-		position: relative;
-	}
-
-	.checkmark {
-		width: 90px;
-		height: 90px;
-		border-radius: 50%;
-		display: block;
-		stroke-width: 3;
-		stroke: #ec4899;
-		stroke-miterlimit: 10;
-		box-shadow: inset 0 0 0 #ec4899;
-		animation:
-			fillCircle 0.4s ease-in-out 0.4s forwards,
-			scaleCircle 0.3s ease-in-out 0.9s both;
-	}
-
-	.checkmark-circle-path {
-		stroke-dasharray: 166;
-		stroke-dashoffset: 166;
-		stroke-width: 3;
-		stroke-miterlimit: 10;
-		stroke: #ec4899;
-		fill: #fce7f3;
-		animation: strokeCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-	}
-
-	.checkmark-check {
-		transform-origin: 50% 50%;
-		stroke-dasharray: 48;
-		stroke-dashoffset: 48;
-		stroke: #ec4899;
-		stroke-width: 3;
-		animation: strokeCheck 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
-	}
-
-	@keyframes strokeCircle {
-		100% {
-			stroke-dashoffset: 0;
-		}
-	}
-
-	@keyframes strokeCheck {
-		100% {
-			stroke-dashoffset: 0;
-		}
-	}
-
-	@keyframes fillCircle {
-		100% {
-			box-shadow: inset 0 0 0 60px #fce7f3;
-		}
-	}
-
-	@keyframes scaleCircle {
-		0%,
-		100% {
-			transform: none;
-		}
-		50% {
-			transform: scale3d(1.1, 1.1, 1);
-		}
-	}
-</style>

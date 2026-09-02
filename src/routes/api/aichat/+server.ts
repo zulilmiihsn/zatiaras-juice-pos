@@ -21,7 +21,7 @@ import {
 	buildReportContext
 } from './reportData';
 
-// OpenRouter API configuration
+// [CATATAN]: OpenRouter API configuration
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'deepseek/deepseek-chat';
 const AI_WINDOW_MS = 15 * 60 * 1000;
@@ -111,7 +111,7 @@ function stripJsonFence(content: string): string {
 	return clean;
 }
 
-// Util: format YYYY-MM-DD dalam zona WITA
+// [CATATAN]: Util: format YYYY-MM-DD dalam zona WITA
 function toYMDWita(date: Date): string {
 	const d = new Date(date);
 	const yyyy = d.getFullYear();
@@ -189,12 +189,12 @@ function parseDataRequirements(value: unknown, fallbackDate: string): DataRequir
 	};
 }
 
-// AI 1: Data Requirement Analyzer
+// [CATATAN]: AI 1: Data Requirement Analyzer
 async function identifyDataRequirements(
 	question: string,
 	apiKey: string
 ): Promise<DataRequirements> {
-	// Hitung tanggal saat ini dalam WITA
+	// [CATATAN]: Hitung tanggal saat ini dalam WITA
 	const now = new Date();
 	const todayWita = toYMDWita(now);
 
@@ -217,12 +217,12 @@ async function identifyDataRequirements(
 		const parsed: unknown = JSON.parse(cleanContent);
 		return parseDataRequirements(parsed, todayWita);
 	} catch (error) {
-		// Tidak ada fallback, langsung error
+		// [CATATAN]: Tidak ada fallback, langsung error
 		throw new Error(`AI 1 gagal mengidentifikasi kebutuhan data: ${error}`);
 	}
 }
 
-// AI 2: Business Analyst
+// [CATATAN]: AI 2: Business Analyst
 async function analyzeBusinessData(
 	question: string,
 	reportData: string,
@@ -326,7 +326,7 @@ async function buildProductPromptData(
 	return promptData;
 }
 
-// AI 3: Transaction Analyzer
+// [CATATAN]: AI 3: Transaction Analyzer
 async function analyzeTransactionText(
 	text: string,
 	apiKey: string,
@@ -360,10 +360,10 @@ async function analyzeTransactionText(
 			recommendations: parsed.recommendations || []
 		};
 	} catch (error) {
-		// Fallback: coba parse manual berdasarkan kata kunci
+		// [CATATAN]: Fallback: coba parse manual berdasarkan kata kunci
 		const fallbackTransactions = [];
 
-		// Cari pola "masukkan uang X" atau "setor X"
+		// [CATATAN]: Cari pola "masukkan uang X" atau "setor X"
 		const masukkanMatch = text.match(
 			/(?:masukkan|setor|tambah|masuk)\s*(?:uang\s*)?(\d+(?:rb|ribu|k|000)?)/i
 		);
@@ -385,7 +385,7 @@ async function analyzeTransactionText(
 			});
 		}
 
-		// Cari pola "ambil X" atau "beli X" (bukan untuk produk)
+		// [CATATAN]: Cari pola "ambil X" atau "beli X" (bukan untuk produk)
 		const ambilMatch = text.match(
 			/(?:ambil|bayar|keluar|belanja|jajan)\s*(?:uang\s*)?(\d+(?:rb|ribu|k|000)?)/i
 		);
@@ -407,7 +407,7 @@ async function analyzeTransactionText(
 			});
 		}
 
-		// Cari pola penjualan produk
+		// [CATATAN]: Cari pola penjualan produk
 		const penjualanMatch = text.match(
 			/(?:customer|ada|tadi|membeli|beli|catat|catatlah).*?(\d+)\s*([a-zA-Z\s]+)/i
 		);
@@ -416,8 +416,8 @@ async function analyzeTransactionText(
 			const quantity = parseInt(penjualanMatch[1]);
 			const productName = penjualanMatch[2].trim().toLowerCase();
 
-			// Untuk fallback, kita tidak bisa hitung harga tanpa data produk
-			// Tapi kita bisa identifikasi sebagai penjualan
+			// [CATATAN]: Untuk fallback, kita tidak bisa hitung harga tanpa data produk
+			// [CATATAN]: Tapi kita bisa identifikasi sebagai penjualan
 			fallbackTransactions.push({
 				type: 'penjualan',
 				amount: 0, // Akan diisi oleh user atau sistem
@@ -434,10 +434,10 @@ async function analyzeTransactionText(
 	}
 }
 
-// Endpoint untuk analisis transaksi AI
+// [CATATAN]: Endpoint untuk analisis transaksi AI
 export const POST: RequestHandler = async (event) => {
 	const { url } = event;
-	// P0-1: endpoint ini sebelumnya hanya rate-limit IP tanpa auth. Wajib login.
+	// [CATATAN]: P0-1: endpoint ini sebelumnya hanya rate-limit IP tanpa auth. Wajib login.
 	const session = requireAuthSession(event.locals);
 	const branch = requireSessionBranch(event.locals);
 	const db = getD1Database(event.platform?.env as Record<string, unknown> | undefined, branch);
@@ -474,7 +474,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	// Cek apakah ini request untuk analisis transaksi
+	// [CATATAN]: Cek apakah ini request untuk analisis transaksi
 	const action = url.searchParams.get('action');
 
 	if (action === 'analyze') {
@@ -483,14 +483,14 @@ export const POST: RequestHandler = async (event) => {
 
 	await requirePageAccess(db, session, 'laporan');
 
-	// Default: handle regular AI chat
+	// [CATATAN]: Default: handle regular AI chat
 	return await handleRegularChat(event);
 };
 
-// Handler untuk analisis transaksi
+// [CATATAN]: Handler untuk analisis transaksi
 async function handleTransactionAnalysis(event: import('./$types').RequestEvent) {
 	const request = event.request;
-	// P0-1: branch dari session, bukan header x-branch yang bisa dipalsukan.
+	// [CATATAN]: P0-1: branch dari session, bukan header x-branch yang bisa dipalsukan.
 	const branch = requireSessionBranch(event.locals);
 	try {
 		const { text } = await request.json();
@@ -509,7 +509,7 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 			);
 		}
 
-		// Get API key from environment
+		// [CATATAN]: Get API key from environment
 		const apiKey = env.OPENROUTER_API_KEY;
 
 		if (!apiKey) {
@@ -523,7 +523,7 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 			);
 		}
 
-		// Data produk untuk konteks AI — query branch-scoped, fallback bila gagal.
+		// [CATATAN]: Data produk untuk konteks AI — query branch-scoped, fallback bila gagal.
 		let productData = '';
 		try {
 			productData = await buildProductPromptData(getDrizzleDb(event.platform, branch), branch);
@@ -532,7 +532,7 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 				'Data produk tidak tersedia saat ini. JIKA USER MENYEBUTKAN PRODUK, JANGAN berikan rekomendasi untuk penjualan produk karena tidak ada informasi harga. Minta user untuk memberikan informasi harga atau detail transaksi yang lebih spesifik.';
 		}
 
-		// Analisis transaksi menggunakan AI
+		// [CATATAN]: Analisis transaksi menggunakan AI
 		const analysis = await analyzeTransactionText(text, apiKey, productData);
 
 		return json({
@@ -553,7 +553,7 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 	}
 }
 
-// Handler untuk regular AI chat
+// [CATATAN]: Handler untuk regular AI chat
 async function handleRegularChat(event: import('./$types').RequestEvent) {
 	const request = event.request;
 	try {
@@ -566,7 +566,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// Get API key from environment
+		// [CATATAN]: Get API key from environment
 		const apiKey = env.OPENROUTER_API_KEY;
 
 		if (!apiKey) {
@@ -588,8 +588,8 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// P0-1: branch di-scope ke session (admin boleh lintas-branch). Jangan percaya
-		// body mentah — sebelumnya fallback ke 'balikpapan' = baca data tenant lain.
+		// [CATATAN]: P0-1: branch di-scope ke session (admin boleh lintas-branch). Jangan percaya
+		// [CATATAN]: body mentah — sebelumnya fallback ke 'balikpapan' = baca data tenant lain.
 		let requestedBranch: ReturnType<typeof normalizeBranch>;
 		try {
 			requestedBranch = requireSessionBranch(event.locals, branch);
@@ -600,13 +600,13 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// AI 1: Identifikasi kebutuhan data
+		// [CATATAN]: AI 1: Identifikasi kebutuhan data
 		const dataRequirements = await identifyDataRequirements(question, apiKey);
 
 		const db = getDrizzleDb(event.platform, requestedBranch);
 
-		// Hitung waktu WITA dari rentang yang diidentifikasi AI 1
-		// STANDAR: Gunakan WITA untuk query database
+		// [CATATAN]: Hitung waktu WITA dari rentang yang diidentifikasi AI 1
+		// [CATATAN]: STANDAR: Gunakan WITA untuk query database
 		const { startWita, endWita } = witaRangeToWitaQuery(
 			dataRequirements.periode.start,
 			dataRequirements.periode.end
@@ -614,9 +614,9 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 		const startDate = startWita;
 		const endDate = endWita;
 
-		// Konversi tanggal untuk konteks AI
+		// [CATATAN]: Konversi tanggal untuk konteks AI
 
-		// Konversi tanggal untuk konteks AI
+		// [CATATAN]: Konversi tanggal untuk konteks AI
 		const formatDateForAI = (dateStr: string) => {
 			const date = new Date(dateStr);
 			return date.toLocaleDateString('id-ID', {
@@ -642,7 +642,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			}
 		};
 
-		// Ambil data berpaginasi untuk periode yang diminta
+		// [CATATAN]: Ambil data berpaginasi untuk periode yang diminta
 		const { bukuKasPos, bukuKasManual, transaksiKasirData } = await fetchReportData(
 			db,
 			requestedBranch,
@@ -650,7 +650,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			endDate
 		);
 
-		// Handle case when no data found
+		// [CATATAN]: Handle case when no data found
 		if (
 			(!bukuKasPos || bukuKasPos.length === 0) &&
 			(!bukuKasManual || bukuKasManual.length === 0)
@@ -676,10 +676,10 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// Data periode yang diminta - gunakan logika yang sama dengan DataService
+		// [CATATAN]: Data periode yang diminta - gunakan logika yang sama dengan DataService
 		const laporan: Record<string, unknown>[] = [];
 
-		// 1. Tambahkan data POS dari buku_kas (sumber='pos')
+		// [CATATAN]: 1. Tambahkan data POS dari buku_kas (sumber='pos')
 		(bukuKasPos || []).forEach((item: Record<string, unknown>) => {
 			laporan.push({
 				...item,
@@ -688,7 +688,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			});
 		});
 
-		// 2. Tambahkan data manual/catat
+		// [CATATAN]: 2. Tambahkan data manual/catat
 		(bukuKasManual || []).forEach((item: Record<string, unknown>) => {
 			laporan.push({
 				...item,
@@ -697,7 +697,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			});
 		});
 
-		// Hitung data periode yang diminta
+		// [CATATAN]: Hitung data periode yang diminta
 		const pemasukan = laporan.filter((t: Record<string, unknown>) => t.tipe === 'in');
 		const pengeluaran = laporan.filter((t: Record<string, unknown>) => t.tipe === 'out');
 
@@ -713,7 +713,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 		const pajak = labaKotor > 0 ? Math.round(labaKotor * 0.005) : 0;
 		const labaBersih = labaKotor - pajak;
 
-		// Format data per bulan untuk AI
+		// [CATATAN]: Format data per bulan untuk AI
 		const formattedRequestedMonthlyData = aggregateMonthly(laporan, transaksiKasirData);
 
 		const summary = {
@@ -726,11 +726,11 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			totalTransaksi: new Set(
 				(bukuKasPos || []).map((b: { transaction_id?: string }) => b.transaction_id).filter(Boolean)
 			).size,
-			// Data per bulan untuk periode yang diminta
+			// [CATATAN]: Data per bulan untuk periode yang diminta
 			requestedMonthlyData: formattedRequestedMonthlyData
 		};
 
-		// Breakdown pembayaran, pola waktu, tren harian, & statistik
+		// [CATATAN]: Breakdown pembayaran, pola waktu, tren harian, & statistik
 		const {
 			paymentBreakdown,
 			jamRamai,
@@ -743,12 +743,12 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			worstDay
 		} = computeAnalytics(laporan, bukuKasPos, totalPemasukan);
 
-		// Ambil metadata produk/kategori/tambahan berdasarkan kebutuhan data
+		// [CATATAN]: Ambil metadata produk/kategori/tambahan berdasarkan kebutuhan data
 		let products: { id: string; nama: string; harga: number; kategori_id?: string | null }[] = [];
 		let categories: { id: string; nama: string }[] = [];
 		let addons: { id: string; nama: string; harga: number }[] = [];
 
-		// Fetch data berdasarkan jenis data yang diperlukan
+		// [CATATAN]: Fetch data berdasarkan jenis data yang diperlukan
 		if (dataRequirements.jenisData.includes('produk') || dataRequirements.jenisData.length === 0) {
 			products = await db
 				.select({
@@ -784,9 +784,9 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 				.limit(1000);
 		}
 
-		// Hitung produk terlaris berdasarkan transaksi_kasir yang sudah diambil
+		// [CATATAN]: Hitung produk terlaris berdasarkan transaksi_kasir yang sudah diambil
 		const productIdToSale: Record<string, { jumlah: number; revenue: number; nama?: string }> = {};
-		// Prototype pollution guard: reject dangerous keys
+		// [CATATAN]: Prototype pollution guard: reject dangerous keys
 		const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 		interface TransaksiItem {
 			produk_id?: string;
@@ -803,7 +803,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			const jumlah = Number(typedItem.jumlah || 0) || 0;
 			const satuan = Number(typedItem.harga || typedItem.amount || 0) || 0;
 			const revenue = satuan * (jumlah || 1);
-			// Ambil nama dari relasi produk atau nama_kustom
+			// [CATATAN]: Ambil nama dari relasi produk atau nama_kustom
 			const productName =
 				typedItem.produk?.nama || typedItem.nama_kustom || `Produk ${pid.slice(0, 8)}`;
 			if (!Object.prototype.hasOwnProperty.call(productIdToSale, pid)) {
@@ -823,13 +823,13 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			.sort((a, b) => b.totalTerjual - a.totalTerjual)
 			.slice(0, 5);
 
-		// Cari produk spesifik jika user bertanya tentang harga
+		// [CATATAN]: Cari produk spesifik jika user bertanya tentang harga
 		let specificProduct = null;
 		if (
 			dataRequirements.prioritas === 'product_analysis' &&
 			question.toLowerCase().includes('harga')
 		) {
-			// Cari produk yang disebutkan dalam pertanyaan
+			// [CATATAN]: Cari produk yang disebutkan dalam pertanyaan
 			const productKeywords = [
 				'alpukat',
 				'mangga',
@@ -851,7 +851,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			}
 		}
 
-		// Sederhanakan konteks server
+		// [CATATAN]: Sederhanakan konteks server
 		const serverReportData = {
 			summary,
 			startDate: dataRequirements.periode.start,
@@ -875,7 +875,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			})),
 			produkTerlaris,
 			specificProduct, // Produk spesifik yang dicari
-			// Data analisis mendalam
+			// [CATATAN]: Data analisis mendalam
 			dailyPerformance,
 			analytics: {
 				avgTransactionsPerDay: Math.round(avgTransactionsPerDay * 100) / 100,
@@ -901,7 +901,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 							}
 						: null
 			},
-			// Data requirements untuk konteks AI
+			// [CATATAN]: Data requirements untuk konteks AI
 			dataRequirements: {
 				jenisData: dataRequirements.jenisData,
 				prioritas: dataRequirements.prioritas,
@@ -909,10 +909,10 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			}
 		};
 
-		// Prepare context about the report data
+		// [CATATAN]: Prepare context about the report data
 		const reportContext = buildReportContext(serverReportData, rangeContext);
 
-		// AI 2: Analisis data bisnis
+		// [CATATAN]: AI 2: Analisis data bisnis
 		const answer = await analyzeBusinessData(
 			question,
 			reportContext,

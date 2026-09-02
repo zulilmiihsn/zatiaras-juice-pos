@@ -47,7 +47,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		...row,
 		produk_id: String(row.produk_id || ''),
 		bahan_id: String(row.bahan_id || ''),
-		jumlah_per_item: Number(row.jumlah_per_item || 0)
+		porsi: row.porsi ? String(row.porsi).trim().toLowerCase() : 'reguler',
+		jumlah_per_item: Number(row.jumlah_per_item || 0),
+		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
+		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
 	})) as Array<Record<string, any>>;
 	if (rows.some((row) => !row.produk_id || !row.bahan_id || row.jumlah_per_item <= 0)) {
 		throw kitError(400, 'Resep bahan tidak valid');
@@ -60,6 +63,66 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	await auditDataChange(rawDb, branch, session, 'resep_produk', 'insert', rows[0]?.id, {
 		count: rows.length,
 		produk_id: rows[0]?.produk_id
+	});
+	return json({ ok: true, data: rows });
+};
+
+export const PUT: RequestHandler = async ({ request, url, platform, locals }) => {
+	const branch = requireSessionBranch(locals);
+	const session = locals.authSession!;
+	requireAnyRole(session.role, ['pemilik']);
+
+	const productId = String(url.searchParams.get('produk_id') || '');
+	const body = await parseBody<WriteBody>(request);
+	if (!productId || !body?.payload) throw kitError(400, 'Produk / payload tidak valid');
+
+	const rows = payloadRows(body.payload, branch).map((row) => ({
+		...row,
+		produk_id: String(row.produk_id || productId),
+		bahan_id: String(row.bahan_id || ''),
+		jumlah_per_item: Number(row.jumlah_per_item || 0),
+		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
+		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
+	})) as Array<Record<string, any>>;
+	if (
+		rows.some((row) => row.produk_id !== productId || !row.bahan_id || row.jumlah_per_item <= 0)
+	) {
+		throw kitError(400, 'Resep bahan tidak valid');
+	}
+
+	const rawDb = getRawDb(platform, branch);
+	const statements = [
+		rawDb
+			.prepare('DELETE FROM resep_produk WHERE cabang_id = ? AND produk_id = ?')
+			.bind(branch, productId),
+		...rows.map((row) =>
+			rawDb
+				.prepare(
+					`INSERT INTO resep_produk (
+						id, cabang_id, produk_id, bahan_id, porsi, jumlah_per_item, satuan_resep, jumlah_dasar_per_item, created_at, updated_at
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				)
+				.bind(
+					row.id,
+					branch,
+					productId,
+					row.bahan_id,
+					row.porsi || 'reguler',
+					row.jumlah_per_item,
+					row.satuan_resep || null,
+					row.jumlah_dasar_per_item || row.jumlah_per_item,
+					new Date().toISOString(),
+					new Date().toISOString()
+				)
+		)
+	];
+	await rawDb.batch(statements);
+	await publish(platform, branch, 'resep_produk', 'update', {
+		transaction_id: productId
+	});
+	await auditDataChange(rawDb, branch, session, 'resep_produk', 'replace', null, {
+		produk_id: productId,
+		count: rows.length
 	});
 	return json({ ok: true, data: rows });
 };
@@ -77,7 +140,7 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 	const rawDb = getRawDb(platform, branch);
 
 	if (productId) {
-		// Bulk delete: hapus semua resep untuk produk (dipakai sebelum insert resep baru).
+		// [CATATAN]: Bulk delete: hapus semua resep untuk produk (dipakai sebelum insert resep baru).
 		await db
 			.delete(resepProduk)
 			.where(and(eq(resepProduk.cabang_id, branch), eq(resepProduk.produk_id, productId)));

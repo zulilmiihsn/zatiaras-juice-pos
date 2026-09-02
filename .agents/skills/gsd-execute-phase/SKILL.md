@@ -34,8 +34,8 @@ Context budget: ~15% orchestrator, 100% fresh per subagent.
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/execute-phase.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/execute-phase.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <runtime_note>

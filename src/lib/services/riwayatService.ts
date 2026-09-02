@@ -37,7 +37,7 @@ export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise
 
 	let result: HistoryItem[] = (data ?? []).map((t: BukuKasRecord) => ({
 		id: t.id,
-		// Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
+		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',
@@ -48,19 +48,19 @@ export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise
 		nama_pelanggan: t.nama_pelanggan || ''
 	}));
 
-	// Urutkan terbaru dulu
+	// [CATATAN]: Urutkan terbaru dulu
 	result.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
 
-	// Hanya nominal > 0
+	// [CATATAN]: Hanya nominal > 0
 	result = result.filter((t) => t.nominal > 0);
 
-	// Filter pencarian (nama)
+	// [CATATAN]: Filter pencarian (nama)
 	const keyword = searchKeyword.trim().toLowerCase();
 	if (keyword) {
 		result = result.filter((t) => t.nama?.toLowerCase().includes(keyword));
 	}
 
-	// Filter metode bayar
+	// [CATATAN]: Filter metode bayar
 	if (filterPayment !== 'all') {
 		result = result.filter((t) => {
 			if (filterPayment === 'qris')

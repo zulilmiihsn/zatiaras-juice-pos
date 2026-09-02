@@ -34,6 +34,6 @@ export async function reportCacheMetrics(
 			})
 		});
 	} catch {
-		// silent: metrics must never break UX
+		// [CATATAN]: silent: metrics must never break UX
 	}
 }

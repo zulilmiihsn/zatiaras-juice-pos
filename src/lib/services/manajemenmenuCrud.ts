@@ -9,11 +9,7 @@ import type {
 	ProductRecipe
 } from '$lib/types/product';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
-import {
-	calculateEffectiveUnitCost,
-	calculateUsableQuantity,
-	normalizeYieldPercent
-} from '$lib/utils/ingredientCost';
+import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 
 export interface HppParsedItem {
 	nama: string;
@@ -34,21 +30,44 @@ export function createMenuCrud() {
 				: transactionService.insertRows('produk', payload),
 		async saveRecipes(
 			productId: string | number,
-			items: Array<{ bahan_id: string | number; jumlah_per_item: string }>,
+			items: Array<{
+				bahan_id: string | number;
+				jumlah_per_item: string | number;
+				satuan_resep?: string;
+				jumlah_dasar_per_item?: number;
+			}>,
 			enabled: boolean
 		) {
-			await transactionService.deleteRows('resep_produk', { produk_id: String(productId) });
-			if (!enabled || items.length === 0) return;
-			await transactionService.insertRows(
-				'resep_produk',
-				items.map((item) => ({
-					produk_id: String(productId),
-					bahan_id: String(item.bahan_id),
-					jumlah_per_item: Number(item.jumlah_per_item || 0)
-				}))
+			const response = await fetchWithCsrfRetry(
+				`/api/resep-produk?produk_id=${encodeURIComponent(String(productId))}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						payload: enabled
+							? items.map((item) => ({
+									produk_id: String(productId),
+									bahan_id: String(item.bahan_id),
+									porsi: (item as any).porsi || 'reguler',
+									jumlah_per_item: Number(item.jumlah_per_item || 0),
+									satuan_resep: item.satuan_resep || null,
+									jumlah_dasar_per_item: Number(
+										item.jumlah_dasar_per_item ?? item.jumlah_per_item ?? 0
+									)
+								}))
+							: []
+					})
+				}
 			);
+			if (!response.ok) throw new Error(`Gagal menyimpan resep: HTTP ${response.status}`);
 		},
 		remove: (id: string | number) => transactionService.deleteRows('produk', { id: String(id) }),
+		updateCategories: (ids: Array<string | number>, kategoriId: string | number | null) =>
+			transactionService.updateRows(
+				'produk',
+				{ kategori_id: kategoriId },
+				{ ids: ids.map(String).join(',') }
+			),
 		updateCategory: (id: string | number, kategoriId: string | number | null) =>
 			transactionService.updateRows('produk', { kategori_id: kategoriId }, { id: String(id) })
 	};
@@ -71,7 +90,7 @@ export function createEkstraCrud() {
 	return {
 		load: async (): Promise<Array<AddOn & { harga: number }>> =>
 			(await productService.getAddOns()).map((item) => ({ ...item, harga: item.harga })),
-		save: (payload: { nama: string; harga: number }, id?: string | number | null) =>
+		save: (payload: Record<string, unknown>, id?: string | number | null) =>
 			id
 				? transactionService.updateRows('tambahan', payload, { id: String(id) })
 				: transactionService.insertRows('tambahan', payload),
@@ -82,7 +101,7 @@ export function createEkstraCrud() {
 export function createBahanCrud() {
 	return {
 		load: async (): Promise<Ingredient[]> =>
-			(await productService.getIngredients()) as unknown as Ingredient[],
+			(await productService.getIngredients(true)) as unknown as Ingredient[],
 		save: (payload: Record<string, unknown>, id?: string | number | null) =>
 			id
 				? transactionService.updateRows('bahan', payload, { id: String(id) })
@@ -120,45 +139,34 @@ export function createHppState() {
 		},
 		async savePurchasedItem(item: HppParsedItem, existing?: Ingredient) {
 			if (existing) {
-				const yieldPercent = normalizeYieldPercent(existing.yield_persen);
-				const usableQuantity = calculateUsableQuantity(item.purchase_qty, yieldPercent);
 				await transactionService.updateRows(
 					'bahan',
 					{
 						satuan: item.satuan,
-						yield_persen: yieldPercent,
-						jumlah_beli_terakhir: item.purchase_qty,
+						yield_persen: 100, // default
+						jumlah_beli_terakhir: item.purchase_qty, // interpreted as portions
 						biaya_beli_terakhir: item.purchase_cost,
-						biaya_per_satuan: calculateEffectiveUnitCost(
-							item.purchase_cost,
-							item.purchase_qty,
-							yieldPercent
-						)
+						biaya_per_satuan: calculateEffectiveUnitCost(item.purchase_cost, item.purchase_qty)
 					},
 					{ id: String(existing.id) }
 				);
 				await transactionService.insertRows('bahan_mutasi', {
 					bahan_id: String(existing.id),
-					delta_jumlah: usableQuantity,
+					delta_jumlah: item.purchase_qty, // portions
 					source: 'purchase',
 					catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`
 				});
 				return;
 			}
-			const yieldPercent = 100;
 			const inserted = await transactionService.insertRows('bahan', {
 				nama: item.nama,
 				satuan: item.satuan,
 				stok_saat_ini: 0,
 				ambang_stok: 0,
-				yield_persen: yieldPercent,
+				yield_persen: 100,
 				jumlah_beli_terakhir: item.purchase_qty,
 				biaya_beli_terakhir: item.purchase_cost,
-				biaya_per_satuan: calculateEffectiveUnitCost(
-					item.purchase_cost,
-					item.purchase_qty,
-					yieldPercent
-				)
+				biaya_per_satuan: calculateEffectiveUnitCost(item.purchase_cost, item.purchase_qty)
 			});
 			const bahanId = inserted.data?.[0]?.id;
 			if (typeof bahanId !== 'string' && typeof bahanId !== 'number') {
@@ -166,7 +174,7 @@ export function createHppState() {
 			}
 			await transactionService.insertRows('bahan_mutasi', {
 				bahan_id: String(bahanId),
-				delta_jumlah: calculateUsableQuantity(item.purchase_qty, yieldPercent),
+				delta_jumlah: item.purchase_qty,
 				source: 'purchase',
 				catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`
 			});

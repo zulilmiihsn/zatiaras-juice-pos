@@ -27,8 +27,8 @@ Uses ROADMAP.md phase discovery and Skill() flat invocations for each phase comm
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/autonomous.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/autonomous.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

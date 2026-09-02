@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
 	import { AutoApplyService } from '$lib/services/autoApplyService';
@@ -32,7 +34,7 @@
 		}
 	});
 
-	// Reactive statement untuk mengontrol body scroll
+	// [CATATAN]: Reactive statement untuk mengontrol body scroll
 	$effect(() => {
 		if (isOpen && typeof document !== 'undefined') {
 			document.body.classList.add('modal-open');
@@ -68,11 +70,11 @@
 		isLoading = true;
 
 		try {
-			// Analisis transaksi
+			// [CATATAN]: Analisis transaksi
 			const analysis = await aiAnalysisService.analyzeTransaction(messageText);
 			currentAnalysis = analysis;
 
-			// Generate response
+			// [CATATAN]: Generate response
 			const responseText = aiAnalysisService.generateResponseText(analysis);
 
 			const aiMessage: AiChatMessage = {
@@ -84,7 +86,7 @@
 
 			messages = [...messages, aiMessage];
 
-			// Tampilkan rekomendasi jika ada
+			// [CATATAN]: Tampilkan rekomendasi jika ada
 			if (analysis.recommendations.length > 0) {
 				showRecommendations = true;
 			}
@@ -105,7 +107,7 @@
 		if (!currentAnalysis || !currentAnalysis.recommendations.length) return;
 
 		isLoading = true;
-		// Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
+		// [CATATAN]: Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
 
 		try {
 			const result = await autoApplyService.applyRecommendations(currentAnalysis.recommendations);
@@ -118,20 +120,20 @@
 			};
 
 			messages = [...messages, resultMessage];
-			// Jika sukses, barulah kosongkan analisis dan rekomendasi
+			// [CATATAN]: Jika sukses, barulah kosongkan analisis dan rekomendasi
 			if (result.success) {
 				currentAnalysis = null;
 				showRecommendations = false;
 				appliedSinceOpen = true;
 			}
 
-			// Dispatch event untuk refresh data di parent
+			// [CATATAN]: Dispatch event untuk refresh data di parent
 			if (onRecommendationsApplied) onRecommendationsApplied({ result });
 
-			// Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
+			// [CATATAN]: Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
 			if (result.success && typeof window !== 'undefined') {
 				window.dispatchEvent(new CustomEvent('ai-recommendations-applied', { detail: result }));
-				// Panggil API refresher global bila tersedia, agar update benar-benar segera
+				// [CATATAN]: Panggil API refresher global bila tersedia, agar update benar-benar segera
 				refreshBus.emit('laporan');
 				refreshBus.emit('riwayat');
 			}
@@ -156,11 +158,11 @@
 	}
 
 	function closeModal() {
-		// Reset chat state saat modal ditutup
+		// [CATATAN]: Reset chat state saat modal ditutup
 		if (appliedSinceOpen && typeof window !== 'undefined') {
-			// Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
+			// [CATATAN]: Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
 			window.dispatchEvent(new CustomEvent('ai-recommendations-applied'));
-			// Trigger refresh di background saat modal ditutup
+			// [CATATAN]: Trigger refresh di background saat modal ditutup
 			refreshBus.emit('laporan');
 			refreshBus.emit('riwayat');
 		}
@@ -176,7 +178,8 @@
 
 {#if isOpen}
 	<div
-		class="modal-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-sm sm:px-4 sm:py-4"
+		class="modal-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
+		transition:fade={{ duration: 180 }}
 		onclick={closeModal}
 		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
@@ -184,7 +187,8 @@
 		tabindex="-1"
 	>
 		<div
-			class="modal-slideup mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-2xl bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
+			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-3xl bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
+			transition:scale={{ start: 0.95, duration: 220, easing: cubicOut }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.key === 'Escape' && closeModal()}
 			role="dialog"
@@ -338,9 +342,7 @@
 						disabled={isLoading}
 						maxlength="2000"
 						class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-						rows="2"
-					>
-					</textarea>
+						rows="2"></textarea>
 					<button
 						onclick={sendMessage}
 						disabled={!currentMessage.trim() || isLoading}
@@ -374,27 +376,6 @@
 		/* Memastikan modal overlay tidak ter-blur */
 		filter: none !important;
 		-webkit-filter: none !important;
-	}
-
-	/* Animasi slideUp yang sama dengan modal buka/tutup toko */
-	.modal-slideup {
-		animation: modalSlideUp 0.28s cubic-bezier(0.4, 1.4, 0.6, 1);
-		position: relative;
-		z-index: 100000 !important;
-		/* Memastikan modal AI tidak ter-blur */
-		filter: none !important;
-		-webkit-filter: none !important;
-	}
-
-	@keyframes modalSlideUp {
-		from {
-			transform: translateY(64px);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
 	}
 
 	/* Fallback untuk browser lama */

@@ -5,13 +5,14 @@
  */
 
 // ============================================================================
-// 🍹 PRODUCT INTERFACES
+// [CATATAN]: 🍹 PRODUCT INTERFACES
 // ============================================================================
 
 export interface Product {
 	id: string | number;
 	nama: string;
 	harga: number;
+	harga_jumbo?: number | null;
 	stok?: number | null;
 	lacak_stok?: boolean | number | null;
 	lacak_bahan?: boolean | number | null;
@@ -39,6 +40,10 @@ export interface AddOn {
 	id: string | number;
 	nama: string;
 	harga: number;
+	bahan_id?: string | number | null;
+	jumlah_bahan?: number | null;
+	satuan_resep?: string | null;
+	jumlah_dasar_per_item?: number | null;
 	is_active: boolean;
 	created_at?: string;
 	updated_at?: string;
@@ -49,6 +54,10 @@ export interface Ingredient {
 	id: string | number;
 	nama: string;
 	satuan: string;
+	tipe_satuan?: 'berat' | 'cairan' | 'kemasan' | 'unit';
+	isi_per_kemasan?: number;
+	satuan_beli?: string;
+	kategori?: string;
 	stok_saat_ini: number;
 	ambang_stok?: number;
 	yield_persen?: number;
@@ -60,6 +69,12 @@ export interface Ingredient {
 	updated_at?: string;
 }
 
+export interface HppExpenseItem {
+	id: string;
+	nama: string;
+	nominal: string | number;
+}
+
 export interface HppSettings {
 	id: string;
 	cabang_id: string;
@@ -68,6 +83,7 @@ export interface HppSettings {
 	air_bulanan: number;
 	gaji_bulanan: number;
 	lainnya_bulanan: number;
+	rincian_biaya?: string | HppExpenseItem[];
 	target_item_bulanan: number;
 	created_at?: string;
 	updated_at?: string;
@@ -77,7 +93,10 @@ export interface ProductRecipe {
 	id: string | number;
 	produk_id: string | number;
 	bahan_id: string | number;
+	porsi?: 'reguler' | 'jumbo';
 	jumlah_per_item: number;
+	satuan_resep?: string;
+	jumlah_dasar_per_item?: number;
 	created_at?: string;
 	updated_at?: string;
 }

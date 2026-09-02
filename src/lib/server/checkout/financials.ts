@@ -61,8 +61,12 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 
 	if (productId) {
 		const product = productsById.get(productId)!;
-		productName = input.pricingSnapshot?.product_name ?? product.nama;
-		productPrice = normalizeMoney(input.pricingSnapshot?.product_price ?? product.harga);
+		const isJumbo = (item.porsi || '').toLowerCase() === 'jumbo';
+		const defaultPrice = isJumbo ? (product.harga_jumbo ?? product.harga) : product.harga;
+		const rawName = input.pricingSnapshot?.product_name ?? product.nama;
+		const cleanBaseName = rawName.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '').trim();
+		productName = isJumbo ? `${cleanBaseName} (Jumbo)` : cleanBaseName;
+		productPrice = normalizeMoney(input.pricingSnapshot?.product_price ?? defaultPrice);
 		if (stockTrackingAvailable && (product.lacak_stok === true || product.lacak_stok === 1)) {
 			const current = stockDeductions.get(productId) || { nama: productName, jumlah: 0 };
 			current.jumlah += jumlah;
@@ -72,17 +76,33 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 			ingredientTrackingAvailable &&
 			(product.lacak_bahan === true || product.lacak_bahan === 1)
 		) {
-			const recipe = recipesByProduct.get(productId) || [];
+			const allRecipes = recipesByProduct.get(productId) || [];
+			const requestedPorsi = isJumbo ? 'jumbo' : 'reguler';
+			let recipe = allRecipes.filter(
+				(r) => (r.porsi || 'reguler').toLowerCase() === requestedPorsi
+			);
+			if (!recipe.length && isJumbo) {
+				// Fallback to reguler if jumbo recipe not explicitly specified
+				recipe = allRecipes.filter((r) => (r.porsi || 'reguler').toLowerCase() === 'reguler');
+			}
+			if (!recipe.length) {
+				recipe = allRecipes;
+			}
 			if (!recipe.length) {
 				throw kitError(409, `Resep bahan belum diatur untuk ${productName}`);
 			}
-			const hppIngredients = recipe.map((ingredient) => ({
-				bahan_id: ingredient.bahan_id,
-				nama: ingredient.bahan_name,
-				satuan: ingredient.satuan,
-				jumlah_per_item: normalizeCost(ingredient.jumlah_per_item),
-				biaya_per_satuan: normalizeCost(ingredient.biaya_per_satuan)
-			}));
+			const hppIngredients = recipe.map((ingredient) => {
+				const deductionQty = Number(
+					ingredient.jumlah_dasar_per_item ?? ingredient.jumlah_per_item ?? 0
+				);
+				return {
+					bahan_id: ingredient.bahan_id,
+					nama: ingredient.bahan_name,
+					satuan: ingredient.satuan,
+					jumlah_per_item: normalizeCost(deductionQty),
+					biaya_per_satuan: normalizeCost(ingredient.biaya_per_satuan)
+				};
+			});
 			const hppPerItem = hppIngredients.reduce(
 				(sum, ingredient) => sum + ingredient.jumlah_per_item * ingredient.biaya_per_satuan,
 				0
@@ -91,6 +111,7 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 			hppSnapshot = JSON.stringify({
 				product_id: productId,
 				product_name: productName,
+				porsi: isJumbo ? 'jumbo' : 'reguler',
 				jumlah,
 				hpp_per_item: roundMoney(hppPerItem),
 				nominal_hpp: hppAmount,
@@ -103,7 +124,10 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 					jumlah: 0,
 					products: []
 				};
-				current.jumlah += Number(ingredient.jumlah_per_item || 0) * jumlah;
+				const deductionQty = Number(
+					ingredient.jumlah_dasar_per_item ?? ingredient.jumlah_per_item ?? 0
+				);
+				current.jumlah += deductionQty * jumlah;
 				if (!current.products.includes(productName)) current.products.push(productName);
 				ingredientDeductions.set(ingredient.bahan_id, current);
 			}
@@ -112,6 +136,30 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 		productName = sanitizeShortText(item.nama_kustom, 80) ?? 'Item Custom';
 		productPrice = normalizeMoney(item.custom_price);
 		if (productPrice <= 0) throw kitError(400, 'Harga custom item tidak valid');
+	}
+
+	// [CATATAN]: Pengurangan stok bahan & perhitungan HPP untuk topping/ekstra
+	if (ingredientTrackingAvailable && addOns.length > 0) {
+		for (const addOn of addOns) {
+			const row = addOnsById.get(String(addOn.id));
+			if (row?.bahan_id && Number(row.jumlah_dasar_per_item ?? row.jumlah_bahan ?? 0) > 0) {
+				const deductionQty = Number(row.jumlah_dasar_per_item ?? row.jumlah_bahan ?? 0);
+				const unitCost = Number(row.bahan_biaya_per_satuan || 0);
+				const addOnHpp = roundMoney(deductionQty * unitCost * jumlah);
+				hppAmount += addOnHpp;
+
+				const current = ingredientDeductions.get(String(row.bahan_id)) || {
+					nama: row.bahan_nama || row.nama,
+					satuan: row.bahan_satuan || row.satuan_resep || 'gram',
+					jumlah: 0,
+					products: []
+				};
+				current.jumlah += deductionQty * jumlah;
+				const label = `+ ${row.nama}`;
+				if (!current.products.includes(label)) current.products.push(label);
+				ingredientDeductions.set(String(row.bahan_id), current);
+			}
+		}
 	}
 
 	const unitPrice = productPrice + addOnTotal;

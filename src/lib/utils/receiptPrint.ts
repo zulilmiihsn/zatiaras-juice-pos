@@ -6,14 +6,14 @@
  */
 import * as pako from 'pako';
 import { Base64 } from 'js-base64';
-import { LOGO_BASE64 } from '$lib/utils/logoBase64';
-import { formatRupiah } from '$lib/utils/currency';
-import { transactionService } from '$lib/services/transactionService';
-import type { ReceiptSettings, HistoryItem } from '$lib/types/laporan';
-import { formatOrderDetails } from '$lib/utils/orderDetails';
+import { LOGO_BASE64 } from './logoBase64.js';
+import { formatRupiah } from './currency.js';
+import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
+import { formatOrderDetails } from './orderDetails.js';
 
 type SaleReceiptItem = {
-	product: { nama: string; harga?: number | null };
+	product: { nama: string; harga?: number | null; harga_jumbo?: number | null };
+	porsi?: string | null;
 	jumlah: number;
 	addOns?: Array<{ nama: string; harga?: number | null }>;
 	gula?: string | null;
@@ -48,7 +48,7 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
 	alamat: 'Jl. Contoh Alamat No. 123, Kota',
 	telepon: '0812-3456-7890',
 	instagram: '@zatiarasjuice',
-	// Newline asli '\n' (bukan literal '\\n') — dirender via white-space:pre-line.
+	// [CATATAN]: Newline asli '\n' (bukan literal '\\n') — dirender via white-space:pre-line.
 	ucapan: 'Terima kasih sudah ngejus di\nZatiaras Juice!'
 };
 
@@ -91,15 +91,18 @@ function buildReceiptShell(header: ReceiptShellHeader, body: string, footer: str
  * Mengembalikan null bila keduanya tidak tersedia (caller pakai DEFAULT via buildReceiptHtml).
  */
 export async function loadReceiptSettings(): Promise<ReceiptSettings | null> {
+	if (typeof window === 'undefined') return null;
 	try {
-		const data = (await transactionService.getOne(
-			'pengaturan'
-		)) as unknown as ReceiptSettings | null;
-		if (data) return data;
+		const { dbGet } = await import('$lib/services/dataApiClient');
+		const rows = await dbGet('pengaturan');
+		if (rows && rows.length > 0) {
+			return rows[0] as unknown as ReceiptSettings;
+		}
 	} catch {
-		// abaikan, jatuh ke localStorage
+		// [CATATAN]: abaikan, jatuh ke localStorage
 	}
-	const local = localStorage.getItem('pengaturan_struk');
+	const local =
+		typeof localStorage !== 'undefined' ? localStorage.getItem('pengaturan_struk') : null;
 	if (local) {
 		try {
 			return JSON.parse(local) as ReceiptSettings;
@@ -172,7 +175,14 @@ export function buildSaleReceiptHtml(input: SaleReceiptInput): string {
 	}
 	body += `<table style='width:100%;font-size:14px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
 	for (const item of input.items) {
-		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(item.product.nama)} <span style='font-size:12px;font-weight:normal;'>x${item.jumlah}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(item.product.harga ?? 0)}</td></tr>`;
+		const isJumbo = (item.porsi || '').toLowerCase() === 'jumbo';
+		const basePrice = isJumbo
+			? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+			: (item.product.harga ?? 0);
+		const porsiSuffix =
+			isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';
+		const displayName = `${escapeHtml(item.product.nama)}${porsiSuffix}`;
+		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${displayName} <span style='font-size:12px;font-weight:normal;'>x${item.jumlah}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(basePrice * item.jumlah)}</td></tr>`;
 		for (const addOn of item.addOns ?? []) {
 			body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(addOn.nama)}</td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah((addOn.harga ?? 0) * item.jumlah)}</td></tr>`;
 		}

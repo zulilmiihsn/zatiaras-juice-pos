@@ -30,10 +30,10 @@ Extract implementation decisions that downstream agents need — researcher and 
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/discuss-phase.md
-@~/.claude/get-shit-done/workflows/discuss-phase-assumptions.md
-@~/.claude/get-shit-done/workflows/discuss-phase-power.md
-@~/.claude/get-shit-done/templates/context.md
+@~~/.claude/get-shit-done/workflows/discuss-phase.md
+@~~/.claude/get-shit-done/workflows/discuss-phase-assumptions.md
+@~~/.claude/get-shit-done/workflows/discuss-phase-power.md
+@~~/.claude/get-shit-done/templates/context.md
 </execution_context>
 
 <runtime_note>

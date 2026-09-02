@@ -11,8 +11,8 @@ Scan `~/gsd-workspaces/` for workspace directories containing `WORKSPACE.md` man
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/list-workspaces.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/list-workspaces.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <process>

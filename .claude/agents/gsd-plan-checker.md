@@ -126,11 +126,12 @@ issue:
 3. Flag incomplete tasks
 
 **Required by task type:**
-| Type | Files | Action | Verify | Done |
-|------|-------|--------|--------|------|
-| `auto` | Required | Required | Required | Required |
-| `checkpoint:*` | N/A | N/A | N/A | N/A |
-| `tdd` | Required | Behavior + Implementation | Test commands | Expected outcomes |
+
+| Type           | Files    | Action                    | Verify        | Done              |
+| -------------- | -------- | ------------------------- | ------------- | ----------------- |
+| `auto`         | Required | Required                  | Required      | Required          |
+| `checkpoint:*` | N/A      | N/A                       | N/A           | N/A               |
+| `tdd`          | Required | Behavior + Implementation | Test commands | Expected outcomes |
 
 **Red flags:**
 
@@ -234,11 +235,12 @@ issue:
 3. Check against thresholds
 
 **Thresholds:**
-| Metric | Target | Warning | Blocker |
-|--------|--------|---------|---------|
-| Tasks/plan | 2-3 | 4 | 5+ |
-| Files/plan | 5-8 | 10 | 15+ |
-| Total context | ~50% | ~70% | 80%+ |
+
+| Metric        | Target | Warning | Blocker |
+| ------------- | ------ | ------- | ------- |
+| Tasks/plan    | 2-3    | 4       | 5+      |
+| Files/plan    | 5-8    | 10      | 15+     |
+| Total context | ~50%   | ~70%    | 80%+    |
 
 **Red flags:**
 

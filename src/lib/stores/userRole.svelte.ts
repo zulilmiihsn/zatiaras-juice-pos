@@ -4,7 +4,7 @@ function isUserRole(role: unknown): role is UserRole {
 	return role === 'pemilik' || role === 'kasir' || role === 'admin';
 }
 
-// Store untuk user role dan profile menggunakan runes Svelte 5
+// [CATATAN]: Store untuk user role dan profile menggunakan runes Svelte 5
 class RoleState {
 	value = $state<UserRole | null>(null);
 }
@@ -15,7 +15,7 @@ class ProfileState {
 }
 export const userProfile = new ProfileState();
 
-// Coba inisialisasi store dari localStorage saat aplikasi dimuat
+// [CATATAN]: Coba inisialisasi store dari localStorage saat aplikasi dimuat
 if (typeof window !== 'undefined') {
 	const saved = localStorage.getItem('zatiaras_session');
 	if (saved) {
@@ -26,18 +26,18 @@ if (typeof window !== 'undefined') {
 				userProfile.value = parsed.user;
 			}
 		} catch (e) {
-			// Silent error handling
+			// [CATATAN]: Silent error handling
 		}
 	}
 }
 
-// Fungsi untuk set user role dan profile (dipanggil saat login)
+// [CATATAN]: Fungsi untuk set user role dan profile (dipanggil saat login)
 export function setUserRole(role: string, profile: unknown) {
 	userRole.value = isUserRole(role) ? role : null;
 	userProfile.value = profile;
 }
 
-// Fungsi untuk clear user data (dipanggil saat logout)
+// [CATATAN]: Fungsi untuk clear user data (dipanggil saat logout)
 export function clearUserRole() {
 	userRole.value = null;
 	userProfile.value = null;

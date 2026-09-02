@@ -100,17 +100,19 @@ export async function getAuthSession(
 	const row = (await getSessionDb(platform, branch)
 		.prepare(
 			`SELECT
-				id,
-				cabang_id,
-				user_id,
-				username,
-				role,
-				created_at,
-				expires_at,
-				unlocked_pages,
-				unlock_expires_at
-			FROM auth_sessions
-			WHERE id = ? AND expires_at > ?
+				s.id,
+				s.cabang_id,
+				s.user_id,
+				p.username,
+				p.role,
+				s.created_at,
+				s.expires_at,
+				s.unlocked_pages,
+				s.unlock_expires_at
+			FROM auth_sessions s
+			INNER JOIN profil p
+				ON p.cabang_id = s.cabang_id AND p.id = s.user_id
+			WHERE s.id = ? AND s.expires_at > ?
 			LIMIT 1`
 		)
 		.bind(sessionId, Date.now())

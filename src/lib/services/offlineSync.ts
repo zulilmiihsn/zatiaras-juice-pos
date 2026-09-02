@@ -1,9 +1,9 @@
-// ─── Offline sync ─────────────────────────────────────────────────────────────
+// [CATATAN]: ─── Offline sync ─────────────────────────────────────────────────────────────
 //
-// Subsistem sinkronisasi transaksi offline: replay antrian pending ke server
-// (idempoten via idempotency_key), single-flight, backoff, klasifikasi gagal.
-// Dipisah dari dataService agar tanggung jawab jelas. Listener window di akhir
-// mendaftar otomatis saat modul ini dimuat (di-load via re-export di dataService).
+// [CATATAN]: Subsistem sinkronisasi transaksi offline: replay antrian pending ke server
+// [CATATAN]: (idempoten via idempotency_key), single-flight, backoff, klasifikasi gagal.
+// [CATATAN]: Dipisah dari dataService agar tanggung jawab jelas. Listener window di akhir
+// [CATATAN]: mendaftar otomatis saat modul ini dimuat (di-load via re-export di dataService).
 
 import {
 	getPendingTransactions,
@@ -84,7 +84,13 @@ async function runPendingTransactionSync(
 	queueIds?: ReadonlySet<string>
 ): Promise<void> {
 	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+	const activeBranch =
+		typeof window !== 'undefined'
+			? localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda'
+			: 'samarinda';
+
 	const pendings = (await getPendingTransactions()).filter((item) => {
+		if (item.branch && item.branch !== activeBranch) return false;
 		if (queueIds?.has(item.queue_id)) return true;
 		if (item.failure_kind === 'auth' || item.failure_kind === 'conflict') return false;
 		return force || isPendingReady(item);

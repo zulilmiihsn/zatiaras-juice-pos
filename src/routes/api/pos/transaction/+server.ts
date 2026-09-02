@@ -34,6 +34,7 @@ import {
 } from '$lib/server/checkout/dataLoader';
 import { computeItemFinancials } from '$lib/server/checkout/financials';
 import { buildCheckoutStatements } from '$lib/server/checkout/statementBuilder';
+import { computeTransactionFingerprint } from '$lib/server/checkout/fingerprint';
 import type { StockDeductions, IngredientDeductions } from '$lib/server/checkout/types';
 import { PosPricingTokenError, verifyPosPricingToken } from '$lib/server/posPricingToken';
 
@@ -41,6 +42,7 @@ interface CatalogProductTokenData {
 	id: string;
 	nama: string;
 	harga: number;
+	harga_jumbo?: number | null;
 	updated_at?: string | null;
 }
 
@@ -119,7 +121,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const body = (await request.json().catch(() => null)) as PosTransactionInput | null;
 	if (!body) throw kitError(400, 'Item transaksi kosong');
-	const mode = body.mode ?? 'online';
+	const rawMode = body.mode;
+	if (rawMode !== 'online' && rawMode !== 'offline_replay') {
+		throw kitError(400, 'Mode transaksi POS tidak valid (harus online atau offline_replay)');
+	}
+	const mode = rawMode;
 	let quoteData: PosQuoteTokenData | null = null;
 	if (mode === 'online') {
 		try {
@@ -203,7 +209,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 								throw kitError(400, 'Token harga produk tidak cocok');
 							}
 							productName = verified.data.nama;
-							productPrice = normalizeMoney(verified.data.harga);
+							const isJumbo = String(item.porsi || '').toLowerCase() === 'jumbo';
+							productPrice = normalizeMoney(
+								isJumbo ? (verified.data.harga_jumbo ?? verified.data.harga) : verified.data.harga
+							);
 						} else {
 							productName = sanitizeShortText(item.nama_kustom, 80) ?? 'Item Custom';
 							productPrice = normalizeMoney(item.custom_price);
@@ -253,15 +262,66 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const paymentMethod = normalizePaymentMethod(body.metode_bayar);
 	const customerName = sanitizeShortText(body.nama_pelanggan, 60);
 
+	const requestFingerprint = computeTransactionFingerprint({
+		branch,
+		storeSessionId: body.store_session_id,
+		cashReceived: body.cash_received,
+		items: rawItems,
+		totalAmount: quoteData
+			? quoteData.total_amount
+			: rawItems.reduce(
+					(s: number, i: any) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
+					0
+				),
+		totalQty: quoteData
+			? quoteData.total_qty
+			: rawItems.reduce((s: number, i: any) => s + Number(i.jumlah || 0), 0),
+		paymentMethod,
+		customerName
+	});
+
 	const existing = await getExistingByIdempotency(db, branch, idempotencyKey, idempotencyAvailable);
 	if (existing) {
-		if (
-			quoteData &&
-			(existing.nominal !== normalizeMoney(quoteData.total_amount) ||
-				existing.jumlah !== quoteData.total_qty)
-		) {
-			throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
+		if (existing.request_fingerprint) {
+			if (existing.request_fingerprint !== requestFingerprint) {
+				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
+			}
+		} else {
+			const expectedTotal = quoteData
+				? normalizeMoney(quoteData.total_amount)
+				: rawItems.reduce(
+						(s: number, i: any) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
+						0
+					);
+			const expectedQty = quoteData
+				? quoteData.total_qty
+				: rawItems.reduce((s: number, i: any) => s + Number(i.jumlah || 0), 0);
+
+			if (
+				existing.nominal !== expectedTotal ||
+				existing.jumlah !== expectedQty ||
+				existing.metode_bayar !== paymentMethod
+			) {
+				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
+			}
 		}
+
+		let receipt = null;
+		if (existing.receipt_snapshot) {
+			try {
+				receipt = JSON.parse(existing.receipt_snapshot);
+			} catch {}
+		}
+		if (!receipt && quoteData) {
+			const existingCashReceived = normalizeMoney(body.cash_received);
+			receipt = buildReceiptFromQuote(quoteData, {
+				totalAmount: existing.nominal,
+				cashReceived: existingCashReceived,
+				paymentMethod,
+				committedAt: new Date().toISOString()
+			});
+		}
+
 		const existingCashReceived = normalizeMoney(body.cash_received);
 		return json({
 			ok: true,
@@ -275,12 +335,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					paymentMethod === 'tunai' && existingCashReceived > 0
 						? existingCashReceived - existing.nominal
 						: 0,
-				receipt: buildReceiptFromQuote(quoteData!, {
-					totalAmount: existing.nominal,
-					cashReceived: existingCashReceived,
-					paymentMethod,
-					committedAt: new Date().toISOString()
-				})
+				receipt
 			}
 		});
 	}
@@ -333,20 +388,16 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		}
 	}
 
-	// Fase baca paralel: sesi toko, produk, dan add-on saling independen.
+	// [CATATAN]: Fase baca paralel: sesi toko, produk, dan add-on saling independen.
 	const isOfflineReplay = mode === 'offline_replay';
 	const [idSesiToko, productsById, addOnsById] = await Promise.all([
 		isOfflineReplay
 			? getSessionIdById(db, branch, body.store_session_id)
 			: getActiveSessionId(db, branch),
-		loadProducts(
-			db,
-			branch,
-			productIds,
-			isOfflineReplay ? false : stockTrackingAvailable,
-			isOfflineReplay ? false : ingredientTrackingAvailable,
-			{ allowInactive: isOfflineReplay, fallbackProducts }
-		),
+		loadProducts(db, branch, productIds, stockTrackingAvailable, ingredientTrackingAvailable, {
+			allowInactive: isOfflineReplay,
+			fallbackProducts
+		}),
 		loadAddOns(db, branch, addOnIds, {
 			allowInactive: isOfflineReplay,
 			fallbackAddOns
@@ -361,14 +412,13 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		);
 	}
 
-	// Resep butuh hasil produk (flag lacak_bahan), jadi wave kedua.
-	const recipeProductIds =
-		ingredientTrackingAvailable && !isOfflineReplay
-			? productIds.filter((id) => {
-					const p = productsById.get(id);
-					return p?.lacak_bahan === true || p?.lacak_bahan === 1;
-				})
-			: [];
+	// [CATATAN]: Resep butuh hasil produk (flag lacak_bahan), jadi wave kedua.
+	const recipeProductIds = ingredientTrackingAvailable
+		? productIds.filter((id) => {
+				const p = productsById.get(id);
+				return p?.lacak_bahan === true || p?.lacak_bahan === 1;
+			})
+		: [];
 	const recipesByProduct = await loadRecipesByProduct(db, branch, recipeProductIds);
 
 	const transactionId = crypto.randomUUID();
@@ -383,8 +433,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			addOnsById,
 			productsById,
 			recipesByProduct,
-			stockTrackingAvailable: isOfflineReplay ? false : stockTrackingAvailable,
-			ingredientTrackingAvailable: isOfflineReplay ? false : ingredientTrackingAvailable,
+			stockTrackingAvailable,
+			ingredientTrackingAvailable,
 			stockDeductions,
 			ingredientDeductions,
 			bukuKasId,
@@ -403,11 +453,20 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		throw kitError(409, 'Total quote berubah. Verifikasi ulang pembayaran.');
 	}
 	const cashReceived = normalizeMoney(body.cash_received);
-	if (paymentMethod === 'tunai' && cashReceived > 0 && cashReceived < totalAmount)
+	if (paymentMethod === 'tunai' && cashReceived < totalAmount)
 		throw kitError(400, 'Nominal tunai kurang dari total');
 	if (paymentMethod === 'non-tunai' && cashReceived > 0 && cashReceived !== totalAmount) {
 		throw kitError(409, 'Nominal pembayaran non-tunai tidak sama dengan total quote');
 	}
+
+	const receiptSnapshot = quoteData
+		? buildReceiptFromQuote(quoteData, {
+				totalAmount,
+				cashReceived,
+				paymentMethod,
+				committedAt: createdAt
+			})
+		: null;
 
 	const statements = buildCheckoutStatements({
 		db,
@@ -426,6 +485,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		createdAt,
 		idSesiToko,
 		idempotencyKey,
+		requestFingerprint,
+		receiptSnapshot,
 		session,
 		capabilities
 	});
@@ -441,12 +502,32 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			idempotencyAvailable
 		);
 		if (duplicate) {
-			if (
+			if (duplicate.request_fingerprint) {
+				if (duplicate.request_fingerprint !== requestFingerprint) {
+					throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
+				}
+			} else if (
 				duplicate.nominal !== normalizeMoney(quoteData!.total_amount) ||
 				duplicate.jumlah !== quoteData!.total_qty
 			) {
 				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
 			}
+
+			let receipt = null;
+			if (duplicate.receipt_snapshot) {
+				try {
+					receipt = JSON.parse(duplicate.receipt_snapshot);
+				} catch {}
+			}
+			if (!receipt && quoteData) {
+				receipt = buildReceiptFromQuote(quoteData, {
+					totalAmount: duplicate.nominal,
+					cashReceived,
+					paymentMethod,
+					committedAt: createdAt
+				});
+			}
+
 			return json({
 				ok: true,
 				idempotent: true,
@@ -457,12 +538,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					total_qty: duplicate.jumlah,
 					change:
 						paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - duplicate.nominal : 0,
-					receipt: buildReceiptFromQuote(quoteData!, {
-						totalAmount: duplicate.nominal,
-						cashReceived,
-						paymentMethod,
-						committedAt: createdAt
-					})
+					receipt
 				}
 			});
 		}
@@ -497,7 +573,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		throw error;
 	}
 
-	// Audit + realtime publish paralel sesudah batch commit.
+	// [CATATAN]: Audit + realtime publish paralel sesudah batch commit.
 	const currentCatalogTotal = normalizedInputs.reduce((sum, item) => {
 		const productPrice = item.productId
 			? normalizeMoney(productsById.get(item.productId)?.harga)

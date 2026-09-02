@@ -14,11 +14,11 @@ import { createToastManager } from '$lib/utils/ui';
 import type { Workbox as WorkboxInstance } from 'workbox-window';
 
 export function createLayoutState() {
-	// ── PWA ──────────────────────────────────────────────────────────────────
+	// [CATATAN]: ── PWA ──────────────────────────────────────────────────────────────────
 	let showUpdateNotification = $state(false);
 	let pwaWorkbox: WorkboxInstance | null = null;
 
-	// ── Offline / pending sync ────────────────────────────────────────────────
+	// [CATATAN]: ── Offline / pending sync ────────────────────────────────────────────────
 	let hasPrefetchedMenu = false;
 	let hasPrefetchedOwnerInsights = false;
 	let isOffline = $state(typeof navigator !== 'undefined' ? !navigator.onLine : false);

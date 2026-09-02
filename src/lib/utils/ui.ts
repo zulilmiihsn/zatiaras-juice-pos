@@ -3,9 +3,9 @@
  */
 import { NOTIF } from '$lib/constants/ui';
 
-// Toast management utility to reduce code duplication
+// [CATATAN]: Toast management utility to reduce code duplication
 export function createToastManager() {
-	// Create reactive stores for toast state
+	// [CATATAN]: Create reactive stores for toast state
 	const toastState = {
 		show: false,
 		message: '',
@@ -22,12 +22,12 @@ export function createToastManager() {
 		toastState.type = type;
 		toastState.show = true;
 
-		// Clear existing timeout
+		// [CATATAN]: Clear existing timeout
 		if (toastState.timeout) {
 			clearTimeout(toastState.timeout);
 		}
 
-		// Auto hide after duration
+		// [CATATAN]: Auto hide after duration
 		toastState.timeout = Number(
 			setTimeout(() => {
 				toastState.show = false;
@@ -44,7 +44,7 @@ export function createToastManager() {
 		}
 	}
 
-	// Return an object with reactive properties
+	// [CATATAN]: Return an object with reactive properties
 	return {
 		get showToast() {
 			return toastState.show;

@@ -74,17 +74,26 @@ export async function getBestSellersSummary(
 	const endDate = witaDate(endTime);
 	const rows = await rawDb
 		.prepare(
-			`SELECT produk_id, nama_produk, SUM(jumlah) AS total_qty, SUM(penjualan_kotor) AS penjualan_kotor
+			`SELECT produk_id,
+			        MIN(nama_produk) AS nama_produk,
+			        SUM(jumlah) AS total_qty,
+			        SUM(penjualan_kotor) AS penjualan_kotor
 				 FROM penjualan_produk_harian
 				 WHERE cabang_id = ? AND tanggal_penjualan >= ? AND tanggal_penjualan <= ?
 					AND (produk_id NOT LIKE 'custom:%' AND produk_id != '__custom__')
-				 GROUP BY produk_id, nama_produk
+				 GROUP BY produk_id
 				 ORDER BY total_qty DESC
 				 LIMIT 3`
 		)
 		.bind(branch, startDate, endDate)
 		.all();
-	return rows.results || [];
+
+	return (rows.results || []).map((row: any) => ({
+		...row,
+		nama_produk: String(row.nama_produk || '')
+			.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
+			.trim()
+	}));
 }
 
 /** Header transaksi POS dalam rentang (untuk agregasi kas 7 hari di klien). */

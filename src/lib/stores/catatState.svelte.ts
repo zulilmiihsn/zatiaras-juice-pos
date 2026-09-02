@@ -36,6 +36,8 @@ export function createCatatState() {
 	let notifModalType = $state<NotifModalType>('warning');
 	let currentUserRole = $state('');
 	let sesiAktif = $state<TokoSession | null>(null);
+	let recentTransactions = $state<any[]>([]);
+	let isLoadingRecent = $state(false);
 
 	const toastManager = createToastManager();
 
@@ -76,6 +78,21 @@ export function createCatatState() {
 		sesiAktif = await getSesiAktif();
 	}
 
+	async function loadRecentTransactions() {
+		try {
+			isLoadingRecent = true;
+			const rows = (await transactionService.getRows('buku_kas', {
+				sumber: 'catat',
+				limit: '5'
+			})) as any[];
+			recentTransactions = Array.isArray(rows) ? rows : [];
+		} catch {
+			recentTransactions = [];
+		} finally {
+			isLoadingRecent = false;
+		}
+	}
+
 	async function init() {
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
 			loadRouteIcons('catat');
@@ -90,7 +107,7 @@ export function createCatatState() {
 		date = getLocalDateString();
 		time = new Date().toTimeString().slice(0, 5);
 		jenis = mode === 'pemasukan' ? 'pendapatan_usaha' : 'beban_usaha';
-		await cekSesiTokoAktif();
+		await Promise.all([cekSesiTokoAktif(), loadRecentTransactions()]);
 	}
 
 	function closeNotifModal() {
@@ -243,6 +260,7 @@ export function createCatatState() {
 			return;
 		}
 		await saveTransaksi(dataToValidate);
+		await loadRecentTransactions();
 		snackbarMsg = 'Transaksi berhasil dicatat!';
 		showSnackbar = true;
 		setTimeout(() => {
@@ -362,6 +380,13 @@ export function createCatatState() {
 		get currentUserRole() {
 			return currentUserRole;
 		},
+		get recentTransactions() {
+			return recentTransactions;
+		},
+		get isLoadingRecent() {
+			return isLoadingRecent;
+		},
+		loadRecentTransactions,
 		toastManager,
 		jenisPemasukan,
 		jenisPengeluaran,

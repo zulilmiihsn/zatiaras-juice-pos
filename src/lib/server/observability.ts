@@ -83,7 +83,7 @@ export async function recordErrorEvent(
 			)
 			.run();
 	} catch {
-		// Observability must never become outage source.
+		// [CATATAN]: Observability must never become outage source.
 	}
 }
 
@@ -132,6 +132,6 @@ export async function recordRequestMetric(
 			)
 			.run();
 	} catch {
-		// Ignore until migrations are applied.
+		// [CATATAN]: Ignore until migrations are applied.
 	}
 }

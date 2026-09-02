@@ -16,6 +16,7 @@ export type WriteBody = {
 	branch?: string;
 	where?: {
 		id?: string | number;
+		ids?: string;
 		transaction_id?: string;
 		kategori_id?: string | number;
 		produk_id?: string | number;

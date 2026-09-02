@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { uploadToR2, deleteFromR2 } from '$lib/server/s3Client';
-import { requireAuthSession, requireAnyRole } from '$lib/server/apiAuth';
+import { requireAuthSession, requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	isAllowedProductImageMime,
 	isPublicProductImageKey,
-	productImageExtension
+	productImageExtension,
+	extractBranchFromProductImageKey
 } from '$lib/server/r2ObjectPolicy';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -31,9 +32,10 @@ export async function GET({ url, platform }) {
 }
 
 export async function POST({ request, platform, locals }) {
-	// Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	// [CATATAN]: Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	const branch = requireSessionBranch(locals);
 	const session = requireAuthSession(locals);
-	requireAnyRole(session.role, ['pemilik']);
+	requireAnyRole(session.role, ['pemilik', 'admin']);
 
 	try {
 		const formData = await request.formData();
@@ -57,7 +59,7 @@ export async function POST({ request, platform, locals }) {
 		}
 
 		const ext = productImageExtension(file.type);
-		const key = `produk/${uuidv4()}.${ext}`;
+		const key = `produk/${branch}/${uuidv4()}.${ext}`;
 		const buffer = await file.arrayBuffer();
 
 		const publicUrl = await uploadToR2(key, buffer, file.type, bucket);
@@ -70,15 +72,25 @@ export async function POST({ request, platform, locals }) {
 }
 
 export async function DELETE({ request, platform, locals }) {
-	// Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	// [CATATAN]: Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	const branch = requireSessionBranch(locals);
 	const session = requireAuthSession(locals);
-	requireAnyRole(session.role, ['pemilik']);
+	requireAnyRole(session.role, ['pemilik', 'admin']);
 
 	try {
 		const { key } = (await request.json()) as { key: string };
 
 		if (!isPublicProductImageKey(key)) {
 			return json({ error: 'Invalid product image key' }, { status: 400 });
+		}
+
+		// Isolasi cabang: Pemilik cabang A tidak boleh menghapus gambar milik cabang B atau legacy key
+		const keyBranch = extractBranchFromProductImageKey(key);
+		if (session.role !== 'admin' && (!keyBranch || keyBranch !== branch)) {
+			return json(
+				{ error: 'Forbidden: Cannot delete images from other branches' },
+				{ status: 403 }
+			);
 		}
 
 		const bucket = platform?.env?.STORAGE;

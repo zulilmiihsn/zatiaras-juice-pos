@@ -3,6 +3,7 @@ export type PendingFailureKind = 'auth' | 'conflict' | 'network' | 'rate_limit' 
 
 export interface PendingTransaction extends Record<string, unknown> {
 	queue_id: string;
+	branch: string;
 	status: PendingStatus;
 	created_at: string;
 	updated_at: string;
@@ -46,7 +47,7 @@ function finiteNonNegative(value: unknown, fallback = 0): number {
 
 export function normalizePendingTransaction(
 	value: unknown,
-	options: { now?: number; queueId?: string } = {}
+	options: { now?: number; queueId?: string; branch?: string } = {}
 ): PendingTransaction {
 	const now = options.now ?? Date.now();
 	const isoNow = new Date(now).toISOString();
@@ -63,12 +64,18 @@ export function normalizePendingTransaction(
 		? (item.failure_kind as Exclude<PendingFailureKind, null>)
 		: null;
 
+	const branch =
+		typeof item.branch === 'string' && item.branch.length > 0
+			? item.branch
+			: options.branch || 'samarinda';
+
 	return {
 		...item,
 		queue_id:
 			typeof item.queue_id === 'string' && item.queue_id.length > 0
 				? item.queue_id
 				: options.queueId || crypto.randomUUID(),
+		branch,
 		status,
 		created_at: typeof item.created_at === 'string' ? item.created_at : isoNow,
 		updated_at: typeof item.updated_at === 'string' ? item.updated_at : isoNow,

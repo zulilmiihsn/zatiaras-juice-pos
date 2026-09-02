@@ -143,7 +143,7 @@ export class AutoApplyService {
 		}
 
 		const branch = selectedBranch.value;
-		// 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
+		// [CATATAN]: 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
 		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
 		const transactionId = crypto.randomUUID();
 

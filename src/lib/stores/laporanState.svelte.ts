@@ -10,6 +10,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { createToastManager } from '$lib/utils/ui';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { groupReportTransactions } from '$lib/utils/reportGrouping';
+import { calculateTaxes } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
 
 export function createLaporanState() {
@@ -127,13 +128,32 @@ export function createLaporanState() {
 				return;
 			}
 			lastAppliedReportFingerprint = nextFingerprint;
-			summary = reportDataContent?.summary || {
+			const rawSummary = reportDataContent?.summary || {
 				pendapatan: 0,
 				pengeluaran: 0,
 				saldo: 0,
 				labaKotor: 0,
 				pajak: 0,
 				labaBersih: 0
+			};
+			const pendapatanVal = Number(rawSummary.pendapatan || 0);
+			const pengeluaranVal = Number(rawSummary.pengeluaran || 0);
+			const labaKotorVal = Number(rawSummary.labaKotor || pendapatanVal - pengeluaranVal);
+			const taxResult = calculateTaxes(pendapatanVal, labaKotorVal);
+
+			summary = {
+				pendapatan: pendapatanVal,
+				pengeluaran: pengeluaranVal,
+				saldo: labaKotorVal,
+				labaKotor: labaKotorVal,
+				pajak: taxResult.totalPajak,
+				labaBersih: taxResult.labaBersih,
+				taxBreakdown: taxResult.breakdowns.map((b) => ({
+					nama: b.nama,
+					persentase: b.persentase,
+					nominal: b.nominalPajak
+				})),
+				taxLabel: taxResult.activeTaxesLabel
 			};
 			laporan = reportDataContent?.transactions || [];
 			await reportCacheMetrics('laporan');
@@ -148,14 +168,24 @@ export function createLaporanState() {
 		}
 	}
 
+	let realtimeDisposers: Array<() => void> = [];
+
 	function setupRealtimeSubscriptions() {
-		realtimeManager.unsubscribeAll();
-		realtimeManager.subscribe('buku_kas', async () => {
-			await scheduleLaporanRefresh(220);
-		});
-		realtimeManager.subscribe('transaksi_kasir', async () => {
-			await scheduleLaporanRefresh(220);
-		});
+		realtimeDisposers.forEach((d) => d());
+		realtimeDisposers = [
+			realtimeManager.subscribe('buku_kas', async () => {
+				await scheduleLaporanRefresh(220);
+			}),
+			realtimeManager.subscribe('transaksi_kasir', async () => {
+				await scheduleLaporanRefresh(220);
+			})
+		];
+		if (typeof window !== 'undefined') {
+			window.addEventListener('zatiara:tax_settings_updated', async () => {
+				lastAppliedReportFingerprint = '';
+				await scheduleLaporanRefresh(50, true);
+			});
+		}
 	}
 
 	async function initializePageData() {
@@ -246,7 +276,7 @@ export function createLaporanState() {
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
 			loadRouteIcons('laporan');
 		});
-		import('lucide-svelte/icons/filter').then((icon) => {
+		import('@lucide/svelte/icons/filter').then((icon) => {
 			FilterIcon = icon.default;
 		});
 
@@ -319,7 +349,8 @@ export function createLaporanState() {
 	});
 
 	onDestroy(() => {
-		realtimeManager.unsubscribeAll();
+		realtimeDisposers.forEach((d) => d());
+		realtimeDisposers = [];
 		if (laporanRefreshTimer) {
 			clearTimeout(laporanRefreshTimer);
 			laporanRefreshTimer = null;

@@ -27,6 +27,53 @@ export default {
 	 * @param {Record<string, any>} env
 	 */
 	async scheduled(_event, env) {
+		for (const binding of DB_BINDINGS) {
+			const db = env[binding];
+			if (!db) continue;
+			try {
+				const rows = await db
+					.prepare(
+						`SELECT id, payload FROM audit_log_outbox
+						 WHERE cabang_id IS NOT NULL ORDER BY created_at ASC LIMIT 100`
+					)
+					.all();
+				for (const row of rows.results || []) {
+					try {
+						const input = JSON.parse(row.payload);
+						await db
+							.prepare(
+								`INSERT OR IGNORE INTO audit_logs (
+									id, cabang_id, actor_user_id, actor_username, actor_role, action,
+									entity_type, entity_id, transaction_id, amount, metadata, ip_hash, created_at
+								) SELECT ?, cabang_id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+								 FROM audit_log_outbox WHERE id = ?`
+							)
+							.bind(
+								row.id,
+								input.session?.userId || null,
+								input.session?.username || null,
+								input.session?.role || null,
+								input.action,
+								input.entityType,
+								input.entityId == null ? null : String(input.entityId),
+								input.transactionId || null,
+								input.amount || null,
+								input.metadata ? JSON.stringify(input.metadata).slice(0, 8192) : null,
+								input.ipHash || null,
+								new Date().toISOString(),
+								row.id
+							)
+							.run();
+						await db.prepare('DELETE FROM audit_log_outbox WHERE id = ?').bind(row.id).run();
+					} catch {
+						// Keep failed rows for the next scheduled retry.
+					}
+				}
+			} catch {
+				// Schema may be awaiting migration; retry on the next schedule.
+			}
+		}
+
 		const cutoff = new Date(Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 		for (const binding of DB_BINDINGS) {
 			const db = env[binding];

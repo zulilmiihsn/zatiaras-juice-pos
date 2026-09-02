@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -28,6 +29,7 @@ function ensurePwaPrerenderPlaceholder() {
 export default defineConfig({
 	plugins: [
 		sveltekit(),
+		tailwindcss(),
 		ensurePwaPrerenderPlaceholder(),
 		SvelteKitPWA({
 			registerType: 'prompt',
@@ -174,9 +176,8 @@ export default defineConfig({
 		rollupOptions: {
 			external: ['bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os'],
 			output: {
-				manualChunks: {
-					// Vendor chunks
-					'vendor-svelte': ['svelte']
+				manualChunks(id) {
+					if (id.includes('/node_modules/svelte/')) return 'vendor-svelte';
 				}
 			}
 		},
@@ -192,12 +193,9 @@ export default defineConfig({
 		}
 		// Tree shaking is enabled by default in Vite
 	},
-	css: {
-		postcss: './postcss.config.cjs'
-	},
 	optimizeDeps: {
-		include: ['svelte', 'idb-keyval', 'js-base64', 'pako', 'uuid', 'workbox-window'],
-		exclude: ['bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', 'lucide-svelte']
+		include: ['idb-keyval', 'js-base64', 'pako', 'uuid', 'workbox-window'],
+		exclude: ['svelte', 'bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', '@lucide/svelte']
 	},
 	server: {
 		fs: {

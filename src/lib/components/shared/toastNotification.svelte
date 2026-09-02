@@ -4,6 +4,16 @@
 	import { cubicOut } from 'svelte/easing';
 	import { onDestroy } from 'svelte';
 
+	interface ToastProps {
+		show?: boolean;
+		message?: string;
+		type?: 'success' | 'error' | 'warning' | 'info';
+		duration?: number;
+		position?: 'top' | 'bottom';
+		autoDismiss?: boolean;
+		onDismiss?: () => void;
+	}
+
 	let {
 		show = $bindable(false),
 		message = '',
@@ -12,15 +22,7 @@
 		position = 'top',
 		autoDismiss = true,
 		onDismiss
-	}: {
-		show?: boolean;
-		message?: string;
-		type?: 'success' | 'error' | 'warning' | 'info';
-		duration?: number;
-		position?: 'top' | 'bottom';
-		autoDismiss?: boolean;
-		onDismiss?: () => void;
-	} = $props();
+	}: ToastProps = $props();
 
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,86 +36,85 @@
 		}
 	});
 
-	// Cleanup on component destroy
+	// [CATATAN]: Bersihkan timer saat komponen di-unmount
 	onDestroy(() => {
 		if (timeoutId) clearTimeout(timeoutId);
 	});
 
-	// Get background color based on type
-	function getBgColor() {
+	function getBgColor(): string {
 		switch (type) {
 			case 'success':
-				return 'bg-green-500';
+				return 'bg-emerald-600 text-white';
 			case 'error':
-				return 'bg-red-500';
+				return 'bg-rose-600 text-white';
 			case 'warning':
-				return 'bg-yellow-500';
+				return 'bg-amber-500 text-white';
 			case 'info':
-				return 'bg-blue-500';
+				return 'bg-sky-600 text-white';
 			default:
-				return 'bg-green-500';
+				return 'bg-emerald-600 text-white';
 		}
 	}
 
-	// Get border color based on type
-	function getBorderColor() {
+	function getBorderColor(): string {
 		switch (type) {
 			case 'success':
-				return 'border-green-400';
+				return 'border-emerald-400/70 shadow-emerald-950/15';
 			case 'error':
-				return 'border-red-400';
+				return 'border-rose-400/70 shadow-rose-950/15';
 			case 'warning':
-				return 'border-yellow-400';
+				return 'border-amber-400/70 shadow-amber-950/15';
 			case 'info':
-				return 'border-blue-400';
+				return 'border-sky-400/70 shadow-sky-950/15';
 			default:
-				return 'border-green-400';
+				return 'border-emerald-400/70 shadow-emerald-950/15';
 		}
 	}
 </script>
 
 {#if show}
 	<div
-		class="fixed left-1/2 z-50 flex max-w-[90vw] min-w-[200px] items-center justify-center gap-2 rounded-xl px-6 py-3 text-center font-semibold text-white shadow-lg transition-all duration-300 ease-out {getBgColor()} border {getBorderColor()}"
-		style="transform: translateX(-50%); {position === 'top' ? 'top: 20px;' : 'bottom: 20px;'}"
-		in:fly={{ y: position === 'top' ? -32 : 32, duration: 300, easing: cubicOut }}
-		out:fade={{ duration: 200 }}
+		class="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 {position === 'top'
+			? 'top-4 sm:top-5'
+			: 'bottom-6 sm:bottom-8'}"
 	>
-		<span class="flex-shrink-0">
-			{#if type === 'success'}
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"
-					></path>
-				</svg>
-			{:else if type === 'error'}
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M6 18L18 6M6 6l12 12"
-					></path>
-				</svg>
-			{:else if type === 'warning'}
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-					></path>
-				</svg>
-			{:else if type === 'info'}
-				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					></path>
-				</svg>
-			{/if}
-		</span>
-		<span class="flex-1">{message}</span>
+		<div
+			class="flex w-auto max-w-[70vw] items-center justify-center gap-2 rounded-full border px-3.5 py-1.5 text-center shadow-lg shadow-emerald-950/15 backdrop-blur-md select-none sm:max-w-xs {getBgColor()} {getBorderColor()}"
+			in:fly={{ y: position === 'top' ? -20 : 20, duration: 240, easing: cubicOut }}
+			out:fade={{ duration: 160 }}
+			role="status"
+			aria-live="polite"
+		>
+			<span class="flex shrink-0 items-center justify-center">
+				{#if type === 'success'}
+					<svg class="h-4 w-4 stroke-[2.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+					</svg>
+				{:else if type === 'error'}
+					<svg class="h-4 w-4 stroke-[2.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				{:else if type === 'warning'}
+					<svg class="h-4 w-4 stroke-[2.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+						/>
+					</svg>
+				{:else if type === 'info'}
+					<svg class="h-4 w-4 stroke-[2.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				{/if}
+			</span>
+			<span class="truncate text-xs font-bold tracking-tight whitespace-nowrap text-white">
+				{message}
+			</span>
+		</div>
 	</div>
 {/if}

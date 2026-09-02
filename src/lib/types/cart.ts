@@ -4,6 +4,7 @@ export interface CartProduct {
 	id: string | number;
 	nama: string;
 	harga: number;
+	harga_jumbo?: number | null;
 	tipe: Product['tipe'] | 'custom';
 	stok?: number | null;
 	lacak_stok?: boolean | number | null;
@@ -28,6 +29,7 @@ export interface CartItem {
 	product: CartProduct;
 	jumlah: number;
 	addOns: CartAddOn[];
+	porsi?: 'reguler' | 'jumbo';
 	gula: string;
 	es: string;
 	catatan: string;

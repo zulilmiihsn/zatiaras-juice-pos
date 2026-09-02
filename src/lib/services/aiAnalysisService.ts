@@ -22,10 +22,10 @@ export class AiAnalysisService {
 	 */
 	async analyzeTransaction(text: string): Promise<TransactionAnalysis> {
 		try {
-			// Get current branch from store
+			// [CATATAN]: Get current branch from store
 			const currentBranch = selectedBranch.value || 'default';
 
-			// Kirim ke backend AI untuk analisis
+			// [CATATAN]: Kirim ke backend AI untuk analisis
 			const response = await fetchWithCsrfRetry('/api/aichat?action=analyze', {
 				method: 'POST',
 				headers: {
@@ -59,7 +59,7 @@ export class AiAnalysisService {
 		const detectedTransactions: DetectedTransaction[] = [];
 		const recommendations: AiRecommendation[] = [];
 
-		// Parse detected transactions
+		// [CATATAN]: Parse detected transactions
 		if (data.transactions && Array.isArray(data.transactions)) {
 			data.transactions.forEach((tx: Record<string, unknown>) => {
 				detectedTransactions.push({
@@ -73,7 +73,7 @@ export class AiAnalysisService {
 			});
 		}
 
-		// Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
+		// [CATATAN]: Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
 		const aiRecs = data.recommendations as Array<Record<string, unknown>>;
 		if (!aiRecs || aiRecs.length === 0) {
 			detectedTransactions.forEach((tx, index) => {
@@ -97,12 +97,12 @@ export class AiAnalysisService {
 				}
 			});
 		} else {
-			// Gunakan rekomendasi dari AI langsung
+			// [CATATAN]: Gunakan rekomendasi dari AI langsung
 			aiRecs.forEach((rec: Record<string, unknown>, index: number) => {
-				// Jika AI tidak mengirim data, gunakan detected transactions
+				// [CATATAN]: Jika AI tidak mengirim data, gunakan detected transactions
 				let recommendationData = (rec.data as Record<string, unknown>) || {};
 
-				// Jika data kosong, coba ambil dari detected transactions
+				// [CATATAN]: Jika data kosong, coba ambil dari detected transactions
 				if (!recommendationData.type && detectedTransactions.length > 0) {
 					const tx = detectedTransactions[index] || detectedTransactions[0];
 					recommendationData = {
@@ -117,9 +117,7 @@ export class AiAnalysisService {
 				recommendations.push({
 					id: `rec_${Date.now()}_${index}`,
 					action: ((rec.action as unknown as string) || 'create_transaction') as
-						| 'create_transaction'
-						| 'update_transaction'
-						| 'create_category',
+						'create_transaction' | 'update_transaction' | 'create_category',
 					title: (rec.title as unknown as string) || `Rekomendasi ${index + 1}`,
 					deskripsi: (rec.deskripsi as unknown as string) || '',
 					data: recommendationData,
@@ -188,7 +186,7 @@ export class AiAnalysisService {
 			response += '\n';
 		});
 
-		// Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
+		// [CATATAN]: Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
 		if (analysis.recommendations.length > 0) {
 			response += '\nRekomendasi saya:\n';
 			analysis.recommendations.forEach((rec, index) => {

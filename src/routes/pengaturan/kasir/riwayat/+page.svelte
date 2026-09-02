@@ -2,10 +2,9 @@
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
+
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { userRole } from '$lib/stores/userRole.svelte';
 
 	import { createToastManager } from '$lib/utils/ui';
@@ -16,6 +15,7 @@
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIni as fetchRiwayatHarian } from '$lib/services/riwayatService';
 	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
+	import { printReceiptUnified } from '$lib/services/printerEngine';
 
 	let pengaturanStruk = $state<import('$lib/types/laporan').ReceiptSettings | null>(null);
 
@@ -32,7 +32,7 @@
 		{ value: 'qris', label: 'QRIS/Non-Tunai' }
 	];
 
-	// Toast management
+	// [CATATAN]: Toast management
 	const toastManager = createToastManager();
 
 	async function fetchTransaksiHariIni() {
@@ -56,7 +56,7 @@
 		showDetailModal = true;
 	}
 
-	// Guard: hanya kasir yang boleh akses
+	// [CATATAN]: Guard: hanya kasir yang boleh akses
 	onMount(() => {
 		if (userRole.value !== 'kasir') {
 			goto('/unauthorized');
@@ -80,7 +80,32 @@
 			}
 
 			const html = buildReceiptHtml(selectedTransaksi, pengaturanStruk, items);
-			printViaIntent(html);
+			const escposData = {
+				storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
+				address: pengaturanStruk?.alamat,
+				phone: pengaturanStruk?.telepon,
+				instagram: pengaturanStruk?.instagram,
+				customerName: selectedTransaksi.nama_pelanggan || '',
+				dateTime: new Date(selectedTransaksi.waktu).toLocaleString('id-ID'),
+				items:
+					items.length > 0
+						? items.map((item: any) => ({
+								name: item.nama_kustom || item.produk?.nama || 'Produk Custom',
+								qty: Number(item.jumlah || 1),
+								price: Number(item.harga || 0) * Number(item.jumlah || 1)
+							}))
+						: [
+								{
+									name: selectedTransaksi.nama || 'Transaksi Kasir',
+									qty: 1,
+									price: Number(selectedTransaksi.nominal || 0)
+								}
+							],
+				total: Number(selectedTransaksi.nominal || 0),
+				paymentMethod: selectedTransaksi.metode_bayar || 'tunai',
+				footerMessage: pengaturanStruk?.ucapan
+			};
+			await printReceiptUnified({ html, receiptData: escposData });
 		} catch (error) {
 			ErrorHandler.logError(error as Error, 'printStrukDariRiwayat');
 			toastManager.showToastNotification('Gagal mencetak struk', 'error');
@@ -120,96 +145,120 @@
 	});
 </script>
 
-<div transition:fly={{ y: 32, duration: 320, easing: cubicOut }}>
-	<!-- Top Bar Custom -->
+<div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
+	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
 	<div
-		class="sticky top-0 z-40 mb-0 flex items-center border-b border-gray-200 bg-white px-4 py-4 shadow-sm"
+		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
 	>
-		<button
-			onclick={() => goto('/pengaturan')}
-			class="mr-2 rounded-xl bg-gray-100 p-2 transition-colors hover:bg-gray-200"
-		>
-			<ArrowLeft class="h-5 w-5 text-gray-600" />
-		</button>
-		<h1 class="flex-1 text-xl font-bold text-gray-800">Riwayat Transaksi Hari Ini</h1>
-		<button
-			onclick={refreshManual}
-			class="ml-2 rounded-xl bg-pink-50 p-2 transition-colors hover:bg-pink-100"
-			aria-label="Refresh"
-		>
-			<RefreshCw class="h-5 w-5 text-pink-500 {loading ? 'animate-spin' : ''}" />
-		</button>
-	</div>
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
 
-	<!-- Search & Filter -->
-	<div class="sticky top-[64px] z-30 space-y-3 bg-white px-4 pt-3 pb-3">
-		<input
-			type="text"
-			class="w-full rounded-lg border border-pink-200 bg-white px-3 py-2.5 text-base text-gray-800 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
-			placeholder="Cari transaksi..."
-			bind:value={searchKeyword}
-			oninput={fetchTransaksiHariIni}
-		/>
-		<div class="flex gap-2">
+		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
 			<button
-				class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-				'all'
-					? 'border-pink-500 bg-pink-500 text-white'
-					: 'border-pink-200 bg-white text-pink-500'}"
-				onclick={() => {
-					filterPayment = 'all';
-					fetchTransaksiHariIni();
-				}}>Semua</button
+				onclick={() => goto('/pengaturan')}
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Kembali"
 			>
+				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
+			</button>
+			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
+				Riwayat Transaksi Hari Ini
+			</h1>
 			<button
-				class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-				'qris'
-					? 'border-pink-500 bg-pink-500 text-white'
-					: 'border-pink-200 bg-white text-pink-500'}"
-				onclick={() => {
-					filterPayment = 'qris';
-					fetchTransaksiHariIni();
-				}}>QRIS</button
+				onclick={refreshManual}
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Refresh"
 			>
-			<button
-				class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-				'tunai'
-					? 'border-pink-500 bg-pink-500 text-white'
-					: 'border-pink-200 bg-white text-pink-500'}"
-				onclick={() => {
-					filterPayment = 'tunai';
-					fetchTransaksiHariIni();
-				}}>Tunai</button
-			>
+				<RefreshCw class="h-5 w-5 {loading ? 'animate-spin' : ''}" />
+			</button>
 		</div>
 	</div>
 
-	<div class="mx-auto w-full max-w-2xl px-4 pt-[2px] pb-4">
-		{#if loading}
-			<div class="py-10 text-center text-gray-400">Memuat data...</div>
-		{:else if transaksiHariIni.length === 0}
-			<div class="flex h-64 w-full flex-col items-center justify-center" style="min-height:16rem;">
-				<svg
-					class="mb-4 h-16 w-16 text-gray-300"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1"
-					viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-					/></svg
+	<!-- Main Container -->
+	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
+		<!-- Search & Filter Card -->
+		<div class="soft-float-card mb-4 space-y-3 p-4 md:p-5">
+			<input
+				type="text"
+				class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+				placeholder="Cari transaksi berdasarkan nama, nominal, atau catatan..."
+				bind:value={searchKeyword}
+				oninput={fetchTransaksiHariIni}
+			/>
+			<div class="flex gap-2">
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'all'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'all';
+						fetchTransaksiHariIni();
+					}}>Semua</button
 				>
-				<div class="text-base font-normal text-gray-300 md:text-lg">
-					Belum ada transaksi hari ini
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'qris'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'qris';
+						fetchTransaksiHariIni();
+					}}>QRIS</button
+				>
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'tunai'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'tunai';
+						fetchTransaksiHariIni();
+					}}>Tunai</button
+				>
+			</div>
+		</div>
+
+		{#if loading}
+			<div class="soft-float-card p-10 text-center text-xs font-semibold text-slate-400 md:text-sm">
+				<div
+					class="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-pink-500 border-t-transparent"
+				></div>
+				Memuat data transaksi...
+			</div>
+		{:else if transaksiHariIni.length === 0}
+			<div class="soft-float-card flex flex-col items-center justify-center p-12 text-center">
+				<div
+					class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-pink-50 text-pink-500 shadow-2xs"
+				>
+					<svg
+						class="h-7 w-7"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+						/>
+					</svg>
 				</div>
+				<div class="text-sm font-bold text-slate-800 md:text-base">
+					Belum Ada Transaksi Hari Ini
+				</div>
+				<p class="mt-1 text-xs text-slate-400 md:text-sm">Transaksi kasir akan muncul di sini.</p>
 			</div>
 		{:else}
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
 				{#each transaksiHariIni as trx (trx.id)}
 					<div
-						class="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow transition-colors hover:bg-pink-50"
+						class="soft-float-card flex cursor-pointer items-start justify-between gap-3 p-4 transition-all hover:border-pink-200 hover:shadow-md md:p-4.5"
 						onclick={() => openDetail(trx)}
 						onkeydown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
@@ -220,20 +269,18 @@
 						role="button"
 						tabindex="0"
 					>
-						<div>
-							<div
-								class="max-w-[10rem] truncate overflow-hidden text-sm font-semibold text-gray-800 md:max-w-[16rem] lg:max-w-[18rem]"
-								title={trx.nama}
-							>
+						<div class="min-w-0 flex-1">
+							<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
 								{trx.nama}
 							</div>
-							<div class="mb-1 flex items-center gap-2 text-xs text-gray-500">
-								<span>
-									{trx.sumber === 'pos' ? 'POS | ' : ''}
-									{trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran'}
-									{trx.sumber === 'pos' ? ' | ' : ''}
+							<div class="mb-1 flex items-center gap-2 text-xs text-gray-500 md:text-sm">
+								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
+									{trx.sumber === 'pos' ? 'POS' : 'Manual'}
 								</span>
-								<span class="font-semibold text-pink-500 uppercase">
+								<span class="capitalize">
+									{trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran'}
+								</span>
+								<span class="font-bold text-pink-500 uppercase">
 									{trx.metode_bayar === 'qris' || trx.metode_bayar === 'non-tunai'
 										? 'QRIS'
 										: 'Tunai'}
@@ -246,10 +293,11 @@
 								})}
 							</div>
 						</div>
-						<div class="flex flex-col items-end gap-2">
-							<div class="text-base font-bold text-pink-500">
+						<div class="flex flex-col items-end gap-1">
+							<div class="text-base font-black text-pink-600 md:text-lg">
 								Rp {formatRupiah(trx.nominal)}
 							</div>
+							<div class="text-xs text-gray-400">Tap untuk detail</div>
 						</div>
 					</div>
 				{/each}

@@ -26,9 +26,9 @@ export default ts.config(
 				{
 					paths: [
 						{
-							name: 'lucide-svelte',
+							name: '@lucide/svelte',
 							message:
-								'Import ikon dari lucide-svelte/icons/<nama> agar hydration tidak memuat barrel.'
+								'Import ikon dari @lucide/svelte/icons/<nama> agar hydration tidak memuat barrel.'
 						}
 					]
 				}
@@ -57,10 +57,17 @@ export default ts.config(
 			'no-empty': 'off',
 			// Pre-existing: constant nullish expressions in template
 			'no-constant-binary-expression': 'off',
+			// New ESLint 10 recommendations conflict with established error-wrapping and assignment patterns.
+			'preserve-caught-error': 'off',
+			'no-useless-assignment': 'off',
 			// Pre-existing: {@html} used intentionally for markdown rendering
 			'svelte/no-at-html-tags': 'off',
 			// Pre-existing: reactive loop pattern in runes migration
-			'svelte/infinite-reactive-loop': 'off'
+			'svelte/infinite-reactive-loop': 'off',
+			// Keep current Svelte 5 state and navigation patterns until migrated deliberately.
+			'svelte/prefer-svelte-reactivity': 'off',
+			'svelte/no-unused-props': 'off',
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
 	{

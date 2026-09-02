@@ -1,6 +1,6 @@
 <script lang="ts">
-	import WifiOff from 'lucide-svelte/icons/wifi-off';
-	import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 
 	let {
 		pendingCount = 0,

@@ -1,6 +1,6 @@
 export const DEFAULT_INGREDIENT_YIELD_PERCENT = 100;
 
-const roundFourDecimals = (value: number): number => Math.round(value * 10_000) / 10_000;
+export const roundFourDecimals = (value: number): number => Math.round(value * 10_000) / 10_000;
 
 const parseYieldPercent = (value: unknown): number =>
 	typeof value === 'string' ? Number(value.trim().replace(',', '.')) : Number(value);
@@ -24,11 +24,15 @@ export function calculateUsableQuantity(purchaseQuantity: unknown, yieldPercent:
 export function calculateEffectiveUnitCost(
 	purchaseCost: unknown,
 	purchaseQuantity: unknown,
-	yieldPercent: unknown
+	yieldPercent?: unknown
 ): number {
 	const cost = Number(purchaseCost);
+	const qty = Number(purchaseQuantity);
 	if (!Number.isFinite(cost) || cost <= 0) return 0;
-	const usableQuantity = calculateUsableQuantity(purchaseQuantity, yieldPercent);
+	if (!Number.isFinite(qty) || qty <= 0) return 0;
+
+	const usableQuantity =
+		yieldPercent !== undefined ? calculateUsableQuantity(qty, yieldPercent) : qty;
 	if (usableQuantity <= 0) return 0;
 	return roundFourDecimals(cost / usableQuantity);
 }

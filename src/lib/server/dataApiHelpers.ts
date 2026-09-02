@@ -22,11 +22,14 @@ export function payloadRows(
 	branch: string
 ) {
 	const rows = Array.isArray(payload) ? payload : [payload];
-	return rows.map((row) => ({
-		id: typeof row.id === 'string' || typeof row.id === 'number' ? String(row.id) : newId(),
-		...row,
-		cabang_id: branch
-	})) as Array<Record<string, any>>;
+	return rows.map((row) => {
+		const rawId = row.id != null && String(row.id).trim() !== '' ? String(row.id) : newId();
+		return {
+			...row,
+			id: rawId,
+			cabang_id: branch
+		};
+	}) as Array<Record<string, any>>;
 }
 
 export async function publish(

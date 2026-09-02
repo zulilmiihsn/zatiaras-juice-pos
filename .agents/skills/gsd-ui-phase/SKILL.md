@@ -21,8 +21,8 @@ Flow: Validate → Research UI → Verify UI-SPEC → Done
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/ui-phase.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/ui-phase.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

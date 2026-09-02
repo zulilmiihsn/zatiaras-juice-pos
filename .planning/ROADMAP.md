@@ -2,6 +2,10 @@
 
 ## Milestone Aktif: v2.0 — Stabilisasi & Quality
 
+> Source of truth aktif: [`MASTER-PLAN-10of10.md`](./MASTER-PLAN-10of10.md).
+> Eksekusi dimulai dari `GOV-001`; phase di bawah dipertahankan sebagai riwayat
+> dan konteks.
+
 ### ✅ Phase 0: GSD Setup (SELESAI)
 
 - [x] Pasang Context7 MCP di Antigravity
@@ -24,7 +28,7 @@
 
 - [x] Scope Phase 3 ditentukan: POS checkout reliability, loading states, empty/error states, offline/realtime validation.
 
-### 🔄 Phase 3: POS Production Polish (AKTIF)
+### 🔄 Phase 3: POS Production Polish (DILANJUTKAN DI MASTER PLAN)
 
 - [x] Deploy config check: `pnpm deploy:check`
 - [x] Quality test runner failure propagation

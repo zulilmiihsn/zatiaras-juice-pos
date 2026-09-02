@@ -36,7 +36,7 @@ function toBase64Url(bytes: Uint8Array): string {
 	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function fromBase64Url(value: string): Uint8Array {
+function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
 	const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
 	const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
 	const binary = atob(padded);
@@ -61,15 +61,39 @@ function getSigningSecrets(env: App.Platform['env'] | undefined) {
 		id: normalizeKeyId(env?.POS_PRICE_SIGNING_KEY_ID, 'current'),
 		secret: currentSecret
 	};
+
+	const keyMap = new Map<string, { id: string; secret: string }>();
+	keyMap.set(current.id, current);
+
 	const previousSecret = env?.POS_PRICE_SIGNING_KEY_PREVIOUS?.trim();
-	const previous =
-		previousSecret && previousSecret.length >= 32
-			? {
-					id: normalizeKeyId(env?.POS_PRICE_SIGNING_KEY_PREVIOUS_ID, 'previous'),
-					secret: previousSecret
+	if (previousSecret && previousSecret.length >= 32) {
+		const prevId = normalizeKeyId(env?.POS_PRICE_SIGNING_KEY_PREVIOUS_ID, 'previous');
+		keyMap.set(prevId, { id: prevId, secret: previousSecret });
+	}
+
+	// Support multi-key rotation list if provided via JSON or indexed env
+	const rawKeysJson = (env as Record<string, unknown> | undefined)?.POS_PRICE_SIGNING_KEYS_JSON;
+	if (typeof rawKeysJson === 'string' && rawKeysJson.trim()) {
+		try {
+			const parsed = JSON.parse(rawKeysJson);
+			if (Array.isArray(parsed)) {
+				for (const k of parsed) {
+					if (
+						k &&
+						typeof k === 'object' &&
+						'id' in k &&
+						'secret' in k &&
+						typeof k.secret === 'string' &&
+						k.secret.length >= 32
+					) {
+						keyMap.set(String(k.id), { id: String(k.id), secret: String(k.secret) });
+					}
 				}
-			: null;
-	return { current, previous };
+			}
+		} catch {}
+	}
+
+	return { current, keyMap };
 }
 
 async function importSigningKey(secret: string): Promise<CryptoKey> {
@@ -136,7 +160,7 @@ export async function verifyPosPricingToken<T>(
 		throw new PosPricingTokenError('Token harga tidak valid', 'TOKEN_INVALID');
 	}
 
-	let signatureBytes: Uint8Array;
+	let signatureBytes: Uint8Array<ArrayBuffer>;
 	let envelope: PosPricingTokenEnvelope<T>;
 	try {
 		signatureBytes = fromBase64Url(signature);
@@ -146,12 +170,7 @@ export async function verifyPosPricingToken<T>(
 	}
 
 	const signing = getSigningSecrets(env);
-	const selected =
-		envelope.kid === signing.current.id
-			? signing.current
-			: envelope.kid === signing.previous?.id
-				? signing.previous
-				: null;
+	const selected = signing.keyMap.get(envelope.kid);
 	if (!selected) {
 		throw new PosPricingTokenError('Key token harga tidak dikenal', 'TOKEN_INVALID');
 	}

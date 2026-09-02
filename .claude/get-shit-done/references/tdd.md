@@ -170,13 +170,14 @@ if [ -f Cargo.toml ]; then echo "rust"; fi
 ```
 
 **2. Install minimal framework:**
-| Project | Framework | Install |
-|---------|-----------|---------|
-| Node.js | Jest | `npm install -D jest @types/jest ts-jest` |
-| Node.js (Vite) | Vitest | `npm install -D vitest` |
-| Python | pytest | `pip install pytest` |
-| Go | testing | Built-in |
-| Rust | cargo test | Built-in |
+
+| Project        | Framework  | Install                                   |
+| -------------- | ---------- | ----------------------------------------- |
+| Node.js        | Jest       | `npm install -D jest @types/jest ts-jest` |
+| Node.js (Vite) | Vitest     | `npm install -D vitest`                   |
+| Python         | pytest     | `pip install pytest`                      |
+| Go             | testing    | Built-in                                  |
+| Rust           | cargo test | Built-in                                  |
 
 **3. Create config if needed:**
 

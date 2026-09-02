@@ -30,7 +30,7 @@ Autentikasi memakai cookie sesi `httpOnly`, pemeriksaan peran di endpoint, perli
 
 ## Prasyarat
 
-- Node.js dan pnpm. Repository belum menetapkan versi runtime melalui `engines`, `.nvmrc`, atau `.node-version`.
+- Node.js 24.20.x dan pnpm 11.24.0. Versi runtime dikunci melalui `.node-version`, `engines`, dan `packageManager`.
 - Wrangler tersedia dari dependency proyek setelah instalasi.
 - Kredensial Cloudflare hanya diperlukan untuk operasi remote, backup, dan deployment.
 

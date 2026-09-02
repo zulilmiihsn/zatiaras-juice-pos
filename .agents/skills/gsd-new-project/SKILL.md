@@ -35,10 +35,10 @@ Initialize a new project through unified flow: questioning → research (optiona
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/new-project.md
-@~/.Codex/get-shit-done/references/questioning.md
-@~/.Codex/get-shit-done/references/ui-brand.md
-@~/.Codex/get-shit-done/templates/project.md
+@~~/.Codex/get-shit-done/workflows/new-project.md
+@~~/.Codex/get-shit-done/references/questioning.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/templates/project.md
 @~/.Codex/get-shit-done/templates/requirements.md
 </execution_context>
 

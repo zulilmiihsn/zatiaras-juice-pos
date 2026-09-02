@@ -8,39 +8,19 @@
  * - Code formatting
  */
 
-import { execFileSync } from 'child_process';
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
 const workspaceRoot = process.cwd();
-const qualityTempDir = path.join(workspaceRoot, '.tmp-quality');
 
-function localBinary(name: string): string {
-	return path.join(
-		workspaceRoot,
-		'node_modules',
-		'.bin',
-		`${name}${process.platform === 'win32' ? '.cmd' : ''}`
-	);
-}
-
-function runLocalBinary(name: string, args: string[]): string {
-	fs.mkdirSync(qualityTempDir, { recursive: true });
-	return execFileSync(localBinary(name), args, {
+function runCommand(cmd: string): string {
+	return execSync(cmd, {
 		cwd: workspaceRoot,
 		encoding: 'utf8',
 		stdio: 'pipe',
-		shell: process.platform === 'win32',
-		env: { ...process.env, TEMP: qualityTempDir, TMP: qualityTempDir }
-	});
-}
-
-function runNodeScript(script: string): string {
-	return execFileSync(process.execPath, [path.join(workspaceRoot, script)], {
-		cwd: workspaceRoot,
-		encoding: 'utf8',
-		stdio: 'pipe',
-		env: { ...process.env, TEMP: qualityTempDir, TMP: qualityTempDir }
+		shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+		env: process.env
 	});
 }
 
@@ -50,7 +30,7 @@ function commandErrorDetails(error: unknown): string {
 }
 
 // ============================================================================
-// 📋 TEST INTERFACES
+// [CATATAN]: 📋 TEST INTERFACES
 // ============================================================================
 
 export interface CodeQualityTestResult {
@@ -82,7 +62,7 @@ export interface CodeQualityTestSuite {
 }
 
 // ============================================================================
-// 🧪 TYPE SCRIPT TESTS
+// [CATATAN]: 🧪 TYPE SCRIPT TESTS
 // ============================================================================
 
 export const typescriptTests: CodeQualityTestSuiteDef = {
@@ -96,8 +76,7 @@ export const typescriptTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🔍 Running TypeScript check...');
-					runLocalBinary('svelte-kit', ['sync']);
-					runLocalBinary('svelte-check', ['--tsconfig', './tsconfig.json']);
+					runCommand('pnpm check');
 
 					const executionTime = Date.now() - startTime;
 
@@ -128,8 +107,7 @@ export const typescriptTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🏗️ Running TypeScript build...');
-					runLocalBinary('vite', ['build']);
-					runNodeScript('scripts/export-durable-objects.mjs');
+					runCommand('pnpm build');
 
 					const executionTime = Date.now() - startTime;
 
@@ -156,7 +134,7 @@ export const typescriptTests: CodeQualityTestSuiteDef = {
 };
 
 // ============================================================================
-// 🧪 LINTING TESTS
+// [CATATAN]: 🧪 LINTING TESTS
 // ============================================================================
 
 export const lintingTests: CodeQualityTestSuiteDef = {
@@ -170,7 +148,7 @@ export const lintingTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🔍 Running ESLint check...');
-					runLocalBinary('eslint', ['.']);
+					runCommand('pnpm eslint .');
 
 					const executionTime = Date.now() - startTime;
 
@@ -201,7 +179,7 @@ export const lintingTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🎨 Checking code formatting...');
-					runLocalBinary('prettier', ['--check', '.']);
+					runCommand('pnpm prettier --check .');
 
 					const executionTime = Date.now() - startTime;
 
@@ -228,7 +206,7 @@ export const lintingTests: CodeQualityTestSuiteDef = {
 };
 
 // ============================================================================
-// 🧪 FILE STRUCTURE TESTS
+// [CATATAN]: 🧪 FILE STRUCTURE TESTS
 // ============================================================================
 
 export const fileStructureTests: CodeQualityTestSuiteDef = {
@@ -359,7 +337,7 @@ export const fileStructureTests: CodeQualityTestSuiteDef = {
 };
 
 // ============================================================================
-// 🧪 DEPENDENCY TESTS
+// [CATATAN]: 🧪 DEPENDENCY TESTS
 // ============================================================================
 
 export const dependencyTests: CodeQualityTestSuiteDef = {
@@ -468,7 +446,7 @@ export const dependencyTests: CodeQualityTestSuiteDef = {
 };
 
 // ============================================================================
-// 🧪 TEST RUNNER
+// [CATATAN]: 🧪 TEST RUNNER
 // ============================================================================
 
 export class CodeQualityTestRunner {
@@ -487,7 +465,7 @@ export class CodeQualityTestRunner {
 			const result = await this.runTestSuite(suite);
 			results.push(result);
 
-			// Log results
+			// [CATATAN]: Log results
 			console.log(`✅ ${result.passedTests}/${result.totalTests} tests passed`);
 			if (result.failedTests > 0) {
 				console.log(`❌ ${result.failedTests} tests failed`);
@@ -510,7 +488,7 @@ export class CodeQualityTestRunner {
 				const result = await test.test();
 				results.push(result);
 
-				// Log individual test result
+				// [CATATAN]: Log individual test result
 				const status = result.success ? '✅' : '❌';
 				console.log(`  ${status} ${result.name}: ${result.message}`);
 			} catch (error: unknown) {
@@ -600,7 +578,7 @@ export class CodeQualityTestRunner {
 }
 
 // ============================================================================
-// 🚀 QUICK TEST FUNCTIONS
+// [CATATAN]: 🚀 QUICK TEST FUNCTIONS
 // ============================================================================
 
 /**
@@ -650,7 +628,7 @@ export async function testDependencies(): Promise<CodeQualityTestResult[]> {
 }
 
 // ============================================================================
-// 🚀 CLI EXECUTION
+// [CATATAN]: 🚀 CLI EXECUTION
 // ============================================================================
 
 /**
@@ -665,13 +643,13 @@ async function main() {
 
 	try {
 		if (!command || command === 'all') {
-			// Test semua code quality
+			// [CATATAN]: Test semua code quality
 			console.log('🚀 Running all code quality tests...\n');
 			const runner = new CodeQualityTestRunner();
 			const results = await runner.runAllTests();
 			const report = runner.generateReport(results);
 
-			// Save report to file
+			// [CATATAN]: Save report to file
 			const fs = await import('fs');
 			const path = await import('path');
 			const reportPath = path.join(process.cwd(), 'code-quality-report.md');
@@ -683,27 +661,27 @@ async function main() {
 				process.exit(1);
 			}
 		} else if (command === 'typescript') {
-			// Test TypeScript saja
+			// [CATATAN]: Test TypeScript saja
 			console.log('🔍 Testing TypeScript Compilation...\n');
 			const results = await quickCodeQualityTest('TypeScript');
 			displayQuickTestResults('TypeScript', results);
 		} else if (command === 'linting') {
-			// Test linting saja
+			// [CATATAN]: Test linting saja
 			console.log('🔍 Testing Code Linting...\n');
 			const results = await quickCodeQualityTest('Code Linting');
 			displayQuickTestResults('Code Linting', results);
 		} else if (command === 'structure') {
-			// Test file structure saja
+			// [CATATAN]: Test file structure saja
 			console.log('📁 Testing File Structure...\n');
 			const results = await quickCodeQualityTest('File Structure');
 			displayQuickTestResults('File Structure', results);
 		} else if (command === 'dependencies') {
-			// Test dependencies saja
+			// [CATATAN]: Test dependencies saja
 			console.log('📦 Testing Dependencies...\n');
 			const results = await quickCodeQualityTest('Dependencies');
 			displayQuickTestResults('Dependencies', results);
 		} else if (command === 'help') {
-			// Show help
+			// [CATATAN]: Show help
 			showHelp();
 		} else {
 			console.log(`❌ Unknown command: ${command}`);
@@ -772,7 +750,7 @@ function showHelp() {
 `);
 }
 
-// Check if this is the main module
+// [CATATAN]: Check if this is the main module
 if (process.argv[1] && process.argv[1].endsWith('code-quality-tests.ts')) {
 	main().catch((error) => {
 		console.error('❌ Script execution failed:', error);

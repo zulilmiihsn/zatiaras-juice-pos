@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
-	import Activity from 'lucide-svelte/icons/activity';
-	import AlertTriangle from 'lucide-svelte/icons/alert-triangle';
-	import Database from 'lucide-svelte/icons/database';
-	import Wifi from 'lucide-svelte/icons/wifi';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Activity from '@lucide/svelte/icons/activity';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import Database from '@lucide/svelte/icons/database';
+	import Wifi from '@lucide/svelte/icons/wifi';
 	import { getRealtimeHealth } from '$lib/realtime/durableObjectClient';
 
 	let monitoringSummary = $state<any>(null);

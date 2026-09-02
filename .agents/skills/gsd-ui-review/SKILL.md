@@ -19,8 +19,8 @@ Output: {phase_num}-UI-REVIEW.md
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/ui-review.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/ui-review.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

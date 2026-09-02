@@ -5,7 +5,7 @@
  */
 
 // ============================================================================
-// 📒 BUKU KAS RECORD
+// [CATATAN]: 📒 BUKU KAS RECORD
 // ============================================================================
 
 /**
@@ -27,7 +27,7 @@ export interface BukuKasRecord {
 	id_sesi_toko?: string;
 	cabang_id?: string;
 	user_id?: string;
-	// Fields dari join transaksi_kasir
+	// [CATATAN]: Fields dari join transaksi_kasir
 	ref_transaksi_kasir_id?: string;
 	nama_produk?: string;
 	produk_detail?: string;
@@ -53,7 +53,7 @@ export interface HistoryItem {
 }
 
 // ============================================================================
-// 📈 LAPORAN SUMMARY
+// [CATATAN]: 📈 LAPORAN SUMMARY
 // ============================================================================
 
 /**
@@ -66,10 +66,16 @@ export interface LaporanSummary {
 	labaKotor: number | null;
 	pajak: number | null;
 	labaBersih: number | null;
+	taxBreakdown?: Array<{
+		nama: string;
+		persentase: number;
+		nominal: number;
+	}>;
+	taxLabel?: string;
 }
 
 // ============================================================================
-// 🧾 RECEIPT SETTINGS
+// [CATATAN]: 🧾 RECEIPT SETTINGS
 // ============================================================================
 
 /**
@@ -96,7 +102,7 @@ export interface ReceiptSettings {
 }
 
 // ============================================================================
-// 📊 REPORT FILTER
+// [CATATAN]: 📊 REPORT FILTER
 // ============================================================================
 
 export type FilterType = 'harian' | 'mingguan' | 'bulanan' | 'tahunan';
@@ -107,8 +113,18 @@ export interface ReportDateRange {
 }
 
 // ============================================================================
-// 💹 DASHBOARD STATS
+// [CATATAN]: 💹 DASHBOARD STATS
 // ============================================================================
+
+export interface TopUsedIngredient {
+	id: string;
+	nama: string;
+	satuan: string;
+	terpakai: number;
+	stok_saat_ini: number;
+	ambang_stok: number;
+	is_low: boolean;
+}
 
 export interface DashboardStats {
 	omzet: number;
@@ -118,6 +134,11 @@ export interface DashboardStats {
 	totalItem: number;
 	avgTransaksi: number;
 	jamRamai: string;
+	penjualanTunai?: number;
+	penjualanNonTunai?: number;
+	lowStockCount?: number;
+	lowStockNames?: string[];
+	topIngredients?: TopUsedIngredient[];
 }
 
 export interface WeeklyIncomeData {

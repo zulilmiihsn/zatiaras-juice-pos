@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Settings from 'lucide-svelte/icons/settings';
+	import Settings from '@lucide/svelte/icons/settings';
 	import type { Snippet } from 'svelte';
 	import TopBarStatus from './topBarStatus.svelte';
 	import TopBarAiAssistant from './topBarAiAssistant.svelte';
@@ -26,12 +26,14 @@
 	} = $props();
 </script>
 
-<div class="nav-transition z-10 flex items-center justify-between bg-white px-4 pt-4 pb-3">
-	<div class="flex items-center gap-3">
+<div
+	class="nav-transition z-10 flex items-center justify-between border-b border-white/80 bg-[#eef7fc]/95 px-4 pt-3 pb-2.5 backdrop-blur-md"
+>
+	<div class="flex items-center gap-2.5">
 		<TopBarAiAssistant onRecommendationsApplied={onAiRecommendationsApplied} />
 		<TopBarStatus {pendingCount} {pendingFailedCount} {isOffline} {onOpenPending} />
 	</div>
-	<div class="flex-1 text-center text-lg font-medium tracking-wide text-gray-800">
+	<div class="flex-1 text-center text-sm font-extrabold tracking-wide text-slate-800">
 		{@render children?.()}
 	</div>
 	<div class="flex items-center gap-2">
@@ -42,12 +44,12 @@
 			<a
 				href="/pengaturan"
 				aria-label="Pengaturan"
-				class="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-gray-200 bg-white text-2xl text-pink-500 shadow-lg shadow-pink-500/7 transition-all duration-150 active:border-pink-500 active:shadow-xl active:shadow-pink-500/12"
+				class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 shadow-xs transition-all duration-150 hover:border-sky-300 hover:text-sky-600 active:scale-95"
 			>
-				<Settings size={22} />
+				<Settings size={18} />
 			</a>
 		{:else}
-			<div class="h-[38px] w-[38px]"></div>
+			<div class="h-9 w-9"></div>
 		{/if}
 
 		<!-- Slot untuk download -->

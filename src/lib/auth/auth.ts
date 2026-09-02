@@ -11,7 +11,7 @@ import {
 	readOfflineSessionSnapshot
 } from './offlineSession';
 
-// Session store
+// [CATATAN]: Session store
 export const session = writable<{
 	isAuthenticated: boolean;
 	user: unknown;
@@ -28,9 +28,9 @@ if (typeof window !== 'undefined') {
 	if (saved) session.set(saved);
 }
 
-// Authentication functions
+// [CATATAN]: Authentication functions
 export const auth = {
-	// Check if user is authenticated
+	// [CATATAN]: Check if user is authenticated
 	isAuthenticated(): boolean {
 		const currentSession = get(session) as {
 			role?: string;
@@ -40,19 +40,19 @@ export const auth = {
 		return Boolean(currentSession?.isAuthenticated);
 	},
 
-	// Get current user
+	// [CATATAN]: Get current user
 	getCurrentUser() {
 		const currentSession = get(session);
 		return currentSession?.user || null;
 	},
 
-	// Check if user has specific role
+	// [CATATAN]: Check if user has specific role
 	hasRole(role: string): boolean {
 		const user = this.getCurrentUser();
 		return (user as { role?: string })?.role === role;
 	},
 
-	// Logout function
+	// [CATATAN]: Logout function
 	async logout() {
 		if (browser) {
 			try {
@@ -61,24 +61,24 @@ export const auth = {
 					headers: {}
 				});
 			} catch {
-				// no-op
+				// [CATATAN]: no-op
 			}
 		}
 
-		// Clear session store
+		// [CATATAN]: Clear session store
 		session.set({
 			isAuthenticated: false,
 			user: null,
 			token: null
 		});
 
-		// Clear localStorage
+		// [CATATAN]: Clear localStorage
 		if (typeof window !== 'undefined') {
 			clearOfflineSessionSnapshot();
 			localStorage.removeItem('selectedBranch');
 		}
 
-		// Clear user role and profile
+		// [CATATAN]: Clear user role and profile
 		clearUserRole();
 		clearSecuritySettings();
 		clearCsrfTokenCache();
@@ -97,7 +97,7 @@ export async function loginWithUsername(username: string, password: string, bran
 		throw new Error(getApiErrorMessage(result, res.status, 'Login gagal'));
 	}
 
-	// Jika peran adalah 'kasir', ambil pengaturan keamanan
+	// [CATATAN]: Jika peran adalah 'kasir', ambil pengaturan keamanan
 	if (result.user.role === 'kasir') {
 		try {
 			const qs = new URLSearchParams({ branch }).toString();
@@ -116,12 +116,12 @@ export async function loginWithUsername(username: string, password: string, bran
 		clearSecuritySettings();
 	}
 
-	// Set user role dan profile ke store SETELAH security settings
+	// [CATATAN]: Set user role dan profile ke store SETELAH security settings
 	setUserRole(result.user.role, result.user);
 
-	// Tidak perlu reset/fetch cache apapun
+	// [CATATAN]: Tidak perlu reset/fetch cache apapun
 
-	// Simpan session ke store dan localStorage
+	// [CATATAN]: Simpan session ke store dan localStorage
 	const sessionData = {
 		isAuthenticated: true,
 		user: result.user,
@@ -130,7 +130,7 @@ export async function loginWithUsername(username: string, password: string, bran
 	};
 	session.set(sessionData);
 
-	// Simpan ke localStorage untuk persistensi setelah refresh
+	// [CATATAN]: Simpan ke localStorage untuk persistensi setelah refresh
 	if (typeof window !== 'undefined') {
 		persistOfflineSessionSnapshot(result.user, sessionData.expiresAt);
 		localStorage.setItem('selectedBranch', branch);

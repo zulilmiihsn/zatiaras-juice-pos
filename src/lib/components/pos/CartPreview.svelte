@@ -1,97 +1,72 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
-	import ShoppingCart from 'lucide-svelte/icons/shopping-cart';
-	import { formatRupiah } from '$lib/utils/currency';
+	// [CATATAN]: Svelte Transitions & Animations
+	import { scale } from 'svelte/transition';
+	import { backOut } from 'svelte/easing';
 
-	let {
-		cart = [],
-		totalItems = 0,
-		totalHarga = 0,
-		onOpenCart,
-		onGoToBayar,
-		onClearCart
-	} = $props<{
-		cart: unknown[];
+	// [CATATAN]: Icons
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+
+	// [CATATAN]: Utils & Types
+	import { formatRupiah } from '$lib/utils/currency';
+	import type { CartItem } from '$lib/types/cart';
+
+	interface Props {
+		cart: CartItem[];
 		totalItems: number;
 		totalHarga: number;
 		onOpenCart: () => void;
-		onGoToBayar: (e: Event) => void;
-		onClearCart: () => void;
-	}>();
-
-	let cartPreviewRef = $state<HTMLDivElement | null>(null);
-	let cartPreviewStartX = $state(0);
-	let cartPreviewX = $state(0);
-	let cartPreviewDragging = $state(false);
-
-	function handleCartPreviewTouchStart(e: TouchEvent) {
-		cartPreviewStartX = e.touches[0].clientX;
-		cartPreviewDragging = true;
+		onClearCart?: () => void;
 	}
 
-	function handleCartPreviewTouchMove(e: TouchEvent) {
-		if (!cartPreviewDragging) return;
-		const currentX = e.touches[0].clientX;
-		const diff = currentX - cartPreviewStartX;
-		if (diff < 0) {
-			cartPreviewX = diff;
-		}
-	}
-
-	function handleCartPreviewTouchEnd() {
-		cartPreviewDragging = false;
-		if (cartPreviewX < -100) {
-			cartPreviewX = -window.innerWidth;
-			setTimeout(() => {
-				onClearCart();
-				cartPreviewX = 0;
-			}, 300);
-		} else {
-			cartPreviewX = 0;
-		}
-	}
+	let { cart = [], totalItems = 0, totalHarga = 0, onOpenCart }: Props = $props();
 </script>
 
 {#if cart.length > 0}
-	<!-- Swipe-to-clear is optional; explicit cart and payment controls remain keyboard accessible. -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		bind:this={cartPreviewRef}
-		class="fixed right-3 bottom-16 left-3 z-20 flex min-h-[68px] items-center justify-between rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-3 text-base font-medium text-white shadow-xl shadow-pink-500/30 md:right-6 md:left-6"
-		style="transform: translateX({cartPreviewX}px); transition: {cartPreviewDragging
-			? 'none'
-			: 'transform 0.25s cubic-bezier(.4,0,.2,1)'}; touch-action: pan-y;"
-		ontouchstart={handleCartPreviewTouchStart}
-		ontouchmove={handleCartPreviewTouchMove}
-		ontouchend={handleCartPreviewTouchEnd}
-		transition:fly={{ x: -64, duration: 320, opacity: 0.9 }}
+	<!-- [CATATAN]: Floating Glass Cart Pill (Tersusun rapi di pojok kanan bawah, serasi dengan branding Zatiaras) -->
+	<aside
+		aria-label="Keranjang Belanja"
+		class="pointer-events-none fixed right-3.5 bottom-[76px] z-40 sm:right-6 md:bottom-[90px] lg:hidden"
+		in:scale={{ duration: 220, start: 0.8, easing: backOut }}
+		out:scale={{ duration: 160, start: 0.8 }}
 	>
-		<div
-			class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 select-none"
+		<button
+			type="button"
+			class="group pointer-events-auto relative flex cursor-pointer items-center gap-2.5 rounded-full border border-pink-200/90 bg-white/95 py-2 pr-3.5 pl-2 text-slate-800 shadow-[0_8px_24px_-4px_rgba(219,39,119,0.22),0_2px_8px_rgba(0,0,0,0.04)] ring-2 ring-pink-500/20 backdrop-blur-xl transition-all duration-200 hover:scale-105 hover:shadow-pink-500/30 active:scale-95"
 			onclick={onOpenCart}
-			onkeydown={(e) => e.key === 'Enter' && onOpenCart()}
-			role="button"
-			tabindex="0"
-			aria-label="Buka keranjang belanja"
-			style="min-width:0;"
+			aria-label={`Buka keranjang pesanan, ${totalItems} item, total Rp ${formatRupiah(totalHarga ?? 0)}`}
+			aria-haspopup="dialog"
 		>
-			<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white/20">
-				<ShoppingCart class="h-5 w-5 text-white" />
-			</div>
-			<div class="min-w-0">
-				<div class="truncate text-xs font-semibold tracking-wide text-pink-100 uppercase">
-					{totalItems} item pesanan
-				</div>
-				<div class="truncate text-xl font-bold text-white">
-					Rp {formatRupiah(totalHarga ?? 0)}
-				</div>
-			</div>
-		</div>
-		<div class="ml-4 flex items-center justify-center">
-			<button
-				class="flex items-center justify-center rounded-xl bg-white px-6 py-3 text-base font-bold text-pink-600 shadow-sm transition-all duration-200 hover:bg-pink-50 active:scale-[0.98]"
-				onclick={onGoToBayar}>Bayar</button
+			<!-- Pink Icon Container with Count Badge -->
+			<div
+				class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-sm shadow-pink-500/30"
 			>
-		</div>
-	</div>
+				<ShoppingBag class="h-4.5 w-4.5 stroke-[2.3]" />
+				<span
+					class="absolute -top-1 -right-1 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-black text-white ring-2 ring-white"
+					in:scale={{ duration: 160 }}
+				>
+					{totalItems}
+				</span>
+			</div>
+
+			<!-- Price & Action Text -->
+			<div class="flex flex-col text-left">
+				<span class="text-[10px] font-bold text-pink-600">
+					{totalItems}
+					{totalItems > 1 ? 'Items' : 'Item'}
+				</span>
+				<span class="text-xs font-black tracking-tight text-slate-900 sm:text-sm">
+					Rp {formatRupiah(totalHarga)}
+				</span>
+			</div>
+
+			<!-- Arrow Right -->
+			<div
+				class="flex h-6 w-6 items-center justify-center rounded-full bg-pink-50 text-pink-600 transition-transform duration-150 group-hover:translate-x-0.5"
+			>
+				<ArrowRight class="h-3.5 w-3.5 stroke-[2.6]" />
+			</div>
+		</button>
+	</aside>
 {/if}

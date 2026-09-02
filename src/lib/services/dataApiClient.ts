@@ -1,6 +1,8 @@
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
+import { refreshBus } from '$lib/utils/refreshBus';
 
 export type DataRecord = Record<string, unknown>;
 
@@ -74,9 +76,9 @@ function parseMutation<T extends DataRecord>(
 	};
 }
 
-// ─── Table → per-resource URL map ────────────────────────────────────────
-// Resource route RESTful pengganti god endpoint /api/data.
-// Tambahkan entry di sini saat tabel baru ditambahkan.
+// [CATATAN]: ─── Table → per-resource URL map ────────────────────────────────────────
+// [CATATAN]: Resource route RESTful pengganti god endpoint /api/data.
+// [CATATAN]: Tambahkan entry di sini saat tabel baru ditambahkan.
 
 const READ_ROUTES = {
 	produk: '/api/produk',
@@ -90,7 +92,7 @@ const READ_ROUTES = {
 	transaksi_kasir: '/api/transaksi-kasir',
 	sesi_toko: '/api/sesi-toko',
 	pengaturan: '/api/pengaturan',
-	// Virtual reads (aggregate/dashboard)
+	// [CATATAN]: Virtual reads (aggregate/dashboard)
 	dashboard_stats: '/api/dashboard/stats',
 	weekly_income_summary: '/api/dashboard/weekly',
 	best_sellers_summary: '/api/dashboard/best-sellers',
@@ -108,7 +110,6 @@ const WRITE_ROUTES = {
 	hpp_settings: '/api/hpp-settings',
 	buku_kas: '/api/buku-kas',
 	transaksi_kasir: '/api/transaksi-kasir',
-	profil: '/api/profil',
 	sesi_toko: '/api/sesi-toko',
 	pengaturan: '/api/pengaturan'
 } as const;
@@ -116,7 +117,7 @@ const WRITE_ROUTES = {
 export type ReadResource = keyof typeof READ_ROUTES;
 export type WriteResource = keyof typeof WRITE_ROUTES;
 
-// ─── GET helpers ──────────────────────────────────────────────────────────
+// [CATATAN]: ─── GET helpers ──────────────────────────────────────────────────────────
 
 /**
  * Ambil data dari per-resource GET route.
@@ -178,7 +179,7 @@ export async function dbGetAll<T extends DataRecord = DataRecord>(
 	return rows;
 }
 
-// ─── POST (write) helper ───────────────────────────────────────────────────
+// [CATATAN]: ─── POST (write) helper ───────────────────────────────────────────────────
 
 /**
  * Kirim operasi tulis ke per-resource RESTful route.
@@ -204,6 +205,8 @@ export async function dbPost<T extends DataRecord = DataRecord>(
 			body: JSON.stringify({ payload, branch: currentBranch() })
 		});
 		if (!response.ok) throw await parseError(response, `POST ${table}/insert`);
+		await cacheOrchestrator.invalidateCacheOnChange(table);
+		if (table === 'bahan' || table === 'bahan_mutasi') refreshBus.emit('stok');
 		return parseMutation<T>(await response.json(), `POST ${table}/insert`);
 	}
 
@@ -214,12 +217,16 @@ export async function dbPost<T extends DataRecord = DataRecord>(
 			body: JSON.stringify({ payload, branch: currentBranch(), where })
 		});
 		if (!response.ok) throw await parseError(response, `PATCH ${table}`);
+		await cacheOrchestrator.invalidateCacheOnChange(table);
+		if (table === 'bahan' || table === 'bahan_mutasi') refreshBus.emit('stok');
 		return parseMutation<T>(await response.json(), `PATCH ${table}`);
 	}
 
-	// action === 'delete' — where clause lewat query param (seperti di route DELETE handler).
+	// [CATATAN]: action === 'delete' — where clause lewat query param (seperti di route DELETE handler).
 	const qs = new URLSearchParams({ branch: currentBranch(), ...where }).toString();
 	const response = await fetchWithCsrfRetry(`${url}?${qs}`, { method: 'DELETE' });
 	if (!response.ok) throw await parseError(response, `DELETE ${table}`);
+	await cacheOrchestrator.invalidateCacheOnChange(table);
+	if (table === 'bahan' || table === 'bahan_mutasi') refreshBus.emit('stok');
 	return parseMutation<T>(await response.json(), `DELETE ${table}`);
 }

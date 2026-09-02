@@ -11,7 +11,7 @@ import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/
 
 const checkoutCapabilityCache = new Map<string, Promise<CheckoutCapabilities>>();
 
-// ── Schema introspection ────────────────────────────────────────────────────
+// [CATATAN]: ── Schema introspection ────────────────────────────────────────────────────
 
 async function hasColumn(db: D1Database, table: string, column: string): Promise<boolean> {
 	try {
@@ -36,7 +36,7 @@ async function hasTable(db: D1Database, table: string): Promise<boolean> {
 	}
 }
 
-// ── Capability detection ────────────────────────────────────────────────────
+// [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
 
 export async function getCheckoutCapabilities(
 	db: D1Database,
@@ -70,11 +70,15 @@ export async function getCheckoutCapabilities(
 				hasColumn(db, 'transaksi_kasir', 'nominal_hpp')
 			]);
 
+			if (!idempotencyAvailable) {
+				throw kitError(500, 'Integritas database: Kolom idempotency_key tidak ditemukan');
+			}
+
 			return {
 				stockTrackingAvailable,
 				ingredientTrackingAvailable:
 					trackIngredientsColumn && bahanTable && resepTable && mutasiTable,
-				idempotencyAvailable,
+				idempotencyAvailable: true,
 				salesSummaryAvailable: dailySalesTable && dailyProductSalesTable,
 				transactionSnapshotAvailable: transactionProductNameColumn && transactionHppColumn
 			};
@@ -87,7 +91,7 @@ export async function getCheckoutCapabilities(
 	return cached;
 }
 
-// ── Session lookup ──────────────────────────────────────────────────────────
+// [CATATAN]: ── Session lookup ──────────────────────────────────────────────────────────
 
 export async function getActiveSessionId(db: D1Database, branch: BranchId): Promise<string | null> {
 	const row = (await db
@@ -121,7 +125,7 @@ export async function getSessionIdById(
 	return row?.id ?? null;
 }
 
-// ── Idempotency check ───────────────────────────────────────────────────────
+// [CATATAN]: ── Idempotency check ───────────────────────────────────────────────────────
 
 export async function getExistingByIdempotency(
 	db: D1Database,
@@ -133,16 +137,24 @@ export async function getExistingByIdempotency(
 
 	return (await db
 		.prepare(
-			`SELECT id, transaction_id, nominal, jumlah
+			`SELECT id, transaction_id, nominal, jumlah, metode_bayar, request_fingerprint, receipt_snapshot
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND idempotency_key = ?
 			 LIMIT 1`
 		)
 		.bind(branch, idempotencyKey)
-		.first()) as { id: string; transaction_id: string; nominal: number; jumlah: number } | null;
+		.first()) as {
+		id: string;
+		transaction_id: string;
+		nominal: number;
+		jumlah: number;
+		metode_bayar?: string | null;
+		request_fingerprint?: string | null;
+		receipt_snapshot?: string | null;
+	} | null;
 }
 
-// ── Product loading ─────────────────────────────────────────────────────────
+// [CATATAN]: ── Product loading ─────────────────────────────────────────────────────────
 
 export async function loadProducts(
 	db: D1Database,
@@ -161,7 +173,7 @@ export async function loadProducts(
 		const placeholders = part.map(() => '?').join(',');
 		const { results = [] } = (await db
 			.prepare(
-				`SELECT id, nama, harga, stok,
+				`SELECT id, nama, harga, harga_jumbo, stok,
 				 ${stockTrackingAvailable ? 'lacak_stok,' : ''}
 				 ${ingredientTrackingAvailable ? 'lacak_bahan,' : ''}
 				 is_active
@@ -183,7 +195,7 @@ export async function loadProducts(
 	return products;
 }
 
-// ── Recipe loading ──────────────────────────────────────────────────────────
+// [CATATAN]: ── Recipe loading ──────────────────────────────────────────────────────────
 
 export async function loadRecipesByProduct(
 	db: D1Database,
@@ -196,8 +208,9 @@ export async function loadRecipesByProduct(
 		const placeholders = part.map(() => '?').join(',');
 		const { results = [] } = (await db
 			.prepare(
-				`SELECT rp.produk_id, rp.bahan_id, b.nama AS bahan_name, b.satuan, rp.jumlah_per_item
-					, COALESCE(b.biaya_per_satuan, 0) AS biaya_per_satuan
+				`SELECT rp.produk_id, rp.bahan_id, b.nama AS bahan_name, b.satuan, rp.porsi, rp.jumlah_per_item,
+				        rp.satuan_resep, rp.jumlah_dasar_per_item,
+				        COALESCE(b.biaya_per_satuan, 0) AS biaya_per_satuan
 				 FROM resep_produk rp
 				 INNER JOIN bahan b ON b.cabang_id = rp.cabang_id AND b.id = rp.bahan_id
 				 WHERE rp.cabang_id = ? AND rp.produk_id IN (${placeholders}) AND b.is_active = 1
@@ -215,7 +228,7 @@ export async function loadRecipesByProduct(
 	return grouped;
 }
 
-// ── Add-on loading ──────────────────────────────────────────────────────────
+// [CATATAN]: ── Add-on loading ──────────────────────────────────────────────────────────
 
 export async function loadAddOns(
 	db: D1Database,
@@ -233,9 +246,13 @@ export async function loadAddOns(
 		const placeholders = part.map(() => '?').join(',');
 		const { results = [] } = (await db
 			.prepare(
-				`SELECT id, nama, harga, is_active
-				 FROM tambahan
-				 WHERE cabang_id = ? AND id IN (${placeholders})`
+				`SELECT t.id, t.nama, t.harga, t.is_active,
+				        t.bahan_id, t.jumlah_bahan, t.satuan_resep, t.jumlah_dasar_per_item,
+				        b.nama AS bahan_nama, b.satuan AS bahan_satuan,
+				        COALESCE(b.biaya_per_satuan, 0) AS bahan_biaya_per_satuan
+				 FROM tambahan t
+				 LEFT JOIN bahan b ON b.cabang_id = t.cabang_id AND b.id = t.bahan_id
+				 WHERE t.cabang_id = ? AND t.id IN (${placeholders})`
 			)
 			.bind(branch, ...part)
 			.all()) as { results?: AddOnRow[] };

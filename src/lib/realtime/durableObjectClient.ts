@@ -126,7 +126,7 @@ function connectRealtimeSocket() {
 			const message = JSON.parse(String(event.data)) as Record<string, unknown>;
 			dispatchRealtimeMessage(message);
 		} catch {
-			// Ignore malformed realtime messages.
+			// [CATATAN]: Ignore malformed realtime messages.
 		}
 	};
 

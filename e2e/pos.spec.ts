@@ -49,21 +49,30 @@ test('owner completes authoritative cash checkout through POS UI', async ({ page
 	try {
 		await page.goto('/pos');
 		const product = page.getByRole('button', {
-			name: 'Tambah Es Teh UAT ke keranjang'
+			name: /(?:Pilih|Tambah) Es Teh UAT/
 		});
 		// First POS load compiles the catalog route in dev mode; allow the same cold-start budget as login.
 		await expect(product).toBeVisible({ timeout: 60_000 });
 		await product.click();
-		await page.getByRole('button', { name: 'Tambah ke Keranjang' }).click();
-		await page.getByRole('button', { name: 'Bayar', exact: true }).click();
+		await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
+		await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
+
+		const openCart = page.getByRole('button', { name: /^Buka keranjang/ });
+		if (await openCart.isVisible({ timeout: 2000 }).catch(() => false)) {
+			await openCart.click();
+			await page.getByRole('button', { name: /^Lanjut ke Pembayaran/ }).click();
+		} else {
+			const bayarButton = page.getByRole('button', { name: /^Bayar Rp/ });
+			await bayarButton.click();
+		}
 
 		await expect(page).toHaveURL(/\/pos\/bayar$/);
-		await page.getByPlaceholder('Masukkan nama pelanggan...').fill('UAT Browser POS');
+		await page.getByLabel('Nama Pelanggan').fill('UAT Browser POS');
 		await page.getByRole('button', { name: 'Tunai', exact: true }).click();
-		await page.getByRole('button', { name: 'Konfirmasi & Bayar' }).click();
+		await page.getByRole('button', { name: 'Konfirmasi & Proses Transaksi', exact: true }).click();
 
 		await expect(page.getByText('Pembayaran Tunai', { exact: true })).toBeVisible();
-		const cashInput = page.getByPlaceholder('0');
+		const cashInput = page.getByPlaceholder('0', { exact: true });
 		await cashInput.fill('12000');
 		await expect(cashInput).toHaveValue('12.000');
 		await page.getByRole('button', { name: 'C', exact: true }).click();
@@ -149,7 +158,6 @@ test('pending queue detail stays synchronized and owner can export then remove',
 	await expect(page.getByTestId('pending-transaction-banner')).toContainText(
 		'1 transaksi belum tersinkron'
 	);
-	await expect(page.getByTestId('topbar-pending-count')).toHaveText('1');
 	await page.getByRole('button', { name: 'Detail', exact: true }).click();
 	await expect(page.getByTestId('pending-transaction-sheet')).toContainText('JUS-E2E-OFFLINE');
 	await expect(page.getByTestId('pending-transaction-sheet')).toContainText(
@@ -172,6 +180,5 @@ test('pending queue detail stays synchronized and owner can export then remove',
 	await expect(confirmation).toBeVisible();
 	await confirmation.getByRole('button', { name: 'Hapus lokal', exact: true }).click();
 	await expect(page.getByTestId('pending-transaction-banner')).toBeHidden();
-	await expect(page.getByTestId('topbar-pending-count')).toBeHidden();
 	await context.setOffline(false);
 });

@@ -55,6 +55,7 @@ export const produk = sqliteTable(
 		cabang_id: text('cabang_id').notNull(),
 		nama: text('nama').notNull(),
 		harga: real('harga').notNull(),
+		harga_jumbo: real('harga_jumbo'),
 		stok: integer('stok').default(0),
 		lacak_stok: integer('lacak_stok', { mode: 'boolean' }).default(false),
 		lacak_bahan: integer('lacak_bahan', { mode: 'boolean' }).default(false),
@@ -80,6 +81,10 @@ export const bahan = sqliteTable(
 		cabang_id: text('cabang_id').notNull(),
 		nama: text('nama').notNull(),
 		satuan: text('satuan').notNull().default('gram'),
+		tipe_satuan: text('tipe_satuan').default('berat'),
+		isi_per_kemasan: real('isi_per_kemasan').default(1),
+		satuan_beli: text('satuan_beli'),
+		kategori: text('kategori').default('Bahan Baku'),
 		stok_saat_ini: real('stok_saat_ini').notNull().default(0),
 		ambang_stok: real('ambang_stok').notNull().default(0),
 		yield_persen: real('yield_persen').notNull().default(100),
@@ -93,6 +98,7 @@ export const bahan = sqliteTable(
 	(table) => [
 		index('idx_bahan_branch_created').on(table.cabang_id, table.created_at),
 		index('idx_bahan_branch_name').on(table.cabang_id, table.nama),
+		index('idx_bahan_branch_kategori').on(table.cabang_id, table.kategori),
 		check('chk_bahan_yield_persen', sql`${table.yield_persen} > 0 AND ${table.yield_persen} <= 100`)
 	]
 );
@@ -107,6 +113,7 @@ export const hppSettings = sqliteTable(
 		air_bulanan: real('air_bulanan').notNull().default(0),
 		gaji_bulanan: real('gaji_bulanan').notNull().default(0),
 		lainnya_bulanan: real('lainnya_bulanan').notNull().default(0),
+		rincian_biaya: text('rincian_biaya'),
 		target_item_bulanan: integer('target_item_bulanan').notNull().default(1000),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
@@ -121,24 +128,28 @@ export const resepProduk = sqliteTable(
 		cabang_id: text('cabang_id').notNull(),
 		produk_id: text('produk_id').notNull(),
 		bahan_id: text('bahan_id').notNull(),
+		porsi: text('porsi').default('reguler'),
 		jumlah_per_item: real('jumlah_per_item').notNull(),
+		satuan_resep: text('satuan_resep'),
+		jumlah_dasar_per_item: real('jumlah_dasar_per_item'),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [
 		index('idx_resep_produk_branch_product').on(table.cabang_id, table.produk_id),
 		index('idx_resep_produk_branch_bahan').on(table.cabang_id, table.bahan_id),
-		uniqueIndex('idx_resep_produk_product_bahan').on(
+		uniqueIndex('idx_resep_produk_product_bahan_porsi').on(
 			table.cabang_id,
 			table.produk_id,
-			table.bahan_id
+			table.bahan_id,
+			table.porsi
 		)
 	]
 );
 
-// Ledger append-only: tidak punya updated_at karena baris koreksi ditulis sebagai mutasi baru.
-// stok_setelah nullable dan tanpa FK dipertahankan untuk kompatibilitas data D1 lama; service
-// wajib menjaga bahan_id tetap dalam cabang yang sama sampai migrasi constraint terjadwal.
+// [CATATAN]: Ledger append-only: tidak punya updated_at karena baris koreksi ditulis sebagai mutasi baru.
+// [CATATAN]: stok_setelah nullable dan tanpa FK dipertahankan untuk kompatibilitas data D1 lama; service
+// [CATATAN]: wajib menjaga bahan_id tetap dalam cabang yang sama sampai migrasi constraint terjadwal.
 export const bahanMutasi = sqliteTable(
 	'bahan_mutasi',
 	{
@@ -180,11 +191,18 @@ export const tambahan = sqliteTable(
 		cabang_id: text('cabang_id').notNull(),
 		nama: text('nama').notNull(),
 		harga: real('harga').notNull(),
+		bahan_id: text('bahan_id'),
+		jumlah_bahan: real('jumlah_bahan'),
+		satuan_resep: text('satuan_resep'),
+		jumlah_dasar_per_item: real('jumlah_dasar_per_item'),
 		is_active: integer('is_active', { mode: 'boolean' }).default(true),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
 	},
-	(table) => [index('idx_tambahan_branch_created').on(table.cabang_id, table.created_at)]
+	(table) => [
+		index('idx_tambahan_branch_created').on(table.cabang_id, table.created_at),
+		index('idx_tambahan_branch_bahan').on(table.cabang_id, table.bahan_id)
+	]
 );
 
 export const bukuKas = sqliteTable(
@@ -203,6 +221,8 @@ export const bukuKas = sqliteTable(
 		metode_bayar: text('metode_bayar'),
 		transaction_id: text('transaction_id'),
 		idempotency_key: text('idempotency_key'),
+		request_fingerprint: text('request_fingerprint'),
+		receipt_snapshot: text('receipt_snapshot'),
 		id_sesi_toko: text('id_sesi_toko'),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
@@ -213,6 +233,26 @@ export const bukuKas = sqliteTable(
 		index('idx_buku_kas_branch_transaction').on(table.cabang_id, table.transaction_id),
 		index('idx_buku_kas_branch_sesi').on(table.cabang_id, table.id_sesi_toko),
 		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key)
+	]
+);
+
+export const ringkasanKasArsipHarian = sqliteTable(
+	'ringkasan_kas_arsip_harian',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		archive_id: text('archive_id').notNull(),
+		tanggal_wita: text('tanggal_wita').notNull(),
+		tipe: text('tipe').notNull(),
+		jenis: text('jenis').notNull(),
+		metode_bayar: text('metode_bayar'),
+		jumlah_transaksi: integer('jumlah_transaksi').notNull().default(0),
+		total_nominal: real('total_nominal').notNull().default(0),
+		created_at: text('created_at').default(now())
+	},
+	(table) => [
+		index('idx_ringkasan_kas_arsip_branch_tanggal').on(table.cabang_id, table.tanggal_wita),
+		index('idx_ringkasan_kas_arsip_archive').on(table.archive_id)
 	]
 );
 
@@ -264,8 +304,8 @@ export const dailySalesSummary = sqliteTable(
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [
-		// Unique index melindungi satu summary per cabang/tanggal. Index range lama
-		// dipertahankan sampai migrasi produksi eksplisit dapat menghapusnya dengan aman.
+		// [CATATAN]: Unique index melindungi satu summary per cabang/tanggal. Index range lama
+		// [CATATAN]: dipertahankan sampai migrasi produksi eksplisit dapat menghapusnya dengan aman.
 		uniqueIndex('idx_daily_sales_branch_date').on(table.cabang_id, table.tanggal_penjualan),
 		index('idx_daily_sales_branch_date_range').on(table.cabang_id, table.tanggal_penjualan)
 	]

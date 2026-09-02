@@ -75,7 +75,7 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
-	// id di tabel pengaturan adalah INTEGER — coerce dari string ke Number.
+	// [CATATAN]: id di tabel pengaturan adalah INTEGER — coerce dari string ke Number.
 	const idNum = Number(body.where!.id);
 	await db
 		.update(pengaturan)

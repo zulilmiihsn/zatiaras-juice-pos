@@ -35,7 +35,7 @@
 		barHoldTimeout = setTimeout(() => {
 			selectedBarIndex = i;
 			showBarInsight = true;
-		}, 120); // Sedikit delay agar tidak accidental tap
+		}, 120);
 	}
 
 	function handleBarPointerUp() {
@@ -49,41 +49,68 @@
 		showBarInsight = true;
 	}
 
+	const totalWeekly = $derived(
+		weeklyIncome.reduce((acc: number, curr: number) => acc + (curr || 0), 0)
+	);
+
 	onDestroy(() => {
 		if (barHoldTimeout) clearTimeout(barHoldTimeout);
 	});
 </script>
 
 <div
-	class="flex flex-col rounded-xl bg-white p-4 shadow md:rounded-2xl md:border md:border-pink-100 md:p-8 md:shadow-none"
+	class="soft-float-card flex flex-col p-4.5 transition-all duration-200 hover:shadow-md sm:p-5"
 	bind:this={incomeChartRef}
 >
-	<div class="mt-1 mb-2 text-xs text-gray-500 md:text-sm">Pendapatan 7 Hari Terakhir</div>
-	<div class="flex h-32 items-end gap-2 md:h-56 lg:h-64">
+	<div class="mb-3 flex items-center justify-between">
+		<div>
+			<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+				Grafik Penjualan 7 Hari
+			</div>
+			<div class="flex items-baseline gap-2">
+				<span class="text-base font-extrabold text-slate-900 md:text-lg">
+					Rp {formatRupiah(totalWeekly)}
+				</span>
+				<span class="text-[11px] font-semibold text-slate-400">Total Akumulasi</span>
+			</div>
+		</div>
+	</div>
+
+	<!-- Chart area with responsive container height and relative percentage bars -->
+	<div class="relative flex h-36 w-full items-end gap-2 pt-6 pb-1 sm:h-44 md:h-64">
 		{#if weeklyIncome.length === 0}
-			<div class="relative flex h-32 w-full items-end gap-2 md:h-56 lg:h-64">
+			<div class="relative flex h-full w-full items-end gap-2">
 				{#each getLast7DaysLabelsWITA() as label (label)}
-					<div class="flex flex-1 flex-col items-center">
-						<div class="w-6 rounded-t bg-gray-100 md:w-8 lg:w-10" style="height: 8px;"></div>
-						<div class="mt-1 text-xs text-gray-400 md:text-sm">{label}</div>
+					<div class="flex flex-1 flex-col items-center gap-1.5">
+						<div class="h-2 w-full max-w-[32px] rounded-t-lg bg-slate-100"></div>
+						<span class="text-[11px] font-semibold text-slate-400">{label}</span>
 					</div>
 				{/each}
 				<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-					<span class="text-center text-base text-gray-400 md:text-lg"
-						>Belum ada data grafik pendapatan</span
+					<span
+						class="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400 shadow-2xs"
 					>
+						Belum ada data pendapatan
+					</span>
 				</div>
 			</div>
 		{:else}
 			{#each weeklyIncome as income, i (i)}
-				<div class="relative flex flex-1 flex-col items-center">
+				{@const pct =
+					weeklyMax > 0 && income > 0 ? Math.max(Math.min((income / weeklyMax) * 100, 100), 8) : 0}
+				<div class="group relative flex h-full flex-1 flex-col items-center justify-end">
+					<!-- Bar Button -->
 					<button
 						type="button"
-						class="w-6 cursor-pointer rounded-t bg-green-400 transition-all duration-700 md:w-8 lg:w-10"
+						class="w-full max-w-[36px] cursor-pointer rounded-t-lg transition-all duration-500 active:scale-95 {income >
+						0
+							? 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-xs shadow-emerald-500/20 group-hover:from-emerald-600 group-hover:to-teal-500'
+							: 'bg-slate-100'}"
 						aria-label="{getLast7DaysLabelsWITA()[i]}: Rp {formatRupiah(income)}"
-						style="height: {barsVisible && income > 0 && weeklyMax > 0
-							? Math.max(Math.min((income / weeklyMax) * 96, 96), 4)
-							: 0}px"
+						style="height: {barsVisible && income > 0 ? pct : 0}%; min-height: {barsVisible &&
+						income > 0
+							? '12px'
+							: '4px'};"
 						onpointerdown={() => handleBarPointerDown(i)}
 						onpointerup={handleBarPointerUp}
 						onpointerleave={handleBarPointerUp}
@@ -93,12 +120,25 @@
 						ontouchend={handleBarPointerUp}
 						ontouchcancel={handleBarPointerUp}
 					></button>
-					<div class="mt-1 text-xs md:text-sm">{getLast7DaysLabelsWITA()[i]}</div>
-					{#if showBarInsight && selectedBarIndex === i}
+
+					<!-- Day Label -->
+					<span
+						class="mt-1.5 text-[11px] font-bold transition-colors {selectedBarIndex === i
+							? 'text-pink-600'
+							: 'text-slate-500'}"
+					>
+						{getLast7DaysLabelsWITA()[i]}
+					</span>
+
+					<!-- Tooltip / Bubble Insight -->
+					{#if (showBarInsight && selectedBarIndex === i) || (income > 0 && selectedBarIndex === i)}
 						<div
-							class="animate-fade-in pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-pink-200 bg-white px-4 py-2 text-center text-sm font-bold text-pink-600 shadow-lg"
+							class="animate-fade-in pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 rounded-xl border border-pink-200/90 bg-white/95 px-3 py-1.5 text-center whitespace-nowrap shadow-lg backdrop-blur-md"
 						>
-							<span class="font-normal text-gray-700">Rp {formatRupiah(income)}</span>
+							<div class="text-[10px] font-semibold text-slate-400">
+								{getLast7DaysLabelsWITA()[i]}
+							</div>
+							<div class="text-xs font-black text-pink-600">Rp {formatRupiah(income)}</div>
 						</div>
 					{/if}
 				</div>

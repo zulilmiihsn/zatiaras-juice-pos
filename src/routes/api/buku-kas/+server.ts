@@ -79,7 +79,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	}));
 	if (containsPosLedger(rows)) throw kitError(409, POS_LEDGER_ROUTE_MESSAGE);
 
-	// Dedup by id: cek baris yang sudah ada, hanya insert yang baru.
+	// [CATATAN]: Dedup by id: cek baris yang sudah ada, hanya insert yang baru.
 	const newRows: Array<Record<string, unknown>> = [];
 	for (const row of rows) {
 		const existing = await rawDb
@@ -167,7 +167,7 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 		if (existing.length === 0) throw kitError(404, 'Entri buku kas tidak ditemukan');
 		if (containsPosLedger(existing)) throw kitError(409, POS_LEDGER_ROUTE_MESSAGE);
 
-		// Bulk delete: hapus semua kas terkait satu transaksi.
+		// [CATATAN]: Bulk delete: hapus semua kas terkait satu transaksi.
 		await db
 			.delete(bukuKas)
 			.where(and(eq(bukuKas.cabang_id, branch), eq(bukuKas.transaction_id, transactionId)));

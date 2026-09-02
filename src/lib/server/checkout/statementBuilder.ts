@@ -24,6 +24,8 @@ interface BuildStatementsParams {
 	createdAt: string;
 	idSesiToko: string | null;
 	idempotencyKey: string;
+	requestFingerprint?: string | null;
+	receiptSnapshot?: unknown;
 	session: { userId: string; username?: string };
 	capabilities: CheckoutCapabilities;
 }
@@ -46,6 +48,8 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 		createdAt,
 		idSesiToko,
 		idempotencyKey,
+		requestFingerprint,
+		receiptSnapshot,
 		session,
 		capabilities: { idempotencyAvailable, salesSummaryAvailable, transactionSnapshotAvailable }
 	} = params;
@@ -58,8 +62,11 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 	>();
 	for (const item of items) {
 		const summaryKey = item.produk_id || `custom:${item.product_name}`;
+		const cleanProductName = item.produk_id
+			? item.product_name.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '').trim()
+			: item.product_name;
 		const current = productSummaries.get(summaryKey) || {
-			productName: item.product_name,
+			productName: cleanProductName,
 			jumlah: 0,
 			grossSales: 0,
 			transactionCount: 0
@@ -71,7 +78,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 	}
 
 	return [
-		// ── Stock deductions ───────────────────────────────────────────────────
+		// [CATATAN]: ── Stock deductions ───────────────────────────────────────────────────
 		...Array.from(stockDeductions.entries()).map(([productId, deduction]) =>
 			db
 				.prepare(
@@ -82,7 +89,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				.bind(deduction.jumlah, createdAt, branch, productId)
 		),
 
-		// ── Ingredient deductions ──────────────────────────────────────────────
+		// [CATATAN]: ── Ingredient deductions ──────────────────────────────────────────────
 		...Array.from(ingredientDeductions.entries()).flatMap(([bahanId, deduction]) => [
 			db
 				.prepare(
@@ -95,13 +102,9 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				.prepare(
 					`INSERT INTO bahan_mutasi (
 						id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber,
-						referensi_id, catatan, dibuat_oleh, created_at
-					)
-					VALUES (
-						?, ?, ?, ?,
-						(SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?),
-						'pos_transaction', ?, ?, ?, ?
-					)`
+						keterangan, user_id, username, created_at
+					) VALUES (?, ?, ?, ?, COALESCE((SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?), 0),
+						'pos', ?, ?, ?, ?)`
 				)
 				.bind(
 					crypto.randomUUID(),
@@ -110,23 +113,23 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 					-deduction.jumlah,
 					branch,
 					bahanId,
-					transactionId,
-					`Checkout ${deduction.products.join(', ')}`.slice(0, 160),
-					session.username || session.userId,
+					`Pengurangan resep transaksi POS ${transactionId}`,
+					session.userId,
+					session.username || 'Kasir',
 					createdAt
 				)
 		]),
 
-		// ── buku_kas insert ────────────────────────────────────────────────────
+		// [CATATAN]: ── buku_kas insert ────────────────────────────────────────────────────
 		db
 			.prepare(
 				`INSERT INTO buku_kas (
 					id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi,
 					nama_pelanggan, metode_bayar, transaction_id,
-					${idempotencyAvailable ? 'idempotency_key,' : ''}
+					${idempotencyAvailable ? 'idempotency_key, request_fingerprint, receipt_snapshot,' : ''}
 					id_sesi_toko, created_at, updated_at
 				) VALUES (?, ?, ?, 'pos', 'in', 'pendapatan_usaha', ?, ?, ?, ?, ?, ?,
-					${idempotencyAvailable ? '?,' : ''} ?, ?, ?)`
+					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?)`
 			)
 			.bind(
 				bukuKasId,
@@ -138,13 +141,19 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				customerName,
 				paymentMethod,
 				transactionId,
-				...(idempotencyAvailable ? [idempotencyKey] : []),
+				...(idempotencyAvailable
+					? [
+							idempotencyKey,
+							requestFingerprint || null,
+							receiptSnapshot ? JSON.stringify(receiptSnapshot) : null
+						]
+					: []),
 				idSesiToko,
 				createdAt,
 				createdAt
 			),
 
-		// ── transaksi_kasir inserts ────────────────────────────────────────────
+		// [CATATAN]: ── transaksi_kasir inserts ────────────────────────────────────────────
 		...items.map((item) => {
 			if (!transactionSnapshotAvailable) {
 				return db
@@ -201,7 +210,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				);
 		}),
 
-		// ── ringkasan_penjualan_harian + penjualan_produk_harian ──────────────
+		// [CATATAN]: ── ringkasan_penjualan_harian + penjualan_produk_harian ──────────────
 		...(salesSummaryAvailable
 			? [
 					db

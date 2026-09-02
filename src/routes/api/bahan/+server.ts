@@ -5,11 +5,7 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getDb, getRawDb, payloadRows, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { parseBody, sanitizeUpdatePayload, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import { parseDataLimit } from '$lib/server/dataPagination';
-import {
-	calculateEffectiveUnitCost,
-	isValidYieldPercent,
-	normalizeYieldPercent
-} from '$lib/utils/ingredientCost';
+import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import type { RequestHandler } from './$types';
 
 function nonNegativeNumber(value: unknown, label: string): number {
@@ -18,12 +14,7 @@ function nonNegativeNumber(value: unknown, label: string): number {
 	return parsed;
 }
 
-function yieldPercent(value: unknown): number {
-	if (!isValidYieldPercent(value)) {
-		throw kitError(400, 'Yield bahan harus lebih dari 0% dan maksimal 100%');
-	}
-	return normalizeYieldPercent(value);
-}
+// Removed yieldPercent function
 
 /**
  * /api/bahan — Resource route untuk tabel `bahan` (bahan baku & stok).
@@ -58,16 +49,25 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
 	const rows = payloadRows(body.payload, branch).map((row) => {
-		const purchaseQuantity = nonNegativeNumber(row.jumlah_beli_terakhir, 'Jumlah beli');
+		const purchaseQuantity = nonNegativeNumber(row.jumlah_beli_terakhir, 'Jumlah porsi');
 		const purchaseCost = nonNegativeNumber(row.biaya_beli_terakhir, 'Biaya beli');
-		const usableYield = yieldPercent(row.yield_persen ?? 100);
+		const yieldVal =
+			row.yield_persen != null ? Math.min(100, Math.max(1, Number(row.yield_persen))) : 100;
+		const netQty = purchaseQuantity * (yieldVal / 100);
 		return {
 			...row,
 			satuan: row.satuan || 'gram',
+			tipe_satuan: row.tipe_satuan ? String(row.tipe_satuan).trim() : 'berat',
+			isi_per_kemasan: nonNegativeNumber(row.isi_per_kemasan, 'Isi kemasan') || 1,
+			satuan_beli: row.satuan_beli ? String(row.satuan_beli).trim() : null,
+			kategori: row.kategori ? String(row.kategori).trim() : 'Bahan Baku',
 			stok_saat_ini: nonNegativeNumber(row.stok_saat_ini, 'Stok'),
 			ambang_stok: nonNegativeNumber(row.ambang_stok, 'Minimum stok'),
-			yield_persen: usableYield,
-			biaya_per_satuan: calculateEffectiveUnitCost(purchaseCost, purchaseQuantity, usableYield),
+			yield_persen: yieldVal,
+			biaya_per_satuan: calculateEffectiveUnitCost(
+				purchaseCost,
+				netQty > 0 ? netQty : purchaseQuantity
+			),
 			jumlah_beli_terakhir: purchaseQuantity,
 			biaya_beli_terakhir: purchaseCost
 		};
@@ -101,7 +101,12 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 		.where(and(eq(bahan.cabang_id, branch), eq(bahan.id, String(body.where.id))))
 		.get();
 	if (!current) throw kitError(404, 'Bahan tidak ditemukan');
-	// Coerce field numerik bila ada di payload.
+	// [CATATAN]: Coerce field numerik dan kategori bila ada di payload.
+	if ('kategori' in safePayload && safePayload.kategori !== undefined) {
+		safePayload.kategori = safePayload.kategori
+			? String(safePayload.kategori).trim()
+			: 'Bahan Baku';
+	}
 	if ('stok_saat_ini' in safePayload)
 		safePayload.stok_saat_ini = nonNegativeNumber(safePayload.stok_saat_ini, 'Stok');
 	if ('ambang_stok' in safePayload) {
@@ -110,18 +115,28 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	if ('jumlah_beli_terakhir' in safePayload) {
 		safePayload.jumlah_beli_terakhir = nonNegativeNumber(
 			safePayload.jumlah_beli_terakhir,
-			'Jumlah beli'
+			'Jumlah porsi'
 		);
 	}
-	if ('biaya_beli_terakhir' in safePayload) {
-		safePayload.biaya_beli_terakhir = nonNegativeNumber(
-			safePayload.biaya_beli_terakhir,
-			'Biaya beli'
-		);
+	if ('tipe_satuan' in safePayload && safePayload.tipe_satuan !== undefined) {
+		safePayload.tipe_satuan = String(safePayload.tipe_satuan).trim();
 	}
-	if ('yield_persen' in safePayload) {
-		safePayload.yield_persen = yieldPercent(safePayload.yield_persen);
+	if ('isi_per_kemasan' in safePayload) {
+		safePayload.isi_per_kemasan =
+			nonNegativeNumber(safePayload.isi_per_kemasan, 'Isi kemasan') || 1;
 	}
+	if ('satuan_beli' in safePayload && safePayload.satuan_beli !== undefined) {
+		safePayload.satuan_beli = safePayload.satuan_beli
+			? String(safePayload.satuan_beli).trim()
+			: null;
+	}
+	if ('yield_persen' in safePayload && safePayload.yield_persen !== undefined) {
+		const parsedYield = Number(safePayload.yield_persen);
+		safePayload.yield_persen = Number.isFinite(parsedYield)
+			? Math.min(100, Math.max(1, parsedYield))
+			: 100;
+	}
+
 	const costInputsChanged = ['jumlah_beli_terakhir', 'biaya_beli_terakhir', 'yield_persen'].some(
 		(key) => key in safePayload
 	);
@@ -131,11 +146,11 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 			safePayload.jumlah_beli_terakhir ?? current.jumlah_beli_terakhir
 		);
 		const purchaseCost = Number(safePayload.biaya_beli_terakhir ?? current.biaya_beli_terakhir);
-		const usableYield = Number(safePayload.yield_persen ?? current.yield_persen ?? 100);
+		const yieldPercent = Number(safePayload.yield_persen ?? current.yield_persen ?? 100);
+		const netQty = purchaseQuantity * (yieldPercent / 100);
 		safePayload.biaya_per_satuan = calculateEffectiveUnitCost(
 			purchaseCost,
-			purchaseQuantity,
-			usableYield
+			netQty > 0 ? netQty : purchaseQuantity
 		);
 	}
 	await db
@@ -160,7 +175,7 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
 
-	// FK pre-check: tolak hapus bila bahan masih dipakai di resep menu.
+	// [CATATAN]: FK pre-check: tolak hapus bila bahan masih dipakai di resep menu.
 	const used = await rawDb
 		.prepare(`SELECT id FROM resep_produk WHERE cabang_id = ? AND bahan_id = ? LIMIT 1`)
 		.bind(branch, id)

@@ -37,8 +37,8 @@ Create a physical workspace directory containing copies of specified git repos (
 </objective>
 
 <execution_context>
-@~/.Codex/get-shit-done/workflows/new-workspace.md
-@~/.Codex/get-shit-done/references/ui-brand.md
+@~~/.Codex/get-shit-done/workflows/new-workspace.md
+@~~/.Codex/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <process>

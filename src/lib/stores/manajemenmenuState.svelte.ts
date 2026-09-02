@@ -10,7 +10,7 @@ import { createEkstraState } from '$lib/stores/ekstraState.svelte';
 import { createBahanHppState } from '$lib/stores/bahanHppState.svelte';
 
 export function createManajemenmenuState() {
-	// ── Shared notif ──────────────────────────────────────────────────────────
+	// [CATATAN]: ── Shared notif ──────────────────────────────────────────────────────────
 	let showNotifModal = $state(false);
 	let notifModalMsg = $state('');
 	let notifModalType = $state('warning');
@@ -24,18 +24,19 @@ export function createManajemenmenuState() {
 
 	const toastManager = createToastManager();
 
-	// ── Late-binding cross-domain deps ────────────────────────────────────────
+	// [CATATAN]: ── Late-binding cross-domain deps ────────────────────────────────────────
 	const deps = {
 		afterUpdate: async () => {},
 		fetchRecipes: async () => {},
 		fetchMenus: async () => {}
 	};
 
-	// ── Sub-stores ────────────────────────────────────────────────────────────
+	// [CATATAN]: ── Sub-stores ────────────────────────────────────────────────────────────
 	const menuSt = createMenuState({
 		showNotif,
 		afterUpdate: () => deps.afterUpdate(),
-		fetchRecipes: () => deps.fetchRecipes()
+		fetchRecipes: () => deps.fetchRecipes(),
+		getBahanList: () => bahanHppSt.bahanList
 	});
 	const kategoriSt = createKategoriState({
 		showNotif,
@@ -45,11 +46,12 @@ export function createManajemenmenuState() {
 	});
 	const ekstraSt = createEkstraState({
 		showNotif,
-		afterUpdate: () => deps.afterUpdate()
+		afterUpdate: () => deps.afterUpdate(),
+		getBahanList: () => bahanHppSt.bahanList
 	});
 	const bahanHppSt = createBahanHppState({ showNotif });
 
-	// ── Wire deps after all sub-stores created ────────────────────────────────
+	// [CATATAN]: ── Wire deps after all sub-stores created ────────────────────────────────
 	deps.afterUpdate = async () => {
 		try {
 			await cacheOrchestrator.clearAllCaches();
@@ -64,7 +66,7 @@ export function createManajemenmenuState() {
 	deps.fetchRecipes = () => bahanHppSt.fetchRecipes();
 	deps.fetchMenus = () => menuSt.fetchMenus();
 
-	// ── Cross-domain derived ──────────────────────────────────────────────────
+	// [CATATAN]: ── Cross-domain derived ──────────────────────────────────────────────────
 	const filteredMenus = $derived(
 		(() => {
 			const keyword = menuSt.searchKeyword.trim().toLowerCase();
@@ -92,7 +94,7 @@ export function createManajemenmenuState() {
 		}))
 	);
 
-	// ── Notif auto-dismiss ────────────────────────────────────────────────────
+	// [CATATAN]: ── Notif auto-dismiss ────────────────────────────────────────────────────
 	$effect(() => {
 		if (showNotifModal) {
 			const timeout = setTimeout(() => {
@@ -102,7 +104,7 @@ export function createManajemenmenuState() {
 		}
 	});
 
-	// ── Branch-reactive loading ───────────────────────────────────────────────
+	// [CATATAN]: ── Branch-reactive loading ───────────────────────────────────────────────
 	$effect(() => {
 		const _branch = selectedBranch.value;
 		if (typeof window !== 'undefined') {
@@ -119,9 +121,9 @@ export function createManajemenmenuState() {
 		}
 	});
 
-	// ── Public API (identical surface to original) ────────────────────────────
+	// [CATATAN]: ── Public API (identical surface to original) ────────────────────────────
 	return {
-		// ── Menu ──────────────────────────────────────────────────────────────
+		// [CATATAN]: ── Menu ──────────────────────────────────────────────────────────────
 		get menus() {
 			return menuSt.menus;
 		},
@@ -163,6 +165,12 @@ export function createManajemenmenuState() {
 		},
 		set recipeItems(v) {
 			menuSt.recipeItems = v;
+		},
+		get activeRecipePorsi() {
+			return menuSt.activeRecipePorsi;
+		},
+		set activeRecipePorsi(v: 'reguler' | 'jumbo') {
+			menuSt.activeRecipePorsi = v;
 		},
 		get recipeDraft() {
 			return menuSt.recipeDraft;
@@ -213,7 +221,7 @@ export function createManajemenmenuState() {
 		setTrackStock: menuSt.setTrackStock,
 		setTrackIngredients: menuSt.setTrackIngredients,
 
-		// ── Kategori ──────────────────────────────────────────────────────────
+		// [CATATAN]: ── Kategori ──────────────────────────────────────────────────────────
 		get kategoriList() {
 			return kategoriSt.kategoriList;
 		},
@@ -264,7 +272,7 @@ export function createManajemenmenuState() {
 		cancelDeleteKategori: kategoriSt.cancelDeleteKategori,
 		toggleMenuInKategoriRealtime: kategoriSt.toggleMenuInKategoriRealtime,
 
-		// ── Ekstra ────────────────────────────────────────────────────────────
+		// [CATATAN]: ── Ekstra ────────────────────────────────────────────────────────────
 		get ekstraList() {
 			return ekstraSt.ekstraList;
 		},
@@ -299,7 +307,7 @@ export function createManajemenmenuState() {
 		doDeleteEkstra: ekstraSt.doDeleteEkstra,
 		cancelDeleteEkstra: ekstraSt.cancelDeleteEkstra,
 
-		// ── Bahan + HPP ───────────────────────────────────────────────────────
+		// [CATATAN]: ── Bahan + HPP ───────────────────────────────────────────────────────
 		get bahanList() {
 			return bahanHppSt.bahanList;
 		},
@@ -363,6 +371,9 @@ export function createManajemenmenuState() {
 		set mutasiBahanForm(v) {
 			bahanHppSt.mutasiBahanForm = v;
 		},
+		get availableCategoryOptions() {
+			return bahanHppSt.availableCategoryOptions;
+		},
 		openBahanForm: bahanHppSt.openBahanForm,
 		closeBahanForm: bahanHppSt.closeBahanForm,
 		saveBahan: bahanHppSt.saveBahan,
@@ -372,6 +383,8 @@ export function createManajemenmenuState() {
 		confirmDeleteBahan: bahanHppSt.confirmDeleteBahan,
 		doDeleteBahan: bahanHppSt.doDeleteBahan,
 		cancelDeleteBahan: bahanHppSt.cancelDeleteBahan,
+		addHppExpenseItem: bahanHppSt.addHppExpenseItem,
+		removeHppExpenseItem: bahanHppSt.removeHppExpenseItem,
 		saveHppSettings: bahanHppSt.saveHppSettings,
 		parseHppPurchaseText: bahanHppSt.parseHppPurchaseText,
 		saveParsedHppItem: bahanHppSt.saveParsedHppItem,
@@ -383,7 +396,7 @@ export function createManajemenmenuState() {
 		getBahanName: bahanHppSt.getBahanName,
 		getBahanUnit: bahanHppSt.getBahanUnit,
 
-		// ── Shared ────────────────────────────────────────────────────────────
+		// [CATATAN]: ── Shared ────────────────────────────────────────────────────────────
 		get showNotifModal() {
 			return showNotifModal;
 		},

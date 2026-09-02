@@ -4,8 +4,8 @@ import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 import { throttle } from '$lib/utils/performance';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { browser } from '$app/environment';
-import type { AddOn, Category, Product } from '$lib/types/product';
-import type { PosCatalogSource } from '$lib/types/posCatalog';
+import type { AddOn, Category, Product, Ingredient } from '$lib/types/product';
+import type { PosCatalogSource, PosRecipeItem } from '$lib/types/posCatalog';
 
 export type PosProduct = Product;
 export type PosCategory = Category;
@@ -15,6 +15,8 @@ export function createPosState() {
 	let produkData = $state<PosProduct[]>([]);
 	let kategoriData = $state<PosCategory[]>([]);
 	let tambahanData = $state<PosAddOn[]>([]);
+	let bahanData = $state<Ingredient[]>([]);
+	let resepData = $state<PosRecipeItem[]>([]);
 	let isLoadingProducts = $state(true);
 	let posLoadError = $state('');
 	let catalogSource = $state<PosCatalogSource>('unavailable');
@@ -33,6 +35,9 @@ export function createPosState() {
 			const nextProducts = catalog.products;
 			const nextCategories = catalog.categories;
 			const nextAddons = catalog.addOns;
+			const nextIngredients = catalog.ingredients || [];
+			const nextRecipes = catalog.recipes || [];
+
 			catalogSource = catalog.source;
 			catalogFetchedAt = catalog.fetched_at;
 			catalogExpiresAt = catalog.expires_at;
@@ -47,11 +52,21 @@ export function createPosState() {
 
 			const nextFingerprint = [
 				(nextProducts || []).length,
-				(nextProducts || []).map((item) => `${item?.id || ''}:${item?.harga ?? 0}`).join(','),
+				(nextProducts || [])
+					.map(
+						(item) =>
+							`${item?.id || ''}:${item?.harga ?? 0}:${item?.harga_jumbo ?? ''}:${item?.stok ?? ''}`
+					)
+					.join(','),
 				(nextCategories || []).length,
 				(nextCategories || []).map((item) => item?.id || '').join(','),
 				(nextAddons || []).length,
-				(nextAddons || []).map((item) => `${item?.id || ''}:${item?.harga ?? 0}`).join(',')
+				(nextAddons || []).map((item) => `${item?.id || ''}:${item?.harga ?? 0}`).join(','),
+				(nextIngredients || []).length,
+				(nextIngredients || [])
+					.map((item) => `${item?.id || ''}:${item?.stok_saat_ini ?? 0}`)
+					.join(','),
+				(nextRecipes || []).length
 			].join('|');
 
 			if (nextFingerprint === lastPOSPayloadFingerprint) {
@@ -64,6 +79,8 @@ export function createPosState() {
 			produkData = nextProducts || [];
 			kategoriData = nextCategories || [];
 			tambahanData = nextAddons || [];
+			bahanData = nextIngredients || [];
+			resepData = nextRecipes || [];
 			posLoadError = '';
 			await reportCacheMetrics('pos');
 		} catch (error) {
@@ -95,16 +112,33 @@ export function createPosState() {
 		}, delayMs);
 	}
 
+	let realtimeDisposers: Array<() => void> = [];
+
 	function setupRealtimeSubscriptions() {
-		realtimeManager.subscribe('produk', async () => {
-			schedulePOSRefresh();
-		});
-		realtimeManager.subscribe('kategori', async () => {
-			schedulePOSRefresh();
-		});
-		realtimeManager.subscribe('tambahan', async () => {
-			schedulePOSRefresh();
-		});
+		realtimeDisposers.forEach((d) => d());
+		realtimeDisposers = [
+			realtimeManager.subscribe('produk', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('kategori', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('tambahan', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('bahan', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('bahan_mutasi', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('resep_produk', async () => {
+				schedulePOSRefresh();
+			}),
+			realtimeManager.subscribe('transaksi_kasir', async () => {
+				schedulePOSRefresh();
+			})
+		];
 	}
 
 	$effect(() => {
@@ -124,7 +158,8 @@ export function createPosState() {
 		})();
 
 		return () => {
-			realtimeManager.unsubscribeAll();
+			realtimeDisposers.forEach((d) => d());
+			realtimeDisposers = [];
 			if (posRefreshTimer) {
 				clearTimeout(posRefreshTimer);
 				posRefreshTimer = null;
@@ -152,6 +187,12 @@ export function createPosState() {
 		},
 		get tambahanData() {
 			return tambahanData;
+		},
+		get bahanData() {
+			return bahanData;
+		},
+		get resepData() {
+			return resepData;
 		},
 		get isLoadingProducts() {
 			return isLoadingProducts;

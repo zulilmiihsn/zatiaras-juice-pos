@@ -805,4 +805,5 @@ Checkpoints formalize human-in-the-loop points for verification and decisions, n
 - File operations (Claude can read files)
 - Code correctness (tests and static analysis)
 - Anything automatable via CLI/API
+
 </summary>

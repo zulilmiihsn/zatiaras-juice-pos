@@ -1,4 +1,4 @@
-// Performance utilities
+// [CATATAN]: Performance utilities
 export function debounce<T extends (...args: any[]) => any>(
 	func: T,
 	wait: number
@@ -24,14 +24,18 @@ export function throttle<T extends (...args: any[]) => any>(
 	};
 }
 
-// Cart calculations (without memoization)
+// [CATATAN]: Cart calculations (without memoization)
 export const calculateCartTotal = <T>(cart: T[]) => {
 	let items = 0;
 	let total = 0;
 	for (const item of cart) {
 		const record = item as Record<string, unknown>;
 		const product = record.product as Record<string, unknown> | undefined;
-		const itemTotal = ((product?.harga as number) ?? 0) * ((record.jumlah as number) ?? 1);
+		const isJumbo = record.porsi === 'jumbo';
+		const basePrice = isJumbo
+			? ((product?.harga_jumbo as number) ?? (product?.harga as number) ?? 0)
+			: ((product?.harga as number) ?? 0);
+		const itemTotal = basePrice * ((record.jumlah as number) ?? 1);
 		const addOnsTotal =
 			((record.addOns as Array<Record<string, unknown>>) || []).reduce(
 				(sum: number, addon: Record<string, unknown>) => sum + ((addon.harga as number) ?? 0),
@@ -43,11 +47,11 @@ export const calculateCartTotal = <T>(cart: T[]) => {
 	return { items, total };
 };
 
-// Fuzzy search dengan hasil lebih relevan
+// [CATATAN]: Fuzzy search dengan hasil lebih relevan
 export function fuzzySearch<T>(query: string, items: T[], key: string = 'nama'): T[] {
 	if (!query.trim()) return items;
 	const searchTerm = query.toLowerCase();
-	// Cari di name dan kategori (jika ada)
+	// [CATATAN]: Cari di name dan kategori (jika ada)
 	return items
 		.map((item) => {
 			const record = item as Record<string, unknown>;

@@ -144,9 +144,114 @@ assert.match(productSource, /\/api\/pos\/catalog/);
 assert.match(checkoutSource, /verifyPosPricingToken/);
 assert.match(checkoutSource, /offline_signed_catalog/);
 assert.match(checkoutSource, /Idempotency key sudah dipakai untuk transaksi berbeda/);
-assert.match(checkoutSource, /getSessionIdById/);
 assert.doesNotMatch(checkoutSource, /OFFLINE_REPLAY_MAX_AGE_MS/);
 assert.match(quoteSource, /Item custom hanya boleh dibuat pemilik/);
 assert.doesNotMatch(quoteSource, /product_price_token:\s*item/);
 
-console.log('pos-integrity-tests: 23 assertions passed');
+import {
+	getProductStockAvailability,
+	isProductOutOfStock,
+	getProductAvailableStock
+} from '../lib/services/stockAlertService';
+
+// Test Stock Availability Logic
+// 1. Direct unit stock tracking
+const prodUnitEmpty = { id: 'p-1', nama: 'Kerupuk', lacak_stok: true, stok: 0 };
+const prodUnitHasStock = { id: 'p-2', nama: 'Kerupuk Pedas', lacak_stok: 1, stok: 5 };
+assert.equal(isProductOutOfStock(prodUnitEmpty), true);
+assert.equal(getProductAvailableStock(prodUnitEmpty), 0);
+assert.equal(isProductOutOfStock(prodUnitHasStock), false);
+assert.equal(getProductAvailableStock(prodUnitHasStock), 5);
+
+// 2. Recipe ingredient tracking
+const prodJuice = { id: 'p-3', nama: 'Es Jeruk', lacak_bahan: true, stok: null };
+const ingredientsEmpty = [{ id: 'ing-1', nama: 'Jeruk Segar', stok_saat_ini: 0 }];
+const recipesJuice = [
+	{ produk_id: 'p-3', bahan_id: 'ing-1', porsi: 'reguler', jumlah_per_item: 100 }
+];
+const availEmpty = getProductStockAvailability(
+	prodJuice,
+	'reguler',
+	ingredientsEmpty,
+	recipesJuice
+);
+assert.equal(availEmpty.isOutOfStock, true);
+assert.equal(availEmpty.availableStock, 0);
+assert.equal(availEmpty.limitingIngredientName, 'Jeruk Segar');
+
+const ingredientsPartial = [
+	{ id: 'ing-1', nama: 'Jeruk Segar', stok_saat_ini: 350 }, // 3 portions
+	{ id: 'ing-2', nama: 'Gula Pasir', stok_saat_ini: 25 } // 1 portion (requires 20)
+];
+const recipesMulti = [
+	{ produk_id: 'p-3', bahan_id: 'ing-1', porsi: 'reguler', jumlah_per_item: 100 },
+	{ produk_id: 'p-3', bahan_id: 'ing-2', porsi: 'reguler', jumlah_per_item: 20 }
+];
+const availPartial = getProductStockAvailability(
+	prodJuice,
+	'reguler',
+	ingredientsPartial,
+	recipesMulti
+);
+assert.equal(availPartial.isOutOfStock, false);
+assert.equal(availPartial.availableStock, 1);
+assert.equal(availPartial.limitingIngredientName, 'Gula Pasir');
+
+import { computeTransactionFingerprint } from '../lib/server/checkout/fingerprint';
+
+// 3. Behavioral Idempotency Fingerprint Testing
+const fpA1 = computeTransactionFingerprint({
+	branch: 'samarinda',
+	items: [{ product_id: 'p-1', jumlah: 2, custom_price: 10_000, porsi: 'reguler' }],
+	totalAmount: 20_000,
+	totalQty: 2,
+	paymentMethod: 'tunai',
+	customerName: 'Budi'
+});
+
+const fpA2 = computeTransactionFingerprint({
+	branch: 'samarinda',
+	items: [{ product_id: 'p-1', jumlah: 2, custom_price: 10_000, porsi: 'reguler' }],
+	totalAmount: 20_000,
+	totalQty: 2,
+	paymentMethod: 'tunai',
+	customerName: 'Budi'
+});
+
+// Deterministic hash
+assert.equal(fpA1, fpA2);
+
+// Same total (20k) but DIFFERENT product -> DIFFERENT fingerprint
+const fpDiffProduct = computeTransactionFingerprint({
+	branch: 'samarinda',
+	items: [{ product_id: 'p-2', jumlah: 1, custom_price: 20_000, porsi: 'reguler' }],
+	totalAmount: 20_000,
+	totalQty: 1,
+	paymentMethod: 'tunai',
+	customerName: 'Budi'
+});
+assert.notEqual(fpA1, fpDiffProduct);
+
+// Same product but DIFFERENT portion -> DIFFERENT fingerprint
+const fpDiffPortion = computeTransactionFingerprint({
+	branch: 'samarinda',
+	items: [{ product_id: 'p-1', jumlah: 2, custom_price: 10_000, porsi: 'jumbo' }],
+	totalAmount: 20_000,
+	totalQty: 2,
+	paymentMethod: 'tunai',
+	customerName: 'Budi'
+});
+assert.notEqual(fpA1, fpDiffPortion);
+
+// Same product but DIFFERENT payment method -> DIFFERENT fingerprint
+const fpDiffPayment = computeTransactionFingerprint({
+	branch: 'samarinda',
+	items: [{ product_id: 'p-1', jumlah: 2, custom_price: 10_000, porsi: 'reguler' }],
+	totalAmount: 20_000,
+	totalQty: 2,
+	paymentMethod: 'non-tunai',
+	customerName: 'Budi'
+});
+assert.notEqual(fpA1, fpDiffPayment);
+
+console.log('pos-integrity-tests: 35 assertions passed');

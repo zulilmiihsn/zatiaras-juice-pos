@@ -18,8 +18,8 @@ Remove a workspace directory after confirmation. For worktree strategy, runs `gi
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/remove-workspace.md
-@~/.claude/get-shit-done/references/ui-brand.md
+@~~/.claude/get-shit-done/workflows/remove-workspace.md
+@~~/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <process>
