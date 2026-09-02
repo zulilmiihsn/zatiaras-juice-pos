@@ -6,7 +6,7 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
 - **Tanggal**: 2026-09-02
 - **Milestone**: v2.0 — Stabilisasi & Quality (10/10 Master Plan Completed)
-- **Candidate Commit SHA**: `0be1452917989fc105cbf095571a91fde1353f77`
+- **Candidate Commit SHA**: `1dca9186d727ea97389cda6fc7f6f96d2b60e595`
 - **Phase Aktif**: **Semua 28 Task Master Plan Selesai & Terverifikasi (Evidence Ledger Terisi)**
 - **Pekerjaan Terakhir**:
   - Wave 0: GOV-001, DB-001, QA-001 (Clean candidate branch, D1 backup runner, Code quality suite)
