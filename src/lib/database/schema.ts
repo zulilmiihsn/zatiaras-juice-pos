@@ -341,8 +341,10 @@ export const dailyProductSales = sqliteTable(
 export const pengaturan = sqliteTable(
 	'pengaturan',
 	{
-		id: integer('id').primaryKey(),
+		id: text('id').primaryKey(),
 		cabang_id: text('cabang_id').notNull(),
+		kunci: text('kunci'),
+		nilai: text('nilai'),
 		pin: text('pin'),
 		pin_hash: text('pin_hash'),
 		halaman_terkunci: text('halaman_terkunci', { mode: 'json' }).$type<string[]>().default([]),
@@ -351,10 +353,14 @@ export const pengaturan = sqliteTable(
 		telepon: text('telepon'),
 		instagram: text('instagram'),
 		ucapan: text('ucapan'),
+		pajak_config: text('pajak_config'),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
 	},
-	(table) => [index('idx_pengaturan_branch').on(table.cabang_id)]
+	(table) => [
+		index('idx_pengaturan_branch').on(table.cabang_id),
+		index('idx_pengaturan_branch_kunci').on(table.cabang_id, table.kunci)
+	]
 );
 
 export const sesiToko = sqliteTable(

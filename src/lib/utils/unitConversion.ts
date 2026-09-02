@@ -120,9 +120,16 @@ export function convertToBaseUnit(
 
 	if (cleanFrom === cleanBase) return amount;
 
-	const category = detectUnitCategory(cleanBase);
-	const unitList = ALL_UNITS[category] || [];
+	const fromCategory = detectUnitCategory(cleanFrom);
+	const baseCategory = detectUnitCategory(cleanBase);
 
+	if (fromCategory !== baseCategory) {
+		throw new Error(
+			`Konversi satuan tidak kompatibel: ${fromUnit} (${fromCategory}) tidak dapat dikonversi ke ${baseUnit} (${baseCategory})`
+		);
+	}
+
+	const unitList = ALL_UNITS[baseCategory] || [];
 	const fromUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanFrom);
 	const baseUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanBase);
 
@@ -130,7 +137,7 @@ export function convertToBaseUnit(
 	let baseFactor = baseUnitDef ? baseUnitDef.factorToBase : 1;
 
 	// Handle dynamic pack size
-	if (category === 'kemasan') {
+	if (baseCategory === 'kemasan') {
 		if (['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'].includes(cleanFrom)) {
 			fromFactor = Math.max(1, packSize);
 		}

@@ -75,14 +75,13 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 
 	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
-	// [CATATAN]: id di tabel pengaturan adalah INTEGER — coerce dari string ke Number.
-	const idNum = Number(body.where!.id);
+	const idStr = String(body.where!.id);
 	await db
 		.update(pengaturan)
 		.set(sanitizeUpdatePayload(body.payload as Partial<typeof pengaturan.$inferInsert>))
-		.where(and(eq(pengaturan.cabang_id, branch), eq(pengaturan.id, idNum)));
-	await publish(platform, branch, 'pengaturan', 'update', { id: idNum });
-	await auditDataChange(rawDb, branch, session, 'pengaturan', 'update', idNum, {
+		.where(and(eq(pengaturan.cabang_id, branch), eq(pengaturan.id, idStr)));
+	await publish(platform, branch, 'pengaturan', 'update', { id: idStr });
+	await auditDataChange(rawDb, branch, session, 'pengaturan', 'update', idStr, {
 		fields: Object.keys(body.payload as Record<string, unknown>)
 	});
 	return json({ ok: true });

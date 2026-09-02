@@ -2,6 +2,7 @@ export type PendingStatus = 'pending' | 'syncing' | 'failed';
 export type PendingFailureKind = 'auth' | 'conflict' | 'network' | 'rate_limit' | 'server' | null;
 
 export interface PendingTransaction extends Record<string, unknown> {
+	schema_version: 2;
 	queue_id: string;
 	branch: string;
 	status: PendingStatus;
@@ -71,6 +72,7 @@ export function normalizePendingTransaction(
 
 	return {
 		...item,
+		schema_version: 2,
 		queue_id:
 			typeof item.queue_id === 'string' && item.queue_id.length > 0
 				? item.queue_id

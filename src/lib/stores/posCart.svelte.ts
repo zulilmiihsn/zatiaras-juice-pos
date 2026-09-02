@@ -3,20 +3,44 @@ import { calculateCartTotal } from '$lib/utils/performance';
 import type { CartItem } from '$lib/types/cart';
 import type { PosProduct, PosAddOn } from '$lib/stores/posState.svelte';
 
-function getCartStorageKey(): string {
-	if (!browser) return 'pos_cart';
-	const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-	return `pos_cart_${branch}`;
+interface StoredCartEnvelope {
+	schema_version: number;
+	branch: string;
+	items: CartItem[];
+	updated_at: string;
 }
 
 function loadCartFromStorage(): CartItem[] {
 	if (!browser) return [];
 	try {
-		const key = getCartStorageKey();
-		const saved = localStorage.getItem(key) || localStorage.getItem('pos_cart');
+		const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+		const key = `pos_cart_${branch}`;
+		const saved = localStorage.getItem(key);
 		if (saved) {
 			const parsed = JSON.parse(saved);
 			if (Array.isArray(parsed)) return parsed;
+			if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+				return parsed.items;
+			}
+		}
+
+		// Migrasi otomatis dari key warisan global pos_cart
+		const legacy = localStorage.getItem('pos_cart');
+		if (legacy) {
+			const parsedLegacy = JSON.parse(legacy);
+			if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
+				localStorage.setItem(
+					key,
+					JSON.stringify({
+						schema_version: 2,
+						branch,
+						items: parsedLegacy,
+						updated_at: new Date().toISOString()
+					})
+				);
+				localStorage.removeItem('pos_cart');
+				return parsedLegacy;
+			}
 		}
 	} catch {}
 	return [];
@@ -28,8 +52,15 @@ export function createPosCart() {
 	function saveToStorage(items: CartItem[]) {
 		if (!browser) return;
 		try {
-			const key = getCartStorageKey();
-			localStorage.setItem(key, JSON.stringify(items));
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const key = `pos_cart_${branch}`;
+			const envelope: StoredCartEnvelope = {
+				schema_version: 2,
+				branch,
+				items,
+				updated_at: new Date().toISOString()
+			};
+			localStorage.setItem(key, JSON.stringify(envelope));
 		} catch {
 			// [CATATAN]: Abaikan jika kuota penyimpanan penuh
 		}

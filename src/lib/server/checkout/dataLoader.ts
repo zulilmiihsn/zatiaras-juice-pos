@@ -9,92 +9,19 @@ import type {
 } from '$lib/server/checkout/types';
 import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/utils';
 
-const checkoutCapabilityCache = new Map<string, Promise<CheckoutCapabilities>>();
-
-// [CATATAN]: ── Schema introspection ────────────────────────────────────────────────────
-
-async function hasColumn(db: D1Database, table: string, column: string): Promise<boolean> {
-	const { results = [] } = (await db.prepare(`PRAGMA table_info(${table})`).all()) as {
-		results?: Array<{ name?: string }>;
-	};
-	return results.some((row) => row.name === column);
-}
-
-async function hasTable(db: D1Database, table: string): Promise<boolean> {
-	const row = (await db
-		.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`)
-		.bind(table)
-		.first()) as { name?: string } | null;
-	return Boolean(row?.name);
-}
-
 // [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
 
 export async function getCheckoutCapabilities(
-	db: D1Database,
-	branch: BranchId
+	_db: D1Database,
+	_branch: BranchId
 ): Promise<CheckoutCapabilities> {
-	const key = String(branch);
-	let cached = checkoutCapabilityCache.get(key);
-	if (!cached) {
-		cached = (async () => {
-			const [
-				stockTrackingAvailable,
-				trackIngredientsColumn,
-				bahanTable,
-				resepTable,
-				mutasiTable,
-				idempotencyAvailable,
-				dailySalesTable,
-				dailyProductSalesTable,
-				transactionProductNameColumn,
-				transactionHppColumn
-			] = await Promise.all([
-				hasColumn(db, 'produk', 'lacak_stok'),
-				hasColumn(db, 'produk', 'lacak_bahan'),
-				hasTable(db, 'bahan'),
-				hasTable(db, 'resep_produk'),
-				hasTable(db, 'bahan_mutasi'),
-				hasColumn(db, 'buku_kas', 'idempotency_key'),
-				hasTable(db, 'ringkasan_penjualan_harian'),
-				hasTable(db, 'penjualan_produk_harian'),
-				hasColumn(db, 'transaksi_kasir', 'nama_produk'),
-				hasColumn(db, 'transaksi_kasir', 'nominal_hpp')
-			]);
-
-			if (!idempotencyAvailable) {
-				throw kitError(500, 'Integritas database: Kolom idempotency_key tidak ditemukan');
-			}
-			if (!stockTrackingAvailable) {
-				throw kitError(500, 'Integritas database: Kolom lacak_stok tidak ditemukan');
-			}
-			if (!trackIngredientsColumn || !bahanTable || !resepTable || !mutasiTable) {
-				throw kitError(500, 'Integritas database: Skema resep dan bahan baku tidak lengkap');
-			}
-			if (!dailySalesTable || !dailyProductSalesTable) {
-				throw kitError(
-					500,
-					'Integritas database: Tabel ringkasan penjualan harian tidak ditemukan'
-				);
-			}
-			if (!transactionProductNameColumn || !transactionHppColumn) {
-				throw kitError(500, 'Integritas database: Kolom snapshot transaksi kasir tidak lengkap');
-			}
-
-			return {
-				stockTrackingAvailable: true,
-				ingredientTrackingAvailable: true,
-				idempotencyAvailable: true,
-				salesSummaryAvailable: true,
-				transactionSnapshotAvailable: true
-			};
-		})().catch((error) => {
-			checkoutCapabilityCache.delete(key);
-			throw error;
-		});
-		checkoutCapabilityCache.set(key, cached);
-	}
-	return cached;
+	return {
+		stockTrackingAvailable: true,
+		ingredientTrackingAvailable: true,
+		idempotencyAvailable: true,
+		salesSummaryAvailable: true,
+		transactionSnapshotAvailable: true
+	};
 }
 
 // [CATATAN]: ── Session lookup ──────────────────────────────────────────────────────────

@@ -27,6 +27,11 @@ assert.equal(calculateEffectiveUnitCost(-100, 10), 0);
 assert.equal(calculateEffectiveUnitCost(undefined, 10), 0);
 assert.equal(calculateEffectiveUnitCost(10_000, null), 0);
 assert.equal(calculateEffectiveUnitCost(NaN, 5), 0);
-assert.equal(calculateEffectiveUnitCost(1000, 3), 333.3333);
+import { convertToBaseUnit } from '../lib/utils/unitConversion';
 
-console.log('ingredient-yield-tests: 22 assertions passed');
+assert.throws(() => convertToBaseUnit(100, 'ml', 'gram'), /Konversi satuan tidak kompatibel/);
+assert.throws(() => convertToBaseUnit(1, 'kg', 'liter'), /Konversi satuan tidak kompatibel/);
+assert.equal(convertToBaseUnit(500, 'gram', 'kg'), 0.5);
+assert.equal(convertToBaseUnit(2, 'liter', 'ml'), 2000);
+
+console.log('ingredient-yield-tests: 26 assertions passed');

@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { witaRangeToWitaQuery } from '$lib/utils/dateTime';
 import { formatRupiah } from '$lib/utils/currency';
 import { getD1Database, getDrizzleDb, normalizeBranch } from '$lib/server/branchResolver';
+import { getRawDb } from '$lib/server/dataApiHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 import { requirePageAccess } from '$lib/server/pageAccess';
@@ -12,7 +13,9 @@ import { eq } from 'drizzle-orm';
 import {
 	buildIdentifyDataRequirementsPrompt,
 	buildAnalyzeBusinessDataPrompt,
-	buildAnalyzeTransactionTextPrompt
+	buildAnalyzeTransactionTextPrompt,
+	parseDataRequirements,
+	type DataRequirements
 } from './prompts';
 import {
 	fetchReportData,
@@ -27,7 +30,6 @@ const MODEL = 'deepseek/deepseek-chat';
 const AI_WINDOW_MS = 15 * 60 * 1000;
 const AI_MAX_REQUESTS = 30;
 const OPENROUTER_TIMEOUT_MS = 15_000;
-const MAX_REPORT_RANGE_DAYS = 732;
 
 interface ChatMessage {
 	role: 'system' | 'user' | 'assistant';
@@ -118,75 +120,6 @@ function toYMDWita(date: Date): string {
 	const mm = String(d.getMonth() + 1).padStart(2, '0');
 	const dd = String(d.getDate()).padStart(2, '0');
 	return `${yyyy}-${mm}-${dd}`;
-}
-
-type DataRequirements = {
-	periode: { start: string; end: string; type: 'daily' | 'weekly' | 'monthly' | 'yearly' };
-	jenisData: string[];
-	prioritas: string;
-	scope: string;
-	reasoning: string;
-};
-
-const PERIOD_TYPES = new Set<DataRequirements['periode']['type']>([
-	'daily',
-	'weekly',
-	'monthly',
-	'yearly'
-]);
-const SAFE_AI_LABEL = /^[a-z0-9_-]{1,40}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function parseIsoDate(value: unknown): Date | null {
-	if (typeof value !== 'string' || !ISO_DATE.test(value)) return null;
-	const date = new Date(`${value}T00:00:00.000Z`);
-	return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
-}
-
-function parseDataRequirements(value: unknown, fallbackDate: string): DataRequirements {
-	if (typeof value !== 'object' || value === null) {
-		throw new Error('output bukan object JSON');
-	}
-	const root = value as Record<string, unknown>;
-	const periode =
-		typeof root.periode === 'object' && root.periode !== null
-			? (root.periode as Record<string, unknown>)
-			: root;
-	const startDate = parseIsoDate(periode.start ?? root.start) ?? parseIsoDate(fallbackDate)!;
-	const endDate = parseIsoDate(periode.end ?? root.end) ?? parseIsoDate(fallbackDate)!;
-	if (startDate > endDate) throw new Error('rentang tanggal terbalik');
-	const rangeDays = Math.floor((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1;
-	if (rangeDays > MAX_REPORT_RANGE_DAYS) {
-		throw new Error(`rentang tanggal melebihi ${MAX_REPORT_RANGE_DAYS} hari`);
-	}
-	const typeValue = periode.type ?? root.type;
-	const type =
-		typeof typeValue === 'string' &&
-		PERIOD_TYPES.has(typeValue as DataRequirements['periode']['type'])
-			? (typeValue as DataRequirements['periode']['type'])
-			: 'daily';
-	const jenisData = Array.isArray(root.jenisData)
-		? root.jenisData
-				.filter((item): item is string => typeof item === 'string' && SAFE_AI_LABEL.test(item))
-				.slice(0, 12)
-		: [];
-	const safeLabel = (candidate: unknown, fallback: string) =>
-		typeof candidate === 'string' && SAFE_AI_LABEL.test(candidate) ? candidate : fallback;
-
-	return {
-		periode: {
-			start: startDate.toISOString().slice(0, 10),
-			end: endDate.toISOString().slice(0, 10),
-			type
-		},
-		jenisData,
-		prioritas: safeLabel(root.prioritas, 'general_analysis'),
-		scope: safeLabel(root.scope, 'general_analysis'),
-		reasoning:
-			typeof root.reasoning === 'string'
-				? root.reasoning.trim().slice(0, 500)
-				: 'Kebutuhan data diidentifikasi berdasarkan pertanyaan user'
-	};
 }
 
 // [CATATAN]: AI 1: Data Requirement Analyzer
@@ -604,6 +537,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 		const dataRequirements = await identifyDataRequirements(question, apiKey);
 
 		const db = getDrizzleDb(event.platform, requestedBranch);
+		const rawDb = getRawDb(event.platform, requestedBranch);
 
 		// [CATATAN]: Hitung waktu WITA dari rentang yang diidentifikasi AI 1
 		// [CATATAN]: STANDAR: Gunakan WITA untuk query database
@@ -710,7 +644,35 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			0
 		);
 		const labaKotor = totalPemasukan - totalPengeluaran;
-		const pajak = labaKotor > 0 ? Math.round(labaKotor * 0.005) : 0;
+
+		let taxRate = 0.005;
+		let taxEnabled = true;
+		let taxThreshold = 500_000_000;
+		let applyThreshold = true;
+		try {
+			const taxConfigRow = (await rawDb
+				.prepare(
+					`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
+				)
+				.bind(branch)
+				.first()) as { nilai?: string } | null;
+			if (taxConfigRow?.nilai) {
+				const parsed = JSON.parse(taxConfigRow.nilai);
+				if (parsed && typeof parsed === 'object') {
+					if (parsed.enabled === false) taxEnabled = false;
+					if (typeof parsed.rate === 'number') taxRate = parsed.rate;
+					if (typeof parsed.threshold === 'number') taxThreshold = parsed.threshold;
+					if (typeof parsed.apply_threshold === 'boolean') applyThreshold = parsed.apply_threshold;
+				}
+			}
+		} catch {}
+
+		let pajak = 0;
+		if (taxEnabled && totalPemasukan > 0) {
+			pajak = applyThreshold
+				? Math.round(Math.min(totalPemasukan, Math.max(0, totalPemasukan - taxThreshold)) * taxRate)
+				: Math.round(totalPemasukan * taxRate);
+		}
 		const labaBersih = labaKotor - pajak;
 
 		// [CATATAN]: Format data per bulan untuk AI

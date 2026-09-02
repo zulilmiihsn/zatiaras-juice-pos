@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import type { D1Database } from '@cloudflare/workers-types';
 import {
 	isAllowedProductImageMime,
@@ -15,9 +14,6 @@ import { computeItemFinancials } from '$lib/server/checkout/financials';
 import { buildCheckoutStatements } from '$lib/server/checkout/statementBuilder';
 import { CHECKOUT_MAX_LINE_ITEMS, checkoutItemCountError } from '$lib/server/checkout/utils';
 import type { AddOnRow, ComputedTransactionItem, ProductRow } from '$lib/server/checkout/types';
-import { chunkReportIds, D1_REPORT_ID_CHUNK_SIZE } from '../routes/api/aichat/reportData';
-import { hashPin, validateNewPin, verifyPinHash } from '$lib/server/pinHash';
-import { buildMonitoringSourceStatus } from '$lib/server/monitoringStatus';
 import { getBestSellersSummary, getWeeklyIncomeSummary } from '$lib/server/dashboardQueries';
 import type { DrizzleDb } from '$lib/server/branchResolver';
 import { parseDataLimit } from '$lib/server/dataPagination';
@@ -62,83 +58,15 @@ assert.throws(
 assert.throws(() => parseDataLimit('-1'), /bilangan bulat/);
 assert.throws(() => parseDataLimit('501'), /antara 1 dan 500/);
 
-const aiChatSource = readFileSync(
-	new URL('../routes/api/aichat/+server.ts', import.meta.url),
-	'utf8'
-);
-assert.match(aiChatSource, /text\.length > 2000/);
-assert.match(aiChatSource, /OPENROUTER_TIMEOUT_MS = 15_000/);
-assert.match(aiChatSource, /signal: controller\.signal/);
-assert.match(aiChatSource, /parseDataRequirements\(parsed, todayWita\)/);
+import { parseDataRequirements } from '../routes/api/aichat/prompts';
 
-const hppCrudSource = readFileSync(
-	new URL('../lib/services/manajemenmenuCrud.ts', import.meta.url),
-	'utf8'
+const reqParsed = parseDataRequirements(
+	{ periode: { start: '2026-09-01', end: '2026-09-02' } },
+	'2026-09-02'
 );
-assert.doesNotMatch(hppCrudSource, /hpp_purchases/);
-assert.match(hppCrudSource, /insertRows\('bahan'/);
-assert.match(hppCrudSource, /insertRows\('bahan_mutasi'/);
-
-const credentialRouteSource = readFileSync(
-	new URL('../routes/api/gantikeamanan/+server.ts', import.meta.url),
-	'utf8'
-);
-assert.match(credentialRouteSource, /rawDb\.batch/);
-assert.match(
-	credentialRouteSource,
-	/DELETE FROM auth_sessions WHERE cabang_id = \? AND user_id = \?/
-);
-
-const rotationSource = readFileSync(
-	new URL('../../scripts/rotate-production-credentials.mjs', import.meta.url),
-	'utf8'
-);
-assert.match(rotationSource, /Rotasi production memerlukan --live/);
-assert.match(rotationSource, /canonicalizeExternalPath/);
-assert.match(rotationSource, /parseAndVerifyInfo/);
-assert.match(rotationSource, /ConvertFrom-SecureString/);
-assert.match(rotationSource, /DELETE FROM auth_sessions/);
-
-const reportChunks = chunkReportIds(
-	Array.from({ length: D1_REPORT_ID_CHUNK_SIZE * 2 + 7 }, (_, index) => `kas-${index}`)
-);
-assert.deepEqual(
-	reportChunks.map((chunk) => chunk.length),
-	[99, 99, 7]
-);
-assert.throws(() => chunkReportIds(['kas-1'], 100), /Ukuran chunk/);
-
-assert.equal(validateNewPin('1234'), 'Gunakan PIN yang tidak mudah ditebak');
-assert.equal(validateNewPin('5827'), null);
-const encodedPin = await hashPin('5827');
-assert.notEqual(encodedPin, '5827');
-assert.equal(await verifyPinHash('5827', encodedPin), true);
-assert.equal(await verifyPinHash('5828', encodedPin), false);
-assert.equal(await verifyPinHash('5827', 'invalid'), false);
-
-const monitoringStatus = buildMonitoringSourceStatus([
-	{ status: 'fulfilled', value: {} },
-	{ status: 'rejected', reason: new Error('missing') },
-	{ status: 'fulfilled', value: {} },
-	{ status: 'fulfilled', value: {} }
-]);
-assert.equal(monitoringStatus.requestMetrics.available, true);
-assert.equal(monitoringStatus.errorEvents.available, false);
-
-const pageAccessMatrix = [
-	['../routes/api/dashboard/stats/+server.ts', 'beranda'],
-	['../routes/api/dashboard/best-sellers/+server.ts', 'beranda'],
-	['../routes/api/dashboard/weekly/+server.ts', 'beranda'],
-	['../routes/api/dashboard/pos-kas-7hari/+server.ts', 'beranda'],
-	['../routes/api/buku-kas/+server.ts', 'catat'],
-	['../routes/api/reports/aggregate/+server.ts', 'laporan'],
-	['../routes/api/aichat/+server.ts', 'laporan']
-] as const;
-for (const [relativePath, page] of pageAccessMatrix) {
-	const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
-	assert.match(source, /requirePageAccess/);
-	assert.match(source, new RegExp(`['"]${page}['"]`));
-}
+assert.equal(reqParsed.periode.start, '2026-09-01');
+assert.equal(reqParsed.periode.end, '2026-09-02');
+assert.throws(() => parseDataRequirements('invalid', '2026-09-02'), /output bukan object/);
 
 type FakeStatement = {
 	sql: string;

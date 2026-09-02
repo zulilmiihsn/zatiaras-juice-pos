@@ -287,28 +287,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const existing = await getExistingByIdempotency(db, branch, idempotencyKey, idempotencyAvailable);
 	if (existing) {
-		if (existing.request_fingerprint) {
-			if (existing.request_fingerprint !== requestFingerprint) {
-				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
-			}
-		} else {
-			const expectedTotal = quoteData
-				? normalizeMoney(quoteData.total_amount)
-				: rawItems.reduce(
-						(s: number, i: any) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
-						0
-					);
-			const expectedQty = quoteData
-				? quoteData.total_qty
-				: rawItems.reduce((s: number, i: any) => s + Number(i.jumlah || 0), 0);
-
-			if (
-				existing.nominal !== expectedTotal ||
-				existing.jumlah !== expectedQty ||
-				existing.metode_bayar !== paymentMethod
-			) {
-				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
-			}
+		if (existing.request_fingerprint !== requestFingerprint) {
+			throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
 		}
 
 		let receipt = null;
@@ -636,6 +616,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			data: {
 				buku_kas_id: bukuKasId,
 				transaction_id: transactionId,
+				committed_at: createdAt,
 				total_amount: totalAmount,
 				total_qty: totalQty,
 				change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,

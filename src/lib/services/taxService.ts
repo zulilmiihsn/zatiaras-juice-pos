@@ -79,7 +79,47 @@ export function getTaxSettings(branch?: string): TaxSettings {
 }
 
 /**
- * Menyimpan konfigurasi pajak ke localStorage (per branch)
+ * Memuat konfigurasi pajak dari server (D1) dengan sinkronisasi ke storage lokal
+ */
+export async function syncTaxSettingsWithServer(branch?: string): Promise<TaxSettings> {
+	if (!browser) return DEFAULT_TAX_SETTINGS;
+	try {
+		const targetBranch = (
+			branch ||
+			localStorage.getItem('selectedBranch') ||
+			'samarinda'
+		).toLowerCase();
+		const res = await fetch(`/api/pengaturan/pajak?branch=${targetBranch}`);
+		if (res.ok) {
+			const json = await res.json();
+			if (json.ok && json.data) {
+				const serverCfg = json.data;
+				const localSettings: TaxSettings = {
+					isTaxEnabled: serverCfg.enabled,
+					taxes: [
+						{
+							id: 'pph_final_umkm',
+							nama: serverCfg.nama || 'PPh Final UMKM',
+							tipe: 'pph_final',
+							persentase: (serverCfg.rate || 0.005) * 100,
+							isEnabled: serverCfg.enabled,
+							useThreshold500Juta: Boolean(serverCfg.apply_threshold)
+						}
+					]
+				};
+				localStorage.setItem(
+					`zatiaras_tax_settings_${targetBranch}`,
+					JSON.stringify(localSettings)
+				);
+				return localSettings;
+			}
+		}
+	} catch {}
+	return getTaxSettings(branch);
+}
+
+/**
+ * Menyimpan konfigurasi pajak ke server D1 dan cache localStorage
  */
 export function saveTaxSettings(settings: TaxSettings, branch?: string): boolean {
 	if (!browser) return false;
@@ -91,6 +131,25 @@ export function saveTaxSettings(settings: TaxSettings, branch?: string): boolean
 		).toLowerCase();
 		localStorage.setItem(`zatiaras_tax_settings_${targetBranch}`, JSON.stringify(settings));
 		localStorage.setItem(TAX_STORAGE_KEY, JSON.stringify(settings));
+
+		// Sinkronisasi asinkron ke server D1
+		const activeTax = settings.taxes.find((t) => t.isEnabled) || settings.taxes[0];
+		if (activeTax) {
+			fetch('/api/pengaturan/pajak', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					config: {
+						enabled: settings.isTaxEnabled && activeTax.isEnabled,
+						nama: activeTax.nama,
+						rate: (activeTax.persentase || 0) / 100,
+						threshold: 500_000_000,
+						apply_threshold: Boolean(activeTax.useThreshold500Juta)
+					}
+				})
+			}).catch(() => {});
+		}
+
 		// Dispatch storage event untuk listener lokal
 		window.dispatchEvent(
 			new CustomEvent('zatiara:tax_settings_updated', {

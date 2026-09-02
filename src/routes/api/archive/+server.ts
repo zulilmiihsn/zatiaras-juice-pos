@@ -128,6 +128,20 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		.catch(() => {});
 
 	try {
+		// Conflict Detection: Pastikan tidak ada sesi toko yang sedang aktif di cabang ini
+		const activeSession = (await rawDb
+			.prepare(`SELECT id FROM sesi_toko WHERE cabang_id = ? AND is_active = 1 LIMIT 1`)
+			.bind(branch)
+			.first()
+			.catch(() => null)) as { id?: string } | null;
+
+		if (activeSession?.id) {
+			throw kitError(
+				409,
+				'Konflik arsip: Sesi toko masih aktif di cabang ini. Tutup sesi kasir terlebih dahulu.'
+			);
+		}
+
 		const [bukuKasResult, transaksiKasirResult] = await Promise.all([
 			rawDb
 				.prepare('SELECT * FROM buku_kas WHERE cabang_id = ? AND waktu < ?')
