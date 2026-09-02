@@ -28,15 +28,15 @@
 
 - [x] Scope Phase 3 ditentukan: POS checkout reliability, loading states, empty/error states, offline/realtime validation.
 
-### 🔄 Phase 3: POS Production Polish (DILANJUTKAN DI MASTER PLAN)
+### ✅ Phase 3: POS Production Polish (SELESAI)
 
 - [x] Deploy config check: `pnpm deploy:check`
 - [x] Quality test runner failure propagation
-- [x] Local verification: `pnpm check`, `pnpm build`, `pnpm lint`, `pnpm test:features`
+- [x] Local verification: `pnpm check`, `pnpm build`, `pnpm lint`, `pnpm test:all`
 - [x] PWA/offline reliability check
 - [x] Realtime auth-gate smoke check on live Pages endpoint
-- [ ] Premium UI polish for cashier-critical screens
-- [ ] Migrasi `modalSheet.svelte` dari Svelte 4 `createEventDispatcher` ke rune callbacks
+- [x] Premium UI polish for cashier-critical screens
+- [x] Migrasi `modalSheet.svelte` ke Svelte 5 rune callbacks & snippets
 
 ---
 

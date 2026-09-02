@@ -4,15 +4,16 @@ _File ini adalah "memori" proyek. Update setiap kali ada perubahan signifikan._
 
 ## Status Saat Ini
 
-- **Tanggal**: 2026-09-01
+- **Tanggal**: 2026-09-02
 - **Milestone**: v2.0 — Stabilisasi & Quality (10/10 Master Plan Completed)
-- **Phase Aktif**: **Semua Wave 0–4 Selesai & Terverifikasi**
+- **Candidate Commit SHA**: `6cda49338ef16a941359e9422fe7ac0f6d40a2fc`
+- **Phase Aktif**: **Semua 28 Task Master Plan Selesai & Terverifikasi (Evidence Ledger Terisi)**
 - **Pekerjaan Terakhir**:
-  - Wave 0: Baseline & Checkpoint Branch
-  - Wave 1: SEC-001 (Profil Route), MENU-001 (Resep ID), HPP-001 (4-Decimal Yield), POS-001 (Mode Validation), OFF-001 (Offline Receipt Retention)
-  - Wave 2: TAX-001 (PP 55/2022 Omzet Usaha Base & 500M Threshold), ARC-001 & ARC-002 (WITA Cutoff, Anti-TOCTOU Exact-ID Batch Delete, Restore Tooling), RT-001 (Multi-Subscriber Isolated Disposers), R2-001 (Branch-Scoped R2 Object Isolation)
-  - Wave 3: DB-002 (Journal Drizzle Sync 0017-0022), QA-002 (Typecheck 0 errors 0 warnings, ESLint passed, Prettier passed, Unit & Quality tests 100%), DEBT-001 (Dead code & unused imports cleaned)
-  - Wave 4: Release & Evidence Verification (pnpm build, pnpm test:operations, pnpm test:unit, pnpm test:quality, pnpm test:e2e:pos all 100% passing)
+  - Wave 0: GOV-001, DB-001, QA-001 (Clean candidate branch, D1 backup runner, Code quality suite)
+  - Wave 1: SEC-001 (Strict role whitelist), MENU-001 (Atomic menu/recipe mutation + CSRF retry), HPP-001 (4-Decimal Yield/HPP), POS-001 (Fail-closed validation), POS-002 (Canonical SHA-256 fingerprint & receipt snapshot idempotency), OFF-001 & OFF-002 (Branch-scoped offline queue & sync replay)
+  - Wave 2: TOK-001 (Multi-generation HMAC key rotation), R2-001 (Branch-scoped R2 image isolation), RT-001 (Multi-subscriber isolated disposers), ARC-001 & ARC-002 (GET preview, WITA cutoff, R2 readback checksum, exact-ID delete, auto-binding restore), TAX-001 (PP 55/2022 YTD cumulative 500M threshold)
+  - Wave 3: DB-002 (Drizzle migration 0000-0023 complete), QA-002 (100% test pass across operations, quality, and 10 unit test suites), MAINT-001 & DEBT-001 (Clean types & zero svelte-check diagnostics)
+  - Wave 4: Release Provenance & Checklists (package.json release gates, DEVELOPER-GUIDE.md, HANDOVER-CHECKLIST.md, clean git tree)
 
 ## Riwayat Milestone
 
@@ -85,7 +86,9 @@ src/
 
 ## Follow-up Saat Ini
 
-- Jalankan `GOV-001`: inventaris dan pertahankan dirty WIP sebelum source edit, test, migration, atau production probe.
+- Seluruh 28 task master plan selesai dan diverifikasi (`test:all` 100% pass).
+- Release candidate SHA tercatat di Evidence Ledger [MASTER-PLAN-10of10.md](./MASTER-PLAN-10of10.md).
+- Siap untuk owner UAT & release tag setelah persetujuan pemilik.
 
 ## Keputusan Arsitektural Yang Sudah Dibuat
 
