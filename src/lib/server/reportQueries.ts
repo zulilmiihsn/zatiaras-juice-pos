@@ -229,12 +229,43 @@ export async function buildLaporanAggregate(
 	}
 
 	const cumulativeEnd = cumulativeBefore + omzetUsaha;
-	const THRESHOLD = 500_000_000;
-	const taxableTurnover = Math.min(
-		omzetUsaha,
-		Math.max(0, Math.max(0, cumulativeEnd - THRESHOLD) - Math.max(0, cumulativeBefore - THRESHOLD))
-	);
-	const pajak = taxableTurnover > 0 ? Math.round(taxableTurnover * 0.005) : 0;
+	let taxRate = 0.005;
+	let taxEnabled = true;
+	let taxThreshold = 500_000_000;
+	let applyThreshold = true;
+	try {
+		const taxConfigRow = (await rawDb
+			.prepare(
+				`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
+			)
+			.bind(branch)
+			.first()) as { nilai?: string } | null;
+		if (taxConfigRow?.nilai) {
+			const parsed = JSON.parse(taxConfigRow.nilai);
+			if (parsed && typeof parsed === 'object') {
+				if (parsed.enabled === false) taxEnabled = false;
+				if (typeof parsed.rate === 'number') taxRate = parsed.rate;
+				if (typeof parsed.threshold === 'number') taxThreshold = parsed.threshold;
+				if (typeof parsed.apply_threshold === 'boolean') applyThreshold = parsed.apply_threshold;
+			}
+		}
+	} catch {}
+
+	let pajak = 0;
+	if (taxEnabled) {
+		if (applyThreshold) {
+			const taxableTurnover = Math.min(
+				omzetUsaha,
+				Math.max(
+					0,
+					Math.max(0, cumulativeEnd - taxThreshold) - Math.max(0, cumulativeBefore - taxThreshold)
+				)
+			);
+			pajak = taxableTurnover > 0 ? Math.round(taxableTurnover * taxRate) : 0;
+		} else {
+			pajak = Math.round(omzetUsaha * taxRate);
+		}
+	}
 
 	return {
 		summary: {

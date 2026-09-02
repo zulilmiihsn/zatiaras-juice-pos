@@ -17,9 +17,13 @@ export const uploadToR2 = async (
 	key: string,
 	body: ArrayBuffer | Uint8Array,
 	contentType: string,
-	bucket: R2Bucket
+	bucket: R2Bucket,
+	customMetadata?: Record<string, string>
 ): Promise<string> => {
-	await bucket.put(key, body, { httpMetadata: { contentType } });
+	await bucket.put(key, body, {
+		httpMetadata: { contentType },
+		customMetadata: customMetadata || {}
+	});
 	const publicUrl = env.R2_PUBLIC_URL || '';
 	return publicUrl ? `${publicUrl}/${key}` : `/api/upload?key=${encodeURIComponent(key)}`;
 };

@@ -65,14 +65,28 @@ export async function getCheckoutCapabilities(
 			if (!idempotencyAvailable) {
 				throw kitError(500, 'Integritas database: Kolom idempotency_key tidak ditemukan');
 			}
+			if (!stockTrackingAvailable) {
+				throw kitError(500, 'Integritas database: Kolom lacak_stok tidak ditemukan');
+			}
+			if (!trackIngredientsColumn || !bahanTable || !resepTable || !mutasiTable) {
+				throw kitError(500, 'Integritas database: Skema resep dan bahan baku tidak lengkap');
+			}
+			if (!dailySalesTable || !dailyProductSalesTable) {
+				throw kitError(
+					500,
+					'Integritas database: Tabel ringkasan penjualan harian tidak ditemukan'
+				);
+			}
+			if (!transactionProductNameColumn || !transactionHppColumn) {
+				throw kitError(500, 'Integritas database: Kolom snapshot transaksi kasir tidak lengkap');
+			}
 
 			return {
-				stockTrackingAvailable,
-				ingredientTrackingAvailable:
-					trackIngredientsColumn && bahanTable && resepTable && mutasiTable,
+				stockTrackingAvailable: true,
+				ingredientTrackingAvailable: true,
 				idempotencyAvailable: true,
-				salesSummaryAvailable: dailySalesTable && dailyProductSalesTable,
-				transactionSnapshotAvailable: transactionProductNameColumn && transactionHppColumn
+				salesSummaryAvailable: true,
+				transactionSnapshotAvailable: true
 			};
 		})().catch((error) => {
 			checkoutCapabilityCache.delete(key);
@@ -129,7 +143,7 @@ export async function getExistingByIdempotency(
 
 	return (await db
 		.prepare(
-			`SELECT id, transaction_id, nominal, jumlah, metode_bayar, request_fingerprint, receipt_snapshot
+			`SELECT id, transaction_id, nominal, jumlah, metode_bayar, request_fingerprint, receipt_snapshot, waktu
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND idempotency_key = ?
 			 LIMIT 1`
@@ -143,6 +157,7 @@ export async function getExistingByIdempotency(
 		metode_bayar?: string | null;
 		request_fingerprint?: string | null;
 		receipt_snapshot?: string | null;
+		waktu?: string | null;
 	} | null;
 }
 

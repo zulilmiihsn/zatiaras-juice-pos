@@ -109,7 +109,7 @@ Saat menerima task di proyek ini:
 1. Baca `.planning/PROJECT.md` untuk memahami prinsip yang tidak boleh dilanggar
 2. Cek `.planning/ROADMAP.md` untuk tahu prioritas saat ini
 3. Update `.planning/STATE.md` ini setelah menyelesaikan task signifikan
-4. Gunakan Context7 MCP untuk fetch dokumentasi Svelte 5 / Supabase jika diperlukan
+4. Gunakan Context7 MCP untuk fetch dokumentasi Svelte 5 / Cloudflare D1 jika diperlukan
 5. Jangan ubah UI/UX yang sudah ada kecuali diminta secara eksplisit
 
 ## Quick Tasks Completed

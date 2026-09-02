@@ -93,6 +93,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			}
 		}
 
+		const seenRecipeKeys = new Set<string>();
 		for (const r of rawRecipes) {
 			const bahanId = String(r.bahan_id || '').trim();
 			const qty = Number(r.jumlah_per_item);
@@ -105,8 +106,18 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				throw kitError(400, `Takaran dasar resep untuk bahan ${bahanId} harus lebih besar dari 0`);
 			}
 
-			const recipeId = crypto.randomUUID();
 			const porsi = r.porsi ? String(r.porsi).trim().toLowerCase() : 'reguler';
+			if (porsi !== 'reguler' && porsi !== 'jumbo') {
+				throw kitError(400, `Porsi resep tidak valid (harus reguler atau jumbo): ${porsi}`);
+			}
+
+			const recipeKey = `${bahanId}:${porsi}`;
+			if (seenRecipeKeys.has(recipeKey)) {
+				throw kitError(400, `Resep duplikat untuk bahan ${bahanId} pada porsi ${porsi}`);
+			}
+			seenRecipeKeys.add(recipeKey);
+
+			const recipeId = crypto.randomUUID();
 			const satuanResep = r.satuan_resep ? String(r.satuan_resep).trim() : null;
 
 			normalizedRecipes.push({

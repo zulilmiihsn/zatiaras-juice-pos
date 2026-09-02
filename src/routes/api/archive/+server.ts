@@ -100,177 +100,216 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const bucket = platform?.env?.STORAGE;
 	if (!bucket) throw kitError(503, 'Storage tidak tersedia');
 
-	const [bukuKasResult, transaksiKasirResult] = await Promise.all([
-		rawDb
-			.prepare('SELECT * FROM buku_kas WHERE cabang_id = ? AND waktu < ?')
-			.bind(branch, cutoff)
-			.all(),
-		rawDb
-			.prepare(
-				`SELECT tk.* FROM transaksi_kasir tk
+	// [CATATAN]: Branch archive lock guard untuk mencegah operasi arsip konkuren
+	const existingLock = (await rawDb
+		.prepare(
+			`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = 'archive_lock' LIMIT 1`
+		)
+		.bind(branch)
+		.first()
+		.catch(() => null)) as { nilai?: string; updated_at?: string } | null;
+
+	if (existingLock?.nilai === 'locked') {
+		const lockTime = new Date(existingLock.updated_at || 0).getTime();
+		if (Date.now() - lockTime < 10 * 60 * 1000) {
+			throw kitError(409, 'Proses pengarsipan sedang berjalan untuk cabang ini. Coba lagi nanti.');
+		}
+	}
+
+	// Pasang lock
+	await rawDb
+		.prepare(
+			`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+			 VALUES (?, ?, 'archive_lock', 'locked', ?)
+			 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = 'locked', updated_at = excluded.updated_at`
+		)
+		.bind(crypto.randomUUID(), branch, new Date().toISOString())
+		.run()
+		.catch(() => {});
+
+	try {
+		const [bukuKasResult, transaksiKasirResult] = await Promise.all([
+			rawDb
+				.prepare('SELECT * FROM buku_kas WHERE cabang_id = ? AND waktu < ?')
+				.bind(branch, cutoff)
+				.all(),
+			rawDb
+				.prepare(
+					`SELECT tk.* FROM transaksi_kasir tk
 				 INNER JOIN buku_kas bk
 					ON bk.cabang_id = tk.cabang_id AND bk.id = tk.buku_kas_id
 				 WHERE tk.cabang_id = ? AND bk.waktu < ?`
-			)
-			.bind(branch, cutoff)
-			.all()
-	]);
-	const bukuKas = (bukuKasResult.results || []) as Array<Record<string, unknown>>;
-	const transaksiKasir = (transaksiKasirResult.results || []) as Array<Record<string, unknown>>;
+				)
+				.bind(branch, cutoff)
+				.all()
+		]);
+		const bukuKas = (bukuKasResult.results || []) as Array<Record<string, unknown>>;
+		const transaksiKasir = (transaksiKasirResult.results || []) as Array<Record<string, unknown>>;
 
-	const total = bukuKas.length + transaksiKasir.length;
-	if (total === 0) {
-		return json({
-			ok: true,
-			count: 0,
-			message: `Tidak ada transaksi sebelum ${year} (WITA) untuk diarsipkan.`
-		});
-	}
-
-	const archiveId = crypto.randomUUID();
-	const archive = {
-		meta: {
-			archive_id: archiveId,
-			branch,
-			before_year: year,
-			cutoff_wita: cutoffWita.toISOString(),
-			exported_at: new Date().toISOString(),
-			counts: { buku_kas: bukuKas.length, transaksi_kasir: transaksiKasir.length }
-		},
-		buku_kas: bukuKas,
-		transaksi_kasir: transaksiKasir
-	};
-	const content = JSON.stringify(archive);
-	const checksum = createHash('sha256').update(content).digest('hex');
-	const filename = `arsip-${branch}-sebelum-${year}-${archiveId.slice(0, 8)}.json`;
-	const key = `arsip/${branch}/${year}/${filename}`;
-
-	// [CATATAN]: Simpan ke R2 DULU — kalau gagal, lempar error & JANGAN hapus apa pun dari DB
-	await bucket.put(key, content, {
-		httpMetadata: { contentType: 'application/json' },
-		customMetadata: {
-			branch,
-			archive_id: archiveId,
-			before_year: String(year),
-			count: String(total),
-			sha256: checksum
-		}
-	});
-
-	// [CATATAN]: Verifikasi readback dari R2 untuk membuktikan objek benar tersimpan utuh
-	const readback = await bucket.get(key);
-	if (!readback) {
-		throw kitError(500, 'Verifikasi integritas arsip R2 gagal: objek tidak dapat dibaca kembali');
-	}
-
-	// [CATATAN]: Rekapitulasi transaksi manual ke ringkasan_kas_arsip_harian agar histori laporan tetap utuh
-	const manualSummaries = new Map<
-		string,
-		{
-			tanggal_wita: string;
-			tipe: string;
-			jenis: string;
-			metode_bayar: string | null;
-			count: number;
-			total_nominal: number;
-		}
-	>();
-
-	for (const r of bukuKas) {
-		const sumber = String(r.sumber || '');
-		if (sumber === 'pos') continue; // POS sudah memiliki penjualan_produk_harian
-
-		const waktuStr = String(r.waktu || '');
-		let tanggalWita = '';
-		try {
-			const d = new Date(waktuStr);
-			// Add 8 hours for WITA
-			const witaTime = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-			tanggalWita = witaTime.toISOString().slice(0, 10);
-		} catch {
-			tanggalWita = waktuStr.slice(0, 10);
+		const total = bukuKas.length + transaksiKasir.length;
+		if (total === 0) {
+			return json({
+				ok: true,
+				count: 0,
+				message: `Tidak ada transaksi sebelum ${year} (WITA) untuk diarsipkan.`
+			});
 		}
 
-		const tipe = String(r.tipe || 'in');
-		const jenis = String(r.jenis || 'lainnya');
-		const metode = r.metode_bayar ? String(r.metode_bayar) : null;
-		const nominal = Number(r.nominal || 0);
-
-		const summaryKey = `${tanggalWita}:${tipe}:${jenis}:${metode || 'none'}`;
-		const current = manualSummaries.get(summaryKey) || {
-			tanggal_wita: tanggalWita,
-			tipe,
-			jenis,
-			metode_bayar: metode,
-			count: 0,
-			total_nominal: 0
+		const archiveId = crypto.randomUUID();
+		const archive = {
+			meta: {
+				archive_id: archiveId,
+				branch,
+				before_year: year,
+				cutoff_wita: cutoffWita.toISOString(),
+				exported_at: new Date().toISOString(),
+				counts: { buku_kas: bukuKas.length, transaksi_kasir: transaksiKasir.length }
+			},
+			buku_kas: bukuKas,
+			transaksi_kasir: transaksiKasir
 		};
-		current.count += 1;
-		current.total_nominal += nominal;
-		manualSummaries.set(summaryKey, current);
-	}
+		const content = JSON.stringify(archive);
+		const checksum = createHash('sha256').update(content).digest('hex');
+		const filename = `arsip-${branch}-sebelum-${year}-${archiveId.slice(0, 8)}.json`;
+		const key = `arsip/${branch}/${year}/${filename}`;
 
-	const batchStatements = [];
+		// [CATATAN]: Simpan ke R2 DULU — kalau gagal, lempar error & JANGAN hapus apa pun dari DB
+		await bucket.put(key, content, {
+			httpMetadata: { contentType: 'application/json' },
+			customMetadata: {
+				branch,
+				archive_id: archiveId,
+				before_year: String(year),
+				count: String(total),
+				sha256: checksum
+			}
+		});
 
-	// 1. Simpan ringkasan arsip manual
-	for (const s of manualSummaries.values()) {
-		batchStatements.push(
-			rawDb
-				.prepare(
-					`INSERT INTO ringkasan_kas_arsip_harian (
+		// [CATATAN]: Verifikasi readback dari R2 untuk membuktikan objek benar tersimpan utuh
+		const readback = await bucket.get(key);
+		if (!readback) {
+			throw kitError(500, 'Verifikasi integritas arsip R2 gagal: objek tidak dapat dibaca kembali');
+		}
+
+		// [CATATAN]: Rekapitulasi transaksi manual ke ringkasan_kas_arsip_harian agar histori laporan tetap utuh
+		const manualSummaries = new Map<
+			string,
+			{
+				tanggal_wita: string;
+				tipe: string;
+				jenis: string;
+				metode_bayar: string | null;
+				count: number;
+				total_nominal: number;
+			}
+		>();
+
+		for (const r of bukuKas) {
+			const sumber = String(r.sumber || '');
+			if (sumber === 'pos') continue; // POS sudah memiliki penjualan_produk_harian
+
+			const waktuStr = String(r.waktu || '');
+			let tanggalWita = '';
+			try {
+				const d = new Date(waktuStr);
+				// Add 8 hours for WITA
+				const witaTime = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+				tanggalWita = witaTime.toISOString().slice(0, 10);
+			} catch {
+				tanggalWita = waktuStr.slice(0, 10);
+			}
+
+			const tipe = String(r.tipe || 'in');
+			const jenis = String(r.jenis || 'lainnya');
+			const metode = r.metode_bayar ? String(r.metode_bayar) : null;
+			const nominal = Number(r.nominal || 0);
+
+			const summaryKey = `${tanggalWita}:${tipe}:${jenis}:${metode || 'none'}`;
+			const current = manualSummaries.get(summaryKey) || {
+				tanggal_wita: tanggalWita,
+				tipe,
+				jenis,
+				metode_bayar: metode,
+				count: 0,
+				total_nominal: 0
+			};
+			current.count += 1;
+			current.total_nominal += nominal;
+			manualSummaries.set(summaryKey, current);
+		}
+
+		const batchStatements = [];
+
+		// 1. Simpan ringkasan arsip manual
+		for (const s of manualSummaries.values()) {
+			batchStatements.push(
+				rawDb
+					.prepare(
+						`INSERT INTO ringkasan_kas_arsip_harian (
 						id, cabang_id, archive_id, tanggal_wita, tipe, jenis, metode_bayar,
 						jumlah_transaksi, total_nominal, created_at
 					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-				)
-				.bind(
-					crypto.randomUUID(),
-					branch,
-					archiveId,
-					s.tanggal_wita,
-					s.tipe,
-					s.jenis,
-					s.metode_bayar,
-					s.count,
-					s.total_nominal,
-					new Date().toISOString()
-				)
-		);
-	}
+					)
+					.bind(
+						crypto.randomUUID(),
+						branch,
+						archiveId,
+						s.tanggal_wita,
+						s.tipe,
+						s.jenis,
+						s.metode_bayar,
+						s.count,
+						s.total_nominal,
+						new Date().toISOString()
+					)
+			);
+		}
 
-	// 2. Anti-TOCTOU: Hapus HANYA exact row IDs yang sudah tersimpan di file arsip
-	const bkIds = bukuKas.map((r) => String(r.id)).filter(Boolean);
-	const tkIds = transaksiKasir.map((r) => String(r.id)).filter(Boolean);
+		// 2. Anti-TOCTOU: Hapus HANYA exact row IDs yang sudah tersimpan di file arsip
+		const bkIds = bukuKas.map((r) => String(r.id)).filter(Boolean);
+		const tkIds = transaksiKasir.map((r) => String(r.id)).filter(Boolean);
 
-	// Chunked delete in batches of 50
-	for (let i = 0; i < tkIds.length; i += 50) {
-		const chunk = tkIds.slice(i, i + 50);
-		const placeholders = chunk.map(() => '?').join(',');
-		batchStatements.push(
-			rawDb
-				.prepare(`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})`)
-				.bind(branch, ...chunk)
-		);
-	}
-	for (let i = 0; i < bkIds.length; i += 50) {
-		const chunk = bkIds.slice(i, i + 50);
-		const placeholders = chunk.map(() => '?').join(',');
-		batchStatements.push(
-			rawDb
-				.prepare(`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})`)
-				.bind(branch, ...chunk)
-		);
-	}
+		// Chunked delete in batches of 50
+		for (let i = 0; i < tkIds.length; i += 50) {
+			const chunk = tkIds.slice(i, i + 50);
+			const placeholders = chunk.map(() => '?').join(',');
+			batchStatements.push(
+				rawDb
+					.prepare(`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})`)
+					.bind(branch, ...chunk)
+			);
+		}
+		for (let i = 0; i < bkIds.length; i += 50) {
+			const chunk = bkIds.slice(i, i + 50);
+			const placeholders = chunk.map(() => '?').join(',');
+			batchStatements.push(
+				rawDb
+					.prepare(`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})`)
+					.bind(branch, ...chunk)
+			);
+		}
 
-	if (batchStatements.length > 0) {
-		await rawDb.batch(batchStatements);
-	}
+		if (batchStatements.length > 0) {
+			await rawDb.batch(batchStatements);
+		}
 
-	return json({
-		ok: true,
-		count: total,
-		key,
-		filename,
-		content,
-		counts: archive.meta.counts
-	});
+		return json({
+			ok: true,
+			count: total,
+			key,
+			filename,
+			content,
+			counts: archive.meta.counts
+		});
+	} finally {
+		await rawDb
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+				 VALUES (?, ?, 'archive_lock', 'unlocked', ?)
+				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = 'unlocked', updated_at = excluded.updated_at`
+			)
+			.bind(crypto.randomUUID(), branch, new Date().toISOString())
+			.run()
+			.catch(() => {});
+	}
 };

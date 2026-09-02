@@ -122,10 +122,15 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const body = (await request.json().catch(() => null)) as PosTransactionInput | null;
 	if (!body) throw kitError(400, 'Item transaksi kosong');
 	const rawMode = body.mode;
-	if (rawMode !== 'online' && rawMode !== 'offline_replay') {
+	if (
+		rawMode !== undefined &&
+		rawMode !== null &&
+		rawMode !== 'online' &&
+		rawMode !== 'offline_replay'
+	) {
 		throw kitError(400, 'Mode transaksi POS tidak valid (harus online atau offline_replay)');
 	}
-	const mode = rawMode;
+	const mode = rawMode || 'online';
 	let quoteData: PosQuoteTokenData | null = null;
 	if (mode === 'online') {
 		try {
@@ -312,16 +317,6 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				receipt = JSON.parse(existing.receipt_snapshot);
 			} catch {}
 		}
-		if (!receipt && quoteData) {
-			const existingCashReceived = normalizeMoney(body.cash_received);
-			receipt = buildReceiptFromQuote(quoteData, {
-				totalAmount: existing.nominal,
-				cashReceived: existingCashReceived,
-				paymentMethod,
-				committedAt: new Date().toISOString()
-			});
-		}
-
 		const existingCashReceived = normalizeMoney(body.cash_received);
 		return json({
 			ok: true,
@@ -329,6 +324,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			data: {
 				buku_kas_id: existing.id,
 				transaction_id: existing.transaction_id,
+				committed_at: existing.waktu || new Date().toISOString(),
 				total_amount: existing.nominal,
 				total_qty: existing.jumlah,
 				change:

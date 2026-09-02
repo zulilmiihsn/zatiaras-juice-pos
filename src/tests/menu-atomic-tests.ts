@@ -42,10 +42,20 @@ function validateAtomicMenuPayload(product: ProductDraft, recipes: RecipeDraft[]
 		if (!recipes.length) {
 			throw new Error('Produk dengan lacak bahan wajib memiliki resep');
 		}
+		const seen = new Set<string>();
 		for (const r of recipes) {
 			if (!r.bahan_id) throw new Error('Bahan resep wajib dipilih');
 			if (r.jumlah_per_item <= 0) throw new Error('Takaran resep harus > 0');
 			if (r.jumlah_dasar_per_item <= 0) throw new Error('Takaran dasar resep harus > 0');
+			const porsi = r.porsi ? String(r.porsi).trim().toLowerCase() : 'reguler';
+			if (porsi !== 'reguler' && porsi !== 'jumbo') {
+				throw new Error(`Porsi resep tidak valid: ${porsi}`);
+			}
+			const key = `${r.bahan_id}:${porsi}`;
+			if (seen.has(key)) {
+				throw new Error(`Resep duplikat untuk bahan ${r.bahan_id} pada porsi ${porsi}`);
+			}
+			seen.add(key);
 		}
 	}
 	return true;
@@ -96,5 +106,17 @@ assert.throws(
 		]),
 	/Takaran resep harus > 0/
 );
+assert.throws(
+	() => validateAtomicMenuPayload(validProd, [{ ...validRecipes[0], porsi: 'medium' }]),
+	/Porsi resep tidak valid/
+);
+assert.throws(
+	() =>
+		validateAtomicMenuPayload(validProd, [
+			validRecipes[0],
+			{ ...validRecipes[0], jumlah_per_item: 50 }
+		]),
+	/Resep duplikat/
+);
 
-console.log('menu-atomic-tests: 8 assertions passed');
+console.log('menu-atomic-tests: 10 assertions passed');
