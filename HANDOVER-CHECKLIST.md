@@ -15,9 +15,9 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 
 ## Kandidat teknis
 
-- [x] Catat `RELEASE_COMMIT_SHA` dari summary quick task: `0b77237d87120e1041337db3f826d12f6ebba9ff`
+- [x] Catat `RELEASE_COMMIT_SHA` dari candidate HEAD: `7e88d2f2d1749152ce569a47b585f9db38bb0bee`
 - [x] Tinjau manifest/diff `RELEASE_COMMIT_SHA`; catat seluruh file source, test, dependency, dan dokumen yang masuk release.
-- [x] Pastikan branch release yang disepakati di origin memuat commit tersebut; jangan menganggap `origin/dev` sudah sinkron dengan branch lokal.
+- [ ] Pastikan branch release yang disepakati di origin memuat commit tersebut (saat ini branch lokal ahead 3, siap di-push ke origin).
 - [x] Pastikan tidak ada SQL, manifest, `.env`, cookie, token, atau secret dalam commit.
 - [x] Pastikan tidak ada Cloudflare deployment yang dilakukan oleh task handover.
 - [x] Backup production baru memiliki tiga shard, manifest terverifikasi, dan `COMPLETE`.

@@ -142,12 +142,15 @@ export async function getAuthSession(
 		unlockedPages = [];
 	}
 
+	const normalizedRole =
+		row.role === 'pemilik' || row.role === 'kasir' || row.role === 'admin' ? row.role : 'kasir';
+
 	return {
 		id: row.id,
 		branch: row.cabang_id,
 		userId: row.user_id,
 		username: row.username,
-		role: row.role,
+		role: normalizedRole,
 		createdAt: row.created_at,
 		expiresAt: row.expires_at,
 		unlockedPages,

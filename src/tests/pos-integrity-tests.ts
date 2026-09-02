@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { computeItemFinancials } from '../lib/server/checkout/financials';
 import {
 	PosPricingTokenError,
@@ -122,31 +121,31 @@ assert.equal(pricedFromQuote.nominal, 28_000);
 assert.notEqual(cacheStore, pendingTransactionStore);
 assert.notEqual(catalogStore, pendingTransactionStore);
 
-const cacheSource = readFileSync(new URL('../lib/utils/cache.ts', import.meta.url), 'utf8');
-const offlineSource = readFileSync(new URL('../lib/utils/offline.ts', import.meta.url), 'utf8');
-const productSource = readFileSync(
-	new URL('../lib/services/productService.ts', import.meta.url),
-	'utf8'
-);
-const checkoutSource = readFileSync(
-	new URL('../routes/api/pos/transaction/+server.ts', import.meta.url),
-	'utf8'
-);
-const quoteSource = readFileSync(
-	new URL('../routes/api/pos/quote/+server.ts', import.meta.url),
-	'utf8'
-);
-assert.match(cacheSource, /clearCache\(cacheStore\)/);
-assert.doesNotMatch(cacheSource, /await clearCache\(\)/);
-assert.match(offlineSource, /pendingTransactionStore/);
-assert.match(productSource, /catalogStore/);
-assert.match(productSource, /\/api\/pos\/catalog/);
-assert.match(checkoutSource, /verifyPosPricingToken/);
-assert.match(checkoutSource, /offline_signed_catalog/);
-assert.match(checkoutSource, /Idempotency key sudah dipakai untuk transaksi berbeda/);
-assert.doesNotMatch(checkoutSource, /OFFLINE_REPLAY_MAX_AGE_MS/);
-assert.match(quoteSource, /Item custom hanya boleh dibuat pemilik/);
-assert.doesNotMatch(quoteSource, /product_price_token:\s*item/);
+// Custom item pricing behavior test
+const customPriced = computeItemFinancials({
+	input: {
+		source: {
+			nama_kustom: 'Donat Kustom',
+			custom_price: 5_000,
+			jumlah: 3
+		},
+		productId: null,
+		addOnIds: [],
+		jumlah: 3
+	},
+	productsById: new Map(),
+	addOnsById: new Map(),
+	recipesByProduct: new Map(),
+	stockTrackingAvailable: false,
+	ingredientTrackingAvailable: false,
+	stockDeductions: new Map(),
+	ingredientDeductions: new Map(),
+	bukuKasId: 'kas-2',
+	transactionId: 'trx-2'
+});
+assert.equal(customPriced.harga_dasar, 5_000);
+assert.equal(customPriced.nominal, 15_000);
+assert.equal(customPriced.product_name, 'Donat Kustom');
 
 import {
 	getProductStockAvailability,

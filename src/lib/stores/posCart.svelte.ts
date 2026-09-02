@@ -3,30 +3,35 @@ import { calculateCartTotal } from '$lib/utils/performance';
 import type { CartItem } from '$lib/types/cart';
 import type { PosProduct, PosAddOn } from '$lib/stores/posState.svelte';
 
+function getCartStorageKey(): string {
+	if (!browser) return 'pos_cart';
+	const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+	return `pos_cart_${branch}`;
+}
+
+function loadCartFromStorage(): CartItem[] {
+	if (!browser) return [];
+	try {
+		const key = getCartStorageKey();
+		const saved = localStorage.getItem(key) || localStorage.getItem('pos_cart');
+		if (saved) {
+			const parsed = JSON.parse(saved);
+			if (Array.isArray(parsed)) return parsed;
+		}
+	} catch {}
+	return [];
+}
+
 export function createPosCart() {
-	let cart = $state<CartItem[]>([]);
+	let cart = $state<CartItem[]>(loadCartFromStorage());
 
 	function saveToStorage(items: CartItem[]) {
 		if (!browser) return;
 		try {
-			localStorage.setItem('pos_cart', JSON.stringify(items));
+			const key = getCartStorageKey();
+			localStorage.setItem(key, JSON.stringify(items));
 		} catch {
 			// [CATATAN]: Abaikan jika kuota penyimpanan penuh
-		}
-	}
-
-	// [CATATAN]: Inisialisasi data keranjang dari localStorage saat di browser
-	if (browser) {
-		try {
-			const saved = localStorage.getItem('pos_cart');
-			if (saved) {
-				const parsed = JSON.parse(saved);
-				if (Array.isArray(parsed)) {
-					cart = parsed;
-				}
-			}
-		} catch {
-			// [CATATAN]: Abaikan jika format localStorage rusak
 		}
 	}
 
@@ -124,17 +129,7 @@ export function createPosCart() {
 
 	function reloadFromStorage(): void {
 		if (!browser) return;
-		try {
-			const saved = localStorage.getItem('pos_cart');
-			if (saved) {
-				const parsed = JSON.parse(saved);
-				cart = Array.isArray(parsed) ? parsed : [];
-			} else {
-				cart = [];
-			}
-		} catch {
-			cart = [];
-		}
+		cart = loadCartFromStorage();
 	}
 
 	function updateItemQuantity(index: number, quantity: number): void {

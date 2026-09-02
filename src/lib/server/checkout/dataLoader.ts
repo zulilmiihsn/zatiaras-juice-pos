@@ -14,26 +14,18 @@ const checkoutCapabilityCache = new Map<string, Promise<CheckoutCapabilities>>()
 // [CATATAN]: ── Schema introspection ────────────────────────────────────────────────────
 
 async function hasColumn(db: D1Database, table: string, column: string): Promise<boolean> {
-	try {
-		const { results = [] } = (await db.prepare(`PRAGMA table_info(${table})`).all()) as {
-			results?: Array<{ name?: string }>;
-		};
-		return results.some((row) => row.name === column);
-	} catch {
-		return false;
-	}
+	const { results = [] } = (await db.prepare(`PRAGMA table_info(${table})`).all()) as {
+		results?: Array<{ name?: string }>;
+	};
+	return results.some((row) => row.name === column);
 }
 
 async function hasTable(db: D1Database, table: string): Promise<boolean> {
-	try {
-		const row = (await db
-			.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`)
-			.bind(table)
-			.first()) as { name?: string } | null;
-		return Boolean(row?.name);
-	} catch {
-		return false;
-	}
+	const row = (await db
+		.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`)
+		.bind(table)
+		.first()) as { name?: string } | null;
+	return Boolean(row?.name);
 }
 
 // [CATATAN]: ── Capability detection ────────────────────────────────────────────────────

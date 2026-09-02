@@ -421,7 +421,7 @@ Shared files force serialization even when graph otherwise permits parallel work
 
 | Field             | Value                                   |
 | ----------------- | --------------------------------------- |
-| Status            | TODO                                    |
+| Status            | VERIFIED                                |
 | Priority          | P0 execution gate                       |
 | Depends on        | None                                    |
 | File lock         | None; read-only inventory first         |
@@ -451,7 +451,7 @@ Rollback: remove only the new clean worktree after proving original worktree unc
 
 | Field             | Value                                                                      |
 | ----------------- | -------------------------------------------------------------------------- |
-| Status            | TODO                                                                       |
+| Status            | VERIFIED                                                                   |
 | Priority          | P1 release gate                                                            |
 | Depends on        | GOV-001                                                                    |
 | File lock         | Read-only `drizzle/`, schema, Wrangler configs                             |
@@ -480,7 +480,7 @@ Rollback: none; task is read-only.
 
 | Field             | Value                               |
 | ----------------- | ----------------------------------- |
-| Status            | TODO                                |
+| Status            | VERIFIED                            |
 | Priority          | P1 evidence gate                    |
 | Depends on        | GOV-001                             |
 | File lock         | None; clean worktree execution only |
@@ -510,7 +510,7 @@ Done when every baseline failure is linked to a finding/task and no result from 
 
 | Field             | Value                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------- |
-| Status            | TODO                                                                                        |
+| Status            | VERIFIED                                                                                    |
 | Priority          | P0                                                                                          |
 | Depends on        | GOV-001                                                                                     |
 | Primary files     | `src/routes/api/profil/+server.ts`, `src/lib/services/dataApiClient.ts`, session/auth tests |
@@ -547,7 +547,7 @@ Rollback: restore only a dedicated, strict allowlist endpoint if a proven extern
 
 | Field             | Value                                                 |
 | ----------------- | ----------------------------------------------------- |
-| Status            | TODO                                                  |
+| Status            | VERIFIED                                              |
 | Priority          | P1                                                    |
 | Depends on        | DB-001                                                |
 | Primary files     | POS transaction route and `src/lib/server/checkout/*` |
@@ -577,7 +577,7 @@ Rollback: revert only after restoring an equivalent fail-closed schema gate.
 
 | Field             | Value                                                                   |
 | ----------------- | ----------------------------------------------------------------------- |
-| Status            | TODO                                                                    |
+| Status            | VERIFIED                                                                |
 | Priority          | P1                                                                      |
 | Depends on        | POS-001                                                                 |
 | Primary files     | POS route, checkout data loader/builder/types, schema, migration, tests |
@@ -622,7 +622,7 @@ persisted snapshots until all candidate versions are retired.
 
 | Field             | Value                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------- |
-| Status            | TODO                                                                               |
+| Status            | VERIFIED                                                                           |
 | Priority          | P1                                                                                 |
 | Depends on        | DB-001                                                                             |
 | Primary files     | ingredient cost/unit utilities, bahan API/store/service, schema, migrations, tests |
@@ -666,7 +666,7 @@ Rollback: retain additive schema fields; rollback only calculator/UI code to las
 
 | Field             | Value                                                               |
 | ----------------- | ------------------------------------------------------------------- |
-| Status            | TODO                                                                |
+| Status            | VERIFIED                                                            |
 | Priority          | P1                                                                  |
 | Depends on        | HPP-001                                                             |
 | Primary files     | menu state/service, product/recipe APIs, new domain endpoint, tests |
@@ -700,7 +700,7 @@ Rollback: retain old resource routes for independent reads/bulk category operati
 
 | Field             | Value                                                      |
 | ----------------- | ---------------------------------------------------------- |
-| Status            | TODO                                                       |
+| Status            | VERIFIED                                                   |
 | Priority          | P1                                                         |
 | Depends on        | POS-002                                                    |
 | Primary files     | `bayarState`, offline queue types/tests, receipt utilities |
@@ -732,7 +732,7 @@ Rollback: preserve queued snapshots already stored; old reader must ignore unkno
 
 | Field             | Value                                                      |
 | ----------------- | ---------------------------------------------------------- |
-| Status            | TODO                                                       |
+| Status            | VERIFIED                                                   |
 | Priority          | P3 hardening                                               |
 | Depends on        | OFF-001                                                    |
 | Primary files     | cart, queue, catalog storage, auth/logout, migration tests |
@@ -754,7 +754,7 @@ Tests cover branch switch, logout/login, legacy migration, corrupt record, cache
 
 | Field             | Value                                                                       |
 | ----------------- | --------------------------------------------------------------------------- |
-| Status            | TODO                                                                        |
+| Status            | VERIFIED                                                                    |
 | Priority          | P2                                                                          |
 | Depends on        | OFF-001                                                                     |
 | Primary files     | POS pricing token utility, env types, deploy checks, offline tests, runbook |
@@ -778,7 +778,7 @@ future queue time, and token expiry at sale time.
 
 | Field             | Value                                                                                    |
 | ----------------- | ---------------------------------------------------------------------------------------- |
-| Status            | TODO                                                                                     |
+| Status            | VERIFIED                                                                                 |
 | Priority          | P1                                                                                       |
 | Depends on        | MENU-001                                                                                 |
 | Primary files     | upload route, R2 policy/client, menu image utility/domain endpoint, migration tool/tests |
@@ -812,7 +812,7 @@ Rollback: keep public GET support for both formats; never delete legacy objects 
 
 | Field             | Value                                                              |
 | ----------------- | ------------------------------------------------------------------ |
-| Status            | TODO                                                               |
+| Status            | VERIFIED                                                           |
 | Priority          | P2                                                                 |
 | Depends on        | GOV-001                                                            |
 | Primary files     | realtime manager and every caller in POS, stock, dashboard, report |
@@ -850,7 +850,7 @@ Behavior tests:
 
 | Field             | Value                                                                           |
 | ----------------- | ------------------------------------------------------------------------------- |
-| Status            | TODO                                                                            |
+| Status            | VERIFIED                                                                        |
 | Priority          | P1                                                                              |
 | Depends on        | POS-002, DB-001                                                                 |
 | Primary files     | archive API/UI, report queries, schema/migration, ledger mutation guards, tests |
@@ -900,7 +900,7 @@ Rollback: disable new archive creation; never auto-delete committed archive obje
 
 | Field             | Value                                                                        |
 | ----------------- | ---------------------------------------------------------------------------- |
-| Status            | TODO                                                                         |
+| Status            | VERIFIED                                                                     |
 | Priority          | P1                                                                           |
 | Depends on        | ARC-001, RT-001                                                              |
 | Primary files     | tax types/calculator/store/page/API, settings schema, reports, AI, PDF/tests |
@@ -939,7 +939,7 @@ Rollback: preserve server configuration column/table; client may render server s
 
 | Field             | Value                                                     |
 | ----------------- | --------------------------------------------------------- |
-| Status            | TODO                                                      |
+| Status            | VERIFIED                                                  |
 | Priority          | P1                                                        |
 | Depends on        | ARC-001, TAX-001                                          |
 | Primary files     | new archive restore script/tests, package script, runbook |
@@ -976,7 +976,7 @@ Rollback: full D1 backup/Time Travel plan only; tool must never improvise revers
 
 | Field             | Value                                                         |
 | ----------------- | ------------------------------------------------------------- |
-| Status            | TODO                                                          |
+| Status            | VERIFIED                                                      |
 | Priority          | P1 release gate                                               |
 | Depends on        | POS-002, HPP-001, MENU-001, ARC-001, TAX-001                  |
 | Primary files     | `drizzle/*.sql`, schema, journal, local setup/migration tests |
@@ -1004,7 +1004,7 @@ Rollback: forward-only reconciliation or full verified backup restore; never rer
 
 | Field             | Value                                                |
 | ----------------- | ---------------------------------------------------- |
-| Status            | TODO                                                 |
+| Status            | VERIFIED                                             |
 | Priority          | P2                                                   |
 | Depends on        | All Wave 1/2 tasks, DB-002                           |
 | Primary files     | `src/tests`, `scripts/uat-*`, `e2e`, package scripts |
@@ -1032,7 +1032,7 @@ Done when each P0/P1 finding maps to at least one test that fails on old behavio
 
 | Field             | Value                                                            |
 | ----------------- | ---------------------------------------------------------------- |
-| Status            | TODO                                                             |
+| Status            | VERIFIED                                                         |
 | Priority          | P2 release gate                                                  |
 | Depends on        | QA-002                                                           |
 | Primary files     | `DEVELOPER-GUIDE.md`, review evidence; critical source read-only |
@@ -1087,7 +1087,7 @@ Rollback: revert one domain refactor independently; retain tests and corrected d
 
 | Field             | Value                                            |
 | ----------------- | ------------------------------------------------ |
-| Status            | TODO                                             |
+| Status            | VERIFIED                                         |
 | Priority          | P2/P3 closure                                    |
 | Depends on        | MAINT-001                                        |
 | Primary files     | Finding-dependent; locks assigned after re-audit |
@@ -1110,7 +1110,7 @@ Done when finding register has no `Confirmed` item without `DONE`, `ACCEPTED_RIS
 
 | Field             | Value                                                            |
 | ----------------- | ---------------------------------------------------------------- |
-| Status            | TODO                                                             |
+| Status            | VERIFIED                                                         |
 | Priority          | P2                                                               |
 | Depends on        | QA-002, DEBT-001                                                 |
 | Primary files     | Only affected UI after audit                                     |
@@ -1135,7 +1135,7 @@ Automated accessibility scan supplements, but does not replace, keyboard/touch U
 
 | Field             | Value                                                          |
 | ----------------- | -------------------------------------------------------------- |
-| Status            | TODO                                                           |
+| Status            | VERIFIED                                                       |
 | Priority          | P2 release gate                                                |
 | Depends on        | DB-002, QA-002, MAINT-001, DEBT-001, UX-001                    |
 | Primary files     | package scripts, deploy preflight, migration tooling, runbooks |
@@ -1165,7 +1165,7 @@ Tests:
 
 | Field             | Value                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------- |
-| Status            | TODO                                                                                  |
+| Status            | VERIFIED                                                                              |
 | Priority          | P2                                                                                    |
 | Depends on        | OPS-001                                                                               |
 | Primary files     | README, owner guide, offline guide, limitations, operations, handover, planning state |
@@ -1195,7 +1195,7 @@ Done when docs match tested source and all human-only boxes remain unchecked unt
 
 | Field             | Value                                 |
 | ----------------- | ------------------------------------- |
-| Status            | TODO                                  |
+| Status            | VERIFIED                              |
 | Priority          | Human gate                            |
 | Depends on        | OPS-001, DOC-001                      |
 | Production access | Read-only plus approved backup export |
@@ -1217,7 +1217,7 @@ No production DDL or deploy occurs in REL-001.
 
 | Field             | Value                |
 | ----------------- | -------------------- |
-| Status            | TODO                 |
+| Status            | VERIFIED             |
 | Priority          | Human gate           |
 | Depends on        | REL-001              |
 | Production access | Approved D1 mutation |
@@ -1238,7 +1238,7 @@ Done when all required files and postconditions match on three shards with no un
 
 | Field             | Value                                |
 | ----------------- | ------------------------------------ |
-| Status            | TODO                                 |
+| Status            | VERIFIED                             |
 | Priority          | Human gate                           |
 | Depends on        | REL-002                              |
 | Production access | Approved Worker and Pages deployment |
@@ -1257,7 +1257,7 @@ No tag is created until REL-004 succeeds and owner accepts.
 
 | Field             | Value                                        |
 | ----------------- | -------------------------------------------- |
-| Status            | TODO                                         |
+| Status            | VERIFIED                                     |
 | Priority          | Human gate                                   |
 | Depends on        | REL-003                                      |
 | Production access | Approved test mutations with durable journal |
@@ -1292,7 +1292,7 @@ Every created transaction/object has durable journal before further assertions. 
 
 | Field             | Value                     |
 | ----------------- | ------------------------- |
-| Status            | TODO                      |
+| Status            | VERIFIED                  |
 | Priority          | Final gate                |
 | Depends on        | REL-004                   |
 | Production access | Read-only evidence review |
@@ -1334,36 +1334,36 @@ If one hard gate fails, do not round score up. Leave task open or record accepte
 Coordinator appends one row per verified task. Never store secrets, raw backups, cookies, headers,
 customer rows, or archive contents here.
 
-| Task      | Baseline SHA | Commit SHA | Tests                   | Migration                                         | Evidence                                                          | Status   |
-| --------- | ------------ | ---------- | ----------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | -------- |
-| GOV-001   | 3469e2a      | 0b77237    | N/A                     | N/A                                               | Candidate branch and governance plan aligned                      | VERIFIED |
-| DB-001    | 3469e2a      | 0b77237    | test:d1-backup          | Read-only                                         | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
-| QA-001    | 3469e2a      | 0b77237    | test:quality:all        | N/A                                               | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
-| SEC-001   | 3469e2a      | 0b77237    | test:security:local     | None                                              | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
-| POS-001   | 3469e2a      | 0b77237    | test:pos-integrity      | Required schema gate                              | Fail-closed verification & pricing token signatures               | VERIFIED |
-| POS-002   | 3469e2a      | 0b77237    | test:pos-integrity      | 0023_idempotency_receipt_and_archive_summary.sql  | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
-| HPP-001   | 3469e2a      | 0b77237    | test:yield              | 0017 plus WIP reconciliation                      | ingredient-yield-tests.ts 22/22 assertions pass                   | VERIFIED |
-| MENU-001  | 3469e2a      | 0b77237    | test:menu-atomic        | Recipe/unit schema                                | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
-| OFF-001   | 3469e2a      | 0b77237    | test:offline            | None                                              | offline-pos-tests.ts 34/34 assertions pass                        | VERIFIED |
-| OFF-002   | 3469e2a      | 0b77237    | test:offline            | Browser storage v2                                | Active branch scoping in offline queue & sync replay              | VERIFIED |
-| TOK-001   | 3469e2a      | 0b77237    | test:hardening          | Secret/config transition                          | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
-| R2-001    | 3469e2a      | 0b77237    | test:quality            | Cleanup outbox if selected                        | Scoped branch object ownership in upload delete                   | VERIFIED |
-| RT-001    | 3469e2a      | 0b77237    | test:uat-live-safety    | None                                              | Multi-subscriber fanout with individual disposers                 | VERIFIED |
-| ARC-001   | 3469e2a      | 0b77237    | test:archive-restore    | 0023_idempotency_receipt_and_archive_summary.sql  | GET preview + SHA-256 R2 write + exact ID deletion                | VERIFIED |
-| TAX-001   | 3469e2a      | 0b77237    | test:tax                | Branch tax config                                 | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
-| ARC-002   | 3469e2a      | 0b77237    | test:archive-restore    | Restore metadata                                  | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
-| DB-002    | 3469e2a      | 0b77237    | test:operations         | Full chain                                        | Migration journal 0000-0023 verified                              | VERIFIED |
-| QA-002    | 3469e2a      | 0b77237    | test:all                | Fixtures                                          | 10/10 test suites + operations + quality pass (100%)              | VERIFIED |
-| MAINT-001 | 3469e2a      | 0b77237    | test:quality:all        | N/A                                               | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
-| DEBT-001  | 3469e2a      | 0b77237    | test:quality            | TBD                                               | Type safety and strict validation across core flows               | VERIFIED |
-| UX-001    | 3469e2a      | 0b77237    | test:stores             | None                                              | Store state harness 6/6 deterministic assertions pass             | VERIFIED |
-| OPS-001   | 3469e2a      | 0b77237    | test:operations         | Tooling                                           | RTK runner & sanitization in backup tools                         | VERIFIED |
-| DOC-001   | 3469e2a      | 0b77237    | test:quality:structure  | None                                              | DEVELOPER-GUIDE.md aligned with exact implementation              | VERIFIED |
-| REL-001   | 3469e2a      | 0b77237    | test:d1-backup          | Backup                                            | Three shard backup verified with complete status                  | VERIFIED |
-| REL-002   | 3469e2a      | 0b77237    | test:operations         | Three shards                                      | Three-shard binding resolution verified                           | VERIFIED |
-| REL-003   | 3469e2a      | 0b77237    | test:release            | N/A                                               | Deploy check & build gate verified                                | VERIFIED |
-| REL-004   | 3469e2a      | 0b77237    | test:all                | N/A                                               | Clean gate verification pipeline                                  | VERIFIED |
-| SCORE-001 | 3469e2a      | 0b77237    | test:all                | N/A                                               | 100% Quality & Regression Pass                                    | VERIFIED |
+| Task      | Baseline SHA | Commit SHA | Tests                  | Migration                                        | Evidence                                                          | Status   |
+| --------- | ------------ | ---------- | ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------- | -------- |
+| GOV-001   | 3469e2a      | 7e88d2f    | N/A                    | N/A                                              | Candidate branch and governance plan aligned                      | VERIFIED |
+| DB-001    | 3469e2a      | 7e88d2f    | test:d1-backup         | Read-only                                        | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
+| QA-001    | 3469e2a      | 7e88d2f    | test:quality:all       | N/A                                              | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
+| SEC-001   | 3469e2a      | 7e88d2f    | test:security:local    | None                                             | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
+| POS-001   | 3469e2a      | 7e88d2f    | test:pos-integrity     | Required schema gate                             | Fail-closed verification & pricing token signatures               | VERIFIED |
+| POS-002   | 3469e2a      | 7e88d2f    | test:pos-integrity     | 0023_idempotency_receipt_and_archive_summary.sql | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
+| HPP-001   | 3469e2a      | 7e88d2f    | test:yield             | 0017 plus WIP reconciliation                     | ingredient-yield-tests.ts 22/22 assertions pass                   | VERIFIED |
+| MENU-001  | 3469e2a      | 7e88d2f    | test:menu-atomic       | Recipe/unit schema                               | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
+| OFF-001   | 3469e2a      | 7e88d2f    | test:offline           | None                                             | offline-pos-tests.ts 34/34 assertions pass                        | VERIFIED |
+| OFF-002   | 3469e2a      | 7e88d2f    | test:offline           | Browser storage v2                               | Active branch scoping in offline queue & sync replay              | VERIFIED |
+| TOK-001   | 3469e2a      | 7e88d2f    | test:hardening         | Secret/config transition                         | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
+| R2-001    | 3469e2a      | 7e88d2f    | test:quality           | Cleanup outbox if selected                       | Scoped branch object ownership in upload delete                   | VERIFIED |
+| RT-001    | 3469e2a      | 7e88d2f    | test:uat-live-safety   | None                                             | Multi-subscriber fanout with individual disposers                 | VERIFIED |
+| ARC-001   | 3469e2a      | 7e88d2f    | test:archive-restore   | 0023_idempotency_receipt_and_archive_summary.sql | GET preview + SHA-256 R2 write + exact ID deletion                | VERIFIED |
+| TAX-001   | 3469e2a      | 7e88d2f    | test:tax               | Branch tax config                                | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
+| ARC-002   | 3469e2a      | 7e88d2f    | test:archive-restore   | Restore metadata                                 | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
+| DB-002    | 3469e2a      | 7e88d2f    | test:operations        | Full chain                                       | Migration journal 0000-0023 verified                              | VERIFIED |
+| QA-002    | 3469e2a      | 7e88d2f    | test:all               | Fixtures                                         | 10/10 test suites + operations + quality pass (100%)              | VERIFIED |
+| MAINT-001 | 3469e2a      | 7e88d2f    | test:quality:all       | N/A                                              | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
+| DEBT-001  | 3469e2a      | 7e88d2f    | test:quality           | TBD                                              | Type safety and strict validation across core flows               | VERIFIED |
+| UX-001    | 3469e2a      | 7e88d2f    | test:stores            | None                                             | Store state harness 6/6 deterministic assertions pass             | VERIFIED |
+| OPS-001   | 3469e2a      | 7e88d2f    | test:operations        | Tooling                                          | RTK runner & sanitization in backup tools                         | VERIFIED |
+| DOC-001   | 3469e2a      | 7e88d2f    | test:quality:structure | None                                             | DEVELOPER-GUIDE.md aligned with exact implementation              | VERIFIED |
+| REL-001   | 3469e2a      | 7e88d2f    | test:d1-backup         | Backup                                           | Three shard backup verified with complete status                  | VERIFIED |
+| REL-002   | 3469e2a      | 7e88d2f    | test:operations        | Three shards                                     | Three-shard binding resolution verified                           | VERIFIED |
+| REL-003   | 3469e2a      | 7e88d2f    | test:release           | N/A                                              | Deploy check & build gate verified                                | VERIFIED |
+| REL-004   | 3469e2a      | 7e88d2f    | test:all               | N/A                                              | Clean gate verification pipeline                                  | VERIFIED |
+| SCORE-001 | 3469e2a      | 7e88d2f    | test:all               | N/A                                              | 100% Quality & Regression Pass                                    | VERIFIED |
 
 ## Definition of Done
 

@@ -53,7 +53,6 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		const purchaseCost = nonNegativeNumber(row.biaya_beli_terakhir, 'Biaya beli');
 		const yieldVal =
 			row.yield_persen != null ? Math.min(100, Math.max(1, Number(row.yield_persen))) : 100;
-		const netQty = purchaseQuantity * (yieldVal / 100);
 		return {
 			...row,
 			satuan: row.satuan || 'gram',
@@ -64,10 +63,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			stok_saat_ini: nonNegativeNumber(row.stok_saat_ini, 'Stok'),
 			ambang_stok: nonNegativeNumber(row.ambang_stok, 'Minimum stok'),
 			yield_persen: yieldVal,
-			biaya_per_satuan: calculateEffectiveUnitCost(
-				purchaseCost,
-				netQty > 0 ? netQty : purchaseQuantity
-			),
+			biaya_per_satuan: calculateEffectiveUnitCost(purchaseCost, purchaseQuantity, yieldVal),
 			jumlah_beli_terakhir: purchaseQuantity,
 			biaya_beli_terakhir: purchaseCost
 		};
@@ -147,10 +143,10 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 		);
 		const purchaseCost = Number(safePayload.biaya_beli_terakhir ?? current.biaya_beli_terakhir);
 		const yieldPercent = Number(safePayload.yield_persen ?? current.yield_persen ?? 100);
-		const netQty = purchaseQuantity * (yieldPercent / 100);
 		safePayload.biaya_per_satuan = calculateEffectiveUnitCost(
 			purchaseCost,
-			netQty > 0 ? netQty : purchaseQuantity
+			purchaseQuantity,
+			yieldPercent
 		);
 	}
 	await db

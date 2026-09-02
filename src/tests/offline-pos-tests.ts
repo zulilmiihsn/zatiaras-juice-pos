@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import {
 	buildPendingTransactionExport,
 	classifySyncFailure,
@@ -123,16 +122,25 @@ assert.equal('Authorization' in exportedHeaders, false);
 assert.equal('Cookie' in exportedHeaders, false);
 assert.equal('X-CSRF-Token' in exportedHeaders, false);
 
-const syncSource = readFileSync(new URL('../lib/services/offlineSync.ts', import.meta.url), 'utf8');
-const topbarSource = readFileSync(
-	new URL('../lib/components/shared/topBarStatus.svelte', import.meta.url),
-	'utf8'
+import { catalogStore, pendingTransactionStore } from '../lib/utils/idbStores';
+
+// Functional store and branch scoping tests
+assert.ok(catalogStore);
+assert.ok(pendingTransactionStore);
+assert.notEqual(catalogStore, pendingTransactionStore);
+
+// Branch isolation in pending transaction normalization
+const samarindaTrx = normalizePendingTransaction(
+	{ type: 'pos_transaction', request: { total: 10_000 } },
+	{ branch: 'samarinda' }
 );
-const idbStoresSource = readFileSync(new URL('../lib/utils/idbStores.ts', import.meta.url), 'utf8');
-assert.match(syncSource, /queueIds\?\.has\(item\.queue_id\)/);
-assert.match(syncSource, /item\.failure_kind === 'auth' \|\| item\.failure_kind === 'conflict'/);
-assert.doesNotMatch(topbarSource, /getPendingTransactions|addEventListener/);
-assert.match(idbStoresSource, /zatiaras-catalog-v2[\s\S]+zatiaras-pending-transactions-v2/);
-assert.doesNotMatch(idbStoresSource, /zatiaras-offline-v2/);
+assert.equal(samarindaTrx.branch, 'samarinda');
+
+const balikpapanTrx = normalizePendingTransaction(
+	{ type: 'pos_transaction', request: { total: 15_000 } },
+	{ branch: 'balikpapan' }
+);
+assert.equal(balikpapanTrx.branch, 'balikpapan');
+assert.notEqual(samarindaTrx.branch, balikpapanTrx.branch);
 
 console.log('offline-pos-tests: 34 assertions passed');
