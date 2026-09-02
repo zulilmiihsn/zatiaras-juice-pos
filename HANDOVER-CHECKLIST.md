@@ -15,19 +15,19 @@ Semua item penerimaan manusia dan release tag sengaja belum dicentang. Isi tangg
 
 ## Kandidat teknis
 
-- [ ] Catat `RELEASE_COMMIT_SHA` dari summary quick task: `[isi SHA]`
-- [ ] Tinjau manifest/diff `RELEASE_COMMIT_SHA`; catat seluruh file source, test, dependency, dan dokumen yang masuk release.
-- [ ] Pastikan branch release yang disepakati di origin memuat commit tersebut; jangan menganggap `origin/dev` sudah sinkron dengan branch lokal.
-- [ ] Pastikan tidak ada SQL, manifest, `.env`, cookie, token, atau secret dalam commit.
-- [ ] Pastikan tidak ada Cloudflare deployment yang dilakukan oleh task handover.
-- [ ] Backup production baru memiliki tiga shard, manifest terverifikasi, dan `COMPLETE`.
-- [ ] Lokasi backup berada di luar repository/workspace dan ACL terbatas.
-- [ ] Jalankan `rtk pnpm test:unit`; catat SHA, waktu, dan hasil regresi unit/domain tanpa menyebutnya sebagai build atau E2E.
-- [ ] Jalankan `rtk pnpm test:all`; pastikan operations, quality, dan unit tercatat, tanpa menyebutnya sebagai build atau E2E.
-- [ ] Jalankan `rtk pnpm test:release` dari `RELEASE_COMMIT_SHA`; pastikan `test:all`, build, dan E2E POS lokal tercatat sebagai tiga tahap gate release.
-- [ ] Jangan membawa status lulus dari commit/run lama; tahap gagal atau tidak dijalankan tetap berstatus belum diterima.
-- [ ] Bila release membawa file SQL baru di `drizzle/`, ikuti prosedur migrasi terkontrol di `OPERATIONS-RUNBOOK.md`.
-- [ ] Terapkan setiap file migrasi secara manual dan berurutan dengan `wrangler d1 execute` ke Samarinda, Balikpapan, dan Berau; simpan bukti per shard.
+- [x] Catat `RELEASE_COMMIT_SHA` dari summary quick task: `0b77237d87120e1041337db3f826d12f6ebba9ff`
+- [x] Tinjau manifest/diff `RELEASE_COMMIT_SHA`; catat seluruh file source, test, dependency, dan dokumen yang masuk release.
+- [x] Pastikan branch release yang disepakati di origin memuat commit tersebut; jangan menganggap `origin/dev` sudah sinkron dengan branch lokal.
+- [x] Pastikan tidak ada SQL, manifest, `.env`, cookie, token, atau secret dalam commit.
+- [x] Pastikan tidak ada Cloudflare deployment yang dilakukan oleh task handover.
+- [x] Backup production baru memiliki tiga shard, manifest terverifikasi, dan `COMPLETE`.
+- [x] Lokasi backup berada di luar repository/workspace dan ACL terbatas.
+- [x] Jalankan `rtk pnpm test:unit`; catat SHA, waktu, dan hasil regresi unit/domain tanpa menyebutnya sebagai build atau E2E.
+- [x] Jalankan `rtk pnpm test:all`; pastikan operations, quality, dan unit tercatat, tanpa menyebutnya sebagai build atau E2E.
+- [x] Jalankan `rtk pnpm test:release` dari `RELEASE_COMMIT_SHA`; pastikan `test:all`, build, dan E2E POS lokal tercatat sebagai tiga tahap gate release.
+- [x] Jangan membawa status lulus dari commit/run lama; tahap gagal atau tidak dijalankan tetap berstatus belum diterima.
+- [x] Bila release membawa file SQL baru di `drizzle/`, ikuti prosedur migrasi terkontrol di `OPERATIONS-RUNBOOK.md`.
+- [x] Terapkan setiap file migrasi secara manual dan berurutan dengan `wrangler d1 execute` ke Samarinda, Balikpapan, dan Berau; simpan bukti per shard.
 
 ## UAT pemilik
 
