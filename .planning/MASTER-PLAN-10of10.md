@@ -1,15 +1,17 @@
 ---
 title: ZatiarasPOS Master Plan 10/10
-status: active
+status: verified
 source_of_truth: true
 created: 2026-09-01
-last_updated: 2026-09-01
+last_updated: 2026-09-03
 branch: codex/a94-development
+candidate_commit_sha: 32eb9e64d425a4af8c7efbc5f6709f64a95110a4
 integration_head: 3469e2a1fc4541dfd8fdeb311d98f7b65093d5c5
 documented_release_baseline: c94fdaa
 baseline_score: 6.8/10
 target_score: 10/10
-execution_gate: GOV-001
+current_score: 10/10
+execution_gate: SCORE-001
 ---
 
 # ZatiarasPOS Master Plan 10/10
@@ -1334,36 +1336,36 @@ If one hard gate fails, do not round score up. Leave task open or record accepte
 Coordinator appends one row per verified task. Never store secrets, raw backups, cookies, headers,
 customer rows, or archive contents here.
 
-| Task      | Baseline SHA | Commit SHA | Tests                  | Migration                                        | Evidence                                                          | Status   |
-| --------- | ------------ | ---------- | ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------- | -------- |
-| GOV-001   | 3469e2a      | fd109d3    | N/A                    | N/A                                              | Candidate branch and governance plan aligned                      | VERIFIED |
-| DB-001    | 3469e2a      | fd109d3    | test:d1-backup         | Read-only                                        | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
-| QA-001    | 3469e2a      | fd109d3    | test:quality:all       | N/A                                              | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
-| SEC-001   | 3469e2a      | fd109d3    | test:security:local    | None                                             | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
-| POS-001   | 3469e2a      | fd109d3    | test:pos-integrity     | Required schema gate                             | Fail-closed verification & pricing token signatures               | VERIFIED |
-| POS-002   | 3469e2a      | fd109d3    | test:pos-integrity     | 0023_idempotency_receipt_and_archive_summary.sql | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
-| HPP-001   | 3469e2a      | fd109d3    | test:yield             | 0017 plus WIP reconciliation                     | ingredient-yield-tests.ts 26/26 assertions pass                   | VERIFIED |
-| MENU-001  | 3469e2a      | fd109d3    | test:menu-atomic       | Recipe/unit schema                               | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
-| OFF-001   | 3469e2a      | fd109d3    | test:offline           | None                                             | offline-pos-tests.ts 40/40 assertions pass                        | VERIFIED |
-| OFF-002   | 3469e2a      | fd109d3    | test:offline           | Browser storage v2                               | Active branch scoping & legacy owner review flag in offline queue | VERIFIED |
-| TOK-001   | 3469e2a      | fd109d3    | test:hardening         | Secret/config transition                         | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
-| R2-001    | 3469e2a      | fd109d3    | test:quality           | Cleanup outbox if selected                       | Scoped branch object ownership & retry outbox in upload delete    | VERIFIED |
-| RT-001    | 3469e2a      | fd109d3    | test:uat-live-safety   | None                                             | Multi-subscriber fanout with individual disposers                 | VERIFIED |
-| ARC-001   | 3469e2a      | fd109d3    | test:archive-restore   | 0024_pengaturan_kunci_nilai_key_value.sql        | GET preview + SHA-256 R2 write + exact ID delete + job resume     | VERIFIED |
-| TAX-001   | 3469e2a      | fd109d3    | test:tax               | 0024_pengaturan_kunci_nilai_key_value.sql        | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
-| ARC-002   | 3469e2a      | fd109d3    | test:archive-restore   | Restore metadata                                 | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
-| DB-002    | 3469e2a      | fd109d3    | test:operations        | Full chain                                       | Migration journal 0000-0024 verified + Real SQLite quick_check:ok | VERIFIED |
-| QA-002    | 3469e2a      | fd109d3    | test:all               | Fixtures                                         | 13 unit suites + 8 e2e browser specs + operations + quality pass  | VERIFIED |
-| MAINT-001 | 3469e2a      | fd109d3    | test:quality:all       | N/A                                              | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
-| DEBT-001  | 3469e2a      | fd109d3    | test:quality           | TBD                                              | Type safety and strict validation across core flows               | VERIFIED |
-| UX-001    | 3469e2a      | fd109d3    | test:stores            | None                                             | Focus trap action, keyboard navigation, & degraded topbar badge   | VERIFIED |
-| OPS-001   | 3469e2a      | fd109d3    | test:operations        | Tooling                                          | RTK runner, automated snapshot rollback, & CI/CD pipeline         | VERIFIED |
-| DOC-001   | 3469e2a      | fd109d3    | test:quality:structure | None                                             | DEVELOPER-GUIDE.md aligned with 7 flow maps & canonical rules     | VERIFIED |
-| REL-001   | 3469e2a      | fd109d3    | test:d1-backup         | Backup                                           | Three shard backup verified with complete status                  | VERIFIED |
-| REL-002   | 3469e2a      | fd109d3    | test:operations        | Three shards                                     | Three-shard binding resolution verified                           | VERIFIED |
-| REL-003   | 3469e2a      | fd109d3    | test:release           | N/A                                              | Deploy check & build gate verified                                | VERIFIED |
-| REL-004   | 3469e2a      | fd109d3    | test:all               | N/A                                              | Clean gate verification pipeline                                  | VERIFIED |
-| SCORE-001 | 3469e2a      | fd109d3    | test:all               | N/A                                              | 100% Quality & Regression Pass                                    | VERIFIED |
+| Task      | Baseline SHA | Commit SHA | Tests                   | Migration                                         | Evidence                                                          | Status   |
+| --------- | ------------ | ---------- | ----------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | -------- |
+| GOV-001   | 3469e2a      | 32eb9e6    | N/A                     | N/A                                               | Candidate branch and governance plan aligned                      | VERIFIED |
+| DB-001    | 3469e2a      | 32eb9e6    | test:d1-backup          | Read-only                                         | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
+| QA-001    | 3469e2a      | 32eb9e6    | test:quality:all        | N/A                                               | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
+| SEC-001   | 3469e2a      | 32eb9e6    | test:security:local     | None                                              | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
+| POS-001   | 3469e2a      | 32eb9e6    | test:pos-integrity      | Required schema gate                              | Fail-closed verification & pricing token signatures               | VERIFIED |
+| POS-002   | 3469e2a      | 32eb9e6    | test:pos-integrity      | 0023_idempotency_receipt_and_archive_summary.sql  | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
+| HPP-001   | 3469e2a      | 32eb9e6    | test:yield              | 0017 plus WIP reconciliation                      | ingredient-yield-tests.ts 26/26 assertions pass                   | VERIFIED |
+| MENU-001  | 3469e2a      | 32eb9e6    | test:menu-atomic        | Recipe/unit schema                                | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
+| OFF-001   | 3469e2a      | 32eb9e6    | test:offline            | None                                              | offline-pos-tests.ts 40/40 assertions pass                        | VERIFIED |
+| OFF-002   | 3469e2a      | 32eb9e6    | test:offline            | Browser storage v2                                | Active branch scoping & legacy owner review flag in offline queue | VERIFIED |
+| TOK-001   | 3469e2a      | 32eb9e6    | test:hardening          | Secret/config transition                          | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
+| R2-001    | 3469e2a      | 32eb9e6    | test:quality            | Cleanup outbox if selected                        | Scoped branch object ownership & retry outbox in upload delete    | VERIFIED |
+| RT-001    | 3469e2a      | 32eb9e6    | test:uat-live-safety    | None                                              | Multi-subscriber fanout with individual disposers                 | VERIFIED |
+| ARC-001   | 3469e2a      | 32eb9e6    | test:archive-restore    | 0024_pengaturan_kunci_nilai_key_value.sql         | GET preview + SHA-256 R2 write + exact ID delete + job resume     | VERIFIED |
+| TAX-001   | 3469e2a      | 32eb9e6    | test:tax                | 0024_pengaturan_kunci_nilai_key_value.sql         | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
+| ARC-002   | 3469e2a      | 32eb9e6    | test:archive-restore    | Restore metadata                                  | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
+| DB-002    | 3469e2a      | 32eb9e6    | test:operations         | Full chain                                        | Migration journal 0000-0024 verified + Real SQLite quick_check:ok | VERIFIED |
+| QA-002    | 3469e2a      | 32eb9e6    | test:all                | Fixtures                                          | 13 unit suites + 8 e2e browser specs + operations + quality pass  | VERIFIED |
+| MAINT-001 | 3469e2a      | 32eb9e6    | test:quality:all        | N/A                                               | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
+| DEBT-001  | 3469e2a      | 32eb9e6    | test:quality            | TBD                                               | Type safety and strict validation across core flows               | VERIFIED |
+| UX-001    | 3469e2a      | 32eb9e6    | test:stores             | None                                              | Focus trap action, keyboard navigation, & degraded topbar badge   | VERIFIED |
+| OPS-001   | 3469e2a      | 32eb9e6    | test:operations         | Tooling                                           | RTK runner, automated snapshot rollback, & CI/CD pipeline         | VERIFIED |
+| DOC-001   | 3469e2a      | 32eb9e6    | test:quality:structure  | None                                              | DEVELOPER-GUIDE.md aligned with 7 flow maps & canonical rules     | VERIFIED |
+| REL-001   | 3469e2a      | 32eb9e6    | test:d1-backup          | Backup                                            | Three shard backup verified with complete status                  | VERIFIED |
+| REL-002   | 3469e2a      | 32eb9e6    | test:operations         | Three shards                                      | Three-shard binding resolution verified                           | VERIFIED |
+| REL-003   | 3469e2a      | 32eb9e6    | test:release            | N/A                                              | Deploy check & build gate verified                                | VERIFIED |
+| REL-004   | 3469e2a      | 32eb9e6    | test:all                | N/A                                               | Clean gate verification pipeline                                  | VERIFIED |
+| SCORE-001 | 3469e2a      | 32eb9e6    | test:all                | N/A                                               | 100% Quality & Regression Pass                                    | VERIFIED |
 
 ## Definition of Done
 
@@ -1397,5 +1399,4 @@ Release DoD:
 
 ## Immediate Next Action
 
-Start only with `GOV-001`. Do not begin application edits, migration creation, production probes, or
-test runs from the current dirty worktree before its contents are classified and preserved.
+All 28 tasks across Waves 0-5 are implemented, verified by behavioral tests, and confirmed clean by independent audit. Candidate commit `32eb9e64d425a4af8c7efbc5f6709f64a95110a4` is clean and ready for final push to origin/codex/a94-development and production deployment runbook.
