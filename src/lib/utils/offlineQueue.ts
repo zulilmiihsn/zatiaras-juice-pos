@@ -13,6 +13,7 @@ export interface PendingTransaction extends Record<string, unknown> {
 	last_error: string | null;
 	failure_kind: PendingFailureKind;
 	requires_owner_review?: boolean;
+	receipt?: unknown;
 }
 
 export interface PendingTransactionExport {

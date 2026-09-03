@@ -187,14 +187,7 @@ export function createBayarState() {
 	}
 
 	function init() {
-		const saved = localStorage.getItem('pos_cart');
-		if (saved) {
-			try {
-				cart = JSON.parse(saved);
-			} catch {
-				/* cart localStorage korup → biarkan keranjang kosong */
-			}
-		}
+		cart = [...posCart.items];
 		transactionId = uuidv4();
 		transactionCode = generateTransactionCode();
 		cekSesiTokoAktif();
@@ -203,9 +196,6 @@ export function createBayarState() {
 
 	function clearCartStorage(): void {
 		cart = [];
-		if (typeof localStorage !== 'undefined') {
-			localStorage.setItem('pos_cart', '[]');
-		}
 		posCart.clearCart();
 	}
 
@@ -543,8 +533,8 @@ export function createBayarState() {
 		const cash = Number(cashReceived) || 0;
 		return {
 			items: cart.map((item) => {
-				const isJumbo = ((item as any).porsi || '').toLowerCase() === 'jumbo';
-				const prod = item.product as any;
+				const isJumbo = item.porsi === 'jumbo';
+				const prod = item.product;
 				const basePrice = isJumbo ? (prod.harga_jumbo ?? prod.harga ?? 0) : (prod.harga ?? 0);
 				const addOnsTotal = (item.addOns || []).reduce((sum, a) => sum + (a.harga || 0), 0);
 				const unitPrice = basePrice + addOnsTotal;
@@ -580,6 +570,7 @@ export function createBayarState() {
 		await addPendingTransaction({
 			type: 'pos_transaction',
 			request,
+			receipt: committedReceipt,
 			summary: {
 				transaction_code: transactionCode,
 				total_amount: totalHarga,
@@ -596,12 +587,19 @@ export function createBayarState() {
 	function printStrukViaEscPosService() {
 		const receiptItems = committedReceipt
 			? committedReceipt.items.map((item) => ({
-					product: { nama: item.nama, harga: item.harga },
+					product: {
+						id: item.product_id ?? '',
+						nama: item.nama,
+						harga: item.harga,
+						harga_jumbo: undefined,
+						tipe: 'produk' as const
+					},
 					jumlah: item.jumlah,
+					porsi: undefined as 'reguler' | 'jumbo' | undefined,
 					addOns: item.tambahan,
-					gula: item.gula,
-					es: item.es,
-					catatan: item.catatan
+					gula: item.gula || '',
+					es: item.es || '',
+					catatan: item.catatan || ''
 				}))
 			: cart;
 
@@ -628,8 +626,8 @@ export function createBayarState() {
 			customerName: customerName || 'Pelanggan',
 			dateTime: (receiptInput.printedAt ?? new Date()).toLocaleString('id-ID'),
 			items: receiptItems.map((item) => {
-				const isJumbo = ((item as any).porsi || '').toLowerCase() === 'jumbo';
-				const prod = item.product as any;
+				const isJumbo = item.porsi === 'jumbo';
+				const prod = item.product;
 				const basePrice = isJumbo ? (prod.harga_jumbo ?? prod.harga ?? 0) : (prod.harga ?? 0);
 				const porsiSuffix =
 					isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';

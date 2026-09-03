@@ -37,6 +37,7 @@ import { buildCheckoutStatements } from '$lib/server/checkout/statementBuilder';
 import { computeTransactionFingerprint } from '$lib/server/checkout/fingerprint';
 import type { StockDeductions, IngredientDeductions } from '$lib/server/checkout/types';
 import { PosPricingTokenError, verifyPosPricingToken } from '$lib/server/posPricingToken';
+import { validateCheckoutPayload } from '$lib/utils/validation';
 
 interface CatalogProductTokenData {
 	id: string;
@@ -119,8 +120,13 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			`Terlalu banyak transaksi. Coba lagi ${checkoutLimit.retryAfterSeconds} detik lagi`
 		);
 
-	const body = (await request.json().catch(() => null)) as PosTransactionInput | null;
-	if (!body) throw kitError(400, 'Item transaksi kosong');
+	const rawBody = await request.json().catch(() => null);
+	if (!rawBody) throw kitError(400, 'Item transaksi kosong');
+	const validation = validateCheckoutPayload(rawBody);
+	if (!validation.success) {
+		throw kitError(400, validation.error || 'Payload transaksi tidak valid');
+	}
+	const body = rawBody as PosTransactionInput;
 	const rawMode = body.mode;
 	if (
 		rawMode !== undefined &&
@@ -483,14 +489,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			idempotencyAvailable
 		);
 		if (duplicate) {
-			if (duplicate.request_fingerprint) {
-				if (duplicate.request_fingerprint !== requestFingerprint) {
-					throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
-				}
-			} else if (
-				duplicate.nominal !== normalizeMoney(quoteData!.total_amount) ||
-				duplicate.jumlah !== quoteData!.total_qty
-			) {
+			if (!duplicate.request_fingerprint || duplicate.request_fingerprint !== requestFingerprint) {
 				throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
 			}
 
@@ -519,7 +518,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					total_qty: duplicate.jumlah,
 					change:
 						paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - duplicate.nominal : 0,
-					receipt
+					receipt,
+					committed_at: duplicate.waktu || new Date().toISOString()
 				}
 			});
 		}

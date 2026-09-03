@@ -151,4 +151,16 @@ assert.equal(
 	'Legacy unassigned item must require owner review'
 );
 
-console.log('offline-pos-tests: 39 assertions passed');
+const receiptSample = { total_amount: 50_000, items: [] };
+const receiptTrx = normalizePendingTransaction({
+	type: 'pos_transaction',
+	request: { total: 50_000 },
+	receipt: receiptSample
+});
+assert.deepEqual(
+	receiptTrx.receipt,
+	receiptSample,
+	'Pending transaction must preserve committed receipt'
+);
+
+console.log('offline-pos-tests: 40 assertions passed');

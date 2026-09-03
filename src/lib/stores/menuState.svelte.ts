@@ -104,7 +104,7 @@ export function createMenuState(deps: MenuDeps) {
 				const recipes = await menuCrud.loadRecipes(menu.id);
 				recipeItems = recipes.map((recipe) => ({
 					bahan_id: recipe.bahan_id,
-					porsi: (recipe as any).porsi || 'reguler',
+					porsi: recipe.porsi || 'reguler',
 					jumlah_per_item: String(recipe.jumlah_per_item || ''),
 					satuan_resep: recipe.satuan_resep || undefined,
 					jumlah_dasar_per_item: recipe.jumlah_dasar_per_item ?? Number(recipe.jumlah_per_item || 0)
