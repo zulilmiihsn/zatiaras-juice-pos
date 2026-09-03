@@ -18,6 +18,10 @@ export function createTaxSettingsState() {
 		return synced;
 	}
 
+	if (typeof window !== 'undefined') {
+		void syncWithServer();
+	}
+
 	function refresh() {
 		settings = getTaxSettings();
 		void syncWithServer();

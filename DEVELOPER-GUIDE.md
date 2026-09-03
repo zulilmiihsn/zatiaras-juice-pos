@@ -77,25 +77,88 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 3. **Batch Deletion Anti-TOCTOU**: Menghapus baris dari D1 aktif hanya untuk exact ID yang telah terverifikasi tersimpan di snapshot R2 (chunked per 50 item).
 4. **Restore**: Menggunakan script CLI [scripts/restore-archive.mjs](file:///d:/Projects/zatiaraspos/scripts/restore-archive.mjs).
 
+### E. Alur Autentikasi & Otorisasi Peran (Auth Flow)
+
+1. **Login Kasir / Pemilik (`POST /api/veriflogin`)**:
+   - Rate limiting per IP dan per username.
+   - Verifikasi hash password (PBKDF2/Argon2) against D1 database cabang terkait.
+   - Validasi whitelist role ketat: hanya `'kasir'` dan `'pemilik'`.
+   - Penerbitan HTTP-only cookie session dengan `SameSite=Lax`, `Secure`, `HttpOnly`.
+2. **Boundary Gate (`hooks.server.ts` & `apiAuth.ts`)**:
+   - `requireAuthSession(locals)`: Memeriksa integritas session ID.
+   - `requireSessionBranch(locals, queryBranch)`: Mencegah user mengakses cabang selain yang diotorisasi.
+   - `requireAnyRole(session.role, allowedRoles)`: Memblokir endpoint sensitif (contoh: hapus menu, laporan finansial, ubah PIN).
+3. **Elevasi PIN Supervisor**:
+   - Kasir memerlukan PIN pemilik (`POST /api/pin/verify`) untuk transaksi void, diskon manual, atau akses laporan ringkas.
+
+### F. Alur Realtime Event Fanout (Realtime Flow)
+
+1. **Penerbitan Event (Publish)**:
+   - Backend mutasi memanggil `publish(branch, { table, action, id, data })`.
+   - Menggunakan fanout multiplexer `realtimePublisher.ts` ke subscriber cabang terkait.
+2. **Langganan Klien (Subscription)**:
+   - Klien mendaftar melalui `realtimeManager.subscribe(table, callback)`.
+   - Manager mencatat set subscriber per cabang tanpa bentrok lintas modul.
+   - Mengembalikan closure disposer unik `() => void` untuk pembersihan aman saat komponen unmount.
+3. **Pemberhentian Sambungan (Teardown)**:
+   - Panggilan `unsubscribeAll()` hanya dieksekusi saat pergantian sesi atau window `beforeunload`.
+
+### G. Alur Konfigurasi Pajak & Agregasi Laporan (Tax & Report Flow)
+
+1. **Sinkronisasi Konfigurasi**:
+   - Klien membaca konfigurasi cabang dari D1 melalui `/api/pengaturan/pajak`.
+   - Migrasi otomatis dari key legacy jika belum tersinkronisasi.
+   - State dikelola oleh `taxSettingsState.svelte.ts` dengan background auto-sync single-flight.
+2. **Kalkulasi Pajak PP 55/2022**:
+   - Laba kotor bukan dasar pengenaan pajak; pajak dihitung dari `omzetUsaha` (bruto operasional).
+   - Ambang batas kumulatif YTD Rp 500.000.000 dihitung secara berurutan: omzet di bawah batas dikenakan 0%, omzet di atas batas dikenakan tarif efektif (default 0.5%).
+3. **Agregasi Paritas Finansial**:
+   - Laporan laba rugi menggabungkan data aktif dari `buku_kas` dengan ringkasan arsip `ringkasan_kas_arsip_harian` sehingga hasil laporan sebelum dan sesudah pengarsipan identik (100% parity).
+
 ---
 
-## 4. Entry Point & Lokasi Uji (Test Entry Points)
+## 4. Lokasi Aturan Kanonikal (Canonical Rule Locations)
 
-| Kategori Pengujian                 | Perintah               | File Skrip Utama                                 |
-| :--------------------------------- | :--------------------- | :----------------------------------------------- |
-| **Tipe Data & Diagnostik Svelte**  | `pnpm check`           | `svelte-check`                                   |
-| **Formatting & Linting**           | `pnpm lint`            | `.prettierrc`, `eslint.config.js`                |
-| **Unit & Hardening Test**          | `pnpm test:unit`       | `src/tests/*-tests.ts`                           |
-| **Kalkulasi Yield & HPP**          | `pnpm test:yield`      | `src/tests/ingredient-yield-tests.ts`            |
-| **Kalkulasi Pajak PP 55/2022**     | `pnpm test:tax`        | `src/tests/tax-calculation-tests.ts`             |
-| **Operasi D1 Backup & UAT Safety** | `pnpm test:operations` | `scripts/d1-backup.test.mjs`                     |
-| **Playwright Browser E2E**         | `pnpm test:e2e:pos`    | `e2e/pos.spec.ts`                                |
-| **Verifikasi Menyeluruh Kualitas** | `pnpm test:quality`    | `src/tests/code-quality-tests.ts`                |
-| **Production Build**               | `pnpm build`           | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
+| Domain Aturan                  | File Sumber Kanonikal                       | Baris / Fungsi Kunci                                        |
+| :----------------------------- | :------------------------------------------ | :---------------------------------------------------------- |
+| **Idempotensi & Fingerprint**  | `src/routes/api/pos/transaction/+server.ts` | `computeTransactionFingerprint`, `getExistingByIdempotency` |
+| **Pencegahan Fail-Open POS**   | `src/routes/api/pos/transaction/+server.ts` | `body.mode === 'offline_replay'`, fail-closed signature     |
+| **Validasi Yield & HPP**       | `src/lib/utils/unitConversion.ts`           | `calculateEffectiveHpp`, `reject cross-category`            |
+| **Isolasi R2 per Cabang**      | `src/lib/server/r2ObjectPolicy.ts`          | `isPublicProductImageKey`, `extractBranchFromProductKey`    |
+| **Fanout Realtime Multi-Sub**  | `src/tests/realtime-fanout-tests.ts`        | `RealtimeChannelManager`, individual disposer pattern       |
+| **Kalkulasi Pajak PP 55/2022** | `src/lib/services/taxService.ts`            | `calculateTaxes`, `calculateReportTaxMetrics`               |
+| **Konsistensi Migrasi D1**     | `drizzle/meta/manifest.json`                | Checksum SHA-256 seluruh 24 migrasi SQL kanonikal           |
 
 ---
 
-## 5. Jebakan Umum Pengembang (Common Developer Traps)
+## 5. Catatan Verifikasi Uji Independen (Independent Review & Evidence)
+
+- Seluruh 28 task perancangan diverifikasi menggunakan test behavioral tanpa mengandalkan mock regex mentah (`readFileSync`).
+- Total 13 berkas test pengujian (`src/tests/`) mencakup unit, integritas data POS, yield resep, paritas arsip, validasi migrasi, dan aksesibilitas focus trap.
+- Pipeline `pnpm test:all` memvalidasi seluruh gerbang operasi, kualitas tipe data, dan fungsionalitas aplikasi.
+
+---
+
+## 6. Entry Point & Lokasi Uji (Test Entry Points)
+
+| Kategori Pengujian                 | Perintah                     | File Skrip Utama                                 |
+| :--------------------------------- | :--------------------------- | :----------------------------------------------- |
+| **Tipe Data & Diagnostik Svelte**  | `pnpm check`                 | `svelte-check`                                   |
+| **Formatting & Linting**           | `pnpm lint`                  | `.prettierrc`, `eslint.config.js`                |
+| **Unit & Hardening Test**          | `pnpm test:unit`             | `src/tests/*-tests.ts`                           |
+| **Kalkulasi Yield & HPP**          | `pnpm test:yield`            | `src/tests/ingredient-yield-tests.ts`            |
+| **Kalkulasi Pajak PP 55/2022**     | `pnpm test:tax`              | `src/tests/tax-calculation-tests.ts`             |
+| **Aksesibilitas & Focus Trap**     | `pnpm test:a11y`             | `src/tests/a11y-focus-tests.ts`                  |
+| **Realtime Fanout Multi-Sub**      | `pnpm test:realtime`         | `src/tests/realtime-fanout-tests.ts`             |
+| **Matriks Integritas Migrasi**     | `pnpm test:migration-matrix` | `src/tests/migration-matrix-tests.ts`            |
+| **Operasi D1 Backup & UAT Safety** | `pnpm test:operations`       | `scripts/d1-backup.test.mjs`                     |
+| **Playwright Browser E2E**         | `pnpm test:e2e:pos`          | `e2e/pos.spec.ts`                                |
+| **Verifikasi Menyeluruh Kualitas** | `pnpm test:quality`          | `src/tests/code-quality-tests.ts`                |
+| **Production Build**               | `pnpm build`                 | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
+
+---
+
+## 7. Jebakan Umum Pengembang (Common Developer Traps)
 
 1. ⚠️ **Jangan gunakan `(window as any).__refreshXxx`**: Gunakan `refreshBus` dari `$lib/utils/refreshBus`.
 2. ⚠️ **Jangan panggil `unsubscribeAll()` pada lifecyle komponen**: `realtimeManager.subscribe(table, cb)` mengembalikan fungsi `dispose()`. Panggil `dispose()` pada `onDestroy` / `$effect` teardown.

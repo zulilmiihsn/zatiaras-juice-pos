@@ -80,6 +80,62 @@
 		}
 		allowDrag = false;
 	}
+
+	let previousActiveElement: HTMLElement | null = null;
+
+	function focusTrap(node: HTMLElement) {
+		previousActiveElement = document.activeElement as HTMLElement | null;
+
+		function getFocusables() {
+			return Array.from(
+				node.querySelectorAll<HTMLElement>(
+					'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+				)
+			);
+		}
+
+		setTimeout(() => {
+			const focusables = getFocusables();
+			if (focusables.length > 0) {
+				focusables[0].focus();
+			} else {
+				node.focus();
+			}
+		}, 50);
+
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				close();
+				return;
+			}
+			if (e.key === 'Tab') {
+				const focusables = getFocusables();
+				if (focusables.length === 0) return;
+				const first = focusables[0];
+				const last = focusables[focusables.length - 1];
+
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
+		}
+
+		node.addEventListener('keydown', handleKeyDown);
+
+		return {
+			destroy() {
+				node.removeEventListener('keydown', handleKeyDown);
+				if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+					previousActiveElement.focus();
+				}
+			}
+		};
+	}
 </script>
 
 {#if open}
@@ -98,6 +154,7 @@
 		onkeypress={(e) => e.key === 'Enter' && close()}
 	>
 		<div
+			use:focusTrap
 			class="modal-sheet w-full max-w-[100vw] overflow-x-hidden px-0 pt-2 pb-0 sm:px-0"
 			transition:fly={{ y: 380, duration: 280, easing: cubicOut }}
 			role="document"
