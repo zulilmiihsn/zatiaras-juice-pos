@@ -90,6 +90,7 @@ async function runPendingTransactionSync(
 			: 'samarinda';
 
 	const pendings = (await getPendingTransactions()).filter((item) => {
+		if (item.requires_owner_review) return false;
 		if (item.branch && item.branch !== activeBranch) return false;
 		if (queueIds?.has(item.queue_id)) return true;
 		if (item.failure_kind === 'auth' || item.failure_kind === 'conflict') return false;

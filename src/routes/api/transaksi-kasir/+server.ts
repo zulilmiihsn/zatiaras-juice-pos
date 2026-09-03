@@ -2,7 +2,6 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { buildDailySummaryReversalStatements } from '$lib/server/dailySummary';
-import { hasDatabaseColumn } from '$lib/server/schemaCapabilities';
 import { decodeDataCursor, parseDataLimit, toCursorPage } from '$lib/server/dataPagination';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import type { RequestHandler } from './$types';
@@ -61,12 +60,8 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 		}
 	}
 
-	// [CATATAN]: Deteksi apakah kolom snapshot sudah ada (migrasi skema bertahap antar-DB).
-	const hasSnapshots = await hasDatabaseColumn(rawDb, branch, 'transaksi_kasir', 'nama_produk');
-	const snapshotSelect = hasSnapshots
-		? `nama_produk, harga_dasar, total_tambahan, snapshot_tambahan, gula, es, catatan, snapshot_hpp, nominal_hpp`
-		: `NULL AS nama_produk, NULL AS harga_dasar, 0 AS total_tambahan, NULL AS snapshot_tambahan,
-			NULL AS gula, NULL AS es, NULL AS catatan, NULL AS snapshot_hpp, 0 AS nominal_hpp`;
+	// [CATATAN]: Kolom snapshot sudah tersedia kanonikal di semua shard migrasi
+	const snapshotSelect = `nama_produk, harga_dasar, total_tambahan, snapshot_tambahan, gula, es, catatan, snapshot_hpp, nominal_hpp`;
 	const rows = await rawDb
 		.prepare(
 			`SELECT

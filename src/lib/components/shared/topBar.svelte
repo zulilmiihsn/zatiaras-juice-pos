@@ -11,6 +11,8 @@
 		pendingCount = 0,
 		pendingFailedCount = 0,
 		isOffline = false,
+		isDegraded = false,
+		isStale = false,
 		onOpenPending,
 		onAiRecommendationsApplied
 	}: {
@@ -21,6 +23,8 @@
 		pendingCount?: number;
 		pendingFailedCount?: number;
 		isOffline?: boolean;
+		isDegraded?: boolean;
+		isStale?: boolean;
 		onOpenPending?: () => void;
 		onAiRecommendationsApplied?: (detail: unknown) => void;
 	} = $props();
@@ -31,7 +35,14 @@
 >
 	<div class="flex items-center gap-2.5">
 		<TopBarAiAssistant onRecommendationsApplied={onAiRecommendationsApplied} />
-		<TopBarStatus {pendingCount} {pendingFailedCount} {isOffline} {onOpenPending} />
+		<TopBarStatus
+			{pendingCount}
+			{pendingFailedCount}
+			{isOffline}
+			{isDegraded}
+			{isStale}
+			{onOpenPending}
+		/>
 	</div>
 	<div class="flex-1 text-center text-sm font-extrabold tracking-wide text-slate-800">
 		{@render children?.()}

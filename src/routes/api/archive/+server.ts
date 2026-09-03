@@ -109,6 +109,29 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		.first()
 		.catch(() => null)) as { nilai?: string; updated_at?: string } | null;
 
+	// [CATATAN]: Archive Resume Capability: Jika tahun ini sudah pernah selesai diarsipkan, kembalikan data yang tersimpan
+	const completedJob = (await rawDb
+		.prepare(`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = ? LIMIT 1`)
+		.bind(branch, `archive_job_${year}`)
+		.first()
+		.catch(() => null)) as { nilai?: string; updated_at?: string } | null;
+
+	if (completedJob?.nilai) {
+		try {
+			const parsed = JSON.parse(completedJob.nilai);
+			if (parsed.status === 'completed' && parsed.key) {
+				return json({
+					ok: true,
+					resumed: true,
+					count: parsed.count || 0,
+					key: parsed.key,
+					filename: parsed.filename,
+					message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
+				});
+			}
+		} catch {}
+	}
+
 	if (existingLock?.nilai === 'locked') {
 		const lockTime = new Date(existingLock.updated_at || 0).getTime();
 		if (Date.now() - lockTime < 10 * 60 * 1000) {
@@ -384,6 +407,32 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					key,
 					checksum,
 					counts: archive.meta.counts,
+					completed_at: new Date().toISOString()
+				}),
+				new Date().toISOString()
+			)
+			.run()
+			.catch(() => {});
+
+		// Catat resume pointer untuk tahun spesifik
+		await rawDb
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+				 VALUES (?, ?, ?, ?, ?)
+				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
+			)
+			.bind(
+				crypto.randomUUID(),
+				branch,
+				`archive_job_${year}`,
+				JSON.stringify({
+					id: archiveJobId,
+					status: 'completed',
+					year,
+					key,
+					filename,
+					count: total,
+					checksum,
 					completed_at: new Date().toISOString()
 				}),
 				new Date().toISOString()

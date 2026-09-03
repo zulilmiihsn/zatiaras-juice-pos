@@ -6,11 +6,15 @@
 		pendingCount = 0,
 		pendingFailedCount = 0,
 		isOffline = false,
+		isDegraded = false,
+		isStale = false,
 		onOpenPending
 	}: {
 		pendingCount?: number;
 		pendingFailedCount?: number;
 		isOffline?: boolean;
+		isDegraded?: boolean;
+		isStale?: boolean;
 		onOpenPending?: () => void;
 	} = $props();
 </script>
@@ -21,6 +25,15 @@
 	>
 		<WifiOff class="h-4 w-4 text-pink-400" />
 		<span class="tracking-wide">Offline</span>
+	</span>
+{:else if isDegraded || isStale}
+	<span
+		class="status-enter ml-2 flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 shadow-xs"
+		data-testid="topbar-degraded-indicator"
+		title="Koneksi lambat atau sinkronisasi tertunda (stale/degraded)"
+	>
+		<AlertTriangle class="h-3.5 w-3.5 text-amber-500" />
+		<span class="tracking-wide">Degraded</span>
 	</span>
 {/if}
 

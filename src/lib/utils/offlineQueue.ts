@@ -12,6 +12,7 @@ export interface PendingTransaction extends Record<string, unknown> {
 	next_attempt_at: number;
 	last_error: string | null;
 	failure_kind: PendingFailureKind;
+	requires_owner_review?: boolean;
 }
 
 export interface PendingTransactionExport {
@@ -65,10 +66,13 @@ export function normalizePendingTransaction(
 		? (item.failure_kind as Exclude<PendingFailureKind, null>)
 		: null;
 
-	const branch =
-		typeof item.branch === 'string' && item.branch.length > 0
-			? item.branch
-			: options.branch || 'samarinda';
+	const hasExplicitBranch = typeof item.branch === 'string' && item.branch.length > 0;
+	const branch: string = hasExplicitBranch
+		? (item.branch as string)
+		: options.branch || 'samarinda';
+	const requiresOwnerReview = Boolean(
+		item.requires_owner_review || (!hasExplicitBranch && !options.branch)
+	);
 
 	return {
 		...item,
@@ -84,7 +88,8 @@ export function normalizePendingTransaction(
 		attempt_count: Math.floor(finiteNonNegative(item.attempt_count)),
 		next_attempt_at: finiteNonNegative(item.next_attempt_at),
 		last_error: typeof item.last_error === 'string' ? item.last_error.slice(0, 240) : null,
-		failure_kind: failureKind
+		failure_kind: failureKind,
+		requires_owner_review: requiresOwnerReview
 	};
 }
 

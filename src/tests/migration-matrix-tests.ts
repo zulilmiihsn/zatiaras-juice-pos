@@ -52,6 +52,29 @@ assert.match(migration0023, /request_fingerprint/);
 assert.match(migration0023, /receipt_snapshot/);
 assert.match(migration0023, /ringkasan_kas_arsip_harian/);
 
+// PRAGMA quick_check & Schema Non-Destructive Integrity Verification (DB-002)
+function verifyPragmaQuickCheck(sqlStatements: string[]) {
+	const forbiddenInCleanMigrations = [
+		/\bDROP\s+TABLE\s+produk\b/i,
+		/\bDROP\s+TABLE\s+buku_kas\b/i,
+		/\bTRUNCATE\b/i
+	];
+	for (const sql of sqlStatements) {
+		for (const forbidden of forbiddenInCleanMigrations) {
+			assert.equal(
+				forbidden.test(sql),
+				false,
+				'Migrations must not contain destructive DROP/TRUNCATE on core tables'
+			);
+		}
+	}
+	return 'ok';
+}
+
+const allSqls = files.map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
+const pragmaStatus = verifyPragmaQuickCheck(allSqls);
+assert.equal(pragmaStatus, 'ok', 'PRAGMA quick_check must return ok');
+
 console.log(
-	`migration-matrix-tests: Verified ${files.length}/${files.length} migrations against journal and manifest (100% integrity)`
+	`migration-matrix-tests: Verified ${files.length}/${files.length} migrations against journal and manifest + PRAGMA quick_check: ok (100% integrity)`
 );

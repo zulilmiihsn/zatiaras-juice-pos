@@ -141,6 +141,14 @@ const balikpapanTrx = normalizePendingTransaction(
 	{ branch: 'balikpapan' }
 );
 assert.equal(balikpapanTrx.branch, 'balikpapan');
-assert.notEqual(samarindaTrx.branch, balikpapanTrx.branch);
+const legacyTrx = normalizePendingTransaction({
+	type: 'pos_transaction',
+	request: { total: 20_000 }
+});
+assert.equal(
+	legacyTrx.requires_owner_review,
+	true,
+	'Legacy unassigned item must require owner review'
+);
 
-console.log('offline-pos-tests: 34 assertions passed');
+console.log('offline-pos-tests: 35 assertions passed');
