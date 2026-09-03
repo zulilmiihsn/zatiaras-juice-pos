@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { utcToWita, witaToUtc, getTodayWita, addDaysYmd } from '../src/lib/utils/dateTime';
 
 test.describe('Reports & Financial Dashboard Behavioral Flows', () => {
 	test('financial reports route requires authentication', async ({ page }) => {
@@ -6,31 +7,23 @@ test.describe('Reports & Financial Dashboard Behavioral Flows', () => {
 		await expect(page).toHaveURL(/\/login/);
 	});
 
-	test('validates WITA (UTC+8) timezone date grouping in browser context', async ({ page }) => {
-		await page.goto('/login');
+	test('validates real app dateTime.ts WITA timezone conversion functions', () => {
+		// 1. Late night UTC (17:00:00Z on Aug 1st) translates to 01:00:00 WITA on Aug 2nd (+8 hours)
+		const utcInput = '2026-08-01T17:00:00.000Z';
+		const witaDate = utcToWita(utcInput);
+		expect(witaDate.getDate()).toBe(2);
+		expect(witaDate.getHours()).toBe(1);
 
-		const witaGrouping = await page.evaluate(() => {
-			// Helper to format ISO timestamp into WITA YYYY-MM-DD date
-			function getWitaDateString(isoString: string): string {
-				const date = new Date(isoString);
-				// Add 8 hours for WITA (UTC+8)
-				const witaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-				return witaTime.toISOString().slice(0, 10);
-			}
+		// 2. WITA local to UTC conversion
+		const witaInput = '2026-08-02T01:00:00';
+		const utcConverted = witaToUtc(witaInput);
+		expect(utcConverted.toISOString()).toBe('2026-08-01T17:00:00.000Z');
 
-			// Late evening UTC transaction (17:00 UTC) belongs to next day in WITA (01:00 WITA)
-			const txUtcNight = '2026-08-01T17:00:00.000Z';
-			const txUtcAft = '2026-08-01T04:00:00.000Z';
+		// 3. getTodayWita format check (YYYY-MM-DD)
+		const todayWita = getTodayWita();
+		expect(todayWita).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-			return {
-				nightDate: getWitaDateString(txUtcNight),
-				dayDate: getWitaDateString(txUtcAft)
-			};
-		});
-
-		// 17:00 UTC on Aug 1st is 01:00 WITA on Aug 2nd
-		expect(witaGrouping.nightDate).toBe('2026-08-02');
-		// 04:00 UTC on Aug 1st is 12:00 WITA on Aug 1st
-		expect(witaGrouping.dayDate).toBe('2026-08-01');
+		// 4. addDaysYmd date arithmetic
+		expect(addDaysYmd('2026-08-01', 5)).toBe('2026-08-06');
 	});
 });

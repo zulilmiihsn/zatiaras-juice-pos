@@ -3,33 +3,34 @@ import { expect, test } from '@playwright/test';
 test.describe('Offline Page Behavioral Flows', () => {
 	test('renders offline page and interacts with retry button', async ({ page }) => {
 		await page.goto('/offline');
-		await expect(page.getByText(/offline|koneksi terputus/i)).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByRole('heading', { name: 'Koneksi terputus' })).toBeVisible({
+			timeout: 15_000
+		});
 
-		// Verify presence of interactive retry button
-		const retryBtn = page.getByRole('button', { name: /coba lagi|refresh|muat ulang/i });
-		if (await retryBtn.isVisible()) {
-			await retryBtn.click();
-			await expect(page).toHaveURL(/offline|\//);
-		}
+		// Verify presence and attributes of interactive retry button
+		const retryBtn = page.getByRole('link', { name: 'Coba lagi' });
+		await expect(retryBtn).toBeVisible();
+		await expect(retryBtn).toHaveAttribute('href', '/');
 	});
 
-	test('transitions between offline and online events seamlessly', async ({ page }) => {
+	test('registers and responds to offline and online event transitions without fallback', async ({
+		page
+	}) => {
 		await page.goto('/offline');
 
-		// 1. Dispatch offline event
-		const offlineState = await page.evaluate(() => {
+		// Strictly capture both event dispatches without any vacuous `|| true`
+		const eventsFired = await page.evaluate(() => {
+			const received: string[] = [];
+			window.addEventListener('offline', () => received.push('offline'), { once: true });
+			window.addEventListener('online', () => received.push('online'), { once: true });
+
 			window.dispatchEvent(new Event('offline'));
-			return !navigator.onLine || true;
-		});
-		expect(offlineState).toBe(true);
-
-		// 2. Dispatch online event to test connection recovery
-		const onlineState = await page.evaluate(() => {
 			window.dispatchEvent(new Event('online'));
-			return navigator.onLine || true;
-		});
-		expect(onlineState).toBe(true);
 
+			return received;
+		});
+
+		expect(eventsFired).toEqual(['offline', 'online']);
 		await expect(page.locator('body')).toBeVisible();
 	});
 });

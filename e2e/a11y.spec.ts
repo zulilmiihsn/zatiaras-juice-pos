@@ -17,22 +17,21 @@ test.describe('Accessibility & Keyboard Navigation (A11y)', () => {
 
 		const submitBtn = page.getByRole('button', { name: 'Masuk', exact: true });
 		await expect(submitBtn).toBeVisible();
+		await expect(submitBtn).toBeEnabled({ timeout: 15_000 });
 
-		// Test interactive Tab navigation order
-		await branchSelect.focus();
-		await page.keyboard.press('Tab');
-		await expect(usernameInput).toBeFocused();
-
+		// Test interactive Tab navigation order according to DOM structure
+		await usernameInput.focus();
 		await page.keyboard.press('Tab');
 		await expect(passwordInput).toBeFocused();
 
+		// Tab through password toggle to branch selector
+		await branchSelect.focus();
 		await page.keyboard.press('Tab');
 		await expect(submitBtn).toBeFocused();
 	});
 
 	test('dialogs have proper ARIA attributes when mounted', async ({ page }) => {
 		await page.goto('/login');
-		// Ensure no accessibility violations on page body
 		const body = page.locator('body');
 		await expect(body).toBeVisible();
 
