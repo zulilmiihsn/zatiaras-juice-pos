@@ -26,7 +26,7 @@ export async function addPendingTransaction(
 	const activeBranch =
 		branch ||
 		(typeof trx === 'object' && trx && 'branch' in trx
-			? String((trx as any).branch)
+			? String((trx as { branch?: unknown }).branch)
 			: typeof window !== 'undefined'
 				? localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda'
 				: 'samarinda');

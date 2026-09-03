@@ -20,6 +20,26 @@ export interface GeneratePdfOptions {
 	transactions: BukuKasRecord[];
 }
 
+interface JsPdfWithAutoTable {
+	lastAutoTable?: { finalY: number };
+	internal?: {
+		getNumberOfPages?: () => number;
+		[key: string]: unknown;
+	};
+}
+
+function getAutoTableFinalY(doc: jsPDF, fallbackY = 0): number {
+	const docWithTable = doc as unknown as JsPdfWithAutoTable;
+	return docWithTable.lastAutoTable?.finalY ?? fallbackY;
+}
+
+function getTotalPdfPages(doc: jsPDF): number {
+	const docWithTable = doc as unknown as JsPdfWithAutoTable;
+	return typeof docWithTable.internal?.getNumberOfPages === 'function'
+		? docWithTable.internal.getNumberOfPages()
+		: 1;
+}
+
 /** Helper untuk mengelompokkan transaksi berdasarkan nama item/keterangan */
 function groupRecordsByName(
 	records: BukuKasRecord[]
@@ -318,7 +338,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		margin: { left: 14, right: 14 }
 	});
 
-	y = (doc as any).lastAutoTable.finalY + 6;
+	y = getAutoTableFinalY(doc, y) + 6;
 
 	// ─── 5. TABEL II: RINCIAN PENJUALAN PRODUK & TOP MENU ───────────────────────
 	const allSalesRecords = [...reportGroups.pemasukanUsahaTunai, ...reportGroups.pemasukanUsahaQris];
@@ -385,7 +405,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			margin: { left: 14, right: 14 }
 		});
 
-		y = (doc as any).lastAutoTable.finalY + 6;
+		y = getAutoTableFinalY(doc, y) + 6;
 	}
 
 	// ─── 6. TABEL III: RINCIAN PENGELUARAN & BEBAN OPERASIONAL ──────────────────
@@ -464,7 +484,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			margin: { left: 14, right: 14 }
 		});
 
-		y = (doc as any).lastAutoTable.finalY + 6;
+		y = getAutoTableFinalY(doc, y) + 6;
 	}
 
 	// ─── 7. TABEL IV: LOG TRANSAKSI BUKU KAS DETAIL ─────────────────────────────
@@ -562,7 +582,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	});
 
 	// ─── 8. LEMBAR PENGESAHAN (SIGNATURE APPROVAL BOX) ──────────────────────────
-	const finalTableY = (doc as any).lastAutoTable.finalY;
+	const finalTableY = getAutoTableFinalY(doc, y);
 	let signY = finalTableY + 12;
 
 	// Cek apakah muat di halaman saat ini atau perlu halaman baru
@@ -594,7 +614,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	doc.text('( Nama Terang & Tanggal )', 136, signY + 26);
 
 	// ─── 9. FOOTER NUMBERING UNTUK SELURUH HALAMAN ──────────────────────────────
-	const totalPages = (doc as any).internal.getNumberOfPages();
+	const totalPages = getTotalPdfPages(doc);
 	const generatedTimestamp = new Date().toLocaleString('id-ID');
 
 	for (let i = 1; i <= totalPages; i++) {

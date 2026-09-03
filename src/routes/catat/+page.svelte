@@ -508,7 +508,7 @@
 													{trx.deskripsi || (trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran')}
 												</div>
 												<div class="text-[10px] font-medium text-slate-400">
-													{formatWaktuTrx(trx.waktu)} · {trx.metode_bayar === 'tunai'
+													{formatWaktuTrx(trx.waktu || '')} · {trx.metode_bayar === 'tunai'
 														? 'Tunai'
 														: 'Non-Tunai'}
 												</div>

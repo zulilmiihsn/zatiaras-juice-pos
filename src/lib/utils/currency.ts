@@ -31,15 +31,16 @@ export function parseRupiah(value: string | number | null | undefined): number {
  * Helper untuk input event. Format string secara otomatis menjadi ribuan.
  * Cocok digunakan di oninput={handleRupiahInput(formObj, 'field')}
  */
-export function handleRupiahInput<T extends Record<string, any>>(obj: T, field: keyof T) {
+export function handleRupiahInput<T extends Record<string, unknown>>(obj: T, field: keyof T) {
 	return (e: Event) => {
 		const target = e.target as HTMLInputElement;
 		const raw = target.value.replace(/[^\d]/g, '');
+		const targetObj = obj as Record<keyof T, unknown>;
 
 		if (raw) {
-			obj[field] = parseInt(raw, 10).toLocaleString('id-ID') as any;
+			targetObj[field] = parseInt(raw, 10).toLocaleString('id-ID');
 		} else {
-			obj[field] = '' as any;
+			targetObj[field] = '';
 		}
 	};
 }

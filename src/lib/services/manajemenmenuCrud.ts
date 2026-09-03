@@ -32,6 +32,7 @@ export function createMenuCrud() {
 			productId: string | number,
 			items: Array<{
 				bahan_id: string | number;
+				porsi?: 'reguler' | 'jumbo' | string;
 				jumlah_per_item: string | number;
 				satuan_resep?: string;
 				jumlah_dasar_per_item?: number;
@@ -48,7 +49,7 @@ export function createMenuCrud() {
 							? items.map((item) => ({
 									produk_id: String(productId),
 									bahan_id: String(item.bahan_id),
-									porsi: (item as any).porsi || 'reguler',
+									porsi: item.porsi || 'reguler',
 									jumlah_per_item: Number(item.jumlah_per_item || 0),
 									satuan_resep: item.satuan_resep || null,
 									jumlah_dasar_per_item: Number(

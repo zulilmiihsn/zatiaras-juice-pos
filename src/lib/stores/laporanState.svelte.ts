@@ -14,7 +14,7 @@ import { calculateTaxes } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
 
 export function createLaporanState() {
-	let FilterIcon: any = $state(null);
+	let FilterIcon = $state<import('svelte').Component | null>(null);
 
 	let isInitialLoad = true;
 	let laporanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,14 +121,22 @@ export function createLaporanState() {
 			}
 			const dateRange = startDate === endDate ? startDate : `${startDate}_${endDate}`;
 			const reportData = await dashboardService.getReportData(dateRange, 'daily');
-			const reportDataContent = (reportData as any)?.data || reportData;
+			const rawReport = reportData as unknown as {
+				data?: {
+					summary?: LaporanSummary;
+					transactions?: BukuKasRecord[];
+				};
+				summary?: LaporanSummary;
+				transactions?: BukuKasRecord[];
+			};
+			const reportDataContent = rawReport?.data || rawReport || {};
 			const nextFingerprint = computeReportFingerprint(reportDataContent);
 			if (nextFingerprint === lastAppliedReportFingerprint) {
 				await reportCacheMetrics('laporan');
 				return;
 			}
 			lastAppliedReportFingerprint = nextFingerprint;
-			const rawSummary = reportDataContent?.summary || {
+			const rawSummary = reportDataContent.summary || {
 				pendapatan: 0,
 				pengeluaran: 0,
 				saldo: 0,
@@ -155,7 +163,7 @@ export function createLaporanState() {
 				})),
 				taxLabel: taxResult.activeTaxesLabel
 			};
-			laporan = reportDataContent?.transactions || [];
+			laporan = reportDataContent.transactions || [];
 			await reportCacheMetrics('laporan');
 		} catch (error) {
 			ErrorHandler.logError(error, 'loadLaporanData');
@@ -323,7 +331,10 @@ export function createLaporanState() {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		window.addEventListener('focus', handleFocus);
 		window.addEventListener('popstate', handleNavigation);
-		window.addEventListener('ai-recommendations-applied', handleAiRecommendationsApplied as any);
+		window.addEventListener(
+			'ai-recommendations-applied',
+			handleAiRecommendationsApplied as EventListener
+		);
 
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -331,7 +342,7 @@ export function createLaporanState() {
 			window.removeEventListener('popstate', handleNavigation);
 			window.removeEventListener(
 				'ai-recommendations-applied',
-				handleAiRecommendationsApplied as any
+				handleAiRecommendationsApplied as EventListener
 			);
 			if (typeof window !== 'undefined' && offLaporan) offLaporan();
 		};

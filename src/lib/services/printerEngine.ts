@@ -34,10 +34,74 @@ const KNOWN_BLE_SERVICES = [
 	'0000fee7-0000-1000-8000-00805f9b34fb' // Tencent / Micro-printer
 ];
 
+interface BluetoothCharacteristicLike {
+	properties: {
+		write?: boolean;
+		writeWithoutResponse?: boolean;
+	};
+	writeValueWithoutResponse?: (data: BufferSource) => Promise<void>;
+	writeValueWithResponse?: (data: BufferSource) => Promise<void>;
+	writeValue?: (data: BufferSource) => Promise<void>;
+}
+
+interface BluetoothRemoteGATTServerLike {
+	connected?: boolean;
+	connect: () => Promise<BluetoothRemoteGATTServerLike>;
+	disconnect: () => void;
+	getPrimaryService: (service: string) => Promise<{
+		getCharacteristics: () => Promise<BluetoothCharacteristicLike[]>;
+	}>;
+	getPrimaryServices?: () => Promise<
+		Array<{
+			getCharacteristics: () => Promise<BluetoothCharacteristicLike[]>;
+		}>
+	>;
+}
+
+interface BluetoothDeviceLike {
+	name?: string;
+	gatt?: BluetoothRemoteGATTServerLike;
+}
+
+interface UsbEndpointLike {
+	endpointNumber: number;
+	direction: 'in' | 'out';
+}
+
+interface UsbInterfaceLike {
+	interfaceNumber: number;
+	alternates: Array<{
+		endpoints: UsbEndpointLike[];
+	}>;
+}
+
+interface UsbDeviceLike {
+	productName?: string;
+	configuration: {
+		interfaces: UsbInterfaceLike[];
+	} | null;
+	open: () => Promise<void>;
+	selectConfiguration: (config: number) => Promise<void>;
+	claimInterface: (interfaceNumber: number) => Promise<void>;
+	transferOut: (endpointNumber: number, data: Uint8Array | BufferSource) => Promise<unknown>;
+}
+
+interface NavigatorHardware {
+	bluetooth?: {
+		requestDevice: (options: {
+			acceptAllDevices?: boolean;
+			optionalServices?: string[];
+		}) => Promise<BluetoothDeviceLike>;
+	};
+	usb?: {
+		requestDevice: (options: { filters: Array<{ classCode?: number }> }) => Promise<UsbDeviceLike>;
+	};
+}
+
 // Active Hardware Connections Cache
-let activeBluetoothDevice: any = null;
-let activeBluetoothCharacteristic: any = null;
-let activeUsbDevice: any = null;
+let activeBluetoothDevice: BluetoothDeviceLike | null = null;
+let activeBluetoothCharacteristic: BluetoothCharacteristicLike | null = null;
+let activeUsbDevice: UsbDeviceLike | null = null;
 let activeUsbEndpointNumber: number | null = null;
 
 /** Baca konfigurasi printer dari localStorage */
@@ -78,12 +142,16 @@ export function savePrinterConfig(config: Partial<PrinterConfig>): PrinterConfig
 
 /** Periksa apakah Web Bluetooth didukung browser */
 export function isBluetoothSupported(): boolean {
-	return browser && typeof (navigator as any).bluetooth !== 'undefined';
+	if (!browser || typeof navigator === 'undefined') return false;
+	const nav = navigator as unknown as NavigatorHardware;
+	return typeof nav.bluetooth !== 'undefined';
 }
 
 /** Periksa apakah WebUSB didukung browser */
 export function isUsbSupported(): boolean {
-	return browser && typeof (navigator as any).usb !== 'undefined';
+	if (!browser || typeof navigator === 'undefined') return false;
+	const nav = navigator as unknown as NavigatorHardware;
+	return typeof nav.usb !== 'undefined';
 }
 
 /** Hubungkan ke Printer Thermal Bluetooth (BLE) */
@@ -92,7 +160,12 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 		throw new Error('Web Bluetooth tidak didukung di browser ini. Gunakan Chrome / Edge.');
 	}
 
-	const navBluetooth = (navigator as any).bluetooth;
+	const nav = navigator as unknown as NavigatorHardware;
+	const navBluetooth = nav.bluetooth;
+	if (!navBluetooth) {
+		throw new Error('Web Bluetooth tidak tersedia di perangkat ini.');
+	}
+
 	const device = await navBluetooth.requestDevice({
 		acceptAllDevices: true,
 		optionalServices: KNOWN_BLE_SERVICES
@@ -103,7 +176,7 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 	}
 
 	const server = await device.gatt.connect();
-	let targetCharacteristic: any = null;
+	let targetCharacteristic: BluetoothCharacteristicLike | null = null;
 
 	// Iterasi services untuk mencari characteristic writable
 	for (const serviceUuid of KNOWN_BLE_SERVICES) {
@@ -124,20 +197,22 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 
 	if (!targetCharacteristic) {
 		// Fallback: coba cari seluruh services yang diekspos device
-		try {
-			const services = await server.getPrimaryServices();
-			for (const service of services) {
-				const characteristics = await service.getCharacteristics();
-				for (const char of characteristics) {
-					if (char.properties.write || char.properties.writeWithoutResponse) {
-						targetCharacteristic = char;
-						break;
+		if (typeof server.getPrimaryServices === 'function') {
+			try {
+				const services = await server.getPrimaryServices();
+				for (const service of services) {
+					const characteristics = await service.getCharacteristics();
+					for (const char of characteristics) {
+						if (char.properties.write || char.properties.writeWithoutResponse) {
+							targetCharacteristic = char;
+							break;
+						}
 					}
+					if (targetCharacteristic) break;
 				}
-				if (targetCharacteristic) break;
+			} catch {
+				// ignore
 			}
-		} catch {
-			// ignore
 		}
 	}
 
@@ -164,14 +239,22 @@ export function disconnectBluetooth(): void {
 }
 
 /** Kirim data bytes ke Bluetooth dengan chunking antrean (cegah buffer overflow) */
-async function sendBluetoothChunked(characteristic: any, data: Uint8Array): Promise<void> {
+async function sendBluetoothChunked(
+	characteristic: BluetoothCharacteristicLike,
+	data: Uint8Array
+): Promise<void> {
 	const CHUNK_SIZE = 64; // safe MTU size for cheap thermal printers
 	for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
 		const chunk = data.slice(offset, offset + CHUNK_SIZE);
-		if (characteristic.properties.writeWithoutResponse) {
+		if (
+			characteristic.properties.writeWithoutResponse &&
+			characteristic.writeValueWithoutResponse
+		) {
 			await characteristic.writeValueWithoutResponse(chunk);
-		} else {
+		} else if (characteristic.writeValueWithResponse) {
 			await characteristic.writeValueWithResponse(chunk);
+		} else if (characteristic.writeValue) {
+			await characteristic.writeValue(chunk);
 		}
 		// Delay kecil 15ms agar buffer printer sempat memproses
 		await new Promise((r) => setTimeout(r, 15));
@@ -184,7 +267,12 @@ export async function connectUsbPrinter(): Promise<{ name: string }> {
 		throw new Error('WebUSB tidak didukung di browser ini. Gunakan Chrome / Edge.');
 	}
 
-	const navUsb = (navigator as any).usb;
+	const nav = navigator as unknown as NavigatorHardware;
+	const navUsb = nav.usb;
+	if (!navUsb) {
+		throw new Error('WebUSB tidak tersedia di perangkat ini.');
+	}
+
 	const device = await navUsb
 		.requestDevice({
 			filters: [{ classCode: 7 }] // 7 = Printer Class
@@ -204,21 +292,23 @@ export async function connectUsbPrinter(): Promise<{ name: string }> {
 	}
 
 	// Cari interface printer
-	let targetInterface: any = null;
-	let outEndpoint: any = null;
+	let targetInterface: UsbInterfaceLike | null = null;
+	let outEndpoint: UsbEndpointLike | null = null;
 
-	for (const iface of device.configuration.interfaces) {
-		for (const alt of iface.alternates) {
-			for (const ep of alt.endpoints) {
-				if (ep.direction === 'out') {
-					targetInterface = iface;
-					outEndpoint = ep;
-					break;
+	if (device.configuration) {
+		for (const iface of device.configuration.interfaces) {
+			for (const alt of iface.alternates) {
+				for (const ep of alt.endpoints) {
+					if (ep.direction === 'out') {
+						targetInterface = iface;
+						outEndpoint = ep;
+						break;
+					}
 				}
+				if (outEndpoint) break;
 			}
 			if (outEndpoint) break;
 		}
-		if (outEndpoint) break;
 	}
 
 	if (!targetInterface || !outEndpoint) {
@@ -236,7 +326,11 @@ export async function connectUsbPrinter(): Promise<{ name: string }> {
 }
 
 /** Kirim data bytes ke Printer USB */
-async function sendUsbData(device: any, endpointNumber: number, data: Uint8Array): Promise<void> {
+async function sendUsbData(
+	device: UsbDeviceLike,
+	endpointNumber: number,
+	data: Uint8Array
+): Promise<void> {
 	await device.transferOut(endpointNumber, data);
 }
 
@@ -324,14 +418,22 @@ export async function testPrintUnified(method: PrinterMethod, paperSize: PaperSi
 		if (!activeBluetoothCharacteristic) {
 			await connectBluetoothPrinter();
 		}
-		const bytes = buildReceiptEscPos(dummyData, { paperSize });
-		await sendBluetoothChunked(activeBluetoothCharacteristic, bytes);
+		if (activeBluetoothCharacteristic) {
+			const bytes = buildReceiptEscPos(dummyData, { paperSize });
+			await sendBluetoothChunked(activeBluetoothCharacteristic, bytes);
+		} else {
+			throw new Error('Koneksi Bluetooth printer gagal dibentuk');
+		}
 	} else if (method === 'usb') {
 		if (!activeUsbDevice || activeUsbEndpointNumber === null) {
 			await connectUsbPrinter();
 		}
-		const bytes = buildReceiptEscPos(dummyData, { paperSize });
-		await sendUsbData(activeUsbDevice, activeUsbEndpointNumber!, bytes);
+		if (activeUsbDevice && activeUsbEndpointNumber !== null) {
+			const bytes = buildReceiptEscPos(dummyData, { paperSize });
+			await sendUsbData(activeUsbDevice, activeUsbEndpointNumber, bytes);
+		} else {
+			throw new Error('Koneksi USB printer gagal dibentuk');
+		}
 	} else {
 		printViaIntent(dummyHtml);
 	}

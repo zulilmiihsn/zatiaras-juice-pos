@@ -5,7 +5,7 @@
 
 	// [CATATAN]: Log unauthorized access attempt
 	securityUtils.logSecurityEvent('unauthorized_access', {
-		user: (auth.getCurrentUser() as any)?.username || 'anonymous',
+		user: (auth.getCurrentUser() as { username?: string } | null)?.username || 'anonymous',
 		url: typeof window !== 'undefined' ? window.location.href : 'unknown'
 	});
 

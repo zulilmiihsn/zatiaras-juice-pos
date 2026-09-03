@@ -65,8 +65,11 @@ export function createLayoutState() {
 	}
 
 	function scheduleIdleTask(task: () => void, timeout = 1200) {
-		if ('requestIdleCallback' in window) {
-			(window as any).requestIdleCallback(task, { timeout });
+		const win = window as unknown as {
+			requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+		};
+		if (typeof win.requestIdleCallback === 'function') {
+			win.requestIdleCallback(task, { timeout });
 		} else {
 			setTimeout(task, timeout);
 		}

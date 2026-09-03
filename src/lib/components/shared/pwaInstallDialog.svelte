@@ -30,7 +30,8 @@
 		const isChrome = /chrome/.test(ua) && !isEdge;
 		const isStandalone =
 			window.matchMedia('(display-mode: standalone)').matches ||
-			('standalone' in window.navigator && (window.navigator as any).standalone);
+			('standalone' in window.navigator &&
+				Boolean((window.navigator as unknown as { standalone?: boolean }).standalone));
 
 		if (isStandalone) {
 			isAlreadyInstalled = true;

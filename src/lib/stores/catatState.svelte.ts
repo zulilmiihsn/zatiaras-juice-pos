@@ -17,6 +17,16 @@ import { getSesiAktif } from '$lib/services/sesiTokoService';
 import type { TokoSession } from '$lib/types';
 import type { NotifModalType } from '$lib/components/shared/NotifModal.svelte';
 
+export interface CatatRecentTransaction {
+	id?: string;
+	tipe: 'in' | 'out' | string;
+	deskripsi?: string;
+	waktu: string;
+	metode_bayar?: string;
+	nominal?: number;
+	[key: string]: unknown;
+}
+
 export function createCatatState() {
 	let mode = $state<'pemasukan' | 'pengeluaran'>('pemasukan');
 	let paymentMethod = $state<'tunai' | 'non-tunai'>('tunai');
@@ -36,7 +46,7 @@ export function createCatatState() {
 	let notifModalType = $state<NotifModalType>('warning');
 	let currentUserRole = $state('');
 	let sesiAktif = $state<TokoSession | null>(null);
-	let recentTransactions = $state<any[]>([]);
+	let recentTransactions = $state<CatatRecentTransaction[]>([]);
 	let isLoadingRecent = $state(false);
 
 	const toastManager = createToastManager();
@@ -81,11 +91,11 @@ export function createCatatState() {
 	async function loadRecentTransactions() {
 		try {
 			isLoadingRecent = true;
-			const rows = (await transactionService.getRows('buku_kas', {
+			const rows = await transactionService.getRows('buku_kas', {
 				sumber: 'catat',
 				limit: '5'
-			})) as any[];
-			recentTransactions = Array.isArray(rows) ? rows : [];
+			});
+			recentTransactions = Array.isArray(rows) ? (rows as unknown as CatatRecentTransaction[]) : [];
 		} catch {
 			recentTransactions = [];
 		} finally {
