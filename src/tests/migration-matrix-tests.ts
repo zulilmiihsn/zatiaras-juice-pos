@@ -32,8 +32,9 @@ for (let i = 0; i < journalEntries.length; i++) {
 	assert.equal(files[i], expectedFile, `Migration file index ${i} tag must match`);
 
 	const filePath = join(MIGRATIONS_DIR, expectedFile);
-	const content = readFileSync(filePath);
-	const sha = createHash('sha256').update(content).digest('hex');
+	const sqlText = readFileSync(filePath, 'utf8');
+	const normalizedSql = sqlText.replace(/\r\n/g, '\n');
+	const sha = createHash('sha256').update(normalizedSql).digest('hex');
 
 	assert.equal(
 		sha,
@@ -42,7 +43,6 @@ for (let i = 0; i < journalEntries.length; i++) {
 	);
 
 	// Verify basic SQL sanity
-	const sqlText = content.toString('utf8');
 	assert.equal(sqlText.length > 0, true, `${expectedFile} must not be empty`);
 }
 
