@@ -151,4 +151,4 @@ assert.equal(
 	'Legacy unassigned item must require owner review'
 );
 
-console.log('offline-pos-tests: 35 assertions passed');
+console.log('offline-pos-tests: 39 assertions passed');

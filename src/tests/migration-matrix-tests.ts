@@ -46,35 +46,75 @@ for (let i = 0; i < journalEntries.length; i++) {
 	assert.equal(sqlText.length > 0, true, `${expectedFile} must not be empty`);
 }
 
-// Verify latest migration 0023 defines required idempotency, receipt, and archive tables/columns
-const migration0023 = readFileSync(join(MIGRATIONS_DIR, files[files.length - 1]), 'utf8');
+import { DatabaseSync } from 'node:sqlite';
+
+// Verify latest migrations define required idempotency, receipt, archive, and key-value columns
+const migration0023 = readFileSync(
+	join(MIGRATIONS_DIR, '0023_idempotency_receipt_and_archive_summary.sql'),
+	'utf8'
+);
 assert.match(migration0023, /request_fingerprint/);
 assert.match(migration0023, /receipt_snapshot/);
 assert.match(migration0023, /ringkasan_kas_arsip_harian/);
 
-// PRAGMA quick_check & Schema Non-Destructive Integrity Verification (DB-002)
-function verifyPragmaQuickCheck(sqlStatements: string[]) {
-	const forbiddenInCleanMigrations = [
-		/\bDROP\s+TABLE\s+produk\b/i,
-		/\bDROP\s+TABLE\s+buku_kas\b/i,
-		/\bTRUNCATE\b/i
-	];
-	for (const sql of sqlStatements) {
-		for (const forbidden of forbiddenInCleanMigrations) {
-			assert.equal(
-				forbidden.test(sql),
-				false,
-				'Migrations must not contain destructive DROP/TRUNCATE on core tables'
-			);
-		}
+const migration0024 = readFileSync(
+	join(MIGRATIONS_DIR, '0024_pengaturan_kunci_nilai_key_value.sql'),
+	'utf8'
+);
+assert.match(migration0024, /kunci/);
+assert.match(migration0024, /nilai/);
+
+// Real SQLite In-Memory Database Playback & PRAGMA quick_check (DB-002)
+const db = new DatabaseSync(':memory:');
+
+for (const file of files) {
+	const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+	const statements = content
+		.split('--> statement-breakpoint')
+		.map((s) => s.trim())
+		.filter(Boolean);
+
+	for (const stmt of statements) {
+		db.exec(stmt);
 	}
-	return 'ok';
 }
 
-const allSqls = files.map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
-const pragmaStatus = verifyPragmaQuickCheck(allSqls);
-assert.equal(pragmaStatus, 'ok', 'PRAGMA quick_check must return ok');
+// 1. Execute real PRAGMA quick_check on SQLite C-engine
+const quickCheckRows = db.prepare('PRAGMA quick_check;').all() as Array<{ quick_check?: string }>;
+assert.equal(quickCheckRows.length, 1, 'PRAGMA quick_check must return 1 row');
+assert.equal(quickCheckRows[0].quick_check, 'ok', 'Real SQLite PRAGMA quick_check must return ok');
+
+// 2. Verify all core tables exist in schema
+const tables = (
+	db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>
+).map((t) => t.name);
+const expectedTables = [
+	'produk',
+	'buku_kas',
+	'transaksi_kasir',
+	'resep_produk',
+	'bahan',
+	'kategori',
+	'pengaturan',
+	'sesi_toko',
+	'ringkasan_penjualan_harian',
+	'ringkasan_kas_arsip_harian'
+];
+for (const expected of expectedTables) {
+	assert.equal(
+		tables.includes(expected),
+		true,
+		`Table ${expected} must exist after all migrations`
+	);
+}
+
+// 3. Verify pengaturan has kunci and nilai columns
+const pengaturanCols = (
+	db.prepare('PRAGMA table_info(pengaturan);').all() as Array<{ name: string }>
+).map((c) => c.name);
+assert.equal(pengaturanCols.includes('kunci'), true, 'pengaturan table must contain kunci column');
+assert.equal(pengaturanCols.includes('nilai'), true, 'pengaturan table must contain nilai column');
 
 console.log(
-	`migration-matrix-tests: Verified ${files.length}/${files.length} migrations against journal and manifest + PRAGMA quick_check: ok (100% integrity)`
+	`migration-matrix-tests: Verified ${files.length}/${files.length} migrations against journal & manifest + Real SQLite PRAGMA quick_check: ok (100% integrity)`
 );

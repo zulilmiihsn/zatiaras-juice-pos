@@ -22,5 +22,6 @@
 	"0020_missing_domain_columns.sql": "2a1d383c2c7a9dea099d469b5c53304dd036fdfe3e2b200868dce8d59c642f5f",
 	"0021_produk_harga_jumbo.sql": "ac17be144ad264d6af91ae1c8d63300f40530a0aae14240a2b58db52f5ddbefd",
 	"0022_drop_legacy_resep_unique_index.sql": "ed299c7210f4ce4bad61d1eeec609f02fb9e8201b91ae1ea944dc18b6bf96a8b",
-	"0023_idempotency_receipt_and_archive_summary.sql": "26b898b249aa75d6a7e067f91f8aedffa166a39c03c321b1f8f5bce9885b9571"
+	"0023_idempotency_receipt_and_archive_summary.sql": "26b898b249aa75d6a7e067f91f8aedffa166a39c03c321b1f8f5bce9885b9571",
+	"0024_pengaturan_kunci_nilai_key_value.sql": "f40892c95eed5cabb655edd05280c98397a94ce9a8474dcfc93aab0319e4ce35"
 }

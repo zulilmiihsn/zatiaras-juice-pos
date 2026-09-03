@@ -169,6 +169,13 @@
 			"when": 1783728000000,
 			"tag": "0023_idempotency_receipt_and_archive_summary",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "6",
+			"when": 1783814400000,
+			"tag": "0024_pengaturan_kunci_nilai_key_value",
+			"breakpoints": true
 		}
 	]
 }

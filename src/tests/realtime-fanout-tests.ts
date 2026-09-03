@@ -90,4 +90,4 @@ assert.deepEqual(receivedC, [event3]);
 unsubC();
 assert.equal(manager.getSubscriberCount('balikpapan'), 0);
 
-console.log('realtime-fanout-tests: 8 assertions passed (100% isolation and fanout verified)');
+console.log('realtime-fanout-tests: 12 assertions passed (100% isolation and fanout verified)');

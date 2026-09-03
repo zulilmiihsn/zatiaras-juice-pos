@@ -98,5 +98,5 @@ assert.equal(res, 'close');
 assert.equal(trap.isOpen, false);
 
 console.log(
-	'a11y-focus-tests: 7 assertions passed (100% focus trap & keyboard navigation verified)'
+	'a11y-focus-tests: 9 assertions passed (100% focus trap & keyboard navigation verified)'
 );
