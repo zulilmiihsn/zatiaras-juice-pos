@@ -282,7 +282,7 @@ export function createBayarState() {
 					}))
 				};
 			});
-			localStorage.setItem('pos_cart', JSON.stringify(cart));
+			posCart.items = cart;
 			activeQuoteToken = quote.quote_token;
 			quoteExpiresAt = quote.expires_at;
 			quotedTotal = quote.total_amount;
