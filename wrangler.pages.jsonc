@@ -9,17 +9,20 @@
 		{
 			"binding": "DB_SAMARINDA_GROUP",
 			"database_name": "zatiaras-samarinda-group",
-			"database_id": "b6aafe5b-fd11-436d-9b9e-c007bd531c9e"
+			"database_id": "b6aafe5b-fd11-436d-9b9e-c007bd531c9e",
+			"migrations_dir": "drizzle"
 		},
 		{
 			"binding": "DB_BALIKPAPAN_GROUP",
 			"database_name": "zatiaras-balikpapan-group",
-			"database_id": "312940d7-b0c0-43e5-86fd-78b762cacb6e"
+			"database_id": "312940d7-b0c0-43e5-86fd-78b762cacb6e",
+			"migrations_dir": "drizzle"
 		},
 		{
 			"binding": "DB_BERAU_GROUP",
 			"database_name": "zatiaras-berau-group",
-			"database_id": "18e2f751-5d54-4bec-b0bc-ae6e1378cdb6"
+			"database_id": "18e2f751-5d54-4bec-b0bc-ae6e1378cdb6",
+			"migrations_dir": "drizzle"
 		}
 	],
 

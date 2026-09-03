@@ -11,8 +11,8 @@ const JOURNAL_FILE = resolve('drizzle/meta/_journal.json');
 const MANIFEST_FILE = resolve('drizzle/meta/manifest.json');
 
 function computeSha256(filePath) {
-	const content = readFileSync(filePath);
-	return createHash('sha256').update(content).digest('hex');
+	const content = readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+	return createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
 try {
