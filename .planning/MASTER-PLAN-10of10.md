@@ -1336,36 +1336,36 @@ If one hard gate fails, do not round score up. Leave task open or record accepte
 Coordinator appends one row per verified task. Never store secrets, raw backups, cookies, headers,
 customer rows, or archive contents here.
 
-| Task      | Baseline SHA | Commit SHA | Tests                   | Migration                                         | Evidence                                                          | Status   |
-| --------- | ------------ | ---------- | ----------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | -------- |
-| GOV-001   | 3469e2a      | 32eb9e6    | N/A                     | N/A                                               | Candidate branch and governance plan aligned                      | VERIFIED |
-| DB-001    | 3469e2a      | 32eb9e6    | test:d1-backup          | Read-only                                         | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
-| QA-001    | 3469e2a      | 32eb9e6    | test:quality:all        | N/A                                               | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
-| SEC-001   | 3469e2a      | 32eb9e6    | test:security:local     | None                                              | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
-| POS-001   | 3469e2a      | 32eb9e6    | test:pos-integrity      | Required schema gate                              | Fail-closed verification & pricing token signatures               | VERIFIED |
-| POS-002   | 3469e2a      | 32eb9e6    | test:pos-integrity      | 0023_idempotency_receipt_and_archive_summary.sql  | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
-| HPP-001   | 3469e2a      | 32eb9e6    | test:yield              | 0017 plus WIP reconciliation                      | ingredient-yield-tests.ts 26/26 assertions pass                   | VERIFIED |
-| MENU-001  | 3469e2a      | 32eb9e6    | test:menu-atomic        | Recipe/unit schema                                | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
-| OFF-001   | 3469e2a      | 32eb9e6    | test:offline            | None                                              | offline-pos-tests.ts 40/40 assertions pass                        | VERIFIED |
-| OFF-002   | 3469e2a      | 32eb9e6    | test:offline            | Browser storage v2                                | Active branch scoping & legacy owner review flag in offline queue | VERIFIED |
-| TOK-001   | 3469e2a      | 32eb9e6    | test:hardening          | Secret/config transition                          | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
-| R2-001    | 3469e2a      | 32eb9e6    | test:quality            | Cleanup outbox if selected                        | Scoped branch object ownership & retry outbox in upload delete    | VERIFIED |
-| RT-001    | 3469e2a      | 32eb9e6    | test:uat-live-safety    | None                                              | Multi-subscriber fanout with individual disposers                 | VERIFIED |
-| ARC-001   | 3469e2a      | 32eb9e6    | test:archive-restore    | 0024_pengaturan_kunci_nilai_key_value.sql         | GET preview + SHA-256 R2 write + exact ID delete + job resume     | VERIFIED |
-| TAX-001   | 3469e2a      | 32eb9e6    | test:tax                | 0024_pengaturan_kunci_nilai_key_value.sql         | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
-| ARC-002   | 3469e2a      | 32eb9e6    | test:archive-restore    | Restore metadata                                  | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
-| DB-002    | 3469e2a      | 32eb9e6    | test:operations         | Full chain                                        | Migration journal 0000-0024 verified + Real SQLite quick_check:ok | VERIFIED |
-| QA-002    | 3469e2a      | 32eb9e6    | test:all                | Fixtures                                          | 13 unit suites + 8 e2e browser specs + operations + quality pass  | VERIFIED |
-| MAINT-001 | 3469e2a      | 32eb9e6    | test:quality:all        | N/A                                               | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
-| DEBT-001  | 3469e2a      | 32eb9e6    | test:quality            | TBD                                               | Type safety and strict validation across core flows               | VERIFIED |
-| UX-001    | 3469e2a      | 32eb9e6    | test:stores             | None                                              | Focus trap action, keyboard navigation, & degraded topbar badge   | VERIFIED |
-| OPS-001   | 3469e2a      | 32eb9e6    | test:operations         | Tooling                                           | RTK runner, automated snapshot rollback, & CI/CD pipeline         | VERIFIED |
-| DOC-001   | 3469e2a      | 32eb9e6    | test:quality:structure  | None                                              | DEVELOPER-GUIDE.md aligned with 7 flow maps & canonical rules     | VERIFIED |
-| REL-001   | 3469e2a      | 32eb9e6    | test:d1-backup          | Backup                                            | Three shard backup verified with complete status                  | VERIFIED |
-| REL-002   | 3469e2a      | 32eb9e6    | test:operations         | Three shards                                      | Three-shard binding resolution verified                           | VERIFIED |
-| REL-003   | 3469e2a      | 32eb9e6    | test:release            | N/A                                              | Deploy check & build gate verified                                | VERIFIED |
-| REL-004   | 3469e2a      | 32eb9e6    | test:all                | N/A                                               | Clean gate verification pipeline                                  | VERIFIED |
-| SCORE-001 | 3469e2a      | 32eb9e6    | test:all                | N/A                                               | 100% Quality & Regression Pass                                    | VERIFIED |
+| Task      | Baseline SHA | Commit SHA | Tests                  | Migration                                        | Evidence                                                          | Status   |
+| --------- | ------------ | ---------- | ---------------------- | ------------------------------------------------ | ----------------------------------------------------------------- | -------- |
+| GOV-001   | 3469e2a      | 32eb9e6    | N/A                    | N/A                                              | Candidate branch and governance plan aligned                      | VERIFIED |
+| DB-001    | 3469e2a      | 32eb9e6    | test:d1-backup         | Read-only                                        | scripts/d1-backup.test.mjs 9/9 pass                               | VERIFIED |
+| QA-001    | 3469e2a      | 32eb9e6    | test:quality:all       | N/A                                              | code-quality-tests.ts 8/8 pass (typecheck, lint, build)           | VERIFIED |
+| SEC-001   | 3469e2a      | 32eb9e6    | test:security:local    | None                                             | Strict role whitelist in veriflogin/+server.ts                    | VERIFIED |
+| POS-001   | 3469e2a      | 32eb9e6    | test:pos-integrity     | Required schema gate                             | Fail-closed verification & pricing token signatures               | VERIFIED |
+| POS-002   | 3469e2a      | 32eb9e6    | test:pos-integrity     | 0023_idempotency_receipt_and_archive_summary.sql | Canonical SHA-256 fingerprint & receipt snapshot return           | VERIFIED |
+| HPP-001   | 3469e2a      | 32eb9e6    | test:yield             | 0017 plus WIP reconciliation                     | ingredient-yield-tests.ts 26/26 assertions pass                   | VERIFIED |
+| MENU-001  | 3469e2a      | 32eb9e6    | test:menu-atomic       | Recipe/unit schema                               | Atomic D1 batch mutation with CSRF & branch checks                | VERIFIED |
+| OFF-001   | 3469e2a      | 32eb9e6    | test:offline           | None                                             | offline-pos-tests.ts 40/40 assertions pass                        | VERIFIED |
+| OFF-002   | 3469e2a      | 32eb9e6    | test:offline           | Browser storage v2                               | Active branch scoping & legacy owner review flag in offline queue | VERIFIED |
+| TOK-001   | 3469e2a      | 32eb9e6    | test:hardening         | Secret/config transition                         | Multi-generation HMAC key rotation in posPricingToken.ts          | VERIFIED |
+| R2-001    | 3469e2a      | 32eb9e6    | test:quality           | Cleanup outbox if selected                       | Scoped branch object ownership & retry outbox in upload delete    | VERIFIED |
+| RT-001    | 3469e2a      | 32eb9e6    | test:uat-live-safety   | None                                             | Multi-subscriber fanout with individual disposers                 | VERIFIED |
+| ARC-001   | 3469e2a      | 32eb9e6    | test:archive-restore   | 0024_pengaturan_kunci_nilai_key_value.sql        | GET preview + SHA-256 R2 write + exact ID delete + job resume     | VERIFIED |
+| TAX-001   | 3469e2a      | 32eb9e6    | test:tax               | 0024_pengaturan_kunci_nilai_key_value.sql        | tax-calculation-tests.ts 9/9 PP 55/2022 YTD cumulative tests pass | VERIFIED |
+| ARC-002   | 3469e2a      | 32eb9e6    | test:archive-restore   | Restore metadata                                 | Safe D1 binding execution & checksum verification in restore.mjs  | VERIFIED |
+| DB-002    | 3469e2a      | 32eb9e6    | test:operations        | Full chain                                       | Migration journal 0000-0024 verified + Real SQLite quick_check:ok | VERIFIED |
+| QA-002    | 3469e2a      | 32eb9e6    | test:all               | Fixtures                                         | 13 unit suites + 8 e2e browser specs + operations + quality pass  | VERIFIED |
+| MAINT-001 | 3469e2a      | 32eb9e6    | test:quality:all       | N/A                                              | svelte-check 0 errors, ESLint pass, Prettier clean                | VERIFIED |
+| DEBT-001  | 3469e2a      | 32eb9e6    | test:quality           | TBD                                              | Type safety and strict validation across core flows               | VERIFIED |
+| UX-001    | 3469e2a      | 32eb9e6    | test:stores            | None                                             | Focus trap action, keyboard navigation, & degraded topbar badge   | VERIFIED |
+| OPS-001   | 3469e2a      | 32eb9e6    | test:operations        | Tooling                                          | RTK runner, automated snapshot rollback, & CI/CD pipeline         | VERIFIED |
+| DOC-001   | 3469e2a      | 32eb9e6    | test:quality:structure | None                                             | DEVELOPER-GUIDE.md aligned with 7 flow maps & canonical rules     | VERIFIED |
+| REL-001   | 3469e2a      | 32eb9e6    | test:d1-backup         | Backup                                           | Three shard backup verified with complete status                  | VERIFIED |
+| REL-002   | 3469e2a      | 32eb9e6    | test:operations        | Three shards                                     | Three-shard binding resolution verified                           | VERIFIED |
+| REL-003   | 3469e2a      | 32eb9e6    | test:release           | N/A                                              | Deploy check & build gate verified                                | VERIFIED |
+| REL-004   | 3469e2a      | 32eb9e6    | test:all               | N/A                                              | Clean gate verification pipeline                                  | VERIFIED |
+| SCORE-001 | 3469e2a      | 32eb9e6    | test:all               | N/A                                              | 100% Quality & Regression Pass                                    | VERIFIED |
 
 ## Definition of Done
 
