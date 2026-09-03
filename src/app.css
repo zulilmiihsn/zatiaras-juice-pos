@@ -17,6 +17,7 @@
 html,
 body,
 button,
+a,
 input,
 optgroup,
 select,
@@ -30,11 +31,22 @@ textarea {
 		sans-serif !important;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	touch-action: manipulation;
 }
 
 html,
 body {
 	scroll-behavior: smooth;
+	touch-action: manipulation;
+}
+
+/* Cegah iOS Safari auto-zoom saat fokus input teks di layar kecil */
+@media screen and (max-width: 768px) {
+	input:not([type='range']):not([type='checkbox']):not([type='radio']),
+	select,
+	textarea {
+		font-size: 16px !important;
+	}
 }
 
 html,

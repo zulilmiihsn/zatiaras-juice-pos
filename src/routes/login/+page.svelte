@@ -13,6 +13,7 @@
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import Store from '@lucide/svelte/icons/store';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 
@@ -129,21 +130,29 @@
 </script>
 
 <div
-	class="page-content flex min-h-[100dvh] w-full items-center justify-center bg-[#faf7f8] p-4 sm:p-6"
+	class="page-content relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-pink-200 via-pink-100 to-pink-300 p-4 sm:p-6"
 >
-	<!-- Clean, Solid Centered Card -->
+	<!-- Ambient Background Glow Orbs -->
 	<div
-		class="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-7 shadow-xl shadow-slate-200/60 sm:p-9"
+		class="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-pink-400/30 blur-3xl"
+	></div>
+	<div
+		class="pointer-events-none absolute -right-24 -bottom-24 h-96 w-96 rounded-full bg-rose-400/25 blur-3xl"
+	></div>
+
+	<!-- Login Card Container -->
+	<div
+		class="relative w-full max-w-sm rounded-3xl border border-white/80 bg-white/95 p-7 shadow-2xl shadow-pink-500/15 backdrop-blur-xl sm:p-8"
 	>
 		<!-- Logo & Brand Header -->
 		<div class="mb-7 text-center">
 			<div
-				class="mx-auto mb-3.5 flex h-16 w-16 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50/80 shadow-2xs"
+				class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-pink-100 bg-white p-2.5 shadow-lg ring-4 shadow-pink-500/20 ring-pink-50"
 			>
 				<img src="/img/logo.svg" alt="Logo ZatiarasPOS" class="h-10 w-10 object-contain" />
 			</div>
 			<h1 class="text-2xl font-black tracking-tight text-slate-900">Zatiaras POS</h1>
-			<p class="mt-1 text-xs font-semibold text-slate-400">Masuk untuk memulai kasir</p>
+			<p class="mt-1 text-xs font-semibold text-slate-500">Masuk untuk memulai sesi kasir</p>
 		</div>
 
 		<!-- Error Banner -->
@@ -159,7 +168,7 @@
 		<!-- Success Notification Overlay -->
 		{#if showSuccessModal}
 			<div
-				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-xs"
 			>
 				<div
 					class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
@@ -170,7 +179,7 @@
 						<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
 					</div>
 					<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
-					<div class="text-xs text-slate-400">Membuka aplikasi...</div>
+					<div class="text-xs font-medium text-slate-400">Membuka aplikasi...</div>
 				</div>
 			</div>
 		{/if}
@@ -178,7 +187,7 @@
 		<!-- Error Notification Overlay -->
 		{#if showErrorModal}
 			<div
-				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xs"
+				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-xs"
 			>
 				<div
 					class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
@@ -189,7 +198,7 @@
 						<AlertCircle class="h-9 w-9 stroke-[2.5]" />
 					</div>
 					<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
-					<div class="text-xs text-slate-400">
+					<div class="text-xs font-medium text-slate-400">
 						{errorMessage || 'Periksa username dan password'}
 					</div>
 				</div>
@@ -213,7 +222,7 @@
 					Username
 				</label>
 				<div class="relative">
-					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-pink-400">
 						<User class="h-4.5 w-4.5" />
 					</span>
 					<input
@@ -222,7 +231,7 @@
 						bind:value={username}
 						oninput={handleUsernameChange}
 						onkeypress={handleKeyPress}
-						class="block w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-4 pl-10 text-sm font-bold text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						class="block w-full rounded-2xl border border-pink-100 bg-white py-3 pr-4 pl-10 text-sm font-semibold text-slate-900 shadow-xs transition-all outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15"
 						placeholder="Masukkan username"
 						autocomplete="username"
 						required
@@ -242,7 +251,7 @@
 					Password
 				</label>
 				<div class="relative">
-					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-pink-400">
 						<Lock class="h-4.5 w-4.5" />
 					</span>
 					<input
@@ -251,14 +260,14 @@
 						bind:value={password}
 						oninput={handlePasswordChange}
 						onkeypress={handleKeyPress}
-						class="block w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-11 pl-10 text-sm font-bold text-slate-900 transition outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						class="block w-full rounded-2xl border border-pink-100 bg-white py-3 pr-11 pl-10 text-sm font-semibold text-slate-900 shadow-xs transition-all outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15"
 						placeholder="Masukkan password"
 						autocomplete="current-password"
 						required
 					/>
 					<button
 						type="button"
-						class="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3.5 text-slate-400 hover:text-slate-600"
+						class="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3.5 text-slate-400 transition-colors hover:text-pink-600"
 						onclick={() => (showPassword = !showPassword)}
 						aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
 					>
@@ -274,7 +283,7 @@
 				{/if}
 			</div>
 
-			<!-- Branch Selector -->
+			<!-- Branch Selector with Sleek Dropdown Icon -->
 			<div>
 				<label
 					for="branch"
@@ -283,12 +292,12 @@
 					Cabang
 				</label>
 				<div class="relative">
-					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+					<span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-pink-400">
 						<Store class="h-4.5 w-4.5" />
 					</span>
 					<select
 						id="branch"
-						class="block w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-slate-50/70 py-3 pr-8 pl-10 text-sm font-bold text-slate-900 transition outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+						class="block w-full cursor-pointer appearance-none rounded-2xl border border-pink-100 bg-white py-3 pr-10 pl-10 text-sm font-semibold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15"
 						bind:value={branch}
 						aria-label="Pilih Cabang"
 					>
@@ -298,13 +307,18 @@
 						<option value="samarinda2">Samarinda 2</option>
 						<option value="balikpapan2">Balikpapan 2</option>
 					</select>
+					<span
+						class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400"
+					>
+						<ChevronDown class="h-4 w-4" />
+					</span>
 				</div>
 			</div>
 
 			<!-- Submit Button -->
 			<button
 				type="submit"
-				class="mt-2 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 text-sm font-black text-white shadow-lg shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+				class="mt-2 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:from-pink-600 hover:to-pink-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={!hydrated || isLoading}
 			>
 				{#if isLoading}
@@ -326,6 +340,8 @@
 			</button>
 		</form>
 
-		<div class="mt-6 text-center text-xs font-semibold text-slate-400">Zatiaras POS © 2026</div>
+		<div class="mt-6 text-center text-xs font-semibold text-slate-400">
+			Zatiaras POS &copy; 2026
+		</div>
 	</div>
 </div>
