@@ -1,6 +1,6 @@
 ---
 name: gsd-verify-work
-description: "Validate built features through conversational UAT"
+description: 'Validate built features through conversational UAT'
 argument-hint: "[phase number, e.g., '4']"
 allowed-tools:
   - Read
@@ -21,8 +21,8 @@ Output: {phase_num}-UAT.md tracking all test results. If issues found: diagnosed
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/verify-work.md
-@~/.claude/get-shit-done/templates/UAT.md
+@~~/.claude/get-shit-done/workflows/verify-work.md
+@~~/.claude/get-shit-done/templates/UAT.md
 </execution_context>
 
 <context>

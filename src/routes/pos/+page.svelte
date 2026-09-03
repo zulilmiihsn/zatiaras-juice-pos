@@ -1,303 +1,146 @@
 <script lang="ts">
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	// [CATATAN]: Svelte & Lifecycle
 	import { onMount, onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { get } from 'svelte/store';
-	import { validateNumber, sanitizeInput } from '$lib/utils/validation';
-	import { securityUtils } from '$lib/utils/security';
-	import { fly, fade } from 'svelte/transition';
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import { posGridView } from '$lib/stores/posGridView';
-	import {
-		debounce,
-		throttle,
-		memoize,
-		measureAsyncPerformance,
-		calculateCartTotal,
-		fuzzySearch
-	} from '$lib/utils/performance';
-	import { userRole } from '$lib/stores/userRole';
-	import { selectedBranch } from '$lib/stores/selectedBranch';
-	import { dataService, realtimeManager } from '$lib/services/dataService';
-	import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
-	let currentUserRole = '';
-	userRole.subscribe((val) => (currentUserRole = val || ''));
 
+	// [CATATAN]: SvelteKit
 	import { browser } from '$app/environment';
-	let sesiAktif: {
-		id: string;
-		opening_cash: number;
-		opening_time: string;
-		is_active: boolean;
-	} | null = null;
-	async function cekSesiTokoAktif(): Promise<void> {
-		const { data } = await dataService.supabaseClient
-			.from('sesi_toko')
-			.select('*')
-			.eq('is_active', true)
-			.order('opening_time', { ascending: false })
-			.limit(1)
-			.maybeSingle();
-		sesiAktif = data || null;
-	}
+	import { goto } from '$app/navigation';
 
-	onMount(() => {
-		cekSesiTokoAktif();
-		if (browser) {
-			window.addEventListener('openTokoModal', cekSesiTokoAktif);
-		}
+	// [CATATAN]: Shared Components
+	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import LowStockAlertBanner from '$lib/components/shared/LowStockAlertBanner.svelte';
+	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+
+	// [CATATAN]: POS Components
+	import ProductGrid from '$lib/components/pos/ProductGrid.svelte';
+	import CustomItemModal from '$lib/components/pos/CustomItemModal.svelte';
+	import CartPreview from '$lib/components/pos/CartPreview.svelte';
+
+	// [CATATAN]: Stores & State
+	import {
+		createPosState,
+		type PosProduct,
+		type PosCategory,
+		type PosAddOn
+	} from '$lib/stores/posState.svelte';
+	import { posCart } from '$lib/stores/posCart.svelte';
+	import { posGridView } from '$lib/stores/posGridView.svelte';
+	import { userRole } from '$lib/stores/userRole.svelte';
+
+	// [CATATAN]: Services & Realtime
+	import { productService } from '$lib/services/productService';
+	import { getSesiAktif } from '$lib/services/sesiTokoService';
+	import {
+		evaluateAndAlertLowStock,
+		isStrictStockEnforcement,
+		isProductOutOfStock,
+		getProductAvailableStock,
+		getProductStockAvailability
+	} from '$lib/services/stockAlertService';
+	import { realtimeManager } from '$lib/realtime/realtimeManager';
+
+	// [CATATAN]: Utils & Constants
+	import { debounce, fuzzySearch } from '$lib/utils/performance';
+	import { formatRupiah } from '$lib/utils/currency';
+	import { securityUtils } from '$lib/utils/security';
+	import { validateNumber, sanitizeInput } from '$lib/utils/validation';
+	import { ICE_OPTIONS, SUGAR_OPTIONS } from '$lib/utils/orderDetails';
+	import { NOTIF, POS_SKELETON } from '$lib/constants/ui';
+
+	// [CATATAN]: Types
+	import type { Ingredient } from '$lib/types/product';
+	import type { TokoSession } from '$lib/types/store';
+	import type { CartItem } from '$lib/types/cart';
+
+	// [CATATAN]: Icons
+	import Plus from '@lucide/svelte/icons/plus';
+	import Search from '@lucide/svelte/icons/search';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import LayoutList from '@lucide/svelte/icons/layout-list';
+	import Check from '@lucide/svelte/icons/check';
+	import Minus from '@lucide/svelte/icons/minus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+
+	const pos = createPosState();
+	const cart = posCart;
+
+	let currentUserRole = $state('');
+	$effect(() => {
+		currentUserRole = userRole.value || '';
 	});
 
-	let produkData: {
-		id: string;
-		name: string;
-		price: number;
-		harga: number;
-		tipe: string;
-		image?: string;
-		ekstra_ids?: string[];
-	}[] = [];
-	let kategoriData: { id: string; name: string }[] = [];
-	let tambahanData: { id: string; name: string; price: number; harga: number }[] = [];
+	let sesiAktif: TokoSession | null = null;
+	let lowStockIngredients = $state<Ingredient[]>([]);
+	let strictStockMode = $state(false);
 
-	let isLoadingProducts = true;
+	function syncStrictStockPreference(): void {
+		strictStockMode = isStrictStockEnforcement();
+	}
 
-	let unsubscribeBranch: (() => void) | null = null;
-	let isInitialLoad = true; // Add flag to prevent double fetching
-	let posRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-	let posRefreshInFlight = false;
-	let lastPOSPayloadFingerprint = '';
+	async function cekSesiTokoAktif(): Promise<void> {
+		sesiAktif = await getSesiAktif();
+	}
 
-	onMount(async () => {
-		// Preload ikon POS untuk percepat transisi dan render ikon inti
-		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			loadRouteIcons('pos');
-		});
-		// Load data dengan smart caching
-		await loadPOSData();
-
-		// Setup real-time subscriptions
-		setupRealtimeSubscriptions();
-
-		// Measure performance tanpa double-fetch
-		await measureAsyncPerformance('data fetching', async () => Promise.resolve());
-
-		isLoadingProducts = false;
-
-		// Sync otomatis saat online dengan throttling
-		if (typeof window !== 'undefined') {
-			const throttledSync = throttle(async () => {
-				await loadPOSData();
-			}, 1000); // Throttle to 1 second
-
-			window.addEventListener('online', throttledSync);
-
-			// Store reference for cleanup
-			(window as any)._onlineSyncHandler = throttledSync;
-		}
-
-		// Subscribe ke selectedBranch untuk fetch ulang data saat cabang berubah
-		unsubscribeBranch = selectedBranch.subscribe(() => {
-			// Skip jika ini adalah initial load
-			if (isInitialLoad) {
-				isInitialLoad = false;
-				return;
+	async function checkLowStock(): Promise<void> {
+		try {
+			const ingredients = (await productService.getIngredients()) as unknown as Ingredient[];
+			if (Array.isArray(ingredients)) {
+				lowStockIngredients = evaluateAndAlertLowStock(ingredients);
 			}
-			loadPOSData();
-		});
+		} catch {
+			// no-op
+		}
+	}
+
+	let realtimeDisposers: Array<() => void> = [];
+
+	onMount(() => {
+		cart.reloadFromStorage();
+		syncStrictStockPreference();
+		cekSesiTokoAktif();
+		checkLowStock();
+		if (browser) {
+			window.addEventListener('openTokoModal', cekSesiTokoAktif);
+			window.addEventListener('storage', syncStrictStockPreference);
+			realtimeDisposers.push(realtimeManager.subscribe('bahan', checkLowStock));
+			realtimeDisposers.push(realtimeManager.subscribe('produk', syncStrictStockPreference));
+		}
 	});
 
 	onDestroy(() => {
-		if (unsubscribeBranch) unsubscribeBranch();
-		realtimeManager.unsubscribeAll();
-		if (posRefreshTimer) {
-			clearTimeout(posRefreshTimer);
-			posRefreshTimer = null;
-		}
-
-		// Cleanup event listeners
-		if (typeof window !== 'undefined' && (window as any)._onlineSyncHandler) {
-			window.removeEventListener('online', (window as any)._onlineSyncHandler);
-			delete (window as any)._onlineSyncHandler;
+		if (browser) {
+			window.removeEventListener('openTokoModal', cekSesiTokoAktif);
+			window.removeEventListener('storage', syncStrictStockPreference);
+			for (const unsub of realtimeDisposers) unsub();
+			realtimeDisposers = [];
 		}
 	});
 
-	// Load POS data dengan smart caching
-	async function loadPOSData() {
-		try {
-			// Load products dengan cache
-			const nextProducts = await dataService.getProducts();
+	// [CATATAN]: Kategori & Produk
+	let selectedCategory = $state('all');
+	const categories = $derived(pos.kategoriData);
+	const products = $derived(pos.produkData);
+	const addOns = $derived(pos.tambahanData);
 
-			// Load categories dengan cache
-			const nextCategories = await dataService.getCategories();
+	// [CATATAN]: Jenis gula dan es
+	const sugarOptions = SUGAR_OPTIONS;
+	const iceOptions = ICE_OPTIONS;
 
-			// Load add-ons dengan cache
-			const nextAddons = await dataService.getAddOns();
+	let showModal = $state(false);
+	let selectedProduct = $state<PosProduct | null>(null);
+	let selectedPorsi = $state<'reguler' | 'jumbo'>('reguler');
+	let selectedAddOns = $state<Array<string | number>>([]);
+	let selectedSugar = $state('normal');
+	let selectedIce = $state('normal');
+	let jumlah = $state(1);
+	let selectedNote = $state('');
 
-			const nextFingerprint = [
-				(nextProducts || []).length,
-				(nextProducts || []).map((item: any) => `${item?.id || ''}:${item?.harga ?? item?.price ?? 0}`).join(','),
-				(nextCategories || []).length,
-				(nextCategories || []).map((item: any) => item?.id || '').join(','),
-				(nextAddons || []).length,
-				(nextAddons || []).map((item: any) => `${item?.id || ''}:${item?.harga ?? item?.price ?? 0}`).join(',')
-			].join('|');
+	let imageError = $state<Record<string, boolean>>({});
 
-			if (nextFingerprint === lastPOSPayloadFingerprint) {
-				await reportCacheMetrics('pos');
-				return;
-			}
-
-			lastPOSPayloadFingerprint = nextFingerprint;
-			produkData = nextProducts || [];
-			kategoriData = nextCategories || [];
-			tambahanData = nextAddons || [];
-			await reportCacheMetrics('pos');
-		} catch (error) {
-			// Handle error silently
-		}
-	}
-
-	function schedulePOSRefresh(delayMs = 180) {
-		if (posRefreshTimer) {
-			clearTimeout(posRefreshTimer);
-		}
-
-		posRefreshTimer = setTimeout(async () => {
-			posRefreshTimer = null;
-			if (posRefreshInFlight) return;
-
-			posRefreshInFlight = true;
-			try {
-				await loadPOSData();
-			} finally {
-				posRefreshInFlight = false;
-			}
-		}, delayMs);
-	}
-
-	// Setup real-time subscriptions
-	function setupRealtimeSubscriptions() {
-		// Subscribe to product changes
-		realtimeManager.subscribe('produk', async (payload) => {
-			schedulePOSRefresh();
-		});
-
-		// Subscribe to category changes
-		realtimeManager.subscribe('kategori', async (payload) => {
-			schedulePOSRefresh();
-		});
-
-		// Subscribe to add-on changes
-		realtimeManager.subscribe('tambahan', async (payload) => {
-			schedulePOSRefresh();
-		});
-	}
-
-	// Touch handling dengan throttling
-	let touchStartX = 0;
-	let touchStartY = 0;
-	let touchEndX = 0;
-	let touchEndY = 0;
-	let isSwiping = false;
-	let isTouchDevice = false;
-	let clickBlocked = false;
-
-	// Throttled touch handlers
-	const throttledTouchMove = throttle((e: TouchEvent) => {
-		if (!isTouchDevice) return;
-		const touch = e.touches[0];
-		const deltaX = Math.abs(touch.clientX - touchStartX);
-		const deltaY = Math.abs(touch.clientY - touchStartY);
-
-		if (deltaX > deltaY && deltaX > 10) {
-			isSwiping = true;
-			clickBlocked = true;
-		}
-	}, 16); // ~60fps
-
-	const throttledTouchEnd = throttle(() => {
-		if (isTouchDevice) {
-			setTimeout(() => {
-				isSwiping = false;
-				clickBlocked = false;
-			}, 100);
-		}
-	}, 16);
-
-	function handleTouchStart(e: TouchEvent) {
-		const touch = e.touches[0];
-		touchStartX = touch.clientX;
-		touchStartY = touch.clientY;
-		isTouchDevice = true;
-	}
-
-	function handleTouchMove(e: TouchEvent) {
-		throttledTouchMove(e);
-	}
-
-	function handleTouchEnd() {
-		throttledTouchEnd();
-	}
-
-	const navs = [
-		{ label: 'Beranda', path: '/' },
-		{ label: 'Kasir', path: '/pos' },
-		{ label: 'Catat', path: '/catat' },
-		{ label: 'Laporan', path: '/laporan' }
-	];
-
-	// Kategori produk
-	let selectedCategory = 'all';
-
-	// Produk mock dengan kategori
-	let products: unknown[] = [];
-	$: products = produkData;
-
-	// Topping mock tanpa emoji/icon
-	let addOns: unknown[] = [];
-	$: addOns = tambahanData;
-
-	// Jenis gula dan es
-	const sugarOptions = [
-		{ id: 'no', label: 'Tanpa Gula' },
-		{ id: 'less', label: 'Sedikit Gula' },
-		{ id: 'normal', label: 'Normal' }
-	];
-	const iceOptions = [
-		{ id: 'no', label: 'Tanpa Es' },
-		{ id: 'less', label: 'Sedikit Es' },
-		{ id: 'normal', label: 'Normal' }
-	];
-
-	let showModal = false;
-	let selectedProduct: {
-		id: string;
-		name: string;
-		price: number;
-		harga: number;
-		tipe: string;
-		image?: string;
-		ekstra_ids?: string[];
-	} | null = null;
-	let selectedAddOns: string[] = [];
-	let selectedSugar = 'normal';
-	let selectedIce = 'normal';
-	let qty = 1;
-	let selectedNote = '';
-
-	// Keranjang sementara
-	let cart: Array<any> = [];
-
-	// Untuk track error gambar per produk (pakai string key)
-	let imageError: Record<string, boolean> = {};
-
-	// Search produk dengan debounce
-	let search = '';
-
-	// Debounced search dengan optimasi
+	// [CATATAN]: Search produk dengan debounce
+	let search = $state('');
 	const debouncedSearch = debounce((value: string) => {
 		search = value;
 	}, 300);
@@ -306,33 +149,38 @@
 		debouncedSearch(value);
 	}
 
-	// Memoized computed values untuk performance
-	const memoizedCartTotal = memoize(calculateCartTotal);
-	$: cartTotal = memoizedCartTotal(cart);
-	$: totalItems = cartTotal.items;
-	$: totalHarga = cartTotal.total;
+	// [CATATAN]: Memoized computed values
+	const totalItems = $derived(cart.totalItems);
+	const totalHarga = $derived(cart.totalHarga);
 
-	// Memoized filtered products dengan optimasi
-	const memoizedFilter = memoize(
-		(products: any[], categories: any[], selectedCategory: string, search: string) => {
+	const currentAddOnsTotal = $derived(
+		(addOns || [])
+			.filter((a: PosAddOn) => selectedAddOns.includes(a.id))
+			.reduce((acc: number, a: PosAddOn) => acc + (Number(a.harga) || 0), 0)
+	);
+	const currentBasePrice = $derived(
+		selectedPorsi === 'jumbo'
+			? (selectedProduct?.harga_jumbo ?? selectedProduct?.harga ?? 0)
+			: (selectedProduct?.harga ?? 0)
+	);
+	const currentItemUnitPrice = $derived(currentBasePrice + currentAddOnsTotal);
+	const currentItemTotalPrice = $derived(currentItemUnitPrice * jumlah);
+
+	// [CATATAN]: Memoized filtered products
+	const filteredProducts = $derived(
+		(() => {
 			let filtered = products;
-			// Filter berdasarkan search
 			if (search) {
 				filtered = fuzzySearch(search, products);
 			}
-			// Filter berdasarkan kategori
 			if (selectedCategory !== 'all') {
 				filtered = filtered.filter((p) => p.kategori_id === selectedCategory);
 			}
 			return filtered;
-		},
-		(products, categories, selectedCategory, search) =>
-			`${products.length}-${categories.length}-${selectedCategory}-${search}`
+		})()
 	);
 
-	$: filteredProducts = memoizedFilter(products, categories, selectedCategory, search);
-
-	let showCartModal = false;
+	let showCartModal = $state(false);
 	function openCartModal() {
 		showModal = false;
 		showCartModal = true;
@@ -341,16 +189,85 @@
 		showCartModal = false;
 	}
 	function removeCartItem(idx: number): void {
-		cart = cart.filter((_, i) => i !== idx);
+		cart.removeItem(idx);
+	}
+	function handleDecCartItem(idx: number): void {
+		const currentItem = cart.items[idx];
+		if (!currentItem) return;
+		if (currentItem.jumlah <= 1) {
+			cart.removeItem(idx);
+		} else {
+			cart.updateItemQuantity(idx, currentItem.jumlah - 1);
+		}
+	}
+	function handleIncCartItem(idx: number): void {
+		const currentItem = cart.items[idx];
+		if (!currentItem) return;
+
+		if (strictStockMode) {
+			const avail = getProductStockAvailability(
+				currentItem.product,
+				currentItem.porsi || 'reguler',
+				pos.bahanData,
+				pos.resepData
+			);
+			if (avail.isOutOfStock) {
+				showToastNotif(
+					`Stok "${currentItem.product.nama}" habis (${avail.limitingReason || 'bahan tidak cukup'}).`,
+					'warning'
+				);
+				return;
+			}
+			if (avail.availableStock !== null) {
+				const currentTotalInCart = cart.items
+					.filter((it) => String(it.product.id) === String(currentItem.product.id))
+					.reduce((sum, it) => sum + it.jumlah, 0);
+				if (currentTotalInCart + 1 > avail.availableStock) {
+					showToastNotif(
+						`Stok "${currentItem.product.nama}" hanya tersisa ${avail.availableStock} porsi. Tidak dapat menambah lagi.`,
+						'warning'
+					);
+					return;
+				}
+			}
+		}
+
+		if (currentItem.jumlah < 99) {
+			cart.updateItemQuantity(idx, currentItem.jumlah + 1);
+		}
 	}
 
-	function openAddOnModal(product: any): void {
+	function openAddOnModal(product: PosProduct): void {
+		if (strictStockMode) {
+			const avail = getProductStockAvailability(product, 'reguler', pos.bahanData, pos.resepData);
+			if (avail.isOutOfStock) {
+				showToastNotif(
+					`Stok "${product.nama}" habis (${avail.limitingReason || 'bahan tidak cukup'}). Tidak dapat dimasukkan ke keranjang.`,
+					'warning'
+				);
+				return;
+			}
+			if (avail.availableStock !== null) {
+				const currentTotalInCart = cart.items
+					.filter((it) => String(it.product.id) === String(product.id))
+					.reduce((sum, it) => sum + it.jumlah, 0);
+				if (currentTotalInCart >= avail.availableStock) {
+					showToastNotif(
+						`Stok "${product.nama}" tersisa ${avail.availableStock} porsi dan sudah ada ${currentTotalInCart} di keranjang. Tidak dapat menambah lagi.`,
+						'warning'
+					);
+					return;
+				}
+			}
+		}
+
 		showCartModal = false;
 		selectedProduct = product;
+		selectedPorsi = 'reguler';
 		selectedAddOns = [];
 		selectedSugar = 'normal';
 		selectedIce = 'normal';
-		qty = 1;
+		jumlah = 1;
 		selectedNote = '';
 		showModal = true;
 	}
@@ -359,7 +276,7 @@
 		showModal = false;
 	}
 
-	function toggleAddOn(id: string): void {
+	function toggleAddOn(id: string | number): void {
 		if (selectedAddOns.includes(id)) {
 			selectedAddOns = selectedAddOns.filter((a) => a !== id);
 		} else {
@@ -367,86 +284,98 @@
 		}
 	}
 
-	// Optimized cart operations
+	// [CATATAN]: Optimized cart operations
 	function addToCart() {
-		// Blokir kasir jika sesi toko belum dibuka
+		if (pos.isCatalogExpired) {
+			showErrorNotif('Katalog POS kedaluwarsa. Hubungkan perangkat lalu muat ulang menu.');
+			return;
+		}
+		// [CATATAN]: Blokir kasir jika sesi toko belum dibuka
 		if (currentUserRole === 'kasir' && !sesiAktif) {
 			showErrorNotif('Toko belum dibuka. Silakan buka toko terlebih dahulu!');
 			return;
 		}
-		// Validate quantity
-		const qtyValidation = validateNumber(qty, { required: true, min: 1, max: 99 });
+		// [CATATAN]: Validate quantity
+		const qtyValidation = validateNumber(jumlah, { required: true, min: 1, max: 99 });
 		if (!qtyValidation.isValid) {
 			showErrorNotif(`Error: ${qtyValidation.errors.join(', ')}`);
 			return;
 		}
 
-		// Check rate limiting
+		// [CATATAN]: Strict Stock Validation saat memasukkan ke keranjang (Unit & Bahan Resep)
+		if (strictStockMode && selectedProduct) {
+			const avail = getProductStockAvailability(
+				selectedProduct,
+				selectedPorsi,
+				pos.bahanData,
+				pos.resepData
+			);
+			if (avail.isOutOfStock) {
+				showToastNotif(
+					`Stok "${selectedProduct.nama}" habis (${avail.limitingReason || 'bahan tidak cukup'}). Tidak dapat dimasukkan ke keranjang.`,
+					'warning'
+				);
+				showModal = false;
+				return;
+			}
+
+			if (avail.availableStock !== null) {
+				const currentTotalInCart = cart.items
+					.filter((it) => String(it.product.id) === String(selectedProduct!.id))
+					.reduce((sum, it) => sum + it.jumlah, 0);
+				if (currentTotalInCart + jumlah > avail.availableStock) {
+					showToastNotif(
+						`Stok "${selectedProduct.nama}" tidak cukup (tersisa ${avail.availableStock} porsi, sudah ada ${currentTotalInCart} di keranjang).`,
+						'warning'
+					);
+					return;
+				}
+			}
+		}
+
+		// [CATATAN]: Check rate limiting
 		if (!securityUtils.checkFormRateLimit('pos_add_to_cart')) {
 			showErrorNotif('Terlalu banyak item ditambahkan. Silakan tunggu sebentar.');
 			return;
 		}
 
-		// Sanitize inputs
+		// [CATATAN]: Sanitize inputs
 		const sanitizedSugar = sanitizeInput(selectedSugar);
 		const sanitizedIce = sanitizeInput(selectedIce);
 
-		// Check for suspicious activity
-		const allInputs = `${selectedProduct?.name}${sanitizedSugar}${sanitizedIce}${qty}`;
+		// [CATATAN]: Check for suspicious activity
+		const allInputs = `${selectedProduct?.nama}${sanitizedSugar}${sanitizedIce}${jumlah}`;
 		if (securityUtils.detectSuspiciousActivity('pos_add_to_cart', allInputs)) {
 			showErrorNotif('Aktivitas mencurigakan terdeteksi. Silakan coba lagi.');
 			securityUtils.logSecurityEvent('suspicious_cart_activity', {
-				product: selectedProduct?.name,
-				qty,
-				sugar: sanitizedSugar,
-				ice: sanitizedIce
+				product: selectedProduct?.nama,
+				jumlah,
+				gula: sanitizedSugar,
+				es: sanitizedIce
 			});
 			return;
 		}
 
-		// Optimized cart item check dengan memoization
-		const addOnsSelected = addOns.filter((a: any) => selectedAddOns.includes(a.id));
-		const addOnsKey = addOnsSelected
-			.map((a: any) => a.id)
-			.sort()
-			.join(',');
-		const itemKey = `${selectedProduct?.id}-${addOnsKey}-${sanitizedSugar}-${sanitizedIce}-${selectedNote.trim()}`;
-
-		const existingIdx = cart.findIndex((item: any) => {
-			const itemAddOnsKey = (item.addOns || [])
-				.map((a: any) => a.id)
-				.sort()
-				.join(',');
-			const currentItemKey = `${item.product.id}-${itemAddOnsKey}-${item.sugar}-${item.ice}-${item.note}`;
-			return currentItemKey === itemKey;
-		});
-
-		if (existingIdx !== -1) {
-			// Jika sudah ada, tambahkan qty
-			cart = cart.map((item, idx) =>
-				idx === existingIdx ? { ...item, qty: item.qty + qty } : item
+		if (selectedProduct) {
+			const addOnsSelected = addOns.filter((a: PosAddOn) => selectedAddOns.includes(a.id));
+			cart.addItem(
+				selectedProduct,
+				addOnsSelected,
+				selectedPorsi,
+				sanitizedSugar,
+				sanitizedIce,
+				jumlah,
+				selectedNote
 			);
-		} else {
-			// Jika belum ada, tambahkan item baru
-			cart = [
-				...cart,
-				{
-					product: selectedProduct,
-					addOns: addOnsSelected,
-					sugar: sanitizedSugar,
-					ice: sanitizedIce,
-					qty,
-					note: selectedNote.trim()
-				}
-			];
-		}
 
-		// Log successful add to cart
-		securityUtils.logSecurityEvent('product_added_to_cart', {
-			product: selectedProduct?.name,
-			qty,
-			totalItems: cart.length
-		});
+			// [CATATAN]: Log successful add to cart
+			securityUtils.logSecurityEvent('product_added_to_cart', {
+				product: selectedProduct.nama,
+				porsi: selectedPorsi,
+				jumlah,
+				totalItems: cart.items.length
+			});
+		}
 
 		showModal = false;
 	}
@@ -461,61 +390,49 @@
 	}
 
 	function incQty() {
-		if (qty < 99) qty++;
+		if (strictStockMode && selectedProduct) {
+			const avail = getProductStockAvailability(
+				selectedProduct,
+				selectedPorsi,
+				pos.bahanData,
+				pos.resepData
+			);
+			if (avail.availableStock !== null) {
+				const currentTotalInCart = cart.items
+					.filter((it) => String(it.product.id) === String(selectedProduct!.id))
+					.reduce((sum, it) => sum + it.jumlah, 0);
+				if (currentTotalInCart + jumlah + 1 > avail.availableStock) {
+					showToastNotif(
+						`Maksimal ${Math.max(0, avail.availableStock - currentTotalInCart)} porsi lagi untuk stok yang tersedia.`,
+						'warning'
+					);
+					return;
+				}
+			}
+		}
+		if (jumlah < 99) jumlah++;
 	}
 	function decQty() {
-		if (qty > 1) qty--;
+		if (jumlah > 1) jumlah--;
 	}
 
-	let cartPreviewX = 0;
-	let cartPreviewStartX = 0;
-	let cartPreviewDragging = false;
-	let cartPreviewRef: unknown;
-	let cartPreviewWidth = 0;
-	let showSnackbar = false;
-	let snackbarMsg = '';
-	let prevCartLength = 0;
+	let showToast = $state(false);
+	let toastMessage = $state('');
+	let toastType = $state<'success' | 'error' | 'warning' | 'info'>('success');
 
-	function handleCartPreviewTouchStart(e: TouchEvent): void {
-		if (e.touches.length !== 1) return;
-		cartPreviewDragging = true;
-		cartPreviewStartX = e.touches[0].clientX;
-		cartPreviewWidth = (cartPreviewRef as HTMLElement)?.offsetWidth || 1;
-	}
-	function handleCartPreviewTouchMove(e: TouchEvent): void {
-		if (!cartPreviewDragging) return;
-		const deltaX = e.touches[0].clientX - cartPreviewStartX;
-		cartPreviewX = Math.min(0, deltaX); // hanya ke kiri
-	}
-	function handleCartPreviewTouchEnd() {
-		if (!cartPreviewDragging) return;
-		cartPreviewDragging = false;
-		if (Math.abs(cartPreviewX) > cartPreviewWidth * 0.6) {
-			cart = [];
-			cartPreviewX = -cartPreviewWidth;
-			showSnackbar = true;
-			snackbarMsg = 'Keranjang dikosongkan';
-			setTimeout(() => {
-				showSnackbar = false;
-			}, 1800);
-		} else {
-			cartPreviewX = 0;
-		}
+	function showToastNotif(
+		message: string,
+		type: 'success' | 'error' | 'warning' | 'info' = 'success'
+	) {
+		toastMessage = message;
+		toastType = type;
+		showToast = true;
 	}
 
-	$: {
-		if (prevCartLength === 0 && cart.length > 0 && !cartPreviewDragging) {
-			cartPreviewX = 0;
-		}
-		prevCartLength = cart.length;
-	}
-
-	function handleGlobalClick(e: Event): void {
-		if (clickBlocked) {
-			e.preventDefault();
-			e.stopPropagation();
-			return;
-		}
+	function clearCart() {
+		cart.clearCart();
+		showCartModal = false;
+		showToastNotif('Keranjang dikosongkan', 'success');
 	}
 
 	function capitalizeFirst(str: string): string {
@@ -523,109 +440,40 @@
 		return str.charAt(0).toUpperCase() + str.slice(1);
 	}
 
-	let categories: unknown[] = [];
-	$: categories = kategoriData;
-
-	let skeletonCount = 9;
-	if (typeof window !== 'undefined') {
+	let skeletonCount = $state<number>(POS_SKELETON.TABLET);
+	if (browser) {
 		if (window.innerWidth < 768) {
-			skeletonCount = 6;
+			skeletonCount = POS_SKELETON.MOBILE;
 		} else if (window.innerWidth >= 1024) {
-			skeletonCount = 12;
-		} else {
-			skeletonCount = 9;
+			skeletonCount = POS_SKELETON.DESKTOP;
 		}
 	}
 
-	let showErrorNotification = false;
-	let errorNotificationMessage = '';
-	let errorNotificationTimeout: ReturnType<typeof setTimeout> | null = null;
-
 	function showErrorNotif(message: string) {
-		errorNotificationMessage = message;
-		showErrorNotification = true;
-		if (errorNotificationTimeout) clearTimeout(errorNotificationTimeout);
-		errorNotificationTimeout = setTimeout(() => {
-			showErrorNotification = false;
-		}, 3000);
+		showToastNotif(message, 'error');
 	}
 
-	let showCustomItemModal = false;
-	let customItemName = '';
-	let customItemPriceRaw = '';
-	let customItemPriceFormatted = '';
-	let customItemNote = '';
+	let showCustomItemModal = $state(false);
 
-	function formatRupiahInput(value: string): string {
-		// Hanya angka
-		const numberString = value.replace(/[^\d]/g, '');
-		if (!numberString) return '';
-		return numberString.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	function addCustomItemToCart(item: CartItem) {
+		cart.addCustomItem(item);
 	}
 
-	function handleCustomPriceInput(e: Event): void {
-		const target = e.target as HTMLInputElement;
-		const raw = target.value.replace(/[^\d]/g, '');
-		customItemPriceRaw = raw;
-		customItemPriceFormatted = formatRupiahInput(raw);
-	}
-
-	function addCustomItemToCart(e?: Event) {
-		if (e) e.preventDefault();
-		if (
-			!customItemName.trim() ||
-			!customItemPriceRaw ||
-			isNaN(Number(customItemPriceRaw)) ||
-			Number(customItemPriceRaw) <= 0
-		)
-			return;
-		cart = [
-			...cart,
-			{
-				product: {
-					id: `custom-${Date.now()}`,
-					name: customItemName.trim(),
-					harga: Number(customItemPriceRaw),
-					price: Number(customItemPriceRaw),
-					tipe: 'custom'
-				},
-				addOns: [],
-				sugar: '',
-				ice: '',
-				qty: qty, // Gunakan qty dari modal
-				note: customItemNote.trim()
-			}
-		];
-		showCustomItemModal = false;
-		customItemName = '';
-		customItemPriceRaw = '';
-		customItemPriceFormatted = '';
-		customItemNote = '';
-	}
-
-	// Helper untuk ambil nama kategori dari kategori_id
-	function getKategoriNameById(id: string | number): string {
-		if (!id) return '';
-		const kat = categories?.find((k: any) => k.id === id);
-		return (kat as any)?.name || '';
-	}
-
-	// Sinkronisasi cart ke localStorage setiap kali cart berubah
-	$: if (typeof window !== 'undefined') {
-		localStorage.setItem('pos_cart', JSON.stringify(cart));
+	function cartItemKey(item: CartItem): string {
+		return cart.cartItemKey(item);
 	}
 
 	function handleSelectCategoryAll(): void {
 		selectedCategory = 'all';
 	}
 	function handleSelectCategory(id: string | number): void {
-		selectedCategory = id as any;
+		selectedCategory = String(id);
 	}
-	function handleOpenAddOnModal(product: any): void {
+	function handleOpenAddOnModal(product: PosProduct): void {
 		openAddOnModal(product);
 	}
 	function handleShowCustomItemModal(): void {
-		qty = 1; // Reset quantity agar tidak mewarisi dari modal produk sebelumnya
+		jumlah = 1;
 		showCustomItemModal = true;
 	}
 	function handleImgErrorId(id: string | number): void {
@@ -633,602 +481,760 @@
 	}
 	function handleGoToBayar(e: Event): void {
 		e.stopPropagation();
+		if (pos.isCatalogExpired) {
+			showErrorNotif('Katalog POS kedaluwarsa. Muat ulang sebelum melanjutkan pembayaran.');
+			return;
+		}
 		goToBayar();
-	}
-	function handleStopPropagation(e: Event): void {
-		e.stopPropagation();
 	}
 	function handleRemoveCartItem(idx: number): void {
 		removeCartItem(idx);
 	}
-	function handleKeydownOpenAddOnModal(product: any, e: KeyboardEvent): void {
-		if (e.key === 'Enter') openAddOnModal(product);
-	}
 </script>
 
-<div
-	class="h-100vh flex w-full max-w-full flex-col overflow-x-hidden overflow-y-auto bg-white"
-	ontouchstart={handleTouchStart}
-	ontouchmove={handleTouchMove}
-	ontouchend={handleTouchEnd}
-	onclick={handleGlobalClick}
-	onkeydown={(e) => e.key === 'Escape' && handleGlobalClick(e)}
-	role="button"
-	tabindex="0"
->
+<div class="flex w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
 	<main
-		class="page-content w-full max-w-full flex-1 overflow-x-hidden"
-		style="scrollbar-width:none;-ms-overflow-style:none;"
-		ontouchstart={handleTouchStart}
-		ontouchmove={handleTouchMove}
-		ontouchend={handleTouchEnd}
+		aria-label="Kasir POS"
+		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full flex-col overflow-x-hidden pb-32 md:pb-36"
 	>
-		<div class="flex items-center gap-3 bg-white px-4 py-4 md:py-8 lg:py-10">
-			<div class="relative w-full">
-				<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-						/></svg
+		<!-- Responsive Layout on Tablet (Full 3x3 Grid on md:, Split View on lg:) -->
+		<div
+			class="mx-auto flex w-full max-w-7xl flex-1 flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-5 lg:pt-4"
+		>
+			<!-- Left Column: Catalog Area -->
+			<div class="flex min-w-0 flex-1 flex-col">
+				<!-- [CATATAN]: Fluid Wave Header for POS -->
+				<div
+					class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-8 shadow-xl shadow-pink-500/15 md:pt-6 md:pb-10 lg:rounded-[32px] lg:pt-5 lg:pb-7"
+				>
+					<!-- [CATATAN]: Ambient background blur shapes -->
+					<div
+						class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+					></div>
+					<div
+						class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+					></div>
+
+					<!-- [CATATAN]: Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
+					<div class="relative z-10 flex w-full items-center gap-2.5">
+						<div class="relative flex-1">
+							<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+								<Search class="h-4.5 w-4.5" />
+							</span>
+							<input
+								class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-11 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
+								type="text"
+								placeholder="Cari menu jus buah, topping..."
+								bind:value={search}
+								autocomplete="off"
+								oninput={(e) => handleSearchInput((e.target as HTMLInputElement).value)}
+							/>
+						</div>
+
+						<!-- [CATATAN]: Button Toggle Tampilan Grid / List -->
+						<button
+							type="button"
+							aria-label={posGridView.value ? 'Ganti ke Tampilan Grid' : 'Ganti ke Tampilan List'}
+							title={posGridView.value ? 'Ganti ke Tampilan Grid' : 'Ganti ke Tampilan List'}
+							class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
+							onclick={() => posGridView.toggle()}
+						>
+							{#if posGridView.value}
+								<LayoutGrid class="h-5 w-5 stroke-[2.2] text-pink-600" />
+							{:else}
+								<LayoutList class="h-5 w-5 stroke-[2.2] text-slate-700" />
+							{/if}
+						</button>
+					</div>
+				</div>
+
+				<!-- [CATATAN]: Low Stock Alert Banner -->
+				<LowStockAlertBanner lowStockItems={lowStockIngredients} />
+
+				<!-- [CATATAN]: Category Filter Pills -->
+				<div
+					class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4"
+					style="scrollbar-width:none;-ms-overflow-style:none;"
+				>
+					<button
+						class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] {selectedCategory ===
+						'all'
+							? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
+							: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
+						type="button"
+						onclick={handleSelectCategoryAll}>Semua</button
 					>
-				</span>
-				<input
-					class="w-full flex-1 rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-3 pl-10 text-base text-gray-800 outline-none focus:border-pink-400"
-					type="text"
-					placeholder="Cari produk..."
-					bind:value={search}
-					autocomplete="off"
-					oninput={(e) => handleSearchInput((e.target as HTMLInputElement).value)}
+					{#if (categories ?? []).length === 0 && pos.isLoadingProducts}
+						{#each Array(4) as _, i}
+							<div
+								class="h-[44px] min-w-[96px] flex-shrink-0 animate-pulse rounded-full bg-white/80"
+							></div>
+						{/each}
+					{:else if (categories ?? []).length === 0}
+						<!-- [CATATAN]: Button Custom Item di samping 'Semua' jika tidak ada kategori -->
+						<button
+							class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-transform duration-200 active:scale-[0.98]"
+							type="button"
+							aria-label="Tambah item custom"
+							onclick={handleShowCustomItemModal}
+						>
+							<Plus class="h-5 w-5 stroke-[2.5]" />
+						</button>
+					{:else}
+						{#each categories ?? [] as c (c.id)}
+							<button
+								class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] {selectedCategory ===
+								String(c.id)
+									? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
+									: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
+								type="button"
+								onclick={() => handleSelectCategory(c.id)}>{c.nama}</button
+							>
+						{/each}
+						<!-- [CATATAN]: Button Custom Item di paling kanan -->
+						<button
+							class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-all duration-200 active:scale-[0.98]"
+							type="button"
+							onclick={handleShowCustomItemModal}
+						>
+							<Plus class="h-4.5 w-4.5 stroke-[2.5]" />
+							<span>Kustom</span>
+						</button>
+					{/if}
+				</div>
+
+				<ProductGrid
+					posGridView={posGridView.value}
+					isLoadingProducts={pos.isLoadingProducts}
+					{skeletonCount}
+					{filteredProducts}
+					{categories}
+					ingredients={pos.bahanData}
+					recipes={pos.resepData}
+					{imageError}
+					loadError={pos.posLoadError}
+					{strictStockMode}
+					onSelectProduct={handleOpenAddOnModal}
+					onImgError={handleImgErrorId}
+					onRetry={pos.retryLoadPOSData}
 				/>
 			</div>
-		</div>
-		<div
-			class="-mt-2 flex gap-2 overflow-x-auto bg-white px-4 py-2 md:-mt-4 lg:-mt-6"
-			style="scrollbar-width:none;-ms-overflow-style:none;"
-		>
-			<button
-				class="mb-1 min-w-[96px] flex-shrink-0 cursor-pointer rounded-lg border px-4 py-2 text-base font-medium transition-colors duration-150 {selectedCategory ===
-				'all'
-					? 'border-pink-500 bg-pink-500 text-white'
-					: 'border-pink-500 bg-white text-pink-500'}"
-				type="button"
-				onclick={handleSelectCategoryAll}>Semua</button
+
+			<!-- Right Column: Dedicated Permanent Cart Panel on Tablet Landscape / Desktop -->
+			<aside
+				aria-label="Panel Pesanan Kasir Tablet"
+				class="sticky top-4 hidden h-[calc(100dvh-130px)] w-[300px] flex-col rounded-[28px] border border-white/70 bg-white/90 shadow-xl backdrop-blur-xl lg:flex xl:w-[340px]"
 			>
-			{#if (categories ?? []).length === 0 && isLoadingProducts}
-				{#each Array(4) as _, i}
-					<div
-						class="mb-1 h-[40px] min-w-[96px] flex-shrink-0 animate-pulse rounded-lg bg-gray-100"
-					></div>
-				{/each}
-			{:else if (categories ?? []).length === 0}
-				<!-- Button Custom Item di samping 'Semua' jika tidak ada kategori -->
-				<button
-					class="mb-1 flex w-12 min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-pink-500 bg-pink-500 px-3 py-2 text-base font-medium text-white transition-colors duration-150"
-					type="button"
-					aria-label="Tambah item custom"
-					onclick={handleShowCustomItemModal}
-				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg
-					>
-				</button>
-				<div class="flex h-[40px] items-center gap-2 px-4 text-sm text-gray-400">
-					<svg
-						class="h-4 w-4"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-						/>
-					</svg>
-					<span>Belum ada kategori</span>
-				</div>
-			{:else}
-				{#each categories ?? [] as c}
-					<button
-						class="mb-1 min-w-[96px] flex-shrink-0 cursor-pointer rounded-lg border px-4 py-2 text-base font-medium transition-colors duration-150 {selectedCategory ===
-						(c as any).id
-							? 'border-pink-500 bg-pink-500 text-white'
-							: 'border-pink-500 bg-white text-pink-500'}"
-						type="button"
-						onclick={() => handleSelectCategory((c as any).id)}>{(c as any).name}</button
-					>
-				{/each}
-				<!-- Button Custom Item di paling kanan -->
-				<button
-					class="mb-1 flex min-w-[96px] flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-pink-500 bg-pink-500 px-4 py-2 text-base font-medium text-white transition-colors duration-150"
-					type="button"
-					onclick={handleShowCustomItemModal}
-				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg
-					>
-					Menu Kustom
-				</button>
-			{/if}
-		</div>
-		<div class="w-full max-w-full flex-1 px-0" style="min-height:0;">
-			<div
-				class="h-[calc(100vh-112px-48px)] overflow-y-auto md:h-[calc(100vh-128px-48px)] lg:h-[calc(100vh-160px-48px)]"
-				style="scrollbar-width:none;-ms-overflow-style:none;"
-			>
-				{#if $posGridView}
-					<div
-						class="flex min-h-[60vh] flex-col gap-1 px-4 pb-4"
-						transition:slide={{ duration: 250 }}
-					>
-						{#if isLoadingProducts}
-							{#each Array(skeletonCount) as _, i}
-								<div
-									class="flex max-h-[80px] min-h-[56px] animate-pulse cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 px-3 py-2 shadow-md transition-shadow"
-								></div>
-							{/each}
-						{:else if filteredProducts.length === 0}
-							<div
-								class="pointer-events-none flex min-h-[50vh] flex-col items-center justify-center py-12 text-center"
+				<!-- Cart Header -->
+				<div class="flex items-center justify-between border-b border-pink-100/60 px-4 py-3">
+					<div class="flex items-center gap-2">
+						<h2 class="text-sm font-black text-slate-900 xl:text-base">Pesanan Kasir</h2>
+						{#if totalItems > 0}
+							<span
+								class="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gradient-to-tr from-pink-600 to-rose-600 px-1.5 text-[11px] font-black text-white shadow-xs shadow-pink-500/30"
 							>
-								<div class="mb-2 text-6xl">🍽️</div>
-								<div class="mb-1 text-base font-semibold text-gray-700">Belum ada Menu</div>
-								<div class="text-sm text-gray-400">Silakan tambahkan menu terlebih dahulu.</div>
-							</div>
-						{:else}
-							{#each filteredProducts as p}
-								<div
-									class="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 transition-colors hover:bg-pink-50"
-									tabindex="0"
-									onclick={() => handleOpenAddOnModal(p)}
-									onkeydown={(e) => handleKeydownOpenAddOnModal(p, e)}
-									role="button"
-									aria-label="Tambah {p.name} ke keranjang"
-								>
-								<div class="flex min-w-0 flex-1 flex-col">
-									<span class="mb-0.5 truncate text-sm font-medium text-gray-800">{p.name}</span>
-									<span class="mb-0.5 min-h-[18px] truncate text-xs text-gray-400"
-										>{getKategoriNameById(p.kategori_id)}</span
-									>
-								</div>
-								<div class="flex items-center gap-2">
-									<span class="text-base font-bold whitespace-nowrap text-pink-500"
-										>Rp {Number(p.price ?? p.harga ?? 0).toLocaleString('id-ID')}</span
-									>
-								</div>
-								</div>
-							{/each}
+								{totalItems}
+							</span>
 						{/if}
 					</div>
-				{:else}
-					<div
-						class="grid min-h-0 grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 md:gap-6 md:px-8 md:pb-8 lg:grid-cols-6"
-						transition:slide={{ duration: 250 }}
-					>
-						{#if isLoadingProducts}
-							{#each Array(skeletonCount) as _, i}
-								<div
-									class="flex aspect-[3/4] max-h-[260px] min-h-[140px] animate-pulse cursor-pointer flex-col items-center justify-between rounded-xl border border-gray-100 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-2.5 shadow-md transition-shadow md:max-h-[320px] md:min-h-[180px] md:p-6"
-								></div>
-							{/each}
-						{:else if filteredProducts.length === 0}
+					{#if cart.items.length > 0}
+						<button
+							type="button"
+							class="flex h-6.5 cursor-pointer items-center gap-1 rounded-full border border-rose-100/90 bg-rose-50/80 px-2 text-[11px] font-bold text-rose-600 shadow-2xs transition-all select-none hover:border-rose-200 hover:bg-rose-100 hover:text-rose-700 active:scale-95"
+							onclick={clearCart}
+							aria-label="Kosongkan seluruh keranjang"
+						>
+							<Trash2 class="h-2.5 w-2.5 stroke-[2.4]" />
+							<span>Kosongkan</span>
+						</button>
+					{/if}
+				</div>
+
+				<!-- Cart Scrollable Body -->
+				<div
+					class="min-h-0 flex-1 space-y-2 overflow-y-auto px-3.5 py-3 xl:px-4"
+					style="scrollbar-width:thin;"
+				>
+					{#if cart.items.length === 0}
+						<div
+							class="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-pink-200/80 bg-pink-50/30 p-5 text-center"
+						>
 							<div
-								class="pointer-events-none col-span-2 flex min-h-[50vh] flex-col items-center justify-center py-12 text-center md:col-span-3"
+								class="mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-pink-100"
 							>
-								<div class="mb-2 text-6xl">🍽️</div>
-								<div class="mb-1 text-base font-semibold text-gray-700">Belum ada Menu</div>
-								<div class="text-sm text-gray-400">Silakan tambahkan menu terlebih dahulu.</div>
+								<ShoppingBag class="h-6 w-6 stroke-[1.8] text-pink-500" />
 							</div>
-						{:else}
-							{#each filteredProducts as p}
-								<div
-									class="flex aspect-[3/4] max-h-[260px] min-h-[140px] cursor-pointer flex-col items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-md transition-shadow md:max-h-[320px] md:min-h-[180px] md:gap-3 md:rounded-2xl md:p-6 md:hover:shadow-lg"
-									tabindex="0"
-									onclick={() => handleOpenAddOnModal(p)}
-									onkeydown={(e) => handleKeydownOpenAddOnModal(p, e)}
-									role="button"
-									aria-label="Tambah {p.name} ke keranjang"
-								>
-									{#if (p.gambar || p.image) && !imageError[String(p.id)]}
-										<img
-											class="mb-2 aspect-square h-full min-h-[80px] w-full rounded-xl object-cover md:mb-3 md:rounded-2xl"
-											src={p.gambar || p.image}
-											alt={p.name}
-											loading="lazy"
-											onerror={() => handleImgErrorId(p.id)}
-										/>
-									{:else}
-										<div
-											class="mb-2 flex aspect-square min-h-[80px] w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 text-4xl md:mb-3 md:rounded-2xl md:text-5xl"
+							<div class="text-xs font-extrabold text-slate-800">Keranjang Masih Kosong</div>
+							<div class="mt-1 text-[11px] leading-relaxed text-slate-400">
+								Sentuh menu di sebelah kiri untuk menambahkan pesanan.
+							</div>
+						</div>
+					{:else}
+						{#each cart.items as item, idx (cartItemKey(item))}
+							{@const isJumbo = item.porsi === 'jumbo'}
+							{@const basePrice = isJumbo
+								? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+								: (item.product.harga ?? 0)}
+							{@const itemUnitPrice =
+								basePrice + (item.addOns || []).reduce((acc, a) => acc + (Number(a.harga) || 0), 0)}
+							{@const itemTotalPrice = itemUnitPrice * item.jumlah}
+							<div
+								class="group rounded-2xl border border-pink-100/70 bg-white p-3 shadow-xs transition-all hover:border-pink-200"
+							>
+								<!-- Row 1: Item Name -->
+								<div class="flex items-start gap-1.5 text-xs font-extrabold text-slate-900">
+									<span class="min-w-0 flex-1 truncate">{item.product.nama}</span>
+									{#if isJumbo}
+										<span
+											class="flex-shrink-0 rounded bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase shadow-2xs"
+											>Jumbo</span
 										>
-											🍹
-										</div>
 									{/if}
-									<div class="flex w-full flex-col items-center">
-										<h3
-											class="mb-0.5 w-full truncate text-center text-sm font-semibold text-gray-800 md:mb-1 md:text-lg"
+								</div>
+
+								<!-- Row 2: Varian & Add-ons -->
+								{#if (item.addOns && item.addOns.length > 0) || item.catatan || (item.product.tipe === 'minuman' && (item.gula !== 'normal' || item.es !== 'normal'))}
+									<div class="mt-1.5 flex flex-wrap gap-1 text-[10px]">
+										{#if item.product.tipe === 'minuman' && item.gula !== 'normal'}
+											<span
+												class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+											>
+												{sugarOptions.find((s) => s.id === item.gula)?.label ?? item.gula}
+											</span>
+										{/if}
+										{#if item.product.tipe === 'minuman' && item.es !== 'normal'}
+											<span
+												class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+											>
+												{iceOptions.find((i) => i.id === item.es)?.label ?? item.es}
+											</span>
+										{/if}
+										{#if item.addOns && item.addOns.length > 0}
+											{#each item.addOns as a}
+												<span class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700">
+													+{a.nama}
+												</span>
+											{/each}
+										{/if}
+										{#if item.catatan}
+											<span class="w-full truncate text-[10px] text-slate-400 italic">
+												"{item.catatan}"
+											</span>
+										{/if}
+									</div>
+								{/if}
+
+								<!-- Row 3: Price + Quantity Stepper -->
+								<div class="mt-2 flex items-center justify-between">
+									<div class="flex items-baseline gap-1">
+										<span class="text-xs font-black text-pink-600">
+											Rp {formatRupiah(itemTotalPrice)}
+										</span>
+										{#if item.jumlah > 1}
+											<span class="text-[10px] font-medium text-slate-400">
+												@ {formatRupiah(itemUnitPrice)}
+											</span>
+										{/if}
+									</div>
+
+									<!-- Stepper -->
+									<div
+										class="flex items-center rounded-full border border-slate-200/80 bg-slate-50 p-0.5 shadow-2xs"
+									>
+										<button
+											type="button"
+											class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:bg-rose-50 hover:text-rose-600 active:scale-90"
+											onclick={() => handleDecCartItem(idx)}
+											aria-label="Kurangi jumlah item"
 										>
-											{p.name}
-										</h3>
-										<span class="min-h-[18px] truncate text-xs text-gray-400 md:text-sm"
-											>{getKategoriNameById(p.kategori_id)}</span
+											{#if item.jumlah === 1}
+												<Trash2 class="h-2.5 w-2.5 stroke-[2.2] text-rose-500" />
+											{:else}
+												<Minus class="h-2.5 w-2.5 stroke-[2.5]" />
+											{/if}
+										</button>
+										<span class="w-5 text-center text-[11px] font-black text-slate-800 select-none">
+											{item.jumlah}
+										</span>
+										<button
+											type="button"
+											class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:bg-pink-50 hover:text-pink-600 active:scale-90"
+											onclick={() => handleIncCartItem(idx)}
+											aria-label="Tambah jumlah item"
 										>
-										<div class="text-base font-bold text-pink-500 md:mt-1 md:text-xl">
-											Rp {Number(p.price ?? p.harga ?? 0).toLocaleString('id-ID')}
-										</div>
+											<Plus class="h-2.5 w-2.5 stroke-[2.5]" />
+										</button>
 									</div>
 								</div>
-							{/each}
+							</div>
+						{/each}
+					{/if}
+				</div>
+
+				<!-- Cart Footer / Checkout Button -->
+				<div class="mt-auto border-t border-pink-100/70 px-4 pt-3 pb-4">
+					<div class="mb-2.5 flex items-center justify-between">
+						<span class="text-[11px] font-bold text-slate-500">Total Tagihan</span>
+						<span class="text-base font-black text-pink-700 xl:text-lg">
+							Rp {formatRupiah(totalHarga)}
+						</span>
+					</div>
+
+					<button
+						type="button"
+						disabled={cart.items.length === 0}
+						class="group flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+						onclick={goToBayar}
+					>
+						<div class="flex items-center gap-1.5">
+							<span>Bayar</span>
+							<ArrowRight
+								class="h-3.5 w-3.5 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-0.5"
+							/>
+						</div>
+						<span class="text-xs font-black">Rp {formatRupiah(totalHarga)}</span>
+					</button>
+				</div>
+			</aside>
+		</div>
+		<CustomItemModal bind:show={showCustomItemModal} onAdd={addCustomItemToCart} />
+
+		<ModalSheet bind:open={showCartModal} onClose={closeCartModal}>
+			{#snippet header()}
+				<div class="flex items-center justify-between border-b border-pink-100/60 px-5 pt-1 pb-3.5">
+					<div class="flex items-center gap-2">
+						<h2 class="text-base font-black text-slate-900 sm:text-lg">Keranjang Pesanan</h2>
+						{#if totalItems > 0}
+							<span
+								class="rounded-full bg-pink-50 px-2.5 py-0.5 text-[11px] font-black text-pink-600 ring-1 ring-pink-100/80"
+							>
+								{totalItems}
+								{totalItems > 1 ? 'Items' : 'Item'}
+							</span>
 						{/if}
 					</div>
-				{/if}
-				<!-- Tombol Custom Item -->
-				<!-- Modal Custom Item -->
-				{#if showCustomItemModal}
-					<ModalSheet
-						bind:open={showCustomItemModal}
-						title={customItemName ? customItemName : 'Menu Kustom'}
-						on:close={() => (showCustomItemModal = false)}
-					>
-						<div
-							class="addon-list addon-modal-content min-h-0 flex-1 overflow-y-auto pb-48"
-							onclick={handleStopPropagation}
-							onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
-							style="scrollbar-width:none;-ms-overflow-style:none;"
-							role="button"
-							tabindex="0"
+					{#if cart.items.length > 0}
+						<button
+							type="button"
+							class="flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-rose-100/90 bg-rose-50/80 px-2.5 text-xs font-bold text-rose-600 shadow-2xs transition-all select-none hover:border-rose-200 hover:bg-rose-100 hover:text-rose-700 active:scale-95"
+							onclick={clearCart}
+							aria-label="Kosongkan seluruh keranjang"
 						>
-							<div class="mt-4 mb-6">
-								<label class="mb-2 block text-base font-semibold text-gray-800" for="custom-nama"
-									>Nama Menu</label
-								>
-								<input
-									id="custom-nama"
-									class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base font-semibold text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
-									type="text"
-									bind:value={customItemName}
-									required
-									maxlength="50"
-									placeholder="Contoh: Jus Mangga Spesial"
-								/>
-							</div>
-							<div class="mb-6">
-								<label
-									class="mt-4 mb-2 block text-base font-semibold text-gray-800"
-									for="custom-harga">Harga</label
-								>
-								<div class="relative">
-									<span class="absolute top-1/2 left-4 -translate-y-1/2 font-semibold text-gray-400"
-										>Rp</span
-									>
-									<input
-										id="custom-harga"
-										class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-3 pl-10 text-base font-semibold text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
-										type="text"
-										inputmode="numeric"
-										pattern="[0-9]*"
-										min="1"
-										max="99999999"
-										value={customItemPriceFormatted}
-										oninput={handleCustomPriceInput}
-										required
-										placeholder="0"
-									/>
-								</div>
-							</div>
-							<div class="mb-6">
-								<label
-									class="mt-4 mb-2 block text-base font-semibold text-gray-800"
-									for="custom-catatan">Catatan</label
-								>
-								<textarea
-									id="custom-catatan"
-									class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base font-normal text-gray-800 outline-none focus:border-pink-400 focus:outline-2 focus:outline-pink-400"
-									bind:value={customItemNote}
-									maxlength="100"
-									rows="2"
-									placeholder="Contoh: Tanpa gula, es sedikit, dsb"
-								></textarea>
-							</div>
-							<div class="mt-0 mb-2 text-base font-semibold text-gray-800">Jumlah</div>
-							<div class="mb-4 flex items-center justify-center gap-3">
-								<button
-									class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-									type="button"
-									onclick={decQty}>-</button
-								>
-								<input
-									class="w-12 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center text-lg font-semibold text-gray-800 outline-none"
-									type="number"
-									min="1"
-									max="99"
-									bind:value={qty}
-								/>
-								<button
-									class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-									type="button"
-									onclick={incQty}>+</button
-								>
-							</div>
-							<div class="mt-2 flex gap-3">
-								<button
-									type="button"
-									class="mb-1 w-full rounded-lg bg-pink-500 px-6 py-3 text-lg font-bold text-white shadow transition-colors duration-150 hover:bg-pink-600 active:bg-pink-700"
-									onclick={addCustomItemToCart}>Tambah ke Keranjang</button
-								>
-							</div>
-						</div>
-					</ModalSheet>
-				{/if}
-			</div>
-		</div>
+							<Trash2 class="h-3 w-3 stroke-[2.4]" />
+							<span>Kosongkan</span>
+						</button>
+					{/if}
+				</div>
+			{/snippet}
 
-		{#if cart.length > 0}
 			<div
-				bind:this={cartPreviewRef}
-				class="fixed right-0 bottom-16 left-0 z-20 flex min-h-[56px] items-center justify-between rounded-t-lg border-t-2 border-gray-100 bg-white px-6 py-3 text-base font-medium text-gray-900 shadow-md"
-				style="transform: translateX({cartPreviewX}px); transition: {cartPreviewDragging
-					? 'none'
-					: 'transform 0.25s cubic-bezier(.4,0,.2,1)'}; touch-action: pan-y;"
-				ontouchstart={handleCartPreviewTouchStart}
-				ontouchmove={handleCartPreviewTouchMove}
-				ontouchend={handleCartPreviewTouchEnd}
-				transition:fly={{ x: -64, duration: 320, opacity: 0.9 }}
+				class="min-h-0 flex-1 space-y-3 overflow-y-auto px-1 py-3.5"
+				style="scrollbar-width:none;-ms-overflow-style:none;"
 			>
-				<div
-					class="flex flex-1 cursor-pointer flex-col justify-center select-none"
-					onclick={openCartModal}
-					onkeydown={(e) => e.key === 'Enter' && openCartModal()}
-					role="button"
-					tabindex="0"
-					aria-label="Buka keranjang belanja"
-					style="min-width:0;"
-				>
-					<div class="truncate text-sm text-gray-500">{totalItems} item pesanan</div>
-					<div class="truncate text-lg font-bold text-pink-500">
-						Rp {Number(totalHarga ?? 0).toLocaleString('id-ID')}
-					</div>
-				</div>
-				<div class="ml-4 flex items-center justify-center">
-					<button
-						class="flex items-center justify-center rounded-lg bg-pink-500 px-6 py-2 text-lg font-bold text-white shadow transition-colors duration-150 hover:bg-pink-600 active:bg-pink-700"
-						onclick={handleGoToBayar}>Bayar</button
+				{#if cart.items.length === 0}
+					<div
+						class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-pink-200/80 bg-pink-50/30 px-6 py-10 text-center"
 					>
-				</div>
-			</div>
-		{/if}
-
-		{#if showCartModal}
-			<ModalSheet bind:open={showCartModal} title="Keranjang" on:close={closeCartModal}>
-				<div
-					class="min-h-0 flex-1 overflow-y-auto px-0 py-2"
-					onclick={handleStopPropagation}
-					onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
-					style="scrollbar-width:none;-ms-overflow-style:none;"
-					role="button"
-					tabindex="0"
-				>
-					{#each cart as item, idx}
 						<div
-							class="mb-3 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 shadow-sm"
+							class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-pink-100"
 						>
-							<div class="flex min-w-0 flex-col">
-								<div class="mb-0.5 truncate text-base font-semibold text-gray-900">
-									{item.qty}x {item.product.name}
+							<ShoppingBag class="h-6 w-6 stroke-[2] text-pink-500" />
+						</div>
+						<div class="text-sm font-extrabold text-slate-800">Keranjang Masih Kosong</div>
+						<div class="mt-1 text-xs text-slate-500">
+							Pilih menu dari katalog untuk menambahkan pesanan.
+						</div>
+					</div>
+				{:else}
+					{#each cart.items as item, idx (cartItemKey(item))}
+						{@const isJumbo = item.porsi === 'jumbo'}
+						{@const basePrice = isJumbo
+							? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+							: (item.product.harga ?? 0)}
+						{@const itemUnitPrice =
+							basePrice + (item.addOns || []).reduce((acc, a) => acc + (Number(a.harga) || 0), 0)}
+						{@const itemTotalPrice = itemUnitPrice * item.jumlah}
+						<div
+							class="group flex items-center justify-between rounded-2xl border border-pink-100/70 bg-white p-3.5 shadow-xs transition-all hover:border-pink-200 sm:p-4"
+						>
+							<!-- Detail Item -->
+							<div class="flex min-w-0 flex-1 flex-col pr-3">
+								<div
+									class="flex items-center gap-1.5 truncate text-sm font-extrabold text-slate-900"
+								>
+									<span class="truncate">{item.product.nama}</span>
+									{#if isJumbo}
+										<span
+											class="py-0.2 rounded bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 text-[9px] font-black text-white uppercase shadow-2xs"
+											>Jumbo</span
+										>
+									{/if}
 								</div>
-								<div class="text-xs font-medium text-gray-500">
-									{[
-										item.addOns && item.addOns.length > 0
-											? item.addOns.map((a: any) => a.name).join(', ')
-											: '',
-										item.note ? `${item.note}` : '',
-										item.product.tipe === 'minuman' && item.sugar !== 'normal'
-											? (sugarOptions.find((s) => s.id === item.sugar)?.label ?? item.sugar)
-											: '',
-										item.product.tipe === 'minuman' && item.ice !== 'normal'
-											? (iceOptions.find((i) => i.id === item.ice)?.label ?? item.ice)
-											: ''
-									]
-										.filter(Boolean)
-										.join(', ')}
-								</div>
-								<div class="mt-1 text-base font-bold text-pink-500">
-									Rp {Number(item.product.price ?? item.product.harga ?? 0).toLocaleString('id-ID')}
+
+								<!-- Varian & Add-ons -->
+								{#if (item.addOns && item.addOns.length > 0) || item.catatan || (item.product.tipe === 'minuman' && (item.gula !== 'normal' || item.es !== 'normal'))}
+									<div class="mt-1 flex flex-wrap gap-1 text-[11px]">
+										{#if item.product.tipe === 'minuman' && item.gula !== 'normal'}
+											<span
+												class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+											>
+												{sugarOptions.find((s) => s.id === item.gula)?.label ?? item.gula}
+											</span>
+										{/if}
+										{#if item.product.tipe === 'minuman' && item.es !== 'normal'}
+											<span
+												class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+											>
+												{iceOptions.find((i) => i.id === item.es)?.label ?? item.es}
+											</span>
+										{/if}
+										{#if item.addOns && item.addOns.length > 0}
+											{#each item.addOns as a}
+												<span class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700">
+													+{a.nama}
+												</span>
+											{/each}
+										{/if}
+										{#if item.catatan}
+											<span class="w-full truncate text-[11px] text-slate-400 italic">
+												"{item.catatan}"
+											</span>
+										{/if}
+									</div>
+								{/if}
+
+								<!-- Harga Subtotal Item -->
+								<div class="mt-1.5 flex items-baseline gap-1.5">
+									<span class="text-xs font-black text-pink-600 sm:text-sm">
+										Rp {formatRupiah(itemTotalPrice)}
+									</span>
+									{#if item.jumlah > 1}
+										<span class="text-[10px] font-medium text-slate-400">
+											(@ Rp {formatRupiah(itemUnitPrice)})
+										</span>
+									{/if}
 								</div>
 							</div>
-							<button
-								class="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white"
-								onclick={() => handleRemoveCartItem(idx)}>Hapus</button
+
+							<!-- Stepper Jumlah Quantity -->
+							<div
+								class="flex items-center rounded-full border border-slate-200/80 bg-slate-50 p-0.5 shadow-2xs"
 							>
+								<button
+									type="button"
+									class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:bg-rose-50 hover:text-rose-600 active:scale-90"
+									onclick={() => handleDecCartItem(idx)}
+									aria-label="Kurangi jumlah item"
+								>
+									{#if item.jumlah === 1}
+										<Trash2 class="h-3.5 w-3.5 stroke-[2.2] text-rose-500" />
+									{:else}
+										<Minus class="h-3.5 w-3.5 stroke-[2.5]" />
+									{/if}
+								</button>
+								<span class="w-6 text-center text-xs font-black text-slate-800 select-none">
+									{item.jumlah}
+								</span>
+								<button
+									type="button"
+									class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:bg-pink-50 hover:text-pink-600 active:scale-90"
+									onclick={() => handleIncCartItem(idx)}
+									aria-label="Tambah jumlah item"
+								>
+									<Plus class="h-3.5 w-3.5 stroke-[2.5]" />
+								</button>
+							</div>
 						</div>
 					{/each}
-				</div>
-				<div slot="footer">
+				{/if}
+			</div>
+
+			{#snippet footer()}
+				{#if cart.items.length > 0}
 					<button
-						class="mb-1 w-full rounded-lg bg-pink-500 px-6 py-3 text-lg font-bold text-white shadow transition-colors duration-150 hover:bg-pink-600 active:bg-pink-700"
-						onclick={handleGoToBayar}>Bayar</button
+						type="button"
+						class="group flex min-h-[50px] w-full cursor-pointer items-center justify-between rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-6 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98] sm:text-base"
+						onclick={goToBayar}
 					>
+						<div class="flex items-center gap-2">
+							<span>Lanjut ke Pembayaran</span>
+							<ArrowRight
+								class="h-4 w-4 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-0.5"
+							/>
+						</div>
+						<span class="font-black">Rp {formatRupiah(totalHarga)}</span>
+					</button>
+				{/if}
+			{/snippet}
+		</ModalSheet>
+
+		<ToastNotification
+			bind:show={showToast}
+			message={toastMessage}
+			type={toastType}
+			position="top"
+		/>
+
+		<ModalSheet bind:open={showModal} onClose={closeModal}>
+			{#snippet header()}
+				<div class="border-b border-slate-100/90 px-5 pt-1 pb-3.5">
+					<div class="min-w-0 flex-1">
+						<h2 class="text-base leading-snug font-extrabold text-slate-900 sm:text-lg">
+							{selectedProduct ? selectedProduct.nama : 'Pilihan Menu'}
+						</h2>
+						{#if selectedProduct}
+							<div class="mt-1 flex items-center gap-2">
+								<span
+									class="bg-gradient-to-r from-pink-600 to-rose-500 bg-clip-text text-sm font-extrabold text-transparent sm:text-base"
+								>
+									Rp {formatRupiah(selectedProduct.harga)}
+								</span>
+								{#if selectedProduct.tipe}
+									<span
+										class="rounded-full border border-pink-100/80 bg-pink-50 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider text-pink-600 uppercase"
+									>
+										{selectedProduct.tipe}
+									</span>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
-			</ModalSheet>
-		{/if}
+			{/snippet}
 
-		{#if showSnackbar}
 			<div
-				class="animate-fadeInOut fixed bottom-28 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg"
+				class="addon-list addon-modal-content min-h-0 flex-1 space-y-4 overflow-y-auto py-3.5 pb-4"
+				style="scrollbar-width:none;-ms-overflow-style:none;"
 			>
-				{snackbarMsg}
-			</div>
-		{/if}
+				{#if selectedProduct && selectedProduct.tipe === 'minuman'}
+					<!-- [CATATAN]: Ukuran Porsi -->
+					<div>
+						<div
+							class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+						>
+							<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+							Pilihan Porsi
+						</div>
+						<div class="grid grid-cols-2 gap-2.5">
+							<button
+								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedPorsi ===
+								'reguler'
+									? 'border-2 border-pink-500 bg-pink-500 text-white shadow-sm shadow-pink-500/25'
+									: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
+								type="button"
+								onclick={() => (selectedPorsi = 'reguler')}
+							>
+								<span>Reguler</span>
+								<span
+									class="mt-0.5 text-[11px] font-semibold {selectedPorsi === 'reguler'
+										? 'text-white/90'
+										: 'text-slate-500'}"
+								>
+									Rp {formatRupiah(selectedProduct.harga || 0)}
+								</span>
+							</button>
+							<button
+								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedPorsi ===
+								'jumbo'
+									? 'border-2 border-pink-500 bg-pink-500 text-white shadow-sm shadow-pink-500/25'
+									: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
+								type="button"
+								onclick={() => (selectedPorsi = 'jumbo')}
+							>
+								<span>Jumbo</span>
+								<span
+									class="mt-0.5 text-[11px] font-semibold {selectedPorsi === 'jumbo'
+										? 'text-white/90'
+										: 'text-slate-500'}"
+								>
+									Rp {formatRupiah(selectedProduct.harga_jumbo || selectedProduct.harga || 0)}
+								</span>
+							</button>
+						</div>
+					</div>
 
-		{#if showErrorNotification}
-			<div
-				class="fixed top-20 left-1/2 z-[9999] w-full max-w-xs rounded-xl bg-red-500 px-6 py-3 text-white shadow-lg transition-all duration-300 ease-out md:max-w-md"
-				style="transform: translateX(-50%);"
-				in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-				out:fade={{ duration: 200 }}
-			>
-				{errorNotificationMessage}
-			</div>
-		{/if}
-
-		{#if showModal}
-			<ModalSheet
-				bind:open={showModal}
-				title={selectedProduct ? selectedProduct.name : ''}
-				on:close={closeModal}
-			>
-				<div
-					class="addon-list addon-modal-content min-h-0 flex-1 overflow-y-auto pb-48"
-					onclick={handleStopPropagation}
-					onkeydown={(e) => e.key === 'Escape' && e.stopPropagation()}
-					style="scrollbar-width:none;-ms-overflow-style:none;"
-					role="button"
-					tabindex="0"
-				>
-					{#if selectedProduct && selectedProduct.tipe === 'minuman'}
-						<div class="mt-4 mb-2 text-base font-semibold text-gray-800">Jenis Gula</div>
-						<div class="mb-3 flex gap-2">
+					<!-- [CATATAN]: Jenis Gula -->
+					<div>
+						<div
+							class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+						>
+							<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+							Jenis Gula
+						</div>
+						<div class="grid grid-cols-3 gap-2.5">
 							{#each sugarOptions as s}
 								<button
-									class="flex-1 cursor-pointer rounded-lg border px-0 py-2 text-base font-medium transition-colors duration-150 {selectedSugar ===
+									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedSugar ===
 									s.id
-										? 'border-pink-500 bg-pink-500 text-white'
-										: 'border-pink-500 bg-white text-pink-500'}"
+										? 'border-2 border-pink-500 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/25'
+										: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
 									type="button"
 									onclick={() => (selectedSugar = s.id)}>{s.label}</button
 								>
 							{/each}
 						</div>
-					{/if}
-					{#if selectedProduct && selectedProduct.tipe === 'minuman'}
-						<div class="mt-4 mb-2 text-base font-semibold text-gray-800">Jenis Es</div>
-						<div class="mb-3 flex gap-2">
+					</div>
+
+					<!-- [CATATAN]: Jenis Es -->
+					<div>
+						<div
+							class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+						>
+							<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+							Jenis Es
+						</div>
+						<div class="grid grid-cols-3 gap-2.5">
 							{#each iceOptions as i}
 								<button
-									class="flex-1 cursor-pointer rounded-lg border px-0 py-2 text-base font-medium transition-colors duration-150 {selectedIce ===
+									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedIce ===
 									i.id
-										? 'border-pink-500 bg-pink-500 text-white'
-										: 'border-pink-500 bg-white text-pink-500'}"
+										? 'border-2 border-pink-500 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/25'
+										: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
 									type="button"
 									onclick={() => (selectedIce = i.id)}>{i.label}</button
 								>
 							{/each}
 						</div>
-					{/if}
-					<div class="mt-4 mb-2 text-base font-semibold text-gray-800">Ekstra</div>
-					{#if selectedProduct && selectedProduct.ekstra_ids && selectedProduct.ekstra_ids.length > 0 && addOns.filter( (a: any) => selectedProduct?.ekstra_ids?.includes(a.id) ).length > 0}
-						<div class="mb-6 grid grid-cols-2 gap-3">
-							{#each addOns.filter((a: any) => selectedProduct?.ekstra_ids?.includes(a.id)) as a}
+					</div>
+				{/if}
+
+				<!-- [CATATAN]: Tambahan (Ekstra) -->
+				<div>
+					<div
+						class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+					>
+						<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+						Tambahan (Ekstra)
+					</div>
+					{#if selectedProduct && selectedProduct.ekstra_ids && selectedProduct.ekstra_ids.length > 0 && addOns.filter( (a) => selectedProduct?.ekstra_ids?.includes(a.id) ).length > 0}
+						<div class="grid grid-cols-2 gap-2.5">
+							{#each addOns.filter((a) => selectedProduct?.ekstra_ids?.includes(a.id)) as a (a.id)}
 								<button
-									class="flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border py-1.5 text-center text-base font-medium whitespace-normal transition-colors duration-150 {selectedAddOns.includes(
-										(a as any).id
+									class="flex min-h-[52px] w-full cursor-pointer items-center justify-between rounded-2xl p-2.5 text-left transition-all duration-150 active:scale-[0.97] sm:p-3 {selectedAddOns.includes(
+										a.id
 									)
-										? 'border-pink-500 bg-pink-500 text-white'
-										: 'border-pink-500 bg-white text-pink-500'}"
+										? 'border-2 border-pink-500 bg-pink-50/70 shadow-xs'
+										: 'border border-slate-200/90 bg-white shadow-2xs hover:border-pink-200 hover:bg-slate-50/50'}"
 									type="button"
-									onclick={() => toggleAddOn((a as any).id)}
+									onclick={() => toggleAddOn(a.id)}
 								>
-									<span class="w-full truncate">{(a as any).name}</span>
-									<span
-										class="mt-0 text-sm font-semibold {selectedAddOns.includes((a as any).id)
-											? 'text-white'
-											: 'text-pink-500'}"
-										>+Rp {Number((a as any).price ?? (a as any).harga ?? 0).toLocaleString(
-											'id-ID'
-										)}</span
+									<div class="min-w-0 flex-1 pr-1.5">
+										<div
+											class="truncate text-xs font-bold sm:text-sm {selectedAddOns.includes(a.id)
+												? 'text-pink-900'
+												: 'text-slate-800'}"
+										>
+											{a.nama}
+										</div>
+										<div
+											class="mt-0.5 text-[11px] font-bold sm:text-xs {selectedAddOns.includes(a.id)
+												? 'text-pink-600'
+												: 'text-slate-500'}"
+										>
+											+Rp {formatRupiah(a.harga ?? 0)}
+										</div>
+									</div>
+									<div
+										class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors {selectedAddOns.includes(
+											a.id
+										)
+											? 'bg-pink-500 text-white'
+											: 'border border-slate-300 bg-white'}"
 									>
+										{#if selectedAddOns.includes(a.id)}
+											<Check class="h-3 w-3 stroke-[3]" />
+										{:else}
+											<Plus class="h-3 w-3 text-slate-400" />
+										{/if}
+									</div>
 								</button>
 							{/each}
 						</div>
 					{:else}
-						<div class="mb-6 text-center text-sm font-medium text-gray-400">
-							Tidak ada ekstra untuk menu ini.
+						<div
+							class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3.5 text-center text-xs font-medium text-slate-400"
+						>
+							Tidak ada pilihan ekstra untuk menu ini.
 						</div>
 					{/if}
-					<div class="mt-4 mb-2 text-base font-semibold text-gray-800">Catatan</div>
-					<textarea
-						class="mb-1 w-full resize-none rounded-lg border-[1.5px] border-pink-200 bg-white px-3 py-2.5 text-base text-gray-800 transition-colors duration-200 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
-						placeholder="Contoh: Tidak terlalu manis, tambah es batu, dll..."
-						bind:value={selectedNote}
-						rows="3"
-						maxlength="200"
-						oninput={(e) => {
-							selectedNote = capitalizeFirst((e.target as HTMLTextAreaElement).value);
-						}}
-					></textarea>
-					<div class="mt-1 text-right text-xs text-gray-500">{selectedNote.length}/200</div>
 				</div>
-				<div slot="footer">
-					<div class="mt-0 mb-2 text-base font-semibold text-gray-800">Jumlah</div>
-					<div class="mb-4 flex items-center justify-center gap-3">
-						<button
-							class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-							type="button"
-							onclick={decQty}>-</button
-						>
-						<input
-							class="w-12 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-center text-lg font-semibold text-gray-800 outline-none"
-							type="number"
-							min="1"
-							max="99"
-							bind:value={qty}
-						/>
-						<button
-							class="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-400 text-xl font-bold text-pink-400 transition-colors duration-150"
-							type="button"
-							onclick={incQty}>+</button
-						>
-					</div>
-					<button
-						class="mb-1 w-full rounded-lg bg-pink-500 px-6 py-3 text-lg font-bold text-white shadow transition-colors duration-150 hover:bg-pink-600 active:bg-pink-700"
-						onclick={addToCart}>Tambah ke Keranjang</button
+
+				<!-- [CATATAN]: Catatan -->
+				<div>
+					<div
+						class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
 					>
+						<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+						Catatan Pesanan
+					</div>
+					<div class="relative">
+						<textarea
+							class="w-full resize-none rounded-2xl border border-slate-200/90 bg-slate-50/60 p-3 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+							placeholder="Contoh: Manis sedang, es pisah..."
+							bind:value={selectedNote}
+							rows="2"
+							maxlength="200"
+							oninput={(e) => {
+								selectedNote = capitalizeFirst((e.target as HTMLTextAreaElement).value);
+							}}></textarea>
+						<div class="mt-0.5 text-right text-[11px] font-medium text-slate-400">
+							{selectedNote.length}/200
+						</div>
+					</div>
 				</div>
-			</ModalSheet>
-		{/if}
+			</div>
+
+			{#snippet footer()}
+				<div class="flex items-center gap-3">
+					<!-- [CATATAN]: Stepper Quantity -->
+					<div
+						class="flex items-center rounded-full border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs"
+					>
+						<button
+							type="button"
+							class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:text-pink-600 active:scale-90"
+							onclick={decQty}
+							aria-label="Kurangi jumlah"
+						>
+							<Minus class="h-4 w-4 stroke-[2.5]" />
+						</button>
+						<span class="w-8 text-center text-sm font-extrabold text-slate-800 select-none">
+							{jumlah}
+						</span>
+						<button
+							type="button"
+							class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs transition-all hover:text-pink-600 active:scale-90"
+							onclick={incQty}
+							aria-label="Tambah jumlah"
+						>
+							<Plus class="h-4 w-4 stroke-[2.5]" />
+						</button>
+					</div>
+
+					<!-- [CATATAN]: Big CTA Add Button -->
+					<button
+						type="button"
+						class="flex min-h-[48px] flex-1 cursor-pointer items-center justify-between rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+						onclick={addToCart}
+					>
+						<span>Tambah</span>
+						<span>Rp {formatRupiah(currentItemTotalPrice)}</span>
+					</button>
+				</div>
+			{/snippet}
+		</ModalSheet>
 	</main>
+
+	<CartPreview
+		cart={cart.items}
+		{totalItems}
+		{totalHarga}
+		onOpenCart={openCartModal}
+		onClearCart={clearCart}
+	/>
 </div>
 
 <style>
-	@keyframes fadeInOut {
-		0% {
-			opacity: 0;
-			transform: translateY(16px);
-		}
-		10% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-		90% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-		100% {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-	}
-	.animate-fadeInOut {
-		animation: fadeInOut 1.8s cubic-bezier(0.4, 0, 0.2, 1);
-	}
 	.animate-pulse {
 		animation: pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 	}
@@ -1240,19 +1246,5 @@
 		50% {
 			opacity: 0.4;
 		}
-	}
-
-	/* Hilangkan tombol spinner up/down di input number (Chrome, Edge, Safari) */
-	input[type='number']::-webkit-outer-spin-button,
-	input[type='number']::-webkit-inner-spin-button {
-		-webkit-appearance: none;
-		appearance: none;
-		margin: 0;
-	}
-
-	/* Hilangkan spinner di Firefox */
-	input[type='number'] {
-		-moz-appearance: textfield;
-		appearance: textfield;
 	}
 </style>

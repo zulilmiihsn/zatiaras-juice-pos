@@ -16,18 +16,18 @@ export interface TransactionAnalysis {
 export interface DetectedTransaction {
 	type: 'pemasukan' | 'pengeluaran' | 'penjualan' | 'unknown';
 	amount: number;
-	description: string;
+	deskripsi: string;
 	category?: string;
 	confidence: number;
-	products?: any[]; // Product details for sales transactions
+	products?: unknown[]; // Product details for sales transactions
 }
 
 export interface AiRecommendation {
 	id: string;
-	action: 'create_transaction' | 'update_transaction' | 'create_category' | 'other';
+	action: 'create_transaction' | 'update_transaction' | 'create_category';
 	title: string;
-	description: string;
-	data: any;
+	deskripsi: string;
+	data: unknown;
 	priority: 'high' | 'medium' | 'low';
 }
 

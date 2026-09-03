@@ -1,20 +1,29 @@
 <script lang="ts">
-	import { onMount, createEventDispatcher } from 'svelte';
-	import type { AiChatMessage, TransactionAnalysis, AiRecommendation } from '$lib/types/ai';
+	import { onMount } from 'svelte';
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
 	import { AutoApplyService } from '$lib/services/autoApplyService';
+	import { refreshBus } from '$lib/utils/refreshBus';
+	import SendIcon from '$lib/components/shared/sendIcon.svelte';
 
-	export let isOpen = false;
-	export let onClose: () => void;
+	let {
+		isOpen = $bindable(false),
+		onClose,
+		onRecommendationsApplied
+	}: {
+		isOpen?: boolean;
+		onClose?: () => void;
+		onRecommendationsApplied?: (detail: { result: AutoApplyResult }) => void;
+	} = $props();
 
-	const dispatch = createEventDispatcher();
-
-	let messages: AiChatMessage[] = [];
-	let currentMessage = '';
-	let isLoading = false;
-	let currentAnalysis: TransactionAnalysis | null = null;
-	let showRecommendations = false;
-	let appliedSinceOpen = false;
+	let messages: AiChatMessage[] = $state([]);
+	let currentMessage = $state('');
+	let isLoading = $state(false);
+	let currentAnalysis: TransactionAnalysis | null = $state(null);
+	let showRecommendations = $state(false);
+	let appliedSinceOpen = $state(false);
 
 	const aiAnalysisService = AiAnalysisService.getInstance();
 	const autoApplyService = AutoApplyService.getInstance();
@@ -25,12 +34,14 @@
 		}
 	});
 
-	// Reactive statement untuk mengontrol body scroll
-	$: if (isOpen && typeof document !== 'undefined') {
-		document.body.classList.add('modal-open');
-	} else if (typeof document !== 'undefined') {
-		document.body.classList.remove('modal-open');
-	}
+	// [CATATAN]: Reactive statement untuk mengontrol body scroll
+	$effect(() => {
+		if (isOpen && typeof document !== 'undefined') {
+			document.body.classList.add('modal-open');
+		} else if (typeof document !== 'undefined') {
+			document.body.classList.remove('modal-open');
+		}
+	});
 
 	function addWelcomeMessage() {
 		const welcomeMessage: AiChatMessage = {
@@ -59,11 +70,11 @@
 		isLoading = true;
 
 		try {
-			// Analisis transaksi
+			// [CATATAN]: Analisis transaksi
 			const analysis = await aiAnalysisService.analyzeTransaction(messageText);
 			currentAnalysis = analysis;
 
-			// Generate response
+			// [CATATAN]: Generate response
 			const responseText = aiAnalysisService.generateResponseText(analysis);
 
 			const aiMessage: AiChatMessage = {
@@ -75,7 +86,7 @@
 
 			messages = [...messages, aiMessage];
 
-			// Tampilkan rekomendasi jika ada
+			// [CATATAN]: Tampilkan rekomendasi jika ada
 			if (analysis.recommendations.length > 0) {
 				showRecommendations = true;
 			}
@@ -96,7 +107,7 @@
 		if (!currentAnalysis || !currentAnalysis.recommendations.length) return;
 
 		isLoading = true;
-		// Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
+		// [CATATAN]: Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
 
 		try {
 			const result = await autoApplyService.applyRecommendations(currentAnalysis.recommendations);
@@ -109,27 +120,22 @@
 			};
 
 			messages = [...messages, resultMessage];
-			// Jika sukses, barulah kosongkan analisis dan rekomendasi
+			// [CATATAN]: Jika sukses, barulah kosongkan analisis dan rekomendasi
 			if (result.success) {
 				currentAnalysis = null;
 				showRecommendations = false;
 				appliedSinceOpen = true;
 			}
 
-			// Dispatch event untuk refresh data di parent
-			dispatch('recommendationsApplied', { result });
+			// [CATATAN]: Dispatch event untuk refresh data di parent
+			if (onRecommendationsApplied) onRecommendationsApplied({ result });
 
-			// Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
+			// [CATATAN]: Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
 			if (result.success && typeof window !== 'undefined') {
 				window.dispatchEvent(new CustomEvent('ai-recommendations-applied', { detail: result }));
-				// Panggil API refresher global bila tersedia, agar update benar-benar segera
-				// @ts-ignore
-				if (typeof (window as any).__refreshLaporan === 'function') {
-					await (window as any).__refreshLaporan();
-				}
-				if (typeof (window as any).__refreshRiwayat === 'function') {
-					await (window as any).__refreshRiwayat();
-				}
+				// [CATATAN]: Panggil API refresher global bila tersedia, agar update benar-benar segera
+				refreshBus.emit('laporan');
+				refreshBus.emit('riwayat');
 			}
 		} catch (error) {
 			const errorMessage: AiChatMessage = {
@@ -152,18 +158,13 @@
 	}
 
 	function closeModal() {
-		// Reset chat state saat modal ditutup
+		// [CATATAN]: Reset chat state saat modal ditutup
 		if (appliedSinceOpen && typeof window !== 'undefined') {
-			// Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
+			// [CATATAN]: Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
 			window.dispatchEvent(new CustomEvent('ai-recommendations-applied'));
-			// Trigger refresh di background saat modal ditutup
-			// @ts-ignore
-			if (typeof (window as any).__refreshLaporan === 'function') {
-				(window as any).__refreshLaporan();
-			}
-			if (typeof (window as any).__refreshRiwayat === 'function') {
-				(window as any).__refreshRiwayat();
-			}
+			// [CATATAN]: Trigger refresh di background saat modal ditutup
+			refreshBus.emit('laporan');
+			refreshBus.emit('riwayat');
 		}
 		messages = [];
 		currentAnalysis = null;
@@ -171,23 +172,25 @@
 		currentMessage = '';
 		isLoading = false;
 		appliedSinceOpen = false;
-		onClose();
+		onClose?.();
 	}
 </script>
 
 {#if isOpen}
 	<div
-		class="modal-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-sm sm:px-4 sm:py-4"
-		on:click={closeModal}
-		on:keydown={(e) => e.key === 'Escape' && closeModal()}
+		class="modal-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
+		transition:fade={{ duration: 180 }}
+		onclick={closeModal}
+		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
 	>
 		<div
-			class="modal-slideup mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-2xl bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
-			on:click|stopPropagation
-			on:keydown={(e) => e.key === 'Escape' && closeModal()}
+			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-3xl bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
+			transition:scale={{ start: 0.95, duration: 220, easing: cubicOut }}
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.key === 'Escape' && closeModal()}
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -213,7 +216,7 @@
 				</div>
 				<div class="flex items-center space-x-2">
 					<button
-						on:click={closeModal}
+						onclick={closeModal}
 						class="rounded-lg p-2 text-gray-400 transition-all duration-200 hover:bg-gray-100 hover:text-gray-600"
 						aria-label="Tutup modal"
 					>
@@ -284,7 +287,7 @@
 							>
 								<div class="flex-1">
 									<p class="text-sm font-medium text-gray-900">{rec.title}</p>
-									<p class="mt-1 text-xs text-gray-600">{rec.description}</p>
+									<p class="mt-1 text-xs text-gray-600">{rec.deskripsi}</p>
 								</div>
 								<div class="flex items-center space-x-2">
 									<span
@@ -303,14 +306,14 @@
 					{#if currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
 						<div class="mt-4 flex space-x-3">
 							<button
-								on:click={applyRecommendations}
+								onclick={applyRecommendations}
 								disabled={isLoading}
 								class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{isLoading ? 'Menerapkan...' : 'Terapkan Rekomendasi'}
 							</button>
 							<button
-								on:click={() => (showRecommendations = false)}
+								onclick={() => (showRecommendations = false)}
 								class="rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
 							>
 								Batal
@@ -319,7 +322,7 @@
 					{:else}
 						<div class="mt-4">
 							<button
-								on:click={() => (showRecommendations = false)}
+								onclick={() => (showRecommendations = false)}
 								class="w-full rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
 							>
 								Tutup
@@ -334,27 +337,19 @@
 				<div class="flex space-x-3">
 					<textarea
 						bind:value={currentMessage}
-						on:keydown={handleKeyPress}
+						onkeydown={handleKeyPress}
 						placeholder="Ceritakan transaksi Anda..."
 						disabled={isLoading}
+						maxlength="2000"
 						class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-						rows="2"
-					>
-					</textarea>
+						rows="2"></textarea>
 					<button
-						on:click={sendMessage}
+						onclick={sendMessage}
 						disabled={!currentMessage.trim() || isLoading}
 						class="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
 						aria-label="Kirim pesan"
 					>
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-							></path>
-						</svg>
+						<SendIcon class="h-4 w-4" />
 					</button>
 				</div>
 			</div>
@@ -381,27 +376,6 @@
 		/* Memastikan modal overlay tidak ter-blur */
 		filter: none !important;
 		-webkit-filter: none !important;
-	}
-
-	/* Animasi slideUp yang sama dengan modal buka/tutup toko */
-	.modal-slideup {
-		animation: modalSlideUp 0.28s cubic-bezier(0.4, 1.4, 0.6, 1);
-		position: relative;
-		z-index: 100000 !important;
-		/* Memastikan modal AI tidak ter-blur */
-		filter: none !important;
-		-webkit-filter: none !important;
-	}
-
-	@keyframes modalSlideUp {
-		from {
-			transform: translateY(64px);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
 	}
 
 	/* Fallback untuk browser lama */

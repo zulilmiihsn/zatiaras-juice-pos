@@ -1,137 +1,70 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { getSupabaseClient } from '$lib/database/supabaseClient';
-  import { get as storeGet } from 'svelte/store';
-  import { selectedBranch } from '$lib/stores/selectedBranch';
-  import { goto } from '$app/navigation';
-  import { fly } from 'svelte/transition';
-  import { cubicOut } from 'svelte/easing';
-  import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-  import RefreshCw from 'lucide-svelte/icons/refresh-cw';
-  import { witaToUtcRange, getTodayWita } from '$lib/utils/dateTime';
-  import { userRole } from '$lib/stores/userRole';
-  import DropdownSheet from '$lib/components/shared/dropdownSheet.svelte';
-  import { createToastManager } from '$lib/utils/ui';
-  import { ErrorHandler } from '$lib/utils/errorHandling';
+	import { refreshBus } from '$lib/utils/refreshBus';
+	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
+
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import { userRole } from '$lib/stores/userRole.svelte';
+
+	import { createToastManager } from '$lib/utils/ui';
+	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import * as pako from 'pako';
-	import { Base64 } from 'js-base64';
-	import { executePrint } from '$lib/utils/printHelper';
+	import { transactionService } from '$lib/services/transactionService';
+	import { formatRupiah } from '$lib/utils/currency';
+	import type { HistoryItem } from '$lib/types/laporan';
+	import { fetchTransaksiHariIni as fetchRiwayatHarian } from '$lib/services/riwayatService';
+	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
+	import { printReceiptUnified } from '$lib/services/printerEngine';
 
-	let pengaturanStruk: any = null;
+	let pengaturanStruk = $state<import('$lib/types/laporan').ReceiptSettings | null>(null);
 
-  let transaksiHariIni: any[] = [];
-  let loading = true;
-  let searchKeyword = '';
-  let filterPayment = 'all'; // 'all' | 'qris' | 'tunai'
-  let pollingInterval: any;
-  let showDetailModal = false;
-  let selectedTransaksi: any = null;
-  let showDropdownPayment = false;
-  const paymentOptions = [
-    { value: 'tunai', label: 'Tunai' },
-    { value: 'qris', label: 'QRIS/Non-Tunai' }
-  ];
+	let transaksiHariIni = $state<HistoryItem[]>([]);
+	let loading = $state(true);
+	let searchKeyword = $state('');
+	let filterPayment = $state('all'); // 'all' | 'qris' | 'tunai'
 
-  // Toast management
-  const toastManager = createToastManager();
+	let showDetailModal = $state(false);
+	let selectedTransaksi = $state<HistoryItem | null>(null);
 
-  function todayRange() {
-    const todayWita = getTodayWita();
-    return witaToUtcRange(todayWita);
-  }
+	const paymentOptions = [
+		{ value: 'tunai', label: 'Tunai' },
+		{ value: 'qris', label: 'QRIS/Non-Tunai' }
+	];
 
-  async function fetchTransaksiHariIni() {
-    loading = true;
-    const { startUtc: start, endUtc: end } = todayRange();
+	// [CATATAN]: Toast management
+	const toastManager = createToastManager();
 
-    try {
-      const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-        .from('buku_kas')
-        .select('*')
-        .gte('waktu', start)
-        .lte('waktu', end)
-        .order('waktu', { ascending: false });
+	async function fetchTransaksiHariIni() {
+		loading = true;
+		try {
+			transaksiHariIni = await fetchRiwayatHarian({ searchKeyword, filterPayment });
+		} catch (error) {
+			ErrorHandler.logError(error, 'fetchTransaksiHariIniKasir');
+			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
+		} finally {
+			loading = false;
+		}
+	}
 
-      transaksiHariIni = [];
-      if (data && !error) {
-        transaksiHariIni.push(
-          ...data.map((t) => ({
-            id: t.id,
-            transaction_id: t.transaction_id,
-            waktu: t.waktu,
-            nama: t.description || t.customer_name || t.nama || '-',
-            nominal: t.amount || t.nominal,
-            amount: t.amount || t.nominal,
-            tipe: t.tipe || t.type,
-            sumber: t.sumber || 'catat',
-            payment_method: t.payment_method || 'tunai',
-            customer_name: t.customer_name || ''
-          }))
-        );
-      }
+	function refreshManual() {
+		if (!loading) fetchTransaksiHariIni();
+	}
 
-      transaksiHariIni.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
+	function openDetail(trx: HistoryItem) {
+		selectedTransaksi = { ...trx };
+		showDetailModal = true;
+	}
 
-      transaksiHariIni = transaksiHariIni.filter(
-        (t) => (t.nominal && t.nominal > 0) || (t.amount && t.amount > 0)
-      );
-
-      if (searchKeyword.trim()) {
-        const keyword = searchKeyword.trim().toLowerCase();
-        transaksiHariIni = transaksiHariIni.filter((t) => t.nama?.toLowerCase().includes(keyword));
-      }
-
-      if (filterPayment !== 'all') {
-        transaksiHariIni = transaksiHariIni.filter((t) => {
-          if (filterPayment === 'qris') return t.payment_method === 'qris' || t.payment_method === 'non-tunai';
-          if (filterPayment === 'tunai') return t.payment_method === 'tunai';
-          return true;
-        });
-      }
-    } catch (error) {
-      ErrorHandler.logError(error, 'fetchTransaksiHariIniKasir');
-      toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
-    } finally {
-      loading = false;
-    }
-  }
-
-  function refreshManual() {
-    if (!loading) fetchTransaksiHariIni();
-  }
-
-  function openDetail(trx: any) {
-    selectedTransaksi = { ...trx };
-    showDetailModal = true;
-  }
-
-  // Guard: hanya kasir yang boleh akses
-  onMount(() => {
-    userRole.subscribe((role) => {
-      if (role !== 'kasir') {
-        goto('/unauthorized');
-      }
-    })();
-  });
+	// [CATATAN]: Guard: hanya kasir yang boleh akses
+	onMount(() => {
+		if (userRole.value !== 'kasir') {
+			goto('/unauthorized');
+		}
+	});
 
 	async function fetchPengaturanStruk() {
-		try {
-			const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-				.from('pengaturan')
-				.select('*')
-				.eq('id', 1)
-				.single();
-			if (data) {
-				pengaturanStruk = data;
-			} else if (error) {
-				const local = localStorage.getItem('pengaturan_struk');
-				if (local) pengaturanStruk = JSON.parse(local);
-			}
-		} catch {
-			const local = localStorage.getItem('pengaturan_struk');
-			if (local) pengaturanStruk = JSON.parse(local);
-		}
+		pengaturanStruk = await loadReceiptSettings();
 	}
 
 	async function printStrukDariRiwayat() {
@@ -139,77 +72,40 @@
 
 		loading = true;
 		try {
-            let items: any[] = [];
+			let items: Record<string, unknown>[] = [];
 			if (selectedTransaksi.sumber === 'pos') {
-				const { data } = await getSupabaseClient(storeGet(selectedBranch))
-					.from('transaksi_kasir')
-					.select('*, produk:produk_id(name)')
-					.eq('transaction_id', selectedTransaksi.transaction_id || selectedTransaksi.id);
-
-				if (data) items = data;
+				items = await transactionService.getRows('transaksi_kasir', {
+					transaction_id: selectedTransaksi.transaction_id || selectedTransaksi.id
+				});
 			}
 
-            const pengaturan = pengaturanStruk || {
-                nama_toko: 'Zatiaras Juice',
-                alamat: 'Jl. Contoh Alamat No. 123, Kota',
-                telepon: '0812-3456-7890',
-                instagram: '@zatiarasjuice',
-                ucapan: 'Terima kasih sudah ngejus di\\nZatiaras Juice!'
-            };
-
-            let html = `<html><body style='width:384px;font-family:monospace;color:#000;font-size:22px;line-height:1.5;margin:0;padding:0;'>`;
-            html += `<div style='text-align:center;margin-bottom:16px;'>`;
-            html += `<div style='font-weight:bold;font-size:26px;text-transform:uppercase;'>${pengaturan.nama_toko}</div>`;
-            html += `<div style='font-size:18px;margin-top:4px;'>${pengaturan.alamat}</div>`;
-            if (pengaturan.instagram || pengaturan.telepon) {
-                html += `<div style='font-size:18px;margin-top:2px;'>${pengaturan.instagram ? pengaturan.instagram : ''}${pengaturan.instagram && pengaturan.telepon ? ' | ' : ''}${pengaturan.telepon ? pengaturan.telepon : ''}</div>`;
-            }
-            html += `</div>`;
-            html += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-
-            html += `<div style='text-align:center;font-weight:bold;font-size:22px;margin-bottom:8px;'>*** CETAK ULANG ***</div>`;
-            html += `<div style='font-size:18px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
-            html += `<div>${selectedTransaksi.customer_name || ''}</div>`;
-            html += `<div>${new Date(selectedTransaksi.waktu).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
-            html += `</div>`;
-
-            html += `<table style='width:100%;font-size:22px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
-
-            if (items.length > 0) {
-                items.forEach((item: any, idx: any) => {
-                    const itemName = item.custom_name || (item.produk && item.produk.name) || 'Produk Custom';
-                    html += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${itemName} <span style='font-size:16px;font-weight:normal;'>x${item.qty}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${(item.price ?? 0).toLocaleString('id-ID')}</td></tr>`;
-                });
-            } else {
-                html += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${selectedTransaksi.nama}</td><td style='text-align:right;padding-bottom:4px;'>Rp${(selectedTransaksi.nominal ?? 0).toLocaleString('id-ID')}</td></tr>`;
-            }
-
-            html += `</tbody></table>`;
-            html += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-
-            html += `<table style='width:100%;font-size:22px;margin-bottom:24px;border-collapse:collapse;'><tbody>`;
-            html += `<tr><td style='text-align:left;padding-bottom:4px;'>Total:</td><td style='text-align:right;font-weight:bold;font-size:26px;'>Rp${(selectedTransaksi.nominal ?? 0).toLocaleString('id-ID')}</td></tr>`;
-
-            const methodLabels: Record<string, string> = {
-                tunai: 'Tunai',
-                qris: 'QRIS',
-                transfer: 'Transfer',
-                'e-wallet': 'E-Wallet',
-                card: 'Kartu',
-                'non-tunai': 'QRIS/Non-Tunai'
-            };
-            const methodKey = (selectedTransaksi.payment_method || '').toLowerCase();
-            html += `<tr><td style='text-align:left;font-size:18px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:18px;padding-top:4px;'>${methodLabels[methodKey] || methodKey}</td></tr>`;
-            html += `</tbody></table>`;
-
-            html += `<div style='text-align:center;font-size:18px;white-space:pre-line;'>${pengaturan.ucapan}</div>`;
-            html += `</body></html>`;
-
-            const gzip = pako.gzip(JSON.stringify([html]));
-            const base64 = Base64.fromUint8Array(gzip);
-            const intentUrl = `intent://#Intent;scheme=print-intent;S.content=${base64};end`;
-            executePrint(intentUrl);
-
+			const html = buildReceiptHtml(selectedTransaksi, pengaturanStruk, items);
+			const escposData = {
+				storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
+				address: pengaturanStruk?.alamat,
+				phone: pengaturanStruk?.telepon,
+				instagram: pengaturanStruk?.instagram,
+				customerName: selectedTransaksi.nama_pelanggan || '',
+				dateTime: new Date(selectedTransaksi.waktu).toLocaleString('id-ID'),
+				items:
+					items.length > 0
+						? items.map((item: any) => ({
+								name: item.nama_kustom || item.produk?.nama || 'Produk Custom',
+								qty: Number(item.jumlah || 1),
+								price: Number(item.harga || 0) * Number(item.jumlah || 1)
+							}))
+						: [
+								{
+									name: selectedTransaksi.nama || 'Transaksi Kasir',
+									qty: 1,
+									price: Number(selectedTransaksi.nominal || 0)
+								}
+							],
+				total: Number(selectedTransaksi.nominal || 0),
+				paymentMethod: selectedTransaksi.metode_bayar || 'tunai',
+				footerMessage: pengaturanStruk?.ucapan
+			};
+			await printReceiptUnified({ html, receiptData: escposData });
 		} catch (error) {
 			ErrorHandler.logError(error as Error, 'printStrukDariRiwayat');
 			toastManager.showToastNotification('Gagal mencetak struk', 'error');
@@ -218,289 +114,315 @@
 		}
 	}
 
-  let aiHandler: any;
-  onMount(async () => {
-    if (typeof window !== 'undefined') {
-      document.body.classList.add('hide-nav');
-    }
-    await fetchPengaturanStruk();
-    await fetchTransaksiHariIni();
-    aiHandler = async () => {
-      await fetchTransaksiHariIni();
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('ai-recommendations-applied', aiHandler as any);
-      (window as any).__refreshRiwayatKasir = async () => {
-        await fetchTransaksiHariIni();
-      };
-    }
-  });
-  onDestroy(() => {
-    if (typeof window !== 'undefined') {
-      document.body.classList.remove('hide-nav');
-    }
-    if (typeof window !== 'undefined' && aiHandler) {
-      window.removeEventListener('ai-recommendations-applied', aiHandler as any);
-      delete (window as any).__refreshRiwayatKasir;
-    }
-  });
+	let aiHandler: EventListener;
+	let offRiwayatKasir: () => void;
+
+	onMount(async () => {
+		if (typeof window !== 'undefined') {
+			document.body.classList.add('hide-nav');
+		}
+		await fetchPengaturanStruk();
+		await fetchTransaksiHariIni();
+		aiHandler = async () => {
+			await fetchTransaksiHariIni();
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('ai-recommendations-applied', aiHandler);
+			offRiwayatKasir = refreshBus.on('riwayat', async () => {
+				await fetchTransaksiHariIni();
+			});
+		}
+	});
+
+	onDestroy(() => {
+		if (typeof window !== 'undefined') {
+			document.body.classList.remove('hide-nav');
+		}
+		if (typeof window !== 'undefined' && aiHandler) {
+			window.removeEventListener('ai-recommendations-applied', aiHandler);
+			if (offRiwayatKasir) offRiwayatKasir();
+		}
+	});
 </script>
 
-<div transition:fly={{ y: 32, duration: 320, easing: cubicOut }}>
-  <!-- Top Bar Custom -->
-  <div
-    class="sticky top-0 z-40 mb-0 flex items-center border-b border-gray-200 bg-white px-4 py-4 shadow-sm"
-  >
-    <button
-      onclick={() => goto('/pengaturan')}
-      class="mr-2 rounded-xl bg-gray-100 p-2 transition-colors hover:bg-gray-200"
-    >
-      <svelte:component this={ArrowLeft} class="h-5 w-5 text-gray-600" />
-    </button>
-    <h1 class="flex-1 text-xl font-bold text-gray-800">Riwayat Transaksi Hari Ini</h1>
-    <button
-      onclick={refreshManual}
-      class="ml-2 rounded-xl bg-pink-50 p-2 transition-colors hover:bg-pink-100"
-      aria-label="Refresh"
-    >
-      <svelte:component
-        this={RefreshCw}
-        class="h-5 w-5 text-pink-500 {loading ? 'animate-spin' : ''}"
-      />
-    </button>
-  </div>
+<div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
+	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
+	<div
+		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
+	>
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
 
-  <!-- Search & Filter -->
-  <div class="sticky top-[64px] z-30 space-y-3 bg-white px-4 pt-3 pb-3">
-    <input
-      type="text"
-      class="w-full rounded-lg border border-pink-200 bg-white px-3 py-2.5 text-base text-gray-800 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
-      placeholder="Cari transaksi..."
-      bind:value={searchKeyword}
-      oninput={fetchTransaksiHariIni}
-    />
-    <div class="flex gap-2">
-      <button
-        class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-        'all'
-          ? 'border-pink-500 bg-pink-500 text-white'
-          : 'border-pink-200 bg-white text-pink-500'}"
-        onclick={() => {
-          filterPayment = 'all';
-          fetchTransaksiHariIni();
-        }}>Semua</button
-      >
-      <button
-        class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-        'qris'
-          ? 'border-pink-500 bg-pink-500 text-white'
-          : 'border-pink-200 bg-white text-pink-500'}"
-        onclick={() => {
-          filterPayment = 'qris';
-          fetchTransaksiHariIni();
-        }}>QRIS</button
-      >
-      <button
-        class="rounded-lg border px-4 py-2 text-sm font-semibold transition-all focus:outline-none {filterPayment ===
-        'tunai'
-          ? 'border-pink-500 bg-pink-500 text-white'
-          : 'border-pink-200 bg-white text-pink-500'}"
-        onclick={() => {
-          filterPayment = 'tunai';
-          fetchTransaksiHariIni();
-        }}>Tunai</button
-      >
-    </div>
-  </div>
+		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
+			<button
+				onclick={() => goto('/pengaturan')}
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Kembali"
+			>
+				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
+			</button>
+			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
+				Riwayat Transaksi Hari Ini
+			</h1>
+			<button
+				onclick={refreshManual}
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Refresh"
+			>
+				<RefreshCw class="h-5 w-5 {loading ? 'animate-spin' : ''}" />
+			</button>
+		</div>
+	</div>
 
-  <div class="mx-auto w-full max-w-2xl px-4 pt-[2px] pb-4">
-    {#if loading}
-      <div class="py-10 text-center text-gray-400">Memuat data...</div>
-    {:else if transaksiHariIni.length === 0}
-      <div class="flex h-64 w-full flex-col items-center justify-center" style="min-height:16rem;">
-        <svg
-          class="mb-4 h-16 w-16 text-gray-300"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1"
-          viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-          /></svg
-        >
-        <div class="text-base font-normal text-gray-300 md:text-lg">
-          Belum ada transaksi hari ini
-        </div>
-      </div>
-    {:else}
-      <div class="flex flex-col gap-2">
-        {#each transaksiHariIni as trx}
-          <div
-            class="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow transition-colors hover:bg-pink-50"
-            onclick={() => openDetail(trx)}
-            onkeydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openDetail(trx);
-              }
-            }}
-            role="button"
-            tabindex="0"
-          >
-            <div>
-              <div
-                class="max-w-[10rem] truncate overflow-hidden text-sm font-semibold text-gray-800 md:max-w-[16rem] lg:max-w-[18rem]"
-                title={trx.nama}
-              >
-                {trx.nama}
-              </div>
-              <div class="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                <span>
-                  {trx.sumber === 'pos' ? 'POS | ' : ''}
-                  {trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran'}
-                  {trx.sumber === 'pos' ? ' | ' : ''}
-                </span>
-                <span class="font-semibold text-pink-500 uppercase">
-                  {trx.payment_method === 'qris' || trx.payment_method === 'non-tunai'
-                    ? 'QRIS'
-                    : 'Tunai'}
-                </span>
-              </div>
-              <div class="text-xs text-gray-400">
-                {new Date(trx.waktu).toLocaleTimeString('id-ID', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-2">
-              <div class="text-base font-bold text-pink-500">
-                Rp {trx.nominal?.toLocaleString('id-ID')}
-              </div>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
+	<!-- Main Container -->
+	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
+		<!-- Search & Filter Card -->
+		<div class="soft-float-card mb-4 space-y-3 p-4 md:p-5">
+			<input
+				type="text"
+				class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+				placeholder="Cari transaksi berdasarkan nama, nominal, atau catatan..."
+				bind:value={searchKeyword}
+				oninput={fetchTransaksiHariIni}
+			/>
+			<div class="flex gap-2">
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'all'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'all';
+						fetchTransaksiHariIni();
+					}}>Semua</button
+				>
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'qris'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'qris';
+						fetchTransaksiHariIni();
+					}}>QRIS</button
+				>
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					'tunai'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterPayment = 'tunai';
+						fetchTransaksiHariIni();
+					}}>Tunai</button
+				>
+			</div>
+		</div>
 
-  {#if showDetailModal && selectedTransaksi}
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm md:px-0"
-    >
-      <div
-        class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-6 shadow-2xl md:p-8"
-      >
-        <button
-          class="absolute top-3 right-3 rounded-full bg-gray-100 p-2 shadow-sm hover:bg-gray-200"
-          onclick={() => (showDetailModal = false)}
-          aria-label="Tutup"
-        >
-          <svg
-            class="h-5 w-5 text-gray-500"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            ><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg
-          >
-        </button>
-        <h2 class="mb-2 text-center text-xl font-bold text-pink-600">Detail Transaksi</h2>
-        <div class="mb-1 flex flex-col gap-1">
-          <span class="font-semibold text-gray-500">Deskripsi</span>
-          <div
-            class="rounded-lg bg-pink-50 px-3 py-2 text-base font-medium break-words whitespace-pre-line text-gray-800"
-          >
-            {selectedTransaksi.nama}
-          </div>
-        </div>
-        <div class="flex flex-col gap-1">
-          <span class="font-semibold text-gray-500">Customer</span>
-          <div class="text-base text-gray-700">{selectedTransaksi.customer_name || '-'}</div>
-        </div>
-        <div class="flex flex-col gap-1">
-          <span class="font-semibold text-gray-500">Waktu</span>
-          <div class="text-base text-gray-700">
-            {new Date(selectedTransaksi.waktu).toLocaleString('id-ID', {
-              dateStyle: 'medium',
-              timeStyle: 'short'
-            })}
-          </div>
-        </div>
-        <div class="flex flex-col gap-1">
-          <span class="font-semibold text-gray-500">Nominal</span>
-          <div class="text-lg font-bold text-pink-500">
-            Rp {selectedTransaksi.nominal?.toLocaleString('id-ID')}
-          </div>
-        </div>
-        <div class="mb-2 flex flex-col gap-1">
-          <span class="font-semibold text-gray-500">Jenis Pembayaran</span>
-          <!-- Dibuat read-only untuk kasir -->
-          <button
-            type="button"
-            class="flex w-full items-center justify-between rounded-lg border-[1.5px] border-pink-200 bg-gray-50 px-3 py-2.5 font-medium text-gray-400"
-            title="Hanya dapat dilihat oleh kasir"
-            disabled
-          >
-            <span class="truncate">
-              {paymentOptions.find((opt) => opt.value === selectedTransaksi.payment_method)?.label || 'Pilih'}
-            </span>
-            <svg
-              class="ml-2 h-4 w-4 text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              viewBox="0 0 24 24"
-              ><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg
-            >
-          </button>
-        </div>
-        <div class="mt-2 flex w-full gap-2">
-            <button
-                class="flex-1 rounded-xl bg-pink-100 py-3 text-base font-bold text-pink-600 transition-colors hover:bg-pink-200"
-                onclick={printStrukDariRiwayat}>Cetak Struk</button
-            >
-            <button
-                class="flex-1 rounded-xl bg-pink-500 py-3 text-base font-bold text-white shadow-lg shadow-pink-200/30 transition-colors hover:bg-pink-600"
-                onclick={() => (showDetailModal = false)}>Tutup</button
-            >
-        </div>
-      </div>
-    </div>
-  {/if}
+		{#if loading}
+			<div class="soft-float-card p-10 text-center text-xs font-semibold text-slate-400 md:text-sm">
+				<div
+					class="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-pink-500 border-t-transparent"
+				></div>
+				Memuat data transaksi...
+			</div>
+		{:else if transaksiHariIni.length === 0}
+			<div class="soft-float-card flex flex-col items-center justify-center p-12 text-center">
+				<div
+					class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-pink-50 text-pink-500 shadow-2xs"
+				>
+					<svg
+						class="h-7 w-7"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+						/>
+					</svg>
+				</div>
+				<div class="text-sm font-bold text-slate-800 md:text-base">
+					Belum Ada Transaksi Hari Ini
+				</div>
+				<p class="mt-1 text-xs text-slate-400 md:text-sm">Transaksi kasir akan muncul di sini.</p>
+			</div>
+		{:else}
+			<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
+				{#each transaksiHariIni as trx (trx.id)}
+					<div
+						class="soft-float-card flex cursor-pointer items-start justify-between gap-3 p-4 transition-all hover:border-pink-200 hover:shadow-md md:p-4.5"
+						onclick={() => openDetail(trx)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								openDetail(trx);
+							}
+						}}
+						role="button"
+						tabindex="0"
+					>
+						<div class="min-w-0 flex-1">
+							<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
+								{trx.nama}
+							</div>
+							<div class="mb-1 flex items-center gap-2 text-xs text-gray-500 md:text-sm">
+								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
+									{trx.sumber === 'pos' ? 'POS' : 'Manual'}
+								</span>
+								<span class="capitalize">
+									{trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran'}
+								</span>
+								<span class="font-bold text-pink-500 uppercase">
+									{trx.metode_bayar === 'qris' || trx.metode_bayar === 'non-tunai'
+										? 'QRIS'
+										: 'Tunai'}
+								</span>
+							</div>
+							<div class="text-xs text-gray-400">
+								{new Date(trx.waktu).toLocaleTimeString('id-ID', {
+									hour: '2-digit',
+									minute: '2-digit'
+								})}
+							</div>
+						</div>
+						<div class="flex flex-col items-end gap-1">
+							<div class="text-base font-black text-pink-600 md:text-lg">
+								Rp {formatRupiah(trx.nominal)}
+							</div>
+							<div class="text-xs text-gray-400">Tap untuk detail</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
 
-  {#if toastManager.showToast}
-    <ToastNotification
-      show={toastManager.showToast}
-      message={toastManager.toastMessage}
-      type={toastManager.toastType}
-      duration={3000}
-      position="top"
-    />
-  {/if}
+	{#if showDetailModal && selectedTransaksi}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm md:px-0"
+		>
+			<div
+				class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-6 shadow-2xl md:p-8"
+			>
+				<button
+					class="absolute top-3 right-3 rounded-full bg-gray-100 p-2 shadow-sm hover:bg-gray-200"
+					onclick={() => (showDetailModal = false)}
+					aria-label="Tutup"
+				>
+					<svg
+						class="h-5 w-5 text-gray-500"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						viewBox="0 0 24 24"
+						><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg
+					>
+				</button>
+				<h2 class="mb-2 text-center text-xl font-bold text-pink-600">Detail Transaksi</h2>
+				<div class="mb-1 flex flex-col gap-1">
+					<span class="font-semibold text-gray-500">Deskripsi</span>
+					<div
+						class="rounded-lg bg-pink-50 px-3 py-2 text-base font-medium break-words whitespace-pre-line text-gray-800"
+					>
+						{selectedTransaksi.nama}
+					</div>
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="font-semibold text-gray-500">Customer</span>
+					<div class="text-base text-gray-700">{selectedTransaksi.nama_pelanggan || '-'}</div>
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="font-semibold text-gray-500">Waktu</span>
+					<div class="text-base text-gray-700">
+						{new Date(selectedTransaksi.waktu).toLocaleString('id-ID', {
+							dateStyle: 'medium',
+							timeStyle: 'short'
+						})}
+					</div>
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="font-semibold text-gray-500">Nominal</span>
+					<div class="text-lg font-bold text-pink-500">
+						Rp {formatRupiah(selectedTransaksi.nominal)}
+					</div>
+				</div>
+				<div class="mb-2 flex flex-col gap-1">
+					<span class="font-semibold text-gray-500">Jenis Pembayaran</span>
+					<button
+						type="button"
+						class="flex w-full items-center justify-between rounded-lg border-[1.5px] border-pink-200 bg-gray-50 px-3 py-2.5 font-medium text-gray-400"
+						title="Hanya dapat dilihat oleh kasir"
+						disabled
+					>
+						<span class="truncate">
+							{paymentOptions.find(
+								(opt) =>
+									opt.value ===
+									(selectedTransaksi?.metode_bayar === 'non-tunai'
+										? 'qris'
+										: selectedTransaksi?.metode_bayar)
+							)?.label || 'Pilih'}
+						</span>
+						<svg
+							class="ml-2 h-4 w-4 text-gray-300"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							viewBox="0 0 24 24"
+							><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg
+						>
+					</button>
+				</div>
+				<div class="mt-2 flex w-full gap-2">
+					<button
+						class="flex-1 rounded-xl bg-pink-100 py-3 text-base font-bold text-pink-600 transition-colors hover:bg-pink-200"
+						onclick={printStrukDariRiwayat}>Cetak Struk</button
+					>
+					<button
+						class="flex-1 rounded-xl bg-pink-500 py-3 text-base font-bold text-white shadow-lg shadow-pink-200/30 transition-colors hover:bg-pink-600"
+						onclick={() => (showDetailModal = false)}>Tutup</button
+					>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if toastManager.showToast}
+		<ToastNotification
+			show={toastManager.showToast}
+			message={toastManager.toastMessage}
+			type={toastManager.toastType}
+			position="top"
+		/>
+	{/if}
 </div>
 
 <style>
-  .animate-slideUpModal {
-    animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  @keyframes slideUpModal {
-    from {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
+	.animate-slideUpModal {
+		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	@keyframes slideUpModal {
+		from {
+			transform: translateY(100%);
+			opacity: 0;
+		}
+		to {
+			transform: translateY(0);
+			opacity: 1;
+		}
+	}
 
-  @keyframes spin {
-    100% {
-      transform: rotate(360deg);
-    }
-  }
+	@keyframes spin {
+		100% {
+			transform: rotate(360deg);
+		}
+	}
 </style>
-

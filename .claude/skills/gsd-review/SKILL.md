@@ -1,7 +1,7 @@
 ---
 name: gsd-review
-description: "Request cross-AI peer review of phase plans from external AI CLIs"
-argument-hint: "--phase N [--gemini] [--claude] [--codex] [--opencode] [--all]"
+description: 'Request cross-AI peer review of phase plans from external AI CLIs'
+argument-hint: '--phase N [--gemini] [--claude] [--codex] [--opencode] [--all]'
 allowed-tools:
   - Read
   - Write
@@ -9,7 +9,6 @@ allowed-tools:
   - Glob
   - Grep
 ---
-
 
 <objective>
 Invoke external AI CLIs (Gemini, Claude, Codex, OpenCode) to independently review phase plans.
@@ -27,12 +26,13 @@ planning via /gsd-plan-phase --reviews.
 Phase number: extracted from $ARGUMENTS (required)
 
 **Flags:**
+
 - `--gemini` — Include Gemini CLI review
 - `--claude` — Include Claude CLI review (uses separate session)
 - `--codex` — Include Codex CLI review
 - `--opencode` — Include OpenCode review (uses model from user's OpenCode config)
 - `--all` — Include all available CLIs
-</context>
+  </context>
 
 <process>
 Execute the review workflow from @~/.claude/get-shit-done/workflows/review.md end-to-end.

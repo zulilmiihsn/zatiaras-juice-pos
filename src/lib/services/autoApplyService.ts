@@ -1,7 +1,40 @@
 import type { AiRecommendation, AutoApplyResult } from '$lib/types/ai';
-import { getSupabaseClient } from '$lib/database/supabaseClient';
-import { selectedBranch } from '$lib/stores/selectedBranch';
-import { get as storeGet } from 'svelte/store';
+import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import { refreshBus } from '$lib/utils/refreshBus';
+import { parseApiError } from '$lib/utils/errorHandling';
+import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+
+interface TransactionData {
+	type: string;
+	amount: number;
+	deskripsi: string;
+	customerName?: string;
+	metode_bayar?: string;
+	products?: Array<Record<string, unknown>>;
+	category?: string;
+}
+
+interface UpdateTransactionData {
+	id: string;
+	type: string;
+	amount: number;
+	deskripsi: string;
+	category?: string;
+}
+
+interface CategoryData {
+	nama: string;
+	deskripsi?: string;
+}
+
+const apiFetch = (path: string, init?: RequestInit) => fetchWithCsrfRetry(path, init);
+
+async function throwIfNotOk(res: Response, label: string): Promise<void> {
+	if (!res.ok) {
+		const detail = await parseApiError(res, res.statusText || `HTTP ${res.status}`);
+		throw new Error(`${label}: ${detail}`);
+	}
+}
 
 export class AutoApplyService {
 	private static instance: AutoApplyService;
@@ -13,9 +46,6 @@ export class AutoApplyService {
 		return AutoApplyService.instance;
 	}
 
-	/**
-	 * Menerapkan rekomendasi AI secara otomatis
-	 */
 	async applyRecommendations(recommendations: AiRecommendation[]): Promise<AutoApplyResult> {
 		const result: AutoApplyResult = {
 			success: true,
@@ -25,7 +55,6 @@ export class AutoApplyService {
 		};
 
 		try {
-			// Validasi untuk mencegah duplikasi
 			const uniqueRecommendations = this.deduplicateRecommendations(recommendations);
 
 			for (const recommendation of uniqueRecommendations) {
@@ -54,262 +83,157 @@ export class AutoApplyService {
 		return result;
 	}
 
-	/**
-	 * Menerapkan satu rekomendasi
-	 */
 	private async applySingleRecommendation(recommendation: AiRecommendation): Promise<void> {
 		switch (recommendation.action) {
 			case 'create_transaction':
-				await this.createTransaction(recommendation.data);
+				await this.createTransaction(recommendation.data as TransactionData);
 				break;
 			case 'update_transaction':
-				await this.updateTransaction(recommendation.data);
+				await this.updateTransaction(recommendation.data as UpdateTransactionData);
 				break;
 			case 'create_category':
-				await this.createCategory(recommendation.data);
+				await this.createCategory(recommendation.data as CategoryData);
 				break;
 			default:
 				throw new Error(`Action tidak didukung: ${recommendation.action}`);
 		}
 	}
 
-	/**
-	 * Membuat transaksi baru
-	 */
-	private async createTransaction(data: any): Promise<void> {
-		// Validasi data yang diperlukan
-		if (!data.type) {
-			throw new Error('Type transaksi tidak valid');
-		}
-
-		if (!data.amount || data.amount <= 0) {
+	private async createTransaction(data: TransactionData): Promise<void> {
+		if (!data.type) throw new Error('Type transaksi tidak valid');
+		if (!data.amount || data.amount <= 0)
 			throw new Error('Amount transaksi tidak valid atau kosong');
-		}
-
-		if (!data.description || data.description.trim() === '') {
+		if (!data.deskripsi || data.deskripsi.trim() === '')
 			throw new Error('Description transaksi tidak valid atau kosong');
+
+		if (data.type === 'penjualan') {
+			const products = Array.isArray(data.products) && data.products.length ? data.products : [];
+			const res = await apiFetch('/api/pos/transaction', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					idempotency_key: crypto.randomUUID(),
+					nama_pelanggan: data.customerName || null,
+					metode_bayar: data.metode_bayar || 'tunai',
+					cash_received: Number(data.amount),
+					items: products.length
+						? products.map((product: Record<string, unknown>) => ({
+								product_id: product.id || null,
+								nama_kustom: product.id ? null : product.nama || data.deskripsi,
+								custom_price: product.id ? null : Number(product.harga || data.amount),
+								jumlah: product.quantity || product.jumlah || 1,
+								add_on_ids: ((product.addOns as Array<{ id?: unknown }>) || [])
+									.map((addOn) => addOn.id)
+									.filter(Boolean)
+							}))
+						: [
+								{
+									product_id: null,
+									nama_kustom: String(data.deskripsi).trim(),
+									custom_price: Number(data.amount),
+									jumlah: 1,
+									add_on_ids: []
+								}
+							]
+				})
+			});
+
+			await throwIfNotOk(res, 'Gagal menyimpan transaksi POS');
+			return;
 		}
 
-		const branch = storeGet(selectedBranch);
-		const supabase = getSupabaseClient(branch as any);
+		const branch = selectedBranch.value;
+		// [CATATAN]: 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
+		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
+		const transactionId = crypto.randomUUID();
 
-		// Map type ke tipe yang digunakan di database
-		const tipe = data.type === 'pemasukan' ? 'in' : data.type === 'penjualan' ? 'in' : 'out';
-
-		// Generate transaction_id untuk semua transaksi AI
-		const transactionId =
-			typeof crypto !== 'undefined' && crypto.randomUUID
-				? crypto.randomUUID()
-				: this.generateUUID();
-
-		const transactionData = {
-			tipe: tipe,
-			amount: Number(data.amount),
-			description: String(data.description).trim(),
-			jenis: data.category || this.getDefaultCategory(data.type),
-			sumber: data.type === 'penjualan' ? 'pos' : 'catat', // POS untuk penjualan, catat untuk manual
+		const payload = {
+			id: transactionId,
+			tipe,
+			nominal: Number(data.amount),
+			deskripsi: String(data.deskripsi).trim(),
+			jenis: data.category || this.getDefaultCategory(data.type as string),
+			sumber: 'catat',
 			waktu: new Date().toISOString(),
-			payment_method: 'tunai', // Default payment method
-			transaction_id: transactionId // Tambahkan transaction_id untuk semua transaksi AI
+			metode_bayar: 'tunai',
+			transaction_id: transactionId
 		};
 
-		// Simpan ke database melalui supabase
-		const { data: insertedData, error } = await supabase
-			.from('buku_kas')
-			.insert(transactionData)
-			.select();
+		const res = await apiFetch('/api/buku-kas', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ branch, payload })
+		});
 
-		if (error) {
-			throw new Error(`Gagal menyimpan transaksi: ${error.message}`);
-		}
+		await throwIfNotOk(res, 'Gagal menyimpan transaksi');
 
-		// Jika ini adalah transaksi penjualan dengan produk, buat detail transaksi kasir
-		if (data.type === 'penjualan' && data.products && Array.isArray(data.products)) {
-			await this.createTransactionItems(insertedData[0].id, data.products, supabase, transactionId);
-		}
-
-		// Trigger refresh UI segera setelah insert berhasil
 		if (typeof window !== 'undefined') {
 			try {
 				window.dispatchEvent(
 					new CustomEvent('ai-recommendations-applied', { detail: { success: true } })
 				);
-				if (typeof (window as any).__refreshLaporan === 'function') {
-					await (window as any).__refreshLaporan();
-				}
-				if (typeof (window as any).__refreshRiwayat === 'function') {
-					await (window as any).__refreshRiwayat();
-				}
-			} catch {}
+				refreshBus.emit('laporan');
+				refreshBus.emit('riwayat');
+			} catch {
+				/* sinyal refresh UI best-effort */
+			}
 		}
 	}
 
-	/**
-	 * Generate UUID fallback jika crypto.randomUUID tidak tersedia
-	 */
-	private generateUUID(): string {
-		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-			const r = (Math.random() * 16) | 0;
-			const v = c === 'x' ? r : (r & 0x3) | 0x8;
-			return v.toString(16);
-		});
-	}
-
-	/**
-	 * Membuat detail transaksi kasir untuk penjualan produk
-	 */
-	private async createTransactionItems(
-		bukuKasId: number,
-		products: any[],
-		supabase: any,
-		transactionId?: string
-	): Promise<void> {
-		const transactionItems = products.map((product, index) => {
-			const addOns = product.addOns || [];
-			const addOnsTotal = addOns.reduce((sum: number, addOn: any) => sum + (addOn.price || 0), 0);
-			const unitPrice = (product.price || 0) + addOnsTotal;
-			const quantity = product.quantity || 1;
-
-			return {
-				buku_kas_id: bukuKasId,
-				produk_id: product.id || null, // Gunakan 'produk_id' bukan 'product_id'
-				qty: quantity, // Gunakan 'qty' bukan 'quantity'
-				amount: unitPrice * quantity, // Total amount untuk item ini
-				price: unitPrice, // Harga per unit
-				transaction_id: transactionId || null, // Gunakan transaction_id yang diberikan
-				custom_name: product.id ? null : product.name || 'Produk Custom' // Nama custom jika produk_id null
-			};
-		});
-
-		const { data: insertedItems, error } = await supabase
-			.from('transaksi_kasir')
-			.insert(transactionItems)
-			.select();
-
-		if (error) {
-			// Jangan throw error karena transaksi utama sudah berhasil
-		}
-	}
-
-	/**
-	 * Update transaksi yang sudah ada
-	 */
-	private async updateTransaction(data: any): Promise<void> {
-		if (!data.id) {
-			throw new Error('ID transaksi diperlukan untuk update');
-		}
-
-		const branch = storeGet(selectedBranch);
-		const supabase = getSupabaseClient(branch as any);
-
-		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
-
-		const updateData = {
-			tipe: tipe,
-			amount: data.amount,
-			description: data.description,
+	private async updateTransaction(data: UpdateTransactionData): Promise<void> {
+		if (!data.id) throw new Error('ID transaksi diperlukan untuk update');
+		const branch = selectedBranch.value;
+		const payload = {
+			tipe: data.type === 'pemasukan' ? 'in' : 'out',
+			nominal: data.amount,
+			deskripsi: data.deskripsi,
 			jenis: data.category
 		};
 
-		const { error } = await supabase.from('buku_kas').update(updateData).eq('id', data.id);
-
-		if (error) {
-			throw new Error(`Gagal mengupdate transaksi: ${error.message}`);
-		}
-	}
-
-	/**
-	 * Membuat kategori baru
-	 */
-	private async createCategory(data: any): Promise<void> {
-		const branch = storeGet(selectedBranch);
-		const supabase = getSupabaseClient(branch as any);
-
-		const categoryData = {
-			name: data.name,
-			description: data.description
-		};
-
-		const { error } = await supabase.from('kategori').insert(categoryData);
-
-		if (error) {
-			throw new Error(`Gagal membuat kategori: ${error.message}`);
-		}
-	}
-
-	/**
-	 * Get default category berdasarkan type
-	 */
-	private getDefaultCategory(type: string): string {
-		const defaultCategories: { [key: string]: string } = {
-			pemasukan: 'pendapatan_usaha', // Sesuaikan dengan kategori di laporan
-			pengeluaran: 'beban_usaha', // Sesuaikan dengan kategori di laporan
-			penjualan: 'pendapatan_usaha' // Penjualan masuk ke pendapatan usaha
-		};
-
-		return defaultCategories[type] || 'lainnya';
-	}
-
-	/**
-	 * Validasi rekomendasi sebelum diterapkan
-	 */
-	validateRecommendations(recommendations: AiRecommendation[]): {
-		valid: boolean;
-		errors: string[];
-	} {
-		const errors: string[] = [];
-
-		recommendations.forEach((rec, index) => {
-			if (!rec.id) {
-				errors.push(`Rekomendasi ${index + 1}: ID tidak valid`);
-			}
-
-			if (!rec.action) {
-				errors.push(`Rekomendasi ${index + 1}: Action tidak valid`);
-			}
-
-			if (!rec.data) {
-				errors.push(`Rekomendasi ${index + 1}: Data tidak valid`);
-			}
-
-			if (rec.action === 'create_transaction') {
-				if (!rec.data.type || !rec.data.amount) {
-					errors.push(`Rekomendasi ${index + 1}: Data transaksi tidak lengkap`);
-				}
-			}
+		const res = await apiFetch('/api/buku-kas', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				branch,
+				where: { id: data.id },
+				payload
+			})
 		});
 
-		return {
-			valid: errors.length === 0,
-			errors
-		};
+		await throwIfNotOk(res, 'Gagal mengupdate transaksi');
 	}
 
-	/**
-	 * Deduplikasi rekomendasi untuk mencegah duplikasi transaksi
-	 */
+	private async createCategory(data: CategoryData): Promise<void> {
+		const branch = selectedBranch.value;
+		const res = await apiFetch('/api/kategori', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				branch,
+				payload: { id: crypto.randomUUID(), nama: data.nama, deskripsi: data.deskripsi }
+			})
+		});
+
+		await throwIfNotOk(res, 'Gagal membuat kategori');
+	}
+
+	private getDefaultCategory(type: string): string {
+		const map: Record<string, string> = {
+			pemasukan: 'pendapatan_usaha',
+			pengeluaran: 'beban_usaha',
+			penjualan: 'pendapatan_usaha'
+		};
+		return map[type] || 'lainnya';
+	}
+
 	private deduplicateRecommendations(recommendations: AiRecommendation[]): AiRecommendation[] {
 		const seen = new Set<string>();
-		const unique: AiRecommendation[] = [];
-
-		for (const rec of recommendations) {
-			// Buat key unik berdasarkan action, amount, dan description
-			const key = `${rec.action}_${rec.data?.amount}_${rec.data?.type}_${rec.data?.description}`;
-
-			if (!seen.has(key)) {
-				seen.add(key);
-				unique.push(rec);
-			}
-		}
-
-		return unique;
-	}
-
-	/**
-	 * Rollback perubahan jika ada error
-	 */
-	async rollbackChanges(appliedRecommendations: string[]): Promise<void> {
-		// Implementasi rollback jika diperlukan
-		// TODO: Implement rollback logic
+		return recommendations.filter((rec) => {
+			const data = rec.data as Record<string, unknown>;
+			const key = `${rec.action}_${data?.amount}_${data?.type}_${data?.deskripsi}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
 	}
 }

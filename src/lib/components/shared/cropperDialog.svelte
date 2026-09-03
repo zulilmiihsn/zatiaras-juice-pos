@@ -1,47 +1,58 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount, onDestroy, afterUpdate } from 'svelte';
-	export let src: string = '';
-	export let open: boolean = false;
-	export const aspect: number = 1;
-	const dispatch = createEventDispatcher();
+	let {
+		src = '',
+		open = $bindable(false),
+		aspect = 1,
+		onDone,
+		onCancel
+	}: {
+		src?: string;
+		open?: boolean;
+		aspect?: number;
+		onDone?: (data: { cropped: string }) => void;
+		onCancel?: () => void;
+	} = $props();
 
-	let canvasEl: HTMLCanvasElement;
+	let canvasEl = $state<HTMLCanvasElement | null>(null);
 	let img = new window.Image();
-	let dragging = false;
-	let startX = 0,
-		startY = 0;
-	let offset = { x: 0, y: 0 };
-	let lastOffset = { x: 0, y: 0 };
-	let zoom = 1;
-	let minZoom = 1;
-	let maxZoom = 4;
-	let preview = '';
+	let dragging = $state(false);
+	let startX = $state(0),
+		startY = $state(0);
+	let offset = $state({ x: 0, y: 0 });
+	let lastOffset = $state({ x: 0, y: 0 });
+	let zoom = $state(1);
+	let minZoom = $state(1);
+	let maxZoom = $state(4);
+	let preview = $state('');
 	const csize = 300;
 	const cropSize = 240; // frame crop persegi di tengah
 
-	$: if (src) {
-		img.src = src;
-		img.onload = () => {
-			// Hitung minZoom agar gambar fit (bukan cover) di frame crop
-			const scaleX = cropSize / img.width;
-			const scaleY = cropSize / img.height;
-			minZoom = Math.max(scaleX, scaleY);
-			maxZoom = Math.max(4, minZoom * 2);
-			zoom = minZoom;
-			// Offset agar gambar tengah di frame crop
-			offset.x = 0;
-			offset.y = 0;
-			lastOffset = { x: 0, y: 0 };
-			preview = '';
-			draw();
-		};
-	}
+	$effect(() => {
+		if (src) {
+			img.src = src;
+			img.onload = () => {
+				// [CATATAN]: Hitung minZoom agar gambar fit (bukan cover) di frame crop
+				const scaleX = cropSize / img.width;
+				const scaleY = cropSize / img.height;
+				minZoom = Math.max(scaleX, scaleY);
+				maxZoom = Math.max(4, minZoom * 2);
+				zoom = minZoom;
+				// [CATATAN]: Offset agar gambar tengah di frame crop
+				offset.x = 0;
+				offset.y = 0;
+				lastOffset.x = 0;
+				lastOffset.y = 0;
+				preview = '';
+				draw();
+			};
+		}
+	});
 
 	function updatePreview() {
-		// Perhitungan crop area yang benar
+		// [CATATAN]: Perhitungan crop area yang benar
 		const drawW = img.width * zoom;
 		const drawH = img.height * zoom;
-		// Rumus baru: posisi crop frame terhadap gambar
+		// [CATATAN]: Rumus baru: posisi crop frame terhadap gambar
 		const sx = ((csize - cropSize) / 2 - offset.x + (drawW - csize) / 2) / zoom;
 		const sy = ((csize - cropSize) / 2 - offset.y + (drawH - csize) / 2) / zoom;
 		const temp = document.createElement('canvas');
@@ -59,10 +70,10 @@
 		const ctx = canvasEl.getContext('2d');
 		if (ctx) {
 			ctx.clearRect(0, 0, csize, csize);
-			// Hitung ukuran gambar setelah zoom
+			// [CATATAN]: Hitung ukuran gambar setelah zoom
 			const drawW = img.width * zoom;
 			const drawH = img.height * zoom;
-			// Pusatkan gambar di canvas + offset
+			// [CATATAN]: Pusatkan gambar di canvas + offset
 			const centerX = csize / 2 + offset.x;
 			const centerY = csize / 2 + offset.y;
 			ctx.save();
@@ -71,7 +82,7 @@
 			ctx.clip();
 			ctx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
 			ctx.restore();
-			// Overlay gelap di luar area crop
+			// [CATATAN]: Overlay gelap di luar area crop
 			ctx.save();
 			ctx.globalAlpha = 0.5;
 			ctx.fillStyle = '#000';
@@ -80,7 +91,7 @@
 			ctx.rect((csize - cropSize) / 2, (csize - cropSize) / 2, cropSize, cropSize);
 			ctx.fill('evenodd');
 			ctx.restore();
-			// Border crop
+			// [CATATAN]: Border crop
 			ctx.strokeStyle = '#ff5fa2';
 			ctx.lineWidth = 2;
 			ctx.strokeRect((csize - cropSize) / 2, (csize - cropSize) / 2, cropSize, cropSize);
@@ -112,12 +123,12 @@
 		const dy = pos.y - startY;
 		offset.x = lastOffset.x + dx;
 		offset.y = lastOffset.y + dy;
-		// Batasan agar cropper tidak keluar area crop
+		// [CATATAN]: Batasan agar cropper tidak keluar area crop
 		const drawW = img.width * zoom;
 		const drawH = img.height * zoom;
-		const minX = (cropSize - drawW) / 2;
+		const _minX = (cropSize - drawW) / 2;
 		const maxX = (drawW - cropSize) / 2;
-		const minY = (cropSize - drawH) / 2;
+		const _minY = (cropSize - drawH) / 2;
 		const maxY = (drawH - cropSize) / 2;
 		offset.x = Math.max(-maxX, Math.min(offset.x, maxX));
 		offset.y = Math.max(-maxY, Math.min(offset.y, maxY));
@@ -139,20 +150,20 @@
 	}
 
 	function handleOk() {
-		// preview sudah selalu update, cukup dispatch
-		dispatch('done', { cropped: preview });
+		// [CATATAN]: preview sudah selalu update, cukup dispatch
+		if (onDone) onDone({ cropped: preview });
 		open = false;
 	}
 	function handleCancel() {
-		dispatch('cancel');
+		if (onCancel) onCancel();
 		open = false;
 	}
 
 	let lastCanvasEl: HTMLCanvasElement | null = null;
 
-	$: {
+	$effect(() => {
 		if (canvasEl && open) {
-			// Jika canvasEl berubah, detach dari yang lama
+			// [CATATAN]: Jika canvasEl berubah, detach dari yang lama
 			if (lastCanvasEl && lastCanvasEl !== canvasEl) {
 				lastCanvasEl.removeEventListener('touchstart', onPointerDown);
 				lastCanvasEl.removeEventListener('touchmove', onPointerMove);
@@ -164,6 +175,7 @@
 			canvasEl.addEventListener('touchend', onPointerUp, { passive: false });
 			canvasEl.addEventListener('wheel', onWheel, { passive: false });
 			lastCanvasEl = canvasEl;
+			draw();
 		} else if (lastCanvasEl) {
 			lastCanvasEl.removeEventListener('touchstart', onPointerDown);
 			lastCanvasEl.removeEventListener('touchmove', onPointerMove);
@@ -172,20 +184,6 @@
 			lastCanvasEl = null;
 			dragging = false;
 		}
-	}
-
-	onMount(() => {
-		draw();
-	});
-	onDestroy(() => {
-		if (lastCanvasEl) {
-			lastCanvasEl.removeEventListener('touchstart', onPointerDown);
-			lastCanvasEl.removeEventListener('touchmove', onPointerMove);
-			lastCanvasEl.removeEventListener('touchend', onPointerUp);
-			lastCanvasEl.removeEventListener('wheel', onWheel);
-			lastCanvasEl = null;
-		}
-		dragging = false;
 	});
 </script>
 

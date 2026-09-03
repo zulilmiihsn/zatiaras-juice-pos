@@ -28,6 +28,7 @@ Before verifying, discover project context:
 **Project instructions:** Read `./CLAUDE.md` if it exists in the working directory. Follow all project-specific guidelines, security requirements, and coding conventions.
 
 **Project skills:** Check `.claude/skills/` or `.agents/skills/` directory if either exists:
+
 1. List available skills (subdirectories)
 2. Read `SKILL.md` for each skill (lightweight index ~130 lines)
 3. Load specific `rules/*.md` files as needed during verification
@@ -107,15 +108,15 @@ If found, extract:
 ```yaml
 must_haves:
   truths:
-    - "User can see existing messages"
-    - "User can send a message"
+    - 'User can see existing messages'
+    - 'User can send a message'
   artifacts:
-    - path: "src/components/Chat.tsx"
-      provides: "Message list rendering"
+    - path: 'src/components/Chat.tsx'
+      provides: 'Message list rendering'
   key_links:
-    - from: "Chat.tsx"
-      to: "api/chat"
-      via: "fetch in useEffect"
+    - from: 'Chat.tsx'
+      to: 'api/chat'
+      via: 'fetch in useEffect'
 ```
 
 **Step 2c: Merge must-haves**
@@ -167,17 +168,18 @@ ARTIFACT_RESULT=$(node "D:/Projects/zatiaraspos/.claude/get-shit-done/bin/gsd-to
 Parse JSON result: `{ all_passed, passed, total, artifacts: [{path, exists, issues, passed}] }`
 
 For each artifact in result:
+
 - `exists=false` → MISSING
 - `issues` contains "Only N lines" or "Missing pattern" → STUB
 - `passed=true` → VERIFIED
 
 **Artifact status mapping:**
 
-| exists | issues empty | Status      |
-| ------ | ------------ | ----------- |
-| true   | true         | ✓ VERIFIED  |
-| true   | false        | ✗ STUB      |
-| false  | -            | ✗ MISSING   |
+| exists | issues empty | Status     |
+| ------ | ------------ | ---------- |
+| true   | true         | ✓ VERIFIED |
+| true   | false        | ✗ STUB     |
+| false  | -            | ✗ MISSING  |
 
 **For wiring verification (Level 3)**, check imports/usage manually for artifacts that pass Levels 1-2:
 
@@ -190,6 +192,7 @@ grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.ts
 ```
 
 **Wiring status:**
+
 - WIRED: Imported AND used
 - ORPHANED: Exists but not imported/used
 - PARTIAL: Imported but not used (or vice versa)
@@ -243,22 +246,22 @@ grep -r -A 3 "<${COMPONENT_NAME}" "${search_path:-src/}" --include="*.tsx" 2>/de
 
 **Data-flow status:**
 
-| Data Source | Produces Real Data | Status |
-| ---------- | ------------------ | ------ |
-| DB query found | Yes | ✓ FLOWING |
-| Fetch exists, static fallback only | No | ⚠️ STATIC |
-| No data source found | N/A | ✗ DISCONNECTED |
-| Props hardcoded empty at call site | No | ✗ HOLLOW_PROP |
+| Data Source                        | Produces Real Data | Status         |
+| ---------------------------------- | ------------------ | -------------- |
+| DB query found                     | Yes                | ✓ FLOWING      |
+| Fetch exists, static fallback only | No                 | ⚠️ STATIC      |
+| No data source found               | N/A                | ✗ DISCONNECTED |
+| Props hardcoded empty at call site | No                 | ✗ HOLLOW_PROP  |
 
 **Final Artifact Status (updated with Level 4):**
 
-| Exists | Substantive | Wired | Data Flows | Status |
-| ------ | ----------- | ----- | ---------- | ------ |
-| ✓ | ✓ | ✓ | ✓ | ✓ VERIFIED |
-| ✓ | ✓ | ✓ | ✗ | ⚠️ HOLLOW — wired but data disconnected |
-| ✓ | ✓ | ✗ | - | ⚠️ ORPHANED |
-| ✓ | ✗ | - | - | ✗ STUB |
-| ✗ | - | - | - | ✗ MISSING |
+| Exists | Substantive | Wired | Data Flows | Status                                  |
+| ------ | ----------- | ----- | ---------- | --------------------------------------- |
+| ✓      | ✓           | ✓     | ✓          | ✓ VERIFIED                              |
+| ✓      | ✓           | ✓     | ✗          | ⚠️ HOLLOW — wired but data disconnected |
+| ✓      | ✓           | ✗     | -          | ⚠️ ORPHANED                             |
+| ✓      | ✗           | -     | -          | ✗ STUB                                  |
+| ✗      | -           | -     | -          | ✗ MISSING                               |
 
 ## Step 5: Verify Key Links (Wiring)
 
@@ -273,6 +276,7 @@ LINKS_RESULT=$(node "D:/Projects/zatiaraspos/.claude/get-shit-done/bin/gsd-tools
 Parse JSON result: `{ all_verified, verified, total, links: [{from, to, via, verified, detail}] }`
 
 For each link:
+
 - `verified=true` → WIRED
 - `verified=false` with "not found" in detail → NOT_WIRED
 - `verified=false` with "Pattern not found" → PARTIAL
@@ -328,6 +332,7 @@ Collect ALL requirement IDs declared across plans for this phase.
 **6b. Cross-reference against REQUIREMENTS.md:**
 
 For each requirement ID from plans:
+
 1. Find its full description in REQUIREMENTS.md (`**REQ-ID**: description`)
 2. Map to supporting truths/artifacts verified in Steps 3-5
 3. Determine status:
@@ -412,9 +417,9 @@ npm test -- --grep "$PHASE_TEST_PATTERN" 2>&1 | grep -q "passing"
 
 **Spot-check status:**
 
-| Behavior | Command | Result | Status |
-| -------- | ------- | ------ | ------ |
-| {truth} | {command} | {output} | ✓ PASS / ✗ FAIL / ? SKIP |
+| Behavior | Command   | Result   | Status                   |
+| -------- | --------- | -------- | ------------------------ |
+| {truth}  | {command} | {output} | ✓ PASS / ✗ FAIL / ? SKIP |
 
 3. **Classification:**
    - ✓ PASS: Command succeeded and output matches expected
@@ -422,6 +427,7 @@ npm test -- --grep "$PHASE_TEST_PATTERN" 2>&1 | grep -q "passing"
    - ? SKIP: Can't test without running server/external service — route to human verification (Step 8)
 
 **Spot-check constraints:**
+
 - Each check must complete in under 10 seconds
 - Do not start servers or services — only test what's already runnable
 - Do not modify state (no writes, no mutations, no side effects)
@@ -496,14 +502,14 @@ Structure gaps in YAML frontmatter for `/gsd-plan-phase --gaps`:
 
 ```yaml
 gaps:
-  - truth: "Observable truth that failed"
+  - truth: 'Observable truth that failed'
     status: failed
-    reason: "Brief explanation"
+    reason: 'Brief explanation'
     artifacts:
-      - path: "src/path/to/file.tsx"
+      - path: 'src/path/to/file.tsx'
         issue: "What's wrong"
     missing:
-      - "Specific thing to add/fix"
+      - 'Specific thing to add/fix'
 ```
 
 - `truth`: The observable truth that failed
@@ -515,9 +521,9 @@ gaps:
 If Step 9b identified deferred items, add a `deferred` section after `gaps`:
 
 ```yaml
-deferred:  # Items addressed in later phases — not actionable gaps
-  - truth: "Observable truth not yet met"
-    addressed_in: "Phase 5"
+deferred: # Items addressed in later phases — not actionable gaps
+  - truth: 'Observable truth not yet met'
+    addressed_in: 'Phase 5'
     evidence: "Phase 5 success criteria: 'Implement RuntimeConfigC FFI bindings'"
 ```
 
@@ -545,25 +551,25 @@ re_verification: # Only if previous VERIFICATION.md existed
   previous_status: gaps_found
   previous_score: 2/5
   gaps_closed:
-    - "Truth that was fixed"
+    - 'Truth that was fixed'
   gaps_remaining: []
   regressions: []
 gaps: # Only if status: gaps_found
-  - truth: "Observable truth that failed"
+  - truth: 'Observable truth that failed'
     status: failed
-    reason: "Why it failed"
+    reason: 'Why it failed'
     artifacts:
-      - path: "src/path/to/file.tsx"
+      - path: 'src/path/to/file.tsx'
         issue: "What's wrong"
     missing:
-      - "Specific thing to add/fix"
+      - 'Specific thing to add/fix'
 deferred: # Only if deferred items exist (Step 9b)
-  - truth: "Observable truth addressed in a later phase"
-    addressed_in: "Phase N"
-    evidence: "Matching goal or success criteria text"
+  - truth: 'Observable truth addressed in a later phase'
+    addressed_in: 'Phase N'
+    evidence: 'Matching goal or success criteria text'
 human_verification: # Only if status: human_needed
-  - test: "What to do"
-    expected: "What should happen"
+  - test: 'What to do'
+    expected: 'What should happen'
     why_human: "Why can't verify programmatically"
 ---
 
@@ -590,9 +596,9 @@ human_verification: # Only if status: human_needed
 Items not yet met but explicitly addressed in later milestone phases.
 Only include this section if deferred items exist (from Step 9b).
 
-| # | Item | Addressed In | Evidence |
-|---|------|-------------|----------|
-| 1 | {truth} | Phase {N} | {matching goal or success criteria} |
+| #   | Item    | Addressed In | Evidence                            |
+| --- | ------- | ------------ | ----------------------------------- |
+| 1   | {truth} | Phase {N}    | {matching goal or success criteria} |
 
 ### Required Artifacts
 
@@ -618,7 +624,7 @@ Only include this section if deferred items exist (from Step 9b).
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
-| ----------- | ---------- | ----------- | ------ | -------- |
+| ----------- | ----------- | ----------- | ------ | -------- |
 
 ### Anti-Patterns Found
 
@@ -656,16 +662,22 @@ Return with:
 All must-haves verified. Phase goal achieved. Ready to proceed.
 
 {If gaps_found:}
+
 ### Gaps Found
+
 {N} gaps blocking goal achievement:
+
 1. **{Truth 1}** — {reason}
    - Missing: {what needs to be added}
 
 Structured gaps in VERIFICATION.md frontmatter for `/gsd-plan-phase --gaps`.
 
 {If human_needed:}
+
 ### Human Verification Required
+
 {N} items need human testing:
+
 1. **{Test name}** — {what to do}
    - Expected: {what should happen}
 
@@ -715,11 +727,11 @@ onSubmit={(e) => e.preventDefault()}  // Only prevents default
 ```typescript
 // RED FLAGS:
 export async function POST() {
-  return Response.json({ message: "Not implemented" });
+	return Response.json({ message: 'Not implemented' });
 }
 
 export async function GET() {
-  return Response.json([]); // Empty array with no DB query
+	return Response.json([]); // Empty array with no DB query
 }
 ```
 
@@ -763,4 +775,4 @@ return <div>No messages</div>  // Always shows "no messages"
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] VERIFICATION.md created with complete report
 - [ ] Results returned to orchestrator (NOT committed)
-</success_criteria>
+      </success_criteria>

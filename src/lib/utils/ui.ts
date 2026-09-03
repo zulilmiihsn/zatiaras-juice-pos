@@ -1,17 +1,11 @@
 /**
  * UI utilities untuk komponen Svelte
  */
+import { NOTIF } from '$lib/constants/ui';
 
-// Global declaration untuk window.scrollToSmooth
-declare global {
-	interface Window {
-		scrollToSmooth: (targetY: number, duration?: number) => void;
-	}
-}
-
-// Toast management utility to reduce code duplication
+// [CATATAN]: Toast management utility to reduce code duplication
 export function createToastManager() {
-	// Create reactive stores for toast state
+	// [CATATAN]: Create reactive stores for toast state
 	const toastState = {
 		show: false,
 		message: '',
@@ -22,18 +16,18 @@ export function createToastManager() {
 	function showToastNotification(
 		message: string,
 		type: 'success' | 'error' | 'warning' | 'info' = 'success',
-		duration: number = 3000
+		duration: number = NOTIF.TOAST_MS
 	) {
 		toastState.message = message;
 		toastState.type = type;
 		toastState.show = true;
 
-		// Clear existing timeout
+		// [CATATAN]: Clear existing timeout
 		if (toastState.timeout) {
 			clearTimeout(toastState.timeout);
 		}
 
-		// Auto hide after duration
+		// [CATATAN]: Auto hide after duration
 		toastState.timeout = Number(
 			setTimeout(() => {
 				toastState.show = false;
@@ -50,7 +44,7 @@ export function createToastManager() {
 		}
 	}
 
-	// Return an object with reactive properties
+	// [CATATAN]: Return an object with reactive properties
 	return {
 		get showToast() {
 			return toastState.show;
@@ -63,36 +57,5 @@ export function createToastManager() {
 		},
 		showToastNotification,
 		hideToast
-	};
-}
-
-// Smooth scroll utility
-export function createSmoothScroll() {
-	// Helper scrollToSmooth: scroll ke posisi Y dengan animasi smooth dan durasi custom (default 600ms, slowmo sedikit)
-	if (typeof window !== 'undefined') {
-		window.scrollToSmooth = function (targetY: number, duration: number = 600) {
-			const startY = window.scrollY;
-			const diff = targetY - startY;
-			let start: number | undefined;
-			function step(timestamp: number) {
-				if (start === undefined) start = timestamp;
-				const elapsed = timestamp - start;
-				const progress = Math.min(elapsed / duration, 1);
-				const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
-				window.scrollTo(0, startY + diff * ease);
-				if (progress < 1) {
-					window.requestAnimationFrame(step);
-				}
-			}
-			window.requestAnimationFrame(step);
-		};
-	}
-
-	return {
-		scrollToSmooth: (targetY: number, duration?: number) => {
-			if (typeof window !== 'undefined' && window.scrollToSmooth) {
-				window.scrollToSmooth(targetY, duration);
-			}
-		}
 	};
 }

@@ -1,7 +1,7 @@
 ---
 name: gsd-new-project
-description: "Initialize a new project with deep context gathering and PROJECT.md"
-argument-hint: "[--auto]"
+description: 'Initialize a new project with deep context gathering and PROJECT.md'
+argument-hint: '[--auto]'
 allowed-tools:
   - Read
   - Bash
@@ -23,6 +23,7 @@ allowed-tools:
 Initialize a new project through unified flow: questioning → research (optional) → requirements → roadmap.
 
 **Creates:**
+
 - `.planning/PROJECT.md` — project context
 - `.planning/config.json` — workflow preferences
 - `.planning/research/` — domain research (optional)
@@ -34,10 +35,10 @@ Initialize a new project through unified flow: questioning → research (optiona
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/new-project.md
-@~/.claude/get-shit-done/references/questioning.md
-@~/.claude/get-shit-done/references/ui-brand.md
-@~/.claude/get-shit-done/templates/project.md
+@~~/.claude/get-shit-done/workflows/new-project.md
+@~~/.claude/get-shit-done/references/questioning.md
+@~~/.claude/get-shit-done/references/ui-brand.md
+@~~/.claude/get-shit-done/templates/project.md
 @~/.claude/get-shit-done/templates/requirements.md
 </execution_context>
 

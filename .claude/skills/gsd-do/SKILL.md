@@ -1,7 +1,7 @@
 ---
 name: gsd-do
-description: "Route freeform text to the right GSD command automatically"
-argument-hint: "<description of what you want to do>"
+description: 'Route freeform text to the right GSD command automatically'
+argument-hint: '<description of what you want to do>'
 allowed-tools:
   - Read
   - Bash
@@ -17,8 +17,8 @@ Use when you know what you want but don't know which `/gsd-*` command to run.
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/do.md
-@~/.claude/get-shit-done/references/ui-brand.md
+@~~/.claude/get-shit-done/workflows/do.md
+@~~/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

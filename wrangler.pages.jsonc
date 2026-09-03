@@ -1,0 +1,32 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "zatiaraspos",
+	"compatibility_date": "2026-06-29",
+	"compatibility_flags": ["nodejs_compat"],
+	"pages_build_output_dir": ".svelte-kit/cloudflare",
+
+	"d1_databases": [
+		{
+			"binding": "DB_SAMARINDA_GROUP",
+			"database_name": "zatiaras-samarinda-group",
+			"database_id": "b6aafe5b-fd11-436d-9b9e-c007bd531c9e"
+		},
+		{
+			"binding": "DB_BALIKPAPAN_GROUP",
+			"database_name": "zatiaras-balikpapan-group",
+			"database_id": "312940d7-b0c0-43e5-86fd-78b762cacb6e"
+		},
+		{
+			"binding": "DB_BERAU_GROUP",
+			"database_name": "zatiaras-berau-group",
+			"database_id": "18e2f751-5d54-4bec-b0bc-ae6e1378cdb6"
+		}
+	],
+
+	"r2_buckets": [
+		{
+			"binding": "STORAGE",
+			"bucket_name": "zatiaras-assets"
+		}
+	]
+}

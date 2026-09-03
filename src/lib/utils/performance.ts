@@ -1,4 +1,4 @@
-// Performance utilities
+// [CATATAN]: Performance utilities
 export function debounce<T extends (...args: any[]) => any>(
 	func: T,
 	wait: number
@@ -24,63 +24,39 @@ export function throttle<T extends (...args: any[]) => any>(
 	};
 }
 
-// Memoization untuk expensive calculations
-export function memoize<T extends (...args: any[]) => any>(
-	func: T,
-	resolver?: (...args: Parameters<T>) => string
-): T & { clearCache: () => void } {
-	const cache = new Map();
-
-	const memoizedFunc = ((...args: Parameters<T>) => {
-		const key = resolver ? resolver(...args) : JSON.stringify(args);
-		if (cache.has(key)) {
-			return cache.get(key);
-		}
-		const result = func(...args);
-		cache.set(key, result);
-		return result;
-	}) as T & { clearCache: () => void };
-
-	memoizedFunc.clearCache = () => {
-		cache.clear();
-	};
-
-	return memoizedFunc;
-}
-
-// Performance measurement
-export async function measureAsyncPerformance(name: string, fn: () => Promise<void>) {
-	const start = performance.now();
-	await fn();
-	const end = performance.now();
-}
-
-// Cart calculations dengan memoization
-export const calculateCartTotal = memoize((cart: any[]) => {
+// [CATATAN]: Cart calculations (without memoization)
+export const calculateCartTotal = <T>(cart: T[]) => {
 	let items = 0;
 	let total = 0;
 	for (const item of cart) {
-		const itemTotal = (item.product?.price ?? item.product?.harga ?? 0) * (item.qty ?? 1);
+		const record = item as Record<string, unknown>;
+		const product = record.product as Record<string, unknown> | undefined;
+		const isJumbo = record.porsi === 'jumbo';
+		const basePrice = isJumbo
+			? ((product?.harga_jumbo as number) ?? (product?.harga as number) ?? 0)
+			: ((product?.harga as number) ?? 0);
+		const itemTotal = basePrice * ((record.jumlah as number) ?? 1);
 		const addOnsTotal =
-			(item.addOns || []).reduce(
-				(sum: number, addon: any) => sum + (addon.price ?? addon.harga ?? 0),
+			((record.addOns as Array<Record<string, unknown>>) || []).reduce(
+				(sum: number, addon: Record<string, unknown>) => sum + ((addon.harga as number) ?? 0),
 				0
-			) * (item.qty ?? 1);
+			) * ((record.jumlah as number) ?? 1);
 		total += itemTotal + addOnsTotal;
-		items += item.qty ?? 1;
+		items += (record.jumlah as number | null | undefined) ?? 1;
 	}
 	return { items, total };
-});
+};
 
-// Fuzzy search dengan hasil lebih relevan
-export function fuzzySearch(query: string, items: any[], key: string = 'name'): any[] {
+// [CATATAN]: Fuzzy search dengan hasil lebih relevan
+export function fuzzySearch<T>(query: string, items: T[], key: string = 'nama'): T[] {
 	if (!query.trim()) return items;
 	const searchTerm = query.toLowerCase();
-	// Cari di name dan kategori (jika ada)
+	// [CATATAN]: Cari di name dan kategori (jika ada)
 	return items
 		.map((item) => {
-			const name = String(item[key] ?? '').toLowerCase();
-			const kategori = String(item.kategori ?? '').toLowerCase();
+			const record = item as Record<string, unknown>;
+			const name = String(record[key] ?? '').toLowerCase();
+			const kategori = String(record.kategori ?? '').toLowerCase();
 			let score = 0;
 			if (name.startsWith(searchTerm)) score = 3;
 			else if (name.includes(searchTerm)) score = 2;
@@ -90,17 +66,4 @@ export function fuzzySearch(query: string, items: any[], key: string = 'name'): 
 		.filter((x) => x.score > 0)
 		.sort((a, b) => b.score - a.score)
 		.map((x) => x.item);
-}
-
-// Image optimization
-export function createImageObserver(callback: (entry: IntersectionObserverEntry) => void) {
-	return new IntersectionObserver(
-		(entries) => {
-			entries.forEach(callback);
-		},
-		{
-			rootMargin: '50px',
-			threshold: 0.1
-		}
-	);
 }

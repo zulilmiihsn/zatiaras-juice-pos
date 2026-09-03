@@ -8,7 +8,7 @@ tools:
   - Bash
   - Glob
   - Grep
-color: "#EF4444"
+color: '#EF4444'
 ---
 
 <role>
@@ -34,11 +34,11 @@ Read ALL files from `<files_to_read>`. Extract:
 <step name="analyze_threats">
 For each threat in `<threat_model>`, determine verification method by disposition:
 
-| Disposition | Verification Method |
-|-------------|---------------------|
-| `mitigate` | Grep for mitigation pattern in files cited in mitigation plan |
-| `accept` | Verify entry present in SECURITY.md accepted risks log |
-| `transfer` | Verify transfer documentation present (insurance, vendor SLA, etc.) |
+| Disposition | Verification Method                                                 |
+| ----------- | ------------------------------------------------------------------- |
+| `mitigate`  | Grep for mitigation pattern in files cited in mitigation plan       |
+| `accept`    | Verify entry present in SECURITY.md accepted risks log              |
+| `transfer`  | Verify transfer documentation present (insurance, vendor SLA, etc.) |
 
 Classify each threat before verification. Record classification for every threat — no threat skipped.
 </step>
@@ -67,11 +67,13 @@ Write SECURITY.md. Set `threats_open` count. Return structured result.
 **ASVS Level:** {1/2/3}
 
 ### Threat Verification
-| Threat ID | Category | Disposition | Evidence |
-|-----------|----------|-------------|----------|
-| {id} | {category} | {mitigate/accept/transfer} | {file:line or doc reference} |
+
+| Threat ID | Category   | Disposition                | Evidence                     |
+| --------- | ---------- | -------------------------- | ---------------------------- |
+| {id}      | {category} | {mitigate/accept/transfer} | {file:line or doc reference} |
 
 ### Unregistered Flags
+
 {none / list from SUMMARY.md ## Threat Flags with no threat mapping}
 
 SECURITY.md: {path}
@@ -87,14 +89,16 @@ SECURITY.md: {path}
 **ASVS Level:** {1/2/3}
 
 ### Closed
-| Threat ID | Category | Disposition | Evidence |
-|-----------|----------|-------------|----------|
-| {id} | {category} | {disposition} | {evidence} |
+
+| Threat ID | Category   | Disposition   | Evidence   |
+| --------- | ---------- | ------------- | ---------- |
+| {id}      | {category} | {disposition} | {evidence} |
 
 ### Open
-| Threat ID | Category | Mitigation Expected | Files Searched |
-|-----------|----------|---------------------|----------------|
-| {id} | {category} | {pattern not found} | {file paths} |
+
+| Threat ID | Category   | Mitigation Expected | Files Searched |
+| --------- | ---------- | ------------------- | -------------- |
+| {id}      | {category} | {pattern not found} | {file paths}   |
 
 Next: Implement mitigations or document as accepted in SECURITY.md accepted risks log, then re-run /gsd-secure-phase.
 
@@ -110,14 +114,16 @@ SECURITY.md: {path}
 **Closed:** 0/{total}
 
 ### Details
+
 | Threat ID | Reason Blocked | Suggested Action |
-|-----------|----------------|------------------|
-| {id} | {reason} | {action} |
+| --------- | -------------- | ---------------- |
+| {id}      | {reason}       | {action}         |
 ```
 
 </structured_returns>
 
 <success_criteria>
+
 - [ ] All `<files_to_read>` loaded before any analysis
 - [ ] Threat register extracted from PLAN.md `<threat_model>` block
 - [ ] Each threat verified by disposition type (mitigate / accept / transfer)
@@ -125,4 +131,4 @@ SECURITY.md: {path}
 - [ ] Implementation files never modified
 - [ ] SECURITY.md written to correct path
 - [ ] Structured return: SECURED / OPEN_THREATS / ESCALATE
-</success_criteria>
+      </success_criteria>

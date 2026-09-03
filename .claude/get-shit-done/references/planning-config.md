@@ -3,6 +3,7 @@
 Configuration options for `.planning/` directory behavior.
 
 <config_schema>
+
 ```json
 "planning": {
   "commit_docs": true,
@@ -24,31 +25,34 @@ Configuration options for `.planning/` directory behavior.
 }
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `commit_docs` | `true` | Whether to commit planning artifacts to git |
-| `search_gitignored` | `false` | Add `--no-ignore` to broad rg searches |
-| `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
-| `git.base_branch` | `null` (auto-detect) | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`. |
-| `git.phase_branch_template` | `"gsd/phase-{phase}-{slug}"` | Branch template for phase strategy |
-| `git.milestone_branch_template` | `"gsd/{milestone}-{slug}"` | Branch template for milestone strategy |
-| `git.quick_branch_template` | `null` | Optional branch template for quick-task runs |
-| `workflow.use_worktrees` | `true` | Whether executor agents run in isolated git worktrees. Set to `false` to disable worktrees — agents execute sequentially on the main working tree instead. Recommended for solo developers or when worktree merges cause issues. |
-| `workflow.subagent_timeout` | `300000` | Timeout in milliseconds for parallel subagent tasks (e.g. codebase mapping). Increase for large codebases or slower models. Default: 300000 (5 minutes). |
-| `manager.flags.discuss` | `""` | Flags passed to `/gsd:discuss-phase` when dispatched from manager (e.g. `"--auto --analyze"`) |
-| `manager.flags.plan` | `""` | Flags passed to plan workflow when dispatched from manager |
-| `manager.flags.execute` | `""` | Flags passed to execute workflow when dispatched from manager |
-| `response_language` | `null` | Language for user-facing questions and prompts across all phases/subagents (e.g. `"Portuguese"`, `"Japanese"`, `"Spanish"`). When set, all spawned agents include a directive to respond in this language. |
+| Option                          | Default                      | Description                                                                                                                                                                                                                      |
+| ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit_docs`                   | `true`                       | Whether to commit planning artifacts to git                                                                                                                                                                                      |
+| `search_gitignored`             | `false`                      | Add `--no-ignore` to broad rg searches                                                                                                                                                                                           |
+| `git.branching_strategy`        | `"none"`                     | Git branching approach: `"none"`, `"phase"`, or `"milestone"`                                                                                                                                                                    |
+| `git.base_branch`               | `null` (auto-detect)         | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`.                                                           |
+| `git.phase_branch_template`     | `"gsd/phase-{phase}-{slug}"` | Branch template for phase strategy                                                                                                                                                                                               |
+| `git.milestone_branch_template` | `"gsd/{milestone}-{slug}"`   | Branch template for milestone strategy                                                                                                                                                                                           |
+| `git.quick_branch_template`     | `null`                       | Optional branch template for quick-task runs                                                                                                                                                                                     |
+| `workflow.use_worktrees`        | `true`                       | Whether executor agents run in isolated git worktrees. Set to `false` to disable worktrees — agents execute sequentially on the main working tree instead. Recommended for solo developers or when worktree merges cause issues. |
+| `workflow.subagent_timeout`     | `300000`                     | Timeout in milliseconds for parallel subagent tasks (e.g. codebase mapping). Increase for large codebases or slower models. Default: 300000 (5 minutes).                                                                         |
+| `manager.flags.discuss`         | `""`                         | Flags passed to `/gsd:discuss-phase` when dispatched from manager (e.g. `"--auto --analyze"`)                                                                                                                                    |
+| `manager.flags.plan`            | `""`                         | Flags passed to plan workflow when dispatched from manager                                                                                                                                                                       |
+| `manager.flags.execute`         | `""`                         | Flags passed to execute workflow when dispatched from manager                                                                                                                                                                    |
+| `response_language`             | `null`                       | Language for user-facing questions and prompts across all phases/subagents (e.g. `"Portuguese"`, `"Japanese"`, `"Spanish"`). When set, all spawned agents include a directive to respond in this language.                       |
+
 </config_schema>
 
 <commit_docs_behavior>
 
 **When `commit_docs: true` (default):**
+
 - Planning files committed normally
 - SUMMARY.md, STATE.md, ROADMAP.md tracked in git
 - Full history of planning decisions preserved
 
 **When `commit_docs: false`:**
+
 - Skip all `git add`/`git commit` for `.planning/` files
 - User must add `.planning/` to `.gitignore`
 - Useful for: OSS contributions, client projects, keeping planning private
@@ -85,11 +89,13 @@ The CLI checks `commit_docs` config and gitignore status internally — no manua
 <search_behavior>
 
 **When `search_gitignored: false` (default):**
+
 - Standard rg behavior (respects .gitignore)
 - Direct path searches work: `rg "pattern" .planning/` finds files
 - Broad searches skip gitignored: `rg "pattern"` skips `.planning/`
 
 **When `search_gitignored: true`:**
+
 - Add `--no-ignore` to broad rg searches that should include `.planning/`
 - Only needed when searching entire repo and expecting `.planning/` matches
 
@@ -102,6 +108,7 @@ The CLI checks `commit_docs` config and gitignore status internally — no manua
 To use uncommitted mode:
 
 1. **Set config:**
+
    ```json
    "planning": {
      "commit_docs": false,
@@ -110,11 +117,13 @@ To use uncommitted mode:
    ```
 
 2. **Add to .gitignore:**
+
    ```
    .planning/
    ```
 
 3. **Existing tracked files:** If `.planning/` was previously tracked:
+
    ```bash
    git rm -r --cached .planning/
    git commit -m "chore: stop tracking planning docs"
@@ -128,17 +137,19 @@ To use uncommitted mode:
 
 **Branching Strategies:**
 
-| Strategy | When branch created | Branch scope | Merge point |
-|----------|---------------------|--------------|-------------|
-| `none` | Never | N/A | N/A |
-| `phase` | At `execute-phase` start | Single phase | User merges after phase |
+| Strategy    | When branch created                   | Branch scope     | Merge point             |
+| ----------- | ------------------------------------- | ---------------- | ----------------------- |
+| `none`      | Never                                 | N/A              | N/A                     |
+| `phase`     | At `execute-phase` start              | Single phase     | User merges after phase |
 | `milestone` | At first `execute-phase` of milestone | Entire milestone | At `complete-milestone` |
 
 **When `git.branching_strategy: "none"` (default):**
+
 - All work commits to current branch
 - Standard GSD behavior
 
 **When `git.branching_strategy: "phase"`:**
+
 - `execute-phase` creates/switches to a branch before execution
 - Branch name from `phase_branch_template` (e.g., `gsd/phase-03-authentication`)
 - All plan commits go to that branch
@@ -146,6 +157,7 @@ To use uncommitted mode:
 - `complete-milestone` offers to merge all phase branches
 
 **When `git.branching_strategy: "milestone"`:**
+
 - First `execute-phase` of milestone creates the milestone branch
 - Branch name from `milestone_branch_template` (e.g., `gsd/v1.0-mvp`)
 - All phases in milestone commit to same branch
@@ -153,15 +165,16 @@ To use uncommitted mode:
 
 **Template variables:**
 
-| Variable | Available in | Description |
-|----------|--------------|-------------|
-| `{phase}` | phase_branch_template | Zero-padded phase number (e.g., "03") |
-| `{slug}` | Both | Lowercase, hyphenated name |
-| `{milestone}` | milestone_branch_template | Milestone version (e.g., "v1.0") |
+| Variable      | Available in              | Description                           |
+| ------------- | ------------------------- | ------------------------------------- |
+| `{phase}`     | phase_branch_template     | Zero-padded phase number (e.g., "03") |
+| `{slug}`      | Both                      | Lowercase, hyphenated name            |
+| `{milestone}` | milestone_branch_template | Milestone version (e.g., "v1.0")      |
 
 **Checking the config:**
 
 Use `init execute-phase` which returns all config as JSON:
+
 ```bash
 INIT=$(node "D:/Projects/zatiaraspos/.claude/get-shit-done/bin/gsd-tools.cjs" init execute-phase "1")
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -169,6 +182,7 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Or use `state load` for the config values:
+
 ```bash
 INIT=$(node "D:/Projects/zatiaraspos/.claude/get-shit-done/bin/gsd-tools.cjs" state load)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -195,22 +209,22 @@ fi
 
 **Merge options at complete-milestone:**
 
-| Option | Git command | Result |
-|--------|-------------|--------|
-| Squash merge (recommended) | `git merge --squash` | Single clean commit per branch |
-| Merge with history | `git merge --no-ff` | Preserves all individual commits |
-| Delete without merging | `git branch -D` | Discard branch work |
-| Keep branches | (none) | Manual handling later |
+| Option                     | Git command          | Result                           |
+| -------------------------- | -------------------- | -------------------------------- |
+| Squash merge (recommended) | `git merge --squash` | Single clean commit per branch   |
+| Merge with history         | `git merge --no-ff`  | Preserves all individual commits |
+| Delete without merging     | `git branch -D`      | Discard branch work              |
+| Keep branches              | (none)               | Manual handling later            |
 
 Squash merge is recommended — keeps main branch history clean while preserving the full development history in the branch (until deleted).
 
 **Use cases:**
 
-| Strategy | Best for |
-|----------|----------|
-| `none` | Solo development, simple projects |
-| `phase` | Code review per phase, granular rollback, team collaboration |
-| `milestone` | Release branches, staging environments, PR per version |
+| Strategy    | Best for                                                     |
+| ----------- | ------------------------------------------------------------ |
+| `none`      | Solo development, simple projects                            |
+| `phase`     | Code review per phase, granular rollback, team collaboration |
+| `milestone` | Release branches, staging environments, PR per version       |
 
 </branching_strategy_behavior>
 

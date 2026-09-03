@@ -1,9 +1,13 @@
 import { smartCache } from '$lib/utils/cache';
+import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 
 const MIN_REPORT_INTERVAL_MS = 15000;
 const lastSentAtByPage = new Map<string, number>();
 
-export async function reportCacheMetrics(page: 'dashboard' | 'laporan' | 'pos', force = false): Promise<void> {
+export async function reportCacheMetrics(
+	page: 'dashboard' | 'laporan' | 'pos',
+	force = false
+): Promise<void> {
 	if (typeof window === 'undefined') return;
 
 	const now = Date.now();
@@ -16,7 +20,7 @@ export async function reportCacheMetrics(page: 'dashboard' | 'laporan' | 'pos', 
 	const stats = smartCache.getStats();
 
 	try {
-		await fetch('/api/cache-metrics', {
+		await fetchWithCsrfRetry('/api/cache-metrics', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -30,6 +34,6 @@ export async function reportCacheMetrics(page: 'dashboard' | 'laporan' | 'pos', 
 			})
 		});
 	} catch {
-		// silent: metrics must never break UX
+		// [CATATAN]: silent: metrics must never break UX
 	}
 }

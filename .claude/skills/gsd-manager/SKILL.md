@@ -1,6 +1,6 @@
 ---
 name: gsd-manager
-description: "Interactive command center for managing multiple phases from one terminal"
+description: 'Interactive command center for managing multiple phases from one terminal'
 allowed-tools:
   - Read
   - Write
@@ -18,6 +18,7 @@ Single-terminal command center for managing a milestone. Shows a dashboard of al
 Designed for power users who want to parallelize work across phases from one terminal: discuss a phase while another plans or executes in the background.
 
 **Creates/Updates:**
+
 - No files created directly — dispatches to existing GSD commands via Skill() and background Task agents.
 - Reads `.planning/STATE.md`, `.planning/ROADMAP.md`, phase directories for status.
 
@@ -25,8 +26,8 @@ Designed for power users who want to parallelize work across phases from one ter
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/manager.md
-@~/.claude/get-shit-done/references/ui-brand.md
+@~~/.claude/get-shit-done/workflows/manager.md
+@~~/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>

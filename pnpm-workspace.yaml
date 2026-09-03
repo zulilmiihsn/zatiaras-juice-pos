@@ -1,0 +1,10 @@
+allowBuilds:
+  '@tailwindcss/oxide': true
+  core-js: true
+  esbuild: true
+  sharp: true
+  workerd: true
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+  cookie@<0.7.0: 0.7.2
+  serialize-javascript@<7.0.5: 7.0.5

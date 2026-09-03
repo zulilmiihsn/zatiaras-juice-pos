@@ -1,115 +1,85 @@
 <script lang="ts">
-	import { onMount, onDestroy, type Component } from 'svelte';
-	import { slide, fade, fly } from 'svelte/transition';
-	import { cubicIn, cubicOut } from 'svelte/easing';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { onMount, onDestroy } from 'svelte';
 	import { auth } from '$lib/auth/auth';
 	import { browser } from '$app/environment';
-	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole';
-	import { get as storeGet } from 'svelte/store';
-	import { selectedBranch } from '$lib/stores/selectedBranch';
-	import { dataService, realtimeManager } from '$lib/services/dataService';
+	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
+	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+	import { realtimeManager } from '$lib/realtime/realtimeManager';
 	import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import DashboardMetrics from '$lib/components/dashboard/dashboardMetrics.svelte';
-	import BestSellersList from '$lib/components/dashboard/bestSellersList.svelte';
-	import IncomeChart from '$lib/components/dashboard/incomeChart.svelte';
-	import { getNowWita, getTodayWita, witaToUtcISO } from '$lib/utils/dateTime';
+	import { getNowWita } from '$lib/utils/dateTime';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
-	import { securitySettings } from '$lib/stores/securitySettings';
+	import { verifyPagePin } from '$lib/services/pinAccessService';
+	import DashboardMetrics from '$lib/components/dashboard/DashboardMetrics.svelte';
+	import WeeklyChart from '$lib/components/dashboard/WeeklyChart.svelte';
+	import TokoModal from '$lib/components/dashboard/TokoModal.svelte';
+	import TopBarAiAssistant from '$lib/components/shared/topBarAiAssistant.svelte';
+	import { createToastManager } from '$lib/utils/ui';
+	import { getSesiAktif } from '$lib/services/sesiTokoService';
+	import { transactionService } from '$lib/services/transactionService';
+	import CupIcon from '$lib/components/icons/CupIcon.svelte';
+	import { formatRupiah } from '$lib/utils/currency';
+	import { refreshBus } from '$lib/utils/refreshBus';
+	import Store from '@lucide/svelte/icons/store';
+	import PlusCircle from '@lucide/svelte/icons/plus-circle';
+	import Boxes from '@lucide/svelte/icons/boxes';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Crown from '@lucide/svelte/icons/crown';
+	import RankMedal from '$lib/components/dashboard/RankMedal.svelte';
+	import Settings from '@lucide/svelte/icons/settings';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import BookOpen from '@lucide/svelte/icons/book-open';
+	import ShoppingBagIcon from '@lucide/svelte/icons/shopping-bag';
+	import ClockIcon from '@lucide/svelte/icons/clock';
+	import Coffee from '@lucide/svelte/icons/coffee';
+	import Receipt from '@lucide/svelte/icons/receipt';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 
-	interface DashboardStats {
-		omzet: number;
-		jumlahTransaksi: number;
-		profit: number;
-		itemTerjual: number;
-		totalItem: number;
-		avgTransaksi: number;
-		jamRamai: string;
-	}
+	import type {
+		DashboardStats,
+		WeeklyIncomeData,
+		BestSeller,
+		TokoSession,
+		BukuKasRecord
+	} from '$lib/types';
+	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
 
-	let dashboardData: {
-		omzet: number;
-		jumlahTransaksi: number;
-		profit: number;
-		itemTerjual: number;
-		totalItem: number;
-		avgTransaksi: number;
-		jamRamai: string;
-		weeklyIncome: number[];
-		weeklyMax: number;
-		bestSellers: { name: string; image?: string; total_qty: number }[];
-	} | null = null;
+	// [CATATAN]: Lazy load icons — assigned in onMount, consumed by DashboardMetrics via svelte:component
+	let Wallet = $state<IconComponent | null>(null);
+	let ShoppingBag = $state<IconComponent | null>(null);
+	let Coins = $state<IconComponent | null>(null);
+	let Users = $state<IconComponent | null>(null);
+	let Clock = $state<IconComponent | null>(null);
+	let TrendingUp = $state<IconComponent | null>(null);
 
-	let barsVisible = false;
-	let incomeChartRef: HTMLDivElement | null = null;
-	onMount(() => {
-		if (incomeChartRef) {
-			const observer = new window.IntersectionObserver(
-				(entries) => {
-					if (entries[0].isIntersecting) {
-						barsVisible = true;
-						observer.disconnect();
-					}
-				},
-				{ threshold: 0.3 }
-			);
-			observer.observe(incomeChartRef);
-		}
+	import { createDashboardState } from '$lib/stores/dashboardState.svelte';
+
+	const dashboard = createDashboardState();
+
+	// [CATATAN]: Subscribe ke store
+	let currentUserRole = $state('');
+
+	$effect(() => {
+		currentUserRole = userRole.value || '';
 	});
 
-	// Lazy load icons
-	let Wallet: any = null;
-	let ShoppingBag: any = null;
-	let Coins: any = null;
-	let Users: any = null;
-	let Clock: any = null;
-	let TrendingUp: any = null;
-	let omzet = 0;
-	let jumlahTransaksi = 0;
-	let profit = 0;
-	let itemTerjual = 0;
-	let totalItem = 0;
-	let avgTransaksi = 0;
-	let jamRamai = '';
-	let weeklyIncome: number[] = [];
-	let weeklyMax = 1;
-	let bestSellers: { name: string; image?: string; total_qty: number }[] = [];
-
-	// Subscribe ke store
-	let currentUserRole = '';
-	let userProfileData: { role: string; username: string } | null = null;
-
-	userRole.subscribe((val) => (currentUserRole = val || ''));
-	userProfile.subscribe((val) => (userProfileData = val));
-
-	let isLoadingBestSellers = true;
-	let errorBestSellers = '';
-	let isLoadingDashboard = true;
-	let dashboardRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-	let dashboardRefreshInFlight = false;
-	let lastDashboardPayloadFingerprint = '';
-
-	let unsubscribeBranch: (() => void) | null = null;
-	let isInitialLoad = true; // Add flag to prevent double fetching
-
 	onMount(async () => {
-		// Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
+		// [CATATAN]: Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			// non-blocking
+			// [CATATAN]: non-blocking
 			loadRouteIcons('dashboard');
-			// anticipatory preload ke rute yang sering dituju berikutnya
+			// [CATATAN]: anticipatory preload ke rute yang sering dituju berikutnya
 			setTimeout(() => loadRouteIcons('pos'), 0);
 			setTimeout(() => loadRouteIcons('laporan'), 0);
 		});
 		const icons = await Promise.all([
-			import('lucide-svelte/icons/wallet'),
-			import('lucide-svelte/icons/shopping-bag'),
-			import('lucide-svelte/icons/coins'),
-			import('lucide-svelte/icons/users'),
-			import('lucide-svelte/icons/clock'),
-			import('lucide-svelte/icons/trending-up')
+			import('@lucide/svelte/icons/wallet'),
+			import('@lucide/svelte/icons/shopping-bag'),
+			import('@lucide/svelte/icons/coins'),
+			import('@lucide/svelte/icons/users'),
+			import('@lucide/svelte/icons/clock'),
+			import('@lucide/svelte/icons/trending-up')
 		]);
 		Wallet = icons[0].default;
 		ShoppingBag = icons[1].default;
@@ -118,238 +88,38 @@
 		Clock = icons[4].default;
 		TrendingUp = icons[5].default;
 
-		// Load data dengan smart caching
-		await loadDashboardData();
-
-		// Setup real-time subscriptions
-		setupRealtimeSubscriptions();
-
-		isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-		// Jika role belum ada di store, coba validasi dengan Supabase
+		// [CATATAN]: Jika role belum ada di store, validasi dari session backend.
 		if (!currentUserRole) {
-			const {
-				data: { session }
-			} = await dataService.supabaseClient.auth.getSession();
-			if (session?.user) {
-				const { data: profile } = await dataService.supabaseClient
-					.from('profil')
-					.select('role, username')
-					.eq('id', session.user.id)
-					.single();
-				if (profile) {
-					setUserRole(profile.role, profile);
-				}
+			const res = await fetch('/api/session');
+			if (res.ok) {
+				const session = await res.json();
+				if (session?.user) setUserRole(session.user.role, session.user);
 			}
 		}
-
-		// Removed fetchPin() and locked_pages check
-
-		// Subscribe ke selectedBranch untuk fetch ulang data saat cabang berubah
-		unsubscribeBranch = selectedBranch.subscribe(async (newBranch) => {
-			// Skip jika ini adalah initial load
-			if (isInitialLoad) {
-				isInitialLoad = false;
-				return;
-			}
-
-			// Reset semua metriks
-			omzet = 0;
-			jumlahTransaksi = 0;
-			profit = 0;
-			itemTerjual = 0;
-			totalItem = 0;
-			avgTransaksi = 0;
-			jamRamai = '';
-			weeklyIncome = [];
-			weeklyMax = 1;
-			bestSellers = [];
-			isLoadingDashboard = true;
-			isLoadingBestSellers = true;
-			// Invalidate cache dashboard metriks untuk semua cabang
-			await dataService.invalidateDashboardCaches();
-			// Fetch ulang data
-			await loadDashboardData();
-		});
-		// window.refreshDashboardData removed
 	});
 
-	onDestroy(() => {
-		if (unsubscribeBranch) unsubscribeBranch();
-		realtimeManager.unsubscribeAll();
-		if (dashboardRefreshTimer) {
-			clearTimeout(dashboardRefreshTimer);
-			dashboardRefreshTimer = null;
-		}
-		// window.refreshDashboardData cleanup removed
-	});
-
-	function scheduleDashboardRealtimeRefresh(delayMs = 220) {
-		if (dashboardRefreshTimer) {
-			clearTimeout(dashboardRefreshTimer);
-		}
-
-		dashboardRefreshTimer = setTimeout(async () => {
-			dashboardRefreshTimer = null;
-			if (dashboardRefreshInFlight) return;
-
-			dashboardRefreshInFlight = true;
-			try {
-				const dashboardStats = await dataService.getDashboardStats();
-				const nextBestSellers = await dataService.getBestSellers();
-				const weeklyData = await dataService.getWeeklyIncome();
-				applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
-				await reportCacheMetrics('dashboard');
-			} finally {
-				dashboardRefreshInFlight = false;
-			}
-		}, delayMs);
-	}
-
-	// Load dashboard data dengan smart caching
-	async function loadDashboardData() {
-		try {
-			isLoadingDashboard = true;
-
-			// Load dashboard stats dengan cache
-			const dashboardStats = await dataService.getDashboardStats();
-
-			// Load best sellers dengan cache
-			isLoadingBestSellers = true;
-			const nextBestSellers = await dataService.getBestSellers();
-			isLoadingBestSellers = false;
-
-			// Load weekly income dengan cache
-			const weeklyData = await dataService.getWeeklyIncome();
-			applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
-			await reportCacheMetrics('dashboard');
-		} catch (error) {
-			errorBestSellers = 'Gagal memuat data dashboard';
-		} finally {
-			isLoadingDashboard = false;
-			isLoadingBestSellers = false;
-		}
-	}
-
-	// Setup real-time subscriptions
-	function setupRealtimeSubscriptions() {
-		// Subscribe to buku_kas changes for real-time dashboard updates
-		realtimeManager.subscribe('buku_kas', async (payload) => {
-			scheduleDashboardRealtimeRefresh();
-		});
-
-		// Subscribe to transaksi_kasir changes
-		realtimeManager.subscribe('transaksi_kasir', async (payload) => {
-			scheduleDashboardRealtimeRefresh();
-		});
-	}
-
-	function computeDashboardPayloadFingerprint(
-		data: DashboardStats | null,
-		nextBestSellers: { name: string; image?: string; total_qty: number }[],
-		weeklyData: { weeklyIncome: number[]; weeklyMax: number }
-	): string {
-		const weekly = Array.isArray(weeklyData?.weeklyIncome) ? weeklyData.weeklyIncome : [];
-		const sellers = Array.isArray(nextBestSellers) ? nextBestSellers : [];
-		const sellersSignature = sellers
-			.map((item) => `${item?.name || ''}:${Number(item?.total_qty || 0)}`)
-			.join(',');
-
-		return [
-			Number(data?.omzet || 0),
-			Number(data?.jumlahTransaksi || 0),
-			Number(data?.profit || 0),
-			Number(data?.itemTerjual || 0),
-			Number(data?.totalItem || 0),
-			Number(data?.avgTransaksi || 0),
-			String(data?.jamRamai || ''),
-			weekly.length,
-			weekly.reduce((sum, value) => sum + Number(value || 0), 0),
-			Number(weeklyData?.weeklyMax || 1),
-			sellers.length,
-			sellersSignature
-		].join('|');
-	}
-
-	function applyDashboardData(data: DashboardStats | null) {
-		if (!data) return;
-		omzet = data.omzet;
-		jumlahTransaksi = data.jumlahTransaksi;
-		profit = data.profit;
-		itemTerjual = data.itemTerjual;
-		totalItem = data.totalItem;
-		avgTransaksi = data.avgTransaksi;
-		jamRamai = data.jamRamai;
-	}
-
-	function applyDashboardPayload(
-		data: DashboardStats | null,
-		nextBestSellers: { name: string; image?: string; total_qty: number }[],
-		weeklyData: { weeklyIncome: number[]; weeklyMax: number }
-	) {
-		const nextFingerprint = computeDashboardPayloadFingerprint(data, nextBestSellers, weeklyData);
-		if (nextFingerprint === lastDashboardPayloadFingerprint) {
-			return;
-		}
-
-		lastDashboardPayloadFingerprint = nextFingerprint;
-		applyDashboardData(data);
-		bestSellers = nextBestSellers || [];
-		weeklyIncome = weeklyData?.weeklyIncome || [];
-		weeklyMax = weeklyData?.weeklyMax || 1;
-	}
-
-	// Manual refresh function (for testing)
+	// [CATATAN]: Manual refresh function (for testing)
 	async function refreshDashboardData() {
-		await loadDashboardData();
+		await dashboard.refreshDashboardData();
 	}
 
-	// Removed fetchPin()
+	let modalAwal = $state<number | null>(null);
 
-	// Data dummy, nanti diisi dari Supabase
-	let modalAwal: number | null = null;
-
-	// Touch handling variables
-	let touchStartX = 0;
-	let touchStartY = 0;
-	let touchEndX = 0;
-	let touchEndY = 0;
-	let isSwiping = false;
-	let isTouchDevice = false;
-	let clickBlocked = false;
-
-	const navs = [
-		{ label: 'Beranda', path: '/' },
-		{ label: 'Kasir', path: '/pos' },
-		{ label: 'Catat', path: '/catat' },
-		{ label: 'Laporan', path: '/laporan' }
-	];
-
-	// Removed 'stats' array
-
-	let imageError: Record<number, boolean> = {};
+	let imageError = $state<Record<number, boolean>>({});
 
 	function handleImgError(index: number) {
 		imageError[index] = true;
 	}
 
-	// Hapus deklarasi let days = ...
-	// Tambahkan fungsi untuk generate label hari dinamis
-	function getLast7DaysLabels() {
-		const hari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-		const today = new Date();
-		let labels = [];
-		for (let i = 6; i >= 0; i--) {
-			const d = new Date(today);
-			d.setDate(today.getDate() - i);
-			labels.push(hari[d.getDay()]);
-		}
-		return labels;
+	function formatStok(val: number): string {
+		if (val === undefined || val === null || isNaN(val)) return '0';
+		const rounded = Math.round(Number(val) * 100) / 100;
+		return rounded.toString();
 	}
 
 	function getLast7DaysLabelsWITA() {
 		const hari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-		const todayWITA = getTodayWITA();
+		const todayWITA = getTodayWitaDate();
 		let labels = [];
 		for (let i = 6; i >= 0; i--) {
 			const d = new Date(todayWITA);
@@ -359,68 +129,93 @@
 		return labels;
 	}
 
-	// Removed PIN Modal State (showPinModal, pin, isClosing)
+	// [CATATAN]: Toast notification — use shared createToastManager
+	const toastManager = createToastManager();
 
-	// Toast notification state
-	let showToast = false;
-	let toastMessage = '';
-	let toastType: 'success' | 'error' | 'warning' | 'info' = 'success';
-
+	// [CATATAN]: Shim for local callers that expect showToastNotification(msg, type)
 	function showToastNotification(
 		message: string,
 		type: 'success' | 'error' | 'warning' | 'info' = 'success'
 	) {
-		toastMessage = message;
-		toastType = type;
-		showToast = true;
+		toastManager.showToastNotification(message, type);
 	}
 
-	let showTokoModal = false;
-	let isBukaToko = true; // true: buka toko, false: tutup toko
-// Verifikasi PIN untuk aksi kasir (buka/tutup)
-let showActionPinModal = false;
-let actionPin = '1234';
-let modalAwalInput = '';
-let pinInputToko = '';
-let pinErrorToko = '';
-let tokoAktifLocal = false;
-let sesiAktif: {
-		id: string;
-		opening_cash: number;
-		opening_time: string;
-		is_active: boolean;
-	} | null = null;
-let ringkasanTutup: {
-		modalAwal: number;
-		totalPenjualan: number;
-		pemasukanTunai: number;
-		pengeluaranTunai: number;
-		uangKasir: number;
-	} = {
+	let showTokoModal = $state(false);
+	let isBukaToko = $state(true); // true: buka toko, false: tutup toko
+	// [CATATAN]: Verifikasi PIN untuk aksi kasir (buka/tutup)
+	let showActionPinModal = $state(false);
+	let modalAwalInput = $state('');
+	let pinInputToko = $state('');
+	let pinErrorToko = $state('');
+	let tokoAktifLocal = $state(false);
+	let sesiAktif = $state<TokoSession | null>(null);
+	let sesiKasSummary = $state({
 		modalAwal: 0,
 		totalPenjualan: 0,
 		pemasukanTunai: 0,
+		pemasukanNonTunai: 0,
 		pengeluaranTunai: 0,
 		uangKasir: 0
-	};
+	});
 
 	function updateTokoAktif(val: boolean) {
 		tokoAktifLocal = val;
-		// window.tokoAktif removed
 	}
 
 	async function cekSesiToko() {
-		const { data } = await dataService.supabaseClient
-			.from('sesi_toko')
-			.select('*')
-			.eq('is_active', true)
-			.order('opening_time', { ascending: false })
-			.limit(1)
-			.maybeSingle();
-		sesiAktif = data || null;
+		sesiAktif = await getSesiAktif();
 		updateTokoAktif(!!sesiAktif);
-		// Update modalAwal agar box di beranda selalu sinkron
-		modalAwal = sesiAktif?.opening_cash ?? null;
+		modalAwal = sesiAktif?.kas_awal ?? null;
+
+		if (sesiAktif?.id) {
+			try {
+				const kasRaw = (await transactionService.getRows('buku_kas', {
+					id_sesi_toko: sesiAktif.id
+				})) as unknown as BukuKasRecord[];
+				const kas: BukuKasRecord[] = Array.isArray(kasRaw) ? kasRaw : [];
+				const penjualanTunai = kas
+					.filter((t) => t.tipe === 'in' && t.metode_bayar === 'tunai')
+					.reduce((a, b) => a + (b.nominal || 0), 0);
+				const penjualanNonTunai = kas
+					.filter((t) => t.tipe === 'in' && t.metode_bayar !== 'tunai')
+					.reduce((a, b) => a + (b.nominal || 0), 0);
+				const pengeluaranTunai = kas
+					.filter((t) => t.tipe === 'out' && t.metode_bayar === 'tunai')
+					.reduce((a, b) => a + (b.nominal || 0), 0);
+				const modalAwalValue = sesiAktif.kas_awal || 0;
+				const totalPenjualan = kas
+					.filter((t) => t.tipe === 'in')
+					.reduce((a, b) => a + (b.nominal || 0), 0);
+				const uangKasir = modalAwalValue + penjualanTunai - pengeluaranTunai;
+
+				sesiKasSummary = {
+					modalAwal: modalAwalValue,
+					totalPenjualan,
+					pemasukanTunai: penjualanTunai,
+					pemasukanNonTunai: penjualanNonTunai,
+					pengeluaranTunai,
+					uangKasir
+				};
+			} catch {
+				sesiKasSummary = {
+					modalAwal: modalAwal ?? 0,
+					totalPenjualan: 0,
+					pemasukanTunai: 0,
+					pemasukanNonTunai: 0,
+					pengeluaranTunai: 0,
+					uangKasir: modalAwal ?? 0
+				};
+			}
+		} else {
+			sesiKasSummary = {
+				modalAwal: 0,
+				totalPenjualan: 0,
+				pemasukanTunai: 0,
+				pemasukanNonTunai: 0,
+				pengeluaranTunai: 0,
+				uangKasir: 0
+			};
+		}
 	}
 
 	onMount(() => {
@@ -436,244 +231,43 @@ let ringkasanTutup: {
 	});
 
 	function handleOpenTokoModal() {
-		// Jika kasir, wajib verifikasi PIN dahulu (PIN dari pengaturan/securitySettings)
+		// [CATATAN]: Jika kasir, wajib verifikasi PIN di server dahulu.
 		if (currentUserRole === 'kasir') {
-			const settingsVal: any = storeGet(securitySettings);
-			actionPin = (settingsVal && settingsVal.pin) || '1234';
 			pendingAction = () => {
 				cekSesiToko().then(() => {
 					isBukaToko = !tokoAktifLocal;
 					showTokoModal = true;
-					modalAwalInput = '';
-					pinInputToko = '';
-					pinErrorToko = '';
-					if (!isBukaToko) hitungRingkasanTutup();
 				});
 			};
 			showActionPinModal = true;
 			return;
 		}
-		// Non-kasir langsung buka modal
+		// [CATATAN]: Non-kasir langsung buka modal
 		cekSesiToko().then(() => {
 			isBukaToko = !tokoAktifLocal;
 			showTokoModal = true;
-			modalAwalInput = '';
-			pinInputToko = '';
-			pinErrorToko = '';
-			if (!isBukaToko) hitungRingkasanTutup();
 		});
 	}
 
-	// Pending action setelah PIN benar
-	let pendingAction: (() => void) | null = null;
+	// [CATATAN]: Pending action setelah PIN benar
+	let pendingAction = $state<(() => void) | null>(null);
 
-function handleActionPinSuccess() {
-	showActionPinModal = false;
-	if (pendingAction) pendingAction();
-	pendingAction = null;
-}
-
-function handleActionPinClose() {
-	showActionPinModal = false;
-	pendingAction = null;
-}
-
-	async function handleBukaToko() {
-		const modalAwalRaw = Number((modalAwalInput || '').replace(/\D/g, ''));
-		if (!modalAwalRaw || isNaN(modalAwalRaw) || modalAwalRaw < 0) {
-			pinErrorToko = 'Modal awal wajib diisi dan valid';
-			return;
-		}
-		await dataService.supabaseClient.from('sesi_toko').insert({
-			opening_cash: modalAwalRaw,
-			opening_time: witaToUtcISO(getTodayWita(), getNowWita().split('T')[1]),
-			is_active: true
-		});
-		showTokoModal = false;
-		cekSesiToko();
+	function handleActionPinSuccess() {
+		showActionPinModal = false;
+		if (pendingAction) pendingAction();
+		pendingAction = null;
 	}
 
-	async function hitungRingkasanTutup() {
-		if (!sesiAktif) return;
-		const { data: kasRaw } = await dataService.supabaseClient
-			.from('buku_kas')
-			.select('*')
-			.eq('id_sesi_toko', sesiAktif.id);
-		type Kas = {
-			payment_method?: string;
-			tipe?: string;
-			amount?: number;
-			transaction_date?: string;
-			id_sesi_toko?: string;
-			sumber?: string;
-		};
-		let kas: Kas[] = Array.isArray(kasRaw) ? kasRaw : [];
-
-		// Penjualan tunai (semua pemasukan tunai)
-		const penjualanTunai = kas
-			.filter((t) => t.tipe === 'in' && t.payment_method === 'tunai')
-			.reduce((a, b) => a + (b.amount || 0), 0);
-		// Pengeluaran tunai
-		const pengeluaranTunai = kas
-			.filter((t) => t.tipe === 'out' && t.payment_method === 'tunai')
-			.reduce((a, b) => a + (b.amount || 0), 0);
-		const modalAwal = sesiAktif.opening_cash || 0;
-		// Total penjualan = semua pemasukan (in) dari sumber pos
-		const totalPenjualan = kas
-			.filter((t) => t.tipe === 'in' && t.sumber === 'pos')
-			.reduce((a, b) => a + (b.amount || 0), 0);
-		// Uang kasir seharusnya
-		const uangKasir = modalAwal + penjualanTunai - pengeluaranTunai;
-		ringkasanTutup = {
-			modalAwal,
-			totalPenjualan,
-			pemasukanTunai: penjualanTunai,
-			pengeluaranTunai,
-			uangKasir
-		};
+	function handleActionPinClose() {
+		showActionPinModal = false;
+		pendingAction = null;
 	}
 
-	async function handleTutupToko() {
-		if (!sesiAktif) return;
-		await dataService.supabaseClient
-			.from('sesi_toko')
-			.update({
-				closing_time: witaToUtcISO(getTodayWita(), getNowWita().split('T')[1]),
-				is_active: false
-			})
-			.eq('id', sesiAktif.id);
-		showTokoModal = false;
-		cekSesiToko();
-	}
-
-	function handleTouchStart(e: TouchEvent) {
-		if (!isTouchDevice) return;
-
-		// Don't handle touch on interactive elements
-		const target = e.target as HTMLElement;
-		if (
-			target.tagName === 'BUTTON' ||
-			target.tagName === 'INPUT' ||
-			target.tagName === 'A' ||
-			target.closest('button') ||
-			target.closest('input') ||
-			target.closest('a')
-		) {
-			return;
-		}
-
-		touchStartX = e.touches[0].clientX;
-		touchStartY = e.touches[0].clientY;
-		isSwiping = false;
-		clickBlocked = false;
-	}
-
-	function handleTouchMove(e: TouchEvent) {
-		if (!isTouchDevice) return;
-
-		// Don't handle touch on interactive elements
-		const target = e.target as HTMLElement;
-		if (
-			target.tagName === 'BUTTON' ||
-			target.tagName === 'INPUT' ||
-			target.tagName === 'A' ||
-			target.closest('button') ||
-			target.closest('input') ||
-			target.closest('a')
-		) {
-			return;
-		}
-		if (browser) {
-			touchEndX = e.touches[0].clientX;
-			touchEndY = e.touches[0].clientY;
-			const deltaX = Math.abs(touchEndX - touchStartX);
-			const deltaY = Math.abs(touchEndY - touchStartY);
-			const viewportWidth = window.innerWidth;
-			const swipeThreshold = viewportWidth * 0.25; // 25% of viewport width (sama dengan pengaturan/pemilik)
-			if (deltaX > swipeThreshold && deltaX > deltaY) {
-				isSwiping = true;
-				clickBlocked = true;
-			}
-		}
-	}
-
-	function handleTouchEnd(e: TouchEvent) {
-		if (!isTouchDevice) return;
-
-		// Don't handle touch on interactive elements
-		const target = e.target as HTMLElement;
-		if (
-			target.tagName === 'BUTTON' ||
-			target.tagName === 'INPUT' ||
-			target.tagName === 'A' ||
-			target.closest('button') ||
-			target.closest('input') ||
-			target.closest('a')
-		) {
-			return;
-		}
-
-		if (browser && isSwiping) {
-			// Handle swipe navigation
-			const deltaX = touchEndX - touchStartX;
-			const viewportWidth = window.innerWidth;
-			const swipeThreshold = viewportWidth * 0.25; // 25% of viewport width (sama dengan pengaturan/pemilik)
-
-			if (Math.abs(deltaX) > swipeThreshold) {
-				const currentIndex = 0; // Beranda is index 0
-				if (deltaX > 0 && currentIndex > 0) {
-					// Swipe right - go to previous tab
-					goto(navs[currentIndex - 1].path);
-				} else if (deltaX < 0 && currentIndex < navs.length - 1) {
-					// Swipe left - go to next tab
-					goto(navs[currentIndex + 1].path);
-				}
-			}
-
-			// Block any subsequent click events
-			setTimeout(() => {
-				clickBlocked = false;
-			}, 100);
-		}
-	}
-
-	function handleGlobalClick(e: Event) {
-		if (clickBlocked) {
-			e.preventDefault();
-			e.stopPropagation();
-			return;
-		}
-	}
-
-	// New function to format modalAwalInput to Rupiah format
-	function formatModalAwalInput(e: Event) {
-		let value = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, ''); // Remove non-numeric characters
-		if (value.length > 0) {
-			value = Number(value).toLocaleString('id-ID'); // Format as Rupiah
-		}
-		modalAwalInput = value;
-	}
-
-	// New function to get the raw number from formatted input
-	function getModalAwalInputRaw() {
-		return Number(modalAwalInput.replace(/\./g, '')); // Remove dots and convert to number
-	}
-
-	// New function to set the raw number to formatted input
-	function getModalAwalInputFormatted() {
-		return modalAwalInput;
-	}
-
-	// New function to set the formatted value for binding
-	function setModalAwalInputFormatted(value: string) {
-		modalAwalInput = value;
-	}
-
-	let hideTopbar = false;
-	let topbarRef: HTMLDivElement | null = null;
-	let sentinelRef: HTMLDivElement | null = null;
+	let hideTopbar = $state(false);
+	let topbarRef = $state<HTMLDivElement | null>(null);
+	let sentinelRef = $state<HTMLDivElement | null>(null);
 	onMount(() => {
-		// Observer untuk sticky topbar
+		// [CATATAN]: Observer untuk sticky topbar
 		if (sentinelRef && topbarRef) {
 			const observer = new window.IntersectionObserver(
 				(entries) => {
@@ -685,300 +279,650 @@ function handleActionPinClose() {
 		}
 	});
 
-	// Fungsi untuk mendapatkan tanggal hari ini WITA (tanpa jam)
-	function getTodayWITA() {
-		// Ambil waktu sekarang di Asia/Makassar (WITA)
-		const now = new Date();
+	// [CATATAN]: Fungsi untuk mendapatkan tanggal hari ini WITA (tanpa jam)
+	function getTodayWitaDate() {
+		// [CATATAN]: Ambil waktu sekarang di Asia/Makassar (WITA)
 		const witaString = getNowWita();
 		const witaDate = new Date(witaString);
 		witaDate.setHours(0, 0, 0, 0); // Set ke jam 00:00:00
 		return witaDate;
 	}
 
-	// Inisialisasi range 7 hari terakhir berdasarkan hari WITA
-	const todayWITA = getTodayWITA();
-	const sevenDaysAgoWITA = new Date(todayWITA);
-	sevenDaysAgoWITA.setDate(todayWITA.getDate() - 6); // 6 hari ke belakang + hari ini = 7 hari
-	const startDate = sevenDaysAgoWITA.toISOString().slice(0, 10) + 'T00:00:00.000Z';
-
-	let selectedBarIndex: number | null = null;
-	let showBarInsight = false;
-	let barHoldTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	function handleBarPointerDown(i: number) {
-		barHoldTimeout = setTimeout(() => {
-			selectedBarIndex = i;
-			showBarInsight = true;
-		}, 120); // Sedikit delay agar tidak accidental tap
-	}
-
-	function handleBarPointerUp() {
-		if (barHoldTimeout) clearTimeout(barHoldTimeout);
-		showBarInsight = false;
-		selectedBarIndex = null;
-	}
+	// [CATATAN]: Inisialisasi range 7 hari terakhir berdasarkan hari WITA
+	const todayWitaDate = getTodayWitaDate();
+	const sevenDaysAgoWita = new Date(todayWitaDate);
+	sevenDaysAgoWita.setDate(todayWitaDate.getDate() - 6); // 6 hari ke belakang + hari ini = 7 hari
 </script>
 
 <!-- PinModal removed -->
 
 <!-- Toast Notification -->
 <ToastNotification
-	show={showToast}
-	message={toastMessage}
-	type={toastType}
-	duration={2000}
+	show={toastManager.showToast}
+	message={toastManager.toastMessage}
+	type={toastManager.toastType}
 	position="top"
 />
 
 {#if showActionPinModal}
 	<PinModal
 		show={showActionPinModal}
-		pin={actionPin}
 		title="Verifikasi Aksi"
 		subtitle="Masukkan PIN untuk melanjutkan"
-		on:success={handleActionPinSuccess}
-		on:close={handleActionPinClose}
+		onVerify={(pin) => verifyPagePin(pin, 'beranda')}
+		onSuccess={handleActionPinSuccess}
+		onClose={handleActionPinClose}
 	/>
 {/if}
 
 <!-- Modal Buka/Tutup Toko -->
-{#if showTokoModal}
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<TokoModal bind:show={showTokoModal} {isBukaToko} {sesiAktif} onTokoStatusChanged={cekSesiToko} />
+
+<div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
+	<!-- Fluid Wave Header for Beranda (Identical to Laporan, Catat, Stok) -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-		onclick={() => (showTokoModal = false)}
-		onkeydown={(e) => e.key === 'Escape' && (showTokoModal = false)}
-		role="dialog"
-		aria-modal="true"
-		aria-label="Modal buka tutup toko"
-		onkeyup={(e) => e.key === 'Enter' && (showTokoModal = false)}
-		tabindex="-1"
-		onkeypress={(e) => e.key === 'Enter' && (showTokoModal = false)}
+		class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-12 shadow-xl shadow-pink-500/15 md:pt-6 md:pb-14"
 	>
+		<!-- Ambient background blur shapes -->
 		<div
-			class="modal-slideup mx-auto box-border w-full max-w-[95vw] rounded-2xl bg-white p-8 shadow-2xl md:p-12 lg:max-w-lg lg:p-10 xl:max-w-xl xl:p-12 2xl:max-w-2xl 2xl:p-16"
-			onclick={(event) => event.stopPropagation()}
-			role="document"
-		>
-			{#if isBukaToko}
-				<div class="mb-4 flex flex-col items-center">
-					<div class="mb-2 text-4xl">🍹</div>
-					<h2 class="mb-1 text-xl font-bold text-pink-500">Buka Toko</h2>
-					<div class="mb-2 text-sm text-gray-400">Yuk, buka toko dan mulai hari ini.</div>
-				</div>
-				<div class="mb-4">
-					<div class="relative">
-						<span
-							class="absolute top-1/2 left-4 -translate-y-1/2 font-semibold text-pink-400 select-none"
-							>Rp</span
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
+
+		<div class="mx-auto w-full max-w-5xl">
+			<!-- Top Brand Row (Official Zatiaras Logo & Profile) -->
+			<div class="relative z-10 flex items-center justify-between pb-3 md:pb-4">
+				<div class="flex items-center gap-3">
+					<TopBarAiAssistant />
+					<div class="flex flex-col">
+						<h1
+							class="text-base leading-tight font-bold tracking-tight text-white drop-shadow-xs md:text-lg"
 						>
-						<input
-							type="text"
-							inputmode="numeric"
-							pattern="[0-9]*"
-							min="0"
-							bind:value={modalAwalInput}
-							oninput={formatModalAwalInput}
-							class="w-full rounded-xl border-2 border-pink-200 bg-pink-50 py-3 pr-4 pl-12 text-lg font-bold text-gray-800 placeholder-pink-300 shadow-sm transition outline-none focus:ring-2 focus:ring-pink-300"
-							placeholder="Modal awal kas hari ini"
-						/>
+							Zatiaras Juice
+						</h1>
+						<span class="text-[11px] font-medium text-white/85 md:text-xs">Samarinda</span>
 					</div>
 				</div>
-				{#if pinErrorToko}
-					<div
-						class="fixed top-20 left-1/2 z-50 rounded-xl bg-red-500 px-6 py-3 text-white shadow-lg transition-all duration-300 ease-out"
-						style="transform: translateX(-50%);"
-						in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-						out:fade={{ duration: 200 }}
+
+				<div class="flex items-center gap-2">
+					<!-- Settings Icon Button -->
+					<a
+						href="/pengaturan"
+						aria-label="Pengaturan"
+						class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 md:h-10 md:w-10"
 					>
-						{pinErrorToko}
-					</div>
-				{/if}
-				<button
-					class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-pink-400 py-3 text-lg font-extrabold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-100"
-					onclick={handleBukaToko}
-				>
-					<span class="text-2xl">🍹</span>
-					<span>Buka Toko Sekarang</span>
-				</button>
-			{:else}
-				<div class="mb-4 flex flex-col items-center">
-					<div class="mb-2 text-4xl">🔒</div>
-					<h2 class="mb-1 text-xl font-bold text-pink-500">Tutup Toko</h2>
-					<div class="mb-2 text-center text-sm text-gray-400">
-						Terima kasih atas kerja keras hari ini! Cek ringkasan sebelum tutup toko.
-					</div>
+						<Settings size={18} class="stroke-[2.2]" />
+					</a>
 				</div>
-				<div class="mb-4 space-y-3 text-base text-gray-700">
+			</div>
+
+			<!-- Banner Status Toko (Buka / Tutup) -->
+			<button
+				type="button"
+				onclick={handleOpenTokoModal}
+				class="relative z-10 flex w-full cursor-pointer items-center justify-between rounded-full px-4 py-2.5 text-left shadow-md shadow-pink-950/10 transition-all duration-150 hover:shadow-lg active:scale-[0.98] md:mx-auto md:max-w-xl md:px-5 md:py-3 {tokoAktifLocal
+					? 'border border-emerald-300/70 bg-emerald-50/95 backdrop-blur-md'
+					: 'border border-rose-200/70 bg-white/95 backdrop-blur-md'}"
+			>
+				<div class="flex min-w-0 items-center gap-3">
 					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-xs md:h-10 md:w-10 {tokoAktifLocal
+							? 'bg-emerald-500'
+							: 'bg-rose-500'}"
 					>
-						<span>Modal Awal</span><span>Rp {ringkasanTutup.modalAwal.toLocaleString('id-ID')}</span
-						>
+						<Store size={18} class="stroke-[2.2]" />
 					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Total Penjualan</span><span
-							>Rp {ringkasanTutup.totalPenjualan.toLocaleString('id-ID')}</span
-						>
-					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Pemasukan Tunai</span><span
-							>Rp {ringkasanTutup.pemasukanTunai.toLocaleString('id-ID')}</span
-						>
-					</div>
-					<div
-						class="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50 px-4 py-3 font-semibold"
-					>
-						<span>Pengeluaran Tunai</span><span
-							>Rp {ringkasanTutup.pengeluaranTunai.toLocaleString('id-ID')}</span
-						>
-					</div>
-					<div class="mb-1 flex flex-col items-center">
-						<div class="mb-1 text-center text-base font-bold text-pink-600 md:text-lg">
-							Uang Kasir Seharusnya
-						</div>
-						<div
-							class="mx-8 flex w-full max-w-xs flex-col items-center justify-center rounded-xl border-2 border-pink-400 bg-white px-2 py-5 shadow-sm md:mx-16"
-						>
-							<div class="mb-1 text-4xl">💸</div>
+					<div class="flex min-w-0 flex-col">
+						<div class="flex items-center gap-1.5 leading-tight">
+							<span class="truncate text-xs font-bold tracking-tight text-slate-900 md:text-sm">
+								{tokoAktifLocal ? 'Kios Buka' : 'Kios Tutup'}
+							</span>
 							<span
-								class="animate-glow text-2xl font-extrabold whitespace-nowrap text-pink-600 md:text-3xl"
-								>Rp {ringkasanTutup.uangKasir.toLocaleString('id-ID')}</span
+								class="inline-block h-2 w-2 shrink-0 rounded-full {tokoAktifLocal
+									? 'animate-pulse bg-emerald-500'
+									: 'bg-rose-500'}"
+							></span>
+						</div>
+						<span class="mt-0.5 truncate text-[11px] font-medium text-slate-500 md:text-xs">
+							{#if tokoAktifLocal}
+								Modal Kas: <span class="font-bold text-emerald-800"
+									>{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}</span
+								>
+							{:else}
+								Belum ada sesi kasir aktif
+							{/if}
+						</span>
+					</div>
+				</div>
+
+				<span
+					class="ml-2 shrink-0 text-xs font-bold transition-all md:text-sm {tokoAktifLocal
+						? 'text-slate-400 hover:text-slate-600'
+						: 'text-pink-600 hover:text-pink-700'}"
+				>
+					{tokoAktifLocal ? 'Tutup Sesi ›' : 'Buka Sesi →'}
+				</span>
+			</button>
+		</div>
+	</div>
+
+	<main
+		aria-label="Dashboard"
+		class="page-content relative z-20 -mt-6 min-h-0 w-full max-w-full flex-1 overflow-x-hidden px-4"
+		style="scrollbar-width:none;-ms-overflow-style:none;"
+	>
+		<div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pb-8 md:pb-12">
+			<!-- Metrik Utama -->
+			<DashboardMetrics
+				itemTerjual={dashboard.itemTerjual}
+				jumlahTransaksi={dashboard.jumlahTransaksi}
+				omzet={dashboard.omzet}
+				{modalAwal}
+				avgTransaksi={dashboard.avgTransaksi}
+				jamRamai={dashboard.jamRamai}
+			/>
+
+			<!-- Snippet Definitions for Dashboard Modules -->
+			{#snippet bestSellersModule()}
+				<!-- Menu Terlaris (Peringkat Penjualan) -->
+				<div>
+					<div class="mb-2.5 flex items-center justify-between px-1">
+						<div>
+							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+								Peringkat Penjualan
+							</div>
+							<div class="text-sm font-bold text-slate-900 sm:text-base">Menu Terlaris</div>
+						</div>
+						{#if dashboard.bestSellers.length > 0}
+							<span
+								class="rounded-full border border-pink-100 bg-pink-50 px-2.5 py-0.5 text-[11px] font-bold text-pink-700"
 							>
-							<div class="mt-2 text-center text-xs text-gray-400">
-								Pastikan uang kasir sesuai sebelum tutup toko
+								{dashboard.bestSellers.length} Menu
+							</span>
+						{/if}
+					</div>
+					{#if dashboard.isLoadingBestSellers}
+						<div class="flex flex-col gap-2.5">
+							{#each Array(3) as _}
+								<div
+									class="flex animate-pulse items-center gap-3.5 rounded-[24px] bg-white p-3.5 shadow-xs"
+								>
+									<div class="h-12 w-12 rounded-[18px] bg-slate-100"></div>
+									<div class="min-w-0 flex-1">
+										<div class="mb-2 h-4 w-32 rounded bg-slate-100"></div>
+										<div class="h-3 w-20 rounded bg-slate-100"></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else if dashboard.errorBestSellers}
+						<div
+							class="glass-card rounded-[24px] py-6 text-center text-xs font-bold text-rose-500 shadow-sm"
+						>
+							{dashboard.errorBestSellers}
+						</div>
+					{:else if dashboard.bestSellers.length === 0}
+						<div
+							class="glass-card rounded-[24px] py-8 text-center text-xs font-medium text-slate-400 shadow-sm"
+						>
+							Belum ada data transaksi menu terlaris
+						</div>
+					{:else}
+						<div class="flex flex-col gap-2.5">
+							{#each dashboard.bestSellers.slice(0, 5) as m, i}
+								<div
+									class="soft-float-card relative flex items-center justify-between overflow-visible p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99]"
+								>
+									{#if i === 0}
+										<!-- Crown Gimmick -->
+										<div
+											class="pointer-events-none absolute -top-3.5 -left-2 z-10 flex h-7 w-7 -rotate-[18deg] items-center justify-center drop-shadow-sm"
+											title="Peringkat 1 Terlaris"
+										>
+											<Crown size={22} class="fill-amber-400 stroke-[2.2] text-amber-500" />
+										</div>
+									{/if}
+
+									<div class="flex min-w-0 items-center gap-3">
+										<!-- Rank Medal -->
+										<RankMedal rank={i + 1} />
+
+										<!-- Product Image / Icon -->
+										<div
+											class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-pink-100/60 bg-pink-50/70 text-2xl"
+										>
+											{#if m.image && !imageError[i]}
+												<img
+													class="h-full w-full object-cover"
+													src={m.image}
+													alt={m.nama}
+													onerror={() => handleImgError(i)}
+												/>
+											{:else}
+												<CupIcon class="h-6 w-6 text-pink-500" strokeWidth={2} />
+											{/if}
+										</div>
+
+										<!-- Title -->
+										<div class="min-w-0 flex-1">
+											<h4 class="truncate text-sm leading-tight font-bold text-slate-900">
+												{m.nama}
+											</h4>
+											<span class="text-[11px] font-medium text-slate-400">Favorit Pelanggan</span>
+										</div>
+									</div>
+
+									<!-- Sold Count Pill -->
+									<div class="shrink-0 pl-2">
+										<span
+											class="inline-flex items-center rounded-full border border-pink-100 bg-pink-50 px-3 py-1 text-xs font-bold text-pink-700"
+										>
+											{m.total_qty ?? 0}
+											<span class="ml-1 text-[10px] font-semibold text-slate-400">terjual</span>
+										</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/snippet}
+
+			{#snippet weeklyChartModule()}
+				<!-- Grafik 7 Hari Terakhir -->
+				{#if currentUserRole === 'pemilik' || currentUserRole === 'admin'}
+					<WeeklyChart weeklyIncome={dashboard.weeklyIncome} weeklyMax={dashboard.weeklyMax} />
+				{/if}
+			{/snippet}
+
+			{#snippet operationalStatsModule()}
+				{@const payTunai = sesiKasSummary.pemasukanTunai || dashboard.penjualanTunai || 0}
+				{@const payNonTunai = sesiKasSummary.pemasukanNonTunai || dashboard.penjualanNonTunai || 0}
+				{@const totalPay = payTunai + payNonTunai}
+				<!-- Statistik Operasional (2x2 Grid) -->
+				<div>
+					<div class="mb-2.5 px-1">
+						<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+							Metrik Kios
+						</div>
+						<div class="text-sm font-bold text-slate-900 sm:text-base">Statistik Operasional</div>
+					</div>
+					<div class="grid grid-cols-2 gap-3 sm:grid-cols-2">
+						<!-- Card 1: Rata-rata per Transaksi -->
+						<div
+							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
+						>
+							<div class="flex items-center justify-between">
+								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+									Rata-Rata Nota
+								</span>
+								<div
+									class="flex h-8 w-8 items-center justify-center rounded-xl border border-pink-100/80 bg-pink-50 text-pink-600 shadow-2xs"
+								>
+									<Receipt size={16} class="stroke-[2.2]" />
+								</div>
+							</div>
+							<div class="mt-2.5">
+								<div
+									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
+								>
+									{dashboard.jumlahTransaksi && dashboard.omzet
+										? `Rp ${formatRupiah(Math.round(dashboard.omzet / dashboard.jumlahTransaksi))}`
+										: 'Rp 0'}
+								</div>
+								<div class="mt-0.5 text-[11px] font-medium text-slate-400">per transaksi</div>
+							</div>
+						</div>
+
+						<!-- Card 2: Volume Cup per Nota -->
+						<div
+							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
+						>
+							<div class="flex items-center justify-between">
+								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+									Volume Cup
+								</span>
+								<div
+									class="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-100/80 bg-rose-50 text-rose-600 shadow-2xs"
+								>
+									<Coffee size={16} class="stroke-[2.2]" />
+								</div>
+							</div>
+							<div class="mt-2.5">
+								<div
+									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
+								>
+									{dashboard.avgTransaksi ?? '--'}
+									<span class="text-xs font-bold text-slate-400">cup</span>
+								</div>
+								<div class="mt-0.5 text-[11px] font-medium text-slate-400">rata-rata per nota</div>
+							</div>
+						</div>
+
+						<!-- Card 3: Jam Paling Ramai -->
+						<div
+							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
+						>
+							<div class="flex items-center justify-between">
+								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+									Jam Ramai
+								</span>
+								<div
+									class="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-100/80 bg-amber-50 text-amber-600 shadow-2xs"
+								>
+									<ClockIcon size={16} class="stroke-[2.2]" />
+								</div>
+							</div>
+							<div class="mt-2.5">
+								<div
+									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
+								>
+									{dashboard.jamRamai || '--'}
+								</div>
+								<div class="mt-0.5 text-[11px] font-medium text-slate-400">waktu terpadat</div>
+							</div>
+						</div>
+
+						<!-- Card 4: Rasio Pembayaran (QRIS vs Tunai) -->
+						<div
+							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
+						>
+							<div class="flex items-center justify-between">
+								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+									Metode Bayar
+								</span>
+								<div
+									class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100/80 bg-emerald-50 text-emerald-600 shadow-2xs"
+								>
+									<CreditCard size={16} class="stroke-[2.2]" />
+								</div>
+							</div>
+							<div class="mt-2.5">
+								{#if totalPay > 0}
+									{@const pctNonTunai = Math.round((payNonTunai / totalPay) * 100)}
+									{@const pctTunai = 100 - pctNonTunai}
+									<!-- Segmented Visual Bar -->
+									<div
+										class="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5 ring-1 ring-slate-200/50"
+									>
+										{#if pctNonTunai > 0}
+											<div
+												class="h-full rounded-l-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+												style="width: {pctNonTunai}%"
+												title="QRIS {pctNonTunai}%"
+											></div>
+										{/if}
+										{#if pctTunai > 0}
+											<div
+												class="h-full {pctNonTunai > 0
+													? 'rounded-r-full'
+													: 'rounded-full'} bg-gradient-to-r from-pink-500 to-rose-500 transition-all duration-500"
+												style="width: {pctTunai}%"
+												title="Tunai {pctTunai}%"
+											></div>
+										{/if}
+									</div>
+									<div class="mt-1.5 flex items-center justify-between text-[11px] font-black">
+										<span class="flex items-center gap-1 text-emerald-700">
+											<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+											QRIS {pctNonTunai}%
+										</span>
+										<span class="flex items-center gap-1 text-pink-600">
+											<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+											Tunai {pctTunai}%
+										</span>
+									</div>
+								{:else}
+									<div class="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5">
+										<div class="h-full w-1/2 rounded-l-full bg-slate-200/60"></div>
+										<div class="h-full w-1/2 rounded-r-full bg-slate-200/40"></div>
+									</div>
+									<div
+										class="mt-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400"
+									>
+										<span>QRIS 0%</span>
+										<span>Tunai 0%</span>
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
 				</div>
-				<button
-					class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-pink-400 py-3 text-lg font-extrabold text-white shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-100"
-					onclick={handleTutupToko}
-				>
-					<span class="text-2xl">🔒</span>
-					<span>Tutup Toko Sekarang</span>
-				</button>
-			{/if}
-		</div>
-	</div>
-{/if}
+			{/snippet}
 
-<!-- Top Bar Status Toko -->
-<div class="relative min-h-[64px] w-full overflow-hidden md:mx-0">
-	{#key tokoAktifLocal}
-		<div
-			bind:this={topbarRef}
-			class="absolute top-0 left-0 flex w-full items-center justify-between gap-4 bg-gradient-to-r from-pink-400 to-pink-500 px-4 py-3 text-white transition-transform duration-500 ease-in-out"
-			style="height:64px"
-			in:fly={{ x: -64, duration: 350 }}
-			out:fly={{ x: 64, duration: 350 }}
-		>
-			<div class="flex items-center gap-3">
-				<span class="text-3xl md:text-4xl">{tokoAktifLocal ? '🍹' : '🔒'}</span>
-				<div class="flex flex-col">
-					<span class="text-base font-extrabold tracking-wide md:text-lg"
-						>{tokoAktifLocal ? 'Toko Sedang Buka' : 'Toko Sedang Tutup'}</span
-					>
-					<span class="text-xs opacity-80 md:text-sm"
-						>{tokoAktifLocal ? 'Siap melayani pelanggan' : 'Belum menerima transaksi'}</span
-					>
+			{#snippet cashFlowModule()}
+				<!-- Ringkasan Kas di Laci / Status Sesi Kasir -->
+				<div class="soft-float-card relative overflow-hidden p-4.5 sm:p-5">
+					<div class="mb-3 flex items-center justify-between">
+						<div>
+							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+								Arus Kas Fisik
+							</div>
+							<div class="text-sm font-bold text-slate-900 sm:text-base">Estimasi Kas di Laci</div>
+						</div>
+						<button
+							type="button"
+							onclick={handleOpenTokoModal}
+							class="flex cursor-pointer items-center gap-1 rounded-full border border-pink-100 bg-pink-50 px-2.5 py-1 text-xs font-bold text-pink-700 transition-all hover:bg-pink-100 active:scale-95"
+						>
+							<span>{tokoAktifLocal ? 'Kelola Sesi ›' : 'Buka Kios →'}</span>
+						</button>
+					</div>
+
+					<div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
+						<div class="flex items-center justify-between text-xs">
+							<span class="font-medium text-slate-500">Modal Kas Awal</span>
+							<span class="font-bold text-slate-800">
+								{modalAwal !== null ? `Rp ${formatRupiah(sesiKasSummary.modalAwal)}` : 'Rp 0'}
+							</span>
+						</div>
+						<div class="mt-2 flex items-center justify-between text-xs">
+							<span class="font-medium text-slate-500">Pemasukan Tunai</span>
+							<span class="font-bold text-emerald-600">
+								+ Rp {formatRupiah(sesiKasSummary.pemasukanTunai)}
+							</span>
+						</div>
+						{#if sesiKasSummary.pengeluaranTunai > 0}
+							<div class="mt-2 flex items-center justify-between text-xs">
+								<span class="font-medium text-slate-500">Pengeluaran Tunai</span>
+								<span class="font-bold text-rose-600">
+									- Rp {formatRupiah(sesiKasSummary.pengeluaranTunai)}
+								</span>
+							</div>
+						{/if}
+						<div class="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-2.5">
+							<span class="text-xs font-bold text-slate-900">Total Uang di Laci</span>
+							<span class="text-base font-extrabold text-pink-700 sm:text-lg">
+								Rp {formatRupiah(sesiKasSummary.uangKasir)}
+							</span>
+						</div>
+					</div>
 				</div>
-			</div>
-			{#if currentUserRole === ''}
+			{/snippet}
+
+			{#snippet ingredientUsageModule()}
+				<!-- Ranking Penggunaan Bahan Baku Hari Ini -->
+				<div>
+					<div class="mb-2.5 flex items-center justify-between px-1">
+						<div>
+							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+								Inventaris Harian
+							</div>
+							<div class="text-sm font-bold text-slate-900 sm:text-base">Pemakaian Bahan</div>
+						</div>
+						<a
+							href="/stok"
+							class="flex items-center gap-1 text-xs font-bold whitespace-nowrap text-pink-600 transition-colors hover:text-pink-700"
+						>
+							<span>Semua Stok</span>
+							<ArrowRight size={13} class="stroke-[2.5]" />
+						</a>
+					</div>
+
+					{#if dashboard.lowStockCount > 0}
+						<a
+							href="/stok"
+							class="mb-2.5 flex items-center justify-between rounded-2xl border border-rose-200/90 bg-rose-50/80 p-3 text-rose-950 shadow-2xs transition-all hover:bg-rose-100/70 active:scale-[0.99]"
+						>
+							<div class="flex min-w-0 items-center gap-2.5">
+								<div
+									class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white"
+								>
+									<AlertTriangle size={15} class="stroke-[2.5]" />
+								</div>
+								<div class="truncate text-xs font-bold">
+									<span>{dashboard.lowStockCount} Bahan Menipis:</span>
+									<span class="font-medium text-rose-700">
+										{dashboard.lowStockNames.join(', ')}</span
+									>
+								</div>
+							</div>
+							<span class="shrink-0 text-xs font-bold text-rose-600 underline">Restock</span>
+						</a>
+					{/if}
+
+					{#if dashboard.topIngredients.length === 0}
+						<div class="rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-xs">
+							<Boxes class="mx-auto mb-2 h-8 w-8 stroke-[1.8] text-slate-300" />
+							<div class="text-xs font-bold text-slate-700">Belum Ada Data Bahan</div>
+							<div class="mt-0.5 text-[11px] text-slate-400">
+								Tambahkan bahan baku di menu Stok untuk tracking pemakaian
+							</div>
+						</div>
+					{:else}
+						<div class="flex flex-col gap-2.5">
+							{#each dashboard.topIngredients as ing, i}
+								<div
+									class="soft-float-card relative flex items-center justify-between overflow-visible p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] {ing.is_low
+										? 'border border-rose-200/80 bg-rose-50/20'
+										: ''}"
+								>
+									{#if i === 0}
+										<!-- Crown Gimmick -->
+										<div
+											class="pointer-events-none absolute -top-3.5 -left-2 z-10 flex h-7 w-7 -rotate-[18deg] items-center justify-center drop-shadow-sm"
+											title="Peringkat 1 Pemakaian"
+										>
+											<Crown size={22} class="fill-amber-400 stroke-[2.2] text-amber-500" />
+										</div>
+									{/if}
+
+									<div class="flex min-w-0 items-center gap-3">
+										<!-- Rank Medal -->
+										<RankMedal rank={i + 1} />
+
+										<!-- Ingredient Icon Box -->
+										<div
+											class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] {ing.is_low
+												? 'border border-rose-200/70 bg-rose-50 text-rose-600'
+												: 'border border-pink-100/60 bg-pink-50/70 text-pink-600'}"
+										>
+											{#if ing.is_low}
+												<AlertTriangle size={20} class="stroke-[2.2]" />
+											{:else}
+												<Boxes size={20} class="stroke-[2.2]" />
+											{/if}
+										</div>
+
+										<!-- Title & Usage -->
+										<div class="min-w-0 flex-1">
+											<h4 class="truncate text-sm leading-tight font-bold text-slate-900">
+												{ing.nama}
+											</h4>
+											<div class="mt-0.5 text-[11px] font-medium text-slate-400">
+												{#if ing.terpakai > 0}
+													Terpakai hari ini: <span class="font-bold text-slate-700"
+														>{formatStok(ing.terpakai)} {ing.satuan}</span
+													>
+												{:else}
+													<span>Belum ada pemakaian</span>
+												{/if}
+											</div>
+										</div>
+									</div>
+
+									<!-- Remaining Stock Pill -->
+									<div class="shrink-0 pl-2">
+										<span
+											class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold {ing.is_low
+												? 'border border-rose-200 bg-rose-100 text-rose-800'
+												: 'border border-emerald-100 bg-emerald-50 text-emerald-800'}"
+										>
+											{ing.is_low ? 'Menipis · ' : ''}Sisa {formatStok(ing.stok_saat_ini)}
+											{ing.satuan}
+										</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/snippet}
+
+			{#snippet quickActionsModule()}
+				<!-- Quick Action Panel for Tablet POS (Aksi Cepat Kasir) -->
 				<div
-					class="h-9 min-w-[92px] animate-pulse rounded-lg bg-white/30 px-3 py-2 md:h-10 md:min-w-[110px]"
-				></div>
-			{:else if currentUserRole === 'kasir' || currentUserRole === 'pemilik'}
-				<button
-					class="flex h-9 min-w-[92px] items-center gap-2 rounded-lg bg-white/20 px-3 py-2 text-xs font-bold text-white shadow transition-all hover:bg-white/30 active:bg-white/40 md:h-10 md:min-w-[110px] md:text-sm"
-					onclick={handleOpenTokoModal}
+					class="rounded-[28px] border border-slate-200/70 bg-white/90 p-4.5 shadow-2xs backdrop-blur-md"
 				>
-					<span class="text-lg">{tokoAktifLocal ? '🔒' : '🍹'}</span>
-					<span>{tokoAktifLocal ? 'Tutup Toko' : 'Buka Toko'}</span>
-				</button>
-			{/if}
-		</div>
-	{/key}
-</div>
-<div bind:this={sentinelRef} style="height:1px;width:100%"></div>
+					<div class="mb-3 flex items-center justify-between">
+						<span class="text-xs font-bold tracking-wider text-slate-400 uppercase"
+							>Pintasan Cepat</span
+						>
+						<span class="text-[11px] font-semibold text-slate-400">Aksi Kios</span>
+					</div>
+					<div class="grid grid-cols-3 gap-3">
+						<a
+							href="/pos"
+							class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-3 py-3 text-xs font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
+						>
+							<ShoppingBagIcon size={16} class="stroke-[2.2]" />
+							<span>Buka Kasir</span>
+						</a>
+						<a
+							href="/catat"
+							class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
+						>
+							<BookOpen size={16} class="stroke-[2.2] text-pink-600" />
+							<span>Catat Kas</span>
+						</a>
+						<a
+							href="/stok"
+							class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
+						>
+							<Boxes size={16} class="stroke-[2.2] text-emerald-600" />
+							<span>Kelola Stok</span>
+						</a>
+					</div>
+				</div>
+			{/snippet}
 
-<div
-	class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-white"
-	ontouchstart={handleTouchStart}
-	ontouchmove={handleTouchMove}
-	ontouchend={handleTouchEnd}
->
-	<main
-		class="page-content min-h-0 w-full max-w-full flex-1 overflow-x-hidden md:mx-auto md:max-w-3xl md:rounded-2xl md:bg-white md:shadow-xl lg:max-w-5xl"
-	>
-		<div class="px-4 pt-2 pb-4 md:px-8 md:pt-4 md:pb-8 lg:px-12 lg:pt-6 lg:pb-10">
-			<div class="flex flex-col space-y-3 md:space-y-10">
-				<!-- Metrik Utama -->
-				<DashboardMetrics
-					{itemTerjual}
-					{jumlahTransaksi}
-					{omzet}
-					{modalAwal}
-					ShoppingBagIcon={ShoppingBag}
-					TrendingUpIcon={TrendingUp}
-					WalletIcon={Wallet}
-				/>
+			<!-- MOBILE VIEW (< md): Menu Terlaris -> Statistik -> Grafik Penjualan -> Kas Fisik -> Bahan -->
+			<div class="mt-4 flex flex-col gap-4 md:hidden">
+				{@render bestSellersModule()}
+				{@render operationalStatsModule()}
+				{@render weeklyChartModule()}
+				{@render cashFlowModule()}
+				{@render ingredientUsageModule()}
+			</div>
 
-				<!-- Menu Terlaris -->
-				<BestSellersList
-					{isLoadingBestSellers}
-					{errorBestSellers}
-					{bestSellers}
-				/>
+			<!-- TABLET / DESKTOP VIEW (>= md): 2-Column Bento Grid -->
+			<div class="mt-6 hidden md:grid md:grid-cols-12 md:items-start md:gap-6">
+				<!-- Left Column (md:col-span-7) -->
+				<div class="flex flex-col gap-5 md:col-span-7">
+					{@render weeklyChartModule()}
+					{@render operationalStatsModule()}
+					{@render quickActionsModule()}
+				</div>
 
-				<!-- Grafik & Statistik -->
-				<div bind:this={incomeChartRef}>
-					<IncomeChart
-						{avgTransaksi}
-						{jamRamai}
-						{weeklyIncome}
-						{weeklyMax}
-						{barsVisible}
-						{getLast7DaysLabelsWITA}
-					/>
+				<!-- Right Column (md:col-span-5) -->
+				<div class="flex flex-col gap-5 md:col-span-5">
+					{@render bestSellersModule()}
+					{@render cashFlowModule()}
+					{@render ingredientUsageModule()}
 				</div>
 			</div>
 		</div>
 	</main>
-	<div class="sticky bottom-0 z-30 bg-white md:hidden">
-		<!-- BottomNav hanya muncul di mobile -->
-	</div>
 </div>
-
-<style>
-	.modal-slideup {
-		animation: modalSlideUp 0.28s cubic-bezier(0.4, 1.4, 0.6, 1);
-	}
-	@keyframes modalSlideUp {
-		from {
-			transform: translateY(64px);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-	@keyframes glow {
-		0%,
-		100% {
-			box-shadow: 0 0 0 0 #ec489980;
-		}
-		50% {
-			box-shadow: 0 0 16px 4px #ec489980;
-		}
-	}
-	.animate-glow {
-		animation: glow 1.5s ease-in-out 1;
-	}
-</style>

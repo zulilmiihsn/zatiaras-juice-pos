@@ -7,6 +7,7 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/backups/
 
 # OS
 .DS_Store
@@ -26,3 +27,22 @@ vite.config.ts.timestamp-*
 gemini.md
 error.md
 zatiarasposapp/
+bin/
+
+# Tooling index cache (jangan ke-commit)
+.codegraph/
+
+# Dev artifacts (jangan ke-commit)
+scratch/
+.tmp-quality/
+.tmp-pwa/
+.tmp-chrome-offline/
+check*.txt
+.check_output.txt
+.lint_full.txt
+*.log
+test-report.md
+code-quality-report.md
+svelte_check*.txt
+playwright-report/
+test-results/

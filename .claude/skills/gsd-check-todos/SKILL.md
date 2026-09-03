@@ -1,7 +1,7 @@
 ---
 name: gsd-check-todos
-description: "List pending todos and select one to work on"
-argument-hint: "[area filter]"
+description: 'List pending todos and select one to work on'
+argument-hint: '[area filter]'
 allowed-tools:
   - Read
   - Write
@@ -9,17 +9,17 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-
 <objective>
 List all pending todos, allow selection, load full context for the selected todo, and route to appropriate action.
 
 Routes to the check-todos workflow which handles:
+
 - Todo counting and listing with area filtering
 - Interactive selection with full context loading
 - Roadmap correlation checking
 - Action routing (work now, add to phase, brainstorm, create phase)
 - STATE.md updates and git commits
-</objective>
+  </objective>
 
 <execution_context>
 @~/.claude/get-shit-done/workflows/check-todos.md
@@ -35,6 +35,7 @@ Todo state and roadmap correlation are loaded in-workflow using `init todos` and
 **Follow the check-todos workflow** from `@~/.claude/get-shit-done/workflows/check-todos.md`.
 
 The workflow handles all logic including:
+
 1. Todo existence checking
 2. Area filtering
 3. Interactive listing and selection
@@ -43,4 +44,4 @@ The workflow handles all logic including:
 6. Action offering and execution
 7. STATE.md updates
 8. Git commits
-</process>
+   </process>

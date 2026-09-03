@@ -1,0 +1,181 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1779184958990,
+			"tag": "0000_blushing_cerebro",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1781700000000,
+			"tag": "0001_ops_hardening",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1781710000000,
+			"tag": "0002_juice_ingredient_inventory",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1781790000000,
+			"tag": "0003_hpp_costing",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1781795000000,
+			"tag": "0004_daily_sales_summary",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1781800000000,
+			"tag": "0005_transaction_snapshots",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1781910000000,
+			"tag": "0006_cursor_pagination_indexes",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "6",
+			"when": 1781920000000,
+			"tag": "0007_daily_sales_hpp",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1781930000000,
+			"tag": "0008_daily_product_payment_split",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "6",
+			"when": 1781940000000,
+			"tag": "0009_drop_bukukas_nominal",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "6",
+			"when": 1781950000000,
+			"tag": "0010_drop_produk_legacy_cols",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "6",
+			"when": 1781960000000,
+			"tag": "0011_rename_domain_tables_id",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1781970000000,
+			"tag": "0012_rename_product_cols_id",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "6",
+			"when": 1781980000000,
+			"tag": "0013_rename_branch_to_cabang",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "6",
+			"when": 1781990000000,
+			"tag": "0014_rename_domain_columns_id",
+			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "6",
+			"when": 1783036800000,
+			"tag": "0015_session_page_unlocks",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "6",
+			"when": 1783123200000,
+			"tag": "0016_pin_hash",
+			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "6",
+			"when": 1783209600000,
+			"tag": "0017_ingredient_yield",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "6",
+			"when": 1783296000000,
+			"tag": "0018_audit_log_outbox",
+			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "6",
+			"when": 1783382400000,
+			"tag": "0019_tambahan_recipe_columns",
+			"breakpoints": true
+		},
+		{
+			"idx": 20,
+			"version": "6",
+			"when": 1783468800000,
+			"tag": "0020_missing_domain_columns",
+			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "6",
+			"when": 1783555200000,
+			"tag": "0021_produk_harga_jumbo",
+			"breakpoints": true
+		},
+		{
+			"idx": 22,
+			"version": "6",
+			"when": 1783641600000,
+			"tag": "0022_drop_legacy_resep_unique_index",
+			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "6",
+			"when": 1783728000000,
+			"tag": "0023_idempotency_receipt_and_archive_summary",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "6",
+			"when": 1783814400000,
+			"tag": "0024_pengaturan_kunci_nilai_key_value",
+			"breakpoints": true
+		}
+	]
+}

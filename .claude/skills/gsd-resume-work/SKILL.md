@@ -1,6 +1,6 @@
 ---
 name: gsd-resume-work
-description: "Resume work from previous session with full context restoration"
+description: 'Resume work from previous session with full context restoration'
 allowed-tools:
   - Read
   - Bash
@@ -8,7 +8,6 @@ allowed-tools:
   - AskUserQuestion
   - SlashCommand
 ---
-
 
 <objective>
 Restore complete project context and resume work seamlessly from previous session.

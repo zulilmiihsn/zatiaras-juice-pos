@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'codex/**', 'release/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Quality & Test Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Check
+        run: pnpm check
+
+      - name: ESLint Check
+        run: pnpm exec eslint .
+
+      - name: Format Check
+        run: pnpm format:check
+
+      - name: Run All Test Suites
+        run: pnpm test:all
+
+      - name: Build Application Bundle
+        run: pnpm build

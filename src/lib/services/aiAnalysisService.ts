@@ -1,7 +1,11 @@
 import type { TransactionAnalysis, DetectedTransaction, AiRecommendation } from '$lib/types/ai';
-import { get } from 'svelte/store';
-import { selectedBranch } from '$lib/stores/selectedBranch';
-import { getApiErrorMessageFromResponse, reportApiFailureFromResponse } from '$lib/utils/errorHandling';
+import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import {
+	getApiErrorMessageFromResponse,
+	reportApiFailureFromResponse
+} from '$lib/utils/errorHandling';
+import { formatRupiah } from '$lib/utils/currency';
+import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 
 export class AiAnalysisService {
 	private static instance: AiAnalysisService;
@@ -18,11 +22,11 @@ export class AiAnalysisService {
 	 */
 	async analyzeTransaction(text: string): Promise<TransactionAnalysis> {
 		try {
-			// Get current branch from store
-			const currentBranch = get(selectedBranch) || 'default';
+			// [CATATAN]: Get current branch from store
+			const currentBranch = selectedBranch.value || 'default';
 
-			// Kirim ke backend AI untuk analisis
-			const response = await fetch('/api/aichat?action=analyze', {
+			// [CATATAN]: Kirim ke backend AI untuk analisis
+			const response = await fetchWithCsrfRetry('/api/aichat?action=analyze', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -48,32 +52,36 @@ export class AiAnalysisService {
 	/**
 	 * Parse response dari AI menjadi struktur yang dapat digunakan
 	 */
-	private parseAnalysisResponse(data: any, originalText: string): TransactionAnalysis {
+	private parseAnalysisResponse(
+		data: Record<string, unknown>,
+		originalText: string
+	): TransactionAnalysis {
 		const detectedTransactions: DetectedTransaction[] = [];
 		const recommendations: AiRecommendation[] = [];
 
-		// Parse detected transactions
-		if (data.transactions) {
-			data.transactions.forEach((tx: any, index: number) => {
+		// [CATATAN]: Parse detected transactions
+		if (data.transactions && Array.isArray(data.transactions)) {
+			data.transactions.forEach((tx: Record<string, unknown>) => {
 				detectedTransactions.push({
-					type: this.mapTransactionType(tx.type),
+					type: this.mapTransactionType(String(tx.type ?? '')),
 					amount: Number(tx.amount) || 0,
-					description: String(tx.description || ''),
-					category: tx.category,
+					deskripsi: String(tx.deskripsi || ''),
+					category: tx.category as string | undefined,
 					confidence: Number(tx.confidence) || 0.8,
-					products: tx.products || [] // Include products data
+					products: (tx.products as unknown[]) || []
 				});
 			});
 		}
 
-		// Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
-		if (!data.recommendations || data.recommendations.length === 0) {
+		// [CATATAN]: Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
+		const aiRecs = data.recommendations as Array<Record<string, unknown>>;
+		if (!aiRecs || aiRecs.length === 0) {
 			detectedTransactions.forEach((tx, index) => {
 				if (tx.type !== 'unknown' && tx.amount > 0) {
 					const recommendationData = {
 						type: tx.type,
 						amount: tx.amount,
-						description: tx.description,
+						deskripsi: tx.deskripsi,
 						category: tx.category,
 						products: tx.products || [] // Include products data
 					};
@@ -82,25 +90,25 @@ export class AiAnalysisService {
 						id: `rec_${Date.now()}_${index}`,
 						action: 'create_transaction',
 						title: `Catat ${this.getTransactionTypeLabel(tx.type)}`,
-						description: `${this.getTransactionTypeLabel(tx.type)} sebesar Rp ${tx.amount.toLocaleString('id-ID')} - ${tx.description}`,
+						deskripsi: `${this.getTransactionTypeLabel(tx.type)} sebesar Rp ${formatRupiah(tx.amount)} - ${tx.deskripsi}`,
 						data: recommendationData,
 						priority: tx.confidence > 0.8 ? 'high' : 'medium'
 					});
 				}
 			});
 		} else {
-			// Gunakan rekomendasi dari AI langsung
-			data.recommendations.forEach((rec: any, index: number) => {
-				// Jika AI tidak mengirim data, gunakan detected transactions
-				let recommendationData = rec.data || {};
+			// [CATATAN]: Gunakan rekomendasi dari AI langsung
+			aiRecs.forEach((rec: Record<string, unknown>, index: number) => {
+				// [CATATAN]: Jika AI tidak mengirim data, gunakan detected transactions
+				let recommendationData = (rec.data as Record<string, unknown>) || {};
 
-				// Jika data kosong, coba ambil dari detected transactions
+				// [CATATAN]: Jika data kosong, coba ambil dari detected transactions
 				if (!recommendationData.type && detectedTransactions.length > 0) {
 					const tx = detectedTransactions[index] || detectedTransactions[0];
 					recommendationData = {
 						type: tx.type,
 						amount: tx.amount,
-						description: tx.description,
+						deskripsi: tx.deskripsi,
 						category: tx.category,
 						products: tx.products || [] // Include products data
 					};
@@ -108,11 +116,12 @@ export class AiAnalysisService {
 
 				recommendations.push({
 					id: `rec_${Date.now()}_${index}`,
-					action: rec.action || 'create_transaction',
-					title: rec.title || `Rekomendasi ${index + 1}`,
-					description: rec.description || '',
+					action: ((rec.action as unknown as string) || 'create_transaction') as
+						'create_transaction' | 'update_transaction' | 'create_category',
+					title: (rec.title as unknown as string) || `Rekomendasi ${index + 1}`,
+					deskripsi: (rec.deskripsi as unknown as string) || '',
 					data: recommendationData,
-					priority: rec.priority || 'medium'
+					priority: ((rec.priority as unknown as string) || 'medium') as 'low' | 'medium' | 'high'
 				});
 			});
 		}
@@ -122,7 +131,7 @@ export class AiAnalysisService {
 			originalText,
 			detectedTransactions,
 			recommendations,
-			confidence: data.confidence || 0.7
+			confidence: (data.confidence as number) || 0.7
 		};
 	}
 
@@ -170,14 +179,14 @@ export class AiAnalysisService {
 		let response = 'Saya telah menganalisis cerita Anda dan menemukan:\n\n';
 
 		analysis.detectedTransactions.forEach((tx, index) => {
-			response += `${index + 1}. ${this.getTransactionTypeLabel(tx.type)}: Rp ${tx.amount.toLocaleString('id-ID')}`;
-			if (tx.description) {
-				response += ` - ${tx.description}`;
+			response += `${index + 1}. ${this.getTransactionTypeLabel(tx.type)}: Rp ${formatRupiah(tx.amount)}`;
+			if (tx.deskripsi) {
+				response += ` - ${tx.deskripsi}`;
 			}
 			response += '\n';
 		});
 
-		// Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
+		// [CATATAN]: Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
 		if (analysis.recommendations.length > 0) {
 			response += '\nRekomendasi saya:\n';
 			analysis.recommendations.forEach((rec, index) => {

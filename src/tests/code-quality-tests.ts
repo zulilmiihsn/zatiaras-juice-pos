@@ -12,8 +12,25 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const workspaceRoot = process.cwd();
+
+function runCommand(cmd: string): string {
+	return execSync(cmd, {
+		cwd: workspaceRoot,
+		encoding: 'utf8',
+		stdio: 'pipe',
+		shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+		env: process.env
+	});
+}
+
+function commandErrorDetails(error: unknown): string {
+	const value = error as Error & { stdout?: string; stderr?: string };
+	return [value.stdout, value.stderr, value.message].filter(Boolean).join('\n').trim();
+}
+
 // ============================================================================
-// 📋 TEST INTERFACES
+// [CATATAN]: 📋 TEST INTERFACES
 // ============================================================================
 
 export interface CodeQualityTestResult {
@@ -22,6 +39,17 @@ export interface CodeQualityTestResult {
 	message: string;
 	details?: string;
 	executionTime?: number;
+}
+
+export interface CodeQualityTest {
+	name: string;
+	deskripsi: string;
+	test: () => Promise<CodeQualityTestResult>;
+}
+
+export interface CodeQualityTestSuiteDef {
+	name: string;
+	tests: CodeQualityTest[];
 }
 
 export interface CodeQualityTestSuite {
@@ -34,24 +62,21 @@ export interface CodeQualityTestSuite {
 }
 
 // ============================================================================
-// 🧪 TYPE SCRIPT TESTS
+// [CATATAN]: 🧪 TYPE SCRIPT TESTS
 // ============================================================================
 
-export const typescriptTests = {
+export const typescriptTests: CodeQualityTestSuiteDef = {
 	name: 'TypeScript Compilation',
 	tests: [
 		{
 			name: 'TypeScript Check',
-			description: 'pnpm check harus berhasil tanpa error',
+			deskripsi: 'Svelte sync dan typecheck harus berhasil tanpa error',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
 				try {
 					console.log('🔍 Running TypeScript check...');
-					const result = execSync('pnpm check', {
-						encoding: 'utf8',
-						stdio: 'pipe'
-					});
+					runCommand('pnpm check');
 
 					const executionTime = Date.now() - startTime;
 
@@ -62,14 +87,13 @@ export const typescriptTests = {
 						details: 'All TypeScript files compiled without errors',
 						executionTime
 					};
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
-
 					return {
 						name: 'TypeScript Check',
 						success: false,
 						message: 'TypeScript compilation failed',
-						details: error.stdout || error.message,
+						details: commandErrorDetails(error),
 						executionTime
 					};
 				}
@@ -77,16 +101,13 @@ export const typescriptTests = {
 		},
 		{
 			name: 'TypeScript Build',
-			description: 'pnpm build harus berhasil',
+			deskripsi: 'Production build harus berhasil',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
 				try {
 					console.log('🏗️ Running TypeScript build...');
-					const result = execSync('pnpm build', {
-						encoding: 'utf8',
-						stdio: 'pipe'
-					});
+					runCommand('pnpm build');
 
 					const executionTime = Date.now() - startTime;
 
@@ -97,14 +118,13 @@ export const typescriptTests = {
 						details: 'Application built without errors',
 						executionTime
 					};
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
-
 					return {
 						name: 'TypeScript Build',
 						success: false,
 						message: 'Build failed',
-						details: error.stdout || error.message,
+						details: commandErrorDetails(error),
 						executionTime
 					};
 				}
@@ -114,24 +134,21 @@ export const typescriptTests = {
 };
 
 // ============================================================================
-// 🧪 LINTING TESTS
+// [CATATAN]: 🧪 LINTING TESTS
 // ============================================================================
 
-export const lintingTests = {
+export const lintingTests: CodeQualityTestSuiteDef = {
 	name: 'Code Linting',
 	tests: [
 		{
 			name: 'ESLint Check',
-			description: 'ESLint harus pass tanpa error',
+			deskripsi: 'ESLint harus pass tanpa error',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
 				try {
 					console.log('🔍 Running ESLint check...');
-					const result = execSync('pnpm lint', {
-						encoding: 'utf8',
-						stdio: 'pipe'
-					});
+					runCommand('pnpm eslint .');
 
 					const executionTime = Date.now() - startTime;
 
@@ -142,14 +159,13 @@ export const lintingTests = {
 						details: 'No linting errors found',
 						executionTime
 					};
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
-
 					return {
 						name: 'ESLint Check',
 						success: false,
 						message: 'ESLint failed',
-						details: error.stdout || error.message,
+						details: commandErrorDetails(error),
 						executionTime
 					};
 				}
@@ -157,16 +173,13 @@ export const lintingTests = {
 		},
 		{
 			name: 'Prettier Format Check',
-			description: 'Code formatting harus sesuai standar',
+			deskripsi: 'Code formatting harus sesuai standar',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
 				try {
 					console.log('🎨 Checking code formatting...');
-					const result = execSync('pnpm format --check', {
-						encoding: 'utf8',
-						stdio: 'pipe'
-					});
+					runCommand('pnpm prettier --check .');
 
 					const executionTime = Date.now() - startTime;
 
@@ -177,14 +190,13 @@ export const lintingTests = {
 						details: 'All files follow formatting standards',
 						executionTime
 					};
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
-
 					return {
 						name: 'Prettier Format Check',
 						success: false,
 						message: 'Code formatting issues found',
-						details: error.stdout || error.message,
+						details: commandErrorDetails(error),
 						executionTime
 					};
 				}
@@ -194,15 +206,15 @@ export const lintingTests = {
 };
 
 // ============================================================================
-// 🧪 FILE STRUCTURE TESTS
+// [CATATAN]: 🧪 FILE STRUCTURE TESTS
 // ============================================================================
 
-export const fileStructureTests = {
+export const fileStructureTests: CodeQualityTestSuiteDef = {
 	name: 'File Structure',
 	tests: [
 		{
 			name: 'Required Files Exist',
-			description: 'File-file penting harus ada',
+			deskripsi: 'File-file penting harus ada',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
@@ -247,14 +259,15 @@ export const fileStructureTests = {
 							executionTime
 						};
 					}
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
+					const e = error as Error;
 
 					return {
 						name: 'Required Files Exist',
 						success: false,
 						message: 'File check failed',
-						details: error.message,
+						details: e.message,
 						executionTime
 					};
 				}
@@ -262,7 +275,7 @@ export const fileStructureTests = {
 		},
 		{
 			name: 'Directory Structure',
-			description: 'Struktur folder harus sesuai standar',
+			deskripsi: 'Struktur folder harus sesuai standar',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
@@ -306,14 +319,15 @@ export const fileStructureTests = {
 							executionTime
 						};
 					}
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
+					const e = error as Error;
 
 					return {
 						name: 'Directory Structure',
 						success: false,
 						message: 'Directory check failed',
-						details: error.message,
+						details: e.message,
 						executionTime
 					};
 				}
@@ -323,15 +337,15 @@ export const fileStructureTests = {
 };
 
 // ============================================================================
-// 🧪 DEPENDENCY TESTS
+// [CATATAN]: 🧪 DEPENDENCY TESTS
 // ============================================================================
 
-export const dependencyTests = {
+export const dependencyTests: CodeQualityTestSuiteDef = {
 	name: 'Dependencies',
 	tests: [
 		{
 			name: 'Package.json Valid',
-			description: 'package.json harus valid dan lengkap',
+			deskripsi: 'package.json harus valid dan lengkap',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
@@ -368,14 +382,15 @@ export const dependencyTests = {
 							executionTime
 						};
 					}
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
+					const e = error as Error;
 
 					return {
 						name: 'Package.json Valid',
 						success: false,
 						message: 'Package.json validation failed',
-						details: error.message,
+						details: e.message,
 						executionTime
 					};
 				}
@@ -383,7 +398,7 @@ export const dependencyTests = {
 		},
 		{
 			name: 'Dependencies Installed',
-			description: 'Semua dependencies harus terinstall',
+			deskripsi: 'Semua dependencies harus terinstall',
 			test: async (): Promise<CodeQualityTestResult> => {
 				const startTime = Date.now();
 
@@ -413,14 +428,15 @@ export const dependencyTests = {
 							executionTime
 						};
 					}
-				} catch (error: any) {
+				} catch (error: unknown) {
 					const executionTime = Date.now() - startTime;
+					const e = error as Error;
 
 					return {
 						name: 'Dependencies Installed',
 						success: false,
 						message: 'Dependency check failed',
-						details: error.message,
+						details: e.message,
 						executionTime
 					};
 				}
@@ -430,7 +446,7 @@ export const dependencyTests = {
 };
 
 // ============================================================================
-// 🧪 TEST RUNNER
+// [CATATAN]: 🧪 TEST RUNNER
 // ============================================================================
 
 export class CodeQualityTestRunner {
@@ -449,7 +465,7 @@ export class CodeQualityTestRunner {
 			const result = await this.runTestSuite(suite);
 			results.push(result);
 
-			// Log results
+			// [CATATAN]: Log results
 			console.log(`✅ ${result.passedTests}/${result.totalTests} tests passed`);
 			if (result.failedTests > 0) {
 				console.log(`❌ ${result.failedTests} tests failed`);
@@ -463,33 +479,34 @@ export class CodeQualityTestRunner {
 	/**
 	 * Jalankan satu test suite
 	 */
-	private async runTestSuite(suite: any): Promise<CodeQualityTestSuite> {
+	private async runTestSuite(suite: CodeQualityTestSuiteDef): Promise<CodeQualityTestSuite> {
 		const startTime = Date.now();
-		const results: any[] = [];
+		const results: CodeQualityTestResult[] = [];
 
 		for (const test of suite.tests) {
 			try {
 				const result = await test.test();
 				results.push(result);
 
-				// Log individual test result
+				// [CATATAN]: Log individual test result
 				const status = result.success ? '✅' : '❌';
 				console.log(`  ${status} ${result.name}: ${result.message}`);
-			} catch (error: any) {
+			} catch (error: unknown) {
+				const e = error as Error;
 				results.push({
 					name: test.name,
 					success: false,
 					message: 'Test execution failed',
-					details: error.message
+					details: e.message
 				});
 
-				console.log(`  ❌ ${test.name}: Test execution failed - ${error.message}`);
+				console.log(`  ❌ ${test.name}: Test execution failed - ${e.message}`);
 			}
 		}
 
 		const totalExecutionTime = Date.now() - startTime;
-		const passedTests = results.filter((r: any) => r.success).length;
-		const failedTests = results.filter((r: any) => !r.success).length;
+		const passedTests = results.filter((r) => r.success).length;
+		const failedTests = results.filter((r) => !r.success).length;
 
 		return {
 			name: suite.name,
@@ -561,7 +578,7 @@ export class CodeQualityTestRunner {
 }
 
 // ============================================================================
-// 🚀 QUICK TEST FUNCTIONS
+// [CATATAN]: 🚀 QUICK TEST FUNCTIONS
 // ============================================================================
 
 /**
@@ -587,6 +604,10 @@ export async function runFullCodeQualityTestSuite(): Promise<string> {
 	return runner.generateReport(results);
 }
 
+export function hasCodeQualityFailures(results: CodeQualityTestSuite[]): boolean {
+	return results.some((suite) => suite.failedTests > 0);
+}
+
 /**
  * Test individual kategori
  */
@@ -607,7 +628,7 @@ export async function testDependencies(): Promise<CodeQualityTestResult[]> {
 }
 
 // ============================================================================
-// 🚀 CLI EXECUTION
+// [CATATAN]: 🚀 CLI EXECUTION
 // ============================================================================
 
 /**
@@ -622,39 +643,45 @@ async function main() {
 
 	try {
 		if (!command || command === 'all') {
-			// Test semua code quality
+			// [CATATAN]: Test semua code quality
 			console.log('🚀 Running all code quality tests...\n');
-			const report = await runFullCodeQualityTestSuite();
+			const runner = new CodeQualityTestRunner();
+			const results = await runner.runAllTests();
+			const report = runner.generateReport(results);
 
-			// Save report to file
+			// [CATATAN]: Save report to file
 			const fs = await import('fs');
 			const path = await import('path');
 			const reportPath = path.join(process.cwd(), 'code-quality-report.md');
 			fs.writeFileSync(reportPath, report);
 
 			console.log(`\n📄 Code quality report saved to: ${reportPath}`);
+
+			if (hasCodeQualityFailures(results)) {
+				process.exit(1);
+			}
 		} else if (command === 'typescript') {
-			// Test TypeScript saja
+			// [CATATAN]: Test TypeScript saja
 			console.log('🔍 Testing TypeScript Compilation...\n');
 			const results = await quickCodeQualityTest('TypeScript');
 			displayQuickTestResults('TypeScript', results);
 		} else if (command === 'linting') {
-			// Test linting saja
+			// [CATATAN]: Test linting saja
 			console.log('🔍 Testing Code Linting...\n');
 			const results = await quickCodeQualityTest('Code Linting');
 			displayQuickTestResults('Code Linting', results);
 		} else if (command === 'structure') {
-			// Test file structure saja
+			// [CATATAN]: Test file structure saja
 			console.log('📁 Testing File Structure...\n');
 			const results = await quickCodeQualityTest('File Structure');
 			displayQuickTestResults('File Structure', results);
 		} else if (command === 'dependencies') {
-			// Test dependencies saja
+			// [CATATAN]: Test dependencies saja
 			console.log('📦 Testing Dependencies...\n');
 			const results = await quickCodeQualityTest('Dependencies');
 			displayQuickTestResults('Dependencies', results);
 		} else if (command === 'help') {
-			// Show help
+			// [CATATAN]: Show help
 			showHelp();
 		} else {
 			console.log(`❌ Unknown command: ${command}`);
@@ -723,7 +750,7 @@ function showHelp() {
 `);
 }
 
-// Check if this is the main module
+// [CATATAN]: Check if this is the main module
 if (process.argv[1] && process.argv[1].endsWith('code-quality-tests.ts')) {
 	main().catch((error) => {
 		console.error('❌ Script execution failed:', error);

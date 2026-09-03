@@ -1,6 +1,6 @@
 ---
 name: gsd-list-workspaces
-description: "List active GSD workspaces and their status"
+description: 'List active GSD workspaces and their status'
 allowed-tools:
   - Bash
   - Read
@@ -11,8 +11,8 @@ Scan `~/gsd-workspaces/` for workspace directories containing `WORKSPACE.md` man
 </objective>
 
 <execution_context>
-@~/.claude/get-shit-done/workflows/list-workspaces.md
-@~/.claude/get-shit-done/references/ui-brand.md
+@~~/.claude/get-shit-done/workflows/list-workspaces.md
+@~~/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <process>

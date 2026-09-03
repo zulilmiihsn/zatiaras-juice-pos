@@ -1,5 +1,31 @@
 import { goto } from '$app/navigation';
 import { LoginSecurity, RateLimiter } from './security';
+import { setUserRole } from '$lib/stores/userRole.svelte';
+import {
+	clearOfflineSessionSnapshot,
+	isOfflinePosPath,
+	persistOfflineSessionSnapshot,
+	readOfflineSessionSnapshot
+} from '$lib/auth/offlineSession';
+
+type SessionPayload = {
+	authenticated: boolean;
+	user?: Record<string, unknown>;
+	expiresAt?: number | string;
+};
+
+function isSessionPayload(value: unknown): value is SessionPayload {
+	if (typeof value !== 'object' || value === null || !('authenticated' in value)) return false;
+	const candidate = value as Record<string, unknown>;
+	if (typeof candidate.authenticated !== 'boolean') return false;
+	if (!candidate.authenticated) return true;
+	return (
+		typeof candidate.user === 'object' &&
+		candidate.user !== null &&
+		!Array.isArray(candidate.user) &&
+		Number.isFinite(Number(candidate.expiresAt))
+	);
+}
 
 /**
  * Enhanced auth guard dengan security features
@@ -21,7 +47,7 @@ export class AuthGuard {
 	/**
 	 * Fetch session payload from server
 	 */
-	private async fetchSessionPayload(): Promise<any | null> {
+	private async fetchSessionPayload(): Promise<SessionPayload | null> {
 		const response = await fetch('/api/session', {
 			method: 'GET',
 			credentials: 'include'
@@ -31,7 +57,33 @@ export class AuthGuard {
 			return null;
 		}
 
-		return response.json();
+		const payload: unknown = await response.json();
+		return isSessionPayload(payload) ? payload : null;
+	}
+
+	private allowOfflinePosAccess(): boolean {
+		if (!isOfflinePosPath(window.location.pathname)) {
+			goto('/offline');
+			return false;
+		}
+		const snapshot = readOfflineSessionSnapshot();
+		if (!snapshot) {
+			clearOfflineSessionSnapshot();
+			goto('/login?reason=offline_session_expired');
+			return false;
+		}
+		setUserRole(String(snapshot.user.role || ''), snapshot.user);
+		return true;
+	}
+
+	private persistValidatedSession(payload: SessionPayload): void {
+		if (!payload?.authenticated || !payload?.user || !Number.isFinite(Number(payload.expiresAt))) {
+			return;
+		}
+		const user = payload.user;
+		persistOfflineSessionSnapshot(user, Number(payload.expiresAt));
+		setUserRole(String(user.role || ''), user);
+		window.dispatchEvent(new CustomEvent('auth-session-refreshed'));
 	}
 
 	/**
@@ -39,9 +91,10 @@ export class AuthGuard {
 	 */
 	async requireAuth(): Promise<boolean> {
 		if (typeof window === 'undefined') return true;
+		if (!navigator.onLine) return this.allowOfflinePosAccess();
 
 		try {
-			// Rate limiting check
+			// [CATATAN]: Rate limiting check
 			const clientId = this.getClientIdentifier();
 			if (!RateLimiter.isAllowed(`auth_${clientId}`)) {
 				goto('/login?reason=rate_limit');
@@ -63,10 +116,10 @@ export class AuthGuard {
 				return false;
 			}
 
+			this.persistValidatedSession(payload);
 			return true;
-		} catch (error) {
-			goto('/login');
-			return false;
+		} catch {
+			return this.allowOfflinePosAccess();
 		}
 	}
 
@@ -86,69 +139,10 @@ export class AuthGuard {
 	}
 
 	/**
-	 * Check role-based access
-	 */
-	async requireRole(requiredRole: string): Promise<boolean> {
-		if (typeof window === 'undefined') return true;
-
-		try {
-			const clientId = this.getClientIdentifier();
-			if (!RateLimiter.isAllowed(`auth_${clientId}`)) {
-				goto('/login?reason=rate_limit');
-				return false;
-			}
-
-			const payload = await this.fetchSessionPayload();
-			if (!payload?.authenticated || !payload?.user) {
-				this.recordFailedAuth(clientId);
-				localStorage.removeItem('zatiaras_session');
-				localStorage.removeItem('selectedBranch');
-				goto('/login?reason=session_expired');
-				return false;
-			}
-
-			if (!payload) {
-				goto('/unauthorized');
-				return false;
-			}
-
-			const userRole = payload?.user?.role;
-			if (typeof userRole !== 'string') {
-				goto('/unauthorized');
-				return false;
-			}
-
-			if (userRole !== requiredRole && userRole !== 'admin') {
-				goto('/unauthorized');
-				return false;
-			}
-
-			return true;
-		} catch (error) {
-			goto('/unauthorized');
-			return false;
-		}
-	}
-
-	/**
-	 * Check admin access
-	 */
-	async requireAdmin(): Promise<boolean> {
-		return this.requireRole('admin');
-	}
-
-	/**
-	 * Check kasir access
-	 */
-	async requireKasir(): Promise<boolean> {
-		return this.requireRole('kasir');
-	}
-
-	/**
 	 * Get client identifier for rate limiting
 	 */
 	private getClientIdentifier(): string {
-		// Use user agent hash for client identification
+		// [CATATAN]: Use user agent hash for client identification
 		const userAgent = navigator.userAgent;
 		const hash = this.simpleHash(userAgent);
 		return `client_${hash}`;
@@ -174,25 +168,17 @@ export class AuthGuard {
 		const attempts = this.loginAttempts.get(clientId) || 0;
 		this.loginAttempts.set(clientId, attempts + 1);
 
-		// Block after 5 failed attempts
+		// [CATATAN]: Block after 5 failed attempts
 		if (attempts >= 4) {
 			LoginSecurity.recordFailedLogin(clientId);
 		}
 	}
-
-	/**
-	 * Reset failed authentication attempts
-	 */
-	resetFailedAttempts(clientId: string): void {
-		this.loginAttempts.delete(clientId);
-		LoginSecurity.resetLoginAttempts(clientId);
-	}
 }
 
-// Export singleton instance
+// [CATATAN]: Export singleton instance
 export const authGuard = AuthGuard.getInstance();
 
-// Legacy function exports for backward compatibility
+// [CATATAN]: Legacy function exports for backward compatibility
 export async function requireAuth(): Promise<boolean> {
 	return authGuard.requireAuth();
 }

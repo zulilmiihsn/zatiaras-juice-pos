@@ -1,6 +1,6 @@
 ---
 name: gsd-audit-uat
-description: "Cross-phase audit of all outstanding UAT and verification items"
+description: 'Cross-phase audit of all outstanding UAT and verification items'
 allowed-tools:
   - Read
   - Glob
@@ -20,6 +20,6 @@ Scan all phases for pending, skipped, blocked, and human_needed UAT items. Cross
 Core planning files are loaded in-workflow via CLI.
 
 **Scope:**
-Glob: .planning/phases/*/*-UAT.md
-Glob: .planning/phases/*/*-VERIFICATION.md
+Glob: .planning/phases/_/_-UAT.md
+Glob: .planning/phases/_/_-VERIFICATION.md
 </context>

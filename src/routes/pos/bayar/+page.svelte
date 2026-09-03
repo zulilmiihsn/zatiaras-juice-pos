@@ -2,882 +2,487 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
-	import { validateNumber, validateText, sanitizeInput } from '$lib/utils/validation';
-	import { securityUtils } from '$lib/utils/security';
-	import { getSupabaseClient } from '$lib/database/supabaseClient';
-	import { v4 as uuidv4 } from 'uuid';
-	import { formatWitaDateTime, getNowWita, witaToUtcISO } from '$lib/utils/dateTime';
+	import NotifModal from '$lib/components/shared/NotifModal.svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { userRole } from '$lib/stores/userRole';
-	import { get as storeGet } from 'svelte/store';
-	import { selectedBranch } from '$lib/stores/selectedBranch';
-	import * as pako from 'pako';
-	import { Base64 } from 'js-base64';
-	import { executePrint } from '$lib/utils/printHelper';
-	import { memoize } from '$lib/utils/performance';
-	import { addPendingTransaction } from '$lib/utils/offline';
-	import { ErrorHandler } from '$lib/utils/errorHandling';
-	import { dataService } from '$lib/services/dataService';
-	import type { CartItem } from '$lib/types/product';
-	import KeypadModal from '$lib/components/pos/keypadModal.svelte';
+	import { formatRupiah } from '$lib/utils/currency';
+	import { PAYMENT } from '$lib/constants/ui';
+	import { formatOrderDetails } from '$lib/utils/orderDetails';
+	import Banknote from '@lucide/svelte/icons/banknote';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
+	import ReceiptText from '@lucide/svelte/icons/receipt-text';
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import UserRound from '@lucide/svelte/icons/user-round';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
+	import { createBayarState } from '$lib/stores/bayarState.svelte';
 
-	let cart: CartItem[] = [];
-	let customerName = '';
-	let paymentMethod = '';
+	const s = createBayarState();
+
 	const paymentOptions = [
 		{ id: 'tunai', label: 'Tunai' },
 		{ id: 'qris', label: 'QRIS' }
 	];
-	let showCancelModal = false;
-	let showCashModal = false;
-	let cashReceived = '';
-	const cashTemplates = [5000, 10000, 20000, 50000, 100000];
-	let keypad = [
+	const cashTemplates = PAYMENT.QUICK_AMOUNTS;
+	const keypad = [
 		[1, 2, 3],
 		[4, 5, 6],
 		[7, 8, 9],
 		['⌫', 0, 'C']
 	];
-	let showSuccessModal = false;
-	let showQrisWarning = false;
-	let transactionId = '';
-	let transactionCode = '';
-
-	let showErrorNotification = false;
-	let errorNotificationMessage = '';
-	let errorNotificationTimeout: any = null;
-	let showSuccessNotification = false;
-	let successNotificationMessage = '';
-	let successNotificationTimeout: any = null;
-
-	let showNoSessionModal = false;
-	let noSessionModalMsg = '';
-
-	let currentUserRole = '';
-	userRole.subscribe((val) => (currentUserRole = val || ''));
-
-	let showNotifModal = false;
-	let notifModalMsg = '';
-	let notifModalType = 'warning'; // 'warning' | 'success' | 'error'
-
-	let pengaturanStruk: any = null;
-
-	function showErrorNotif(message: string) {
-		errorNotificationMessage = message;
-		showErrorNotification = true;
-		clearTimeout(errorNotificationTimeout);
-		errorNotificationTimeout = setTimeout(() => {
-			showErrorNotification = false;
-		}, 3000);
-	}
-
-	function showSuccessNotif(message: string) {
-		successNotificationMessage = message;
-		showSuccessNotification = true;
-		clearTimeout(successNotificationTimeout);
-		successNotificationTimeout = setTimeout(() => {
-			showSuccessNotification = false;
-		}, 3000);
-	}
-
-	function generateTransactionCode() {
-		// Ambil nomor urut terakhir dari localStorage
-		let lastNum = parseInt(localStorage.getItem('last_jus_id') || '0', 10);
-		lastNum++;
-		localStorage.setItem('last_jus_id', lastNum.toString());
-		return `JUS${lastNum.toString().padStart(5, '0')}`;
-	}
-
-	let sesiAktif: any = null;
-	async function cekSesiTokoAktif() {
-		const { data } = await getSupabaseClient(storeGet(selectedBranch))
-			.from('sesi_toko')
-			.select('*')
-			.eq('is_active', true)
-			.order('opening_time', { ascending: false })
-			.limit(1)
-			.maybeSingle();
-		sesiAktif = data || null;
-	}
-
-	async function fetchPengaturanStruk() {
-		try {
-			const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-				.from('pengaturan')
-				.select('*')
-				.eq('id', 1)
-				.single();
-			if (data) {
-				pengaturanStruk = data;
-			} else if (error) {
-				// fallback ke localStorage
-				const local = localStorage.getItem('pengaturan_struk');
-				if (local) pengaturanStruk = JSON.parse(local);
-			}
-		} catch {
-			const local = localStorage.getItem('pengaturan_struk');
-			if (local) pengaturanStruk = JSON.parse(local);
-		}
-	}
 
 	onMount(() => {
-		cekSesiTokoAktif();
-		fetchPengaturanStruk();
-		const saved = localStorage.getItem('pos_cart');
-		if (saved) {
-			try {
-				cart = JSON.parse(saved);
-			} catch {}
-		}
-		transactionId = uuidv4(); // UUID untuk database
-		transactionCode = generateTransactionCode(); // Untuk tampilan/struk
+		const updateConnectionState = () => {
+			s.setOffline(!navigator.onLine);
+		};
+		updateConnectionState();
+		window.addEventListener('online', updateConnectionState);
+		window.addEventListener('offline', updateConnectionState);
+		s.init();
+		return () => {
+			window.removeEventListener('online', updateConnectionState);
+			window.removeEventListener('offline', updateConnectionState);
+		};
 	});
-
-	const calculateCartSummary = memoize((cart: any) => {
-		let totalQty = 0;
-		let totalHarga = 0;
-		for (const item of cart) {
-			totalQty += item.qty;
-			totalHarga += item.qty * (item.product.price ?? item.product.harga ?? 0);
-			if (item.addOns) {
-				totalHarga += item.addOns.reduce(
-					(a: any, b: any) => a + (b.price ?? b.harga ?? 0) * item.qty,
-					0
-				);
-			}
-		}
-		return { totalQty, totalHarga };
-	});
-
-	$: ({ totalQty, totalHarga } = calculateCartSummary(cart));
-	$: kembalian = (parseInt(cashReceived) || 0) - totalHarga;
-	$: formattedCashReceived = cashReceived ? parseInt(cashReceived).toLocaleString('id-ID') : '';
-
-	function handleCancel() {
-		showCancelModal = true;
-	}
-	function confirmCancel() {
-		showCancelModal = false;
-		goto('/pos');
-	}
-	function closeModal() {
-		showCancelModal = false;
-	}
-	function handleBayar() {
-		if (paymentMethod === 'tunai') {
-			showCashModal = true;
-			cashReceived = '';
-		} else {
-			// Non-tunai: tampilkan modal warning dulu
-			showQrisWarning = true;
-		}
-	}
-	function confirmQrisChecked() {
-		showQrisWarning = false;
-		showSuccessModal = true;
-		cashReceived = totalHarga.toString(); // QRIS = dibayar pas
-		kembalian = 0;
-		// Catat ke laporan
-		catatTransaksiKeLaporan();
-	}
-	function addCashTemplate(nom: any) {
-		cashReceived = ((parseInt(cashReceived) || 0) + nom).toString();
-	}
-	function closeCashModal() {
-		showCashModal = false;
-	}
-	function finishCash() {
-		// Validate cash received
-		const cashValidation = validateNumber(cashReceived, { required: true, min: totalHarga });
-		if (!cashValidation.isValid) {
-			showErrorNotif(`Error: ${cashValidation.errors.join(', ')}`);
-			return;
-		}
-
-		// Check rate limiting
-		if (!securityUtils.checkFormRateLimit('payment_completion')) {
-			showErrorNotif('Terlalu banyak transaksi. Silakan tunggu sebentar.');
-			return;
-		}
-
-		// Sanitize inputs
-		const sanitizedCashReceived = sanitizeInput(cashReceived);
-		const sanitizedPaymentMethod = sanitizeInput(paymentMethod);
-
-		// Check for suspicious activity
-		const allInputs = `${sanitizedCashReceived}${sanitizedPaymentMethod}${totalHarga}`;
-		if (securityUtils.detectSuspiciousActivity('payment_completion', allInputs)) {
-			showErrorNotif('Aktivitas pembayaran mencurigakan terdeteksi. Silakan coba lagi.');
-			securityUtils.logSecurityEvent('suspicious_payment_activity', {
-				cashReceived: sanitizedCashReceived,
-				paymentMethod: sanitizedPaymentMethod,
-				totalHarga
-			});
-			return;
-		}
-
-		// Log successful payment
-		securityUtils.logSecurityEvent('payment_completed', {
-			paymentMethod: sanitizedPaymentMethod,
-			totalAmount: totalHarga,
-			cashReceived: parseInt(sanitizedCashReceived),
-			change: kembalian,
-			itemsCount: cart.length
-		});
-
-		// Proses pembayaran tunai selesai
-		showCashModal = false;
-		showSuccessModal = true;
-		// Catat ke laporan
-		catatTransaksiKeLaporan();
-	}
-	function handleKeypad(val: any) {
-		if (val === '⌫') {
-			cashReceived = cashReceived.slice(0, -1);
-		} else {
-			cashReceived = (cashReceived + val).replace(/^0+(?!$)/, '');
-		}
-	}
-
-	function getLocalOffsetString() {
-		const offset = -new Date().getTimezoneOffset();
-		const sign = offset >= 0 ? '+' : '-';
-		const pad = (n: any) => n.toString().padStart(2, '0');
-		const hours = pad(Math.floor(Math.abs(offset) / 60));
-		const minutes = pad(Math.abs(offset) % 60);
-		return `${sign}${hours}:${minutes}`;
-	}
-
-	async function catatTransaksiKeLaporan() {
-		await cekSesiTokoAktif();
-		if (!cart || cart.length === 0 || totalHarga <= 0) {
-			notifModalMsg = 'Transaksi tidak valid: keranjang kosong atau total harga 0.';
-			notifModalType = 'error';
-			showNotifModal = true;
-			return;
-		}
-		const id_sesi_toko = sesiAktif?.id || null;
-		if (!id_sesi_toko && currentUserRole === 'kasir') {
-			notifModalMsg = 'Kasir tidak boleh melakukan transaksi saat toko tutup!';
-			notifModalType = 'error';
-			showNotifModal = true;
-			return;
-		}
-		if (!id_sesi_toko && currentUserRole === 'pemilik') {
-			notifModalMsg =
-				'PERINGATAN: Tidak ada sesi toko aktif! Transaksi akan dianggap di luar sesi dan tidak masuk ringkasan tutup toko.';
-			notifModalType = 'warning';
-			showNotifModal = true;
-		}
-		// Gunakan WITA timezone yang konsisten
-		const nowWita = getNowWita();
-		const waktu = witaToUtcISO(nowWita.split('T')[0], nowWita.split('T')[1]);
-		const payment = paymentMethod === 'qris' ? 'non-tunai' : paymentMethod;
-		// Generate transaction_id sekali per transaksi
-		const transactionId =
-			typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : uuidv4();
-		// Satu row summary untuk buku_kas
-		const totalAmount = cart.reduce(
-			(sum: any, item: any) =>
-				sum +
-				item.qty *
-					((item.product.price ?? item.product.harga ?? 0) +
-						(item.addOns
-							? item.addOns.reduce((a: any, b: any) => a + (b.price ?? b.harga ?? 0), 0)
-							: 0)),
-			0
-		);
-		const description = 'Penjualan ' + cart.map((item: any) => item.product.name).join(', ');
-		const totalQty = cart.reduce((sum: any, item: any) => sum + item.qty, 0);
-		const insert = {
-			tipe: 'in',
-			sumber: 'pos',
-			payment_method: payment,
-			amount: totalAmount,
-			description,
-			customer_name: customerName || null,
-			id_sesi_toko,
-			waktu,
-			jenis: 'pendapatan_usaha',
-			qty: totalQty,
-			transaction_id: transactionId
-		};
-		// Detail transaksi untuk transaksi_kasir
-		const transaksiKasirInserts = cart.map((item: any) => {
-			const addOnTotal = item.addOns
-				? item.addOns.reduce((a: any, b: any) => a + (b.price ?? b.harga ?? 0), 0)
-				: 0;
-			const unitPrice = (item.product.price ?? item.product.harga ?? 0) + addOnTotal;
-			return {
-				// buku_kas_id: diisi saat online, biarkan null saat offline
-				// Untuk custom item, set produk_id ke null dan simpan nama di custom_name
-				produk_id: item.product.id.toString().startsWith('custom-') ? null : item.product.id,
-				qty: item.qty,
-				amount: unitPrice * item.qty,
-				price: unitPrice,
-				transaction_id: transactionId,
-				// Tambahkan nama custom item jika ini adalah custom item
-				custom_name: item.product.id.toString().startsWith('custom-') ? item.product.name : null
-			};
-		});
-		if (!payment) {
-			notifModalMsg = 'Metode pembayaran tidak valid!';
-			notifModalType = 'error';
-			showNotifModal = true;
-			return;
-		}
-		if (navigator.onLine) {
-			const { error } = await getSupabaseClient(storeGet(selectedBranch))
-				.from('buku_kas')
-				.insert(insert);
-			if (error) {
-				notifModalMsg = 'Gagal mencatat transaksi: ' + ErrorHandler.extractErrorMessage(error);
-				notifModalType = 'error';
-				showNotifModal = true;
-				return;
-			}
-			const { data: lastBukuKas, error: lastBukuKasError } = await getSupabaseClient(
-				storeGet(selectedBranch)
-			)
-				.from('buku_kas')
-				.select('id, transaction_id, sumber, waktu')
-				.eq('customer_name', customerName || null)
-				.eq('transaction_id', transactionId)
-				.order('waktu', { ascending: false })
-				.limit(1)
-				.maybeSingle();
-			if (lastBukuKas && lastBukuKas.id) {
-				const transaksiKasirInserts = cart.map((item: any) => {
-					const addOnTotal = item.addOns
-						? item.addOns.reduce((a: any, b: any) => a + (b.price ?? b.harga ?? 0), 0)
-						: 0;
-					const unitPrice = (item.product.price ?? item.product.harga ?? 0) + addOnTotal;
-					return {
-						buku_kas_id: lastBukuKas.id,
-						// Untuk custom item, set produk_id ke null dan simpan nama di custom_name
-						produk_id: item.product.id.toString().startsWith('custom-') ? null : item.product.id,
-						qty: item.qty,
-						amount: unitPrice * item.qty,
-						price: unitPrice,
-						transaction_id: transactionId,
-						// Tambahkan nama custom item jika ini adalah custom item
-						custom_name: item.product.id.toString().startsWith('custom-') ? item.product.name : null
-					};
-				});
-				if (transaksiKasirInserts.length) {
-					const { error: errorKasir } = await getSupabaseClient(storeGet(selectedBranch))
-						.from('transaksi_kasir')
-						.insert(transaksiKasirInserts);
-				}
-			}
-			// Setelah transaksi berhasil, invalidate cache dashboard/laporan dan fetch ulang data
-			await dataService.invalidateCacheOnChange('buku_kas');
-			await dataService.invalidateCacheOnChange('transaksi_kasir');
-			if (typeof window !== 'undefined' && (window as any).refreshDashboardData) {
-				await (window as any).refreshDashboardData();
-			}
-		} else {
-			// Offline mode: simpan summary dan detail ke pending
-			addPendingTransaction({ bukuKas: insert, transaksiKasir: transaksiKasirInserts });
-			notifModalMsg = 'Transaksi disimpan offline dan akan otomatis sync saat online.';
-			notifModalType = 'success';
-			showNotifModal = true;
-		}
-		// Hapus proses insert ke transaksi dan item_transaksi, karena sudah tidak digunakan
-	}
-
-	function closeNotifModal() {
-		showNotifModal = false;
-	}
-
-	function printStrukViaEscPosService() {
-		// Gunakan pengaturanStruk jika ada, fallback default
-		const pengaturan = pengaturanStruk || {
-			nama_toko: 'Zatiaras Juice',
-			alamat: 'Jl. Contoh Alamat No. 123, Kota',
-			telepon: '0812-3456-7890',
-			instagram: '@zatiarasjuice',
-			ucapan: 'Terima kasih sudah ngejus di\nZatiaras Juice!'
-		};
-		let html = `<html><body style='width:384px;font-family:monospace;color:#000;font-size:22px;line-height:1.5;margin:0;padding:0;'>`;
-		// Header
-		html += `<div style='text-align:center;margin-bottom:16px;'>`;
-		html += `<div style='font-weight:bold;font-size:26px;text-transform:uppercase;'>${pengaturan.nama_toko}</div>`;
-		html += `<div style='font-size:18px;margin-top:4px;'>${pengaturan.alamat}</div>`;
-		if (pengaturan.instagram || pengaturan.telepon) {
-			html += `<div style='font-size:18px;margin-top:2px;'>${pengaturan.instagram ? pengaturan.instagram : ''}${pengaturan.instagram && pengaturan.telepon ? ' | ' : ''}${pengaturan.telepon ? pengaturan.telepon : ''}</div>`;
-		}
-		html += `</div>`;
-		html += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-		// Info pelanggan & waktu
-		html += `<div style='font-size:18px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
-		html += `<div>${customerName || ''}</div>`;
-		html += `<div>${new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
-		html += `</div>`;
-		// Daftar pesanan
-		html += `<table style='width:100%;font-size:22px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
-		cart.forEach((item: any, idx: any) => {
-			html += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${item.product.name} <span style='font-size:16px;font-weight:normal;'>x${item.qty}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${(item.product.price ?? item.product.harga ?? 0).toLocaleString('id-ID')}</td></tr>`;
-			if (item.addOns && item.addOns.length > 0) {
-				item.addOns.forEach((a: any) => {
-					html += `<tr><td style='font-size:16px;padding-left:8px;color:#333;'>+ ${a.name}</td><td style='font-size:16px;text-align:right;color:#333;'>Rp${((a.price ?? a.harga ?? 0) * item.qty).toLocaleString('id-ID')}</td></tr>`;
-				});
-			}
-			const detail = [
-				item.sugar && item.sugar !== 'normal'
-					? item.sugar === 'no'
-						? 'Tanpa Gula'
-						: item.sugar === 'less'
-							? 'Sedikit Gula'
-							: item.sugar
-					: null,
-				item.ice && item.ice !== 'normal'
-					? item.ice === 'no'
-						? 'Tanpa Es'
-						: item.ice === 'less'
-							? 'Sedikit Es'
-							: item.ice
-					: null,
-				item.note && item.note.trim() ? item.note : null
-			]
-				.filter(Boolean)
-				.join(', ');
-			if (detail)
-				html += `<tr><td colspan='2' style='font-size:16px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${detail}</td></tr>`;
-		});
-		html += `</tbody></table>`;
-		html += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-		// Ringkasan
-		html += `<table style='width:100%;font-size:22px;margin-bottom:24px;border-collapse:collapse;'><tbody>`;
-		html += `<tr><td style='text-align:left;padding-bottom:4px;'>Total:</td><td style='text-align:right;font-weight:bold;font-size:26px;'>Rp${totalHarga.toLocaleString('id-ID')}</td></tr>`;
-		const methodLabels: Record<string, string> = {
-			tunai: 'Tunai',
-			qris: 'QRIS',
-			transfer: 'Transfer',
-			'e-wallet': 'E-Wallet',
-			card: 'Kartu',
-			'non-tunai': 'QRIS/Non-Tunai'
-		};
-		html += `<tr><td style='text-align:left;font-size:18px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:18px;padding-top:4px;'>${methodLabels[paymentMethod] || paymentMethod}</td></tr>`;
-		if (paymentMethod === 'tunai') {
-			html += `<tr><td style='text-align:left;font-size:18px;'>Dibayar:</td><td style='text-align:right;font-size:18px;'>Rp${(parseInt(cashReceived) || 0).toLocaleString('id-ID')}</td></tr>`;
-			html += `<tr><td style='text-align:left;font-size:18px;'>Kembalian:</td><td style='text-align:right;font-size:18px;'>Rp${kembalian >= 0 ? kembalian.toLocaleString('id-ID') : '0'}</td></tr>`;
-		}
-		html += `</tbody></table>`;
-		// Ucapan
-		html += `<div style='text-align:center;font-size:18px;white-space:pre-line;'>${pengaturan.ucapan}</div>`;
-		html += `</body></html>`;
-
-		// 2. Gzip + base64 encode
-		const gzip = pako.gzip(JSON.stringify([html]));
-		const base64 = Base64.fromUint8Array(gzip);
-		// 3. Intent URL
-		const intentUrl = `intent://#Intent;scheme=print-intent;S.content=${base64};end`;
-		executePrint(intentUrl);
-	}
-
-	function handleAddCashTemplate(t: any) {
-		addCashTemplate(t);
-	}
-	function handleKeypadButton(key: any) {
-		if (key === 'C') cashReceived = '';
-		else handleKeypad(key);
-	}
-	function handleSetPaymentMethod(id: any) {
-		paymentMethod = id;
-	}
-	function handleBackToKasir() {
-		showSuccessModal = false;
-		goto('/pos');
-	}
-	function handleCloseNoSessionModal() {
-		showNoSessionModal = false;
-	}
 </script>
 
-<main class="page-content flex-1 overflow-y-auto px-2 pt-2">
-	<div class="px-2 py-4">
-		<div class="mb-3 text-sm font-semibold text-gray-700">Pembayaran: #{transactionCode}</div>
-		<!-- Input Nama Pelanggan -->
-		<div class="mb-4">
-			<div class="mb-2 block text-sm text-gray-500">Nama Pelanggan</div>
-			<input
-				type="text"
-				class="mb-1 w-full rounded-lg border-[1.5px] border-pink-200 bg-white px-3 py-2.5 text-base text-gray-800 transition-colors duration-200 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
-				placeholder="Masukkan nama pelanggan..."
-				bind:value={customerName}
-				maxlength="50"
-			/>
+<main class="page-content min-h-[100dvh] flex-1 overflow-y-auto bg-[#faf7f8] pb-28">
+	<!-- [CATATAN]: Fluid Wave Header for Payment -->
+	<div
+		class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-12 shadow-xl shadow-pink-500/15"
+	>
+		<!-- [CATATAN]: Ambient background blur shapes -->
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
+
+		<div class="relative z-10 mb-3 text-center">
+			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
+				Konfirmasi Pembayaran
+			</h1>
+			<p class="text-xs font-medium text-white/80">Selesaikan transaksi kasir dan cetak struk</p>
 		</div>
-		<!-- Info Pesanan -->
-		<div class="mb-4 rounded-xl bg-pink-50 p-4">
-			<div class="mb-2 font-semibold text-pink-500">Pesanan</div>
-			<ul class="divide-y divide-pink-100">
-				{#each cart as item}
-					<li class="flex flex-col gap-0.5 py-2">
-						<div class="flex items-center justify-between">
-							<div class="flex min-w-0 items-center gap-2">
-								<span class="truncate font-medium text-gray-900">{item.product.name}</span>
-								<span class="flex-shrink-0 text-sm text-gray-500">x{item.qty}</span>
-							</div>
-							<span class="font-bold text-pink-500"
-								>Rp {((item.product.price ?? item.product.harga ?? 0) * item.qty).toLocaleString(
-									'id-ID'
-								)}</span
-							>
-						</div>
-						{#if item.addOns && item.addOns.length > 0}
-							<div class="mt-1 ml-1 flex flex-col gap-0.5">
-								{#each item.addOns as ekstra}
-									<div class="flex justify-between text-xs font-medium text-gray-500">
-										<span>+ {ekstra.name}</span>
-										<span
-											>Rp {((ekstra.price ?? ekstra.harga ?? 0) * item.qty).toLocaleString(
-												'id-ID'
-											)}</span
-										>
-									</div>
-								{/each}
-							</div>
-						{/if}
-						{#if (item.sugar && item.sugar !== 'normal') || (item.ice && item.ice !== 'normal') || (item.note && item.note.trim())}
-							<div class="ml-1 text-xs font-medium text-gray-400">
-								{[
-									item.sugar && item.sugar !== 'normal'
-										? item.sugar === 'no'
-											? 'Tanpa Gula'
-											: item.sugar === 'less'
-												? 'Sedikit Gula'
-												: item.sugar
-										: null,
-									item.ice && item.ice !== 'normal'
-										? item.ice === 'no'
-											? 'Tanpa Es'
-											: item.ice === 'less'
-												? 'Sedikit Es'
-												: item.ice
-										: null,
-									item.note && item.note.trim() ? item.note : null
-								]
-									.filter(Boolean)
-									.join(', ')}
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		</div>
-		<!-- Metode Pembayaran -->
-		<div class="mb-4">
-			<div class="mb-2 block text-sm text-gray-500">Metode Pembayaran</div>
-			<div class="grid grid-cols-2 gap-3">
-				{#each paymentOptions as opt}
-					<button
-						type="button"
-						class="rounded-lg border-2 px-4 py-3 text-base font-semibold transition-all
-            {paymentMethod === opt.id
-							? 'border-pink-500 bg-pink-50 text-pink-500'
-							: 'border-pink-200 bg-white text-gray-700'}"
-						onclick={() => handleSetPaymentMethod(opt.id)}
-					>
-						{opt.label}
-					</button>
-				{/each}
+
+		<!-- [CATATAN]: Hero Total Card Floating on Wave -->
+		<div
+			class="relative z-10 mx-auto max-w-sm rounded-full border border-white/40 bg-white/25 px-6 py-2.5 text-center text-white shadow-sm backdrop-blur-xl"
+		>
+			<span class="text-[11px] font-bold tracking-wider text-white/90 uppercase"
+				>Total Pembayaran</span
+			>
+			<div class="text-2xl font-black tracking-tight drop-shadow-xs sm:text-3xl">
+				Rp {formatRupiah(s.totalHarga)}
 			</div>
 		</div>
-		<!-- Summary Total -->
-		<div class="mt-6 mb-4 flex items-center justify-between rounded-xl bg-white p-4 shadow">
-			<div class="font-semibold text-gray-700">Total</div>
-			<div class="text-2xl font-bold text-pink-500">Rp {totalHarga.toLocaleString('id-ID')}</div>
-		</div>
-		<!-- Tombol Konfirmasi -->
-		<button
-			class="mt-2 w-full rounded-xl bg-pink-500 py-4 text-lg font-bold text-white shadow-lg transition-all active:bg-pink-600 disabled:opacity-50"
-			onclick={handleBayar}
-			disabled={!paymentMethod || !customerName.trim()}
-		>
-			Konfirmasi & Bayar
-		</button>
-		{#if !paymentMethod || !customerName.trim()}
-			<div class="mt-2 text-center text-xs text-red-400">
-				{#if !paymentMethod && !customerName.trim()}
-					Isi nama pelanggan & pilih metode pembayaran dulu
-				{:else if !paymentMethod}
-					Pilih metode pembayaran dulu
-				{:else}
-					Isi nama pelanggan dulu
+	</div>
+
+	<div class="relative z-20 mx-auto -mt-6 max-w-lg px-4">
+		{#if s.cart.length === 0}
+			<div
+				class="glass-card flex min-h-[50vh] flex-col items-center justify-center rounded-[32px] p-8 text-center shadow-lg"
+			>
+				<ShoppingBag class="mb-4 h-12 w-12 text-slate-400" />
+				<div class="mb-2 text-xl font-bold text-slate-900">Keranjang Masih Kosong</div>
+				<div class="mb-5 max-w-xs text-xs font-medium text-slate-500">
+					Pilih menu dari layar kasir sebelum melanjutkan ke pembayaran.
+				</div>
+				<button
+					class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-6 py-3 text-sm font-bold text-white shadow-md transition-all duration-200 active:scale-95"
+					type="button"
+					onclick={() => {
+						s.clearCartStorage();
+						goto('/pos');
+					}}>Kembali ke Kasir</button
+				>
+			</div>
+		{:else}
+			<div class="flex flex-col gap-3.5 pb-8">
+				{#if s.isOffline}
+					<div
+						class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-xs"
+					>
+						<WifiOff class="mt-0.5 h-5 w-5 shrink-0" />
+						<div>
+							<div class="text-xs font-bold">Mode Offline Aktif</div>
+							<div class="mt-0.5 text-xs text-amber-800">
+								Pembayaran tunai akan disimpan lokal sampai koneksi internet kembali.
+							</div>
+						</div>
+					</div>
 				{/if}
+
+				<!-- [CATATAN]: 1. Nama Pelanggan (Soft Float Card) -->
+				<div class="soft-float-card p-4 transition-all duration-200">
+					<label
+						class="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-500 uppercase"
+						for="nama"
+					>
+						<UserRound class="h-4 w-4 text-pink-600" />
+						Nama Pelanggan
+					</label>
+					<input
+						id="nama"
+						type="text"
+						class="w-full rounded-full border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+						placeholder="Contoh: Kak Sarah / Meja 02..."
+						bind:value={s.customerName}
+						maxlength="50"
+					/>
+				</div>
+
+				<!-- [CATATAN]: 2. Pesanan Ringkasan (Glassmorphic Card) -->
+				<div class="glass-card rounded-[28px] p-4.5 shadow-lg">
+					<div class="mb-3 flex items-center justify-between">
+						<div
+							class="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-700 uppercase"
+						>
+							<ReceiptText class="h-4 w-4 text-pink-600" />
+							Rincian Pesanan
+						</div>
+						<div
+							class="rounded-full bg-pink-100/80 px-3 py-0.5 text-[11px] font-bold text-pink-800"
+						>
+							{s.totalQty} item
+						</div>
+					</div>
+					<ul class="divide-y divide-slate-100">
+						{#each s.cart as item (s.cartItemKey(item))}
+							{@const isJumbo = item.porsi === 'jumbo'}
+							{@const basePrice = isJumbo
+								? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+								: (item.product.harga ?? 0)}
+							<li class="flex flex-col gap-1 py-2.5">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0">
+										<div
+											class="flex items-center gap-1.5 truncate text-sm font-bold text-slate-900"
+										>
+											<span class="truncate">{item.product.nama}</span>
+											{#if isJumbo}
+												<span
+													class="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-200/70"
+												>
+													Jumbo
+												</span>
+											{/if}
+										</div>
+										<div class="mt-0.5 text-xs font-semibold text-slate-400">
+											{item.jumlah}x @ Rp {formatRupiah(basePrice)}
+										</div>
+									</div>
+									<span class="shrink-0 text-sm font-bold text-pink-700"
+										>Rp {formatRupiah(basePrice * item.jumlah)}</span
+									>
+								</div>
+								{#if item.addOns && item.addOns.length > 0}
+									<div
+										class="mt-1 flex flex-col gap-0.5 rounded-xl bg-slate-50/80 px-3 py-1.5 text-xs"
+									>
+										{#each item.addOns as ekstra}
+											<div class="flex justify-between gap-3 font-medium text-slate-600">
+												<span class="truncate">+ {ekstra.nama}</span>
+												<span class="shrink-0 font-bold"
+													>Rp {formatRupiah((ekstra.harga ?? 0) * item.jumlah)}</span
+												>
+											</div>
+										{/each}
+									</div>
+								{/if}
+								{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.catatan && item.catatan.trim())}
+									<div class="text-[11px] font-medium text-slate-400">
+										{formatOrderDetails(item)}
+									</div>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+
+				<!-- [CATATAN]: 3. Metode Pembayaran (Pill Buttons) -->
+				<div class="soft-float-card p-4.5">
+					<div class="mb-3 text-xs font-bold tracking-wider text-slate-500 uppercase">
+						Pilih Metode Pembayaran
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						{#each paymentOptions as opt}
+							<button
+								type="button"
+								class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 active:scale-[0.98] {s.paymentMethod ===
+								opt.id
+									? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-md shadow-pink-500/10'
+									: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'} {s.isOffline &&
+								opt.id !== 'tunai'
+									? 'cursor-not-allowed opacity-45'
+									: ''}"
+								onclick={() => s.handleSetPaymentMethod(opt.id)}
+								disabled={s.isOffline && opt.id !== 'tunai'}
+							>
+								<div
+									class="flex h-10 w-10 items-center justify-center rounded-xl {s.paymentMethod ===
+									opt.id
+										? 'bg-pink-500 text-white'
+										: 'bg-slate-100 text-slate-500'}"
+								>
+									{#if opt.id === 'tunai'}
+										<Banknote class="h-5 w-5" />
+									{:else}
+										<CreditCard class="h-5 w-5" />
+									{/if}
+								</div>
+								<span class="text-xs font-bold"
+									>{opt.label}{s.isOffline && opt.id !== 'tunai' ? ' (online)' : ''}</span
+								>
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				<!-- [CATATAN]: 4. Konfirmasi & Batalkan Buttons -->
+				<div class="mt-2 flex flex-col gap-2.5">
+					<button
+						class="w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-4 text-base font-bold text-white shadow-xl shadow-pink-500/25 transition-all duration-200 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+						onclick={s.handleBayar}
+						disabled={!s.canPay}
+					>
+						Konfirmasi & Proses Transaksi
+					</button>
+					{#if !s.canPay}
+						<div class="text-center text-xs font-bold text-rose-500">
+							{#if !s.paymentMethod && !s.customerName.trim()}
+								Mohon isi nama pelanggan & pilih metode pembayaran
+							{:else if !s.paymentMethod}
+								Mohon pilih metode pembayaran
+							{:else}
+								Mohon isi nama pelanggan
+							{/if}
+						</div>
+					{/if}
+					<button
+						class="mx-auto block w-full cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-500 shadow-xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+						type="button"
+						onclick={s.handleCancel}
+					>
+						Batalkan Transaksi
+					</button>
+				</div>
 			</div>
 		{/if}
-		<button
-			class="mx-auto mt-4 block text-sm text-gray-400 underline hover:text-pink-400"
-			type="button"
-			onclick={handleCancel}
-		>
-			Batalkan
-		</button>
 	</div>
 </main>
 
-{#if showCancelModal}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-black/30">
+{#if s.showCancelModal}
+	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
 		<div
-			class="animate-slideUpModal mx-auto w-full max-w-sm rounded-t-2xl bg-white p-6 pb-4 shadow-lg"
+			class="animate-slideUpModal mx-auto w-full max-w-sm rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
 		>
-			<div class="mb-2 text-center text-lg font-bold text-gray-800">Batalkan Pembayaran?</div>
-			<div class="mb-6 text-center text-gray-500">
+			<div class="mb-2 text-center text-lg font-extrabold text-slate-900">Batalkan Pembayaran?</div>
+			<div class="mb-6 text-center text-xs font-medium text-slate-500">
 				Apakah Anda yakin ingin membatalkan pembayaran dan kembali ke kasir?
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2.5">
 				<button
-					class="w-full rounded-lg bg-red-500 py-3 text-base font-bold text-white active:bg-red-600"
-					onclick={confirmCancel}>Ya, batalkan</button
+					class="min-h-[46px] w-full cursor-pointer rounded-full bg-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-rose-500/20 transition-all hover:bg-rose-600 active:scale-[0.98]"
+					onclick={s.confirmCancel}>Ya, Batalkan</button
 				>
 				<button
-					class="w-full rounded-lg bg-gray-100 py-3 text-base font-semibold text-gray-500"
-					onclick={closeModal}>Tutup</button
+					class="min-h-[46px] w-full cursor-pointer rounded-full bg-slate-100 py-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
+					onclick={s.closeModal}>Tutup</button
 				>
 			</div>
 		</div>
 	</div>
 {/if}
 
-<KeypadModal
-	open={showCashModal}
-	{cashReceived}
-	{formattedCashReceived}
-	{totalHarga}
-	{kembalian}
-	{cashTemplates}
-	{keypad}
-	onAddCashTemplate={handleAddCashTemplate}
-	onKeypadButton={handleKeypadButton}
-	onFinishCash={finishCash}
-	onClose={closeCashModal}
-	onInputRaw={(raw) => (cashReceived = raw)}
-/>
-
-{#if showQrisWarning}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-black/30">
-		<div
-			class="animate-slideUpModal qris-warning-modal mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-t-2xl bg-white p-8 pb-6 shadow-lg"
-		>
-			<div
-				class="animate-bounceIn warning-icon mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100"
-			>
-				<svg width="40" height="40" fill="none" viewBox="0 0 24 24"
-					><circle cx="12" cy="12" r="12" fill="#fde047" opacity="0.18" /><path
-						d="M12 8v4m0 4h.01"
-						stroke="#f59e42"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					/></svg
-				>
+{#if s.showCashModal}
+	<ModalSheet open={s.showCashModal} title="Pembayaran Tunai" onClose={s.closeCashModal}>
+		<div class="pb-6 md:min-h-[60vh] md:pb-8">
+			<div class="mb-4 text-center text-xs font-semibold text-slate-500 md:mb-6 md:text-sm">
+				Masukkan jumlah uang diterima dari pelanggan
 			</div>
-			<div class="warning-title mb-1 text-center text-xl font-bold text-yellow-600">
-				Periksa Pembayaran QRIS
+			<input
+				type="text"
+				inputmode="numeric"
+				pattern="[0-9]*"
+				class="mb-3.5 w-full rounded-2xl border-2 border-pink-200/90 bg-pink-50/40 px-4 py-3 text-center text-2xl font-black text-slate-900 transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15 md:mb-5 md:py-4 md:text-3xl"
+				value={s.formattedCashReceived}
+				oninput={(e) => {
+					const target = e.target as HTMLInputElement;
+					const raw = target.value.replace(/\D/g, '');
+					s.cashReceived = raw;
+				}}
+				placeholder="0"
+			/>
+			<div class="mb-4 flex flex-wrap justify-center gap-2 md:mb-6 md:gap-3">
+				{#each cashTemplates as t}
+					<button
+						type="button"
+						class="min-h-[44px] cursor-pointer rounded-full border border-pink-200/80 bg-pink-50/70 px-4 py-2 text-xs font-extrabold text-pink-600 shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-100 active:scale-95 md:px-6 md:text-sm"
+						onclick={() => s.handleAddCashTemplate(t)}
+					>
+						Rp {formatRupiah(t)}
+					</button>
+				{/each}
 			</div>
-			<div class="mb-2 text-center text-gray-700">
-				Pastikan kasir sudah <span class="font-semibold text-pink-500">memeriksa nama merchant</span
-				>
-				dan <span class="font-semibold text-pink-500">nominal pembayaran</span> di aplikasi konsumen
-				sebelum melanjutkan.
+			<div class="mx-auto grid w-full grid-cols-3 gap-2.5 md:gap-4">
+				{#each keypad as row}
+					{#each row as key}
+						<button
+							type="button"
+							class="flex min-h-[50px] w-full cursor-pointer items-center justify-center rounded-2xl bg-slate-100/90 py-3 text-lg font-bold text-slate-800 shadow-2xs transition-all hover:bg-slate-200 active:scale-95 md:py-6 md:text-2xl {key ===
+							'⌫'
+								? 'col-span-1 text-pink-600'
+								: ''} {key === 'C' ? 'text-rose-500' : ''}"
+							onclick={() => s.handleKeypadButton(key)}>{key}</button
+						>
+					{/each}
+				{/each}
 			</div>
-			<button
-				class="warning-btn mt-2 w-full rounded-lg bg-pink-500 py-3 text-base font-bold text-white transition-all active:bg-pink-600"
-				onclick={confirmQrisChecked}>Sudah Diperiksa</button
-			>
 		</div>
-	</div>
-{/if}
-
-{#if showSuccessModal}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-black/30">
-		<div
-			class="animate-slideUpModal mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-t-2xl bg-white p-8 pb-6 shadow-lg"
-		>
-			<div
-				class="animate-bounceIn mb-2 flex h-20 w-20 items-center justify-center rounded-full bg-green-100"
-			>
-				<svg width="48" height="48" fill="none" viewBox="0 0 24 24"
-					><circle cx="12" cy="12" r="12" fill="#4ade80" opacity="0.18" /><path
-						d="M7 13l3 3 7-7"
-						stroke="#22c55e"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					/></svg
+		{#snippet footer()}
+			<div class="flex flex-col gap-2.5">
+				<div
+					class="mb-1 flex items-center justify-between px-2 text-xs font-bold text-slate-700 sm:text-sm"
 				>
-			</div>
-			<div class="mb-1 text-center text-2xl font-bold text-green-600">Transaksi Berhasil!</div>
-			<div class="mb-2 text-center text-gray-700">
-				Pembayaran {paymentMethod === 'tunai' ? 'tunai' : paymentMethod.toUpperCase()} telah diterima.<br
-				/>
-				{#if customerName.trim()}
-					<span class="font-semibold text-pink-500">{customerName.trim()}</span><br />
-				{/if}
-				Kembalian:
-				<span class="font-bold text-pink-500"
-					>Rp {kembalian >= 0 ? kembalian.toLocaleString('id-ID') : '0'}</span
-				>
-			</div>
-			<div class="mb-2 flex w-full flex-col gap-1 rounded-lg bg-pink-50 p-3">
-				<div class="flex justify-between text-sm text-gray-500">
-					<span>Total</span><span class="font-bold text-pink-500"
-						>Rp {totalHarga.toLocaleString('id-ID')}</span
+					<span>Kembalian:</span>
+					<span
+						class="text-base font-extrabold {s.kembalian < 0
+							? 'text-rose-500'
+							: 'text-emerald-600'}">Rp {s.kembalian >= 0 ? formatRupiah(s.kembalian) : '0'}</span
 					>
 				</div>
-				<div class="flex justify-between text-sm text-gray-500">
-					<span>Dibayar</span><span class="font-bold text-green-600"
-						>Rp {cashReceived ? parseInt(cashReceived).toLocaleString('id-ID') : '0'}</span
-					>
-				</div>
-				<div class="flex justify-between text-sm text-gray-500">
-					<span>Kembalian</span><span class="font-bold text-green-600"
-						>Rp {kembalian >= 0 ? kembalian.toLocaleString('id-ID') : '0'}</span
-					>
-				</div>
-			</div>
-			<div class="flex w-full flex-col gap-2">
 				<button
-					class="w-full rounded-lg bg-green-500 py-3 text-base font-bold text-white transition-all active:bg-green-600"
-					onclick={printStrukViaEscPosService}>Cetak Struk</button
+					class="min-h-[48px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+					onclick={s.finishCash}
+					disabled={s.kembalian < 0 || !s.cashReceived}
 				>
-				<button
-					class="w-full rounded-lg bg-pink-500 py-3 text-base font-bold text-white transition-all active:bg-pink-600"
-					onclick={handleBackToKasir}>Kembali ke Kasir</button
-				>
+					Selesai
+				</button>
 			</div>
-		</div>
-	</div>
-{/if}
-
-{#if showErrorNotification}
-	<div
-		class="fixed top-20 left-1/2 z-50 rounded-xl bg-red-500 px-6 py-3 text-white shadow-lg transition-all duration-300 ease-out"
-		style="transform: translateX(-50%);"
-		in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-		out:fade={{ duration: 200 }}
-	>
-		{errorNotificationMessage}
-	</div>
-{/if}
-
-{#if showSuccessNotification}
-	<div
-		class="fixed top-20 left-1/2 z-50 rounded-xl bg-green-500 px-6 py-3 text-white shadow-lg transition-all duration-300 ease-out"
-		style="transform: translateX(-50%);"
-		in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-		out:fade={{ duration: 200 }}
-	>
-		{successNotificationMessage}
-	</div>
-{/if}
-
-{#if showNoSessionModal}
-	<ModalSheet open={showNoSessionModal} title="Peringatan" on:close={handleCloseNoSessionModal}>
-		<div class="py-6 text-center text-base text-gray-700">{noSessionModalMsg}</div>
-		<div slot="footer" class="flex flex-col gap-2">
-			<button
-				class="w-full rounded-lg bg-pink-500 py-3 text-base font-bold text-white active:bg-pink-600"
-				onclick={handleCloseNoSessionModal}>Tutup</button
-			>
-		</div>
+		{/snippet}
 	</ModalSheet>
 {/if}
 
-{#if showNotifModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+{#if s.showQrisWarning}
+	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
 		<div
-			class="animate-slideUpModal flex w-full max-w-xs flex-col items-center rounded-2xl border-2 bg-white px-8 py-7 shadow-2xl"
-			style="border-color: {notifModalType === 'success'
-				? '#facc15'
-				: notifModalType === 'error'
-					? '#ef4444'
-					: '#facc15'};"
+			class="animate-slideUpModal qris-warning-modal mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-t-[28px] border-t border-slate-100 bg-white p-8 pb-6 shadow-xl"
 		>
 			<div
-				class="mb-3 flex h-16 w-16 items-center justify-center rounded-full"
-				style="background: {notifModalType === 'success'
-					? '#fef9c3'
-					: notifModalType === 'error'
-						? '#fee2e2'
-						: '#fef9c3'};"
+				class="animate-bounceIn warning-icon mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600"
 			>
-				{#if notifModalType === 'success'}
-					<svg
-						class="h-10 w-10 text-yellow-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="10" fill="#fef9c3" />
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12l2 2 4-4"
-							stroke="#facc15"
-							stroke-width="2"
-						/>
-					</svg>
-				{:else if notifModalType === 'error'}
-					<svg
-						class="h-10 w-10 text-red-500"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="10" fill="#fee2e2" />
-						<line
-							x1="9"
-							y1="9"
-							x2="15"
-							y2="15"
-							stroke="#ef4444"
-							stroke-width="2"
-							stroke-linecap="round"
-						/>
-						<line
-							x1="15"
-							y1="9"
-							x2="9"
-							y2="15"
-							stroke="#ef4444"
-							stroke-width="2"
-							stroke-linecap="round"
-						/>
-					</svg>
-				{:else}
-					<svg
-						class="h-10 w-10 text-yellow-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="10" fill="#fef9c3" />
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M12 8v4m0 4h.01"
-							stroke="#facc15"
-							stroke-width="2"
-						/>
-					</svg>
-				{/if}
+				<svg width="36" height="36" fill="none" viewBox="0 0 24 24"
+					><circle cx="12" cy="12" r="12" fill="#fde047" opacity="0.18" /><path
+						d="M12 8v4m0 4h.01"
+						stroke="#d97706"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/></svg
+				>
 			</div>
-			<div class="mb-4 text-center text-base font-medium text-gray-700">{notifModalMsg}</div>
+			<div class="warning-title text-center text-lg font-extrabold text-slate-900">
+				Periksa Pembayaran QRIS
+			</div>
+			<div class="text-center text-xs leading-relaxed text-slate-600">
+				Pastikan kasir sudah <span class="font-bold text-pink-600">memeriksa nama merchant</span>
+				dan <span class="font-bold text-pink-600">nominal pembayaran</span> di aplikasi konsumen sebelum
+				melanjutkan.
+			</div>
 			<button
-				class="mt-2 rounded-xl bg-pink-500 px-6 py-2 font-bold text-white shadow transition-colors hover:bg-pink-600"
-				onclick={closeNotifModal}>Tutup</button
+				class="warning-btn mt-2 min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+				onclick={s.confirmQrisChecked}>Sudah Diperiksa</button
 			>
 		</div>
 	</div>
 {/if}
+
+{#if s.showSuccessModal}
+	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
+		<div
+			class="animate-slideUpModal mx-auto flex w-full max-w-sm flex-col items-center gap-3.5 rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
+		>
+			<div
+				class="animate-bounceIn mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
+			>
+				<svg width="40" height="40" fill="none" viewBox="0 0 24 24"
+					><circle cx="12" cy="12" r="12" fill="#4ade80" opacity="0.18" /><path
+						d="M7 13l3 3 7-7"
+						stroke="#16a34a"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/></svg
+				>
+			</div>
+			<div class="text-center text-xl font-black text-slate-900">
+				{s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!'}
+			</div>
+			<div class="text-center text-xs leading-relaxed text-slate-600">
+				{#if s.transactionQueuedOffline}
+					Tersimpan di perangkat dan menunggu sinkronisasi.<br />
+				{:else}
+					Pembayaran {s.paymentMethod === 'tunai' ? 'tunai' : s.paymentMethod.toUpperCase()} telah diterima.<br
+					/>
+				{/if}
+				{#if s.customerName.trim()}
+					<span class="font-bold text-pink-600">{s.customerName.trim()}</span><br />
+				{/if}
+			</div>
+			<div
+				class="flex w-full flex-col gap-1.5 rounded-2xl border border-slate-100/90 bg-slate-50 p-3.5 text-xs"
+			>
+				<div class="flex justify-between font-medium text-slate-500">
+					<span>Total Tagihan</span><span class="font-extrabold text-pink-600"
+						>Rp {formatRupiah(s.totalHarga)}</span
+					>
+				</div>
+				<div class="flex justify-between font-medium text-slate-500">
+					<span>Dibayar</span><span class="font-bold text-slate-800"
+						>Rp {s.cashReceived ? formatRupiah(parseInt(s.cashReceived)) : '0'}</span
+					>
+				</div>
+				<div
+					class="flex justify-between border-t border-slate-200/60 pt-1 font-medium text-slate-500"
+				>
+					<span>Kembalian</span><span class="font-extrabold text-emerald-600"
+						>Rp {s.kembalian >= 0 ? formatRupiah(s.kembalian) : '0'}</span
+					>
+				</div>
+			</div>
+			<div class="flex w-full flex-col gap-2.5 pt-1">
+				<button
+					class="min-h-[46px] w-full cursor-pointer rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-[0.98]"
+					onclick={s.printStrukViaEscPosService}>Cetak Struk</button
+				>
+				<button
+					class="min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+					onclick={s.handleBackToKasir}>Kembali ke Kasir</button
+				>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if s.showErrorNotification}
+	<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+		<div
+			class="rounded-2xl bg-rose-600 px-6 py-3 text-center font-bold text-white shadow-xl shadow-rose-950/20 backdrop-blur-md"
+			in:fly={{ y: -20, duration: 240, easing: cubicOut }}
+			out:fade={{ duration: 160 }}
+		>
+			{s.errorNotificationMessage}
+		</div>
+	</div>
+{/if}
+
+<NotifModal
+	show={s.showNotifModal}
+	message={s.notifModalMsg}
+	type={s.notifModalType}
+	onClose={s.closeNotifModal}
+/>
 
 <style>
 	@keyframes slideUpModal {
@@ -909,7 +514,6 @@
 	.animate-bounceIn {
 		animation: bounceIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 	}
-	/* Tambahan untuk modal warning QRIS di tablet */
 	@media (min-width: 768px) {
 		.qris-warning-modal {
 			padding: 3rem 2.5rem 2.5rem 2.5rem !important;

@@ -3,10 +3,12 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.authSession) {
-		return json(
-			{ success: false, authenticated: false, code: 'UNAUTHORIZED', message: 'Unauthorized' },
-			{ status: 401 }
-		);
+		return json({
+			success: true,
+			authenticated: false,
+			user: null,
+			expiresAt: null
+		});
 	}
 
 	return json({

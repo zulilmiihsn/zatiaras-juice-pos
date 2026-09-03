@@ -1,4 +1,4 @@
-import type { AppError, ValidationError, ApiError } from '$lib/types';
+import type { AppError, ValidationError } from '$lib/types';
 import { securityUtils } from '$lib/utils/security';
 
 type ApiErrorPayload = {
@@ -46,19 +46,6 @@ export class ErrorHandler {
 	}
 
 	/**
-	 * Create an API error
-	 */
-	static createApiError(message: string, statusCode: number, endpoint?: string): ApiError {
-		return {
-			status: statusCode,
-			statusText: 'Error',
-			message,
-			errors: [],
-			timestamp: Date.now()
-		};
-	}
-
-	/**
 	 * Safely extract error message from various error types
 	 */
 	static extractErrorMessage(error: unknown): string {
@@ -71,17 +58,17 @@ export class ErrorHandler {
 		}
 
 		if (error && typeof error === 'object') {
-			// Handle PostgrestError
+			// [CATATAN]: Handle PostgrestError
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
 
-			// Handle error_description
+			// [CATATAN]: Handle error_description
 			if ('error_description' in error && typeof error.error_description === 'string') {
 				return error.error_description;
 			}
 
-			// Handle any other object with message property
+			// [CATATAN]: Handle any other object with message property
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
@@ -98,7 +85,16 @@ export class ErrorHandler {
 		const timestamp = new Date().toISOString();
 		const contextStr = context ? ` [${context}]` : '';
 
-		// Error logging disabled for production
+		if (typeof window !== 'undefined') {
+			securityUtils.logSecurityEvent('client_error', {
+				message: errorMessage,
+				context,
+				timestamp
+			});
+			return;
+		}
+
+		console.error(`[APP_ERROR]${contextStr}`, { message: errorMessage, timestamp });
 	}
 
 	/**
@@ -127,7 +123,7 @@ export class ErrorHandler {
 	static formatForUser(error: unknown): string {
 		const message = this.extractErrorMessage(error);
 
-		// Map common error messages to user-friendly versions
+		// [CATATAN]: Map common error messages to user-friendly versions
 		const userFriendlyMessages: Record<string, string> = {
 			'Failed to fetch': 'Gagal mengambil data dari server',
 			'Network Error': 'Koneksi internet bermasalah',
@@ -204,6 +200,14 @@ export function normalizeApiErrorPayload(
 	};
 }
 
+export async function parseApiError(response: Response, fallbackMessage: string): Promise<string> {
+	const payload = (await response
+		.clone()
+		.json()
+		.catch(() => null)) as ApiErrorPayload | null;
+	return String(payload?.message || payload?.error || fallbackMessage);
+}
+
 export function getApiErrorMessage(
 	payload: ApiErrorPayload | null | undefined,
 	status: number,
@@ -255,88 +259,3 @@ export async function reportApiFailureFromResponse(
 
 	reportApiFailure(payload, response.status, endpoint);
 }
-
-/**
- * Error boundary for Svelte components
- */
-export function createErrorBoundary() {
-	let error: AppError | null = null;
-
-	return {
-		get error() {
-			return error;
-		},
-		set error(value: AppError | null) {
-			error = value;
-		},
-
-		handleError(err: unknown, context?: string) {
-			error = ErrorHandler.createError(ErrorHandler.extractErrorMessage(err), 'COMPONENT_ERROR', {
-				context
-			});
-			ErrorHandler.logError(err, context);
-		},
-
-		clearError() {
-			error = null;
-		}
-	};
-}
-
-/**
- * Validation helper functions
- */
-export const ValidationHelper = {
-	/**
-	 * Validate required field
-	 */
-	required(value: unknown, fieldName: string): ValidationError | null {
-		if (value === null || value === undefined || value === '') {
-			return ErrorHandler.createValidationError(fieldName, `${fieldName} harus diisi`, value);
-		}
-		return null;
-	},
-
-	/**
-	 * Validate string length
-	 */
-	minLength(value: string, min: number, fieldName: string): ValidationError | null {
-		if (value && value.length < min) {
-			return ErrorHandler.createValidationError(
-				fieldName,
-				`${fieldName} minimal ${min} karakter`,
-				value
-			);
-		}
-		return null;
-	},
-
-	/**
-	 * Validate numeric value
-	 */
-	numeric(value: unknown, fieldName: string): ValidationError | null {
-		if (value && isNaN(Number(value))) {
-			return ErrorHandler.createValidationError(
-				fieldName,
-				`${fieldName} harus berupa angka`,
-				value
-			);
-		}
-		return null;
-	},
-
-	/**
-	 * Validate positive number
-	 */
-	positive(value: unknown, fieldName: string): ValidationError | null {
-		const num = Number(value);
-		if (value && (isNaN(num) || num <= 0)) {
-			return ErrorHandler.createValidationError(
-				fieldName,
-				`${fieldName} harus lebih dari 0`,
-				value
-			);
-		}
-		return null;
-	}
-};

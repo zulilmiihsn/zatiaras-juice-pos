@@ -8,8 +8,9 @@ Verify threat mitigations for a completed phase. Confirm PLAN.md threat register
 
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
+
 - gsd-security-auditor — Verifies threat mitigation coverage
-</available_agent_types>
+  </available_agent_types>
 
 <process>
 
@@ -62,10 +63,10 @@ Per threat: `{ threat_id, category, component, disposition, mitigation_pattern, 
 
 Classify each threat:
 
-| Status | Criteria |
-|--------|----------|
+| Status | Criteria                                                                           |
+| ------ | ---------------------------------------------------------------------------------- |
 | CLOSED | mitigation found OR accepted risk documented in SECURITY.md OR transfer documented |
-| OPEN | none of the above |
+| OPEN   | none of the above                                                                  |
 
 Build: `{ threat_id, category, component, disposition, status, evidence }`
 
@@ -74,6 +75,7 @@ If `threats_open: 0` → skip to Step 6 directly.
 ## 4. Present Threat Plan
 
 Call AskUserQuestion with threat table and options:
+
 1. "Verify all open threats" → Step 5
 2. "Accept all open — document in accepted risks log" → add to SECURITY.md accepted risks, set all CLOSED, Step 6
 3. "Cancel" → exit
@@ -95,6 +97,7 @@ Task(
 ```
 
 Handle return:
+
 - `## SECURED` → record closures → Step 6
 - `## OPEN_THREATS` → record closed + open, present user with accept/block choice → Step 6
 - `## ESCALATE` → present to user → Step 6
@@ -102,20 +105,23 @@ Handle return:
 ## 6. Write/Update SECURITY.md
 
 **State B (create):**
+
 1. Read template from `D:/Projects/zatiaraspos/.claude/get-shit-done/templates/SECURITY.md`
 2. Fill: frontmatter, threat register, accepted risks, audit trail
 3. Write to `${PHASE_DIR}/${PADDED_PHASE}-SECURITY.md`
 
 **State A (update):**
+
 1. Update threat register statuses, append to audit trail:
 
 ```markdown
 ## Security Audit {date}
-| Metric | Count |
-|--------|-------|
-| Threats found | {N} |
-| Closed | {M} |
-| Open | {K} |
+
+| Metric        | Count |
+| ------------- | ----- |
+| Threats found | {N}   |
+| Closed        | {M}   |
+| Open          | {K}   |
 ```
 
 **ENFORCING GATE:** If `threats_open > 0` after all options exhausted (user did not accept, not all verified closed):
@@ -138,6 +144,7 @@ node "D:/Projects/zatiaraspos/.claude/get-shit-done/bin/gsd-tools.cjs" commit "d
 ## 8. Results + Routing
 
 **Secured (threats_open: 0):**
+
 ```
 GSD > PHASE {N} THREAT-SECURE
 threats_open: 0 — all threats have dispositions.
@@ -150,6 +157,7 @@ Display `/clear` reminder.
 </process>
 
 <success_criteria>
+
 - [ ] Security enforcement checked — exit if false
 - [ ] Input state detected (A/B/C) — state C exits cleanly
 - [ ] PLAN.md threat model parsed, register built
@@ -161,4 +169,4 @@ Display `/clear` reminder.
 - [ ] SECURITY.md created or updated
 - [ ] threats_open > 0 BLOCKS advancement (no next-phase routing emitted)
 - [ ] Results with routing presented on success
-</success_criteria>
+      </success_criteria>

@@ -1,4 +1,4 @@
-// Validation utilities untuk sistem POS Zatiaras
+// [CATATAN]: Validation utilities untuk sistem POS Zatiaras
 
 export interface ValidationRule {
 	required?: boolean;
@@ -7,7 +7,7 @@ export interface ValidationRule {
 	pattern?: RegExp;
 	min?: number;
 	max?: number;
-	custom?: (value: any) => string | null;
+	custom?: (value: string) => string | null;
 }
 
 export interface ValidationResult {
@@ -15,7 +15,7 @@ export interface ValidationResult {
 	errors: string[];
 }
 
-// Sanitasi input untuk mencegah XSS dan injection
+// [CATATAN]: Sanitasi input untuk mencegah XSS dan injection
 export function sanitizeInput(input: string): string {
 	if (typeof input !== 'string') return '';
 
@@ -28,7 +28,7 @@ export function sanitizeInput(input: string): string {
 		.replace(/iframe/gi, ''); // Remove iframe tags
 }
 
-// Validasi nomor (untuk harga, quantity, dll)
+// [CATATAN]: Validasi nomor (untuk harga, quantity, dll)
 export function validateNumber(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -60,7 +60,7 @@ export function validateNumber(value: unknown, rules: ValidationRule = {}): Vali
 	return { isValid: errors.length === 0, errors };
 }
 
-// Validasi teks
+// [CATATAN]: Validasi teks
 export function validateText(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -97,45 +97,7 @@ export function validateText(value: unknown, rules: ValidationRule = {}): Valida
 	return { isValid: errors.length === 0, errors };
 }
 
-// Validasi email
-export function validateEmail(email: string): ValidationResult {
-	const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	return validateText(email, {
-		required: true,
-		pattern: emailPattern,
-		custom: (value: string) => {
-			if (!emailPattern.test(value)) {
-				return 'Format email tidak valid';
-			}
-			return null;
-		}
-	});
-}
-
-// Validasi password (strict - untuk production)
-export function validatePassword(password: string): ValidationResult {
-	return validateText(password, {
-		required: true,
-		minLength: 6,
-		custom: (value: string) => {
-			if (value.length < 6) {
-				return 'Password minimal 6 karakter';
-			}
-			if (!/[A-Z]/.test(value)) {
-				return 'Password harus mengandung huruf besar';
-			}
-			if (!/[a-z]/.test(value)) {
-				return 'Password harus mengandung huruf kecil';
-			}
-			if (!/\d/.test(value)) {
-				return 'Password harus mengandung angka';
-			}
-			return null;
-		}
-	});
-}
-
-// Validasi password (simplified - untuk demo)
+// [CATATAN]: Validasi password (simplified - untuk demo)
 export function validatePasswordDemo(password: string): ValidationResult {
 	return validateText(password, {
 		required: true,
@@ -143,12 +105,16 @@ export function validatePasswordDemo(password: string): ValidationResult {
 	});
 }
 
-// Validasi pemasukan/pengeluaran
-export function validateIncomeExpense(data: any): ValidationResult {
+// [CATATAN]: Validasi pemasukan/pengeluaran
+export function validateIncomeExpense(data: {
+	nominal?: unknown;
+	jenis?: unknown;
+	deskripsi?: unknown;
+}): ValidationResult {
 	const errors: string[] = [];
 
-	// Validasi nominal
-	const amountValidation = validateNumber(data.amount, {
+	// [CATATAN]: Validasi nominal
+	const amountValidation = validateNumber(data.nominal, {
 		required: true,
 		min: 0
 	});
@@ -156,13 +122,13 @@ export function validateIncomeExpense(data: any): ValidationResult {
 		errors.push(`Nominal: ${amountValidation.errors.join(', ')}`);
 	}
 
-	// Validasi jenis
+	// [CATATAN]: Validasi jenis
 	if (!data.jenis) {
 		errors.push('Jenis harus dipilih');
 	}
 
-	// Validasi deskripsi
-	const descriptionValidation = validateText(data.description, {
+	// [CATATAN]: Validasi deskripsi
+	const descriptionValidation = validateText(data.deskripsi, {
 		required: true,
 		minLength: 3,
 		maxLength: 200
@@ -174,46 +140,7 @@ export function validateIncomeExpense(data: any): ValidationResult {
 	return { isValid: errors.length === 0, errors };
 }
 
-// Rate limiting dummy untuk mencegah spam
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-export function checkRateLimit(
-	key: string,
-	maxRequests: number = 10,
-	windowMs: number = 60000
-): boolean {
-	const now = Date.now();
-	const record = rateLimitStore.get(key);
-
-	if (!record || now > record.resetTime) {
-		rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
-		return true;
-	}
-
-	if (record.count >= maxRequests) {
-		return false;
-	}
-
-	record.count++;
-	return true;
-}
-
-// Validasi tanggal
-export function validateDate(date: string | Date): ValidationResult {
-	const errors: string[] = [];
-	if (!date) {
-		errors.push('Tanggal harus diisi');
-		return { isValid: false, errors };
-	}
-	const dateObj = new Date(date);
-	if (isNaN(dateObj.getTime())) {
-		errors.push('Format tanggal tidak valid');
-		return { isValid: false, errors };
-	}
-	return { isValid: errors.length === 0, errors };
-}
-
-// Validasi waktu
+// [CATATAN]: Validasi waktu
 export function validateTime(time: string): ValidationResult {
 	const errors: string[] = [];
 
@@ -232,18 +159,81 @@ export function validateTime(time: string): ValidationResult {
 	return { isValid: true, errors: [] };
 }
 
-// Validasi kode produk (SKU)
-export function validateSKU(sku: string): ValidationResult {
-	return validateText(sku, {
-		required: true,
-		minLength: 3,
-		maxLength: 20,
-		pattern: /^[A-Z0-9-]+$/,
-		custom: (value: string) => {
-			if (!/^[A-Z0-9-]+$/.test(value)) {
-				return 'SKU hanya boleh mengandung huruf besar, angka, dan tanda hubung';
-			}
-			return null;
+// ── Schema Runtime Validators (DEBT-001) ──────────────────────────────────
+
+export interface RuntimeValidation<T> {
+	success: boolean;
+	data?: T;
+	error?: string;
+}
+
+export function validateCheckoutPayload(input: unknown): RuntimeValidation<{
+	items: Array<{ product_id?: string; jumlah: number; [key: string]: unknown }>;
+	metode_bayar: string;
+	idempotency_key: string;
+	cash_received?: number;
+	customer_name?: string;
+}> {
+	if (!input || typeof input !== 'object') {
+		return { success: false, error: 'Payload transaksi harus berupa object' };
+	}
+	const obj = input as Record<string, unknown>;
+	if (!Array.isArray(obj.items) || obj.items.length === 0) {
+		return { success: false, error: 'Item transaksi tidak boleh kosong' };
+	}
+	for (const it of obj.items) {
+		if (
+			!it ||
+			typeof it !== 'object' ||
+			typeof (it as Record<string, unknown>).jumlah !== 'number'
+		) {
+			return { success: false, error: 'Setiap item harus memiliki jumlah valid' };
 		}
-	});
+	}
+	if (typeof obj.idempotency_key !== 'string' || obj.idempotency_key.length < 8) {
+		return { success: false, error: 'idempotency_key harus berupa string minimal 8 karakter' };
+	}
+	const metode = typeof obj.metode_bayar === 'string' ? obj.metode_bayar : 'tunai';
+	return {
+		success: true,
+		data: {
+			items: obj.items as Array<{ product_id?: string; jumlah: number }>,
+			metode_bayar: metode,
+			idempotency_key: obj.idempotency_key,
+			cash_received: typeof obj.cash_received === 'number' ? obj.cash_received : undefined,
+			customer_name: typeof obj.nama_pelanggan === 'string' ? obj.nama_pelanggan : undefined
+		}
+	};
+}
+
+export function validateTaxConfigPayload(input: unknown): RuntimeValidation<{
+	enabled: boolean;
+	rate: number;
+	apply_threshold: boolean;
+	threshold?: number;
+	nama?: string;
+}> {
+	if (!input || typeof input !== 'object') {
+		return { success: false, error: 'Payload konfigurasi pajak harus berupa object' };
+	}
+	const obj = input as Record<string, unknown>;
+	if (typeof obj.enabled !== 'boolean') {
+		return { success: false, error: 'Field enabled harus bertipe boolean' };
+	}
+	const rate = Number(obj.rate);
+	if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
+		return { success: false, error: 'Rate pajak harus antara 0 dan 1 (0% - 100%)' };
+	}
+	const threshold =
+		typeof obj.threshold === 'number' && Number.isFinite(obj.threshold) ? obj.threshold : undefined;
+	return {
+		success: true,
+		data: {
+			enabled: obj.enabled,
+			rate,
+			apply_threshold: Boolean(obj.apply_threshold),
+			threshold,
+			nama: typeof obj.nama === 'string' ? obj.nama : undefined
+		}
+	};
 }

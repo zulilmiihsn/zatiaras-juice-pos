@@ -2,9 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { deleteAuthSession } from '$lib/server/sessionStore';
 
-export const POST: RequestHandler = async ({ cookies }) => {
+export const POST: RequestHandler = async ({ cookies, platform }) => {
 	const sessionId = cookies.get('zatiaras_sid');
-	deleteAuthSession(sessionId);
+	await deleteAuthSession(platform, sessionId);
 
 	cookies.delete('zatiaras_sid', {
 		path: '/'

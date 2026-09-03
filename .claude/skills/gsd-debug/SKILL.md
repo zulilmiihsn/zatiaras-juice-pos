@@ -1,14 +1,13 @@
 ---
 name: gsd-debug
-description: "Systematic debugging with persistent state across context resets"
-argument-hint: "[--diagnose] [issue description]"
+description: 'Systematic debugging with persistent state across context resets'
+argument-hint: '[--diagnose] [issue description]'
 allowed-tools:
   - Read
   - Bash
   - Task
   - AskUserQuestion
 ---
-
 
 <objective>
 Debug issues using scientific method with subagent isolation.
@@ -18,25 +17,30 @@ Debug issues using scientific method with subagent isolation.
 **Why subagent:** Investigation burns context fast (reading files, forming hypotheses, testing). Fresh 200k context per investigation. Main context stays lean for user interaction.
 
 **Flags:**
+
 - `--diagnose` — Diagnose only. Find root cause without applying a fix. Returns a structured Root Cause Report. Use when you want to validate the diagnosis before committing to a fix.
-</objective>
+  </objective>
 
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
+
 - gsd-debugger — Diagnoses and fixes issues
-</available_agent_types>
+  </available_agent_types>
 
 <context>
 User's issue: $ARGUMENTS
 
 Parse flags from $ARGUMENTS:
+
 - If `--diagnose` is present, set `diagnose_only=true` and remove the flag from the issue description.
 - Otherwise, `diagnose_only=false`.
 
 Check for active sessions:
+
 ```bash
 ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 ```
+
 </context>
 
 <process>
@@ -49,6 +53,7 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract `commit_docs` from init JSON. Resolve debugger model:
+
 ```bash
 debugger_model=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" resolve-model gsd-debugger --raw)
 ```
@@ -56,10 +61,12 @@ debugger_model=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" resolve-mo
 ## 1. Check Active Sessions
 
 If active sessions exist AND no $ARGUMENTS:
+
 - List sessions with status, hypothesis, next action
 - User picks number to resume OR describes new issue
 
 If $ARGUMENTS provided OR user describes new issue:
+
 - Continue to symptom gathering
 
 ## 2. Gather Symptoms (if new issue)
@@ -115,6 +122,7 @@ Task(
 ## 4. Handle Agent Return
 
 **If `## ROOT CAUSE FOUND` (diagnose-only mode):**
+
 - Display root cause, confidence level, files involved, and suggested fix strategies
 - Offer options:
   - "Fix now" — spawn a continuation agent with `goal: find_and_fix` to apply the fix (see step 5)
@@ -122,12 +130,14 @@ Task(
   - "Manual fix" — done
 
 **If `## DEBUG COMPLETE` (find_and_fix mode):**
+
 - Display root cause and fix summary
 - Offer options:
   - "Plan fix" — suggest `/gsd-plan-phase --gaps` if further work needed
   - "Done" — mark resolved
 
 **If `## CHECKPOINT REACHED`:**
+
 - Present checkpoint details to user
 - Get user response
 - If checkpoint type is `human-verify`:
@@ -136,6 +146,7 @@ Task(
 - Spawn continuation agent (see step 5)
 
 **If `## INVESTIGATION INCONCLUSIVE`:**
+
 - Show what was checked and eliminated
 - Offer options:
   - "Continue investigating" - spawn new agent with additional context
@@ -153,9 +164,10 @@ Continue debugging {slug}. Evidence is in the debug file.
 
 <prior_state>
 <files_to_read>
+
 - .planning/debug/{slug}.md (Debug session state)
-</files_to_read>
-</prior_state>
+  </files_to_read>
+  </prior_state>
 
 <checkpoint_response>
 **Type:** {checkpoint_type}
@@ -179,9 +191,10 @@ Task(
 </process>
 
 <success_criteria>
+
 - [ ] Active sessions checked
 - [ ] Symptoms gathered (if new)
 - [ ] gsd-debugger spawned with context
 - [ ] Checkpoints handled correctly
 - [ ] Root cause confirmed before fixing
-</success_criteria>
+      </success_criteria>

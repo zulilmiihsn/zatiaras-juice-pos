@@ -1,8 +1,7 @@
 ---
 name: gsd-reapply-patches
-description: "Reapply local modifications after a GSD update"
+description: 'Reapply local modifications after a GSD update'
 ---
-
 
 <purpose>
 After a GSD update wipes and reinstalls files, this command merges user's previously saved local modifications back into the new version. Uses three-way comparison (pristine baseline, user-modified backup, newly installed version) to reliably distinguish user customizations from version drift.
@@ -112,17 +111,20 @@ fi
 Read `backup-meta.json` from the patches directory.
 
 **If no patches found:**
+
 ```
 No local patches found. Nothing to reapply.
 
 Local patches are automatically saved when you run /gsd-update
 after modifying any GSD workflow, command, or agent files.
 ```
+
 Exit.
 
 ## Step 2: Determine baseline for three-way comparison
 
 The quality of the merge depends on having a **pristine baseline** — the original unmodified version of each file from the pre-update GSD release. This enables three-way comparison:
+
 - **Pristine baseline** (original GSD file before any user edits)
 - **User's version** (backed up in `gsd-local-patches/`)
 - **New version** (freshly installed after update)
@@ -130,30 +132,40 @@ The quality of the merge depends on having a **pristine baseline** — the origi
 Check for baseline sources in priority order:
 
 ### Option A: Git history (most reliable)
+
 If the config directory is a git repository:
+
 ```bash
 CONFIG_DIR=$(dirname "$PATCHES_DIR")
 if git -C "$CONFIG_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   HAS_GIT=true
 fi
 ```
+
 When `HAS_GIT=true`, use `git log` to find the commit where GSD was originally installed (before user edits). For each file, the pristine baseline can be extracted with:
+
 ```bash
 git -C "$CONFIG_DIR" log --diff-filter=A --format="%H" -- "{file_path}"
 ```
+
 This gives the commit that first added the file (the install commit). Extract the pristine version:
+
 ```bash
 git -C "$CONFIG_DIR" show {install_commit}:{file_path}
 ```
 
 ### Option B: Pristine snapshot directory
+
 Check if a `gsd-pristine/` directory exists alongside `gsd-local-patches/`:
+
 ```bash
 PRISTINE_DIR="$CONFIG_DIR/gsd-pristine"
 ```
+
 If it exists, the installer saved pristine copies at install time. Use these as the baseline.
 
 ### Option C: No baseline available (two-way fallback)
+
 If neither git history nor pristine snapshots are available, fall back to two-way comparison — but with **strengthened heuristics** (see Step 3).
 
 ## Step 3: Show patch summary
@@ -183,10 +195,12 @@ For each file in `backup-meta.json`:
 ### Three-way merge (when baseline is available)
 
 Compare the three versions to isolate changes:
+
 - **User changes** = diff(pristine → user's version) — these are the customizations to preserve
 - **Upstream changes** = diff(pristine → new version) — these are version updates to accept
 
 **Merge rules:**
+
 - Sections changed only by user → apply user's version
 - Sections changed only by upstream → accept upstream version
 - Sections changed by both → flag as CONFLICT, show both, ask user
@@ -201,8 +215,9 @@ When no pristine baseline is available, use these **strengthened heuristics**:
 For each file:
 a. Read both versions completely
 b. Identify ALL differences, then classify each as:
-   - **Mechanical drift** — path substitutions (e.g. `/Users/xxx/.claude/` → `$HOME/.claude/`), variable additions (`${GSD_WS}`, `${AGENT_SKILLS_*}`), error handling additions (`|| true`)
-   - **User customization** — added steps/sections, removed sections, reordered content, changed behavior, added frontmatter fields, modified instructions
+
+- **Mechanical drift** — path substitutions (e.g. `/Users/xxx/.claude/` → `$HOME/.claude/`), variable additions (`${GSD_WS}`, `${AGENT_SKILLS_*}`), error handling additions (`|| true`)
+- **User customization** — added steps/sections, removed sections, reordered content, changed behavior, added frontmatter fields, modified instructions
 
 c. **If ANY differences remain after filtering out mechanical drift → those are user customizations. Merge them.**
 d. **If ALL differences appear to be mechanical drift → still flag as CONFLICT.** The installer's hash check already proved this file was modified. Ask the user: "This file appears to only have path/variable differences. Were there intentional customizations?" Do NOT silently skip.
@@ -210,10 +225,12 @@ d. **If ALL differences appear to be mechanical drift → still flag as CONFLICT
 ### Git-enhanced two-way merge
 
 When the config directory is a git repo but the pristine install commit can't be found, use commit history to identify user changes:
+
 ```bash
 # Find non-update commits that touched this file
 git -C "$CONFIG_DIR" log --oneline --no-merges -- "{file_path}" | grep -v "gsd:update\|GSD update\|gsd-install"
 ```
+
 Each matching commit represents an intentional user modification. Use the commit messages and diffs to understand what was changed and why.
 
 4. **Write merged result** to the installed location
@@ -227,6 +244,7 @@ Each matching commit represents an intentional user modification. Use the commit
 ## Step 5: Cleanup option
 
 Ask user:
+
 - "Keep patch backups for reference?" → preserve `gsd-local-patches/`
 - "Clean up patch backups?" → remove `gsd-local-patches/` directory
 
@@ -247,10 +265,11 @@ Ask user:
 </process>
 
 <success_criteria>
+
 - [ ] All backed-up patches processed — zero files left unhandled
 - [ ] No file classified as "no custom content" or "SKIP" — every backed-up file is definitionally modified
 - [ ] Three-way merge used when pristine baseline available (git history or gsd-pristine/)
 - [ ] User modifications identified and merged into new version
 - [ ] Conflicts surfaced to user with both versions shown
 - [ ] Status reported for each file with summary of what was preserved
-</success_criteria>
+      </success_criteria>

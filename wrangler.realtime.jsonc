@@ -1,0 +1,47 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "zatiaraspos-realtime",
+	"main": "src/lib/server/realtimeWorker.js",
+	"compatibility_date": "2026-06-29",
+	"compatibility_flags": ["nodejs_compat"],
+
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "REALTIME_HUB",
+				"class_name": "RealtimeDurableObject"
+			}
+		]
+	},
+
+	"d1_databases": [
+		{
+			"binding": "DB_SAMARINDA_GROUP",
+			"database_name": "zatiaras-samarinda-group",
+			"database_id": "b6aafe5b-fd11-436d-9b9e-c007bd531c9e"
+		},
+		{
+			"binding": "DB_BALIKPAPAN_GROUP",
+			"database_name": "zatiaras-balikpapan-group",
+			"database_id": "312940d7-b0c0-43e5-86fd-78b762cacb6e"
+		},
+		{
+			"binding": "DB_BERAU_GROUP",
+			"database_name": "zatiaras-berau-group",
+			"database_id": "18e2f751-5d54-4bec-b0bc-ae6e1378cdb6"
+		}
+	],
+
+	// Cron: tiap hari 03:00 UTC — bersihkan log sistem lama (audit_logs,
+	// request_metrics > 90 hari) dari semua DB. Tidak menyentuh data jualan.
+	"triggers": {
+		"crons": ["0 3 * * *"]
+	},
+
+	"migrations": [
+		{
+			"tag": "v1_realtime_hub",
+			"new_sqlite_classes": ["RealtimeDurableObject"]
+		}
+	]
+}

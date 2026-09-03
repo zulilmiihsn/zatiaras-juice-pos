@@ -1,18 +1,56 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getSupabaseClient } from '$lib/database/supabaseClient';
-	import { get as storeGet } from 'svelte/store';
-	import { selectedBranch } from '$lib/stores/selectedBranch';
 	import { goto } from '$app/navigation';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Store from '@lucide/svelte/icons/store';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Phone from '@lucide/svelte/icons/phone';
+	import InstagramIcon from '@lucide/svelte/icons/camera';
+	import MessageSquareHeart from '@lucide/svelte/icons/message-square-heart';
+	import Bluetooth from '@lucide/svelte/icons/bluetooth';
+	import Usb from '@lucide/svelte/icons/cable';
+	import Smartphone from '@lucide/svelte/icons/smartphone';
+	import Printer from '@lucide/svelte/icons/printer';
+	import Check from '@lucide/svelte/icons/check';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { createToastManager } from '$lib/utils/ui';
-	let namaToko = '';
-	let alamat = '';
-	let telepon = '';
-	let instagram = '';
-	let ucapan = '';
-	let isSaving = false;
+	import { transactionService } from '$lib/services/transactionService';
+	import { LOGO_BASE64 } from '$lib/utils/logoBase64';
+	import {
+		getPrinterConfig,
+		savePrinterConfig,
+		connectBluetoothPrinter,
+		connectUsbPrinter,
+		testPrintUnified,
+		isBluetoothSupported,
+		isUsbSupported,
+		type PrinterMethod,
+		type PaperSize
+	} from '$lib/services/printerEngine';
+
+	let namaToko = $state('');
+	let alamat = $state('');
+	let telepon = $state('');
+	let instagram = $state('');
+	let ucapan = $state('');
+	let isSaving = $state(false);
+	let activeTab = $state<'detail' | 'preview' | 'koneksi'>('detail');
+
+	// State Koneksi Printer
+	let printerMethod = $state<PrinterMethod>('intent');
+	let paperSize = $state<PaperSize>('58mm');
+	let deviceName = $state('');
+	let isConnectingHardware = $state(false);
+	let isTestingPrint = $state(false);
+
+	let copied = $state(false);
+	function copyBase64() {
+		navigator.clipboard.writeText(LOGO_BASE64);
+		copied = true;
+		setTimeout(() => {
+			copied = false;
+		}, 2000);
+	}
 
 	const defaultData = {
 		namaToko: 'Zatiaras Juice',
@@ -23,13 +61,8 @@
 	};
 
 	async function loadPengaturan() {
-		// Coba load dari Supabase, fallback ke localStorage
 		try {
-			const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-				.from('pengaturan')
-				.select('*')
-				.eq('id', 1)
-				.single();
+			const data = (await transactionService.getOne('pengaturan')) as Record<string, string> | null;
 			if (data) {
 				namaToko = data.nama_toko || defaultData.namaToko;
 				alamat = data.alamat || defaultData.alamat;
@@ -38,8 +71,14 @@
 				ucapan = data.ucapan || defaultData.ucapan;
 			}
 		} catch {
-			// loadFromLocal();
+			// [CATATAN]: loadFromLocal();
 		}
+
+		// Load Printer Connection Config
+		const config = getPrinterConfig();
+		printerMethod = config.method;
+		paperSize = config.paperSize;
+		deviceName = config.deviceName || '';
 	}
 
 	function resetToDefault() {
@@ -62,19 +101,72 @@
 			ucapan
 		};
 		try {
-			const { error } = await getSupabaseClient(storeGet(selectedBranch))
-				.from('pengaturan')
-				.upsert([data]);
-			if (error) throw error;
+			const existing = await transactionService.getOne('pengaturan');
+			if (existing) {
+				await transactionService.updateRows('pengaturan', data, { id: '1' });
+			} else {
+				await transactionService.insertRows('pengaturan', data);
+			}
 			toastManager.showToastNotification('Pengaturan berhasil disimpan!', 'success');
 		} catch (e) {
-			toastManager.showToastNotification('Gagal menyimpan ke Supabase.', 'error');
+			toastManager.showToastNotification('Gagal menyimpan pengaturan.', 'error');
 		} finally {
 			isSaving = false;
 		}
 	}
 
-	// Toast management
+	function simpanKoneksiPrinter() {
+		savePrinterConfig({
+			method: printerMethod,
+			paperSize,
+			deviceName
+		});
+		toastManager.showToastNotification('Metode printer berhasil diperbarui!', 'success');
+	}
+
+	async function handlePairBluetooth() {
+		isConnectingHardware = true;
+		try {
+			const result = await connectBluetoothPrinter();
+			deviceName = result.name;
+			printerMethod = 'bluetooth';
+			simpanKoneksiPrinter();
+			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
+		} catch (err: any) {
+			toastManager.showToastNotification(err?.message || 'Gagal pairing Bluetooth.', 'error');
+		} finally {
+			isConnectingHardware = false;
+		}
+	}
+
+	async function handlePairUsb() {
+		isConnectingHardware = true;
+		try {
+			const result = await connectUsbPrinter();
+			deviceName = result.name;
+			printerMethod = 'usb';
+			simpanKoneksiPrinter();
+			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
+		} catch (err: any) {
+			toastManager.showToastNotification(err?.message || 'Gagal menghubungkan USB.', 'error');
+		} finally {
+			isConnectingHardware = false;
+		}
+	}
+
+	async function handleTestPrint() {
+		isTestingPrint = true;
+		try {
+			await testPrintUnified(printerMethod, paperSize);
+			toastManager.showToastNotification('Perintah tes cetak terkirim!', 'success');
+		} catch (err: any) {
+			toastManager.showToastNotification(err?.message || 'Gagal tes cetak.', 'error');
+		} finally {
+			isTestingPrint = false;
+		}
+	}
+
+	// [CATATAN]: Toast management
 	const toastManager = createToastManager();
 
 	onMount(async () => {
@@ -82,170 +174,536 @@
 	});
 </script>
 
-<!-- Top Bar Custom -->
-<div
-	class="sticky top-0 z-40 flex items-center border-b border-gray-200 bg-white px-4 py-4 shadow-sm"
->
-	<button
-		onclick={() => goto('/pengaturan')}
-		class="mr-2 rounded-xl bg-gray-100 p-2 transition-colors hover:bg-gray-200"
+<div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
+	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
+	<div
+		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
 	>
-		<svelte:component this={ArrowLeft} class="h-5 w-5 text-gray-600" />
-	</button>
-	<h1 class="text-xl font-bold text-gray-800">Pengaturan Draft Struk</h1>
-</div>
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
 
-<div class="page-content min-h-screen bg-gray-50">
-	<div class="mx-auto max-w-2xl rounded-xl bg-white p-6 shadow md:p-10">
-		<h1 class="mb-6 text-center text-lg font-bold text-pink-600">Pengaturan Draft Struk</h1>
-		<form class="space-y-5" onsubmit={simpanPengaturan}>
-			<div>
-				<label for="nama-toko" class="mb-1 block text-sm font-semibold text-gray-700"
-					>Nama Toko</label
-				>
-				<input
-					type="text"
-					id="nama-toko"
-					class="w-full rounded-lg border-2 border-pink-200 px-3 py-2 text-base"
-					bind:value={namaToko}
-					maxlength="50"
-					required
-				/>
-			</div>
-			<div>
-				<label for="alamat" class="mb-1 block text-sm font-semibold text-gray-700">Alamat</label>
-				<input
-					type="text"
-					id="alamat"
-					class="w-full rounded-lg border-2 border-pink-200 px-3 py-2 text-base"
-					bind:value={alamat}
-					maxlength="100"
-					required
-				/>
-			</div>
-			<div>
-				<label for="telepon" class="mb-1 block text-sm font-semibold text-gray-700"
-					>Nomor Telepon</label
-				>
-				<input
-					type="text"
-					id="telepon"
-					class="w-full rounded-lg border-2 border-pink-200 px-3 py-2 text-base"
-					bind:value={telepon}
-					maxlength="20"
-					required
-				/>
-			</div>
-			<div>
-				<label for="instagram" class="mb-1 block text-sm font-semibold text-gray-700"
-					>Instagram</label
-				>
-				<input
-					type="text"
-					id="instagram"
-					class="w-full rounded-lg border-2 border-pink-200 px-3 py-2 text-base"
-					bind:value={instagram}
-					maxlength="30"
-				/>
-			</div>
-			<div>
-				<label for="ucapan" class="mb-1 block text-sm font-semibold text-gray-700"
-					>Ucapan di Bawah Struk</label
-				>
-				<textarea
-					id="ucapan"
-					class="w-full rounded-lg border-2 border-pink-200 px-3 py-2 text-base"
-					rows="3"
-					bind:value={ucapan}
-					maxlength="120"
-				></textarea>
-			</div>
-			<div class="mt-6 flex flex-col gap-3 sm:flex-row">
-				<button
-					type="button"
-					class="order-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-6 py-2 font-semibold text-gray-700 hover:bg-gray-200 sm:order-1 sm:w-1/2"
-					onclick={resetToDefault}
-					disabled={isSaving}>Reset ke Default</button
-				>
-				<button
-					type="submit"
-					class="order-2 w-full rounded-lg bg-pink-500 px-6 py-2 font-bold text-white transition-colors hover:bg-pink-600 disabled:opacity-50 sm:order-2 sm:w-1/2"
-					disabled={isSaving}>{isSaving ? 'Menyimpan...' : 'Simpan'}</button
-				>
-			</div>
-		</form>
-		<div class="mt-10">
-			<div class="mb-2 font-semibold text-gray-700">Preview Struk</div>
-			<div
-				class="rounded-lg border border-pink-200 bg-gray-50 p-4 font-mono text-sm whitespace-pre-line"
-				style="max-width:350px;font-size:24px;line-height:2.0;"
+		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
+			<button
+				onclick={() => goto('/pengaturan')}
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Kembali"
 			>
-				<div style="text-align:center;margin-bottom:16px;line-height:1.5;">
-					<div style="font-weight:bold;font-size:26px;">{namaToko}</div>
-					<div style="font-weight:bold;font-size:18px;">{alamat}</div>
-					{#if instagram || telepon}
-						<div style="font-weight:bold;font-size:18px;">
-							{instagram}{instagram && telepon ? ' ' : ''}{telepon}
+				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
+			</button>
+			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
+				Pengaturan Struk & Printer
+			</h1>
+			<div class="h-10 w-10"></div>
+		</div>
+	</div>
+
+	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
+		<!-- Tabs Navigation -->
+		<div
+			class="glass-card mb-5 flex gap-2 overflow-x-auto rounded-2xl p-1.5 shadow-md"
+			style="scrollbar-width:none;-ms-overflow-style:none;"
+		>
+			<button
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				'detail'
+					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
+					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"
+				onclick={() => (activeTab = 'detail')}
+			>
+				Detail Struk
+			</button>
+			<button
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				'koneksi'
+					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
+					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"
+				onclick={() => (activeTab = 'koneksi')}
+			>
+				Koneksi Printer POS
+			</button>
+			<button
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				'preview'
+					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
+					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"
+				onclick={() => (activeTab = 'preview')}
+			>
+				Tampilan Struk
+			</button>
+		</div>
+
+		{#if activeTab === 'detail'}
+			<!-- Form Section Detail Struk -->
+			<div class="soft-float-card mb-6 p-5 md:p-6">
+				<form class="space-y-4" onsubmit={simpanPengaturan}>
+					<div
+						class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-4 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+					>
+						<label
+							for="nama-toko"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+						>
+							<Store class="h-4 w-4 text-pink-500" />
+							Nama Toko
+						</label>
+						<input
+							type="text"
+							id="nama-toko"
+							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							bind:value={namaToko}
+							maxlength="50"
+							required
+						/>
+					</div>
+					<div
+						class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-4 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+					>
+						<label
+							for="alamat"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+						>
+							<MapPin class="h-4 w-4 text-pink-500" />
+							Alamat
+						</label>
+						<input
+							type="text"
+							id="alamat"
+							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							bind:value={alamat}
+							maxlength="100"
+							required
+						/>
+					</div>
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div
+							class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-4 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+						>
+							<label
+								for="telepon"
+								class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+							>
+								<Phone class="h-4 w-4 text-pink-500" />
+								Nomor Telepon
+							</label>
+							<input
+								type="text"
+								id="telepon"
+								class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+								bind:value={telepon}
+								maxlength="20"
+								required
+							/>
 						</div>
-					{/if}
+						<div
+							class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-4 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+						>
+							<label
+								for="instagram"
+								class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+							>
+								<InstagramIcon class="h-4 w-4 text-pink-500" />
+								Instagram
+							</label>
+							<input
+								type="text"
+								id="instagram"
+								class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+								bind:value={instagram}
+								maxlength="30"
+							/>
+						</div>
+					</div>
+					<div
+						class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-4 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+					>
+						<label
+							for="ucapan"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+						>
+							<MessageSquareHeart class="h-4 w-4 text-pink-500" />
+							Ucapan di Bawah Struk
+						</label>
+						<textarea
+							id="ucapan"
+							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							rows="3"
+							bind:value={ucapan}
+							maxlength="120"></textarea>
+					</div>
+					<div class="mt-8 flex flex-col gap-3 sm:flex-row">
+						<button
+							type="submit"
+							class="flex-1 cursor-pointer rounded-xl bg-pink-500 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-pink-500/20 transition-all hover:bg-pink-600 active:scale-[0.98] disabled:opacity-50"
+							disabled={isSaving}>{isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}</button
+						>
+						<button
+							type="button"
+							class="cursor-pointer rounded-xl border-[1.5px] border-pink-100 bg-white px-6 py-3.5 text-sm font-bold text-pink-500 shadow-sm transition-all hover:bg-pink-50 active:scale-[0.98]"
+							onclick={resetToDefault}
+							disabled={isSaving}>Reset Default</button
+						>
+					</div>
+				</form>
+			</div>
+		{:else if activeTab === 'koneksi'}
+			<!-- Section Koneksi & Metode Printer POS -->
+			<div class="space-y-6 rounded-2xl bg-white pb-6 sm:pb-8">
+				<!-- Pilihan Metode Printer -->
+				<div
+					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+				>
+					<div class="mb-4 flex items-center gap-2">
+						<Printer class="h-5 w-5 text-pink-500" />
+						<h2 class="text-base font-bold text-stone-800">Pilih Metode Printer Struk</h2>
+					</div>
+
+					<div class="space-y-3">
+						<!-- Opsi 1: Web Bluetooth -->
+						<label
+							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
+							'bluetooth'
+								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
+								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+						>
+							<input
+								type="radio"
+								name="printer-method"
+								value="bluetooth"
+								bind:group={printerMethod}
+								class="mt-1 h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+							<div class="flex-1">
+								<div class="flex items-center gap-2">
+									<Bluetooth class="h-4 w-4 text-pink-500" />
+									<span class="text-sm font-bold text-stone-800"
+										>Jalur 1 — Web Bluetooth (BLE 4.0/5.0)</span
+									>
+								</div>
+								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+									Direct ESC/POS instan tanpa perantara. Untuk printer thermal Bluetooth modern di
+									Chrome/Edge.
+								</p>
+								{#if printerMethod === 'bluetooth'}
+									<div class="mt-3 flex flex-wrap items-center gap-2">
+										<button
+											type="button"
+											onclick={handlePairBluetooth}
+											disabled={isConnectingHardware || !isBluetoothSupported()}
+											class="cursor-pointer rounded-lg bg-pink-500 px-3.5 py-1.5 text-xs font-bold text-white transition-all hover:bg-pink-600 active:scale-95 disabled:opacity-50"
+										>
+											{isConnectingHardware ? 'Mencari...' : 'Pairing Printer Bluetooth'}
+										</button>
+										{#if deviceName}
+											<span
+												class="rounded-md bg-pink-100 px-2.5 py-1 text-xs font-semibold text-pink-700"
+											>
+												✓ Terpasang: {deviceName}
+											</span>
+										{/if}
+									</div>
+									{#if !isBluetoothSupported()}
+										<p class="mt-2 text-xs font-medium text-amber-600">
+											⚠️ Browser tidak mendukung Web Bluetooth. Buka lewat Chrome di Android/PC.
+										</p>
+									{/if}
+								{/if}
+							</div>
+						</label>
+
+						<!-- Opsi 2: WebUSB -->
+						<label
+							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
+							'usb'
+								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
+								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+						>
+							<input
+								type="radio"
+								name="printer-method"
+								value="usb"
+								bind:group={printerMethod}
+								class="mt-1 h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+							<div class="flex-1">
+								<div class="flex items-center gap-2">
+									<Usb class="h-4 w-4 text-pink-500" />
+									<span class="text-sm font-bold text-stone-800"
+										>Jalur 2 — WebUSB (Kabel USB Printer POS)</span
+									>
+								</div>
+								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+									Direct ESC/POS via kabel USB (Epson TM-T82, Xprinter, Panda USB) di PC/Tablet
+									kasir.
+								</p>
+								{#if printerMethod === 'usb'}
+									<div class="mt-3 flex flex-wrap items-center gap-2">
+										<button
+											type="button"
+											onclick={handlePairUsb}
+											disabled={isConnectingHardware || !isUsbSupported()}
+											class="cursor-pointer rounded-lg bg-pink-500 px-3.5 py-1.5 text-xs font-bold text-white transition-all hover:bg-pink-600 active:scale-95 disabled:opacity-50"
+										>
+											{isConnectingHardware ? 'Membaca USB...' : 'Pilih Printer USB'}
+										</button>
+										{#if deviceName}
+											<span
+												class="rounded-md bg-pink-100 px-2.5 py-1 text-xs font-semibold text-pink-700"
+											>
+												✓ Terpasang: {deviceName}
+											</span>
+										{/if}
+									</div>
+									{#if !isUsbSupported()}
+										<p class="mt-2 text-xs font-medium text-amber-600">
+											⚠️ Browser tidak mendukung WebUSB. Buka lewat Chrome / Edge.
+										</p>
+									{/if}
+								{/if}
+							</div>
+						</label>
+
+						<!-- Opsi 3: Android Intent -->
+						<label
+							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
+							'intent'
+								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
+								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+						>
+							<input
+								type="radio"
+								name="printer-method"
+								value="intent"
+								bind:group={printerMethod}
+								class="mt-1 h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+							<div class="flex-1">
+								<div class="flex items-center gap-2">
+									<Smartphone class="h-4 w-4 text-pink-500" />
+									<span class="text-sm font-bold text-stone-800"
+										>Jalur 3 — Android Intent (RawBT / iMin Helper)</span
+									>
+								</div>
+								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+									Penyelamat untuk printer Bluetooth Classic (SPP 2.0/3.0 murah) di Android.
+									Meneruskan data struk ke aplikasi driver helper.
+								</p>
+							</div>
+						</label>
+					</div>
 				</div>
-				<div style="border-bottom:1px dashed #000;margin-bottom:16px;"></div>
-				<div style="text-align:left;font-weight:normal;margin-bottom:16px;line-height:1.5;">
-					nama pelanggan<br />
-					01/01/2024 10.00<br />
+
+				<!-- Ukuran Kertas Struk -->
+				<div
+					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+				>
+					<h3 class="mb-3 text-sm font-bold text-stone-800">Ukuran Kertas Thermal</h3>
+					<div class="grid grid-cols-2 gap-3">
+						<label
+							class="flex cursor-pointer items-center justify-between rounded-xl border-[1.5px] p-3.5 transition-all {paperSize ===
+							'58mm'
+								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
+								: 'border-stone-200 text-stone-700 hover:border-pink-200'}"
+						>
+							<span class="text-sm">58 mm (32 Kolom)</span>
+							<input
+								type="radio"
+								name="paper-size"
+								value="58mm"
+								bind:group={paperSize}
+								class="h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+						</label>
+						<label
+							class="flex cursor-pointer items-center justify-between rounded-xl border-[1.5px] p-3.5 transition-all {paperSize ===
+							'80mm'
+								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
+								: 'border-stone-200 text-stone-700 hover:border-pink-200'}"
+						>
+							<span class="text-sm">80 mm (48 Kolom)</span>
+							<input
+								type="radio"
+								name="paper-size"
+								value="80mm"
+								bind:group={paperSize}
+								class="h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+						</label>
+					</div>
 				</div>
-				<table style="width:100%;font-size:24px;margin-bottom:16px;">
-					<tbody>
-						<tr style="line-height:1.5;"
-							><td style="text-align:left;">Jus Mangga x2</td><td style="text-align:right;"
-								>Rp20.000</td
-							></tr
-						>
-						<tr style="line-height:1.5;"
-							><td style="font-size:18px;padding-left:8px;color:#000;">+ Topping Nata</td><td
-								style="font-size:18px;text-align:right;color:#000;">Rp4.000</td
-							></tr
-						>
-						<tr style="line-height:1.5;"
-							><td colspan="2" style="font-size:18px;padding-left:8px;color:#000;"
-								>Tanpa Gula, Sedikit Es, Catatan khusus</td
-							></tr
-						>
-						<tr><td colspan="2" style="height:20px;"></td></tr>
-						<tr style="line-height:1.5;"
-							><td style="text-align:left;">Jus Alpukat x1</td><td style="text-align:right;"
-								>Rp15.000</td
-							></tr
-						>
-					</tbody>
-				</table>
-				<div style="border-bottom:1px dashed #000;margin-bottom:16px;"></div>
-				<table style="width:100%;font-size:24px;margin-bottom:16px;line-height:1.5;">
-					<tbody>
-						<tr
-							><td style="text-align:left;">Total:</td><td style="text-align:right;"
-								><b>Rp35.000</b></td
-							></tr
-						>
-						<tr
-							><td style="text-align:left;">Metode:</td><td style="text-align:right;">Tunai</td></tr
-						>
-						<tr
-							><td style="text-align:left;">Dibayar:</td><td style="text-align:right;">Rp50.000</td
-							></tr
-						>
-						<tr
-							><td style="text-align:left;">Kembalian:</td><td style="text-align:right;"
-								>Rp15.000</td
-							></tr
-						>
-					</tbody>
-				</table>
-				<div style="margin-top:16px;text-align:center;white-space:pre-line;line-height:1.5;">
-					{ucapan}
+
+				<!-- Tombol Aksi -->
+				<div class="flex flex-col gap-3">
+					<button
+						type="button"
+						onclick={simpanKoneksiPrinter}
+						class="w-full cursor-pointer rounded-xl bg-pink-500 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-pink-500/20 transition-all hover:bg-pink-600 active:scale-[0.98]"
+					>
+						Simpan Metode Printer
+					</button>
+					<button
+						type="button"
+						onclick={handleTestPrint}
+						disabled={isTestingPrint}
+						class="w-full cursor-pointer rounded-xl border-[1.5px] border-pink-200 bg-white px-6 py-3.5 text-sm font-bold text-pink-600 shadow-sm transition-all hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50"
+					>
+						{isTestingPrint ? 'Mencetak Tes...' : '🖨️ Coba Tes Cetak Struk'}
+					</button>
 				</div>
 			</div>
-		</div>
+		{:else}
+			<!-- Preview Section -->
+			<div class="grid grid-cols-1 gap-8 md:grid-cols-2">
+				<!-- Receipt Struk Preview -->
+				<div class="mx-auto w-full max-w-sm">
+					<div
+						class="relative overflow-hidden rounded-t-lg bg-white p-6 shadow-xl shadow-stone-200/50 sm:p-8"
+						style="border-bottom: 4px dotted #e5e7eb;"
+					>
+						<div
+							class="font-mono text-black"
+							style="font-size: 14px; line-height: 1.5; padding: 8px;"
+						>
+							<div style="text-align:center; margin-bottom: 16px;">
+								<img
+									src={LOGO_BASE64}
+									style="width:120px; height:120px; margin:0 auto 12px; display:block; filter:grayscale(100%) contrast(1.2);"
+									alt="Logo"
+								/>
+								<div style="font-weight:bold; font-size: 20px; text-transform: uppercase;">
+									{namaToko || 'Nama Toko'}
+								</div>
+								<div style="font-size: 13px; margin-top: 4px;">{alamat || 'Alamat Toko'}</div>
+								{#if instagram || telepon}
+									<div style="font-size: 13px; margin-top: 2px;">
+										{instagram}{instagram && telepon ? ' | ' : ''}{telepon}
+									</div>
+								{/if}
+							</div>
+
+							<div style="border-bottom: 1px dashed #333; margin-bottom: 12px;"></div>
+
+							<div
+								style="text-align:left; font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between;"
+							>
+								<div>nama pelanggan</div>
+								<div>01/01/2024 10.00</div>
+							</div>
+
+							<table
+								style="width:100%; font-size: 14px; border-collapse:collapse; margin-bottom: 12px;"
+							>
+								<tbody>
+									<tr>
+										<td style="text-align:left; padding-bottom:4px; font-weight: bold;"
+											>Jus Mangga <span style="font-size: 12px; font-weight: normal;">x2</span></td
+										>
+										<td style="text-align:right; padding-bottom:4px;">Rp20.000</td>
+									</tr>
+									<tr>
+										<td style="font-size: 12px; padding-left: 8px; color: #333;">+ Topping Nata</td>
+										<td style="font-size: 12px; text-align:right; color: #333;">Rp4.000</td>
+									</tr>
+									<tr>
+										<td
+											colspan="2"
+											style="font-size: 12px; padding-left: 8px; padding-bottom:8px; color: #333; font-style: italic;"
+											>Tanpa Gula, Sedikit Es</td
+										>
+									</tr>
+									<tr>
+										<td style="text-align:left; padding-bottom:4px; font-weight: bold;"
+											>Jus Alpukat <span style="font-size: 12px; font-weight: normal;">x1</span></td
+										>
+										<td style="text-align:right; padding-bottom:4px;">Rp15.000</td>
+									</tr>
+								</tbody>
+							</table>
+
+							<div style="border-bottom: 1px dashed #333; margin-bottom: 12px;"></div>
+
+							<table
+								style="width:100%; font-size: 14px; border-collapse:collapse; margin-bottom: 24px;"
+							>
+								<tbody>
+									<tr>
+										<td style="text-align:left; padding-bottom:4px;">Total:</td>
+										<td style="text-align:right; font-weight: bold; font-size: 16px;">Rp35.000</td>
+									</tr>
+									<tr>
+										<td style="text-align:left; font-size: 13px; padding-top: 4px;">Metode:</td>
+										<td style="text-align:right; font-size: 13px; padding-top: 4px;">Tunai</td>
+									</tr>
+									<tr>
+										<td style="text-align:left; font-size: 13px;">Dibayar:</td>
+										<td style="text-align:right; font-size: 13px;">Rp50.000</td>
+									</tr>
+									<tr>
+										<td style="text-align:left; font-size: 13px;">Kembalian:</td>
+										<td style="text-align:right; font-size: 13px;">Rp15.000</td>
+									</tr>
+								</tbody>
+							</table>
+
+							<div style="text-align:center; font-size: 13px; white-space:pre-line;">
+								{ucapan || 'Terima kasih'}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- ASCII (Base64) Info Card -->
+				<div
+					class="flex flex-col justify-between rounded-2xl border-[1.5px] border-pink-100 bg-white p-6 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+				>
+					<div>
+						<h3 class="text-lg font-bold text-stone-800">Kode ASCII (Base64) Logo</h3>
+						<p class="mt-2 text-sm leading-relaxed text-stone-600">
+							Ini adalah representasi teks ASCII (Base64) dari logo toko. Data gambar ini ditanamkan
+							langsung dalam kode agar struk dapat dicetak kapan saja, bahkan saat perangkat kasir
+							sedang offline.
+						</p>
+						<div class="mt-4 rounded-xl border border-stone-200 bg-stone-900 p-4">
+							<div
+								class="max-h-40 overflow-y-auto pr-1 font-mono text-[10px] break-all text-stone-400 select-all"
+							>
+								{LOGO_BASE64}
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-6">
+						<button
+							type="button"
+							class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-pink-500 py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 transition-all duration-200 hover:bg-pink-600 active:scale-[0.98]"
+							onclick={copyBase64}
+						>
+							{#if copied}
+								<Check class="h-4 w-4 stroke-[2.5]" />
+								Tersalin!
+							{:else}
+								<svg
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+									<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+								</svg>
+								Salin Kode ASCII
+							{/if}
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -254,7 +712,6 @@
 		show={toastManager.showToast}
 		message={toastManager.toastMessage}
 		type={toastManager.toastType}
-		duration={2000}
 		position="top"
 	/>
 {/if}

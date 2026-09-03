@@ -1,0 +1,545 @@
+import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import bcrypt from 'bcryptjs';
+import {
+	canonicalizeExternalPath,
+	CONFIG_FILE,
+	loadAllowlistedEnv,
+	parseAndVerifyInfo,
+	REPO_ROOT,
+	validateD1Config,
+	WORKSPACE_ROOT
+} from './d1-backup.mjs';
+import { runUat } from './uat-live-realtime.mjs';
+
+const MODULE_FILE = fileURLToPath(import.meta.url);
+const ENV_KEYS = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'];
+const OS_ENV_KEYS = [
+	'PATH',
+	'PATHEXT',
+	'SystemRoot',
+	'TEMP',
+	'TMP',
+	'USERPROFILE',
+	'APPDATA',
+	'LOCALAPPDATA'
+];
+const GROUPS = [
+	{
+		binding: 'DB_SAMARINDA_GROUP',
+		branches: ['samarinda', 'samarinda2']
+	},
+	{
+		binding: 'DB_BALIKPAPAN_GROUP',
+		branches: ['balikpapan', 'balikpapan2']
+	},
+	{
+		binding: 'DB_BERAU_GROUP',
+		branches: ['berau']
+	}
+];
+const ROLES = ['kasir', 'pemilik'];
+
+function parseArgs(argv) {
+	const options = {
+		live: false,
+		envFile: null,
+		outputDir: null,
+		baseUrl: null,
+		uatBranch: null,
+		journalDir: null,
+		verifyHandoff: null
+	};
+	const valued = new Set([
+		'--env-file',
+		'--output-dir',
+		'--base-url',
+		'--uat-branch',
+		'--journal-dir',
+		'--verify-handoff'
+	]);
+	for (let index = 0; index < argv.length; index += 1) {
+		const arg = argv[index];
+		if (arg === '--' && index === 0) continue;
+		if (arg === '--live') options.live = true;
+		else if (valued.has(arg)) {
+			const value = argv[index + 1];
+			if (!value || value.startsWith('--')) throw new Error(`Nilai ${arg} wajib diisi`);
+			index += 1;
+			if (arg === '--env-file') options.envFile = value;
+			if (arg === '--output-dir') options.outputDir = value;
+			if (arg === '--base-url') options.baseUrl = value;
+			if (arg === '--uat-branch') options.uatBranch = value;
+			if (arg === '--journal-dir') options.journalDir = value;
+			if (arg === '--verify-handoff') options.verifyHandoff = value;
+		} else throw new Error(`Argumen tidak diizinkan: ${arg}`);
+	}
+	if (!options.live) throw new Error('Rotasi production memerlukan --live');
+	if (!options.verifyHandoff && !options.outputDir) {
+		throw new Error('--output-dir absolut di luar workspace wajib diisi');
+	}
+	if (options.uatBranch && !GROUPS.some((group) => group.branches.includes(options.uatBranch))) {
+		throw new Error('--uat-branch tidak termasuk allowlist');
+	}
+	if (options.uatBranch && (!options.baseUrl || !options.journalDir)) {
+		throw new Error('--uat-branch memerlukan --base-url dan --journal-dir');
+	}
+	if (options.baseUrl && new URL(options.baseUrl).protocol !== 'https:') {
+		throw new Error('--base-url production wajib HTTPS');
+	}
+	if (options.verifyHandoff && !options.baseUrl) {
+		throw new Error('--verify-handoff memerlukan --base-url');
+	}
+	return options;
+}
+
+function childEnv(secrets, processEnv = process.env) {
+	const env = {};
+	for (const key of OS_ENV_KEYS) {
+		if (typeof processEnv[key] === 'string' && processEnv[key]) env[key] = processEnv[key];
+	}
+	for (const key of ENV_KEYS) {
+		if (typeof secrets[key] === 'string' && secrets[key]) env[key] = secrets[key];
+	}
+	return env;
+}
+
+function strongPassword() {
+	return `Z7a!${randomBytes(21).toString('base64url')}`;
+}
+
+function sqlLiteral(value) {
+	return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function runWranglerExecute(databaseName, sqlFile, env) {
+	const result = spawnSync(
+		'rtk',
+		[
+			'pnpm',
+			'exec',
+			'wrangler',
+			'd1',
+			'execute',
+			databaseName,
+			'--remote',
+			'--config',
+			'wrangler.pages.jsonc',
+			'--file',
+			sqlFile
+		],
+		{
+			cwd: REPO_ROOT,
+			env,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe'],
+			windowsHide: true,
+			maxBuffer: 1024 * 1024
+		}
+	);
+	if (result.error) throw result.error;
+	if (result.status !== 0) {
+		throw new Error(`Rotasi D1 gagal untuk ${databaseName}: exit ${result.status}`);
+	}
+}
+
+function verifyWranglerDatabase(database, env) {
+	const result = spawnSync(
+		'rtk',
+		['pnpm', 'exec', 'wrangler', 'd1', 'info', database.name, '--config', CONFIG_FILE, '--json'],
+		{
+			cwd: REPO_ROOT,
+			env,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe'],
+			windowsHide: true,
+			maxBuffer: 1024 * 1024
+		}
+	);
+	if (result.error) throw result.error;
+	if (result.status !== 0) throw new Error(`Verifikasi D1 gagal untuk ${database.name}`);
+	parseAndVerifyInfo(result.stdout, database);
+}
+
+function getSetCookies(headers) {
+	if (typeof headers.getSetCookie === 'function') return headers.getSetCookie();
+	const cookie = headers.get('set-cookie');
+	return cookie ? [cookie] : [];
+}
+
+function cookiePair(cookies, name) {
+	const cookie = cookies.find((item) => item.startsWith(`${name}=`));
+	return cookie ? cookie.split(';')[0] : '';
+}
+
+async function validateLogin(baseUrl, credential, attempt = 0) {
+	const csrfResponse = await fetch(`${baseUrl}/api/csrf`);
+	if (!csrfResponse.ok) throw new Error(`Validasi CSRF gagal untuk ${credential.branch}`);
+	const csrf = await csrfResponse.json();
+	const csrfCookie = cookiePair(getSetCookies(csrfResponse.headers), 'zatiaras_csrf');
+	if (typeof csrf?.token !== 'string' || !csrfCookie) throw new Error('Respons CSRF tidak valid');
+	const loginResponse = await fetch(`${baseUrl}/api/veriflogin`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'X-CSRF-Token': csrf.token,
+			Cookie: csrfCookie
+		},
+		body: JSON.stringify({
+			branch: credential.branch,
+			username: credential.username,
+			password: credential.password
+		})
+	});
+	const payload = await loginResponse.json().catch(() => null);
+	if (loginResponse.status === 503 && attempt < 4) {
+		const retryAfter = Number(loginResponse.headers.get('retry-after') || 2);
+		await new Promise((resolveDelay) =>
+			setTimeout(resolveDelay, Math.max(1, Math.min(retryAfter, 5)) * 1000)
+		);
+		return validateLogin(baseUrl, credential, attempt + 1);
+	}
+	if (!loginResponse.ok || !payload?.success || payload?.user?.role !== credential.role) {
+		throw new Error(
+			`Validasi login gagal untuk ${credential.branch}/${credential.role}: HTTP ${loginResponse.status}, code ${String(payload?.code ?? 'UNKNOWN')}`
+		);
+	}
+	const sid = cookiePair(getSetCookies(loginResponse.headers), 'zatiaras_sid');
+	if (!sid) throw new Error(`Session validasi tidak tersedia untuk ${credential.branch}`);
+	const logoutResponse = await fetch(`${baseUrl}/api/logout`, {
+		method: 'POST',
+		headers: {
+			Cookie: `${csrfCookie}; ${sid}`,
+			'X-CSRF-Token': csrf.token
+		}
+	});
+	if (!logoutResponse.ok) throw new Error(`Logout validasi gagal untuk ${credential.branch}`);
+}
+
+async function validateIngredientYield(baseUrl, credential) {
+	const csrfResponse = await fetch(`${baseUrl}/api/csrf`);
+	if (!csrfResponse.ok) throw new Error('UAT yield: CSRF gagal');
+	const csrf = await csrfResponse.json();
+	const csrfCookie = cookiePair(getSetCookies(csrfResponse.headers), 'zatiaras_csrf');
+	const loginResponse = await fetch(`${baseUrl}/api/veriflogin`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'X-CSRF-Token': csrf.token,
+			Cookie: csrfCookie
+		},
+		body: JSON.stringify(credential)
+	});
+	if (!loginResponse.ok) throw new Error(`UAT yield: login gagal HTTP ${loginResponse.status}`);
+	const sid = cookiePair(getSetCookies(loginResponse.headers), 'zatiaras_sid');
+	const cookie = `${csrfCookie}; ${sid}`;
+	const id = `uat-yield-${Date.now()}`;
+	let created = false;
+	try {
+		const createResponse = await fetch(`${baseUrl}/api/bahan`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-Token': csrf.token,
+				Cookie: cookie
+			},
+			body: JSON.stringify({
+				branch: credential.branch,
+				payload: {
+					id,
+					nama: 'UAT Yield Sementara',
+					satuan: 'gram',
+					stok_saat_ini: 0,
+					ambang_stok: 0,
+					yield_persen: 65,
+					jumlah_beli_terakhir: 10_000,
+					biaya_beli_terakhir: 300_000,
+					biaya_per_satuan: 1
+				}
+			})
+		});
+		if (!createResponse.ok)
+			throw new Error(`UAT yield: create gagal HTTP ${createResponse.status}`);
+		created = true;
+		const listResponse = await fetch(
+			`${baseUrl}/api/bahan?branch=${encodeURIComponent(credential.branch)}`,
+			{ headers: { Cookie: cookie } }
+		);
+		if (!listResponse.ok) throw new Error(`UAT yield: read gagal HTTP ${listResponse.status}`);
+		const rows = await listResponse.json();
+		const row = Array.isArray(rows) ? rows.find((item) => item?.id === id) : null;
+		if (
+			!row ||
+			Number(row.yield_persen) !== 65 ||
+			Math.abs(Number(row.biaya_per_satuan) - 46.1538) > 0.0001
+		) {
+			throw new Error('UAT yield: kalkulasi server tidak sesuai');
+		}
+	} finally {
+		if (created) {
+			const cleanup = await fetch(`${baseUrl}/api/bahan?id=${encodeURIComponent(id)}`, {
+				method: 'DELETE',
+				headers: { 'X-CSRF-Token': csrf.token, Cookie: cookie }
+			});
+			if (!cleanup.ok) {
+				console.error(
+					`[rotate-production-credentials] UAT yield: cleanup gagal HTTP ${cleanup.status}`
+				);
+			}
+		}
+		await fetch(`${baseUrl}/api/logout`, {
+			method: 'POST',
+			headers: { 'X-CSRF-Token': csrf.token, Cookie: cookie }
+		}).catch(() => undefined);
+	}
+}
+
+function protectWithDpapi(plaintext, env) {
+	if (process.platform !== 'win32')
+		throw new Error('Handoff terenkripsi saat ini wajib Windows DPAPI');
+	const script =
+		'$plain=[Console]::In.ReadToEnd(); $secure=ConvertTo-SecureString $plain -AsPlainText -Force; ConvertFrom-SecureString $secure';
+	const result = spawnSync('rtk', ['powershell', '-NoProfile', '-Command', script], {
+		input: plaintext,
+		env,
+		encoding: 'utf8',
+		stdio: ['pipe', 'pipe', 'pipe'],
+		windowsHide: true,
+		maxBuffer: 1024 * 1024
+	});
+	if (result.error) throw result.error;
+	if (result.status !== 0 || !result.stdout.trim()) throw new Error('Enkripsi DPAPI gagal');
+	return result.stdout.trim();
+}
+
+function unprotectWithDpapi(ciphertext, env) {
+	if (process.platform !== 'win32')
+		throw new Error('Handoff terenkripsi saat ini wajib Windows DPAPI');
+	const script =
+		"$cipher=[Console]::In.ReadToEnd(); $secure=$cipher | ConvertTo-SecureString; [Net.NetworkCredential]::new('', $secure).Password";
+	const result = spawnSync('rtk', ['powershell', '-NoProfile', '-Command', script], {
+		input: ciphertext.trim(),
+		env,
+		encoding: 'utf8',
+		stdio: ['pipe', 'pipe', 'pipe'],
+		windowsHide: true,
+		maxBuffer: 1024 * 1024
+	});
+	if (result.error) throw result.error;
+	if (result.status !== 0 || !result.stdout.trim()) throw new Error('Dekripsi DPAPI gagal');
+	return result.stdout;
+}
+
+async function verifyCredentialHandoff(handoffPath, baseUrl, processEnv = process.env) {
+	const encrypted = await readFile(resolve(handoffPath), 'utf8');
+	const plaintext = unprotectWithDpapi(encrypted, childEnv({}, processEnv));
+	let handoff;
+	try {
+		handoff = JSON.parse(plaintext);
+	} catch {
+		throw new Error('Payload handoff bukan JSON valid');
+	}
+	if (!Array.isArray(handoff?.accounts) || handoff.accounts.length !== 10) {
+		throw new Error('Handoff wajib memuat tepat 10 akun');
+	}
+	for (const account of handoff.accounts) {
+		if (
+			!GROUPS.some((group) => group.branches.includes(account?.branch)) ||
+			!ROLES.includes(account?.role) ||
+			typeof account?.username !== 'string' ||
+			typeof account?.password !== 'string'
+		) {
+			throw new Error('Entry handoff tidak valid');
+		}
+	}
+	if (new Set(handoff.accounts.map((item) => item.password)).size !== 10) {
+		throw new Error('Password handoff tidak unik');
+	}
+	for (const account of handoff.accounts) {
+		await validateLogin(baseUrl, account);
+		await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+	}
+	return { accountCount: handoff.accounts.length, accounts: handoff.accounts };
+}
+
+export async function rotateProductionCredentials(options, processEnv = process.env) {
+	const secrets = await loadAllowlistedEnv(options.envFile, ENV_KEYS, { processEnv });
+	for (const key of ENV_KEYS) if (!secrets[key]) throw new Error(`${key} wajib diisi`);
+	const outputDir = await canonicalizeExternalPath(options.outputDir, {
+		repoRoot: REPO_ROOT,
+		workspaceRoot: WORKSPACE_ROOT
+	});
+	await mkdir(outputDir, { recursive: true, mode: 0o700 });
+	await chmod(outputDir, 0o700).catch(() => undefined);
+	const databases = validateD1Config(await readFile(resolve(REPO_ROOT, CONFIG_FILE), 'utf8'));
+	const credentials = [];
+	for (const group of GROUPS) {
+		for (const branch of group.branches) {
+			for (const role of ROLES) {
+				credentials.push({
+					branch,
+					role,
+					username: role,
+					password: strongPassword(),
+					binding: group.binding
+				});
+			}
+		}
+	}
+	if (new Set(credentials.map((item) => item.password)).size !== credentials.length) {
+		throw new Error('Generator menghasilkan password duplikat');
+	}
+	for (const credential of credentials) {
+		// Samakan cost dengan jalur perubahan password aplikasi. Cost 12 dapat
+		// melampaui CPU budget Pages Worker dan memunculkan 503 saat login.
+		credential.passwordHash = await bcrypt.hash(credential.password, 10);
+	}
+	if (new Set(credentials.map((item) => item.passwordHash)).size !== credentials.length) {
+		throw new Error('Hash kredensial tidak unik');
+	}
+	const handoff = {
+		created_at: new Date().toISOString(),
+		purpose: 'ZatiarasPOS production application credentials',
+		accounts: credentials.map(({ branch, role, username, password }) => ({
+			branch,
+			role,
+			username,
+			password
+		}))
+	};
+	const encrypted = protectWithDpapi(JSON.stringify(handoff), childEnv({}, processEnv));
+	const handoffPath = join(outputDir, `credentials-${Date.now()}.dpapi`);
+	await writeFile(handoffPath, `${encrypted}\n`, { mode: 0o600, flag: 'wx' });
+
+	const tempDir = await mkdtemp(join(outputDir, 'rotation-sql-'));
+	await chmod(tempDir, 0o700).catch(() => undefined);
+	try {
+		for (const group of GROUPS) {
+			const database = databases.find((item) => item.binding === group.binding);
+			if (!database) throw new Error(`Database ${group.binding} tidak ditemukan`);
+			verifyWranglerDatabase(database, childEnv(secrets, processEnv));
+			const groupCredentials = credentials.filter((item) => item.binding === group.binding);
+			const statements = groupCredentials.map(
+				(item) =>
+					`UPDATE profil SET password = ${sqlLiteral(item.passwordHash)}, updated_at = ${sqlLiteral(new Date().toISOString())} WHERE cabang_id = ${sqlLiteral(item.branch)} AND role = ${sqlLiteral(item.role)} AND username = ${sqlLiteral(item.username)};`
+			);
+			statements.push('DELETE FROM auth_sessions;');
+			const sqlFile = join(tempDir, `${group.binding}.sql`);
+			await writeFile(sqlFile, `${statements.join('\n')}\n`, { mode: 0o600, flag: 'wx' });
+			runWranglerExecute(database.name, sqlFile, childEnv(secrets, processEnv));
+		}
+
+		for (const credential of credentials) {
+			await validateLogin(options.baseUrl, credential);
+			await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+		}
+
+		if (options.uatBranch) {
+			const cashier = credentials.find(
+				(item) => item.branch === options.uatBranch && item.role === 'kasir'
+			);
+			const owner = credentials.find(
+				(item) => item.branch === options.uatBranch && item.role === 'pemilik'
+			);
+			await runUat(
+				{
+					live: true,
+					baseUrl: options.baseUrl,
+					branch: options.uatBranch,
+					envFile: null,
+					journalDir: options.journalDir,
+					cleanupOnly: false
+				},
+				{
+					processEnv: {
+						...processEnv,
+						...secrets,
+						UAT_KASIR_USERNAME: cashier.username,
+						UAT_KASIR_PASSWORD: cashier.password,
+						UAT_OWNER_USERNAME: owner.username,
+						UAT_OWNER_PASSWORD: owner.password
+					}
+				}
+			);
+		}
+
+		return {
+			handoffPath,
+			accountCount: credentials.length,
+			uniquePasswordCount: new Set(credentials.map((item) => item.password)).size,
+			uatBranch: options.uatBranch
+		};
+	} finally {
+		const safeTemp = await canonicalizeExternalPath(tempDir, {
+			repoRoot: REPO_ROOT,
+			workspaceRoot: WORKSPACE_ROOT,
+			mustExist: true
+		}).catch(() => null);
+		if (safeTemp && safeTemp.startsWith(outputDir)) {
+			await rm(safeTemp, { recursive: true, force: true });
+		}
+	}
+}
+
+async function main() {
+	const options = parseArgs(process.argv.slice(2));
+	if (options.verifyHandoff) {
+		const verified = await verifyCredentialHandoff(
+			options.verifyHandoff,
+			options.baseUrl,
+			process.env
+		);
+		if (options.uatBranch) {
+			const secrets = await loadAllowlistedEnv(options.envFile, ENV_KEYS);
+			for (const key of ENV_KEYS) if (!secrets[key]) throw new Error(`${key} wajib diisi`);
+			const cashier = verified.accounts.find(
+				(item) => item.branch === options.uatBranch && item.role === 'kasir'
+			);
+			const owner = verified.accounts.find(
+				(item) => item.branch === options.uatBranch && item.role === 'pemilik'
+			);
+			await validateIngredientYield(options.baseUrl, {
+				branch: options.uatBranch,
+				username: owner.username,
+				password: owner.password
+			});
+			await runUat(
+				{
+					live: true,
+					baseUrl: options.baseUrl,
+					branch: options.uatBranch,
+					envFile: null,
+					journalDir: options.journalDir,
+					cleanupOnly: false
+				},
+				{
+					processEnv: {
+						...process.env,
+						...secrets,
+						UAT_KASIR_USERNAME: cashier.username,
+						UAT_KASIR_PASSWORD: cashier.password,
+						UAT_OWNER_USERNAME: owner.username,
+						UAT_OWNER_PASSWORD: owner.password
+					}
+				}
+			);
+		}
+		console.log(`PASS validasi ${verified.accountCount} akun dari handoff terenkripsi`);
+		return;
+	}
+	if (!options.baseUrl) throw new Error('--base-url wajib diisi untuk validasi seluruh akun');
+	const result = await rotateProductionCredentials(options);
+	console.log(
+		`PASS rotasi ${result.accountCount} akun; password unik ${result.uniquePasswordCount}; handoff ${result.handoffPath}`
+	);
+}
+
+if (resolve(process.argv[1] || '') === resolve(MODULE_FILE)) {
+	main().catch((error) => {
+		console.error(`FAILED: ${error instanceof Error ? error.message : String(error)}`);
+		process.exitCode = 1;
+	});
+}

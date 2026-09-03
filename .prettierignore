@@ -7,3 +7,13 @@ bun.lockb
 
 # Miscellaneous
 static/
+.tmp-quality/
+.tmp-pwa/
+.tmp-chrome-offline/
+.claude/settings.local.json
+
+# Generated Playwright evidence
+.planning/quick/**/playwright-production/
+
+# Historical planning evidence is append-only.
+.planning/quick/

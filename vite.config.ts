@@ -1,16 +1,92 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+const pwaPrerenderPlaceholder = '__pwa-placeholder.json';
+
+function ensurePwaPrerenderPlaceholder() {
+	return {
+		name: 'ensure-pwa-prerender-placeholder',
+		apply: 'build' as const,
+		closeBundle() {
+			const placeholderPath = join(
+				process.cwd(),
+				'.svelte-kit',
+				'output',
+				'prerendered',
+				pwaPrerenderPlaceholder
+			);
+
+			mkdirSync(dirname(placeholderPath), { recursive: true });
+			writeFileSync(placeholderPath, '{}\n');
+		}
+	};
+}
 
 export default defineConfig({
 	plugins: [
 		sveltekit(),
+		tailwindcss(),
+		ensurePwaPrerenderPlaceholder(),
 		SvelteKitPWA({
 			registerType: 'prompt',
 			injectRegister: 'auto',
+			integration: {
+				closeBundleOrder: 'post'
+			},
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff}'],
+				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+				navigateFallback: null,
+				// navigateFallbackDenylist removed since fallback is null
+				globPatterns: [
+					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff,webmanifest}',
+					'prerendered/**/*.{html,json}'
+				],
+				manifestTransforms: [
+					async (entries) => ({
+						manifest: entries
+							.filter((entry) => !entry.url.endsWith(pwaPrerenderPlaceholder))
+							.map((entry) => {
+								let url = entry.url;
+								if (url.startsWith('client/')) {
+									url = url.slice(7);
+								} else if (url.startsWith('prerendered/dependencies/')) {
+									url = url.slice(25);
+								} else if (url.startsWith('prerendered/pages/')) {
+									url = url.slice(18);
+								}
+
+								if (url.endsWith('.html')) {
+									if (url === 'index.html') {
+										url = '/';
+									} else if (url.endsWith('/index.html')) {
+										url = url.slice(0, -'/index.html'.length);
+									} else {
+										url = url.slice(0, -'.html'.length);
+									}
+								}
+
+								return { ...entry, url };
+							}),
+						warnings: []
+					})
+				],
 				runtimeCaching: [
+					{
+						urlPattern: ({ request, url }) =>
+							request.mode === 'navigate' && /^\/pos(?:\/|$)/.test(url.pathname),
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'pos-navigation-v1',
+							networkTimeoutSeconds: 3,
+							cacheableResponse: { statuses: [0, 200] },
+							expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 },
+							precacheFallback: { fallbackURL: '/offline' }
+						}
+					},
 					{
 						urlPattern: /\.(?:png|jpg|jpeg|svg|webp|avif)$/,
 						handler: 'StaleWhileRevalidate',
@@ -33,7 +109,8 @@ export default defineConfig({
 			manifest: {
 				name: 'Zatiaras POS',
 				short_name: 'ZatiarasPOS',
-				description: 'Point of Sale System untuk Bisnis Minuman',
+				description:
+					'Zatiaras POS - Aplikasi Kasir Modern, Cepat & Mudah untuk Bisnis Minuman Anda.',
 				theme_color: '#ec4899',
 				background_color: '#ffffff',
 				display: 'standalone',
@@ -42,32 +119,32 @@ export default defineConfig({
 				start_url: '/',
 				screenshots: [
 					{
-						src: 'screenshots/app-1080x1920-01.png',
-						sizes: '1080x1920',
-						type: 'image/png',
+						src: 'screenshots/beranda.jpg',
+						sizes: '1080x2400',
+						type: 'image/jpeg',
 						form_factor: 'narrow',
-						label: 'Dashboard'
+						label: 'Dashboard Beranda'
 					},
 					{
-						src: 'screenshots/app-1080x1920-02.png',
-						sizes: '1080x1920',
-						type: 'image/png',
+						src: 'screenshots/kasir.jpg',
+						sizes: '1080x2400',
+						type: 'image/jpeg',
 						form_factor: 'narrow',
-						label: 'Kasir / POS'
+						label: 'Kasir / POS Pintar'
 					},
 					{
-						src: 'screenshots/app-1080x1920-03.png',
-						sizes: '1080x1920',
-						type: 'image/png',
+						src: 'screenshots/laporan.jpg',
+						sizes: '1080x2400',
+						type: 'image/jpeg',
 						form_factor: 'narrow',
-						label: 'Laporan'
+						label: 'Laporan Penjualan'
 					},
 					{
-						src: 'screenshots/app-1080x1920-04.png',
-						sizes: '1080x1920',
-						type: 'image/png',
+						src: 'screenshots/pengaturan.jpg',
+						sizes: '1080x2400',
+						type: 'image/jpeg',
 						form_factor: 'narrow',
-						label: 'Pengaturan'
+						label: 'Manajemen Cabang & Menu'
 					}
 				],
 				icons: [
@@ -99,9 +176,8 @@ export default defineConfig({
 		rollupOptions: {
 			external: ['bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os'],
 			output: {
-				manualChunks: {
-					// Vendor chunks
-					'vendor-svelte': ['svelte', '@sveltejs/kit']
+				manualChunks(id) {
+					if (id.includes('/node_modules/svelte/')) return 'vendor-svelte';
 				}
 			}
 		},
@@ -117,12 +193,9 @@ export default defineConfig({
 		}
 		// Tree shaking is enabled by default in Vite
 	},
-	css: {
-		postcss: './postcss.config.cjs'
-	},
 	optimizeDeps: {
-		include: ['svelte', '@sveltejs/kit', '@supabase/supabase-js'],
-		exclude: ['bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', 'lucide-svelte']
+		include: ['idb-keyval', 'js-base64', 'pako', 'uuid', 'workbox-window'],
+		exclude: ['svelte', 'bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', '@lucide/svelte']
 	},
 	server: {
 		fs: {

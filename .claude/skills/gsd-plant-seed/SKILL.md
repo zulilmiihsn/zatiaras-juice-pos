@@ -1,7 +1,7 @@
 ---
 name: gsd-plant-seed
-description: "Capture a forward-looking idea with trigger conditions — surfaces automatically at the right milestone"
-argument-hint: "[idea summary]"
+description: 'Capture a forward-looking idea with trigger conditions — surfaces automatically at the right milestone'
+argument-hint: '[idea summary]'
 allowed-tools:
   - Read
   - Write
@@ -9,7 +9,6 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
-
 
 <objective>
 Capture an idea that's too big for now but should surface automatically when the right

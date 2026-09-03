@@ -5,160 +5,98 @@
  */
 
 // ============================================================================
-// 🍹 PRODUCT INTERFACES
+// [CATATAN]: 🍹 PRODUCT INTERFACES
 // ============================================================================
 
 export interface Product {
-	id: number;
-	name: string;
-	price: number;
-	harga?: number; // Alternative price field
-	category_id: number;
+	id: string | number;
+	nama: string;
+	harga: number;
+	harga_jumbo?: number | null;
+	stok?: number | null;
+	lacak_stok?: boolean | number | null;
+	lacak_bahan?: boolean | number | null;
+	kategori_id?: string | number | null;
 	tipe: 'minuman' | 'makanan' | 'snack';
 	gambar?: string;
 	deskripsi?: string;
-	ekstra_ids: number[];
+	ekstra_ids: Array<string | number>;
 	is_active: boolean;
 	created_at?: string;
 	updated_at?: string;
 }
 
 export interface Category {
-	id: number;
-	name: string;
-	description?: string;
+	id: string | number;
+	nama: string;
+	deskripsi?: string;
 	is_active: boolean;
 	created_at?: string;
 	updated_at?: string;
+	price_token?: string;
 }
 
 export interface AddOn {
-	id: number;
-	name: string;
-	price: number;
-	harga?: number; // Alternative price field
+	id: string | number;
+	nama: string;
+	harga: number;
+	bahan_id?: string | number | null;
+	jumlah_bahan?: number | null;
+	satuan_resep?: string | null;
+	jumlah_dasar_per_item?: number | null;
+	is_active: boolean;
+	created_at?: string;
+	updated_at?: string;
+	price_token?: string;
+}
+
+export interface Ingredient {
+	id: string | number;
+	nama: string;
+	satuan: string;
+	tipe_satuan?: 'berat' | 'cairan' | 'kemasan' | 'unit';
+	isi_per_kemasan?: number;
+	satuan_beli?: string;
+	kategori?: string;
+	stok_saat_ini: number;
+	ambang_stok?: number;
+	yield_persen?: number;
+	biaya_per_satuan?: number;
+	jumlah_beli_terakhir?: number;
+	biaya_beli_terakhir?: number;
 	is_active: boolean;
 	created_at?: string;
 	updated_at?: string;
 }
 
-// ============================================================================
-// 🛒 CART & TRANSACTION TYPES
-// ============================================================================
-
-export interface CartItem {
-	product: Product;
-	qty: number;
-	addOns: AddOn[];
-	sugar?: string;
-	ice?: string;
-	note?: string;
-	total: number;
+export interface HppExpenseItem {
+	id: string;
+	nama: string;
+	nominal: string | number;
 }
 
-export interface CartSummary {
-	totalQty: number;
-	totalHarga: number;
+export interface HppSettings {
+	id: string;
+	cabang_id: string;
+	sewa_bulanan: number;
+	listrik_bulanan: number;
+	air_bulanan: number;
+	gaji_bulanan: number;
+	lainnya_bulanan: number;
+	rincian_biaya?: string | HppExpenseItem[];
+	target_item_bulanan: number;
+	created_at?: string;
+	updated_at?: string;
 }
 
-// ============================================================================
-// 📊 MENU MANAGEMENT TYPES
-// ============================================================================
-
-export interface MenuForm {
-	id?: number;
-	name: string;
-	price: number;
-	tipe: 'minuman' | 'makanan' | 'snack';
-	kategori_id: number;
-	gambar: string;
-	deskripsi: string;
-	ekstra_ids: number[];
-	is_active: boolean;
-}
-
-export interface MenuFormState {
-	isEditing: boolean;
-	isLoading: boolean;
-	error: string | null;
-}
-
-// ============================================================================
-// 🔍 SEARCH & FILTER TYPES
-// ============================================================================
-
-export interface SearchFilters {
-	category: string | number;
-	searchKeyword: string;
-	priceRange?: {
-		min: number;
-		max: number;
-	};
-}
-
-export interface FilteredProducts {
-	products: Product[];
-	totalCount: number;
-	categories: Category[];
-}
-
-// ============================================================================
-// 📝 UTILITY TYPES
-// ============================================================================
-
-export type ProductType = 'minuman' | 'makanan' | 'snack';
-export type SortOrder = 'asc' | 'desc';
-export type SortField = 'name' | 'price' | 'created_at';
-
-export interface ProductSortOptions {
-	field: SortField;
-	order: SortOrder;
-}
-
-// ============================================================================
-// 🎯 API RESPONSE TYPES
-// ============================================================================
-
-export interface ApiResponse<T> {
-	data: T;
-	success: boolean;
-	message?: string;
-	error?: string;
-}
-
-export interface PaginatedResponse<T> {
-	data: T[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}
-
-export interface ProductListResponse extends PaginatedResponse<Product> {
-	categories: Category[];
-	addOns: AddOn[];
-}
-
-// ============================================================================
-// 🔄 STATE MANAGEMENT TYPES
-// ============================================================================
-
-export interface ProductState {
-	products: Product[];
-	categories: Category[];
-	addOns: AddOn[];
-	selectedCategory: string | number;
-	searchKeyword: string;
-	isLoading: boolean;
-	error: string | null;
-}
-
-export interface MenuManagementState {
-	menus: Product[];
-	categories: Category[];
-	addOns: AddOn[];
-	selectedMenu: Product | null;
-	formState: MenuFormState;
-	isLoading: boolean;
-	error: string | null;
+export interface ProductRecipe {
+	id: string | number;
+	produk_id: string | number;
+	bahan_id: string | number;
+	porsi?: 'reguler' | 'jumbo';
+	jumlah_per_item: number;
+	satuan_resep?: string;
+	jumlah_dasar_per_item?: number;
+	created_at?: string;
+	updated_at?: string;
 }

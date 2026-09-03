@@ -1,620 +1,219 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { loadRouteIcons } from '$lib/utils/iconLoader';
-	import { auth } from '$lib/auth/auth';
-	import { securityUtils } from '$lib/utils/security';
-	import { getSupabaseClient } from '$lib/database/supabaseClient';
-	import { userRole, setUserRole } from '$lib/stores/userRole';
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { get as storeGet } from 'svelte/store';
-	import { selectedBranch } from '$lib/stores/selectedBranch';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import Crown from 'lucide-svelte/icons/crown';
-	import CreditCard from 'lucide-svelte/icons/credit-card';
-	import User from 'lucide-svelte/icons/user';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	// Web component will be loaded dynamically in onMount
-	import { createToastManager } from '$lib/utils/ui';
-	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import { browser } from '$app/environment';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Crown from '@lucide/svelte/icons/crown';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
+	import User from '@lucide/svelte/icons/user';
+	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
 
-	// PWA Installation - Web Component
-	let pwaElement: any = null;
-	let isPwaLibraryLoaded = false;
-
-	// Type definitions
-	interface PengaturanData {
-		locked_pages?: string[];
-		pin?: string;
-	}
-
-	let pengaturanData = null;
-
-	// State untuk loading
-	let isLoading = true;
-	let isProfileLoaded = false;
-	let isPengaturanLoaded = false;
-
-	let currentUserRole = '';
-
-	// Subscribe ke store
-	userRole.subscribe((val) => (currentUserRole = val || ''));
-	let showLogoutModal = false;
-	let currentPage = 'security';
-
-	// Removed showPinModal, pin, errorTimeout, isClosing
-	let showPwaInstalledToast = false;
-	let pengaturan: PengaturanData = { locked_pages: ['laporan', 'beranda'], pin: '1234' };
-
-	let showNotification = false;
-	let notificationMessage = '';
-	let notificationTimeout: any = null;
-
-	// Toast notification state
-	let showToast = false;
-	let toastMessage = '';
-	let toastType: 'success' | 'error' | 'warning' | 'info' = 'success';
-
-	function showToastNotification(
-		message: string,
-		type: 'success' | 'error' | 'warning' | 'info' = 'success'
-	) {
-		toastMessage = message;
-		toastType = type;
-		showToast = true;
-	}
-
-	let LogOut: any,
-		Shield: any,
-		Palette: any,
-		Database: any,
-		HelpCircle: any,
-		Settings: any,
-		Bell: any,
-		Download: any,
-		Printer: any,
-		History: any;
-
-	function showNotif(message: string) {
-		notificationMessage = message;
-		showNotification = true;
-		clearTimeout(notificationTimeout);
-		notificationTimeout = setTimeout(() => {
-			showNotification = false;
-		}, 3000);
-	}
-
-	async function fetchPengaturan() {
-		const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-			.from('pengaturan')
-			.select('locked_pages, pin')
-			.eq('id', 1)
-			.single();
-		pengaturanData = !error ? data : null;
-	}
+	const s = createPengaturanState();
 
 	onMount(async () => {
-		// Mulai preload ikon untuk seluruh route pengaturan (non-blocking)
-		loadRouteIcons('pengaturan');
-		try {
-			// Hapus query profile dari Supabase, gunakan store
-			// const { data: { session } } = await supabase.auth.getSession();
-			// const userId = session?.user?.id;
-			//
-			// if (userId) {
-			//   const { data: profile, error } = await supabase
-			//     .from('profil')
-			//     .select('role, username')
-			//     .eq('id', userId)
-			//     .single();
-			//   userRole = profile?.role || '';
-			//   userName = profile?.username || '';
-			// }
-
-			// Jika role belum ada di store, coba validasi dengan Supabase
-			if (!currentUserRole) {
-				const {
-					data: { session }
-				} = await getSupabaseClient(storeGet(selectedBranch)).auth.getSession();
-				if (session?.user) {
-					const { data: profile } = await getSupabaseClient(storeGet(selectedBranch))
-						.from('profil')
-						.select('role, username')
-						.eq('id', session.user.id)
-						.single();
-					if (profile) {
-						setUserRole(profile.role, profile);
-					}
-				}
-			}
-
-			isProfileLoaded = true;
-
-			// PWA installed event
-			if (typeof window !== 'undefined') {
-				window.addEventListener('appinstalled', () => {
-					showPwaInstalledToast = true;
-					setTimeout(() => (showPwaInstalledToast = false), 4000);
-				});
-			}
-
-			// Load PWA Install Web Component (SSR-safe)
-			if (browser) {
-				try {
-					await import('@khmyznikov/pwa-install');
-					isPwaLibraryLoaded = true;
-					
-					// Force custom styling after library loads
-					setTimeout(() => {
-						const pwaInstall = document.querySelector('pwa-install');
-						if (pwaInstall && pwaInstall.shadowRoot) {
-							const style = document.createElement('style');
-							style.textContent = `
-								.header, [part="header"], div[class*="header"] {
-									background-color: #FFB6C1 !important;
-								}
-							`;
-							pwaInstall.shadowRoot.appendChild(style);
-						}
-					}, 500);
-				} catch (error) {
-					console.error('Failed to load PWA install library:', error);
-				}
-			}
-
-			// Removed locked_pages check for kasir role
-
-			// Set loading selesai
-			isLoading = false;
-
-			// Load icons
-			LogOut = (await import('lucide-svelte/icons/log-out')).default;
-			Shield = (await import('lucide-svelte/icons/shield')).default;
-			Palette = (await import('lucide-svelte/icons/palette')).default;
-			Database = (await import('lucide-svelte/icons/database')).default;
-			HelpCircle = (await import('lucide-svelte/icons/help-circle')).default;
-			Settings = (await import('lucide-svelte/icons/settings')).default;
-			Bell = (await import('lucide-svelte/icons/bell')).default;
-			Download = (await import('lucide-svelte/icons/download')).default;
-			Printer = (await import('lucide-svelte/icons/printer')).default;
-			History = (await import('lucide-svelte/icons/history')).default;
-		} catch (error) {
-			ErrorHandler.logError(error, 'loadPengaturanPage');
-			// toastManager.showToastNotification('Gagal memuat halaman pengaturan', 'error');
-		}
+		await s.init();
 	});
-
-	function handleLogout() {
-		showLogoutModal = true;
-	}
-
-	function confirmLogout() {
-		// SecurityMiddleware.logSecurityEvent('user_logout', {
-		//   user: currentUserRole,
-		//   from: 'settings_page'
-		// });
-		auth.logout();
-		goto('/login');
-	}
-
-	function cancelLogout() {
-		showLogoutModal = false;
-	}
-
-	function getRoleIcon() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik') return Crown;
-		if (currentUserRole === 'kasir') return CreditCard;
-		return User;
-	}
-
-	function getRoleLabel() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik') return 'Pemilik';
-		if (currentUserRole === 'kasir') return 'Kasir';
-		return 'User';
-	}
-
-	function getRoleDesc() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik')
-			return 'Akses penuh ke seluruh sistem';
-		if (currentUserRole === 'kasir') return 'Akses standar';
-		return 'Akses standar';
-	}
-
-	function getRoleColor() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik') {
-			return 'from-purple-500 to-pink-500';
-		} else if (currentUserRole === 'kasir') {
-			return 'from-green-500 to-blue-500';
-		}
-		return 'from-gray-500 to-gray-600';
-	}
-
-	function getRoleBadgeColor() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik') {
-			return 'bg-purple-100 text-purple-800';
-		} else if (currentUserRole === 'kasir') {
-			return 'bg-green-100 text-green-800';
-		}
-		return 'bg-gray-100 text-gray-800';
-	}
-
-	function getRoleDescription() {
-		if (currentUserRole === 'admin' || currentUserRole === 'pemilik') {
-			return 'Akses penuh ke semua fitur sistem';
-		} else if (currentUserRole === 'kasir') {
-			return 'Akses terbatas untuk POS dan laporan';
-		}
-		return 'Akses standar';
-	}
-
-	function handleInstallPWA() {
-		if (browser && isPwaLibraryLoaded) {
-			// Get the web component element
-			const pwaInstall = document.querySelector('pwa-install') as any;
-			if (pwaInstall) {
-				// Show the install dialog
-				pwaInstall.showDialog(true);
-			}
-		}
-	}
-
-	const settingsSections = [
-		{
-			title: 'Akun & Keamanan',
-			icon: Shield,
-			items: [
-				{
-					label: 'Profil Pengguna',
-					icon: User,
-					action: () => showNotif('Fitur profil belum tersedia')
-				},
-				{
-					label: 'Ubah Password',
-					icon: Shield,
-					action: () => showNotif('Fitur ubah password belum tersedia')
-				},
-				{
-					label: 'Riwayat Login',
-					icon: Bell,
-					action: () => showNotif('Fitur riwayat login belum tersedia')
-				}
-			]
-		},
-		{
-			title: 'Tampilan & Tema',
-			icon: Palette,
-			items: [
-				{
-					label: 'Tema Aplikasi',
-					icon: Palette,
-					action: () => showNotif('Fitur tema belum tersedia')
-				},
-				{
-					label: 'Ukuran Font',
-					icon: Settings,
-					action: () => showNotif('Fitur ukuran font belum tersedia')
-				},
-				{
-					label: 'Animasi',
-					icon: Settings,
-					action: () => showNotif('Fitur animasi belum tersedia')
-				}
-			]
-		},
-		{
-			title: 'Data & Backup',
-			icon: Database,
-			items: [
-				{
-					label: 'Export Data',
-					icon: Database,
-					action: () => showNotif('Fitur export data belum tersedia')
-				},
-				{
-					label: 'Import Data',
-					icon: Database,
-					action: () => showNotif('Fitur import data belum tersedia')
-				},
-				{
-					label: 'Backup Otomatis',
-					icon: Settings,
-					action: () => showNotif('Fitur backup belum tersedia')
-				}
-			]
-		},
-		{
-			title: 'Bantuan & Dukungan',
-			icon: HelpCircle,
-			items: [
-				{
-					label: 'Panduan Penggunaan',
-					icon: HelpCircle,
-					action: () => showNotif('Panduan belum tersedia')
-				},
-				{ label: 'Hubungi Support', icon: Bell, action: () => showNotif('Support belum tersedia') },
-				{
-					label: 'Tentang Aplikasi',
-					icon: Settings,
-					action: () => showNotif('Versi 1.0.0 - Zatiaras Juice POS')
-				}
-			]
-		}
-	];
-
-	// Filter sections based on user role
-	$: filteredSections =
-		currentUserRole === 'admin' || currentUserRole === 'pemilik'
-			? settingsSections
-			: settingsSections.filter((section) => section.title !== 'Data & Backup');
-
-	// Get role icon once and store it
-	$: roleIcon = getRoleIcon();
-
-	// Tambahkan fungsi upload gambar menu ke bucket 'gambar-menu' Supabase Storage
-	async function uploadMenuImage(file: File, menuId: string) {
-		const ext = file.name.split('.').pop();
-		const filePath = `menu-${menuId}-${Date.now()}.${ext}`;
-		// Upload ke bucket 'gambar-menu'
-		const { data, error } = await getSupabaseClient(storeGet(selectedBranch))
-			.storage.from('gambar-menu')
-			.upload(filePath, file, { upsert: true });
-		if (error) throw error;
-		// Dapatkan public URL
-		const { data: publicUrlData } = getSupabaseClient(storeGet(selectedBranch))
-			.storage.from('gambar-menu')
-			.getPublicUrl(filePath);
-		return publicUrlData.publicUrl;
-	}
 </script>
 
-<div class="page-content flex min-h-screen flex-col bg-gray-50">
-	<!-- Button Kembali -->
+<div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
+	<!-- Fluid Wave Header for Pengaturan (Full-width edge-to-edge) -->
 	<div
-		class="sticky top-0 z-30 mx-0 mt-0 mb-2 flex items-center border-b border-gray-100 bg-gray-50/95 px-4 py-3 shadow-md backdrop-blur-lg"
-		style="min-height:56px"
+		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
 	>
-		<button
-			onclick={() => goto('/')}
-			class="rounded-xl bg-gray-100 p-2 transition-colors hover:bg-gray-200"
-		>
-			{#if ArrowLeft}
-				<svelte:component this={ArrowLeft} class="h-5 w-5 text-gray-600" />
-			{:else}
-				<div class="flex h-5 w-5 items-center justify-center">
-					<span
-						class="block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"
-					></span>
-				</div>
-			{/if}
-		</button>
-	</div>
-	<!-- Grid Menu Pengaturan -->
-	<div class="mt-0 flex flex-1 flex-col items-center justify-center px-4 md:justify-start md:px-0">
-		<!-- Box Informasi Role -->
-		{#if isLoading || !isProfileLoaded}
-			<div
-				class="mb-2 flex w-full max-w-4xl animate-pulse flex-col items-center gap-2 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:mx-auto"
+		<!-- Ambient background blur shapes -->
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
+
+		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
+			<a
+				href="/"
+				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				aria-label="Kembali"
 			>
-				<div class="mb-2 h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100"></div>
-				<div class="mb-1 h-6 w-24 rounded bg-gray-200"></div>
-				<div class="mb-2 h-4 w-32 rounded bg-gray-100"></div>
-				<div class="mt-2 flex w-full items-center justify-between text-xs text-gray-300">
-					<div class="h-3 w-1/3 rounded bg-gray-100"></div>
-					<div class="h-3 w-1/4 rounded bg-gray-100"></div>
-				</div>
-				<div class="h-2 w-full"></div>
+				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
+			</a>
+			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Pengaturan Sistem</h1>
+			<div class="h-10 w-10"></div>
+		</div>
+	</div>
+
+	<!-- Main Container -->
+	<div class="relative z-20 mx-auto -mt-6 flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 md:px-6">
+		<!-- Box Informasi Role (Frosted Glass Card) -->
+		{#if s.isLoading || !s.isProfileLoaded}
+			<div
+				class="glass-card flex w-full animate-pulse flex-col items-center gap-2 rounded-[28px] p-5 shadow-lg md:mx-auto md:max-w-md"
+			>
+				<div class="mb-1 h-12 w-12 rounded-2xl bg-white/60"></div>
+				<div class="h-5 w-28 rounded-full bg-white/60"></div>
+				<div class="h-3.5 w-36 rounded-full bg-white/40"></div>
 			</div>
 		{:else}
 			<div
-				class="mb-2 flex w-full max-w-4xl flex-col items-center gap-2 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:mx-auto"
+				class="glass-card flex w-full flex-col items-center gap-1.5 rounded-[28px] p-5 text-center shadow-lg transition-all md:mx-auto md:max-w-md"
 			>
 				<div
-					class="mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-purple-500 shadow-lg"
+					class="mb-1 flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
 				>
-					{#if roleIcon}
-						<svelte:component this={roleIcon} class="h-8 w-8 text-white" />
+					{#if s.roleIcon}
+						{@const RoleIcon = s.roleIcon}
+						<RoleIcon class="h-6 w-6 stroke-[2.2]" />
 					{:else}
-						<div class="flex h-8 w-8 items-center justify-center">
-							<span
-								class="block h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"
-							></span>
-						</div>
+						<span
+							class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+						></span>
 					{/if}
 				</div>
-				{#if currentUserRole === 'admin' || currentUserRole === 'pemilik'}
-					<div class="mb-1 text-2xl font-extrabold text-purple-700">Pemilik</div>
-					<div class="mb-2 text-sm text-gray-600">Akses penuh ke seluruh sistem</div>
-					<div class="mt-2 flex w-full items-center justify-between text-xs text-gray-500">
-						<span>Login terakhir: {new Date().toLocaleString('id-ID')}</span>
-						<span class="flex items-center gap-1"
-							><span class="h-2 w-2 animate-pulse rounded-full bg-green-400"></span>Session aktif</span
-						>
+				{#if s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik'}
+					<div class="text-lg font-black text-slate-900">Pemilik Kios</div>
+					<div class="text-xs font-semibold text-slate-500">
+						Akses penuh ke seluruh operasional & laporan
 					</div>
-				{:else if currentUserRole === 'kasir'}
-					<div class="mb-1 text-2xl font-extrabold text-green-700">Kasir</div>
-					<div class="mb-2 text-sm text-gray-600">Akses standar</div>
-					<div class="mt-2 flex w-full items-center justify-between text-xs text-gray-500">
-						<span>Login terakhir: {new Date().toLocaleString('id-ID')}</span>
-						<span class="flex items-center gap-1"
-							><span class="h-2 w-2 animate-pulse rounded-full bg-green-400"></span>Session aktif</span
-						>
+				{:else if s.currentUserRole === 'kasir'}
+					<div class="text-lg font-black text-slate-900">Kasir Kios</div>
+					<div class="text-xs font-semibold text-slate-500">
+						Akses transaksi POS & pencatatan keuangan
 					</div>
 				{/if}
 			</div>
 		{/if}
 
-		<div
-			class="mt-2 grid w-full max-w-md grid-cols-2 gap-4 md:mx-auto md:mt-4 md:max-w-4xl md:grid-cols-3 md:gap-8 md:py-8"
-		>
-			{#if isLoading || !isProfileLoaded}
-				{#each Array(4) as _, i}
-					<div
-						class="flex aspect-square min-h-[110px] animate-pulse flex-col items-center justify-center rounded-xl border-2 border-gray-100 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-4 shadow-lg"
-					>
-						<div
-							class="mb-2 h-8 w-8 rounded-lg bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100"
-						></div>
-						<div class="mb-2 h-4 w-2/3 rounded bg-gray-200"></div>
-						<div class="h-3 w-1/2 rounded bg-gray-100"></div>
-					</div>
-				{/each}
-			{:else}
-				<!-- Box Pemilik (selalu tampil, disable jika bukan admin/pemilik) -->
-				<button
-					class="relative flex aspect-square min-h-[110px] flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-purple-400 bg-gradient-to-br from-purple-500 to-pink-400 p-4 text-white shadow-lg transition-opacity duration-200 focus:outline-none {currentUserRole ===
-						'admin' || currentUserRole === 'pemilik'
-						? 'shimmer-highlight hover:scale-105'
-						: ''} md:flex md:h-56 md:h-full md:w-full md:items-center md:justify-center md:gap-1 md:rounded-3xl md:p-8 md:shadow-xl md:transition-transform md:duration-200 md:hover:scale-105"
-					onclick={() =>
-						(currentUserRole === 'admin' || currentUserRole === 'pemilik') &&
-						goto('/pengaturan/pemilik')}
-					disabled={currentUserRole !== 'admin' && currentUserRole !== 'pemilik'}
-					class:opacity-60={currentUserRole !== 'admin' && currentUserRole !== 'pemilik'}
-					class:pointer-events-none={currentUserRole !== 'admin' && currentUserRole !== 'pemilik'}
+		<!-- Grid Menu Pengaturan (Soft Float Cards) -->
+		<div class="grid w-full grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+			<!-- Box Pemilik -->
+			<button
+				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6 {s.currentUserRole ===
+					'admin' || s.currentUserRole === 'pemilik'
+					? ''
+					: 'pointer-events-none opacity-50'}"
+				onclick={() =>
+					(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik') &&
+					goto('/pengaturan/pemilik')}
+				disabled={s.currentUserRole !== 'admin' && s.currentUserRole !== 'pemilik'}
+			>
+				<div
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-purple-100 bg-purple-50 text-purple-600 md:h-12 md:w-12"
 				>
-					{#if Crown}
-						<svelte:component this={Crown} class="mb-2 h-8 w-8" />
-					{:else}
-						<div class="mb-2 flex h-8 w-8 items-center justify-center">
-							<span
-								class="block h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"
-							></span>
-						</div>
-					{/if}
-					<div class="mb-1 text-lg font-bold md:mb-1 md:text-base">Pemilik</div>
-					<span
-						class="mb-2 inline-block rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-semibold md:mb-2 md:px-3 md:py-1 md:text-base"
-						>Privileged</span
-					>
-					<div class="text-center text-xs text-white/80 md:mt-1 md:mb-0 md:text-base">
-						Akses penuh ke seluruh sistem
-					</div>
-				</button>
-				<!-- Box Install PWA -->
-				<button
-					class="flex aspect-square min-h-[110px] flex-col items-center justify-center rounded-xl border border-gray-100 bg-white p-4 shadow focus:outline-none md:flex md:h-56 md:h-full md:w-full md:items-center md:justify-center md:gap-1 md:rounded-3xl md:p-8 md:shadow-xl md:transition-transform md:duration-200 md:hover:scale-105"
-					onclick={handleInstallPWA}
+					<Crown class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+				</div>
+				<div class="text-sm font-black text-slate-900 md:text-base">Pemilik</div>
+				<span
+					class="mt-1 inline-block rounded-full bg-purple-50 px-2.5 py-0.5 text-[10px] font-extrabold text-purple-700 md:text-xs"
+					>Khusus Owner</span
 				>
-					{#if Download}
-						<svelte:component this={Download} class="mb-2 h-8 w-8 text-pink-500" />
-					{:else}
-						<div class="mb-2 flex h-8 w-8 items-center justify-center">
-							<span
-								class="block h-6 w-6 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500"
-							></span>
-						</div>
-					{/if}
-					<div class="mb-1 text-lg font-bold text-pink-500 md:mb-1 md:text-base">Install PWA</div>
-					<span
-						class="mb-2 inline-block rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-700 md:mb-2 md:px-3 md:py-1 md:text-base"
-						>Aplikasi</span
-					>
-					<div class="text-center text-xs text-gray-500 md:mt-1 md:mb-0 md:text-base">
-						Pasang ke Home Screen
-					</div>
-				</button>
-				<!-- Box Printer (Draft Struk) -->
-				<button
-					class="flex aspect-square min-h-[110px] flex-col items-center justify-center rounded-xl border border-gray-100 bg-white p-4 shadow focus:outline-none md:flex md:h-56 md:h-full md:w-full md:items-center md:justify-center md:gap-1 md:rounded-3xl md:p-8 md:shadow-xl md:transition-transform md:duration-200 md:hover:scale-105"
-					onclick={() => goto('/pengaturan/printer')}
-				>
-					{#if Printer}
-						<svelte:component this={Printer} class="mb-2 h-8 w-8 text-blue-500" />
-					{:else}
-						<div class="mb-2 flex h-8 w-8 items-center justify-center">
-							<span
-								class="block h-6 w-6 animate-spin rounded-full border-2 border-blue-200 border-t-blue-500"
-							></span>
-						</div>
-					{/if}
-					<div class="mb-1 text-lg font-bold text-blue-700 md:mb-1 md:text-base">Draft Struk</div>
-					<span
-						class="mb-2 inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 md:mb-2 md:px-3 md:py-1 md:text-base"
-						>Struk</span
-					>
-					<div class="text-center text-xs text-gray-500 md:mt-1 md:mb-0 md:text-base">
-						Atur tampilan dan informasi draft struk
-					</div>
-				</button>
-				<!-- Box Riwayat Transaksi -->
-				<button
-					class="flex aspect-square min-h-[110px] flex-col items-center justify-center rounded-xl border border-gray-100 bg-white p-4 shadow focus:outline-none md:flex md:h-56 md:h-full md:w-full md:items-center md:justify-center md:gap-1 md:rounded-3xl md:p-8 md:shadow-xl md:transition-transform md:duration-200 md:hover:scale-105"
-					onclick={() => goto('/pengaturan/riwayat')}
-				>
-					{#if History}
-						<svelte:component this={History} class="mb-2 h-8 w-8 text-emerald-500" />
-					{:else}
-						<div class="mb-2 flex h-8 w-8 items-center justify-center">
-							<span
-								class="block h-6 w-6 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500"
-							></span>
-						</div>
-					{/if}
-					<div class="mb-1 text-lg font-bold text-emerald-700 md:mb-1 md:text-base">Riwayat</div>
-					<span
-						class="mb-2 inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 md:mb-2 md:px-3 md:py-1 md:text-base"
-						>Hari Ini</span
-					>
-					<div class="text-center text-xs text-gray-500 md:mt-1 md:mb-0 md:text-base">
-						Lihat riwayat transaksi hari ini
-					</div>
-				</button>
+			</button>
 
-			{/if}
+			<!-- Box Install PWA -->
+			<button
+				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
+				onclick={s.handleInstallPWA}
+			>
+				<div
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
+				>
+					{#if s.Download}
+						{@const DownloadIcon = s.Download}
+						<DownloadIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+					{:else}
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
+						></span>
+					{/if}
+				</div>
+				<div class="text-sm font-bold text-slate-900 md:text-base">Install PWA</div>
+				<span
+					class="mt-1 inline-block rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-700 md:text-xs"
+					>App Offline</span
+				>
+			</button>
 
+			<!-- Box Printer (Draft Struk) -->
+			<button
+				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
+				onclick={() => goto('/pengaturan/printer')}
+			>
+				<div
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-emerald-100 bg-emerald-50 text-emerald-600 md:h-12 md:w-12"
+				>
+					{#if s.Printer}
+						{@const PrinterIcon = s.Printer}
+						<PrinterIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+					{:else}
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"
+						></span>
+					{/if}
+				</div>
+				<div class="text-sm font-black text-slate-900 md:text-base">Draft Struk</div>
+				<span
+					class="mt-1 inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700 md:text-xs"
+					>Thermal</span
+				>
+			</button>
+
+			<!-- Box Riwayat Transaksi -->
+			<button
+				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
+				onclick={() => goto('/pengaturan/riwayat')}
+			>
+				<div
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-amber-100 bg-amber-50 text-amber-600 md:h-12 md:w-12"
+				>
+					{#if s.History}
+						{@const HistoryIcon = s.History}
+						<HistoryIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+					{:else}
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"
+						></span>
+					{/if}
+				</div>
+				<div class="text-sm font-black text-slate-900 md:text-base">Riwayat</div>
+				<span
+					class="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-700 md:text-xs"
+					>Hari Ini</span
+				>
+			</button>
 		</div>
 
 		<!-- Logout Section -->
-		<div
-			class="mt-4 mb-6 w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:mx-auto"
-		>
-			<div class="border-b border-red-200 bg-red-50 px-6 py-4">
-				<div class="flex items-center gap-3">
-					{#if LogOut}
-						<svelte:component this={LogOut} class="h-5 w-5 text-red-600" />
-					{:else}
-						<div class="flex h-5 w-5 items-center justify-center">
-							<span
-								class="block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600"
-							></span>
-						</div>
-					{/if}
-					<h3 class="font-semibold text-red-800">Keluar dari Sistem</h3>
+		<div class="soft-float-card mt-2 mb-6 overflow-hidden p-5 md:p-6">
+			<div class="flex items-center justify-between gap-4">
+				<div>
+					<h3 class="text-sm font-black text-slate-900 md:text-base">Keluar dari Akun</h3>
+					<p class="text-xs font-medium text-slate-500 md:text-sm">
+						Akhiri sesi kasir atau pemilik saat ini
+					</p>
 				</div>
-			</div>
-			<div class="p-6">
-				<p class="mb-4 text-sm text-gray-600">
-					Anda akan keluar dari sistem dan harus login kembali untuk mengakses aplikasi.
-				</p>
 				<button
-					onclick={handleLogout}
-					class="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 font-medium text-white transition-colors hover:bg-red-600 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+					onclick={s.handleLogout}
+					class="flex cursor-pointer items-center gap-1.5 rounded-full border border-rose-100 bg-rose-50 px-4 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 md:px-5 md:py-2.5 md:text-sm"
 				>
-					{#if LogOut}
-						<svelte:component this={LogOut} class="h-4 w-4" />
-					{:else}
-						<div class="flex h-4 w-4 items-center justify-center">
-							<span
-								class="block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white"
-							></span>
-						</div>
+					{#if s.LogOut}
+						{@const LogOutIcon = s.LogOut}
+						<LogOutIcon class="h-4 w-4" />
 					{/if}
-					Keluar dari Sistem
+					<span>Logout</span>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Logout Confirmation Modal -->
-	{#if showLogoutModal}
+	{#if s.showLogoutModal}
 		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 			<div class="animate-slideUpModal w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
 				<div class="mb-4 flex items-center gap-3">
 					<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-						{#if LogOut}
-							<svelte:component this={LogOut} class="h-5 w-5 text-red-600" />
+						{#if s.LogOut}
+							{@const LogOutIcon = s.LogOut}
+							<LogOutIcon class="h-5 w-5 text-red-600" />
 						{:else}
 							<div class="flex h-5 w-5 items-center justify-center">
 								<span
@@ -630,13 +229,13 @@
 				</div>
 				<div class="flex gap-3">
 					<button
-						onclick={cancelLogout}
+						onclick={s.cancelLogout}
 						class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
 					>
 						Batal
 					</button>
 					<button
-						onclick={confirmLogout}
+						onclick={s.confirmLogout}
 						class="flex-1 rounded-xl bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
 					>
 						Keluar
@@ -647,7 +246,7 @@
 	{/if}
 
 	<!-- PWA Installed Toast -->
-	{#if showPwaInstalledToast}
+	{#if s.showPwaInstalledToast}
 		<div
 			class="animate-fadeIn fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
 		>
@@ -656,40 +255,40 @@
 	{/if}
 
 	<!-- PWA Install Web Component (SSR-safe) -->
-	{#if browser && isPwaLibraryLoaded}
+	{#if browser && s.isPwaLibraryLoaded}
 		<pwa-install
 			manifest-url="/manifest.webmanifest"
 			name="Zatiaras POS"
-			description="Install aplikasi ini untuk akses lebih cepat dan pengalaman lebih baik"
+			deskripsi="Install aplikasi ini untuk akses lebih cepat dan pengalaman lebih baik"
 			icon="/img/192x192.png"
 			manual-apple="true"
 			manual-chrome="true"
-			disable-install-description="false"
+			disable-install-deskripsi="false"
 		></pwa-install>
 	{/if}
 
 	<!-- Custom styling for PWA install dialog -->
 	<style>
 		:global(pwa-install) {
-			--pwa-install-dialog-header-color: #FFB6C1 !important;
-			--header-color: #FFB6C1 !important;
+			--pwa-install-dialog-header-color: #ffb6c1 !important;
+			--header-color: #ffb6c1 !important;
 		}
 		:global(pwa-install::part(header)) {
-			background-color: #FFB6C1 !important;
+			background-color: #ffb6c1 !important;
 		}
 	</style>
 
-	{#if showNotification}
-		<div
-			class="fixed top-20 left-1/2 z-50 rounded-xl bg-yellow-500 px-6 py-3 text-center text-white shadow-lg transition-all duration-300 ease-out"
-			style="transform: translateX(-50%);"
-			in:fly={{ y: -32, duration: 300, easing: cubicOut }}
-			out:fade={{ duration: 200 }}
-		>
-			{notificationMessage}
+	{#if s.showNotification}
+		<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+			<div
+				class="rounded-2xl bg-amber-500 px-6 py-3 text-center font-bold text-white shadow-xl shadow-amber-950/20 backdrop-blur-md"
+				in:fly={{ y: -20, duration: 240, easing: cubicOut }}
+				out:fade={{ duration: 160 }}
+			>
+				{s.notificationMessage}
+			</div>
 		</div>
 	{/if}
-
 </div>
 
 <!-- App Info -->
@@ -724,37 +323,5 @@
 	}
 	.animate-slideUpModal {
 		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	@keyframes shimmer {
-		0% {
-			background-position: -200px 0;
-		}
-		100% {
-			background-position: 200px 0;
-		}
-	}
-	.shimmer-highlight::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		z-index: 1;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0) 0%,
-			rgba(255, 255, 255, 0.18) 50%,
-			rgba(255, 255, 255, 0) 100%
-		);
-		background-size: 200px 100%;
-		animation: shimmer 1.2s infinite;
-		pointer-events: none;
-		border-radius: 1rem;
-	}
-	.shimmer-highlight:hover::after {
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0) 0%,
-			rgba(255, 255, 255, 0.28) 50%,
-			rgba(255, 255, 255, 0) 100%
-		);
 	}
 </style>

@@ -1,0 +1,76 @@
+{
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Write|Edit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-prompt-guard.js'",
+						"timeout": 5
+					}
+				]
+			},
+			{
+				"matcher": "Write|Edit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-read-guard.js'",
+						"timeout": 5
+					}
+				]
+			},
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-validate-commit.sh'",
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-context-monitor.js'",
+						"timeout": 10
+					}
+				]
+			},
+			{
+				"matcher": "Write|Edit",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-phase-boundary.sh'",
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-check-update.js'"
+					}
+				]
+			},
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash 'D:\\kulyeah\\project\\zatiaraspos\\.codex\\hooks\\gsd-session-state.sh'"
+					}
+				]
+			}
+		]
+	}
+}

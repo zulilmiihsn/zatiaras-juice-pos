@@ -1,158 +1,69 @@
 <script lang="ts">
-	import Settings from 'lucide-svelte/icons/settings';
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import { getPendingTransactions } from '$lib/utils/offline';
-	import AiChatModal from './aiChatModal.svelte';
-	import { createEventDispatcher } from 'svelte';
-
-	export let showSettings: boolean = true;
-
-	const dispatch = createEventDispatcher();
-
-	let pendingCount = 0;
-	let showPopover = false;
-	let showAiChat = false;
-
-	onMount(() => {
-		getPendingTransactions().then((transactions: any[]) => {
-			pendingCount = transactions.length;
-		});
-
-		const updateCount = async () => {
-			const transactions = await getPendingTransactions();
-			pendingCount = transactions.length;
-		};
-
-		window.addEventListener('storage', updateCount);
-
-		return () => {
-			window.removeEventListener('storage', updateCount);
-		};
-	});
-
-	let isOffline = !navigator.onLine;
-	onMount(() => {
-		window.addEventListener('offline', () => (isOffline = true));
-		window.addEventListener('online', () => (isOffline = false));
-	});
-
-	function openAiChat() {
-		showAiChat = true;
-	}
-
-	function closeAiChat() {
-		showAiChat = false;
-		// Panggil refresher global di background saat modal ditutup
-		if (typeof window !== 'undefined') {
-			if (typeof (window as any).__refreshLaporan === 'function') {
-				(window as any).__refreshLaporan();
-			}
-			if (typeof (window as any).__refreshRiwayat === 'function') {
-				(window as any).__refreshRiwayat();
-			}
-		}
-	}
-
-	function handleRecommendationsApplied(event: CustomEvent) {
-		// Dispatch event ke parent component untuk refresh data
-		dispatch('aiRecommendationsApplied', event.detail);
-		// Broadcast global event agar halaman lain (mis. laporan) bisa dengar
-		if (typeof window !== 'undefined') {
-			window.dispatchEvent(new CustomEvent('ai-recommendations-applied', { detail: event.detail }));
-		}
-		// Jangan tutup modal di sini; biarkan user yang menutup setelah proses selesai
-	}
+	import Settings from '@lucide/svelte/icons/settings';
+	import type { Snippet } from 'svelte';
+	import TopBarStatus from './topBarStatus.svelte';
+	import TopBarAiAssistant from './topBarAiAssistant.svelte';
+	let {
+		children,
+		actions,
+		download,
+		showSettings = true,
+		pendingCount = 0,
+		pendingFailedCount = 0,
+		isOffline = false,
+		isDegraded = false,
+		isStale = false,
+		onOpenPending,
+		onAiRecommendationsApplied
+	}: {
+		children?: Snippet;
+		actions?: Snippet;
+		download?: Snippet;
+		showSettings?: boolean;
+		pendingCount?: number;
+		pendingFailedCount?: number;
+		isOffline?: boolean;
+		isDegraded?: boolean;
+		isStale?: boolean;
+		onOpenPending?: () => void;
+		onAiRecommendationsApplied?: (detail: unknown) => void;
+	} = $props();
 </script>
 
-<div class="nav-transition z-10 flex items-center justify-between bg-white px-4 pt-4 pb-3">
-	<div class="flex items-center gap-3">
-		<button
-			on:click={openAiChat}
-			class="h-[38px] w-[38px] cursor-pointer rounded-lg bg-white object-contain p-1.5 shadow-lg shadow-pink-500/7 transition-all duration-150 hover:shadow-xl hover:shadow-pink-500/12"
-			aria-label="Buka AI Assistant"
-		>
-			<img
-				src="/img/logo.svg"
-				alt="Logo Zatiaras - Klik untuk AI Assistant"
-				class="h-full w-full"
-			/>
-		</button>
-		{#if isOffline}
-			<span
-				class="animate-fade-in ml-2 flex items-center gap-1 rounded-full border border-pink-200 bg-pink-100 px-2.5 py-1.5 text-xs font-semibold text-pink-600 shadow-sm"
-				style="min-width: 70px;"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4 text-pink-400"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M17.94 17.94A10.97 10.97 0 0112 21c-5.52 0-10-4.48-10-10 0-2.39.84-4.58 2.24-6.32M1 1l22 22M16.72 11.06A6 6 0 006.34 6.34"
-					/></svg
-				>
-				<span class="tracking-wide">Offline</span>
-			</span>
-		{/if}
-		{#if pendingCount > 0}
-			<div class="flex items-center" style="gap: 12px;">
-				<div
-					class="flex h-6 w-6 animate-pulse items-center justify-center rounded-full border-2 border-white bg-yellow-400 text-xs font-semibold text-white shadow transition-transform duration-300"
-					style="animation-delay: 0.2s;"
-				>
-					<span class="mb-px">{pendingCount}</span>
-				</div>
-			</div>
-		{/if}
+<div
+	class="nav-transition z-10 flex items-center justify-between border-b border-white/80 bg-[#eef7fc]/95 px-4 pt-3 pb-2.5 backdrop-blur-md"
+>
+	<div class="flex items-center gap-2.5">
+		<TopBarAiAssistant onRecommendationsApplied={onAiRecommendationsApplied} />
+		<TopBarStatus
+			{pendingCount}
+			{pendingFailedCount}
+			{isOffline}
+			{isDegraded}
+			{isStale}
+			{onOpenPending}
+		/>
 	</div>
-	<div class="flex-1 text-center text-lg font-medium tracking-wide text-gray-800">
-		<slot />
+	<div class="flex-1 text-center text-sm font-extrabold tracking-wide text-slate-800">
+		{@render children?.()}
 	</div>
 	<div class="flex items-center gap-2">
 		<!-- Slot untuk actions -->
-		<slot name="actions" />
+		{@render actions?.()}
 
 		{#if showSettings}
 			<a
 				href="/pengaturan"
 				aria-label="Pengaturan"
-				class="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-gray-200 bg-white text-2xl text-pink-500 shadow-lg shadow-pink-500/7 transition-all duration-150 active:border-pink-500 active:shadow-xl active:shadow-pink-500/12"
+				class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 shadow-xs transition-all duration-150 hover:border-sky-300 hover:text-sky-600 active:scale-95"
 			>
-				<Settings size={22} />
+				<Settings size={18} />
 			</a>
 		{:else}
-			<div class="h-[38px] w-[38px]"></div>
+			<div class="h-9 w-9"></div>
 		{/if}
 
 		<!-- Slot untuk download -->
-		<slot name="download" />
+		{@render download?.()}
 	</div>
 </div>
-
-<!-- AI Chat Modal -->
-<AiChatModal
-	bind:isOpen={showAiChat}
-	onClose={closeAiChat}
-	on:recommendationsApplied={handleRecommendationsApplied}
-/>
-
-<style>
-	@keyframes fade-in {
-		from {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-	.animate-fade-in {
-		animation: fade-in 0.5s cubic-bezier(0.4, 1.4, 0.6, 1);
-	}
-</style>

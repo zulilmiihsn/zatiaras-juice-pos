@@ -1,17 +1,22 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import { setUserRole, clearUserRole } from '$lib/stores/userRole';
-import { getSupabaseClient } from '$lib/database/supabaseClient';
-import type { BranchKey } from '$lib/database/supabaseClient';
-import { setSecuritySettings, clearSecuritySettings } from '$lib/stores/securitySettings';
+import { setUserRole, clearUserRole } from '$lib/stores/userRole.svelte';
+type BranchKey = string;
+import { setSecuritySettings, clearSecuritySettings } from '$lib/stores/securitySettings.svelte';
 import { clearCsrfTokenCache, fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { getApiErrorMessage, reportApiFailure } from '$lib/utils/errorHandling';
+import {
+	clearOfflineSessionSnapshot,
+	persistOfflineSessionSnapshot,
+	readOfflineSessionSnapshot
+} from './offlineSession';
 
-// Session store
+// [CATATAN]: Session store
 export const session = writable<{
 	isAuthenticated: boolean;
 	user: unknown;
 	token: unknown;
+	expiresAt?: number;
 }>({
 	isAuthenticated: false,
 	user: null,
@@ -19,40 +24,35 @@ export const session = writable<{
 });
 
 if (typeof window !== 'undefined') {
-	const saved = localStorage.getItem('zatiaras_session');
-	if (saved) {
-		try {
-			const parsed = JSON.parse(saved);
-			if (parsed.isAuthenticated && parsed.user) {
-				session.set(parsed);
-			}
-		} catch (e) {
-			console.error('Gagal mem-parsing sesi dari localStorage:', e);
-		}
-	}
+	const saved = readOfflineSessionSnapshot();
+	if (saved) session.set(saved);
 }
 
-// Authentication functions
+// [CATATAN]: Authentication functions
 export const auth = {
-	// Check if user is authenticated
+	// [CATATAN]: Check if user is authenticated
 	isAuthenticated(): boolean {
-		const currentSession = get(session) as any;
+		const currentSession = get(session) as {
+			role?: string;
+			id?: string;
+			isAuthenticated?: boolean;
+		} | null;
 		return Boolean(currentSession?.isAuthenticated);
 	},
 
-	// Get current user
+	// [CATATAN]: Get current user
 	getCurrentUser() {
 		const currentSession = get(session);
 		return currentSession?.user || null;
 	},
 
-	// Check if user has specific role
+	// [CATATAN]: Check if user has specific role
 	hasRole(role: string): boolean {
 		const user = this.getCurrentUser();
-		return (user as any)?.role === role;
+		return (user as { role?: string })?.role === role;
 	},
 
-	// Logout function
+	// [CATATAN]: Logout function
 	async logout() {
 		if (browser) {
 			try {
@@ -61,35 +61,31 @@ export const auth = {
 					headers: {}
 				});
 			} catch {
-				// no-op
+				// [CATATAN]: no-op
 			}
 		}
 
-		// Clear session store
+		// [CATATAN]: Clear session store
 		session.set({
 			isAuthenticated: false,
 			user: null,
 			token: null
 		});
 
-		// Clear localStorage
+		// [CATATAN]: Clear localStorage
 		if (typeof window !== 'undefined') {
-			localStorage.removeItem('zatiaras_session');
+			clearOfflineSessionSnapshot();
 			localStorage.removeItem('selectedBranch');
 		}
 
-		// Clear user role and profile
+		// [CATATAN]: Clear user role and profile
 		clearUserRole();
 		clearSecuritySettings();
 		clearCsrfTokenCache();
 	}
 };
 
-export async function loginWithUsername(
-	username: string,
-	password: string,
-	branch: BranchKey
-) {
+export async function loginWithUsername(username: string, password: string, branch: BranchKey) {
 	const res = await fetchWithCsrfRetry('/api/veriflogin', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -101,73 +97,45 @@ export async function loginWithUsername(
 		throw new Error(getApiErrorMessage(result, res.status, 'Login gagal'));
 	}
 
-	// Jika peran adalah 'kasir', ambil pengaturan keamanan TERLEBIH DAHULU
+	// [CATATAN]: Jika peran adalah 'kasir', ambil pengaturan keamanan
 	if (result.user.role === 'kasir') {
 		try {
-			const { data, error } = await getSupabaseClient(branch)
-				.from('pengaturan')
-				.select('pin, locked_pages')
-				.eq('id', 1)
-				.single();
-			if (!error && data) {
-				setSecuritySettings({ pin: data.pin, lockedPages: data.locked_pages });
+			const qs = new URLSearchParams({ branch }).toString();
+			const settingsRes = await fetch(`/api/pengaturan?${qs}`);
+			const settingsData = settingsRes.ok ? await settingsRes.json() : null;
+			const row = Array.isArray(settingsData) ? settingsData[0] : null;
+			if (row) {
+				setSecuritySettings({ lockedPages: row.halaman_terkunci || [] });
 			} else {
-				// Fallback atau set default jika tidak ada pengaturan
-				setSecuritySettings({
-					pin: '1234',
-					lockedPages: ['laporan', 'beranda', 'pengaturan', 'catat']
-				});
+				setSecuritySettings({ lockedPages: [] });
 			}
-		} catch (e) {
-			console.error('Error fetching security settings:', e);
-			setSecuritySettings({
-				pin: '1234',
-				lockedPages: ['laporan', 'beranda', 'pengaturan', 'catat']
-			}); // Fallback
+		} catch {
+			setSecuritySettings({ lockedPages: [] });
 		}
 	} else {
-		clearSecuritySettings(); // Clear settings for non-kasir roles
+		clearSecuritySettings();
 	}
 
-	// Set user role dan profile ke store SETELAH security settings
+	// [CATATAN]: Set user role dan profile ke store SETELAH security settings
 	setUserRole(result.user.role, result.user);
 
-	// Tidak perlu reset/fetch cache apapun
+	// [CATATAN]: Tidak perlu reset/fetch cache apapun
 
-	// Simpan session ke store dan localStorage
+	// [CATATAN]: Simpan session ke store dan localStorage
 	const sessionData = {
 		isAuthenticated: true,
 		user: result.user,
-		token: null // Tidak pakai token Supabase Auth
+		token: null,
+		expiresAt: Number(result.session?.expiresAt)
 	};
 	session.set(sessionData);
 
-	// Simpan ke localStorage untuk persistensi setelah refresh
+	// [CATATAN]: Simpan ke localStorage untuk persistensi setelah refresh
 	if (typeof window !== 'undefined') {
-		localStorage.setItem('zatiaras_session', JSON.stringify(sessionData));
+		persistOfflineSessionSnapshot(result.user, sessionData.expiresAt);
 		localStorage.setItem('selectedBranch', branch);
+		window.dispatchEvent(new CustomEvent('auth-session-refreshed'));
 	}
 
 	return result.user;
-}
-
-export async function logout() {
-	if (browser) {
-		try {
-			await fetchWithCsrfRetry('/api/logout', {
-				method: 'POST',
-				headers: {}
-			});
-		} catch {
-			// no-op
-		}
-	}
-
-	// Clear user role dari store saat logout
-	clearUserRole();
-	session.set({ isAuthenticated: false, user: null, token: null });
-	localStorage.removeItem('zatiaras_session'); // Changed to localStorage
-	localStorage.removeItem('selectedBranch');
-	clearSecuritySettings(); // Clear security settings on logout
-	clearCsrfTokenCache();
 }
