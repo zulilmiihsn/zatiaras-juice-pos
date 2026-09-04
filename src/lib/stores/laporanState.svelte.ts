@@ -10,7 +10,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { createToastManager } from '$lib/utils/ui';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { groupReportTransactions } from '$lib/utils/reportGrouping';
-import { calculateTaxes } from '$lib/services/taxService';
+import { calculateTaxes, getTaxSettings } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
 
 export function createLaporanState() {
@@ -147,7 +147,11 @@ export function createLaporanState() {
 			const pendapatanVal = Number(rawSummary.pendapatan || 0);
 			const pengeluaranVal = Number(rawSummary.pengeluaran || 0);
 			const labaKotorVal = Number(rawSummary.labaKotor || pendapatanVal - pengeluaranVal);
-			const taxResult = calculateTaxes(pendapatanVal, labaKotorVal);
+			const taxResult = calculateTaxes(
+				pendapatanVal,
+				labaKotorVal,
+				getTaxSettings(selectedBranch.value)
+			);
 
 			summary = {
 				pendapatan: pendapatanVal,
