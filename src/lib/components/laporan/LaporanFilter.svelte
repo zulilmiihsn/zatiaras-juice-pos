@@ -3,6 +3,7 @@
 		showFilter = $bindable(false),
 		filterType = $bindable('harian'),
 		startDate = $bindable(''),
+		endDate = $bindable(''),
 		filterMonth = $bindable(''),
 		filterYear = $bindable(''),
 		onapply
@@ -10,6 +11,7 @@
 		showFilter: boolean;
 		filterType: 'harian' | 'mingguan' | 'bulanan' | 'tahunan';
 		startDate: string;
+		endDate: string;
 		filterMonth: string;
 		filterYear: string;
 		onapply: () => void;
@@ -96,16 +98,29 @@
 			</div>
 			<!-- Input Filter Berdasarkan Tipe -->
 			{#if filterType === 'harian'}
-				<div class="mb-6">
-					<label class="mb-2 block text-sm font-medium text-gray-700" for="harian-date"
-						>Pilih Tanggal</label
-					>
-					<input
-						id="harian-date"
-						type="date"
-						class="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base transition-colors focus:border-pink-500 focus:outline-none"
-						bind:value={startDate}
-					/>
+				<div class="mb-6 space-y-3">
+					<div>
+						<label class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase" for="harian-start-date"
+							>Tanggal Awal</label
+						>
+						<input
+							id="harian-start-date"
+							type="date"
+							class="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors focus:border-pink-500 focus:outline-none"
+							bind:value={startDate}
+						/>
+					</div>
+					<div>
+						<label class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase" for="harian-end-date"
+							>Tanggal Akhir</label
+						>
+						<input
+							id="harian-end-date"
+							type="date"
+							class="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors focus:border-pink-500 focus:outline-none"
+							bind:value={endDate}
+						/>
+					</div>
 				</div>
 			{:else if filterType === 'mingguan'}
 				<div class="mb-6">

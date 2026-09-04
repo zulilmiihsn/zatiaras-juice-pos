@@ -175,6 +175,7 @@
 	bind:showFilter={s.showFilter}
 	bind:filterType={s.filterType}
 	bind:startDate={s.startDate}
+	bind:endDate={s.endDate}
 	bind:filterMonth={s.filterMonth}
 	bind:filterYear={s.filterYear}
 	onapply={s.applyFilter}

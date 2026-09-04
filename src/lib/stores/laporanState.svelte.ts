@@ -210,18 +210,29 @@ export function createLaporanState() {
 		setupRealtimeSubscriptions();
 	}
 
-	function calculateDateRange(type: string, date?: string, month?: string, year?: string) {
-		if (!date && !month && !year) return { startDate: '', endDate: '' };
+	function calculateDateRange(
+		type: string,
+		start?: string,
+		end?: string,
+		month?: string,
+		year?: string
+	) {
+		if (!start && !end && !month && !year) return { startDate: '', endDate: '' };
 		try {
 			switch (type) {
 				case 'harian':
-					if (date) return { startDate: date, endDate: date };
+					if (start) {
+						const finalEnd = end || start;
+						return start <= finalEnd
+							? { startDate: start, endDate: finalEnd }
+							: { startDate: finalEnd, endDate: start };
+					}
 					break;
 				case 'mingguan':
-					if (date) {
+					if (start) {
 						return {
-							startDate: date,
-							endDate: addDaysYmd(date, 6)
+							startDate: start,
+							endDate: addDaysYmd(start, 6)
 						};
 					}
 					break;
@@ -332,7 +343,7 @@ export function createLaporanState() {
 
 	async function applyFilter(): Promise<void> {
 		showFilter = false;
-		const range = calculateDateRange(filterType, startDate, filterMonth, filterYear);
+		const range = calculateDateRange(filterType, startDate, endDate, filterMonth, filterYear);
 		if (range.startDate && range.endDate) {
 			startDate = range.startDate;
 			endDate = range.endDate;
