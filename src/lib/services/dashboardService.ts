@@ -444,7 +444,11 @@ export class DashboardService {
 		);
 	}
 
-	async getReportData(dateRange: string, type: 'daily' | 'weekly' | 'monthly' | 'yearly') {
+	async getReportData(
+		dateRange: string,
+		type: 'daily' | 'weekly' | 'monthly' | 'yearly',
+		forceRefresh = false
+	) {
 		const branch = selectedBranch.value || 'default';
 		const cacheKey = this.generateSmartCacheKey(type, dateRange, branch);
 
@@ -524,7 +528,7 @@ export class DashboardService {
 					etag: `${type}_${dateRange}_${Date.now()}`
 				};
 			},
-			this.getCacheOptionsForType(type)
+			{ ...this.getCacheOptionsForType(type), forceRefresh }
 		);
 	}
 

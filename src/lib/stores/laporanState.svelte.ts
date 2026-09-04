@@ -1,6 +1,6 @@
 import { onMount, onDestroy } from 'svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
-import { getTodayWita, getNowWita } from '$lib/utils/dateTime';
+import { getTodayWita, getNowWita, addDaysYmd, getMonthEndYmd } from '$lib/utils/dateTime';
 import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
@@ -27,11 +27,13 @@ export function createLaporanState() {
 	let showEndDatePicker = $state(false);
 	let isLoadingReport = $state(false);
 	let filterType: 'harian' | 'mingguan' | 'bulanan' | 'tahunan' = $state('harian');
-	let filterDate = $state(getLocalDateStringWITA());
+	let filterDate = $state(getTodayWita());
 	let filterMonth = $state((new Date(getNowWita()).getMonth() + 1).toString().padStart(2, '0'));
 	let filterYear = $state(new Date(getNowWita()).getFullYear().toString());
-	let startDate = $state(getLocalDateStringWITA());
-	let endDate = $state(getLocalDateStringWITA());
+	let startDate = $state(getTodayWita());
+	let endDate = $state(getTodayWita());
+	let tempStartDate = $state(getTodayWita());
+	let tempEndDate = $state(getTodayWita());
 
 	let summary: LaporanSummary = $state({
 		pendapatan: null,
@@ -48,17 +50,16 @@ export function createLaporanState() {
 	const toastManager = createToastManager();
 
 	function getLocalDateStringWITA(): string {
-		const now = new Date(getNowWita());
-		const year = now.getFullYear();
-		const month = String(now.getMonth() + 1).padStart(2, '0');
-		const day = String(now.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
+		return getTodayWita();
 	}
 
-	function computeReportFingerprint(reportData: {
-		summary?: LaporanSummary;
-		transactions?: BukuKasRecord[];
-	}): string {
+	function computeReportFingerprint(
+		reportData: {
+			summary?: LaporanSummary;
+			transactions?: BukuKasRecord[];
+		},
+		dateRange = ''
+	): string {
 		const summaryData: LaporanSummary = reportData?.summary || {
 			pendapatan: null,
 			pengeluaran: null,
@@ -81,6 +82,7 @@ export function createLaporanState() {
 			detailSignature += `|${tx?.id || ''}:${tx?.tipe || ''}:${tx?.jenis || ''}:${tx?.deskripsi || ''}`;
 		}
 		return [
+			dateRange,
 			Number(summaryData?.pendapatan || 0),
 			Number(summaryData?.pengeluaran || 0),
 			Number(summaryData?.saldo || 0),
@@ -103,7 +105,7 @@ export function createLaporanState() {
 			if (laporanRefreshInFlight) return;
 			laporanRefreshInFlight = true;
 			try {
-				await loadLaporanData({ silent: true });
+				await loadLaporanData({ silent: true, force });
 				lastLaporanRefreshAt = Date.now();
 			} finally {
 				laporanRefreshInFlight = false;
@@ -111,8 +113,9 @@ export function createLaporanState() {
 		}, delayMs);
 	}
 
-	async function loadLaporanData(options: { silent?: boolean } = {}) {
+	async function loadLaporanData(options: { silent?: boolean; force?: boolean } = {}) {
 		const silent = options.silent === true;
+		const force = options.force === true;
 		try {
 			if (!silent) isLoadingReport = true;
 			if (!startDate || !endDate) {
@@ -120,7 +123,7 @@ export function createLaporanState() {
 				endDate = endDate || startDate;
 			}
 			const dateRange = startDate === endDate ? startDate : `${startDate}_${endDate}`;
-			const reportData = await dashboardService.getReportData(dateRange, 'daily');
+			const reportData = await dashboardService.getReportData(dateRange, 'daily', force);
 			const rawReport = reportData as unknown as {
 				data?: {
 					summary?: LaporanSummary;
@@ -130,8 +133,8 @@ export function createLaporanState() {
 				transactions?: BukuKasRecord[];
 			};
 			const reportDataContent = rawReport?.data || rawReport || {};
-			const nextFingerprint = computeReportFingerprint(reportDataContent);
-			if (nextFingerprint === lastAppliedReportFingerprint) {
+			const nextFingerprint = computeReportFingerprint(reportDataContent, dateRange);
+			if (!force && nextFingerprint === lastAppliedReportFingerprint) {
 				await reportCacheMetrics('laporan');
 				return;
 			}
@@ -216,31 +219,27 @@ export function createLaporanState() {
 					break;
 				case 'mingguan':
 					if (date) {
-						const sd = new Date(date + 'T00:00:00');
-						if (isNaN(sd.getTime())) return { startDate: '', endDate: '' };
-						const ed = new Date(sd);
-						ed.setDate(sd.getDate() + 6);
 						return {
-							startDate: sd.toISOString().split('T')[0],
-							endDate: ed.toISOString().split('T')[0]
+							startDate: date,
+							endDate: addDaysYmd(date, 6)
 						};
 					}
 					break;
 				case 'bulanan':
 					if (month && year) {
-						const y = parseInt(year),
-							m = parseInt(month) - 1;
-						if (isNaN(y) || isNaN(m) || m < 0 || m > 11) return { startDate: '', endDate: '' };
-						const first = new Date(y, m, 1),
-							last = new Date(y, m + 1, 0);
-						const fmt = (d: Date) =>
-							`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-						return { startDate: fmt(first), endDate: fmt(last) };
+						const y = parseInt(year, 10);
+						const m = parseInt(month, 10);
+						if (isNaN(y) || isNaN(m) || m < 1 || m > 12) return { startDate: '', endDate: '' };
+						const mStr = `${y}-${String(m).padStart(2, '0')}`;
+						return {
+							startDate: `${mStr}-01`,
+							endDate: getMonthEndYmd(mStr)
+						};
 					}
 					break;
 				case 'tahunan':
 					if (year) {
-						const y = parseInt(year);
+						const y = parseInt(year, 10);
 						if (isNaN(y) || y < 1900 || y > 2100) return { startDate: '', endDate: '' };
 						return { startDate: `${y}-01-01`, endDate: `${y}-12-31` };
 					}
@@ -254,23 +253,81 @@ export function createLaporanState() {
 		return item?.deskripsi?.trim() || item?.catatan?.trim() || '-';
 	}
 
+	const INDO_MONTHS = [
+		'Januari',
+		'Februari',
+		'Maret',
+		'April',
+		'Mei',
+		'Juni',
+		'Juli',
+		'Agustus',
+		'September',
+		'Oktober',
+		'November',
+		'Desember'
+	];
+
 	function formatDate(dateString: string, _isEndDate = false): string {
 		if (!dateString) return '';
-		const date = new Date(dateString + 'T00:00:00+08:00');
-		return date.toLocaleDateString('id-ID', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric',
-			timeZone: 'Asia/Makassar'
-		});
+		const clean = dateString.split('T')[0];
+		const parts = clean.split('-');
+		if (parts.length === 3) {
+			const year = parts[0];
+			const monthIdx = parseInt(parts[1], 10) - 1;
+			const day = parseInt(parts[2], 10);
+			if (!isNaN(day) && !isNaN(monthIdx) && monthIdx >= 0 && monthIdx <= 11) {
+				return `${day} ${INDO_MONTHS[monthIdx]} ${year}`;
+			}
+		}
+		try {
+			const d = new Date(dateString);
+			if (!isNaN(d.getTime())) {
+				return d.toLocaleDateString('id-ID', {
+					day: 'numeric',
+					month: 'long',
+					year: 'numeric',
+					timeZone: 'Asia/Makassar'
+				});
+			}
+		} catch {}
+		return dateString;
 	}
 
 	function openDatePicker(): void {
+		tempStartDate = startDate;
 		showDatePicker = true;
 	}
 
 	function openEndDatePicker(): void {
+		tempEndDate = endDate || startDate;
 		showEndDatePicker = true;
+	}
+
+	async function applyStartDate(newStart?: string): Promise<void> {
+		showDatePicker = false;
+		const nextStart = newStart || tempStartDate;
+		if (nextStart) {
+			startDate = nextStart;
+			if (endDate && endDate < startDate) {
+				endDate = startDate;
+			}
+		}
+		await loadLaporanData({ force: true });
+		setupRealtimeSubscriptions();
+	}
+
+	async function applyEndDate(newEnd?: string): Promise<void> {
+		showEndDatePicker = false;
+		const nextEnd = newEnd || tempEndDate;
+		if (nextEnd) {
+			endDate = nextEnd;
+			if (startDate && startDate > endDate) {
+				startDate = endDate;
+			}
+		}
+		await loadLaporanData({ force: true });
+		setupRealtimeSubscriptions();
 	}
 
 	async function applyFilter(): Promise<void> {
@@ -280,7 +337,7 @@ export function createLaporanState() {
 			startDate = range.startDate;
 			endDate = range.endDate;
 		}
-		await loadLaporanData();
+		await loadLaporanData({ force: true });
 		setupRealtimeSubscriptions();
 	}
 
@@ -433,6 +490,18 @@ export function createLaporanState() {
 		set endDate(v) {
 			endDate = v;
 		},
+		get tempStartDate() {
+			return tempStartDate;
+		},
+		set tempStartDate(v) {
+			tempStartDate = v;
+		},
+		get tempEndDate() {
+			return tempEndDate;
+		},
+		set tempEndDate(v) {
+			tempEndDate = v;
+		},
 		get summary() {
 			return summary;
 		},
@@ -450,6 +519,8 @@ export function createLaporanState() {
 		getDeskripsiLaporan,
 		openDatePicker,
 		openEndDatePicker,
+		applyStartDate,
+		applyEndDate,
 		applyFilter,
 		scheduleLaporanRefresh,
 		loadLaporanData

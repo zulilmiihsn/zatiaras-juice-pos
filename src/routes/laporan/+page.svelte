@@ -213,7 +213,7 @@
 					id="date-picker-start"
 					type="date"
 					class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-900 transition-colors focus:border-pink-500 focus:bg-white focus:outline-none"
-					bind:value={s.startDate}
+					bind:value={s.tempStartDate}
 				/>
 			</div>
 			<div class="flex gap-2.5">
@@ -225,10 +225,7 @@
 				</button>
 				<button
 					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-xs font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-					onclick={() => {
-						s.showDatePicker = false;
-						s.applyFilter();
-					}}
+					onclick={() => s.applyStartDate()}
 				>
 					Pilih
 				</button>
@@ -270,7 +267,7 @@
 					id="date-picker-end"
 					type="date"
 					class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-900 transition-colors focus:border-pink-500 focus:bg-white focus:outline-none"
-					bind:value={s.endDate}
+					bind:value={s.tempEndDate}
 				/>
 			</div>
 			<div class="flex gap-2.5">
@@ -282,10 +279,7 @@
 				</button>
 				<button
 					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-xs font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-					onclick={() => {
-						s.showEndDatePicker = false;
-						s.applyFilter();
-					}}
+					onclick={() => s.applyEndDate()}
 				>
 					Pilih
 				</button>
