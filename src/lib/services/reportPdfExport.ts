@@ -48,16 +48,16 @@ function groupRecordsByName(
 	for (const r of records) {
 		const name = (r.deskripsi?.trim() || r.catatan?.trim() || r.nama?.trim() || 'Lain-lain').trim();
 		const nom = Number(r.nominal || 0);
-		const isQris =
-			(r.metode_bayar || '').toLowerCase().includes('qris') ||
-			(r.metode_bayar || '').toLowerCase().includes('transfer') ||
-			(r.metode_bayar || '').toLowerCase().includes('non-tunai');
+		const isTunai =
+			String(r.metode_bayar || '')
+				.trim()
+				.toLowerCase() === 'tunai';
 
 		const cur = map.get(name) || { tunai: 0, qris: 0, total: 0 };
-		if (isQris) {
-			cur.qris += nom;
-		} else {
+		if (isTunai) {
 			cur.tunai += nom;
+		} else {
+			cur.qris += nom;
 		}
 		cur.total += nom;
 		map.set(name, cur);
@@ -248,84 +248,463 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 
 	y += cardH + 9;
 
-	// ─── 4. TABEL I: IKHTISAR LABA RUGI & ARUS KAS METODE BAYAR ─────────────────
+	// ─── 4. TABEL I: RINCIAN PEMASUKAN & ARUS KAS MASUK ────────────────────────
 	y = renderSectionHeader(
-		'I. IKHTISAR LABA RUGI & REKONSILIASI KAS (TUNAI vs QRIS)',
-		'Rekonsiliasi pergerakan dana kas masuk dan keluar berdasarkan metode pembayaran',
+		'I. RINCIAN PEMASUKAN & ARUS KAS MASUK',
+		'Detail sumber omzet penjualan produk POS dan penerimaan kas lainnya (Tunai & Non-Tunai/QRIS)',
 		y
 	);
 
-	const sumPemasukanUsaha =
-		reportGroups.pemasukanUsahaTunai.reduce((a, b) => a + Number(b.nominal || 0), 0) +
-		reportGroups.pemasukanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const tunaiUsaha = reportGroups.pemasukanUsahaTunai.reduce(
+		(a, b) => a + Number(b.nominal || 0),
+		0
+	);
+	const qrisUsaha = reportGroups.pemasukanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const sumPemasukanUsaha = tunaiUsaha + qrisUsaha;
 
-	const sumPemasukanLain =
-		reportGroups.pemasukanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0) +
-		reportGroups.pemasukanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const tunaiLain = reportGroups.pemasukanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const qrisLain = reportGroups.pemasukanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const sumPemasukanLain = tunaiLain + qrisLain;
 
-	const sumBebanUsaha =
-		reportGroups.bebanUsahaTunai.reduce((a, b) => a + Number(b.nominal || 0), 0) +
-		reportGroups.bebanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const totalPemasukan = reportGroups.totalTunaiPemasukan + reportGroups.totalQrisPemasukan;
 
-	const sumBebanLain =
-		reportGroups.bebanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0) +
-		reportGroups.bebanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const salesGrouped = groupRecordsByName([
+		...reportGroups.pemasukanUsahaTunai,
+		...reportGroups.pemasukanUsahaQris
+	]);
+	const otherIncomeGrouped = groupRecordsByName([
+		...reportGroups.pemasukanLainTunai,
+		...reportGroups.pemasukanLainQris
+	]);
+
+	type TableCell =
+		| string
+		| number
+		| {
+				content: string;
+				colSpan?: number;
+				rowSpan?: number;
+				styles?: Record<string, unknown>;
+		  };
+	type TableRow = TableCell[];
+
+	const pemasukanRows: TableRow[] = [];
+
+	// Sub-seksi A: Pendapatan Usaha (Penjualan Produk POS)
+	pemasukanRows.push([
+		{
+			content: 'A. PENDAPATAN USAHA (PENJUALAN PRODUK / MENU POS)',
+			colSpan: 6,
+			styles: {
+				fontStyle: 'bold',
+				fillColor: [253, 242, 248],
+				textColor: brandPrimary,
+				fontSize: 8.5
+			}
+		}
+	]);
+
+	if (salesGrouped.length === 0) {
+		pemasukanRows.push([
+			{
+				content: 'Tidak ada data transaksi penjualan menu/produk pada periode ini',
+				colSpan: 6,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+			}
+		]);
+	} else {
+		salesGrouped.forEach((item, idx) => {
+			const percent =
+				totalPemasukan > 0 ? `${((item.total / totalPemasukan) * 100).toFixed(1)}%` : '0.0%';
+			pemasukanRows.push([
+				String(idx + 1),
+				item.name,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	// Subtotal Pendapatan Usaha
+	pemasukanRows.push([
+		'',
+		'Subtotal Pendapatan Usaha (Penjualan)',
+		`Rp ${formatRupiah(tunaiUsaha)}`,
+		`Rp ${formatRupiah(qrisUsaha)}`,
+		`Rp ${formatRupiah(sumPemasukanUsaha)}`,
+		totalPemasukan > 0 ? `${((sumPemasukanUsaha / totalPemasukan) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// Sub-seksi B: Pemasukan Lain-lain
+	pemasukanRows.push([
+		{
+			content: 'B. PEMASUKAN LAIN-LAIN / KAS MASUK TAMBAHAN',
+			colSpan: 6,
+			styles: {
+				fontStyle: 'bold',
+				fillColor: [248, 250, 252],
+				textColor: brandDark,
+				fontSize: 8.5
+			}
+		}
+	]);
+
+	if (otherIncomeGrouped.length === 0) {
+		pemasukanRows.push([
+			{
+				content: 'Tidak ada transaksi pemasukan lain pada periode ini',
+				colSpan: 6,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+			}
+		]);
+	} else {
+		otherIncomeGrouped.forEach((item, idx) => {
+			const percent =
+				totalPemasukan > 0 ? `${((item.total / totalPemasukan) * 100).toFixed(1)}%` : '0.0%';
+			pemasukanRows.push([
+				String(idx + 1),
+				item.name,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	// Subtotal Pemasukan Lain
+	pemasukanRows.push([
+		'',
+		'Subtotal Pemasukan Lainnya',
+		`Rp ${formatRupiah(tunaiLain)}`,
+		`Rp ${formatRupiah(qrisLain)}`,
+		`Rp ${formatRupiah(sumPemasukanLain)}`,
+		totalPemasukan > 0 ? `${((sumPemasukanLain / totalPemasukan) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// TOTAL KESELURUHAN PEMASUKAN (A + B)
+	pemasukanRows.push([
+		'',
+		'TOTAL KESELURUHAN PEMASUKAN (A + B)',
+		`Rp ${formatRupiah(reportGroups.totalTunaiPemasukan)}`,
+		`Rp ${formatRupiah(reportGroups.totalQrisPemasukan)}`,
+		`Rp ${formatRupiah(totalPemasukan)}`,
+		'100.0%'
+	]);
+
+	autoTable(doc, {
+		startY: y,
+		theme: 'grid',
+		head: [
+			[
+				'No',
+				'Kategori & Rincian Sumber Pemasukan',
+				'Kas Tunai (Rp)',
+				'QRIS / Non-Tunai (Rp)',
+				'Total Pemasukan (Rp)',
+				'Porsi %'
+			]
+		],
+		body: pemasukanRows as any,
+		headStyles: {
+			fillColor: brandPrimary,
+			textColor: [255, 255, 255],
+			fontStyle: 'bold',
+			fontSize: 8.5,
+			cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
+		},
+		bodyStyles: {
+			fontSize: 8,
+			textColor: brandDark,
+			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+			lineColor: [226, 232, 240],
+			lineWidth: 0.25
+		},
+		columnStyles: {
+			0: { cellWidth: 10, halign: 'center' },
+			1: { cellWidth: 'auto' },
+			2: { cellWidth: 32, halign: 'right' },
+			3: { cellWidth: 32, halign: 'right' },
+			4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
+			5: { cellWidth: 18, halign: 'center' }
+		},
+		didParseCell: (data) => {
+			const cellText = String(data.cell.raw ?? '');
+			if (cellText.startsWith('Subtotal')) {
+				data.cell.styles.fontStyle = 'bold';
+				data.cell.styles.fillColor = [248, 250, 252];
+			} else if (cellText.startsWith('TOTAL KESELURUHAN')) {
+				data.cell.styles.fontStyle = 'bold';
+				data.cell.styles.fillColor = [241, 245, 249];
+				data.cell.styles.textColor = brandDark;
+			}
+		},
+		margin: { left: 14, right: 14 }
+	});
+
+	y = getAutoTableFinalY(doc, y) + 12;
+
+	// ─── 5. TABEL II: RINCIAN PENGELUARAN & BEBAN OPERASIONAL ───────────────────
+	if (y > 185) {
+		doc.addPage();
+		y = 20;
+	}
+
+	y = renderSectionHeader(
+		'II. RINCIAN PENGELUARAN & BEBAN OPERASIONAL',
+		'Detail pos belanja bahan baku, operasional toko, dan biaya non-operasional (Tunai & QRIS)',
+		y
+	);
+
+	const tunaiBebanUsaha = reportGroups.bebanUsahaTunai.reduce(
+		(a, b) => a + Number(b.nominal || 0),
+		0
+	);
+	const qrisBebanUsaha = reportGroups.bebanUsahaQris.reduce(
+		(a, b) => a + Number(b.nominal || 0),
+		0
+	);
+	const sumBebanUsaha = tunaiBebanUsaha + qrisBebanUsaha;
+
+	const tunaiBebanLain = reportGroups.bebanLainTunai.reduce(
+		(a, b) => a + Number(b.nominal || 0),
+		0
+	);
+	const qrisBebanLain = reportGroups.bebanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
+	const sumBebanLain = tunaiBebanLain + qrisBebanLain;
+
+	const totalPengeluaran = reportGroups.totalTunaiPengeluaran + reportGroups.totalQrisPengeluaran;
+
+	const expenseGrouped = groupRecordsByName([
+		...reportGroups.bebanUsahaTunai,
+		...reportGroups.bebanUsahaQris
+	]);
+	const otherExpenseGrouped = groupRecordsByName([
+		...reportGroups.bebanLainTunai,
+		...reportGroups.bebanLainQris
+	]);
+
+	const pengeluaranRows: TableRow[] = [];
+
+	// Sub-seksi A: Beban Usaha
+	pengeluaranRows.push([
+		{
+			content: 'A. BEBAN USAHA (OPERASIONAL & BAHAN BAKU TOKO)',
+			colSpan: 6,
+			styles: {
+				fontStyle: 'bold',
+				fillColor: [248, 250, 252],
+				textColor: slate600,
+				fontSize: 8.5
+			}
+		}
+	]);
+
+	if (expenseGrouped.length === 0) {
+		pengeluaranRows.push([
+			{
+				content: 'Tidak ada data transaksi beban operasional pada periode ini',
+				colSpan: 6,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+			}
+		]);
+	} else {
+		expenseGrouped.forEach((item, idx) => {
+			const percent =
+				totalPengeluaran > 0 ? `${((item.total / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%';
+			pengeluaranRows.push([
+				String(idx + 1),
+				item.name,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	// Subtotal Beban Usaha
+	pengeluaranRows.push([
+		'',
+		'Subtotal Beban Usaha (Operasional)',
+		`Rp ${formatRupiah(tunaiBebanUsaha)}`,
+		`Rp ${formatRupiah(qrisBebanUsaha)}`,
+		`Rp ${formatRupiah(sumBebanUsaha)}`,
+		totalPengeluaran > 0 ? `${((sumBebanUsaha / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// Sub-seksi B: Beban Lainnya
+	pengeluaranRows.push([
+		{
+			content: 'B. BEBAN LAIN-LAIN / BIAYA NON-OPERASIONAL',
+			colSpan: 6,
+			styles: {
+				fontStyle: 'bold',
+				fillColor: [248, 250, 252],
+				textColor: brandDark,
+				fontSize: 8.5
+			}
+		}
+	]);
+
+	if (otherExpenseGrouped.length === 0) {
+		pengeluaranRows.push([
+			{
+				content: 'Tidak ada data beban lainnya pada periode ini',
+				colSpan: 6,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+			}
+		]);
+	} else {
+		otherExpenseGrouped.forEach((item, idx) => {
+			const percent =
+				totalPengeluaran > 0 ? `${((item.total / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%';
+			pengeluaranRows.push([
+				String(idx + 1),
+				item.name,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	// Subtotal Beban Lain
+	pengeluaranRows.push([
+		'',
+		'Subtotal Beban Lainnya',
+		`Rp ${formatRupiah(tunaiBebanLain)}`,
+		`Rp ${formatRupiah(qrisBebanLain)}`,
+		`Rp ${formatRupiah(sumBebanLain)}`,
+		totalPengeluaran > 0 ? `${((sumBebanLain / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// TOTAL KESELURUHAN PENGELUARAN (A + B)
+	pengeluaranRows.push([
+		'',
+		'TOTAL KESELURUHAN PENGELUARAN (A + B)',
+		`Rp ${formatRupiah(reportGroups.totalTunaiPengeluaran)}`,
+		`Rp ${formatRupiah(reportGroups.totalQrisPengeluaran)}`,
+		`Rp ${formatRupiah(totalPengeluaran)}`,
+		'100.0%'
+	]);
+
+	autoTable(doc, {
+		startY: y,
+		theme: 'grid',
+		head: [
+			[
+				'No',
+				'Kategori & Rincian Pos Pengeluaran',
+				'Kas Tunai (Rp)',
+				'QRIS / Non-Tunai (Rp)',
+				'Total Pengeluaran (Rp)',
+				'Porsi %'
+			]
+		],
+		body: pengeluaranRows as any,
+		headStyles: {
+			fillColor: slate600,
+			textColor: [255, 255, 255],
+			fontStyle: 'bold',
+			fontSize: 8.5,
+			cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
+		},
+		bodyStyles: {
+			fontSize: 8,
+			textColor: brandDark,
+			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+			lineColor: [226, 232, 240],
+			lineWidth: 0.25
+		},
+		columnStyles: {
+			0: { cellWidth: 10, halign: 'center' },
+			1: { cellWidth: 'auto' },
+			2: { cellWidth: 32, halign: 'right' },
+			3: { cellWidth: 32, halign: 'right' },
+			4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
+			5: { cellWidth: 18, halign: 'center' }
+		},
+		didParseCell: (data) => {
+			const cellText = String(data.cell.raw ?? '');
+			if (cellText.startsWith('Subtotal')) {
+				data.cell.styles.fontStyle = 'bold';
+				data.cell.styles.fillColor = [248, 250, 252];
+			} else if (cellText.startsWith('TOTAL KESELURUHAN')) {
+				data.cell.styles.fontStyle = 'bold';
+				data.cell.styles.fillColor = [241, 245, 249];
+				data.cell.styles.textColor = brandDark;
+			}
+		},
+		margin: { left: 14, right: 14 }
+	});
+
+	y = getAutoTableFinalY(doc, y) + 12;
+
+	// ─── 6. TABEL III: REKAPITULASI LABA RUGI, PAJAK & SALDO AKHIR ─────────────
+	if (y > 190) {
+		doc.addPage();
+		y = 20;
+	}
+
+	y = renderSectionHeader(
+		'III. REKAPITULASI LABA RUGI, PAJAK & ARUS KAS AKHIR',
+		'Perbandingan arus kas masuk, arus kas keluar, estimasi pajak, dan laba bersih usaha',
+		y
+	);
 
 	const tunaiMasukTotal = reportGroups.totalTunaiPemasukan;
 	const qrisMasukTotal = reportGroups.totalQrisPemasukan;
 	const tunaiKeluarTotal = reportGroups.totalTunaiPengeluaran;
 	const qrisKeluarTotal = reportGroups.totalQrisPengeluaran;
 
-	const summaryRows = [
+	const summaryRows: TableRow[] = [
 		[
-			'Pendapatan Usaha (Penjualan Menu POS)',
-			`Rp ${formatRupiah(reportGroups.pemasukanUsahaTunai.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(reportGroups.pemasukanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(sumPemasukanUsaha)}`
-		],
-		[
-			'Pendapatan Lain-lain (Modal Awal / Kas Tambahan)',
-			`Rp ${formatRupiah(reportGroups.pemasukanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(reportGroups.pemasukanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(sumPemasukanLain)}`
-		],
-		[
-			'TOTAL PENDAPATAN / ARUS KAS MASUK (A)',
+			'Total Arus Kas Masuk / Pemasukan (A)',
 			`Rp ${formatRupiah(tunaiMasukTotal)}`,
 			`Rp ${formatRupiah(qrisMasukTotal)}`,
 			`Rp ${formatRupiah(tunaiMasukTotal + qrisMasukTotal)}`
 		],
 		[
-			'Beban Usaha (Bahan Baku, Es Batu, Cup, Gaji Kasir)',
-			`Rp ${formatRupiah(reportGroups.bebanUsahaTunai.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(reportGroups.bebanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(sumBebanUsaha)}`
-		],
-		[
-			'Beban Lainnya / Biaya Non-Operasional',
-			`Rp ${formatRupiah(reportGroups.bebanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(reportGroups.bebanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0))}`,
-			`Rp ${formatRupiah(sumBebanLain)}`
-		],
-		[
-			'TOTAL PENGELUARAN / ARUS KAS KELUAR (B)',
+			'Total Arus Kas Keluar / Pengeluaran (B)',
 			`Rp ${formatRupiah(tunaiKeluarTotal)}`,
 			`Rp ${formatRupiah(qrisKeluarTotal)}`,
 			`Rp ${formatRupiah(tunaiKeluarTotal + qrisKeluarTotal)}`
+		],
+		[
+			'Laba (Rugi) Kotor Usaha (A - B)',
+			`Rp ${formatRupiah(tunaiMasukTotal - tunaiKeluarTotal)}`,
+			`Rp ${formatRupiah(qrisMasukTotal - qrisKeluarTotal)}`,
+			`Rp ${formatRupiah(labaKotor)}`
 		],
 		[
 			summary?.taxLabel ? `Estimasi Pajak Usaha (${summary.taxLabel})` : 'Pajak Penghasilan UMKM',
 			'-',
 			'-',
 			`Rp ${formatRupiah(pajak)}`
-		],
-		[
-			'SALDO AKHIR KAS / LABA BERSIH (A - B - Pajak)',
-			`Rp ${formatRupiah(reportGroups.totalTunaiAll)}`,
-			`Rp ${formatRupiah(reportGroups.totalQrisAll)}`,
-			`Rp ${formatRupiah(labaBersih)}`
 		]
 	];
+
+	if (summary?.taxBreakdown && summary.taxBreakdown.length > 1) {
+		summary.taxBreakdown.forEach((tb) => {
+			summaryRows.push([
+				`   ↳ ${tb.nama} (${tb.persentase}%)`,
+				'-',
+				'-',
+				`Rp ${formatRupiah(tb.nominal)}`
+			]);
+		});
+	}
+
+	summaryRows.push([
+		'SALDO AKHIR KAS / LABA BERSIH (A - B - Pajak)',
+		`Rp ${formatRupiah(reportGroups.totalTunaiAll)}`,
+		`Rp ${formatRupiah(reportGroups.totalQrisAll)}`,
+		`Rp ${formatRupiah(labaBersih)}`
+	]);
 
 	autoTable(doc, {
 		startY: y,
@@ -333,7 +712,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		head: [
 			['Kategori Akuntansi & Arus Kas', 'Kas Tunai (Cash)', 'Non-Tunai / QRIS', 'Total Nominal']
 		],
-		body: summaryRows,
+		body: summaryRows as any,
 		headStyles: {
 			fillColor: [30, 41, 59], // Slate-800
 			textColor: [255, 255, 255],
@@ -355,14 +734,12 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' }
 		},
 		didParseCell: (data) => {
-			const rowIdx = data.row.index;
-			// Highlight baris Total Pendapatan & Total Pengeluaran
-			if (rowIdx === 2 || rowIdx === 5) {
+			const cellText = String(data.cell.raw ?? '');
+			if (cellText.startsWith('Total Arus Kas') || cellText.startsWith('Laba (Rugi) Kotor')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.fillColor = [241, 245, 249];
 			}
-			// Highlight baris Laba Bersih
-			if (rowIdx === 7) {
+			if (cellText.startsWith('SALDO AKHIR KAS')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.fillColor = [253, 242, 248];
 				data.cell.styles.textColor = brandPrimary;
@@ -372,163 +749,6 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	});
 
 	y = getAutoTableFinalY(doc, y) + 12;
-
-	// ─── 5. TABEL II: RINCIAN PENJUALAN PRODUK & TOP MENU ───────────────────────
-	const allSalesRecords = [...reportGroups.pemasukanUsahaTunai, ...reportGroups.pemasukanUsahaQris];
-	const groupedSales = groupRecordsByName(allSalesRecords);
-
-	if (groupedSales.length > 0) {
-		// Evaluasi ruang halaman: jika sisa ruang sempit, pindah ke halaman baru
-		if (y > 185) {
-			doc.addPage();
-			y = 20;
-		}
-
-		y = renderSectionHeader(
-			'II. RINCIAN PENJUALAN PRODUK & KONTRIBUSI MENU',
-			'Analisis menu terlaris beserta kontribusi persentase terhadap omzet',
-			y
-		);
-
-		const salesTableRows = groupedSales.map((item, idx) => {
-			const no = String(idx + 1);
-			const percent =
-				sumPemasukanUsaha > 0 ? `${((item.total / sumPemasukanUsaha) * 100).toFixed(1)}%` : '0.0%';
-			return [
-				no,
-				item.name,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			];
-		});
-
-		autoTable(doc, {
-			startY: y,
-			theme: 'grid',
-			head: [
-				[
-					'No',
-					'Nama Menu / Item Penjualan',
-					'Tunai (Rp)',
-					'QRIS (Rp)',
-					'Total Penjualan (Rp)',
-					'Porsi %'
-				]
-			],
-			body: salesTableRows,
-			headStyles: {
-				fillColor: [190, 24, 93], // Rose-700
-				textColor: [255, 255, 255],
-				fontStyle: 'bold',
-				fontSize: 8.5,
-				cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
-			},
-			bodyStyles: {
-				fontSize: 8,
-				textColor: brandDark,
-				cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
-				lineColor: [226, 232, 240],
-				lineWidth: 0.25
-			},
-			columnStyles: {
-				0: { cellWidth: 10, halign: 'center' },
-				1: { cellWidth: 'auto' },
-				2: { cellWidth: 30, halign: 'right' },
-				3: { cellWidth: 30, halign: 'right' },
-				4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
-				5: { cellWidth: 18, halign: 'center' }
-			},
-			alternateRowStyles: {
-				fillColor: [253, 242, 248] // Soft rose zebra
-			},
-			margin: { left: 14, right: 14 }
-		});
-
-		y = getAutoTableFinalY(doc, y) + 12;
-	}
-
-	// ─── 6. TABEL III: RINCIAN PENGELUARAN & BEBAN OPERASIONAL ──────────────────
-	const allExpenseRecords = [
-		...reportGroups.bebanUsahaTunai,
-		...reportGroups.bebanUsahaQris,
-		...reportGroups.bebanLainTunai,
-		...reportGroups.bebanLainQris
-	];
-	const groupedExpenses = groupRecordsByName(allExpenseRecords);
-
-	if (groupedExpenses.length > 0) {
-		// Evaluasi ruang halaman sebelum tabel beban
-		if (y > 195) {
-			doc.addPage();
-			y = 20;
-		}
-
-		y = renderSectionHeader(
-			'III. RINCIAN PENGELUARAN & BEBAN OPERASIONAL TOKO',
-			'Klasifikasi pos belanja bahan baku, biaya operasional toko, dan beban non-operasional',
-			y
-		);
-
-		const expenseTableRows = groupedExpenses.map((item, idx) => {
-			const no = String(idx + 1);
-			const totalExp = tunaiKeluarTotal + qrisKeluarTotal;
-			const percent = totalExp > 0 ? `${((item.total / totalExp) * 100).toFixed(1)}%` : '0.0%';
-			return [
-				no,
-				item.name,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			];
-		});
-
-		autoTable(doc, {
-			startY: y,
-			theme: 'grid',
-			head: [
-				[
-					'No',
-					'Pos Pengeluaran / Deskripsi Beban',
-					'Tunai (Rp)',
-					'QRIS (Rp)',
-					'Total Pengeluaran (Rp)',
-					'Porsi %'
-				]
-			],
-			body: expenseTableRows,
-			headStyles: {
-				fillColor: slate600,
-				textColor: [255, 255, 255],
-				fontStyle: 'bold',
-				fontSize: 8.5,
-				cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
-			},
-			bodyStyles: {
-				fontSize: 8,
-				textColor: brandDark,
-				cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
-				lineColor: [226, 232, 240],
-				lineWidth: 0.25
-			},
-			columnStyles: {
-				0: { cellWidth: 10, halign: 'center' },
-				1: { cellWidth: 'auto' },
-				2: { cellWidth: 30, halign: 'right' },
-				3: { cellWidth: 30, halign: 'right' },
-				4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
-				5: { cellWidth: 18, halign: 'center' }
-			},
-			alternateRowStyles: {
-				fillColor: [248, 250, 252] // Slate zebra
-			},
-			margin: { left: 14, right: 14 }
-		});
-
-		y = getAutoTableFinalY(doc, y) + 12;
-	}
 
 	// ─── 7. TABEL IV: LOG TRANSAKSI BUKU KAS DETAIL ─────────────────────────────
 	if (transactions.length > 0) {
