@@ -88,9 +88,24 @@ export function detectUnitCategory(satuanName: string): UnitCategory {
 	)
 		return 'cairan';
 	if (['gram', 'g', 'kg', 'kilogram', 'ons', 'pon', 'berat'].includes(s)) return 'berat';
-	if (['pack', 'bks', 'bungkus', 'slop', 'dus', 'karton', 'kemasan', 'lembar', 'roll'].includes(s))
+	if (
+		[
+			'pack',
+			'bks',
+			'bungkus',
+			'slop',
+			'dus',
+			'karton',
+			'kemasan',
+			'lembar',
+			'roll',
+			'pcs',
+			'piece',
+			'pieces'
+		].includes(s)
+	)
 		return 'kemasan';
-	if (['buah', 'porsi', 'potong', 'biji', 'butir', 'pcs', 'unit', 'sachet', 'ikat'].includes(s))
+	if (['buah', 'porsi', 'potong', 'biji', 'butir', 'unit', 'sachet', 'ikat'].includes(s))
 		return 'unit';
 
 	return 'berat';
@@ -101,6 +116,15 @@ export function detectUnitCategory(satuanName: string): UnitCategory {
  */
 export function getCompatibleUnits(baseUnitOrCategory: string): UnitOption[] {
 	const category = detectUnitCategory(baseUnitOrCategory);
+	if (category === 'kemasan' || category === 'unit') {
+		const combined = [...ALL_UNITS.kemasan, ...ALL_UNITS.unit];
+		const seen = new Set<string>();
+		return combined.filter((u) => {
+			if (seen.has(u.value)) return false;
+			seen.add(u.value);
+			return true;
+		});
+	}
 	return ALL_UNITS[category] || ALL_UNITS.berat;
 }
 
@@ -123,13 +147,15 @@ export function convertToBaseUnit(
 	const fromCategory = detectUnitCategory(cleanFrom);
 	const baseCategory = detectUnitCategory(cleanBase);
 
-	if (fromCategory !== baseCategory) {
+	const isCountCategory = (cat: UnitCategory) => cat === 'kemasan' || cat === 'unit';
+
+	if (fromCategory !== baseCategory && !(isCountCategory(fromCategory) && isCountCategory(baseCategory))) {
 		throw new Error(
 			`Konversi satuan tidak kompatibel: ${fromUnit} (${fromCategory}) tidak dapat dikonversi ke ${baseUnit} (${baseCategory})`
 		);
 	}
 
-	const unitList = ALL_UNITS[baseCategory] || [];
+	const unitList = [...(ALL_UNITS[baseCategory] || []), ...(ALL_UNITS[fromCategory] || [])];
 	const fromUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanFrom);
 	const baseUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanBase);
 
@@ -137,18 +163,32 @@ export function convertToBaseUnit(
 	let baseFactor = baseUnitDef ? baseUnitDef.factorToBase : 1;
 
 	// Handle dynamic pack size
-	if (baseCategory === 'kemasan') {
-		if (['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'].includes(cleanFrom)) {
-			fromFactor = Math.max(1, packSize);
-		}
-		if (['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'].includes(cleanBase)) {
-			baseFactor = Math.max(1, packSize);
-		}
+	const isPackUnit = (unit: string) =>
+		['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'].includes(unit);
+
+	if (isPackUnit(cleanFrom)) {
+		fromFactor = Math.max(1, packSize);
+	}
+	if (isPackUnit(cleanBase)) {
+		baseFactor = Math.max(1, packSize);
 	}
 
 	// Calculate base unit amount
 	const inBaseAmount = (amount * fromFactor) / baseFactor;
 	return Math.round(inBaseAmount * 10000) / 10000;
+}
+
+export function safeConvertToBaseUnit(
+	amount: number,
+	fromUnit: string,
+	baseUnit: string,
+	packSize: number = 1
+): number {
+	try {
+		return convertToBaseUnit(amount, fromUnit, baseUnit, packSize);
+	} catch {
+		return amount;
+	}
 }
 
 /**

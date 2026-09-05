@@ -228,7 +228,16 @@ export function createMenuState(deps: MenuDeps) {
 		const baseUnit = bahan?.satuan || 'gram';
 		const recipeUnit = recipeDraft.satuan_resep || baseUnit;
 		const packSize = bahan?.isi_per_kemasan || 1;
-		const baseAmount = convertToBaseUnit(jumlah, recipeUnit, baseUnit, packSize);
+		let baseAmount: number;
+		try {
+			baseAmount = convertToBaseUnit(jumlah, recipeUnit, baseUnit, packSize);
+		} catch (err) {
+			deps.showNotif(
+				err instanceof Error ? err.message : 'Konversi satuan tidak kompatibel.',
+				'warning'
+			);
+			return;
+		}
 
 		const existing = recipeItems.find(
 			(item) =>

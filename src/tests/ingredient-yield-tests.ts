@@ -33,5 +33,8 @@ assert.throws(() => convertToBaseUnit(100, 'ml', 'gram'), /Konversi satuan tidak
 assert.throws(() => convertToBaseUnit(1, 'kg', 'liter'), /Konversi satuan tidak kompatibel/);
 assert.equal(convertToBaseUnit(500, 'gram', 'kg'), 0.5);
 assert.equal(convertToBaseUnit(2, 'liter', 'ml'), 2000);
+assert.equal(convertToBaseUnit(1, 'pcs', 'pack', 50), 0.02);
+assert.equal(convertToBaseUnit(1, 'pack', 'pcs', 50), 50);
+assert.equal(convertToBaseUnit(2, 'sachet', 'pack', 20), 0.1);
 
-console.log('ingredient-yield-tests: 26 assertions passed');
+console.log('ingredient-yield-tests: 29 assertions passed');
