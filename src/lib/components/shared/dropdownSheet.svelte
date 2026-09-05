@@ -66,7 +66,7 @@
 		background: rgba(15, 23, 42, 0.4);
 		backdrop-filter: blur(4px);
 		-webkit-backdrop-filter: blur(4px);
-		z-index: var(--z-dialog, 60);
+		z-index: var(--z-sheet, 60);
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;

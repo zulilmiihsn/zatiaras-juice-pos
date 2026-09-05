@@ -8,18 +8,18 @@
 	--font-display:
 		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-	/* ── Design System Z-Index Token Hierarchy ── */
-	--z-base: 0;
-	--z-card: 10;
-	--z-surface: 20;
-	--z-nav: 30;
-	--z-fab: 40;
-	--z-modal: 50;
-	--z-dialog: 60;
-	--z-sheet: 70;
-	--z-alert: 80;
-	--z-toast: 90;
-	--z-max: 100;
+	/* ── Design System Z-Index Token Hierarchy (Tailwind v4 Theme) ── */
+	--z-index-base: 0;
+	--z-index-card: 10;
+	--z-index-surface: 20;
+	--z-index-nav: 40;
+	--z-index-fab: 50;
+	--z-index-sheet: 60;
+	--z-index-modal: 70;
+	--z-index-dialog: 80;
+	--z-index-alert: 90;
+	--z-index-toast: 100;
+	--z-index-max: 999;
 }
 
 :root {
@@ -30,15 +30,28 @@
 	--z-base: 0;
 	--z-card: 10;
 	--z-surface: 20;
-	--z-nav: 30;
-	--z-fab: 40;
-	--z-modal: 50;
-	--z-dialog: 60;
-	--z-sheet: 70;
-	--z-alert: 80;
-	--z-toast: 90;
-	--z-max: 100;
+	--z-nav: 40;
+	--z-fab: 50;
+	--z-sheet: 60;
+	--z-modal: 70;
+	--z-dialog: 80;
+	--z-alert: 90;
+	--z-toast: 100;
+	--z-max: 999;
 }
+
+/* ── Guaranteed Z-Index Layer Utility Classes ── */
+.z-base { z-index: 0 !important; }
+.z-card { z-index: 10 !important; }
+.z-surface { z-index: 20 !important; }
+.z-nav { z-index: 40 !important; }
+.z-fab { z-index: 50 !important; }
+.z-sheet { z-index: 60 !important; }
+.z-modal { z-index: 70 !important; }
+.z-dialog { z-index: 80 !important; }
+.z-alert { z-index: 90 !important; }
+.z-toast { z-index: 100 !important; }
+.z-max { z-index: 999 !important; }
 
 html,
 body,
