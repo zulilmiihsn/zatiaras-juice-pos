@@ -165,3 +165,37 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 3. ⚠️ **Jangan hitung pajak dari laba kotor**: Sesuai PP 55/2022, PPh Final UMKM dihitung dari `omzetUsaha` (bruto) setelah memperhitungkan threshold Rp 500 Juta kumulatif tahunan.
 4. ⚠️ **Jangan gunakan `result.id` secara naif**: Respon mutation D1 dari backend membungkus data dalam array; selalu gunakan helper `result?.data?.[0]?.id || result?.id`.
 5. ⚠️ **Jangan hardcode URL upload R2**: Selalu gunakan namespace per cabang (`produk/<branch>/<uuid>.<ext>`) agar tidak terjadi konflik lintas cabang.
+
+---
+
+## 8. Standar & Konvensi Kode (Engineering Conventions)
+
+### A. Svelte 5 Runes Only
+
+- Seluruh komponen wajib menggunakan runes: `$state()`, `$derived()`, `$effect()`, `$props()`, `$bindable()`.
+- Dilarang menggunakan store Svelte 4 (`writable()`, `$store`) untuk state baru.
+- Dilarang reassign ke ekspresi `$derived`.
+
+### B. Format Uang & Tanggal
+
+- Uang: Wajib menggunakan `$lib/utils/currency` (`formatRupiah`, `parseRupiah`).
+  - Tampilan: `Rp {formatRupiah(nominal)}` (prefix "Rp " di markup, angka diformat util).
+  - Dilarang `x.toLocaleString('id-ID')` secara inline.
+- Tanggal: Wajib menggunakan `$lib/utils/dateTime` untuk standarisasi zona waktu WITA (UTC+8).
+
+### C. Kontrak API Server (2-Tier Architecture)
+
+- **Tier A (Resource Routes / CRUD default)**:
+  - Sukses: `{ ok: true, data }` atau list `{ items, nextCursor }`.
+  - Error: `throw kitError(status, message)` (`@sveltejs/kit`).
+- **Tier B (Auth & Telemetri - `csrf`, `veriflogin`, `security-events`, `aichat`)**:
+  - Error/Status: `json({ success, code, message })` — field `code` wajib dipertahankan karena dikonsumsi client untuk mekanisme retry (mis. CSRF token refresh).
+
+### D. Cetak Struk
+
+- Cetak struk POS dan riwayat wajib melewati `$lib/utils/receiptPrint` (`buildReceiptHtml`, `printViaIntent`).
+
+### E. Error Handling Frontend
+
+- Tangani error via `$lib/utils/errorHandling` (`ErrorHandler.extractErrorMessage(e)`, `getApiErrorMessage(res)`).
+- Dilarang `catch {}` tanpa logging atau fallback yang aman bagi user.
