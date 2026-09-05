@@ -32,10 +32,15 @@
 		if (!document.startViewTransition) return;
 
 		return new Promise((resolve) => {
-			document.startViewTransition(async () => {
+			try {
+				const transition = document.startViewTransition(async () => {
+					resolve();
+					await navigation.complete;
+				});
+				transition.finished.catch(() => {});
+			} catch {
 				resolve();
-				await navigation.complete;
-			});
+			}
 		});
 	});
 

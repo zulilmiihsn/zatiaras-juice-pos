@@ -219,6 +219,9 @@
 	}
 
 	onMount(() => {
+		if (typeof window !== 'undefined' && !localStorage.getItem('zatiaras_session')) {
+			return;
+		}
 		cekSesiToko();
 		if (browser) {
 			window.addEventListener('openTokoModal', handleOpenTokoModal);

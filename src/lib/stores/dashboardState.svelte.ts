@@ -159,6 +159,9 @@ export function createDashboardState() {
 		let offDashboardRefreshBus: (() => void) | null = null;
 
 		(async () => {
+			if (typeof window !== 'undefined' && !localStorage.getItem('zatiaras_session')) {
+				return;
+			}
 			await loadDashboardData();
 			setupRealtimeSubscriptions();
 			offDashboardRefreshBus = refreshBus.on('dashboard', () => {

@@ -89,6 +89,14 @@ function dispatchRealtimeMessage(message: Record<string, unknown>) {
 function connectRealtimeSocket() {
 	if (typeof window === 'undefined') return null;
 
+	const path = window.location.pathname;
+	if (path === '/login' || path === '/offline' || path === '/unauthorized') {
+		return null;
+	}
+	if (!localStorage.getItem('zatiaras_session')) {
+		return null;
+	}
+
 	const branch = selectedBranch.value || 'samarinda';
 	if (
 		socket &&
@@ -135,7 +143,13 @@ function connectRealtimeSocket() {
 		stopHeartbeat();
 		realtimeHealth.connected = false;
 		realtimeHealth.lastCloseAt = Date.now();
-		if (subscriptions.size > 0 && event.code !== 1000) {
+		if (
+			subscriptions.size > 0 &&
+			event.code !== 1000 &&
+			event.code !== 1008 &&
+			event.code !== 4401 &&
+			localStorage.getItem('zatiaras_session')
+		) {
 			scheduleReconnect();
 		}
 	};

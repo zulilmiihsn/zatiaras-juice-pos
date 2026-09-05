@@ -42,12 +42,14 @@ export default defineConfig({
 				navigateFallback: null,
 				// navigateFallbackDenylist removed since fallback is null
 				globPatterns: [
-					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff,webmanifest}',
+					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff}',
 					'prerendered/**/*.{html,json}'
 				],
+				globIgnores: ['**/offline.html', '**/manifest.webmanifest', '**/manifest.json'],
 				manifestTransforms: [
-					async (entries) => ({
-						manifest: entries
+					async (entries) => {
+						const seen = new Set<string>();
+						const manifest = entries
 							.filter((entry) => !entry.url.endsWith(pwaPrerenderPlaceholder))
 							.map((entry) => {
 								let url = entry.url;
@@ -70,9 +72,15 @@ export default defineConfig({
 								}
 
 								return { ...entry, url };
-							}),
-						warnings: []
-					})
+							})
+							.filter((entry) => {
+								if (seen.has(entry.url)) return false;
+								seen.add(entry.url);
+								return true;
+							});
+
+						return { manifest, warnings: [] };
+					}
 				],
 				runtimeCaching: [
 					{
@@ -105,7 +113,7 @@ export default defineConfig({
 					}
 				]
 			},
-			includeAssets: ['favicon.svg', '180x180.png', '192x192.png', '144x144.png', '512x512.png'],
+			includeAssets: [],
 			manifest: {
 				name: 'Zatiaras POS',
 				short_name: 'ZatiarasPOS',
