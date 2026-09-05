@@ -10,6 +10,7 @@ import { createHppCalculator } from '$lib/utils/manajemenmenuHpp';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import {
 	convertToBaseUnit,
+	safeConvertToBaseUnit,
 	detectUnitCategory,
 	type UnitCategory
 } from '$lib/utils/unitConversion';
@@ -261,7 +262,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
 
 		// Convert purchase quantity to base unit (e.g. 1 kg -> 1000 gram)
-		const purchaseQuantityInBase = convertToBaseUnit(
+		const purchaseQuantityInBase = safeConvertToBaseUnit(
 			purchaseQuantityInput,
 			bahanForm.satuan_beli || bahanForm.satuan,
 			bahanForm.satuan,

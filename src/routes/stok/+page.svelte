@@ -30,6 +30,7 @@
 	import {
 		UNIT_CATEGORIES,
 		convertToBaseUnit,
+		safeConvertToBaseUnit,
 		detectUnitCategory,
 		getCompatibleUnits,
 		formatSmartStock,
@@ -297,7 +298,7 @@
 		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
 		const purchaseQty = Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir));
 		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
-		const purchaseQuantityInBase = convertToBaseUnit(
+		const purchaseQuantityInBase = safeConvertToBaseUnit(
 			purchaseQty,
 			bahanForm.satuan_beli || bahanForm.satuan,
 			bahanForm.satuan,
@@ -461,7 +462,7 @@
 		if (!selectedBahanForMutasi || !mutasiAmount) return 0;
 		const parsed = parseFloat(String(mutasiAmount).replace(/,/g, '.'));
 		if (!parsed || isNaN(parsed) || parsed <= 0) return 0;
-		return convertToBaseUnit(
+		return safeConvertToBaseUnit(
 			parsed,
 			mutasiUnit,
 			selectedBahanForMutasi.satuan || 'gram',
@@ -1440,7 +1441,7 @@
 						{@const numQty = parseRupiah(bahanForm.jumlah_beli_terakhir)}
 						{@const numCost = parseRupiah(bahanForm.biaya_beli_terakhir)}
 						{@const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1)}
-						{@const baseQty = convertToBaseUnit(
+						{@const baseQty = safeConvertToBaseUnit(
 							numQty,
 							bahanForm.satuan_beli || bahanForm.satuan,
 							bahanForm.satuan,

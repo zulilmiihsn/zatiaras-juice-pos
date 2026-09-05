@@ -1,7 +1,7 @@
 import { createEkstraCrud } from '$lib/services/manajemenmenuCrud';
 import { formatRupiah, parseRupiah } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
-import { convertToBaseUnit } from '$lib/utils/unitConversion';
+import { convertToBaseUnit, safeConvertToBaseUnit } from '$lib/utils/unitConversion';
 import type { AddOn, Ingredient } from '$lib/types/product';
 
 interface EkstraDeps {
@@ -96,7 +96,7 @@ export function createEkstraState(deps: EkstraDeps) {
 			satuan_resep = ekstraForm.satuan_resep || bahan?.satuan || 'gram';
 			const baseUnit = bahan?.satuan || 'gram';
 			const packSize = bahan?.isi_per_kemasan || 1;
-			jumlah_dasar_per_item = convertToBaseUnit(jumlah_bahan, satuan_resep, baseUnit, packSize);
+			jumlah_dasar_per_item = safeConvertToBaseUnit(jumlah_bahan, satuan_resep, baseUnit, packSize);
 		}
 
 		try {

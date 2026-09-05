@@ -19,6 +19,7 @@
 		UNIT_CATEGORIES,
 		ALL_UNITS,
 		convertToBaseUnit,
+		safeConvertToBaseUnit,
 		formatQuantity,
 		type UnitCategory
 	} from '$lib/utils/unitConversion';
@@ -71,7 +72,7 @@
 		const unit = s.ekstraForm.satuan_resep || selectedEkstraBahan.satuan || 'gram';
 		const baseUnit = selectedEkstraBahan.satuan || 'gram';
 		const packSize = selectedEkstraBahan.isi_per_kemasan || 1;
-		const baseQty = convertToBaseUnit(qty, unit, baseUnit, packSize);
+		const baseQty = safeConvertToBaseUnit(qty, unit, baseUnit, packSize);
 		const unitCost = Number(selectedEkstraBahan.biaya_per_satuan || 0);
 		return baseQty * unitCost;
 	});
@@ -1647,7 +1648,7 @@
 							{@const packSize = Number(
 								String(s.bahanForm.isi_per_kemasan).replace(/\./g, '') || 1
 							)}
-							{@const baseQty = convertToBaseUnit(
+							{@const baseQty = safeConvertToBaseUnit(
 								numQty,
 								s.bahanForm.satuan_beli || s.bahanForm.satuan,
 								s.bahanForm.satuan,
