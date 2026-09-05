@@ -11,12 +11,8 @@ import {
 } from '$lib/utils/offline';
 import type { PendingTransaction } from '$lib/utils/offlineQueue';
 import { createToastManager } from '$lib/utils/ui';
-import type { Workbox as WorkboxInstance } from 'workbox-window';
 
 export function createLayoutState() {
-	// [CATATAN]: ── PWA ──────────────────────────────────────────────────────────────────
-	let pwaWorkbox: WorkboxInstance | null = null;
-
 	// [CATATAN]: ── Offline / pending sync ────────────────────────────────────────────────
 	let hasPrefetchedMenu = false;
 	let hasPrefetchedOwnerInsights = false;
@@ -112,7 +108,6 @@ export function createLayoutState() {
 		try {
 			const { Workbox } = await import('workbox-window');
 			const wb = new Workbox('/sw.js');
-			pwaWorkbox = wb;
 			await wb.register();
 		} catch (error) {
 			console.log('PWA registration failed:', error);

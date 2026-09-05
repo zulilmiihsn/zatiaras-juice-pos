@@ -149,7 +149,10 @@ export function convertToBaseUnit(
 
 	const isCountCategory = (cat: UnitCategory) => cat === 'kemasan' || cat === 'unit';
 
-	if (fromCategory !== baseCategory && !(isCountCategory(fromCategory) && isCountCategory(baseCategory))) {
+	if (
+		fromCategory !== baseCategory &&
+		!(isCountCategory(fromCategory) && isCountCategory(baseCategory))
+	) {
 		throw new Error(
 			`Konversi satuan tidak kompatibel: ${fromUnit} (${fromCategory}) tidak dapat dikonversi ke ${baseUnit} (${baseCategory})`
 		);

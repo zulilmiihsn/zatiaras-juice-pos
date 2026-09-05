@@ -41,17 +41,39 @@
 }
 
 /* ── Guaranteed Z-Index Layer Utility Classes ── */
-.z-base { z-index: 0 !important; }
-.z-card { z-index: 10 !important; }
-.z-surface { z-index: 20 !important; }
-.z-nav { z-index: 40 !important; }
-.z-fab { z-index: 50 !important; }
-.z-sheet { z-index: 60 !important; }
-.z-modal { z-index: 70 !important; }
-.z-dialog { z-index: 80 !important; }
-.z-alert { z-index: 90 !important; }
-.z-toast { z-index: 100 !important; }
-.z-max { z-index: 999 !important; }
+.z-base {
+	z-index: 0 !important;
+}
+.z-card {
+	z-index: 10 !important;
+}
+.z-surface {
+	z-index: 20 !important;
+}
+.z-nav {
+	z-index: 40 !important;
+}
+.z-fab {
+	z-index: 50 !important;
+}
+.z-sheet {
+	z-index: 60 !important;
+}
+.z-modal {
+	z-index: 70 !important;
+}
+.z-dialog {
+	z-index: 80 !important;
+}
+.z-alert {
+	z-index: 90 !important;
+}
+.z-toast {
+	z-index: 100 !important;
+}
+.z-max {
+	z-index: 999 !important;
+}
 
 html,
 body,

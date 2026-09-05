@@ -1,7 +1,7 @@
 import { createEkstraCrud } from '$lib/services/manajemenmenuCrud';
 import { formatRupiah, parseRupiah } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
-import { convertToBaseUnit, safeConvertToBaseUnit } from '$lib/utils/unitConversion';
+import { safeConvertToBaseUnit } from '$lib/utils/unitConversion';
 import type { AddOn, Ingredient } from '$lib/types/product';
 
 interface EkstraDeps {

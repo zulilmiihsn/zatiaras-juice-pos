@@ -58,6 +58,9 @@ function switchCatatMode(currentMode: CatatMode, newMode: CatatMode) {
 		nama: '' // Reset nama when switching mode
 	};
 }
+const catatSwitched = switchCatatMode('pemasukan', 'pengeluaran');
+assert.equal(catatSwitched.mode, 'pengeluaran');
+assert.equal(catatSwitched.jenis, 'beban_usaha');
 
 // Test Cash Calculation & Exact Amount (Uang Pas)
 function setExactCashLogic(totalHarga: number): { cashReceived: string; change: number } {

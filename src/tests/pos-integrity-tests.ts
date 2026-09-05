@@ -268,7 +268,9 @@ const statements = buildCheckoutStatements({
 	branch: 'samarinda',
 	items: [],
 	stockDeductions: new Map(),
-	ingredientDeductions: new Map([['b-1', { nama: 'Jeruk', jumlah: 50, satuan: 'gram' }]]),
+	ingredientDeductions: new Map([
+		['b-1', { nama: 'Jeruk', jumlah: 50, satuan: 'gram', products: ['Jus Jeruk'] }]
+	]),
 	totalAmount: 10_000,
 	totalQty: 1,
 	totalHpp: 5_000,
@@ -295,8 +297,14 @@ assert.ok(mutasiStmt, 'bahan_mutasi insert statement must be generated');
 assert.ok(mutasiStmt.sql.includes('referensi_id'), 'sql must include referensi_id column');
 assert.ok(mutasiStmt.sql.includes('catatan'), 'sql must include catatan column');
 assert.ok(mutasiStmt.sql.includes('dibuat_oleh'), 'sql must include dibuat_oleh column');
-assert.ok(!mutasiStmt.sql.includes('keterangan'), 'sql must NOT include non-existent keterangan column');
-assert.ok(!mutasiStmt.sql.includes('username'), 'sql must NOT include non-existent username column');
+assert.ok(
+	!mutasiStmt.sql.includes('keterangan'),
+	'sql must NOT include non-existent keterangan column'
+);
+assert.ok(
+	!mutasiStmt.sql.includes('username'),
+	'sql must NOT include non-existent username column'
+);
 assert.ok(mutasiStmt.args.includes('tx-1'), 'binds must include transactionId as referensi_id');
 assert.ok(mutasiStmt.args.includes('Kasir 1'), 'binds must include dibuat_oleh');
 

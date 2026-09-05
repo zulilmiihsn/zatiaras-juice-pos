@@ -480,3 +480,17 @@ export const d1BackupRuns = sqliteTable(
 		index('idx_d1_backup_runs_db_started').on(table.database_name, table.started_at)
 	]
 );
+
+export const auditLogOutbox = sqliteTable(
+	'audit_log_outbox',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		payload: text('payload').notNull(),
+		attempt_count: integer('attempt_count').notNull().default(0),
+		last_error: text('last_error'),
+		created_at: text('created_at').notNull(),
+		updated_at: text('updated_at').notNull()
+	},
+	(table) => [index('idx_audit_log_outbox_branch_created').on(table.cabang_id, table.created_at)]
+);
