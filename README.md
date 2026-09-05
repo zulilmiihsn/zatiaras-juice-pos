@@ -131,4 +131,4 @@ pnpm deploy:all
 
 `deploy:all` memeriksa konfigurasi, membangun aplikasi, menerapkan Worker realtime, lalu menerapkan output Pages. Perintah ini tidak menerapkan migrasi D1.
 
-Runbook operasi backup dan pemulihan tersedia di [OPERATIONS-RUNBOOK.md](OPERATIONS-RUNBOOK.md).
+Panduan arsitektur, konvensi teknis, dan runbook operasional tersedia di [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).

@@ -199,3 +199,43 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 
 - Tangani error via `$lib/utils/errorHandling` (`ErrorHandler.extractErrorMessage(e)`, `getApiErrorMessage(res)`).
 - Dilarang `catch {}` tanpa logging atau fallback yang aman bagi user.
+
+---
+
+## 9. Operasional & Prosedur Backup D1
+
+### A. Backup Production (3 Shard D1)
+
+- Jalankan backup terisolasi (output di luar repo):
+  ```bash
+  pnpm d1:backup -- --output-dir D:\ZatiarasPOS-Backups --env-file .env
+  ```
+- Verifikasi manifest SHA-256 hasil backup:
+  ```bash
+  pnpm d1:backup -- --verify-manifest D:\ZatiarasPOS-Backups\<run-id>\manifest.sha256.json
+  ```
+- Status valid hanya jika file `COMPLETE` terbit dan seluruh 3 database grup (Samarinda, Balikpapan, Berau) lolos verifikasi.
+
+### B. Prosedur Restore Terkendali
+
+- Restore bersifat destruktif dan memerlukan konfirmasi environment explicit:
+  ```bash
+  CONFIRM_D1_RESTORE=<binding> pnpm d1:restore -- --database <binding> --file <backup.sql>
+  ```
+
+---
+
+## 10. Panduan Toko & Batasan Sistem (Operational Limits)
+
+### A. Peran & Sesi Toko
+
+- `kasir`: Wajib memiliki tepat 1 sesi toko aktif untuk checkout penjualan.
+- `pemilik`: Akses laporan, katalog produk, audit void, dan transaksi darurat tanpa sesi toko.
+- Buka toko dilakukan 1 kali per hari kerja sebelum kasir bertransaksi; tutup toko dilakukan saat akhir shift/hari setelah kas dicocokkan.
+
+### B. Batasan Pembayaran & Offline
+
+- **QRIS**: Hanya online. Verifikasi dilakukan manual via mutasi merchant/aplikasi resmi bank (belum settlement otomatis webhook).
+- **Offline POS**: Hanya berlaku untuk pembayaran tunai di `/pos` dan `/pos/bayar`.
+- **Warm-up**: Browser/PWA harus pernah dibuka saat online agar katalog dan kredensial tersimpan di IndexedDB.
+- **Antrean Offline**: Disimpan lokal di IndexedDB dan otomatis dikirim bertahap saat koneksi pulih. Dilarang membersihkan cache/data browser sebelum antrean menjadi nol.

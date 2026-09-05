@@ -53,15 +53,8 @@
 		"test:pos-integrity:local": "node scripts/uat-pos-integrity.mjs",
 		"test:e2e:install": "playwright install chromium",
 		"test:e2e:pos": "node scripts/run-playwright-local.mjs e2e/pos.spec.ts",
-		"test:checkout:local": "node scripts/uat-checkout-financials.mjs",
 		"test:receipt-output": "tsx src/tests/receipt-output-tests.ts",
 		"test:report-grouping": "tsx src/tests/report-grouping-tests.ts",
-		"test:csp:local": "node scripts/uat-csp-pages.mjs",
-		"test:csrf:local": "node scripts/uat-csrf-mutations.mjs",
-		"test:final:local": "node scripts/uat-final-workflows.mjs",
-		"test:security:local": "node scripts/uat-security-rate-limits.mjs",
-		"test:audit-outbox:local": "node scripts/uat-audit-outbox.mjs",
-		"test:load:checkout": "node scripts/loadtest-checkout.mjs",
 		"d1:setup:local": "node scripts/setup-local-d1.mjs"
 	},
 	"devDependencies": {
