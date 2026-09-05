@@ -178,7 +178,7 @@
 
 {#if isOpen}
 	<div
-		class="modal-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
+		class="modal-overlay z-sheet fixed inset-0 flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
 		transition:fade={{ duration: 180 }}
 		onclick={closeModal}
 		onkeydown={(e) => e.key === 'Escape' && closeModal()}
@@ -363,7 +363,7 @@
 		background: rgba(0, 0, 0, 0.18);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
-		z-index: 99999 !important;
+		z-index: var(--z-sheet, 70) !important;
 		position: fixed !important;
 		top: 0 !important;
 		left: 0 !important;

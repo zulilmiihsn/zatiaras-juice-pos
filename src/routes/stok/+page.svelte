@@ -1058,7 +1058,7 @@
 
 	<!-- Floating Action Button (FAB) -->
 	<button
-		class="fixed right-6 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-pink-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:bg-pink-600 active:scale-95"
+		class="z-fab fixed right-6 bottom-20 flex h-14 w-14 items-center justify-center rounded-full bg-pink-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:bg-pink-600 active:scale-95"
 		onclick={openAddModal}
 		aria-label="Tambah Bahan Baku"
 	>
@@ -1069,7 +1069,7 @@
 <!-- Modal Tambah / Edit Bahan -->
 {#if showBahanModal}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+		class="z-modal fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
 		role="dialog"
 		aria-modal="true"
 		onclick={(e) => e.target === e.currentTarget && closeBahanModal()}
@@ -1507,7 +1507,7 @@
 <!-- Modal Mutasi Cepat (+ Kulakan / - Koreksi) -->
 {#if showMutasiModal && selectedBahanForMutasi}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+		class="z-modal fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
 		role="dialog"
 		aria-modal="true"
 		onclick={(e) => e.target === e.currentTarget && closeMutasiModal()}
@@ -2049,7 +2049,7 @@
 <!-- Modal Konfirmasi Hapus -->
 {#if showDeleteModal}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+		class="z-alert fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
 		role="dialog"
 		aria-modal="true"
 		onclick={(e) => e.target === e.currentTarget && (showDeleteModal = false)}

@@ -7,11 +7,37 @@
 		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	--font-display:
 		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+	/* ── Design System Z-Index Token Hierarchy ── */
+	--z-base: 0;
+	--z-card: 10;
+	--z-surface: 20;
+	--z-nav: 30;
+	--z-fab: 40;
+	--z-modal: 50;
+	--z-dialog: 60;
+	--z-sheet: 70;
+	--z-alert: 80;
+	--z-toast: 90;
+	--z-max: 100;
 }
 
 :root {
 	--font-family-sans:
 		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+	/* CSS Variables for raw CSS contexts */
+	--z-base: 0;
+	--z-card: 10;
+	--z-surface: 20;
+	--z-nav: 30;
+	--z-fab: 40;
+	--z-modal: 50;
+	--z-dialog: 60;
+	--z-sheet: 70;
+	--z-alert: 80;
+	--z-toast: 90;
+	--z-max: 100;
 }
 
 html,

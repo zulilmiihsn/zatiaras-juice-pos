@@ -436,7 +436,9 @@
 
 <!-- Modal Tambah Pajak Kustom -->
 {#if showAddModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+	<div
+		class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+	>
 		<div class="animate-scaleUp w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
 			<h3 class="text-base font-black text-slate-900">Tambah Pajak Kustom</h3>
 			<p class="mt-0.5 text-xs text-slate-500">

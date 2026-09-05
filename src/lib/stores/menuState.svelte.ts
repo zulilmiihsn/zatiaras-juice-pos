@@ -1,3 +1,4 @@
+import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { createMenuCrud } from '$lib/services/manajemenmenuCrud';
 import {
 	deleteMenuImage,
@@ -31,6 +32,7 @@ export function createMenuState(deps: MenuDeps) {
 	let menus = $state<Product[]>([]);
 	const imageError = $state<Record<string, boolean>>({});
 	let showMenuForm = $state(false);
+	let isSavingMenu = $state(false);
 	let editMenuId = $state<string | number | null>(null);
 	let showDeleteModal = $state(false);
 	let menuIdToDelete = $state<string | number | null>(null);
@@ -125,7 +127,12 @@ export function createMenuState(deps: MenuDeps) {
 		recipeDraft = { bahan_id: '', jumlah_per_item: '', satuan_resep: '' };
 	}
 
-	async function saveMenu() {
+	async function saveMenu(e?: SubmitEvent | MouseEvent) {
+		if (e?.preventDefault) {
+			e.preventDefault();
+		}
+		if (isSavingMenu) return;
+
 		if (!menuForm.nama || menuForm.nama.trim() === '') {
 			deps.showNotif('Nama menu wajib diisi!', 'warning');
 			return;
@@ -139,47 +146,52 @@ export function createMenuState(deps: MenuDeps) {
 			return;
 		}
 
-		let imageUrl = menuForm.gambar;
-		if (imageUrl && imageUrl.startsWith('data:image/')) {
-			try {
-				imageUrl = await uploadMenuImageFromDataUrl(imageUrl, String(editMenuId || Date.now()));
-			} catch (err) {
-				deps.showNotif('Gagal upload gambar: ' + ErrorHandler.extractErrorMessage(err), 'error');
-				return;
-			}
-		}
-		const productPayload = {
-			id: editMenuId || null,
-			nama: menuForm.nama,
-			kategori_id: menuForm.kategori_id,
-			tipe: menuForm.tipe,
-			harga: parseRupiah(menuForm.harga),
-			harga_jumbo: menuForm.harga_jumbo ? parseRupiah(menuForm.harga_jumbo) : null,
-			stok:
-				menuForm.stok !== null && menuForm.stok !== undefined && menuForm.stok !== ''
-					? Number(menuForm.stok)
-					: null,
-			lacak_stok: menuForm.lacak_stok,
-			lacak_bahan: menuForm.lacak_bahan,
-			ekstra_ids: menuForm.ekstra_ids,
-			gambar: imageUrl
-		};
-
-		const recipesPayload = recipeItems.map((item) => ({
-			bahan_id: String(item.bahan_id),
-			porsi: item.porsi || 'reguler',
-			jumlah_per_item: Number(item.jumlah_per_item || 0),
-			satuan_resep: item.satuan_resep || null,
-			jumlah_dasar_per_item: Number(item.jumlah_dasar_per_item || item.jumlah_per_item || 0)
-		}));
-
+		isSavingMenu = true;
 		try {
+			let imageUrl = menuForm.gambar;
+			if (imageUrl && imageUrl.startsWith('data:image/')) {
+				try {
+					imageUrl = await uploadMenuImageFromDataUrl(imageUrl, String(editMenuId || Date.now()));
+				} catch (err) {
+					deps.showNotif('Gagal upload gambar: ' + ErrorHandler.extractErrorMessage(err), 'error');
+					return;
+				}
+			}
+
+			const productPayload = {
+				id: editMenuId || null,
+				nama: menuForm.nama,
+				kategori_id: menuForm.kategori_id,
+				tipe: menuForm.tipe,
+				harga: parseRupiah(menuForm.harga),
+				harga_jumbo: menuForm.harga_jumbo ? parseRupiah(menuForm.harga_jumbo) : null,
+				stok:
+					menuForm.stok !== null && menuForm.stok !== undefined && menuForm.stok !== ''
+						? Number(menuForm.stok)
+						: null,
+				lacak_stok: menuForm.lacak_stok,
+				lacak_bahan: menuForm.lacak_bahan,
+				ekstra_ids: menuForm.ekstra_ids,
+				gambar: imageUrl
+			};
+
+			const recipesPayload = menuForm.lacak_bahan
+				? recipeItems.map((item) => ({
+						bahan_id: String(item.bahan_id),
+						porsi: item.porsi || 'reguler',
+						jumlah_per_item: Number(item.jumlah_per_item || 0),
+						satuan_resep: item.satuan_resep || null,
+						jumlah_dasar_per_item: Number(item.jumlah_dasar_per_item || item.jumlah_per_item || 0)
+					}))
+				: [];
+
 			const res = await fetchWithCsrfRetry('/api/produk/save-atomic', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
+					branch: selectedBranch.value,
 					produk: productPayload,
 					resep: recipesPayload
 				})
@@ -188,15 +200,20 @@ export function createMenuState(deps: MenuDeps) {
 				const errData = await res.json().catch(() => ({}));
 				throw new Error(errData.message || 'Gagal menyimpan menu');
 			}
+
+			const wasEditing = Boolean(editMenuId);
+			closeMenuForm();
+			await deps.afterUpdate();
+			await Promise.all([fetchMenus(), deps.fetchRecipes()]);
+			deps.showNotif(
+				wasEditing ? 'Menu berhasil diperbarui!' : 'Menu berhasil disimpan!',
+				'success'
+			);
 		} catch (error) {
 			deps.showNotif('Gagal menyimpan menu: ' + ErrorHandler.extractErrorMessage(error), 'error');
-			return;
+		} finally {
+			isSavingMenu = false;
 		}
-
-		closeMenuForm();
-		await fetchMenus();
-		await deps.fetchRecipes();
-		await deps.afterUpdate();
 	}
 
 	function addRecipeItem() {
@@ -407,6 +424,9 @@ export function createMenuState(deps: MenuDeps) {
 		},
 		get isLoadingMenus() {
 			return isLoadingMenus;
+		},
+		get isSavingMenu() {
+			return isSavingMenu;
 		},
 		fetchMenus,
 		openMenuForm,

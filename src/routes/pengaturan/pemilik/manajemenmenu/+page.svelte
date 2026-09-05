@@ -164,7 +164,7 @@
 	<!-- Floating Action Button (FAB) bulat untuk tambah data sesuai tab aktif -->
 	{#if s.activeTab === 'menu'}
 		<button
-			class="fixed right-6 bottom-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 			onclick={() => s.openMenuForm()}
 			aria-label="Tambah Menu"
 		>
@@ -172,7 +172,7 @@
 		</button>
 	{:else if s.activeTab === 'kategori'}
 		<button
-			class="fixed right-6 bottom-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 			onclick={() => s.openKategoriForm(null)}
 			aria-label="Tambah Kategori"
 		>
@@ -180,7 +180,7 @@
 		</button>
 	{:else if s.activeTab === 'ekstra'}
 		<button
-			class="fixed right-6 bottom-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 			onclick={() => s.openEkstraForm()}
 			aria-label="Tambah Tambahan"
 		>
@@ -188,7 +188,7 @@
 		</button>
 	{:else if s.activeTab === 'bahan'}
 		<button
-			class="fixed right-6 bottom-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 			onclick={() => s.openBahanForm()}
 			aria-label="Tambah Bahan"
 		>
@@ -257,7 +257,7 @@
 	<!-- Modal untuk tambah/edit menu -->
 	{#if s.showMenuForm}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			onclick={(e) => e.target === e.currentTarget && s.closeMenuForm()}
@@ -297,7 +297,10 @@
 				<form
 					id="menu-form"
 					class="flex flex-1 flex-col gap-5 overflow-y-auto p-6"
-					onsubmit={s.saveMenu}
+					onsubmit={(e) => {
+						e.preventDefault();
+						s.saveMenu(e);
+					}}
 					autocomplete="off"
 				>
 					<!-- Preview Gambar Menu -->
@@ -888,13 +891,43 @@
 					<button
 						type="submit"
 						form="menu-form"
-						class="flex-1 cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-xs font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95"
+						disabled={s.isSavingMenu}
+						onclick={(e) => {
+							e.preventDefault();
+							s.saveMenu(e);
+						}}
+						class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-xs font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{s.editMenuId ? 'Update Menu' : 'Simpan Menu'}
+						{#if s.isSavingMenu}
+							<svg
+								class="h-4 w-4 animate-spin text-white"
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<circle
+									class="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									stroke-width="4"
+								></circle>
+								<path
+									class="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								></path>
+							</svg>
+							<span>Menyimpan...</span>
+						{:else}
+							<span>{s.editMenuId ? 'Update Menu' : 'Simpan Menu'}</span>
+						{/if}
 					</button>
 					<button
 						type="button"
-						class="flex-1 cursor-pointer rounded-xl bg-slate-100 py-3 text-xs font-bold text-slate-700 transition-all hover:bg-slate-200 active:scale-95"
+						disabled={s.isSavingMenu}
+						class="flex-1 cursor-pointer rounded-xl bg-slate-100 py-3 text-xs font-bold text-slate-700 transition-all hover:bg-slate-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 						onclick={s.closeMenuForm}
 					>
 						Batal
@@ -907,7 +940,7 @@
 	<!-- Modal untuk tambah/edit kategori -->
 	{#if s.showKategoriDetailModal}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			onclick={(e) => e.target === e.currentTarget && s.closeKategoriDetailModal()}
@@ -944,7 +977,10 @@
 					<form
 						id="kategori-form"
 						class="flex flex-col gap-5"
-						onsubmit={s.saveKategoriDetail}
+						onsubmit={(e) => {
+							e.preventDefault();
+							s.saveKategoriDetail();
+						}}
 						autocomplete="off"
 					>
 						<!-- Nama Kategori -->
@@ -1052,7 +1088,7 @@
 	<!-- Modal untuk tambah/edit ekstra -->
 	{#if s.showEkstraForm}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			onclick={(e) => e.target === e.currentTarget && s.closeEkstraForm()}
@@ -1087,7 +1123,10 @@
 				<form
 					id="ekstra-form"
 					class="flex flex-1 flex-col gap-4 overflow-y-auto p-6"
-					onsubmit={s.saveEkstra}
+					onsubmit={(e) => {
+						e.preventDefault();
+						s.saveEkstra();
+					}}
 					autocomplete="off"
 				>
 					<div class="flex flex-col gap-1.5">
@@ -1250,7 +1289,7 @@
 
 	{#if s.showBahanForm}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			onclick={(e) => e.target === e.currentTarget && s.closeBahanForm()}
@@ -1285,7 +1324,10 @@
 				<form
 					id="bahan-form"
 					class="flex flex-1 flex-col gap-4 overflow-y-auto p-6"
-					onsubmit={s.saveBahan}
+					onsubmit={(e) => {
+						e.preventDefault();
+						s.saveBahan();
+					}}
 					autocomplete="off"
 				>
 					<!-- Nama Bahan -->
@@ -1671,7 +1713,7 @@
 
 	{#if s.showMutasiBahanForm}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			onclick={(e) => e.target === e.currentTarget && s.closeMutasiBahanForm()}
@@ -1702,7 +1744,10 @@
 				<form
 					id="mutasi-form"
 					class="flex flex-1 flex-col gap-4 overflow-y-auto p-6"
-					onsubmit={s.saveMutasiBahan}
+					onsubmit={(e) => {
+						e.preventDefault();
+						s.saveMutasiBahan();
+					}}
 					autocomplete="off"
 				>
 					<div class="flex flex-col gap-1.5">
@@ -1762,7 +1807,9 @@
 
 	<!-- Modal konfirmasi hapus menu -->
 	{#if s.showDeleteModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+		<div
+			class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+		>
 			<div
 				class="animate-slideUpModal relative mx-4 flex w-full max-w-xs flex-col items-center overflow-hidden rounded-2xl bg-white p-6 shadow-2xl"
 			>
@@ -1791,7 +1838,9 @@
 
 	<!-- Modal konfirmasi hapus kategori -->
 	{#if s.showDeleteKategoriModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+		<div
+			class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+		>
 			<div
 				class="animate-slideUpModal relative mx-4 flex w-full max-w-xs flex-col items-center overflow-hidden rounded-2xl bg-white p-6 shadow-2xl"
 			>
@@ -1821,7 +1870,9 @@
 
 	<!-- Modal konfirmasi hapus ekstra -->
 	{#if s.showDeleteEkstraModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+		<div
+			class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+		>
 			<div
 				class="animate-slideUpModal relative mx-4 flex w-full max-w-xs flex-col items-center overflow-hidden rounded-2xl bg-white p-6 shadow-2xl"
 			>
@@ -1849,7 +1900,9 @@
 	{/if}
 
 	{#if s.showDeleteBahanModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+		<div
+			class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+		>
 			<div
 				class="animate-slideUpModal relative mx-4 flex w-full max-w-xs flex-col items-center overflow-hidden rounded-2xl bg-white p-6 shadow-2xl"
 			>

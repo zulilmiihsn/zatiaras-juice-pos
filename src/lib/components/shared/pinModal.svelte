@@ -74,9 +74,11 @@
 
 {#if show}
 	<div
-		class="fixed inset-0 z-40 flex items-center justify-center"
+		class="z-modal fixed inset-0 flex items-center justify-center"
 		style="top: 58px; bottom: 58px; background: linear-gradient(to bottom right, #f472b6, #ec4899, #a855f7);"
 		transition:fade={{ duration: 200 }}
+		role="dialog"
+		aria-modal="true"
 	>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<div

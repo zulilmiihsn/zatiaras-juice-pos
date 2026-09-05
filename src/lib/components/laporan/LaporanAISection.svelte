@@ -156,7 +156,7 @@
 </script>
 
 <!-- ─── 1. FLOATING ACTION BUTTON (FAB) ──────────────────────────────────────── -->
-<div class="fixed right-4 bottom-22 z-40 sm:right-6 sm:bottom-24">
+<div class="z-fab fixed right-4 bottom-22 sm:right-6 sm:bottom-24">
 	<button
 		type="button"
 		onclick={() => (showAiModal = true)}
@@ -173,7 +173,7 @@
 <!-- ─── 2. ASSISTANT MODAL DIALOG ────────────────────────────────────────────── -->
 {#if showAiModal}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-xs sm:p-5"
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/50 p-3 backdrop-blur-xs sm:p-5"
 		onclick={(e) => e.target === e.currentTarget && handleAiClose()}
 		onkeydown={(e) => e.key === 'Escape' && handleAiClose()}
 		role="dialog"

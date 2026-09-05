@@ -204,7 +204,7 @@
 <!-- Modal konfirmasi -->
 {#if showConfirm}
 	<div
-		class="fixed inset-0 z-50 flex items-end justify-center bg-black/30"
+		class="z-alert fixed inset-0 flex items-end justify-center bg-black/30"
 		transition:fade={{ duration: 150 }}
 	>
 		<div

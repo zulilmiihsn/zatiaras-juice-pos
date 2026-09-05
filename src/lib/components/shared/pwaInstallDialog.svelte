@@ -194,7 +194,7 @@
 {#if show}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+		class="z-dialog fixed inset-0 flex items-end justify-center sm:items-center"
 		transition:fade={{ duration: 200 }}
 	>
 		<button

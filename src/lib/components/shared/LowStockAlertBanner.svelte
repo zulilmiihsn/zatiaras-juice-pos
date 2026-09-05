@@ -83,7 +83,7 @@
 {#if lowStockItems.length > 0 && !isDismissed}
 	<div
 		transition:fly={{ y: -30, duration: 250 }}
-		class="pointer-events-none fixed inset-x-0 top-3 z-50 mx-auto w-full max-w-lg px-3 select-none sm:px-4"
+		class="z-fab pointer-events-none fixed inset-x-0 top-3 mx-auto w-full max-w-lg px-3 select-none sm:px-4"
 	>
 		<div
 			role="region"

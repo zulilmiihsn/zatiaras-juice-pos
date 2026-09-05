@@ -125,7 +125,7 @@
 {#if show}
 	<!-- Modal Backdrop Overlay -->
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
 		transition:fade={{ duration: 180 }}
 		onclick={(event) => event.target === event.currentTarget && (show = false)}
 		onkeydown={(e) => e.key === 'Escape' && (show = false)}

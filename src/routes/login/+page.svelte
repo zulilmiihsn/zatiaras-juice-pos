@@ -168,7 +168,7 @@
 		<!-- Success Notification Overlay -->
 		{#if showSuccessModal}
 			<div
-				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-xs"
+				class="z-alert pointer-events-none fixed inset-0 flex items-center justify-center bg-black/25 backdrop-blur-xs"
 			>
 				<div
 					class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
@@ -187,7 +187,7 @@
 		<!-- Error Notification Overlay -->
 		{#if showErrorModal}
 			<div
-				class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-xs"
+				class="z-alert pointer-events-none fixed inset-0 flex items-center justify-center bg-black/25 backdrop-blur-xs"
 			>
 				<div
 					class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"

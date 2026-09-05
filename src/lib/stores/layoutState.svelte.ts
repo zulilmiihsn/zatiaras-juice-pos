@@ -15,7 +15,6 @@ import type { Workbox as WorkboxInstance } from 'workbox-window';
 
 export function createLayoutState() {
 	// [CATATAN]: ── PWA ──────────────────────────────────────────────────────────────────
-	let showUpdateNotification = $state(false);
 	let pwaWorkbox: WorkboxInstance | null = null;
 
 	// [CATATAN]: ── Offline / pending sync ────────────────────────────────────────────────
@@ -114,12 +113,6 @@ export function createLayoutState() {
 			const { Workbox } = await import('workbox-window');
 			const wb = new Workbox('/sw.js');
 			pwaWorkbox = wb;
-			wb.addEventListener('waiting', () => {
-				showUpdateNotification = true;
-			});
-			wb.addEventListener('controlling', () => {
-				window.location.reload();
-			});
 			await wb.register();
 		} catch (error) {
 			console.log('PWA registration failed:', error);
@@ -164,24 +157,7 @@ export function createLayoutState() {
 		window.addEventListener('pending-changed', updatePending);
 	}
 
-	async function applyUpdate() {
-		if (pwaWorkbox && import.meta.env.PROD) {
-			try {
-				pwaWorkbox.messageSkipWaiting();
-			} catch (error) {
-				console.log('Failed to apply update:', error);
-			}
-		}
-	}
-
-	function dismissUpdate() {
-		showUpdateNotification = false;
-	}
-
 	return {
-		get showUpdateNotification() {
-			return showUpdateNotification;
-		},
 		get isOffline() {
 			return isOffline;
 		},
@@ -206,8 +182,6 @@ export function createLayoutState() {
 		removeOnePendingTransaction,
 		scheduleIdleTask,
 		prefetchMenuData,
-		prefetchOwnerInsights,
-		applyUpdate,
-		dismissUpdate
+		prefetchOwnerInsights
 	};
 }

@@ -26,7 +26,7 @@
 	<!-- [CATATAN]: Floating Glass Cart Pill (Tersusun rapi di pojok kanan bawah, serasi dengan branding Zatiaras) -->
 	<aside
 		aria-label="Keranjang Belanja"
-		class="pointer-events-none fixed right-3.5 bottom-[76px] z-40 sm:right-6 md:bottom-[90px] lg:hidden"
+		class="z-fab pointer-events-none fixed right-3.5 bottom-[76px] sm:right-6 md:bottom-[90px] lg:hidden"
 		in:scale={{ duration: 220, start: 0.8, easing: backOut }}
 		out:scale={{ duration: 160, start: 0.8 }}
 	>

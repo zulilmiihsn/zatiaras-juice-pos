@@ -39,7 +39,7 @@
 />
 
 {#if s.showSnackbar}
-	<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+	<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
 		<div
 			class="flex min-w-[220px] items-center justify-center gap-3 rounded-2xl bg-pink-600 px-6 py-3.5 text-base font-semibold text-white shadow-xl shadow-pink-950/20 backdrop-blur-md"
 			in:fly={{ y: -20, duration: 240, easing: cubicOut }}
@@ -532,7 +532,7 @@
 	</main>
 
 	<!-- Button Simpan on Mobile (Floating at bottom, hidden on md:) -->
-	<div class="fixed right-0 bottom-[68px] left-0 z-30 px-4 pt-2 pb-2 md:hidden">
+	<div class="z-nav fixed right-0 bottom-[68px] left-0 px-4 pt-2 pb-2 md:hidden">
 		<div class="mx-auto max-w-md">
 			<button
 				type="submit"

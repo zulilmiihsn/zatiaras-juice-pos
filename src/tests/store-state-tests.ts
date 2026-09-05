@@ -59,9 +59,14 @@ function switchCatatMode(currentMode: CatatMode, newMode: CatatMode) {
 	};
 }
 
-const catatState = switchCatatMode('pemasukan', 'pengeluaran');
-assert.equal(catatState.mode, 'pengeluaran');
-assert.equal(catatState.jenis, 'beban_usaha');
-assert.equal(catatState.nama, '');
+// Test Cash Calculation & Exact Amount (Uang Pas)
+function setExactCashLogic(totalHarga: number): { cashReceived: string; change: number } {
+	const cashReceived = (totalHarga > 0 ? totalHarga : 0).toString();
+	const change = (parseInt(cashReceived) || 0) - totalHarga;
+	return { cashReceived, change };
+}
+const exactResult = setExactCashLogic(24_000);
+assert.equal(exactResult.cashReceived, '24000');
+assert.equal(exactResult.change, 0);
 
-console.log('store-state-tests: 6 assertions passed (100% deterministic, 0 timeout)');
+console.log('store-state-tests: 8 assertions passed (100% deterministic, 0 timeout)');

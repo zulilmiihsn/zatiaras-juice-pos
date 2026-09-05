@@ -207,7 +207,7 @@
 
 	<!-- Logout Confirmation Modal -->
 	{#if s.showLogoutModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 p-4">
 			<div class="animate-slideUpModal w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
 				<div class="mb-4 flex items-center gap-3">
 					<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
@@ -248,7 +248,7 @@
 	<!-- PWA Installed Toast -->
 	{#if s.showPwaInstalledToast}
 		<div
-			class="animate-fadeIn fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
+			class="animate-fadeIn z-toast fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
 		>
 			Aplikasi berhasil terpasang di Home Screen!
 		</div>
@@ -279,7 +279,7 @@
 	</style>
 
 	{#if s.showNotification}
-		<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+		<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
 			<div
 				class="rounded-2xl bg-amber-500 px-6 py-3 text-center font-bold text-white shadow-xl shadow-amber-950/20 backdrop-blur-md"
 				in:fly={{ y: -20, duration: 240, easing: cubicOut }}

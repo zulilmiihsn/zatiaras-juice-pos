@@ -302,7 +302,7 @@
 <!-- Modal Detail (Read Only) -->
 {#if showDetailModal && selectedTransaksi}
 	<div
-		class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-0 backdrop-blur-sm sm:items-center sm:px-4"
+		class="z-modal fixed inset-0 flex items-end justify-center bg-black/40 px-0 backdrop-blur-sm sm:items-center sm:px-4"
 	>
 		<div
 			class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-t-2xl border border-pink-100 bg-white p-6 shadow-2xl sm:rounded-2xl sm:p-8"

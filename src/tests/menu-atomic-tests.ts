@@ -119,4 +119,19 @@ assert.throws(
 	/Resep duplikat/
 );
 
-console.log('menu-atomic-tests: 10 assertions passed');
+// 3. Ekstra IDs Serialization Tests
+function serializeEkstraIds(ekstraIds: unknown): string {
+	return Array.isArray(ekstraIds)
+		? JSON.stringify(ekstraIds)
+		: typeof ekstraIds === 'string' && ekstraIds.trim()
+			? ekstraIds
+			: '[]';
+}
+
+assert.equal(serializeEkstraIds([]), '[]');
+assert.equal(serializeEkstraIds(['topping-1', 'topping-2']), '["topping-1","topping-2"]');
+assert.equal(serializeEkstraIds(null), '[]');
+assert.equal(serializeEkstraIds(undefined), '[]');
+assert.equal(serializeEkstraIds('["custom"]'), '["custom"]');
+
+console.log('menu-atomic-tests: 15 assertions passed');

@@ -273,7 +273,7 @@
 </main>
 
 {#if s.showCancelModal}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
+	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
 		<div
 			class="animate-slideUpModal mx-auto w-full max-w-sm rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
 		>
@@ -315,13 +315,20 @@
 				placeholder="0"
 			/>
 			<div class="mb-4 flex flex-wrap justify-center gap-2 md:mb-6 md:gap-3">
+				<button
+					type="button"
+					class="min-h-[44px] cursor-pointer rounded-full border border-pink-500 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4 py-2 text-xs font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-95 md:px-6 md:text-sm"
+					onclick={() => s.handleSetExactCash()}
+				>
+					Uang Pas (Rp {formatRupiah(s.totalHarga)})
+				</button>
 				{#each cashTemplates as t}
 					<button
 						type="button"
 						class="min-h-[44px] cursor-pointer rounded-full border border-pink-200/80 bg-pink-50/70 px-4 py-2 text-xs font-extrabold text-pink-600 shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-100 active:scale-95 md:px-6 md:text-sm"
 						onclick={() => s.handleAddCashTemplate(t)}
 					>
-						Rp {formatRupiah(t)}
+						+ Rp {formatRupiah(t)}
 					</button>
 				{/each}
 			</div>
@@ -365,7 +372,7 @@
 {/if}
 
 {#if s.showQrisWarning}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
+	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
 		<div
 			class="animate-slideUpModal qris-warning-modal mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-t-[28px] border-t border-slate-100 bg-white p-8 pb-6 shadow-xl"
 		>
@@ -399,7 +406,7 @@
 {/if}
 
 {#if s.showSuccessModal}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
+	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
 		<div
 			class="animate-slideUpModal mx-auto flex w-full max-w-sm flex-col items-center gap-3.5 rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
 		>
@@ -466,7 +473,7 @@
 {/if}
 
 {#if s.showErrorNotification}
-	<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+	<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
 		<div
 			class="rounded-2xl bg-rose-600 px-6 py-3 text-center font-bold text-white shadow-xl shadow-rose-950/20 backdrop-blur-md"
 			in:fly={{ y: -20, duration: 240, easing: cubicOut }}

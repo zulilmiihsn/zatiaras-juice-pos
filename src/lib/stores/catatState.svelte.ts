@@ -15,7 +15,7 @@ import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createToastManager } from '$lib/utils/ui';
 import { getSesiAktif } from '$lib/services/sesiTokoService';
 import type { TokoSession } from '$lib/types';
-import type { NotifModalType } from '$lib/components/shared/NotifModal.svelte';
+import type { NotifModalType } from '$lib/types';
 
 export interface CatatRecentTransaction {
 	id?: string;

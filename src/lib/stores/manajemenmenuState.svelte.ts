@@ -199,6 +199,9 @@ export function createManajemenmenuState() {
 		get isLoadingMenus() {
 			return menuSt.isLoadingMenus;
 		},
+		get isSavingMenu() {
+			return menuSt.isSavingMenu;
+		},
 		get filteredMenus() {
 			return filteredMenus;
 		},

@@ -24,7 +24,7 @@ import {
 import type { ReceiptSettings } from '$lib/types/laporan';
 import type { TokoSession } from '$lib/types/store';
 import type { CartItem } from '$lib/types/cart';
-import type { NotifModalType } from '$lib/components/shared/NotifModal.svelte';
+import type { NotifModalType } from '$lib/types';
 
 interface QuoteLine {
 	source: Record<string, unknown>;
@@ -368,6 +368,9 @@ export function createBayarState() {
 	function addCashTemplate(nom: number) {
 		cashReceived = ((parseInt(cashReceived) || 0) + nom).toString();
 	}
+	function setExactCash() {
+		cashReceived = (totalHarga > 0 ? totalHarga : 0).toString();
+	}
 	function closeCashModal() {
 		showCashModal = false;
 	}
@@ -656,6 +659,9 @@ export function createBayarState() {
 	function handleAddCashTemplate(t: number) {
 		addCashTemplate(t);
 	}
+	function handleSetExactCash() {
+		setExactCash();
+	}
 	function handleKeypadButton(key: string | number) {
 		if (key === 'C') cashReceived = '';
 		else handleKeypad(key);
@@ -794,6 +800,8 @@ export function createBayarState() {
 		closeNotifModal,
 		printStrukViaEscPosService,
 		handleAddCashTemplate,
+		handleSetExactCash,
+		setExactCash,
 		handleKeypadButton,
 		handleSetPaymentMethod,
 		handleBackToKasir,

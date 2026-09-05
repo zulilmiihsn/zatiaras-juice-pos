@@ -20,7 +20,7 @@
 
 {#if showFilter}
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
 	>
 		<div class="mx-auto w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
 			<div class="mb-5 flex items-center justify-between">
@@ -100,8 +100,9 @@
 			{#if filterType === 'harian'}
 				<div class="mb-6 space-y-3">
 					<div>
-						<label class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase" for="harian-start-date"
-							>Tanggal Awal</label
+						<label
+							class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase"
+							for="harian-start-date">Tanggal Awal</label
 						>
 						<input
 							id="harian-start-date"
@@ -111,8 +112,9 @@
 						/>
 					</div>
 					<div>
-						<label class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase" for="harian-end-date"
-							>Tanggal Akhir</label
+						<label
+							class="mb-1.5 block text-xs font-bold tracking-wider text-slate-600 uppercase"
+							for="harian-end-date">Tanggal Akhir</label
 						>
 						<input
 							id="harian-end-date"

@@ -188,7 +188,11 @@
 </script>
 
 {#if open}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+	<div
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40"
+		role="dialog"
+		aria-modal="true"
+	>
 		<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
 			<div
 				class="relative mb-4 aspect-square w-full overflow-hidden rounded-xl bg-gray-100"

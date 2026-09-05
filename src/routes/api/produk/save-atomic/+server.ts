@@ -11,10 +11,11 @@ interface AtomicProductInput {
 	harga: number;
 	harga_jumbo?: number | null;
 	kategori_id?: string | null;
+	tipe?: string | null;
 	stok?: number | null;
 	lacak_stok?: boolean | number;
 	lacak_bahan?: boolean | number;
-	ekstra_ids?: string | null;
+	ekstra_ids?: string | Array<string | number> | null;
 	gambar?: string | null;
 	is_active?: boolean | number;
 }
@@ -28,16 +29,18 @@ interface AtomicRecipeInput {
 }
 
 interface SaveAtomicBody {
+	branch?: string;
 	produk: AtomicProductInput;
 	resep?: AtomicRecipeInput[];
 }
 
-export const POST: RequestHandler = async ({ request, platform, locals }) => {
-	const branch = requireSessionBranch(locals);
+export const POST: RequestHandler = async ({ request, platform, locals, url }) => {
+	const body = await parseBody<SaveAtomicBody>(request);
+	const requestedBranch = url.searchParams.get('branch') || body?.branch;
+	const branch = requireSessionBranch(locals, requestedBranch);
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = await parseBody<SaveAtomicBody>(request);
 	if (!body?.produk || !body.produk.nama) {
 		throw kitError(400, 'Data produk tidak lengkap');
 	}
@@ -49,13 +52,25 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const harga = Math.max(0, Number(prod.harga || 0));
 	const hargaJumbo =
-		prod.harga_jumbo !== null && prod.harga_jumbo !== undefined
+		prod.harga_jumbo !== null &&
+		prod.harga_jumbo !== undefined &&
+		Number.isFinite(Number(prod.harga_jumbo))
 			? Math.max(0, Number(prod.harga_jumbo))
 			: null;
-	const stok = prod.stok !== null && prod.stok !== undefined ? Number(prod.stok) : null;
+	const stok =
+		prod.stok !== null && prod.stok !== undefined && Number.isFinite(Number(prod.stok))
+			? Number(prod.stok)
+			: null;
 	const lacakStok = Boolean(prod.lacak_stok);
 	const lacakBahan = Boolean(prod.lacak_bahan);
 	const isActive = prod.is_active !== undefined ? Boolean(prod.is_active) : true;
+	const tipe = prod.tipe ? String(prod.tipe).trim().toLowerCase() : 'minuman';
+
+	const ekstraIdsJson = Array.isArray(prod.ekstra_ids)
+		? JSON.stringify(prod.ekstra_ids)
+		: typeof prod.ekstra_ids === 'string' && prod.ekstra_ids.trim()
+			? prod.ekstra_ids
+			: '[]';
 
 	const rawDb = getRawDb(platform, branch);
 
@@ -74,7 +89,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		baseQty: number;
 	}> = [];
 
-	if (rawRecipes.length > 0) {
+	if (lacakBahan && rawRecipes.length > 0) {
 		const bahanIds = rawRecipes.map((r) => String(r.bahan_id || '').trim()).filter(Boolean);
 		if (bahanIds.length !== rawRecipes.length) {
 			throw kitError(400, 'Semua item resep wajib memiliki bahan_id');
@@ -143,6 +158,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						harga = ?,
 						harga_jumbo = ?,
 						kategori_id = ?,
+						tipe = ?,
 						stok = ?,
 						lacak_stok = ?,
 						lacak_bahan = ?,
@@ -157,10 +173,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					harga,
 					hargaJumbo,
 					prod.kategori_id || null,
+					tipe,
 					stok,
 					lacakStok ? 1 : 0,
 					lacakBahan ? 1 : 0,
-					prod.ekstra_ids || null,
+					ekstraIdsJson,
 					prod.gambar || null,
 					isActive ? 1 : 0,
 					now,
@@ -173,9 +190,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			rawDb
 				.prepare(
 					`INSERT INTO produk (
-						id, cabang_id, nama, harga, harga_jumbo, kategori_id, stok,
+						id, cabang_id, nama, harga, harga_jumbo, kategori_id, tipe, stok,
 						lacak_stok, lacak_bahan, ekstra_ids, gambar, is_active, created_at, updated_at
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 				)
 				.bind(
 					productId,
@@ -184,10 +201,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					harga,
 					hargaJumbo,
 					prod.kategori_id || null,
+					tipe,
 					stok,
 					lacakStok ? 1 : 0,
 					lacakBahan ? 1 : 0,
-					prod.ekstra_ids || null,
+					ekstraIdsJson,
 					prod.gambar || null,
 					isActive ? 1 : 0,
 					now,
@@ -240,6 +258,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	await auditDataChange(rawDb, branch, session, 'produk', isEdit ? 'update' : 'insert', productId, {
 		nama: prod.nama,
 		harga,
+		harga_jumbo: hargaJumbo,
 		recipesCount: normalizedRecipes.length
 	});
 
@@ -253,10 +272,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				harga,
 				harga_jumbo: hargaJumbo,
 				kategori_id: prod.kategori_id || null,
+				tipe,
 				stok,
 				lacak_stok: lacakStok,
 				lacak_bahan: lacakBahan,
-				ekstra_ids: prod.ekstra_ids || null,
+				ekstra_ids: ekstraIdsJson,
 				gambar: prod.gambar || null,
 				is_active: isActive
 			},

@@ -289,7 +289,7 @@
 
 {#if pendingRemoval}
 	<div
-		class="fixed inset-0 z-[100000] flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
+		class="z-alert fixed inset-0 flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-pending-title"

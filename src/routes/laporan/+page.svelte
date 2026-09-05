@@ -184,7 +184,7 @@
 <!-- Root Level Modal Date Picker Start (Outside animated main container) -->
 {#if s.showDatePicker}
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
 	>
 		<div class="animate-scale-in mx-auto w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
 			<div class="mb-5 flex items-center justify-between">
@@ -238,7 +238,7 @@
 <!-- Root Level Modal Date Picker End (Outside animated main container) -->
 {#if s.showEndDatePicker}
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
 	>
 		<div class="animate-scale-in mx-auto w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
 			<div class="mb-5 flex items-center justify-between">

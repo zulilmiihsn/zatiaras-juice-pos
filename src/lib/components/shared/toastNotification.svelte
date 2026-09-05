@@ -74,7 +74,7 @@
 
 {#if show}
 	<div
-		class="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 {position === 'top'
+		class="z-toast pointer-events-none fixed inset-x-0 flex justify-center px-4 {position === 'top'
 			? 'top-4 sm:top-5'
 			: 'bottom-6 sm:bottom-8'}"
 	>

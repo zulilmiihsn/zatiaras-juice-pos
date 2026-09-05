@@ -137,7 +137,7 @@
 
 {#if layoutSt.pendingCount > 0}
 	<div
-		class="animate-fade-in fixed right-3 bottom-3 left-3 z-50 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl"
+		class="animate-fade-in z-fab fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl"
 		data-testid="pending-transaction-banner"
 	>
 		{#if layoutSt.isOffline}
@@ -199,40 +199,6 @@
 	/>
 {/if}
 
-<!-- PWA Update Notification -->
-{#if layoutSt.showUpdateNotification}
-	<div
-		class="animate-fade-in fixed top-16 left-1/2 z-50 -translate-x-1/2 transform rounded-xl bg-blue-500 px-6 py-4 text-center text-white shadow-lg"
-	>
-		<div class="mb-2">
-			<svg class="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-				/>
-			</svg>
-		</div>
-		<p class="mb-3 font-semibold">Update Tersedia!</p>
-		<p class="mb-4 text-sm opacity-90">Aplikasi akan diperbarui untuk performa yang lebih baik.</p>
-		<div class="flex gap-2">
-			<button
-				onclick={layoutSt.applyUpdate}
-				class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-blue-500 transition-colors hover:bg-blue-50"
-			>
-				Update Sekarang
-			</button>
-			<button
-				onclick={layoutSt.dismissUpdate}
-				class="rounded-lg border border-white/30 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
-			>
-				Nanti
-			</button>
-		</div>
-	</div>
-{/if}
-
 {#if showNav}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
 		<div
@@ -241,7 +207,7 @@
 		>
 			{@render children()}
 		</div>
-		<div class="sticky bottom-0 z-30 overflow-visible md:pointer-events-none md:px-4">
+		<div class="z-nav sticky bottom-0 overflow-visible md:pointer-events-none md:px-4">
 			<div class="md:pointer-events-auto">
 				<BottomNav />
 			</div>

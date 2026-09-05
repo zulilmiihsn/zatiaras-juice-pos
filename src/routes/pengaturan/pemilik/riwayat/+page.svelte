@@ -404,7 +404,7 @@
 	</div>
 
 	{#if showDeleteModal}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+		<div class="z-alert fixed inset-0 flex items-center justify-center bg-black/40">
 			<div
 				class="animate-slideUpModal relative flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-6 shadow-xl"
 			>
@@ -431,7 +431,7 @@
 
 	{#if showDetailModal && selectedTransaksi}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm md:px-0"
+			class="z-modal fixed inset-0 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm md:px-0"
 		>
 			<div
 				class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-6 shadow-2xl md:p-8"

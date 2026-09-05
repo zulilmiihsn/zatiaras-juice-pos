@@ -1,80 +1,84 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-
-	export type NotifModalType = 'warning' | 'success' | 'error';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
+	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
+	import type { NotifModalType } from '$lib/types';
 
 	let {
 		show,
 		message,
+		title,
+		buttonText = 'Mengerti',
 		type = 'warning',
 		onClose
 	}: {
 		show: boolean;
 		message: string;
+		title?: string;
+		buttonText?: string;
 		type?: NotifModalType;
 		onClose: () => void;
 	} = $props();
+
+	const defaultTitle = $derived(
+		title || (type === 'error' ? 'Perhatian' : type === 'success' ? 'Berhasil' : 'Peringatan')
+	);
 </script>
 
 {#if show}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-xs"
+		class="z-alert fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-xs"
 		transition:fade={{ duration: 180 }}
 		onclick={(event) => event.target === event.currentTarget && onClose()}
 		onkeydown={(e) => e.key === 'Escape' && onClose()}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Modal pemberitahuan"
+		aria-label={defaultTitle}
 		tabindex="-1"
 	>
 		<div
-			class="flex w-full max-w-xs flex-col items-center rounded-3xl border-2 bg-white px-8 py-7 shadow-2xl"
-			class:border-red-500={type === 'error'}
-			class:border-yellow-400={type !== 'error'}
+			class="relative flex w-full max-w-sm flex-col items-center overflow-hidden rounded-[28px] border border-slate-100/90 bg-white p-6 text-center shadow-2xl ring-1 ring-slate-900/5 sm:p-7"
 			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 			role="document"
 		>
+			<!-- Icon Badge -->
 			<div
-				class="mb-3 flex h-16 w-16 items-center justify-center rounded-full"
-				class:bg-red-100={type === 'error'}
-				class:bg-yellow-100={type !== 'error'}
+				class="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xs ring-1 {type ===
+				'warning'
+					? 'bg-amber-50 text-amber-600 ring-amber-200/70'
+					: type === 'error'
+						? 'bg-rose-50 text-rose-600 ring-rose-200/70'
+						: 'bg-emerald-50 text-emerald-600 ring-emerald-200/70'}"
 			>
-				{#if type === 'success'}
-					<svg class="h-10 w-10 text-yellow-400" fill="none" viewBox="0 0 24 24">
-						<circle cx="12" cy="12" r="10" fill="#fef9c3" />
-						<path
-							stroke="#facc15"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4"
-						/>
-					</svg>
+				{#if type === 'warning'}
+					<AlertTriangle class="h-7 w-7 stroke-[2.2]" />
 				{:else if type === 'error'}
-					<svg class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24">
-						<circle cx="12" cy="12" r="10" fill="#fee2e2" />
-						<path stroke="#ef4444" stroke-linecap="round" stroke-width="2" d="M9 9l6 6m0-6-6 6" />
-					</svg>
+					<AlertCircle class="h-7 w-7 stroke-[2.2]" />
 				{:else}
-					<svg class="h-10 w-10 text-yellow-400" fill="none" viewBox="0 0 24 24">
-						<circle cx="12" cy="12" r="10" fill="#fef9c3" />
-						<path
-							stroke="#facc15"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 8v4m0 4h.01"
-						/>
-					</svg>
+					<CheckCircle2 class="h-7 w-7 stroke-[2.2]" />
 				{/if}
 			</div>
-			<div class="mb-4 text-center text-base font-medium text-gray-700">{message}</div>
+
+			<!-- Title -->
+			<h3 class="mb-2 text-lg font-black tracking-tight text-slate-900">
+				{defaultTitle}
+			</h3>
+
+			<!-- Message Body -->
+			<p class="mb-6 text-xs leading-relaxed font-medium text-slate-600 sm:text-sm">
+				{message}
+			</p>
+
+			<!-- Action Button -->
 			<button
 				type="button"
-				class="mt-2 rounded-xl bg-pink-500 px-6 py-2 font-bold text-white shadow transition-all hover:bg-pink-600 active:scale-[0.98]"
-				onclick={onClose}>Tutup</button
+				class="w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-sm font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+				onclick={onClose}
 			>
+				{buttonText}
+			</button>
 		</div>
 	</div>
 {/if}
