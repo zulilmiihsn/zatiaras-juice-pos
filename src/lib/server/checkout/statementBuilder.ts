@@ -102,7 +102,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				.prepare(
 					`INSERT INTO bahan_mutasi (
 						id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber,
-						keterangan, user_id, username, created_at
+						referensi_id, catatan, dibuat_oleh, created_at
 					) VALUES (?, ?, ?, ?, COALESCE((SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?), 0),
 						'pos', ?, ?, ?, ?)`
 				)
@@ -113,9 +113,9 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 					-deduction.jumlah,
 					branch,
 					bahanId,
-					`Pengurangan resep transaksi POS ${transactionId}`,
-					session.userId,
-					session.username || 'Kasir',
+					transactionId,
+					`Pengurangan resep transaksi POS ${transactionId}`.slice(0, 160),
+					session.username || session.userId || 'Kasir',
 					createdAt
 				)
 		]),

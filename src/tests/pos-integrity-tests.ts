@@ -253,4 +253,51 @@ const fpDiffPayment = computeTransactionFingerprint({
 });
 assert.notEqual(fpA1, fpDiffPayment);
 
-console.log('pos-integrity-tests: 35 assertions passed');
+import { buildCheckoutStatements } from '../lib/server/checkout/statementBuilder';
+
+// 4. Statement Builder bahan_mutasi schema compliance
+const mockDb = {
+	prepare: (sql: string) => ({
+		sql,
+		bind: (...args: unknown[]) => ({ sql, args })
+	})
+};
+
+const statements = buildCheckoutStatements({
+	db: mockDb as any,
+	branch: 'samarinda',
+	items: [],
+	stockDeductions: new Map(),
+	ingredientDeductions: new Map([['b-1', { nama: 'Jeruk', jumlah: 50, satuan: 'gram' }]]),
+	totalAmount: 10_000,
+	totalQty: 1,
+	totalHpp: 5_000,
+	paymentMethod: 'tunai',
+	customerName: 'Budi',
+	salesDate: '2026-09-05',
+	bukuKasId: 'bk-1',
+	transactionId: 'tx-1',
+	createdAt: '2026-09-05T10:00:00.000Z',
+	idSesiToko: 'sesi-1',
+	idempotencyKey: 'idemp-1',
+	session: { userId: 'u-1', username: 'Kasir 1' },
+	capabilities: {
+		stockTrackingAvailable: true,
+		ingredientTrackingAvailable: true,
+		idempotencyAvailable: true,
+		salesSummaryAvailable: false,
+		transactionSnapshotAvailable: true
+	}
+});
+
+const mutasiStmt = (statements as any[]).find((s) => s.sql.includes('INSERT INTO bahan_mutasi'));
+assert.ok(mutasiStmt, 'bahan_mutasi insert statement must be generated');
+assert.ok(mutasiStmt.sql.includes('referensi_id'), 'sql must include referensi_id column');
+assert.ok(mutasiStmt.sql.includes('catatan'), 'sql must include catatan column');
+assert.ok(mutasiStmt.sql.includes('dibuat_oleh'), 'sql must include dibuat_oleh column');
+assert.ok(!mutasiStmt.sql.includes('keterangan'), 'sql must NOT include non-existent keterangan column');
+assert.ok(!mutasiStmt.sql.includes('username'), 'sql must NOT include non-existent username column');
+assert.ok(mutasiStmt.args.includes('tx-1'), 'binds must include transactionId as referensi_id');
+assert.ok(mutasiStmt.args.includes('Kasir 1'), 'binds must include dibuat_oleh');
+
+console.log('pos-integrity-tests: all assertions passed');
