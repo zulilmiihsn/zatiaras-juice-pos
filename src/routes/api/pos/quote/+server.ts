@@ -101,15 +101,23 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			transactionId: 'quote'
 		})
 	);
-	const quoteItems: PosQuoteItem[] = computed.map((item, index) => ({
-		source: normalizedInputs[index].source,
-		product_name: item.product_name,
-		product_price: normalizeMoney(item.harga_dasar),
-		add_ons: item.snapshot_tambahan
-			? (JSON.parse(item.snapshot_tambahan) as PosQuoteItem['add_ons'])
-			: [],
-		line_total: normalizeMoney(item.nominal)
-	}));
+	const quoteItems: PosQuoteItem[] = computed.map((item, index) => {
+		let addOns: PosQuoteItem['add_ons'] = [];
+		if (item.snapshot_tambahan) {
+			try {
+				addOns = JSON.parse(item.snapshot_tambahan) as PosQuoteItem['add_ons'];
+			} catch {
+				addOns = [];
+			}
+		}
+		return {
+			source: normalizedInputs[index].source,
+			product_name: item.product_name,
+			product_price: normalizeMoney(item.harga_dasar),
+			add_ons: addOns,
+			line_total: normalizeMoney(item.nominal)
+		};
+	});
 	const quoteData: PosQuoteTokenData = {
 		items: quoteItems,
 		total_amount: computed.reduce((sum, item) => sum + normalizeMoney(item.nominal), 0),

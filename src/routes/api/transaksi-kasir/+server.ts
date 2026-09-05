@@ -127,7 +127,7 @@ export const DELETE: RequestHandler = async ({ url, platform, locals }) => {
 		await rawDb
 			.prepare(
 				`SELECT bahan_id, delta_jumlah FROM bahan_mutasi
-				 WHERE cabang_id = ? AND referensi_id = ? AND sumber = 'pos_transaction'`
+				 WHERE cabang_id = ? AND referensi_id = ? AND sumber IN ('pos', 'pos_transaction')`
 			)
 			.bind(branch, transactionId)
 			.all()

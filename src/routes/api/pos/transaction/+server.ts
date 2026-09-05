@@ -626,19 +626,29 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				total_qty: totalQty,
 				change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,
 				receipt: {
-					items: items.map((item) => ({
-						product_id: item.produk_id,
-						nama: item.product_name,
-						jumlah: item.jumlah,
-						harga: item.harga,
-						nominal: item.nominal,
-						harga_dasar: item.harga_dasar,
-						total_tambahan: item.total_tambahan,
-						tambahan: item.snapshot_tambahan ? (JSON.parse(item.snapshot_tambahan) as unknown) : [],
-						gula: item.gula,
-						es: item.es,
-						catatan: item.catatan
-					})),
+					items: items.map((item) => {
+						let tambahan: unknown = [];
+						if (item.snapshot_tambahan) {
+							try {
+								tambahan = JSON.parse(item.snapshot_tambahan);
+							} catch {
+								tambahan = [];
+							}
+						}
+						return {
+							product_id: item.produk_id,
+							nama: item.product_name,
+							jumlah: item.jumlah,
+							harga: item.harga,
+							nominal: item.nominal,
+							harga_dasar: item.harga_dasar,
+							total_tambahan: item.total_tambahan,
+							tambahan,
+							gula: item.gula,
+							es: item.es,
+							catatan: item.catatan
+						};
+					}),
 					total_amount: totalAmount,
 					total_qty: totalQty,
 					cash_received: cashReceived,
