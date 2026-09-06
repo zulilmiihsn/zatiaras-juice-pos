@@ -7,6 +7,8 @@
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import type { BranchType } from '$lib/stores/selectedBranch.svelte';
 	import { isAuthenticated } from '$lib/utils/authGuard';
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	import User from '@lucide/svelte/icons/user';
 	import Lock from '@lucide/svelte/icons/lock';
@@ -165,46 +167,6 @@
 			</div>
 		{/if}
 
-		<!-- Success Notification Overlay -->
-		{#if showSuccessModal}
-			<div
-				class="z-alert pointer-events-none fixed inset-0 flex items-center justify-center bg-black/25 backdrop-blur-xs"
-			>
-				<div
-					class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
-				>
-					<div
-						class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600"
-					>
-						<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
-					</div>
-					<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
-					<div class="text-xs font-medium text-slate-400">Membuka aplikasi...</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Error Notification Overlay -->
-		{#if showErrorModal}
-			<div
-				class="z-alert pointer-events-none fixed inset-0 flex items-center justify-center bg-black/25 backdrop-blur-xs"
-			>
-				<div
-					class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
-				>
-					<div
-						class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600"
-					>
-						<AlertCircle class="h-9 w-9 stroke-[2.5]" />
-					</div>
-					<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
-					<div class="text-xs font-medium text-slate-400">
-						{errorMessage || 'Periksa username dan password'}
-					</div>
-				</div>
-			</div>
-		{/if}
-
 		<form
 			data-hydrated={hydrated}
 			onsubmit={(e) => {
@@ -345,3 +307,43 @@
 		</div>
 	</div>
 </div>
+
+<!-- Success Notification Overlay (Full Screen Viewport) -->
+{#if showSuccessModal}
+	<div
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+		transition:fade={{ duration: 200 }}
+	>
+		<div
+			class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
+			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
+		>
+			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600">
+				<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
+			</div>
+			<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
+			<div class="text-xs font-medium text-slate-400">Membuka aplikasi...</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Error Notification Overlay (Full Screen Viewport) -->
+{#if showErrorModal}
+	<div
+		class="z-dialog fixed inset-0 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+		transition:fade={{ duration: 200 }}
+	>
+		<div
+			class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
+			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
+		>
+			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+				<AlertCircle class="h-9 w-9 stroke-[2.5]" />
+			</div>
+			<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
+			<div class="text-xs font-medium text-slate-400">
+				{errorMessage || 'Periksa username dan password'}
+			</div>
+		</div>
+	</div>
+{/if}
