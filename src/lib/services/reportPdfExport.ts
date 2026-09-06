@@ -1,7 +1,6 @@
 /**
  * 📊 ZatiarasPOS - Executive Financial PDF Generator
- * Menghasilkan Laporan Keuangan & Arus Kas standar korporat/akuntansi profesional (Client-Side).
- * Dilengkapi Logo Resmi Zatiaras Juice, Analisis Penjualan Menu, Breakdown Beban, Pajak & Log Buku Kas.
+ * Menghasilkan Laporan Keuangan & Arus Kas standar korporat & akuntansi resmi (Clean, Formal, Audit-Ready).
  */
 
 import jsPDF from 'jspdf';
@@ -76,15 +75,15 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 
 	const { branchName, startDate, endDate, summary, reportGroups, transactions } = options;
 
-	// Palette warna korporat Zatiaras Juice & Modern Document Guidelines
-	const brandPrimary: [number, number, number] = [190, 24, 93]; // Rose-700 (#be185d)
-	const brandDark: [number, number, number] = [30, 41, 59]; // Slate-800 (#1e293b)
-	const slate600: [number, number, number] = [71, 85, 105]; // Slate-600
-	const slate500: [number, number, number] = [100, 116, 139]; // Slate-500
-	const slate400: [number, number, number] = [148, 163, 184]; // Slate-400
-	const borderSlate: [number, number, number] = [226, 232, 240]; // Slate-200
-	const greenProfit: [number, number, number] = [16, 149, 103]; // Emerald-600
-	const redLoss: [number, number, number] = [225, 29, 72]; // Rose-600
+	// Palette Warna Dokumen Keuangan Resmi & Akuntansi
+	const colDark: [number, number, number] = [15, 23, 42]; // Slate-900 (Teks Utama)
+	const colSlate800: [number, number, number] = [30, 41, 59]; // Slate-800 (Header Tabel)
+	const colMuted: [number, number, number] = [71, 85, 105]; // Slate-600 (Keterangan)
+	const colLightMuted: [number, number, number] = [148, 163, 184]; // Slate-400 (Garis/Catatan)
+	const colBorder: [number, number, number] = [203, 213, 225]; // Slate-300 (Border Halus)
+	const colBgHeader: [number, number, number] = [241, 245, 249]; // Slate-100 (Subseksi)
+	const colBgCard: [number, number, number] = [248, 250, 252]; // Slate-50 (Kartu Ringkasan)
+	const colNegative: [number, number, number] = [190, 18, 60]; // Rose-700 (Jika Rugi)
 
 	const pendapatan = Number(summary?.pendapatan || 0);
 	const pengeluaran = Number(summary?.pengeluaran || 0);
@@ -94,164 +93,144 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		summary?.labaBersih || (summary?.saldo ?? pendapatan - pengeluaran - pajak)
 	);
 
-	// Helper render judul seksi dokumen dengan aksen Rose-700
+	// Helper Render Judul Seksi Formal
 	function renderSectionHeader(title: string, subcaption: string, currentY: number): number {
-		doc.setFillColor(...brandPrimary);
-		doc.rect(14, currentY, 3, 8, 'F');
+		// Garis Aksen Kiri Tipis & Elegan
+		doc.setFillColor(...colSlate800);
+		doc.rect(14, currentY, 2, 7, 'F');
 
 		doc.setFont('helvetica', 'bold');
-		doc.setFontSize(10.5);
-		doc.setTextColor(...brandDark);
-		doc.text(title, 19, currentY + 5.5);
+		doc.setFontSize(9.5);
+		doc.setTextColor(...colDark);
+		doc.text(title, 18, currentY + 5.2);
 
 		doc.setFont('helvetica', 'normal');
-		doc.setFontSize(8);
-		doc.setTextColor(...slate500);
-		doc.text(subcaption, 19, currentY + 10.5);
+		doc.setFontSize(7.5);
+		doc.setTextColor(...colMuted);
+		doc.text(subcaption, 18, currentY + 9.5);
 
-		return currentY + 14;
+		return currentY + 13;
 	}
 
-	// ─── 1. TOP ACCENT BAR ───────────────────────────────────────────────────────
-	doc.setFillColor(...brandPrimary);
-	doc.rect(0, 0, 210, 4.5, 'F');
+	// ─── 1. KOP SURAT / EXECUTIVE LETTERHEAD RESMI ───────────────────────────────
+	let y = 12;
 
-	// ─── 2. EXECUTIVE HEADER (LOGO & BRANDING RESMI) ─────────────────────────────
-	let y = 10;
-
-	// Logo Toko di Sisi Kiri
+	// Logo Toko (Kiri)
 	try {
 		if (LOGO_BASE64) {
-			doc.addImage(LOGO_BASE64, 'PNG', 14, y, 20, 20);
+			doc.addImage(LOGO_BASE64, 'PNG', 14, y, 16, 16);
 		}
-	} catch {
-		// Fallback jika logo tidak tersedia
-	}
+	} catch {}
 
-	// Brand Title & Tagline
-	const brandTextX = 38;
-	doc.setTextColor(...brandPrimary);
+	const headerTextX = 33;
+
+	// Nama Usaha & Judul Laporan
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(16);
-	doc.text('ZATIARAS JUICE', brandTextX, y + 6);
+	doc.setFontSize(14);
+	doc.setTextColor(...colDark);
+	doc.text('ZATIARAS JUICE', headerTextX, y + 4.5);
 
 	doc.setFont('helvetica', 'bold');
 	doc.setFontSize(9.5);
-	doc.setTextColor(...brandDark);
-	doc.text('Laporan Keuangan & Rekonsiliasi Arus Kas', brandTextX, y + 11.5);
+	doc.setTextColor(...colSlate800);
+	doc.text('LAPORAN KEUANGAN & REKONSILIASI KAS', headerTextX, y + 9.5);
 
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
-	doc.setTextColor(...slate500);
-	doc.text('Sistem Informasi Akuntansi & Point of Sale (POS)', brandTextX, y + 16);
-	doc.text(
-		`Outlet: Cabang ${branchName.toUpperCase()}  •  Status: Sah & Terverifikasi Sistem`,
-		brandTextX,
-		y + 20.5
-	);
+	doc.setFontSize(7.5);
+	doc.setTextColor(...colMuted);
+	doc.text(`Cabang / Unit : ${branchName.toUpperCase()}  |  Sistem Informasi POS`, headerTextX, y + 14);
 
-	// Metadata Box di Sisi Kanan
-	const metaBoxX = 120;
-	const metaBoxY = 9;
-	const metaBoxW = 76;
-	const metaBoxH = 24;
-
-	doc.setFillColor(253, 242, 248); // Soft rose tint
-	doc.setDrawColor(244, 114, 182); // Pink border
-	doc.setLineWidth(0.4);
-	doc.roundedRect(metaBoxX, metaBoxY, metaBoxW, metaBoxH, 2.5, 2.5, 'FD');
-
+	// Blok Metadata Kanan (Rapi, Standar Surat Resmi)
+	const metaX = 130;
+	doc.setFont('helvetica', 'normal');
+	doc.setFontSize(7.5);
+	doc.setTextColor(...colDark);
+	doc.text('Periode Laporan', metaX, y + 4.5);
+	doc.text(':', metaX + 22, y + 4.5);
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(8.5);
-	doc.setTextColor(...brandPrimary);
-	doc.text('DOKUMEN KEUANGAN RESMI', metaBoxX + 4.5, metaBoxY + 5.5);
+	doc.text(`${startDate} s/d ${endDate}`, metaX + 25, y + 4.5);
 
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
-	doc.setTextColor(...brandDark);
-	doc.text(`Cabang / Outlet  : ${branchName.toUpperCase()}`, metaBoxX + 4.5, metaBoxY + 10.5);
-	doc.text(`Periode Laporan  : ${startDate} s/d ${endDate}`, metaBoxX + 4.5, metaBoxY + 15);
-	doc.text(
-		`Waktu Cetak      : ${new Date().toLocaleString('id-ID')}`,
-		metaBoxX + 4.5,
-		metaBoxY + 19.5
-	);
+	doc.text('Waktu Cetak', metaX, y + 9);
+	doc.text(':', metaX + 22, y + 9);
+	doc.text(`${new Date().toLocaleString('id-ID')}`, metaX + 25, y + 9);
 
-	// Garis pembatas Header
-	y = 37;
-	doc.setDrawColor(...borderSlate);
-	doc.setLineWidth(0.4);
+	doc.text('Status Dokumen', metaX, y + 13.5);
+	doc.text(':', metaX + 22, y + 13.5);
+	doc.setFont('helvetica', 'bold');
+	doc.text('Sah & Terverifikasi', metaX + 25, y + 13.5);
+
+	// Garis Ganda Pembatas Kop Surat Resmi (Double Rule)
+	y = 31;
+	doc.setDrawColor(...colSlate800);
+	doc.setLineWidth(0.6);
 	doc.line(14, y, 196, y);
 
-	// ─── 3. KPI STAT CARDS (SPACIOUS EXECUTIVE CARDS) ───────────────────────────
+	doc.setDrawColor(...colBorder);
+	doc.setLineWidth(0.2);
+	doc.line(14, y + 1.2, 196, y + 1.2);
+
+	// ─── 2. IKHTISAR KEUANGAN (EXECUTIVE FINANCIAL TILES) ────────────────────────
 	y += 5;
-	const cardW = 43;
-	const cardH = 22;
-	const cardGap = 3.3;
+	const cardW = 43.5;
+	const cardH = 19;
+	const cardGap = 2.6;
 	const startX = 14;
 
 	const kpiCards = [
 		{
 			title: 'TOTAL PENDAPATAN',
 			value: `Rp ${formatRupiah(pendapatan)}`,
-			color: brandDark,
-			bg: [248, 250, 252] as [number, number, number],
-			border: borderSlate
+			isNegative: false
 		},
 		{
 			title: 'TOTAL PENGELUARAN',
 			value: `Rp ${formatRupiah(pengeluaran)}`,
-			color: brandDark,
-			bg: [248, 250, 252] as [number, number, number],
-			border: borderSlate
+			isNegative: false
 		},
 		{
 			title: 'LABA KOTOR',
 			value: `Rp ${formatRupiah(labaKotor)}`,
-			color: labaKotor >= 0 ? brandDark : redLoss,
-			bg: [248, 250, 252] as [number, number, number],
-			border: borderSlate
+			isNegative: labaKotor < 0
 		},
 		{
 			title: 'LABA BERSIH (NET)',
 			value: `Rp ${formatRupiah(labaBersih)}`,
-			color: labaBersih >= 0 ? greenProfit : redLoss,
-			bg: [253, 242, 248] as [number, number, number], // Rose tint
-			border: [244, 114, 182] as [number, number, number]
+			isNegative: labaBersih < 0
 		}
 	];
 
 	kpiCards.forEach((card, idx) => {
 		const cx = startX + idx * (cardW + cardGap);
-		doc.setFillColor(...card.bg);
-		doc.setDrawColor(...card.border);
-		doc.setLineWidth(0.4);
-		doc.roundedRect(cx, y, cardW, cardH, 2.5, 2.5, 'FD');
+		doc.setFillColor(...colBgCard);
+		doc.setDrawColor(...colBorder);
+		doc.setLineWidth(0.3);
+		doc.roundedRect(cx, y, cardW, cardH, 1.5, 1.5, 'FD');
 
 		// Judul Card
 		doc.setFont('helvetica', 'bold');
-		doc.setFontSize(7.5);
-		doc.setTextColor(...slate500);
-		doc.text(card.title, cx + 4, y + 6.5);
+		doc.setFontSize(6.8);
+		doc.setTextColor(...colMuted);
+		doc.text(card.title, cx + 3.5, y + 5.5);
 
-		// Pembatas halus dalam card
+		// Garis Pemisah Tipis
 		doc.setDrawColor(226, 232, 240);
-		doc.setLineWidth(0.2);
-		doc.line(cx + 4, y + 9.5, cx + cardW - 4, y + 9.5);
+		doc.setLineWidth(0.15);
+		doc.line(cx + 3.5, y + 7.8, cx + cardW - 3.5, y + 7.8);
 
 		// Nilai Nominal Prominen
 		doc.setFont('helvetica', 'bold');
-		doc.setFontSize(11);
-		doc.setTextColor(...card.color);
-		doc.text(card.value, cx + 4, y + 16.5);
+		doc.setFontSize(9.5);
+		doc.setTextColor(...(card.isNegative ? colNegative : colDark));
+		doc.text(card.value, cx + 3.5, y + 14.5);
 	});
 
-	y += cardH + 9;
+	y += cardH + 7;
 
-	// ─── 4. TABEL I: RINCIAN PEMASUKAN & ARUS KAS MASUK ────────────────────────
+	// ─── 3. TABEL I: RINCIAN PENDAPATAN & ARUS KAS MASUK ────────────────────────
 	y = renderSectionHeader(
-		'I. RINCIAN PEMASUKAN & ARUS KAS MASUK',
-		'Detail sumber omzet penjualan produk POS dan penerimaan kas lainnya (Tunai & Non-Tunai/QRIS)',
+		'I. RINCIAN PENDAPATAN & ARUS KAS MASUK',
+		'Detail omzet penjualan produk POS dan penerimaan kas lainnya (Tunai & QRIS/Non-Tunai)',
 		y
 	);
 
@@ -290,16 +269,16 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 
 	const pemasukanRows: TableRow[] = [];
 
-	// Sub-seksi A: Pendapatan Usaha (Penjualan Produk POS)
+	// Sub-seksi A: Pendapatan Usaha
 	pemasukanRows.push([
 		{
-			content: 'A. PENDAPATAN USAHA (PENJUALAN PRODUK / MENU POS)',
+			content: 'A. PENDAPATAN USAHA (PENJUALAN MENU / PRODUK POS)',
 			colSpan: 6,
 			styles: {
 				fontStyle: 'bold',
-				fillColor: [253, 242, 248],
-				textColor: brandPrimary,
-				fontSize: 8.5
+				fillColor: colBgHeader,
+				textColor: colDark,
+				fontSize: 7.5
 			}
 		}
 	]);
@@ -307,9 +286,9 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	if (salesGrouped.length === 0) {
 		pemasukanRows.push([
 			{
-				content: 'Tidak ada data transaksi penjualan menu/produk pada periode ini',
+				content: 'Tidak ada data penjualan produk pada periode ini',
 				colSpan: 6,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7.5 }
 			}
 		]);
 	} else {
@@ -340,13 +319,13 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// Sub-seksi B: Pemasukan Lain-lain
 	pemasukanRows.push([
 		{
-			content: 'B. PEMASUKAN LAIN-LAIN / KAS MASUK TAMBAHAN',
+			content: 'B. PEMASUKAN LAIN-LAIN / KAS MASUK NON-PENJUALAN',
 			colSpan: 6,
 			styles: {
 				fontStyle: 'bold',
-				fillColor: [248, 250, 252],
-				textColor: brandDark,
-				fontSize: 8.5
+				fillColor: colBgHeader,
+				textColor: colDark,
+				fontSize: 7.5
 			}
 		}
 	]);
@@ -354,9 +333,9 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	if (otherIncomeGrouped.length === 0) {
 		pemasukanRows.push([
 			{
-				content: 'Tidak ada transaksi pemasukan lain pada periode ini',
+				content: 'Tidak ada data penerimaan kas lain pada periode ini',
 				colSpan: 6,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7.5 }
 			}
 		]);
 	} else {
@@ -387,7 +366,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// TOTAL KESELURUHAN PEMASUKAN (A + B)
 	pemasukanRows.push([
 		'',
-		'TOTAL KESELURUHAN PEMASUKAN (A + B)',
+		'TOTAL KESELURUHAN PENDAPATAN / KAS MASUK (A + B)',
 		`Rp ${formatRupiah(reportGroups.totalTunaiPemasukan)}`,
 		`Rp ${formatRupiah(reportGroups.totalQrisPemasukan)}`,
 		`Rp ${formatRupiah(totalPemasukan)}`,
@@ -403,32 +382,32 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				'Kategori & Rincian Sumber Pemasukan',
 				'Kas Tunai (Rp)',
 				'QRIS / Non-Tunai (Rp)',
-				'Total Pemasukan (Rp)',
+				'Total Nominal (Rp)',
 				'Porsi %'
 			]
 		],
 		body: pemasukanRows as any,
 		headStyles: {
-			fillColor: brandPrimary,
+			fillColor: colSlate800,
 			textColor: [255, 255, 255],
 			fontStyle: 'bold',
-			fontSize: 8.5,
-			cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
+			fontSize: 7.5,
+			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 }
 		},
 		bodyStyles: {
-			fontSize: 8,
-			textColor: brandDark,
-			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+			fontSize: 7.2,
+			textColor: colDark,
+			cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
 			lineColor: [226, 232, 240],
-			lineWidth: 0.25
+			lineWidth: 0.2
 		},
 		columnStyles: {
-			0: { cellWidth: 10, halign: 'center' },
+			0: { cellWidth: 8, halign: 'center' },
 			1: { cellWidth: 'auto' },
 			2: { cellWidth: 32, halign: 'right' },
 			3: { cellWidth: 32, halign: 'right' },
 			4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
-			5: { cellWidth: 18, halign: 'center' }
+			5: { cellWidth: 16, halign: 'center' }
 		},
 		didParseCell: (data) => {
 			const cellText = String(data.cell.raw ?? '');
@@ -437,24 +416,24 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				data.cell.styles.fillColor = [248, 250, 252];
 			} else if (cellText.startsWith('TOTAL KESELURUHAN')) {
 				data.cell.styles.fontStyle = 'bold';
-				data.cell.styles.fillColor = [241, 245, 249];
-				data.cell.styles.textColor = brandDark;
+				data.cell.styles.fillColor = [226, 232, 240];
+				data.cell.styles.textColor = colDark;
 			}
 		},
 		margin: { left: 14, right: 14 }
 	});
 
-	y = getAutoTableFinalY(doc, y) + 12;
+	y = getAutoTableFinalY(doc, y) + 8;
 
-	// ─── 5. TABEL II: RINCIAN PENGELUARAN & BEBAN OPERASIONAL ───────────────────
-	if (y > 185) {
+	// ─── 4. TABEL II: RINCIAN PENGELUARAN & BEBAN OPERASIONAL ───────────────────
+	if (y > 210) {
 		doc.addPage();
-		y = 20;
+		y = 16;
 	}
 
 	y = renderSectionHeader(
 		'II. RINCIAN PENGELUARAN & BEBAN OPERASIONAL',
-		'Detail pos belanja bahan baku, operasional toko, dan biaya non-operasional (Tunai & QRIS)',
+		'Detail belanja bahan baku, biaya operasional, dan pengeluaran kas lainnya',
 		y
 	);
 
@@ -495,19 +474,19 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			colSpan: 6,
 			styles: {
 				fontStyle: 'bold',
-				fillColor: [248, 250, 252],
-				textColor: slate600,
-				fontSize: 8.5
+				fillColor: colBgHeader,
+				textColor: colDark,
+				fontSize: 7.5
 			}
 		}
 	]);
 
 	if (expenseGrouped.length === 0) {
-		pengeluaranRows.push([
+		pemasukanRows.push([
 			{
-				content: 'Tidak ada data transaksi beban operasional pada periode ini',
+				content: 'Tidak ada data beban operasional pada periode ini',
 				colSpan: 6,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7.5 }
 			}
 		]);
 	} else {
@@ -542,9 +521,9 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			colSpan: 6,
 			styles: {
 				fontStyle: 'bold',
-				fillColor: [248, 250, 252],
-				textColor: brandDark,
-				fontSize: 8.5
+				fillColor: colBgHeader,
+				textColor: colDark,
+				fontSize: 7.5
 			}
 		}
 	]);
@@ -554,7 +533,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			{
 				content: 'Tidak ada data beban lainnya pada periode ini',
 				colSpan: 6,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: slate500 }
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7.5 }
 			}
 		]);
 	} else {
@@ -585,7 +564,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// TOTAL KESELURUHAN PENGELUARAN (A + B)
 	pengeluaranRows.push([
 		'',
-		'TOTAL KESELURUHAN PENGELUARAN (A + B)',
+		'TOTAL KESELURUHAN BEBAN / KAS KELUAR (A + B)',
 		`Rp ${formatRupiah(reportGroups.totalTunaiPengeluaran)}`,
 		`Rp ${formatRupiah(reportGroups.totalQrisPengeluaran)}`,
 		`Rp ${formatRupiah(totalPengeluaran)}`,
@@ -601,32 +580,32 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				'Kategori & Rincian Pos Pengeluaran',
 				'Kas Tunai (Rp)',
 				'QRIS / Non-Tunai (Rp)',
-				'Total Pengeluaran (Rp)',
+				'Total Nominal (Rp)',
 				'Porsi %'
 			]
 		],
 		body: pengeluaranRows as any,
 		headStyles: {
-			fillColor: slate600,
+			fillColor: colSlate800,
 			textColor: [255, 255, 255],
 			fontStyle: 'bold',
-			fontSize: 8.5,
-			cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
+			fontSize: 7.5,
+			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 }
 		},
 		bodyStyles: {
-			fontSize: 8,
-			textColor: brandDark,
-			cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+			fontSize: 7.2,
+			textColor: colDark,
+			cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
 			lineColor: [226, 232, 240],
-			lineWidth: 0.25
+			lineWidth: 0.2
 		},
 		columnStyles: {
-			0: { cellWidth: 10, halign: 'center' },
+			0: { cellWidth: 8, halign: 'center' },
 			1: { cellWidth: 'auto' },
 			2: { cellWidth: 32, halign: 'right' },
 			3: { cellWidth: 32, halign: 'right' },
 			4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
-			5: { cellWidth: 18, halign: 'center' }
+			5: { cellWidth: 16, halign: 'center' }
 		},
 		didParseCell: (data) => {
 			const cellText = String(data.cell.raw ?? '');
@@ -635,24 +614,24 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				data.cell.styles.fillColor = [248, 250, 252];
 			} else if (cellText.startsWith('TOTAL KESELURUHAN')) {
 				data.cell.styles.fontStyle = 'bold';
-				data.cell.styles.fillColor = [241, 245, 249];
-				data.cell.styles.textColor = brandDark;
+				data.cell.styles.fillColor = [226, 232, 240];
+				data.cell.styles.textColor = colDark;
 			}
 		},
 		margin: { left: 14, right: 14 }
 	});
 
-	y = getAutoTableFinalY(doc, y) + 12;
+	y = getAutoTableFinalY(doc, y) + 8;
 
-	// ─── 6. TABEL III: REKAPITULASI LABA RUGI, PAJAK & SALDO AKHIR ─────────────
-	if (y > 190) {
+	// ─── 5. TABEL III: REKAPITULASI LABA RUGI & SALDO AKHIR ─────────────────────
+	if (y > 215) {
 		doc.addPage();
-		y = 20;
+		y = 16;
 	}
 
 	y = renderSectionHeader(
-		'III. REKAPITULASI LABA RUGI, PAJAK & ARUS KAS AKHIR',
-		'Perbandingan arus kas masuk, arus kas keluar, estimasi pajak, dan laba bersih usaha',
+		'III. REKAPITULASI LABA RUGI, PAJAK & SALDO AKHIR KAS',
+		'Perhitungan ringkas laba kotor, potongan pajak penghasilan (PPh Final), dan laba bersih',
 		y
 	);
 
@@ -663,13 +642,13 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 
 	const summaryRows: TableRow[] = [
 		[
-			'Total Arus Kas Masuk / Pemasukan (A)',
+			'Total Arus Kas Masuk / Pendapatan (A)',
 			`Rp ${formatRupiah(tunaiMasukTotal)}`,
 			`Rp ${formatRupiah(qrisMasukTotal)}`,
 			`Rp ${formatRupiah(tunaiMasukTotal + qrisMasukTotal)}`
 		],
 		[
-			'Total Arus Kas Keluar / Pengeluaran (B)',
+			'Total Arus Kas Keluar / Beban (B)',
 			`Rp ${formatRupiah(tunaiKeluarTotal)}`,
 			`Rp ${formatRupiah(qrisKeluarTotal)}`,
 			`Rp ${formatRupiah(tunaiKeluarTotal + qrisKeluarTotal)}`
@@ -681,7 +660,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			`Rp ${formatRupiah(labaKotor)}`
 		],
 		[
-			summary?.taxLabel ? `Estimasi Pajak Usaha (${summary.taxLabel})` : 'Pajak Penghasilan UMKM',
+			summary?.taxLabel ? `Potongan Pajak Usaha (${summary.taxLabel})` : 'Pajak Penghasilan UMKM (0,5%)',
 			'-',
 			'-',
 			`Rp ${formatRupiah(pajak)}`
@@ -710,27 +689,27 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		startY: y,
 		theme: 'grid',
 		head: [
-			['Kategori Akuntansi & Arus Kas', 'Kas Tunai (Cash)', 'Non-Tunai / QRIS', 'Total Nominal']
+			['Kategori Akuntansi & Arus Kas', 'Kas Tunai (Rp)', 'Non-Tunai / QRIS (Rp)', 'Total Nominal (Rp)']
 		],
 		body: summaryRows as any,
 		headStyles: {
-			fillColor: [30, 41, 59], // Slate-800
+			fillColor: colSlate800,
 			textColor: [255, 255, 255],
 			fontStyle: 'bold',
-			fontSize: 8.5,
-			cellPadding: { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 }
+			fontSize: 7.5,
+			cellPadding: { top: 2.8, bottom: 2.8, left: 3.5, right: 3.5 }
 		},
 		bodyStyles: {
-			fontSize: 8,
-			textColor: brandDark,
-			cellPadding: { top: 3, bottom: 3, left: 3.5, right: 3.5 },
+			fontSize: 7.5,
+			textColor: colDark,
+			cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
 			lineColor: [226, 232, 240],
-			lineWidth: 0.25
+			lineWidth: 0.2
 		},
 		columnStyles: {
-			0: { cellWidth: 76 },
-			1: { cellWidth: 35, halign: 'right' },
-			2: { cellWidth: 35, halign: 'right' },
+			0: { cellWidth: 78 },
+			1: { cellWidth: 34, halign: 'right' },
+			2: { cellWidth: 34, halign: 'right' },
 			3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' }
 		},
 		didParseCell: (data) => {
@@ -741,26 +720,25 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			}
 			if (cellText.startsWith('SALDO AKHIR KAS')) {
 				data.cell.styles.fontStyle = 'bold';
-				data.cell.styles.fillColor = [253, 242, 248];
-				data.cell.styles.textColor = brandPrimary;
+				data.cell.styles.fillColor = [226, 232, 240];
+				data.cell.styles.textColor = colDark;
 			}
 		},
 		margin: { left: 14, right: 14 }
 	});
 
-	y = getAutoTableFinalY(doc, y) + 12;
+	y = getAutoTableFinalY(doc, y) + 8;
 
-	// ─── 7. TABEL IV: LOG TRANSAKSI BUKU KAS DETAIL ─────────────────────────────
+	// ─── 6. TABEL IV: LOG TRANSAKSI BUKU KAS DETAIL ─────────────────────────────
 	if (transactions.length > 0) {
-		// Untuk log detail buku kas, berikan ruang yang lega (pindah halaman baru jika ruang sempit)
-		if (y > 175) {
+		if (y > 200) {
 			doc.addPage();
-			y = 20;
+			y = 16;
 		}
 
 		y = renderSectionHeader(
-			`IV. LOG TRANSAKSI BUKU KAS DETAIL (${transactions.length} Transaksi)`,
-			'Rekaman kronologis seluruh mutasi keuangan kas masuk dan keluar yang tercatat di sistem',
+			`IV. LOG TRANSAKSI BUKU KAS DETAIL (${transactions.length} Mutasi)`,
+			'Rekaman kronologis mutasi kas masuk dan kas keluar yang tercatat di sistem',
 			y
 		);
 
@@ -801,146 +779,146 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			startY: y,
 			theme: 'grid',
 			head: [
-				['No', 'Tanggal/Waktu', 'Tipe', 'Kategori', 'Deskripsi / Keterangan', 'Metode', 'Nominal']
+				['No', 'Tanggal/Waktu', 'Tipe', 'Kategori', 'Deskripsi / Keterangan', 'Metode', 'Nominal (Rp)']
 			],
 			body: transactionRows,
 			headStyles: {
-				fillColor: [30, 41, 59], // Slate-800
+				fillColor: colSlate800,
 				textColor: [255, 255, 255],
 				fontStyle: 'bold',
-				fontSize: 8.5,
-				cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 }
+				fontSize: 7.5,
+				cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 }
 			},
 			bodyStyles: {
-				fontSize: 7.8,
-				textColor: brandDark,
-				cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+				fontSize: 7.2,
+				textColor: colDark,
+				cellPadding: { top: 2.2, bottom: 2.2, left: 3, right: 3 },
 				lineColor: [226, 232, 240],
-				lineWidth: 0.25
+				lineWidth: 0.2
 			},
 			columnStyles: {
-				0: { cellWidth: 10, halign: 'center' },
-				1: { cellWidth: 28 },
-				2: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
-				3: { cellWidth: 30 },
+				0: { cellWidth: 8, halign: 'center' },
+				1: { cellWidth: 26 },
+				2: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+				3: { cellWidth: 28 },
 				4: { cellWidth: 'auto' },
-				5: { cellWidth: 20, halign: 'center' },
-				6: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+				5: { cellWidth: 18, halign: 'center' },
+				6: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }
 			},
 			alternateRowStyles: {
 				fillColor: [248, 250, 252]
 			},
 			didParseCell: (data) => {
-				// Warnai kolom Tipe secara elegan (MASUK emerald, KELUAR rose)
 				if (data.column.index === 2 && data.section === 'body') {
 					const val = String(data.cell.raw);
-					if (val === 'MASUK') {
-						data.cell.styles.textColor = greenProfit;
-					} else if (val === 'KELUAR') {
-						data.cell.styles.textColor = redLoss;
+					if (val === 'KELUAR') {
+						data.cell.styles.textColor = colNegative;
 					}
 				}
 			},
 			margin: { left: 14, right: 14 }
 		});
 
-		y = getAutoTableFinalY(doc, y) + 12;
+		y = getAutoTableFinalY(doc, y) + 8;
 	}
 
-	// ─── 8. LEMBAR PENGESAHAN (OFFICIAL APPROVAL SIGNATURES) ─────────────────────
-	let signY = y + 4;
+	// ─── 7. LEMBAR PENGESAHAN RESMI (OFFICIAL APPROVAL SIGNATURES) ───────────────
+	let signY = y + 2;
 
-	// Pastikan kotak tanda tangan memiliki ruang cukup (tinggi butuh ~40mm)
-	if (signY > 230) {
+	if (signY > 235) {
 		doc.addPage();
-		signY = 24;
+		signY = 18;
 	}
 
-	// Kotak Tanda Tangan Kiri (Kasir / Staf Pembuat)
-	doc.setFillColor(248, 250, 252);
-	doc.setDrawColor(...borderSlate);
-	doc.setLineWidth(0.4);
-	doc.roundedRect(14, signY, 80, 36, 2.5, 2.5, 'FD');
+	// Dua Kolom Tanda Tangan Standar Akuntansi & Perusahaan
+	const signBoxW = 82;
+	const signBoxH = 32;
+
+	// Kotak Kiri (Dibuat Oleh)
+	doc.setFillColor(...colBgCard);
+	doc.setDrawColor(...colBorder);
+	doc.setLineWidth(0.3);
+	doc.roundedRect(14, signY, signBoxW, signBoxH, 1.5, 1.5, 'FD');
 
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(8.5);
-	doc.setTextColor(...brandDark);
-	doc.text('Dibuat & Dilaporkan Oleh:', 19, signY + 7);
+	doc.setFontSize(7.5);
+	doc.setTextColor(...colDark);
+	doc.text('Dibuat & Dilaporkan Oleh:', 18, signY + 5.5);
 
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
-	doc.setTextColor(...slate500);
-	doc.text('Kasir / Staf Operasional Cabang', 19, signY + 11.5);
+	doc.setFontSize(7);
+	doc.setTextColor(...colMuted);
+	doc.text('Kasir / Staf Operasional Cabang', 18, signY + 9.5);
 
-	doc.setDrawColor(203, 213, 225);
+	doc.setDrawColor(...colBorder);
+	doc.setLineWidth(0.25);
+	doc.line(18, signY + 24, 18 + signBoxW - 8, signY + 24);
+
+	doc.setFontSize(6.8);
+	doc.setTextColor(...colLightMuted);
+	doc.text('( Tanda Tangan & Nama Terang )', 18, signY + 28);
+
+	// Kotak Kanan (Disetujui Oleh)
+	doc.setFillColor(...colBgCard);
+	doc.setDrawColor(...colBorder);
 	doc.setLineWidth(0.3);
-	doc.line(19, signY + 28, 89, signY + 28);
-
-	doc.setFontSize(7.5);
-	doc.setTextColor(...slate400);
-	doc.text('( Tanda Tangan & Tanggal )', 19, signY + 32.5);
-
-	// Kotak Tanda Tangan Kanan (Pemilik / Manajer Penyetuju)
-	doc.setFillColor(253, 242, 248); // Soft rose tint
-	doc.setDrawColor(244, 114, 182); // Pink border
-	doc.setLineWidth(0.4);
-	doc.roundedRect(116, signY, 80, 36, 2.5, 2.5, 'FD');
+	doc.roundedRect(114, signY, signBoxW, signBoxH, 1.5, 1.5, 'FD');
 
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(8.5);
-	doc.setTextColor(...brandPrimary);
-	doc.text('Diperiksa & Disetujui Oleh:', 121, signY + 7);
+	doc.setFontSize(7.5);
+	doc.setTextColor(...colDark);
+	doc.text('Diperiksa & Disetujui Oleh:', 118, signY + 5.5);
 
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
-	doc.setTextColor(...slate500);
-	doc.text('Pemilik / Manajer Area Cabang', 121, signY + 11.5);
+	doc.setFontSize(7);
+	doc.setTextColor(...colMuted);
+	doc.text('Pemilik / Pimpinan Manajemen Cabang', 118, signY + 9.5);
 
-	doc.setDrawColor(244, 114, 182);
-	doc.setLineWidth(0.3);
-	doc.line(121, signY + 28, 191, signY + 28);
+	doc.setDrawColor(...colBorder);
+	doc.setLineWidth(0.25);
+	doc.line(118, signY + 24, 118 + signBoxW - 8, signY + 24);
 
-	doc.setFontSize(7.5);
-	doc.setTextColor(...slate400);
-	doc.text('( Tanda Tangan & Stempel Resmi )', 121, signY + 32.5);
+	doc.setFontSize(6.8);
+	doc.setTextColor(...colLightMuted);
+	doc.text('( Tanda Tangan & Stempel Resmi )', 118, signY + 28);
 
-	// ─── 9. RUNNING HEADER & RUNNING FOOTER DI SELURUH HALAMAN ───────────────────
+	// ─── 8. RUNNING HEADER & RUNNING FOOTER DI SELURUH HALAMAN ───────────────────
 	const totalPages = getTotalPdfPages(doc);
 	const generatedTimestamp = new Date().toLocaleString('id-ID');
 
 	for (let i = 1; i <= totalPages; i++) {
 		doc.setPage(i);
 
-		// Running Header untuk Halaman 2 ke atas
+		// Running Header Halaman 2 ke atas
 		if (i > 1) {
 			doc.setFont('helvetica', 'normal');
-			doc.setFontSize(7.5);
-			doc.setTextColor(...slate400);
+			doc.setFontSize(7);
+			doc.setTextColor(...colMuted);
 			doc.text(`Zatiaras Juice — Laporan Keuangan Periode ${startDate} s/d ${endDate}`, 14, 8);
 			doc.text(`Cabang: ${branchName.toUpperCase()}`, 196, 8, { align: 'right' });
 
-			doc.setDrawColor(...borderSlate);
-			doc.setLineWidth(0.3);
-			doc.line(14, 11, 196, 11);
+			doc.setDrawColor(...colBorder);
+			doc.setLineWidth(0.2);
+			doc.line(14, 10, 196, 10);
 		}
 
 		// Running Footer di Setiap Halaman
-		doc.setDrawColor(...borderSlate);
-		doc.setLineWidth(0.3);
+		doc.setDrawColor(...colBorder);
+		doc.setLineWidth(0.2);
 		doc.line(14, 287, 196, 287);
 
 		doc.setFont('helvetica', 'normal');
-		doc.setFontSize(7.5);
-		doc.setTextColor(...slate400);
+		doc.setFontSize(7);
+		doc.setTextColor(...colMuted);
 		doc.text(
-			`ZatiarasPOS • Dokumen Keuangan Resmi • Dicetak pada ${generatedTimestamp}`,
+			`ZatiarasPOS • Dokumen Keuangan Resmi • Dicetak: ${generatedTimestamp}`,
 			14,
-			291.5
+			291
 		);
-		doc.text(`Halaman ${i} dari ${totalPages}`, 196, 291.5, { align: 'right' });
+		doc.text(`Halaman ${i} dari ${totalPages}`, 196, 291, { align: 'right' });
 	}
 
-	// ─── 10. SIMPAN PDF ──────────────────────────────────────────────────────────
+	// ─── 9. SIMPAN PDF ───────────────────────────────────────────────────────────
 	const cleanBranch = branchName.replace(/[^a-zA-Z0-9]/g, '_');
 	const fileName = `Laporan_Keuangan_Zatiaras_${cleanBranch}_${startDate}_sd_${endDate}.pdf`;
 	doc.save(fileName);
