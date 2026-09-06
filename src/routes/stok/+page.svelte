@@ -815,7 +815,7 @@
 			<div class="no-scrollbar -mx-4 mb-3.5 flex items-center gap-2 overflow-x-auto px-4 py-1">
 				<button
 					type="button"
-					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 active:scale-95 {selectedCategory ===
+					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 {selectedCategory ===
 					'all'
 						? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/20'
 						: 'border border-slate-200/90 bg-white/90 text-slate-700 hover:bg-slate-50'}"
@@ -833,7 +833,7 @@
 
 				<button
 					type="button"
-					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 active:scale-95 {selectedCategory ===
+					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 {selectedCategory ===
 					'low_stock'
 						? 'bg-gradient-to-r from-rose-600 to-red-500 text-white shadow-md shadow-rose-500/20'
 						: 'border border-rose-100/90 bg-rose-50/60 text-rose-700 hover:bg-rose-100/60'}"
@@ -856,7 +856,7 @@
 					{@const count = getCategoryCount(cat)}
 					<button
 						type="button"
-						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 active:scale-95 {selectedCategory ===
+						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 {selectedCategory ===
 						cat
 							? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/20'
 							: 'border border-slate-200/90 bg-white/90 text-slate-700 hover:bg-slate-50'}"

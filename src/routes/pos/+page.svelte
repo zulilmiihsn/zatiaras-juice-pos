@@ -577,7 +577,7 @@
 					style="scrollbar-width:none;-ms-overflow-style:none;"
 				>
 					<button
-						class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] {selectedCategory ===
+						class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {selectedCategory ===
 						'all'
 							? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 							: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -593,7 +593,7 @@
 					{:else if (categories ?? []).length === 0}
 						<!-- [CATATAN]: Button Custom Item di samping 'Semua' jika tidak ada kategori -->
 						<button
-							class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-transform duration-200 active:scale-[0.98]"
+							class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 							type="button"
 							aria-label="Tambah item custom"
 							onclick={handleShowCustomItemModal}
@@ -603,7 +603,7 @@
 					{:else}
 						{#each categories ?? [] as c (c.id)}
 							<button
-								class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] {selectedCategory ===
+								class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {selectedCategory ===
 								String(c.id)
 									? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 									: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -613,7 +613,7 @@
 						{/each}
 						<!-- [CATATAN]: Button Custom Item di paling kanan -->
 						<button
-							class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-all duration-200 active:scale-[0.98]"
+							class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 							type="button"
 							onclick={handleShowCustomItemModal}
 						>
