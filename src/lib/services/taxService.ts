@@ -152,10 +152,17 @@ export async function syncTaxSettingsWithServer(branch?: string): Promise<TaxSet
 						}
 					]
 				};
-				localStorage.setItem(
-					`zatiaras_tax_settings_${targetBranch}`,
-					JSON.stringify(localSettings)
-				);
+				const branchStorageKey = `zatiaras_tax_settings_${targetBranch}`;
+				const prevRaw = localStorage.getItem(branchStorageKey);
+				const nextRaw = JSON.stringify(localSettings);
+				if (prevRaw !== nextRaw) {
+					localStorage.setItem(branchStorageKey, nextRaw);
+					window.dispatchEvent(
+						new CustomEvent('zatiara:tax_settings_updated', {
+							detail: { settings: localSettings, branch: targetBranch }
+						})
+					);
+				}
 				return localSettings;
 			}
 		}

@@ -16,10 +16,10 @@ export interface BranchTaxConfig {
 
 const DEFAULT_TAX_CONFIG: BranchTaxConfig = {
 	enabled: true,
-	nama: 'PPh Final UMKM (PP 55/2022)',
+	nama: 'PPh Final UMKM (0.5%)',
 	rate: 0.005,
 	threshold: 500_000_000,
-	apply_threshold: true
+	apply_threshold: false
 };
 
 export const GET: RequestHandler = async ({ url, platform, locals }) => {

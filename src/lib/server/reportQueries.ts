@@ -232,7 +232,7 @@ export async function buildLaporanAggregate(
 	let taxRate = 0.005;
 	let taxEnabled = true;
 	let taxThreshold = 500_000_000;
-	let applyThreshold = true;
+	let applyThreshold = false;
 	try {
 		const taxConfigRow = (await rawDb
 			.prepare(
