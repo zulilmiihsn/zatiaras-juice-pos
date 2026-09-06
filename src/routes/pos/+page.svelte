@@ -128,9 +128,7 @@
 	const products = $derived(pos.produkData);
 	const addOns = $derived(pos.tambahanData);
 
-	const categoryMap = $derived(
-		new Map(categories.map((c) => [String(c.id), c.nama || '']))
-	);
+	const categoryMap = $derived(new Map(categories.map((c) => [String(c.id), c.nama || ''])));
 
 	// [CATATAN]: Jenis gula dan es
 	const sugarOptions = SUGAR_OPTIONS;
@@ -189,8 +187,12 @@
 				if (search) return 0; // pertahankan ranking pencarian fuzzy
 
 				if (selectedCategory === 'all') {
-					const catA = a.kategori_id ? (categoryMap.get(String(a.kategori_id)) || '\uffff') : '\uffff';
-					const catB = b.kategori_id ? (categoryMap.get(String(b.kategori_id)) || '\uffff') : '\uffff';
+					const catA = a.kategori_id
+						? categoryMap.get(String(a.kategori_id)) || '\uffff'
+						: '\uffff';
+					const catB = b.kategori_id
+						? categoryMap.get(String(b.kategori_id)) || '\uffff'
+						: '\uffff';
 					const catCompare = catA.localeCompare(catB, 'id', { sensitivity: 'base' });
 					if (catCompare !== 0) return catCompare;
 				}

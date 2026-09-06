@@ -78,8 +78,6 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// Palette Warna Dokumen Keuangan Minimalis Resmi
 	const colDark: [number, number, number] = [17, 24, 39]; // Gray-900 (Teks Utama)
 	const colMuted: [number, number, number] = [75, 85, 99]; // Gray-600 (Keterangan/Subteks)
-	const colLightMuted: [number, number, number] = [156, 163, 175]; // Gray-400 (Garis/Catatan)
-	const colBorder: [number, number, number] = [229, 231, 235]; // Gray-200 (Border Halus)
 	const colNegative: [number, number, number] = [185, 28, 28]; // Red-700 (Jika Rugi)
 
 	const pendapatan = Number(summary?.pendapatan || 0);
@@ -650,7 +648,12 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		startY: y,
 		theme: 'plain',
 		head: [
-			['Kategori Akuntansi & Arus Kas', 'Kas Tunai (Rp)', 'Non-Tunai / QRIS (Rp)', 'Total Nominal (Rp)']
+			[
+				'Kategori Akuntansi & Arus Kas',
+				'Kas Tunai (Rp)',
+				'Non-Tunai / QRIS (Rp)',
+				'Total Nominal (Rp)'
+			]
 		],
 		body: summaryRows as any,
 		headStyles: {
@@ -818,7 +821,11 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	doc.line(rightSignX, signY + 22, rightSignX + signColW, signY + 22);
 
 	doc.setFontSize(7);
-	doc.text('( ................................................................ )', rightSignX, signY + 26);
+	doc.text(
+		'( ................................................................ )',
+		rightSignX,
+		signY + 26
+	);
 
 	// ─── 8. RUNNING HEADER & RUNNING FOOTER DI SELURUH HALAMAN ───────────────────
 	const totalPages = getTotalPdfPages(doc);
@@ -848,11 +855,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		doc.setFont('helvetica', 'normal');
 		doc.setFontSize(7);
 		doc.setTextColor(...colMuted);
-		doc.text(
-			`ZatiarasPOS • Dokumen Keuangan Resmi • Dicetak: ${generatedTimestamp}`,
-			14,
-			291
-		);
+		doc.text(`ZatiarasPOS • Dokumen Keuangan Resmi • Dicetak: ${generatedTimestamp}`, 14, 291);
 		doc.text(`Halaman ${i} dari ${totalPages}`, 196, 291, { align: 'right' });
 	}
 

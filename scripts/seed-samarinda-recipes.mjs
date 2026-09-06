@@ -21,68 +21,706 @@ const CABANG_ID = 'samarinda';
 // Master Data Bahan Baku Samarinda
 const ingredients = [
 	// 1. Buah Segar & Frozen
-	{ id: 'bhn-smd-alpukat', nama: 'Alpukat Frozen', satuan: 'gram', tipe_satuan: 'berat', isi: 500, satuan_beli: 'pack 500g', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 35 },
-	{ id: 'bhn-smd-mangga', nama: 'Mangga Frozen', satuan: 'gram', tipe_satuan: 'berat', isi: 500, satuan_beli: 'pack 500g', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 30 },
-	{ id: 'bhn-smd-buah-naga', nama: 'Buah Naga Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 25 },
-	{ id: 'bhn-smd-jeruk-sunkist', nama: 'Jeruk Sunkist', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 5000 },
-	{ id: 'bhn-smd-stroberi', nama: 'Stroberi Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'butir', kategori: 'Buah', stok: 1000, ambang: 50, biaya: 500 },
-	{ id: 'bhn-smd-durian', nama: 'Durian Frozen', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'pack 1kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 70 },
-	{ id: 'bhn-smd-jambu-guava', nama: 'Jambu Guava Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 18 },
-	{ id: 'bhn-smd-sirsak', nama: 'Sirsak Frozen', satuan: 'gram', tipe_satuan: 'berat', isi: 500, satuan_beli: 'pack 500g', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 30 },
-	{ id: 'bhn-smd-apel', nama: 'Apel Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 4000 },
-	{ id: 'bhn-smd-melon', nama: 'Melon Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 15 },
-	{ id: 'bhn-smd-semangka', nama: 'Semangka Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 10 },
-	{ id: 'bhn-smd-nanas', nama: 'Nanas Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 12 },
-	{ id: 'bhn-smd-pisang-cavendish', nama: 'Pisang Cavendish Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 2000 },
-	{ id: 'bhn-smd-wortel', nama: 'Wortel Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 200, ambang: 20, biaya: 1000 },
-	{ id: 'bhn-smd-tomat', nama: 'Tomat Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 200, ambang: 20, biaya: 1000 },
-	{ id: 'bhn-smd-timun', nama: 'Timun Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 1500 },
-	{ id: 'bhn-smd-bit-beetroot', nama: 'Bit / Beetroot Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 5000, ambang: 300, biaya: 35 },
-	{ id: 'bhn-smd-pepaya', nama: 'Pepaya Segar', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'kg', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 10 },
-	{ id: 'bhn-smd-mangga-kuini', nama: 'Mangga Kuini', satuan: 'gram', tipe_satuan: 'berat', isi: 500, satuan_beli: 'pack 500g', kategori: 'Buah', stok: 5000, ambang: 300, biaya: 35 },
-	{ id: 'bhn-smd-anggur-merah', nama: 'Anggur Merah Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'butir', kategori: 'Buah', stok: 1000, ambang: 50, biaya: 400 },
-	{ id: 'bhn-smd-anggur-hijau', nama: 'Anggur Hijau Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'butir', kategori: 'Buah', stok: 1000, ambang: 50, biaya: 400 },
-	{ id: 'bhn-smd-kurma', nama: 'Kurma Manis', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'butir', kategori: 'Buah', stok: 500, ambang: 30, biaya: 800 },
-	{ id: 'bhn-smd-pir', nama: 'Pir Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 4000 },
-	{ id: 'bhn-smd-kiwi-hijau', nama: 'Kiwi Hijau', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 6000 },
-	{ id: 'bhn-smd-kiwi-gold', nama: 'Kiwi Gold', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 7500 },
-	{ id: 'bhn-smd-nangka', nama: 'Nangka Frozen', satuan: 'gram', tipe_satuan: 'berat', isi: 500, satuan_beli: 'pack 500g', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 30 },
-	{ id: 'bhn-smd-belimbing', nama: 'Belimbing Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 2500 },
-	{ id: 'bhn-smd-pakcoy', nama: 'Pakcoy Segar', satuan: 'lembar', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'lembar', kategori: 'Buah', stok: 200, ambang: 20, biaya: 300 },
-	{ id: 'bhn-smd-jeruk-peras', nama: 'Jeruk Peras Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 500, ambang: 30, biaya: 1200 },
-	{ id: 'bhn-smd-lemon', nama: 'Lemon Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 100, ambang: 10, biaya: 3500 },
-	{ id: 'bhn-smd-jeruk-nipis', nama: 'Jeruk Nipis Segar', satuan: 'pcs', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'buah', kategori: 'Buah', stok: 200, ambang: 20, biaya: 1000 },
-	{ id: 'bhn-smd-kelapa-muda', nama: 'Kelapa Muda (Daging & Air)', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'butir', kategori: 'Buah', stok: 10000, ambang: 500, biaya: 15 },
+	{
+		id: 'bhn-smd-alpukat',
+		nama: 'Alpukat Frozen',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 500,
+		satuan_beli: 'pack 500g',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 35
+	},
+	{
+		id: 'bhn-smd-mangga',
+		nama: 'Mangga Frozen',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 500,
+		satuan_beli: 'pack 500g',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		id: 'bhn-smd-buah-naga',
+		nama: 'Buah Naga Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 25
+	},
+	{
+		id: 'bhn-smd-jeruk-sunkist',
+		nama: 'Jeruk Sunkist',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 5000
+	},
+	{
+		id: 'bhn-smd-stroberi',
+		nama: 'Stroberi Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'butir',
+		kategori: 'Buah',
+		stok: 1000,
+		ambang: 50,
+		biaya: 500
+	},
+	{
+		id: 'bhn-smd-durian',
+		nama: 'Durian Frozen',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'pack 1kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 70
+	},
+	{
+		id: 'bhn-smd-jambu-guava',
+		nama: 'Jambu Guava Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 18
+	},
+	{
+		id: 'bhn-smd-sirsak',
+		nama: 'Sirsak Frozen',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 500,
+		satuan_beli: 'pack 500g',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		id: 'bhn-smd-apel',
+		nama: 'Apel Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 4000
+	},
+	{
+		id: 'bhn-smd-melon',
+		nama: 'Melon Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 15
+	},
+	{
+		id: 'bhn-smd-semangka',
+		nama: 'Semangka Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 10
+	},
+	{
+		id: 'bhn-smd-nanas',
+		nama: 'Nanas Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 12
+	},
+	{
+		id: 'bhn-smd-pisang-cavendish',
+		nama: 'Pisang Cavendish Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 2000
+	},
+	{
+		id: 'bhn-smd-wortel',
+		nama: 'Wortel Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 200,
+		ambang: 20,
+		biaya: 1000
+	},
+	{
+		id: 'bhn-smd-tomat',
+		nama: 'Tomat Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 200,
+		ambang: 20,
+		biaya: 1000
+	},
+	{
+		id: 'bhn-smd-timun',
+		nama: 'Timun Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 1500
+	},
+	{
+		id: 'bhn-smd-bit-beetroot',
+		nama: 'Bit / Beetroot Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 35
+	},
+	{
+		id: 'bhn-smd-pepaya',
+		nama: 'Pepaya Segar',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'kg',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 10
+	},
+	{
+		id: 'bhn-smd-mangga-kuini',
+		nama: 'Mangga Kuini',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 500,
+		satuan_beli: 'pack 500g',
+		kategori: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 35
+	},
+	{
+		id: 'bhn-smd-anggur-merah',
+		nama: 'Anggur Merah Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'butir',
+		kategori: 'Buah',
+		stok: 1000,
+		ambang: 50,
+		biaya: 400
+	},
+	{
+		id: 'bhn-smd-anggur-hijau',
+		nama: 'Anggur Hijau Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'butir',
+		kategori: 'Buah',
+		stok: 1000,
+		ambang: 50,
+		biaya: 400
+	},
+	{
+		id: 'bhn-smd-kurma',
+		nama: 'Kurma Manis',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'butir',
+		kategori: 'Buah',
+		stok: 500,
+		ambang: 30,
+		biaya: 800
+	},
+	{
+		id: 'bhn-smd-pir',
+		nama: 'Pir Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 4000
+	},
+	{
+		id: 'bhn-smd-kiwi-hijau',
+		nama: 'Kiwi Hijau',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 6000
+	},
+	{
+		id: 'bhn-smd-kiwi-gold',
+		nama: 'Kiwi Gold',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 7500
+	},
+	{
+		id: 'bhn-smd-nangka',
+		nama: 'Nangka Frozen',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 500,
+		satuan_beli: 'pack 500g',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		id: 'bhn-smd-belimbing',
+		nama: 'Belimbing Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 2500
+	},
+	{
+		id: 'bhn-smd-pakcoy',
+		nama: 'Pakcoy Segar',
+		satuan: 'lembar',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'lembar',
+		kategori: 'Buah',
+		stok: 200,
+		ambang: 20,
+		biaya: 300
+	},
+	{
+		id: 'bhn-smd-jeruk-peras',
+		nama: 'Jeruk Peras Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 500,
+		ambang: 30,
+		biaya: 1200
+	},
+	{
+		id: 'bhn-smd-lemon',
+		nama: 'Lemon Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 3500
+	},
+	{
+		id: 'bhn-smd-jeruk-nipis',
+		nama: 'Jeruk Nipis Segar',
+		satuan: 'pcs',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'buah',
+		kategori: 'Buah',
+		stok: 200,
+		ambang: 20,
+		biaya: 1000
+	},
+	{
+		id: 'bhn-smd-kelapa-muda',
+		nama: 'Kelapa Muda (Daging & Air)',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'butir',
+		kategori: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 15
+	},
 
 	// 2. Pemanis, Susu & Pelengkap Minuman
-	{ id: 'bhn-smd-skm', nama: 'Susu Kental Manis (Putih)', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'pouch 1L', kategori: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 25 },
-	{ id: 'bhn-smd-skm-cokelat', nama: 'Susu Kental Manis Cokelat', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'pouch 1L', kategori: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 25 },
-	{ id: 'bhn-smd-gula-cair', nama: 'Gula Cair (Simple Syrup)', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'liter', kategori: 'Pemanis & Susu', stok: 30000, ambang: 2000, biaya: 15 },
-	{ id: 'bhn-smd-gula-aren', nama: 'Gula Aren Cair', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'liter', kategori: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 35 },
-	{ id: 'bhn-smd-madu', nama: 'Madu Murni Cair', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'liter', kategori: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 50 },
-	{ id: 'bhn-smd-susu-uht', nama: 'Susu UHT Fresh Milk', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'karton 1L', kategori: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 20 },
-	{ id: 'bhn-smd-santan', nama: 'Santan Matang', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'liter', kategori: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 25 },
-	{ id: 'bhn-smd-yogurt', nama: 'Yogurt Plain', satuan: 'ml', tipe_satuan: 'volume', isi: 500, satuan_beli: 'cup 500ml', kategori: 'Pemanis & Susu', stok: 5000, ambang: 250, biaya: 40 },
-	{ id: 'bhn-smd-keju', nama: 'Keju Cheddar Blok', satuan: 'gram', tipe_satuan: 'berat', isi: 2000, satuan_beli: 'blok 2kg', kategori: 'Pemanis & Susu', stok: 4000, ambang: 200, biaya: 60 },
-	{ id: 'bhn-smd-krimer-base', nama: 'Cream Base / Krimer', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'liter', kategori: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 30 },
-	{ id: 'bhn-smd-milo-bubuk', nama: 'Milo Bubuk', satuan: 'gram', tipe_satuan: 'berat', isi: 1000, satuan_beli: 'pack 1kg', kategori: 'Bubuk Minuman', stok: 5000, ambang: 300, biaya: 80 },
-	{ id: 'bhn-smd-sirup-cocopandan', nama: 'Sirup Merah Cocopandan', satuan: 'ml', tipe_satuan: 'volume', isi: 1000, satuan_beli: 'botol 1L', kategori: 'Pemanis & Susu', stok: 5000, ambang: 300, biaya: 30 },
+	{
+		id: 'bhn-smd-skm',
+		nama: 'Susu Kental Manis (Putih)',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'pouch 1L',
+		kategori: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 25
+	},
+	{
+		id: 'bhn-smd-skm-cokelat',
+		nama: 'Susu Kental Manis Cokelat',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'pouch 1L',
+		kategori: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 25
+	},
+	{
+		id: 'bhn-smd-gula-cair',
+		nama: 'Gula Cair (Simple Syrup)',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'liter',
+		kategori: 'Pemanis & Susu',
+		stok: 30000,
+		ambang: 2000,
+		biaya: 15
+	},
+	{
+		id: 'bhn-smd-gula-aren',
+		nama: 'Gula Aren Cair',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'liter',
+		kategori: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 35
+	},
+	{
+		id: 'bhn-smd-madu',
+		nama: 'Madu Murni Cair',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'liter',
+		kategori: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 50
+	},
+	{
+		id: 'bhn-smd-susu-uht',
+		nama: 'Susu UHT Fresh Milk',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'karton 1L',
+		kategori: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 20
+	},
+	{
+		id: 'bhn-smd-santan',
+		nama: 'Santan Matang',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'liter',
+		kategori: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 25
+	},
+	{
+		id: 'bhn-smd-yogurt',
+		nama: 'Yogurt Plain',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 500,
+		satuan_beli: 'cup 500ml',
+		kategori: 'Pemanis & Susu',
+		stok: 5000,
+		ambang: 250,
+		biaya: 40
+	},
+	{
+		id: 'bhn-smd-keju',
+		nama: 'Keju Cheddar Blok',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 2000,
+		satuan_beli: 'blok 2kg',
+		kategori: 'Pemanis & Susu',
+		stok: 4000,
+		ambang: 200,
+		biaya: 60
+	},
+	{
+		id: 'bhn-smd-krimer-base',
+		nama: 'Cream Base / Krimer',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'liter',
+		kategori: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		id: 'bhn-smd-milo-bubuk',
+		nama: 'Milo Bubuk',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 1000,
+		satuan_beli: 'pack 1kg',
+		kategori: 'Bubuk Minuman',
+		stok: 5000,
+		ambang: 300,
+		biaya: 80
+	},
+	{
+		id: 'bhn-smd-sirup-cocopandan',
+		nama: 'Sirup Merah Cocopandan',
+		satuan: 'ml',
+		tipe_satuan: 'volume',
+		isi: 1000,
+		satuan_beli: 'botol 1L',
+		kategori: 'Pemanis & Susu',
+		stok: 5000,
+		ambang: 300,
+		biaya: 30
+	},
 
 	// 3. Camilan, Snack & Kemasan Siap Saji
-	{ id: 'bhn-smd-amplang', nama: 'Amplang Kuku Macan', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 12000 },
-	{ id: 'bhn-smd-keripik-pisang-karamel', nama: 'Keripik Pisang Karamel', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 10000 },
-	{ id: 'bhn-smd-pisang-serut-gula-merah', nama: 'Pisang Serut Gula Merah', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 10000 },
-	{ id: 'bhn-smd-puding-cup-besar', nama: 'Puding Buah Cup Besar', satuan: 'cup', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'cup', kategori: 'Camilan', stok: 30, ambang: 5, biaya: 8000 },
-	{ id: 'bhn-smd-puding-cup-sedang', nama: 'Puding Buah Cup Sedang', satuan: 'cup', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'cup', kategori: 'Camilan', stok: 30, ambang: 5, biaya: 6000 },
-	{ id: 'bhn-smd-puding-reguler', nama: 'Puding Cup Reguler', satuan: 'cup', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'cup', kategori: 'Camilan', stok: 30, ambang: 5, biaya: 4000 },
-	{ id: 'bhn-smd-keripik-sukun-srikandi', nama: 'Keripik Sukun Srikandi', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 12000 },
-	{ id: 'bhn-smd-keripik-sukun-mbak-nur', nama: 'Keripik Sukun Mbak Nur', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 12000 },
-	{ id: 'bhn-smd-bakso-goreng', nama: 'Bakso Goreng Kriuk', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 8000 },
-	{ id: 'bhn-smd-basreng-stik', nama: 'Basreng Stik', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 8000 },
-	{ id: 'bhn-smd-mi-lidi', nama: 'Mi Lidi Moil Snack', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 6000 },
-	{ id: 'bhn-smd-keripik-kaca', nama: 'Keripik Kaca Pecah', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 50, ambang: 5, biaya: 7000 },
-	{ id: 'bhn-smd-sanggar-rimpi', nama: 'Sanggar Rimpi 220g', satuan: 'pack', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'pack', kategori: 'Camilan', stok: 30, ambang: 5, biaya: 12000 },
-	{ id: 'bhn-smd-asinan-kiamboy', nama: 'Asinan Kiamboy Cup', satuan: 'cup', tipe_satuan: 'jumlah', isi: 1, satuan_beli: 'cup', kategori: 'Camilan', stok: 30, ambang: 5, biaya: 10000 }
+	{
+		id: 'bhn-smd-amplang',
+		nama: 'Amplang Kuku Macan',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 12000
+	},
+	{
+		id: 'bhn-smd-keripik-pisang-karamel',
+		nama: 'Keripik Pisang Karamel',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 10000
+	},
+	{
+		id: 'bhn-smd-pisang-serut-gula-merah',
+		nama: 'Pisang Serut Gula Merah',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 10000
+	},
+	{
+		id: 'bhn-smd-puding-cup-besar',
+		nama: 'Puding Buah Cup Besar',
+		satuan: 'cup',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'cup',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 8000
+	},
+	{
+		id: 'bhn-smd-puding-cup-sedang',
+		nama: 'Puding Buah Cup Sedang',
+		satuan: 'cup',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'cup',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 6000
+	},
+	{
+		id: 'bhn-smd-puding-reguler',
+		nama: 'Puding Cup Reguler',
+		satuan: 'cup',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'cup',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 4000
+	},
+	{
+		id: 'bhn-smd-keripik-sukun-srikandi',
+		nama: 'Keripik Sukun Srikandi',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 12000
+	},
+	{
+		id: 'bhn-smd-keripik-sukun-mbak-nur',
+		nama: 'Keripik Sukun Mbak Nur',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 12000
+	},
+	{
+		id: 'bhn-smd-bakso-goreng',
+		nama: 'Bakso Goreng Kriuk',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 8000
+	},
+	{
+		id: 'bhn-smd-basreng-stik',
+		nama: 'Basreng Stik',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 8000
+	},
+	{
+		id: 'bhn-smd-mi-lidi',
+		nama: 'Mi Lidi Moil Snack',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 6000
+	},
+	{
+		id: 'bhn-smd-keripik-kaca',
+		nama: 'Keripik Kaca Pecah',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 50,
+		ambang: 5,
+		biaya: 7000
+	},
+	{
+		id: 'bhn-smd-sanggar-rimpi',
+		nama: 'Sanggar Rimpi 220g',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 12000
+	},
+	{
+		id: 'bhn-smd-asinan-kiamboy',
+		nama: 'Asinan Kiamboy Cup',
+		satuan: 'cup',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'cup',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 10000
+	}
 ];
 
 // Pemanis standar SOP Zatiaras
@@ -100,138 +738,310 @@ const productRecipes = [
 	// ─── 1. Aneka Jus Buah dan Sayur (28 menu) ───
 	{
 		id: 'smd-alpukat',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-alpukat', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-alpukat', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-alpukat', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-alpukat', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }
+		]
 	},
 	{
 		id: 'smd-mangga',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-mangga', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-mangga', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-mangga', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-mangga', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }
+		]
 	},
 	{
 		id: 'smd-buah-naga',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-buah-naga', jumlah: 0.5, satuan_resep: 'buah', jumlah_dasar: 250 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-buah-naga', jumlah: 0.75, satuan_resep: 'buah', jumlah_dasar: 375 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-buah-naga', jumlah: 0.5, satuan_resep: 'buah', jumlah_dasar: 250 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-buah-naga', jumlah: 0.75, satuan_resep: 'buah', jumlah_dasar: 375 }
+		]
 	},
 	{
 		id: 'smd-jeruk',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-jeruk-peras', jumlah: 3, satuan_resep: 'buah', jumlah_dasar: 3 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-jeruk-peras', jumlah: 5, satuan_resep: 'buah', jumlah_dasar: 5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-jeruk-peras', jumlah: 3, satuan_resep: 'buah', jumlah_dasar: 3 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-jeruk-peras', jumlah: 5, satuan_resep: 'buah', jumlah_dasar: 5 }
+		]
 	},
 	{
 		id: 'smd-stroberi',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-stroberi', jumlah: 12, satuan_resep: 'buah', jumlah_dasar: 12 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-stroberi', jumlah: 22, satuan_resep: 'buah', jumlah_dasar: 22 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-stroberi', jumlah: 12, satuan_resep: 'buah', jumlah_dasar: 12 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-stroberi', jumlah: 22, satuan_resep: 'buah', jumlah_dasar: 22 }
+		]
 	},
 	{
 		id: 'smd-durian',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-durian', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-durian', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-durian', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-durian', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }
+		]
 	},
 	{
 		id: 'smd-jambu-guava',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-jambu-guava', jumlah: 4, satuan_resep: 'potong', jumlah_dasar: 200 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-jambu-guava', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 300 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-jambu-guava', jumlah: 4, satuan_resep: 'potong', jumlah_dasar: 200 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-jambu-guava', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 300 }
+		]
 	},
 	{
 		id: 'smd-sirsak',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-sirsak', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 140 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-sirsak', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 210 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-sirsak', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 140 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-sirsak', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 210 }
+		]
 	},
 	{
 		id: 'smd-apel',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-apel', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-apel', jumlah: 2, satuan_resep: 'buah', jumlah_dasar: 2 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-apel', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-apel', jumlah: 2, satuan_resep: 'buah', jumlah_dasar: 2 }
+		]
 	},
 	{
 		id: 'smd-melon',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-melon', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 150 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-melon', jumlah: 9, satuan_resep: 'potong', jumlah_dasar: 225 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-melon', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 150 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-melon', jumlah: 9, satuan_resep: 'potong', jumlah_dasar: 225 }
+		]
 	},
 	{
 		id: 'smd-semangka',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-semangka', jumlah: 5, satuan_resep: 'potong', jumlah_dasar: 175 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-semangka', jumlah: 8, satuan_resep: 'potong', jumlah_dasar: 280 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-semangka', jumlah: 5, satuan_resep: 'potong', jumlah_dasar: 175 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-semangka', jumlah: 8, satuan_resep: 'potong', jumlah_dasar: 280 }
+		]
 	},
 	{
 		id: 'smd-nanas',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-nanas', jumlah: 4, satuan_resep: 'potong', jumlah_dasar: 140 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-nanas', jumlah: 7, satuan_resep: 'potong', jumlah_dasar: 245 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-nanas', jumlah: 4, satuan_resep: 'potong', jumlah_dasar: 140 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-nanas', jumlah: 7, satuan_resep: 'potong', jumlah_dasar: 245 }
+		]
 	},
 	{
 		id: 'smd-pisang-cavendish',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-pisang-cavendish', jumlah: 1.25, satuan_resep: 'buah', jumlah_dasar: 1.25 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-pisang-cavendish', jumlah: 1.75, satuan_resep: 'buah', jumlah_dasar: 1.75 }]
+		reguler: [
+			...sweetReg,
+			{
+				bahan_id: 'bhn-smd-pisang-cavendish',
+				jumlah: 1.25,
+				satuan_resep: 'buah',
+				jumlah_dasar: 1.25
+			}
+		],
+		jumbo: [
+			...sweetJmb,
+			{
+				bahan_id: 'bhn-smd-pisang-cavendish',
+				jumlah: 1.75,
+				satuan_resep: 'buah',
+				jumlah_dasar: 1.75
+			}
+		]
 	},
 	{
 		id: 'smd-wortel',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-wortel', jumlah: 3.5, satuan_resep: 'buah', jumlah_dasar: 3.5 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-wortel', jumlah: 5.5, satuan_resep: 'buah', jumlah_dasar: 5.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-wortel', jumlah: 3.5, satuan_resep: 'buah', jumlah_dasar: 3.5 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-wortel', jumlah: 5.5, satuan_resep: 'buah', jumlah_dasar: 5.5 }
+		]
 	},
 	{
 		id: 'smd-tomat',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-tomat', jumlah: 2.5, satuan_resep: 'buah', jumlah_dasar: 2.5 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-tomat', jumlah: 4.5, satuan_resep: 'buah', jumlah_dasar: 4.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-tomat', jumlah: 2.5, satuan_resep: 'buah', jumlah_dasar: 2.5 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-tomat', jumlah: 4.5, satuan_resep: 'buah', jumlah_dasar: 4.5 }
+		]
 	},
 	{
 		id: 'smd-timun',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-timun', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-timun', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-timun', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-timun', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		]
 	},
 	{
 		id: 'smd-bit-beetroot',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-bit-beetroot', jumlah: 1, satuan_resep: 'potong', jumlah_dasar: 50 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-bit-beetroot', jumlah: 1.5, satuan_resep: 'potong', jumlah_dasar: 75 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-bit-beetroot', jumlah: 1, satuan_resep: 'potong', jumlah_dasar: 50 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-bit-beetroot', jumlah: 1.5, satuan_resep: 'potong', jumlah_dasar: 75 }
+		]
 	},
 	{
 		id: 'smd-pepaya',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-pepaya', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 180 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-pepaya', jumlah: 9, satuan_resep: 'potong', jumlah_dasar: 270 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-pepaya', jumlah: 6, satuan_resep: 'potong', jumlah_dasar: 180 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-pepaya', jumlah: 9, satuan_resep: 'potong', jumlah_dasar: 270 }
+		]
 	},
 	{
 		id: 'smd-mangga-kuini',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-mangga-kuini', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-mangga-kuini', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-mangga-kuini', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-mangga-kuini', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }
+		]
 	},
 	{
 		id: 'smd-anggur-merah',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-anggur-merah', jumlah: 15, satuan_resep: 'buah', jumlah_dasar: 15 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-anggur-merah', jumlah: 25, satuan_resep: 'buah', jumlah_dasar: 25 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-anggur-merah', jumlah: 15, satuan_resep: 'buah', jumlah_dasar: 15 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-anggur-merah', jumlah: 25, satuan_resep: 'buah', jumlah_dasar: 25 }
+		]
 	},
 	{
 		id: 'smd-anggur-hijau',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-anggur-hijau', jumlah: 15, satuan_resep: 'buah', jumlah_dasar: 15 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-anggur-hijau', jumlah: 25, satuan_resep: 'buah', jumlah_dasar: 25 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-anggur-hijau', jumlah: 15, satuan_resep: 'buah', jumlah_dasar: 15 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-anggur-hijau', jumlah: 25, satuan_resep: 'buah', jumlah_dasar: 25 }
+		]
 	},
 	{
 		id: 'smd-kurma',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-kurma', jumlah: 7, satuan_resep: 'buah', jumlah_dasar: 7 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-kurma', jumlah: 10, satuan_resep: 'buah', jumlah_dasar: 10 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-kurma', jumlah: 7, satuan_resep: 'buah', jumlah_dasar: 7 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-kurma', jumlah: 10, satuan_resep: 'buah', jumlah_dasar: 10 }
+		]
 	},
 	{
 		id: 'smd-pir',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-pir', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-pir', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-pir', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-pir', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		]
 	},
 	{
 		id: 'smd-kiwi-hijau',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-kiwi-hijau', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-kiwi-hijau', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-kiwi-hijau', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-kiwi-hijau', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		]
 	},
 	{
 		id: 'smd-kiwi-gold',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-kiwi-gold', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-kiwi-gold', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-kiwi-gold', jumlah: 1, satuan_resep: 'buah', jumlah_dasar: 1 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-kiwi-gold', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		]
 	},
 	{
 		id: 'smd-nangka',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-nangka', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-nangka', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-nangka', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 166.67 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-nangka', jumlah: 3, satuan_resep: 'potong', jumlah_dasar: 250 }
+		]
 	},
 	{
 		id: 'smd-belimbing',
-		reguler: [...sweetReg, { bahan_id: 'bhn-smd-belimbing', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }],
-		jumbo: [...sweetJmb, { bahan_id: 'bhn-smd-belimbing', jumlah: 2, satuan_resep: 'buah', jumlah_dasar: 2 }]
+		reguler: [
+			...sweetReg,
+			{ bahan_id: 'bhn-smd-belimbing', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 }
+		],
+		jumbo: [
+			...sweetJmb,
+			{ bahan_id: 'bhn-smd-belimbing', jumlah: 2, satuan_resep: 'buah', jumlah_dasar: 2 }
+		]
 	},
 	{
 		id: 'smd-kelapa',
@@ -370,7 +1180,12 @@ const productRecipes = [
 		reguler: [
 			...sweetReg,
 			{ bahan_id: 'bhn-smd-stroberi', jumlah: 5, satuan_resep: 'buah', jumlah_dasar: 5 },
-			{ bahan_id: 'bhn-smd-pisang-cavendish', jumlah: 0.5, satuan_resep: 'buah', jumlah_dasar: 0.5 },
+			{
+				bahan_id: 'bhn-smd-pisang-cavendish',
+				jumlah: 0.5,
+				satuan_resep: 'buah',
+				jumlah_dasar: 0.5
+			},
 			{ bahan_id: 'bhn-smd-nanas', jumlah: 2, satuan_resep: 'potong', jumlah_dasar: 70 }
 		],
 		jumbo: [
@@ -443,7 +1258,12 @@ const productRecipes = [
 		],
 		jumbo: [
 			...sweetJmb,
-			{ bahan_id: 'bhn-smd-pisang-cavendish', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 },
+			{
+				bahan_id: 'bhn-smd-pisang-cavendish',
+				jumlah: 1.5,
+				satuan_resep: 'buah',
+				jumlah_dasar: 1.5
+			},
 			{ bahan_id: 'bhn-smd-milo-bubuk', jumlah: 20, satuan_resep: 'gram', jumlah_dasar: 20 }
 		]
 	},
@@ -456,7 +1276,12 @@ const productRecipes = [
 		],
 		jumbo: [
 			...sweetJmb,
-			{ bahan_id: 'bhn-smd-pisang-cavendish', jumlah: 1.5, satuan_resep: 'buah', jumlah_dasar: 1.5 },
+			{
+				bahan_id: 'bhn-smd-pisang-cavendish',
+				jumlah: 1.5,
+				satuan_resep: 'buah',
+				jumlah_dasar: 1.5
+			},
 			{ bahan_id: 'bhn-smd-jeruk-peras', jumlah: 3, satuan_resep: 'buah', jumlah_dasar: 3 }
 		]
 	},
@@ -916,35 +1741,71 @@ const productRecipes = [
 	},
 	{
 		id: 'smd-keripik-pisang-karamel',
-		reguler: [{ bahan_id: 'bhn-smd-keripik-pisang-karamel', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{
+				bahan_id: 'bhn-smd-keripik-pisang-karamel',
+				jumlah: 1,
+				satuan_resep: 'pack',
+				jumlah_dasar: 1
+			}
+		]
 	},
 	{
 		id: 'smd-pisang-serut-gula-merah',
-		reguler: [{ bahan_id: 'bhn-smd-pisang-serut-gula-merah', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{
+				bahan_id: 'bhn-smd-pisang-serut-gula-merah',
+				jumlah: 1,
+				satuan_resep: 'pack',
+				jumlah_dasar: 1
+			}
+		]
 	},
 	{
 		id: 'smd-puding-buah-cup-besar',
-		reguler: [{ bahan_id: 'bhn-smd-puding-cup-besar', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-puding-cup-besar', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-puding-buah-cup-sedang',
-		reguler: [{ bahan_id: 'bhn-smd-puding-cup-sedang', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-puding-cup-sedang', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-keripik-sukun-srikandi',
-		reguler: [{ bahan_id: 'bhn-smd-keripik-sukun-srikandi', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{
+				bahan_id: 'bhn-smd-keripik-sukun-srikandi',
+				jumlah: 1,
+				satuan_resep: 'pack',
+				jumlah_dasar: 1
+			}
+		]
 	},
 	{
 		id: 'smd-keripik-sukun-mbak-nur',
-		reguler: [{ bahan_id: 'bhn-smd-keripik-sukun-mbak-nur', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{
+				bahan_id: 'bhn-smd-keripik-sukun-mbak-nur',
+				jumlah: 1,
+				satuan_resep: 'pack',
+				jumlah_dasar: 1
+			}
+		]
 	},
 	{
 		id: 'smd-bakso-goreng-kriuk',
-		reguler: [{ bahan_id: 'bhn-smd-bakso-goreng', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-bakso-goreng', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-basreng-stik',
-		reguler: [{ bahan_id: 'bhn-smd-basreng-stik', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-basreng-stik', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-mi-lidi-moil-snack',
@@ -952,31 +1813,63 @@ const productRecipes = [
 	},
 	{
 		id: 'smd-keripik-kaca-pecah',
-		reguler: [{ bahan_id: 'bhn-smd-keripik-kaca', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-keripik-kaca', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-puding',
-		reguler: [{ bahan_id: 'bhn-smd-puding-reguler', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-puding-reguler', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-sanggar-rimpi-220g',
-		reguler: [{ bahan_id: 'bhn-smd-sanggar-rimpi', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-sanggar-rimpi', jumlah: 1, satuan_resep: 'pack', jumlah_dasar: 1 }
+		]
 	},
 	{
 		id: 'smd-asinan-kiamboy',
-		reguler: [{ bahan_id: 'bhn-smd-asinan-kiamboy', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }]
+		reguler: [
+			{ bahan_id: 'bhn-smd-asinan-kiamboy', jumlah: 1, satuan_resep: 'cup', jumlah_dasar: 1 }
+		]
 	}
 ];
 
 // Definisi Bahan untuk 7 Tambahan / Extras
 const extrasMaterials = [
 	{ id: 'ext-keju', bahan_id: 'bhn-smd-keju', jumlah: 20, satuan_resep: 'gram', jumlah_dasar: 20 },
-	{ id: 'ext-milo', bahan_id: 'bhn-smd-milo-bubuk', jumlah: 15, satuan_resep: 'gram', jumlah_dasar: 15 },
+	{
+		id: 'ext-milo',
+		bahan_id: 'bhn-smd-milo-bubuk',
+		jumlah: 15,
+		satuan_resep: 'gram',
+		jumlah_dasar: 15
+	},
 	{ id: 'ext-madu', bahan_id: 'bhn-smd-madu', jumlah: 15, satuan_resep: 'ml', jumlah_dasar: 15 },
 	{ id: 'ext-skm', bahan_id: 'bhn-smd-skm', jumlah: 15, satuan_resep: 'ml', jumlah_dasar: 15 },
-	{ id: 'ext-yogurt', bahan_id: 'bhn-smd-yogurt', jumlah: 50, satuan_resep: 'ml', jumlah_dasar: 50 },
-	{ id: 'ext-ekstra-buah', bahan_id: 'bhn-smd-melon', jumlah: 50, satuan_resep: 'gram', jumlah_dasar: 50 },
-	{ id: 'ext-ekstra-durian', bahan_id: 'bhn-smd-durian', jumlah: 83.33, satuan_resep: 'gram', jumlah_dasar: 83.33 }
+	{
+		id: 'ext-yogurt',
+		bahan_id: 'bhn-smd-yogurt',
+		jumlah: 50,
+		satuan_resep: 'ml',
+		jumlah_dasar: 50
+	},
+	{
+		id: 'ext-ekstra-buah',
+		bahan_id: 'bhn-smd-melon',
+		jumlah: 50,
+		satuan_resep: 'gram',
+		jumlah_dasar: 50
+	},
+	{
+		id: 'ext-ekstra-durian',
+		bahan_id: 'bhn-smd-durian',
+		jumlah: 83.33,
+		satuan_resep: 'gram',
+		jumlah_dasar: 83.33
+	}
 ];
 
 function escapeSql(val) {
@@ -1017,7 +1910,9 @@ ON CONFLICT (id) DO UPDATE SET
 
 	// Hapus bahan lama yang tidak dipakai
 	const ingredientIdsList = ingredients.map((b) => escapeSql(b.id)).join(', ');
-	lines.push(`DELETE FROM bahan WHERE cabang_id = '${CABANG_ID}' AND id NOT IN (${ingredientIdsList});`);
+	lines.push(
+		`DELETE FROM bahan WHERE cabang_id = '${CABANG_ID}' AND id NOT IN (${ingredientIdsList});`
+	);
 
 	const productIdsList = productRecipes.map((p) => escapeSql(p.id)).join(', ');
 
@@ -1060,14 +1955,20 @@ WHERE cabang_id = '${CABANG_ID}' AND id = ${escapeSql(ext.id)};`);
 	}
 
 	// 5. Aktifkan lacak_bahan = 1 pada 95 produk Samarinda
-	lines.push(`UPDATE produk SET lacak_bahan = 1 WHERE cabang_id = '${CABANG_ID}' AND id IN (${productIdsList});`);
+	lines.push(
+		`UPDATE produk SET lacak_bahan = 1 WHERE cabang_id = '${CABANG_ID}' AND id IN (${productIdsList});`
+	);
 
 	return lines.join('\n');
 }
 
 async function main() {
-	console.log(`Starting Samarinda recipe seeding (Target: ${isRemote ? 'REMOTE PRODUCTION' : 'LOCAL'})...`);
-	console.log(`Ingredients: ${ingredients.length}, Product Recipes: ${productRecipes.length}, Extras Mappings: ${extrasMaterials.length}`);
+	console.log(
+		`Starting Samarinda recipe seeding (Target: ${isRemote ? 'REMOTE PRODUCTION' : 'LOCAL'})...`
+	);
+	console.log(
+		`Ingredients: ${ingredients.length}, Product Recipes: ${productRecipes.length}, Extras Mappings: ${extrasMaterials.length}`
+	);
 
 	const sqlContent = generateSql();
 	const tempSqlFile = join(tmpdir(), `zatiaras-seed-recipes-${randomUUID()}.sql`);
