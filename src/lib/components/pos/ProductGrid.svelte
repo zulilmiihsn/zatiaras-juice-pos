@@ -2,7 +2,6 @@
 	import { slide } from 'svelte/transition';
 	import PackageOpen from '@lucide/svelte/icons/package-open';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import Plus from '@lucide/svelte/icons/plus';
 	import CupIcon from '$lib/components/icons/CupIcon.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import { getProductStockAvailability } from '$lib/services/stockAlertService';
@@ -138,7 +137,7 @@
 						</div>
 
 						<!-- Price Tag & Action -->
-						<div class="flex items-center gap-2.5 pl-3">
+						<div class="flex items-center pl-3">
 							<span
 								class="text-sm font-black whitespace-nowrap sm:text-base {isOut
 									? 'text-slate-400'
@@ -146,11 +145,6 @@
 							>
 								Rp {formatRupiah(p.harga ?? 0)}
 							</span>
-							<div
-								class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-600 transition-all duration-150 group-hover:bg-gradient-to-tr group-hover:from-pink-500 group-hover:to-rose-500 group-hover:text-white group-hover:shadow-xs group-active:scale-90"
-							>
-								<Plus class="h-3.5 w-3.5 stroke-[2.8]" />
-							</div>
 						</div>
 					</button>
 				{/each}
@@ -250,8 +244,8 @@
 							</h3>
 						</div>
 
-						<!-- Price Row & Quick Add Button -->
-						<div class="mt-2 flex w-full items-center justify-between">
+						<!-- Price Row -->
+						<div class="mt-2 flex w-full items-center">
 							<span
 								class="text-sm font-black tracking-tight sm:text-base {isOut
 									? 'text-slate-400'
@@ -259,11 +253,6 @@
 							>
 								Rp {formatRupiah(p.harga ?? 0)}
 							</span>
-							<div
-								class="flex h-6.5 w-6.5 items-center justify-center rounded-full bg-pink-50 text-pink-600 transition-all duration-150 group-hover:bg-gradient-to-tr group-hover:from-pink-500 group-hover:to-rose-500 group-hover:text-white group-hover:shadow-xs group-hover:shadow-pink-500/30 group-active:scale-90 sm:h-7 sm:w-7"
-							>
-								<Plus class="h-3.5 w-3.5 stroke-[2.8]" />
-							</div>
 						</div>
 					</button>
 				{/each}
