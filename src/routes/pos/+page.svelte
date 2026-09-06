@@ -120,9 +120,17 @@
 
 	// [CATATAN]: Kategori & Produk
 	let selectedCategory = $state('all');
-	const categories = $derived(pos.kategoriData);
+	const categories = $derived(
+		[...(pos.kategoriData || [])].sort((a, b) =>
+			(a.nama || '').localeCompare(b.nama || '', 'id', { sensitivity: 'base' })
+		)
+	);
 	const products = $derived(pos.produkData);
 	const addOns = $derived(pos.tambahanData);
+
+	const categoryMap = $derived(
+		new Map(categories.map((c) => [String(c.id), c.nama || '']))
+	);
 
 	// [CATATAN]: Jenis gula dan es
 	const sugarOptions = SUGAR_OPTIONS;
@@ -174,9 +182,21 @@
 				filtered = fuzzySearch(search, products);
 			}
 			if (selectedCategory !== 'all') {
-				filtered = filtered.filter((p) => p.kategori_id === selectedCategory);
+				filtered = filtered.filter((p) => String(p.kategori_id) === String(selectedCategory));
 			}
-			return filtered;
+
+			return [...filtered].sort((a, b) => {
+				if (search) return 0; // pertahankan ranking pencarian fuzzy
+
+				if (selectedCategory === 'all') {
+					const catA = a.kategori_id ? (categoryMap.get(String(a.kategori_id)) || '\uffff') : '\uffff';
+					const catB = b.kategori_id ? (categoryMap.get(String(b.kategori_id)) || '\uffff') : '\uffff';
+					const catCompare = catA.localeCompare(catB, 'id', { sensitivity: 'base' });
+					if (catCompare !== 0) return catCompare;
+				}
+
+				return (a.nama || '').localeCompare(b.nama || '', 'id', { sensitivity: 'base' });
+			});
 		})()
 	);
 
@@ -534,8 +554,8 @@
 						<!-- [CATATAN]: Button Toggle Tampilan Grid / List -->
 						<button
 							type="button"
-							aria-label={posGridView.value ? 'Ganti ke Tampilan Grid' : 'Ganti ke Tampilan List'}
-							title={posGridView.value ? 'Ganti ke Tampilan Grid' : 'Ganti ke Tampilan List'}
+							aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
+							title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
 							class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
 							onclick={() => posGridView.toggle()}
 						>
