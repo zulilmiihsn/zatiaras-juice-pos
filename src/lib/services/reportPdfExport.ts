@@ -19,6 +19,18 @@ export interface GeneratePdfOptions {
 	transactions: BukuKasRecord[];
 }
 
+export type TableCell =
+	| string
+	| number
+	| {
+			content: string;
+			colSpan?: number;
+			rowSpan?: number;
+			styles?: Record<string, unknown>;
+	  };
+
+export type TableRow = TableCell[];
+
 interface JsPdfWithAutoTable {
 	lastAutoTable?: { finalY: number };
 	internal?: {
@@ -39,7 +51,19 @@ function getTotalPdfPages(doc: jsPDF): number {
 		: 1;
 }
 
-/** Helper untuk mengelompokkan transaksi berdasarkan nama item/keterangan */
+/** Mengekstrak teks sel pertama untuk mengecek tipe baris (Subtotal / Total / Label) */
+function getRowFirstCellText(data: { row: { raw: unknown } }): string {
+	if (Array.isArray(data.row.raw)) {
+		const first = data.row.raw[0];
+		if (typeof first === 'object' && first !== null && 'content' in first) {
+			return String((first as { content: unknown }).content ?? '');
+		}
+		return String(first ?? '');
+	}
+	return '';
+}
+
+/** Mengelompokkan transaksi berdasarkan nama item/keterangan */
 function groupRecordsByName(
 	records: BukuKasRecord[]
 ): { name: string; tunai: number; qris: number; total: number }[] {
@@ -66,6 +90,156 @@ function groupRecordsByName(
 		.sort((a, b) => b.total - a.total);
 }
 
+interface CashFlowSectionParams {
+	titleA: string;
+	emptyTextA: string;
+	recordsTunaiA: BukuKasRecord[];
+	recordsQrisA: BukuKasRecord[];
+	subtotalLabelA: string;
+	titleB: string;
+	emptyTextB: string;
+	recordsTunaiB: BukuKasRecord[];
+	recordsQrisB: BukuKasRecord[];
+	subtotalLabelB: string;
+	grandTotalTunai: number;
+	grandTotalQris: number;
+	grandTotalNominal: number;
+	grandTotalLabel: string;
+	colDark: [number, number, number];
+	colMuted: [number, number, number];
+}
+
+/** Builder baris tabel arus kas 2-level (Usaha & Lain-lain) - Prinsip DRY */
+function buildCashFlowSectionRows(params: CashFlowSectionParams): TableRow[] {
+	const {
+		titleA,
+		emptyTextA,
+		recordsTunaiA,
+		recordsQrisA,
+		subtotalLabelA,
+		titleB,
+		emptyTextB,
+		recordsTunaiB,
+		recordsQrisB,
+		subtotalLabelB,
+		grandTotalTunai,
+		grandTotalQris,
+		grandTotalNominal,
+		grandTotalLabel,
+		colDark,
+		colMuted
+	} = params;
+
+	const rows: TableRow[] = [];
+
+	// ─── Sub-seksi A ───
+	rows.push([
+		{
+			content: titleA,
+			colSpan: 5,
+			styles: {
+				fontStyle: 'bold',
+				textColor: colDark,
+				fontSize: 7.5
+			}
+		}
+	]);
+
+	const groupedA = groupRecordsByName([...recordsTunaiA, ...recordsQrisA]);
+	const tunaiA = recordsTunaiA.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+	const qrisA = recordsQrisA.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+	const sumA = tunaiA + qrisA;
+
+	if (groupedA.length === 0) {
+		rows.push([
+			{
+				content: emptyTextA,
+				colSpan: 5,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
+			}
+		]);
+	} else {
+		groupedA.forEach((item) => {
+			const percent =
+				grandTotalNominal > 0 ? `${((item.total / grandTotalNominal) * 100).toFixed(1)}%` : '0.0%';
+			rows.push([
+				`  • ${item.name}`,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	rows.push([
+		subtotalLabelA,
+		`Rp ${formatRupiah(tunaiA)}`,
+		`Rp ${formatRupiah(qrisA)}`,
+		`Rp ${formatRupiah(sumA)}`,
+		grandTotalNominal > 0 ? `${((sumA / grandTotalNominal) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// ─── Sub-seksi B ───
+	rows.push([
+		{
+			content: titleB,
+			colSpan: 5,
+			styles: {
+				fontStyle: 'bold',
+				textColor: colDark,
+				fontSize: 7.5
+			}
+		}
+	]);
+
+	const groupedB = groupRecordsByName([...recordsTunaiB, ...recordsQrisB]);
+	const tunaiB = recordsTunaiB.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+	const qrisB = recordsQrisB.reduce((sum, r) => sum + Number(r.nominal || 0), 0);
+	const sumB = tunaiB + qrisB;
+
+	if (groupedB.length === 0) {
+		rows.push([
+			{
+				content: emptyTextB,
+				colSpan: 5,
+				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
+			}
+		]);
+	} else {
+		groupedB.forEach((item) => {
+			const percent =
+				grandTotalNominal > 0 ? `${((item.total / grandTotalNominal) * 100).toFixed(1)}%` : '0.0%';
+			rows.push([
+				`  • ${item.name}`,
+				`Rp ${formatRupiah(item.tunai)}`,
+				`Rp ${formatRupiah(item.qris)}`,
+				`Rp ${formatRupiah(item.total)}`,
+				percent
+			]);
+		});
+	}
+
+	rows.push([
+		subtotalLabelB,
+		`Rp ${formatRupiah(tunaiB)}`,
+		`Rp ${formatRupiah(qrisB)}`,
+		`Rp ${formatRupiah(sumB)}`,
+		grandTotalNominal > 0 ? `${((sumB / grandTotalNominal) * 100).toFixed(1)}%` : '0.0%'
+	]);
+
+	// ─── Grand Total ───
+	rows.push([
+		grandTotalLabel,
+		`Rp ${formatRupiah(grandTotalTunai)}`,
+		`Rp ${formatRupiah(grandTotalQris)}`,
+		`Rp ${formatRupiah(grandTotalNominal)}`,
+		'100.0%'
+	]);
+
+	return rows;
+}
+
 export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	const doc = new jsPDF({
 		orientation: 'portrait',
@@ -78,7 +252,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// Palette Warna Dokumen Keuangan Minimalis Resmi
 	const colDark: [number, number, number] = [17, 24, 39]; // Gray-900 (Teks Utama)
 	const colMuted: [number, number, number] = [75, 85, 99]; // Gray-600 (Keterangan/Subteks)
-	const colNegative: [number, number, number] = [185, 28, 28]; // Red-700 (Jika Rugi)
+	const colNegative: [number, number, number] = [185, 28, 28]; // Red-700 (Jika Rugi/Keluar)
 
 	const pendapatan = Number(summary?.pendapatan || 0);
 	const pengeluaran = Number(summary?.pengeluaran || 0);
@@ -87,6 +261,25 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	const labaBersih = Number(
 		summary?.labaBersih || (summary?.saldo ?? pendapatan - pengeluaran - pajak)
 	);
+
+	// Styling standar AutoTable
+	const baseHeadStyles = {
+		fillColor: false as const,
+		textColor: colDark,
+		fontStyle: 'bold' as const,
+		fontSize: 7.5,
+		cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
+		lineWidth: { top: 0.3, bottom: 0.3 },
+		lineColor: [31, 41, 55] as [number, number, number]
+	};
+
+	const baseBodyStyles = {
+		fontSize: 7.5,
+		textColor: colDark,
+		cellPadding: { top: 1.8, bottom: 1.8, left: 1.5, right: 1.5 },
+		lineWidth: { bottom: 0.1 },
+		lineColor: [243, 244, 246] as [number, number, number]
+	};
 
 	// Helper Render Judul Seksi Minimalis (Tanpa balok warna)
 	function renderSectionHeader(title: string, subcaption: string, currentY: number): number {
@@ -109,7 +302,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	// ─── 1. KOP SURAT RESMI (LETTERHEAD) ─────────────────────────────────────────
 	let y = 14;
 
-	// Logo Toko (Kiri)
+	// Logo Usaha (Kiri)
 	try {
 		if (LOGO_BASE64) {
 			doc.addImage(LOGO_BASE64, 'PNG', 14, y, 13, 13);
@@ -171,10 +364,10 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 	doc.rect(14, y, 182, 13, 'S');
 
 	const statCols = [
-		{ label: 'TOTAL PENDAPATAN', value: `Rp ${formatRupiah(pendapatan)}` },
-		{ label: 'TOTAL PENGELUARAN', value: `Rp ${formatRupiah(pengeluaran)}` },
-		{ label: 'LABA KOTOR', value: `Rp ${formatRupiah(labaKotor)}` },
-		{ label: 'LABA BERSIH (NET)', value: `Rp ${formatRupiah(labaBersih)}` }
+		{ label: 'TOTAL PENDAPATAN', value: `Rp ${formatRupiah(pendapatan)}`, isNeg: false },
+		{ label: 'TOTAL PENGELUARAN', value: `Rp ${formatRupiah(pengeluaran)}`, isNeg: false },
+		{ label: 'LABA KOTOR', value: `Rp ${formatRupiah(labaKotor)}`, isNeg: labaKotor < 0 },
+		{ label: 'LABA BERSIH (NET)', value: `Rp ${formatRupiah(labaBersih)}`, isNeg: labaBersih < 0 }
 	];
 
 	statCols.forEach((col, idx) => {
@@ -192,7 +385,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 
 		doc.setFont('helvetica', 'bold');
 		doc.setFontSize(8.5);
-		doc.setTextColor(...colDark);
+		doc.setTextColor(...(col.isNeg ? colNegative : colDark));
 		doc.text(col.value, cx + statW / 2, y + 9.8, { align: 'center' });
 	});
 
@@ -205,137 +398,25 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		y
 	);
 
-	const tunaiUsaha = reportGroups.pemasukanUsahaTunai.reduce(
-		(a, b) => a + Number(b.nominal || 0),
-		0
-	);
-	const qrisUsaha = reportGroups.pemasukanUsahaQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
-	const sumPemasukanUsaha = tunaiUsaha + qrisUsaha;
-
-	const tunaiLain = reportGroups.pemasukanLainTunai.reduce((a, b) => a + Number(b.nominal || 0), 0);
-	const qrisLain = reportGroups.pemasukanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
-	const sumPemasukanLain = tunaiLain + qrisLain;
-
 	const totalPemasukan = reportGroups.totalTunaiPemasukan + reportGroups.totalQrisPemasukan;
-
-	const salesGrouped = groupRecordsByName([
-		...reportGroups.pemasukanUsahaTunai,
-		...reportGroups.pemasukanUsahaQris
-	]);
-	const otherIncomeGrouped = groupRecordsByName([
-		...reportGroups.pemasukanLainTunai,
-		...reportGroups.pemasukanLainQris
-	]);
-
-	type TableCell =
-		| string
-		| number
-		| {
-				content: string;
-				colSpan?: number;
-				rowSpan?: number;
-				styles?: Record<string, unknown>;
-		  };
-	type TableRow = TableCell[];
-
-	const pemasukanRows: TableRow[] = [];
-
-	// Sub-seksi A: Pendapatan Usaha
-	pemasukanRows.push([
-		{
-			content: 'A. Pendapatan Usaha (Penjualan Produk POS)',
-			colSpan: 5,
-			styles: {
-				fontStyle: 'bold',
-				textColor: colDark,
-				fontSize: 7.5
-			}
-		}
-	]);
-
-	if (salesGrouped.length === 0) {
-		pemasukanRows.push([
-			{
-				content: 'Tidak ada transaksi penjualan produk pada periode ini',
-				colSpan: 5,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
-			}
-		]);
-	} else {
-		salesGrouped.forEach((item) => {
-			const percent =
-				totalPemasukan > 0 ? `${((item.total / totalPemasukan) * 100).toFixed(1)}%` : '0.0%';
-			pemasukanRows.push([
-				`  • ${item.name}`,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			]);
-		});
-	}
-
-	// Subtotal Pendapatan Usaha
-	pemasukanRows.push([
-		'Subtotal Pendapatan Usaha',
-		`Rp ${formatRupiah(tunaiUsaha)}`,
-		`Rp ${formatRupiah(qrisUsaha)}`,
-		`Rp ${formatRupiah(sumPemasukanUsaha)}`,
-		totalPemasukan > 0 ? `${((sumPemasukanUsaha / totalPemasukan) * 100).toFixed(1)}%` : '0.0%'
-	]);
-
-	// Sub-seksi B: Pemasukan Lain-lain
-	pemasukanRows.push([
-		{
-			content: 'B. Pemasukan Lain-lain',
-			colSpan: 5,
-			styles: {
-				fontStyle: 'bold',
-				textColor: colDark,
-				fontSize: 7.5
-			}
-		}
-	]);
-
-	if (otherIncomeGrouped.length === 0) {
-		pemasukanRows.push([
-			{
-				content: 'Tidak ada penerimaan kas lain pada periode ini',
-				colSpan: 5,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
-			}
-		]);
-	} else {
-		otherIncomeGrouped.forEach((item) => {
-			const percent =
-				totalPemasukan > 0 ? `${((item.total / totalPemasukan) * 100).toFixed(1)}%` : '0.0%';
-			pemasukanRows.push([
-				`  • ${item.name}`,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			]);
-		});
-	}
-
-	// Subtotal Pemasukan Lain
-	pemasukanRows.push([
-		'Subtotal Pemasukan Lainnya',
-		`Rp ${formatRupiah(tunaiLain)}`,
-		`Rp ${formatRupiah(qrisLain)}`,
-		`Rp ${formatRupiah(sumPemasukanLain)}`,
-		totalPemasukan > 0 ? `${((sumPemasukanLain / totalPemasukan) * 100).toFixed(1)}%` : '0.0%'
-	]);
-
-	// TOTAL KESELURUHAN PEMASUKAN (A + B)
-	pemasukanRows.push([
-		'TOTAL PENERIMAAN KAS (A + B)',
-		`Rp ${formatRupiah(reportGroups.totalTunaiPemasukan)}`,
-		`Rp ${formatRupiah(reportGroups.totalQrisPemasukan)}`,
-		`Rp ${formatRupiah(totalPemasukan)}`,
-		'100.0%'
-	]);
+	const pemasukanRows = buildCashFlowSectionRows({
+		titleA: 'A. Pendapatan Usaha (Penjualan Produk POS)',
+		emptyTextA: 'Tidak ada transaksi penjualan produk pada periode ini',
+		recordsTunaiA: reportGroups.pemasukanUsahaTunai,
+		recordsQrisA: reportGroups.pemasukanUsahaQris,
+		subtotalLabelA: 'Subtotal Pendapatan Usaha',
+		titleB: 'B. Pemasukan Lain-lain',
+		emptyTextB: 'Tidak ada penerimaan kas lain pada periode ini',
+		recordsTunaiB: reportGroups.pemasukanLainTunai,
+		recordsQrisB: reportGroups.pemasukanLainQris,
+		subtotalLabelB: 'Subtotal Pemasukan Lainnya',
+		grandTotalTunai: reportGroups.totalTunaiPemasukan,
+		grandTotalQris: reportGroups.totalQrisPemasukan,
+		grandTotalNominal: totalPemasukan,
+		grandTotalLabel: 'TOTAL PENERIMAAN KAS (A + B)',
+		colDark,
+		colMuted
+	});
 
 	autoTable(doc, {
 		startY: y,
@@ -350,22 +431,8 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			]
 		],
 		body: pemasukanRows as any,
-		headStyles: {
-			fillColor: false,
-			textColor: colDark,
-			fontStyle: 'bold',
-			fontSize: 7.5,
-			cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
-			lineWidth: { top: 0.3, bottom: 0.3 },
-			lineColor: [31, 41, 55]
-		},
-		bodyStyles: {
-			fontSize: 7.5,
-			textColor: colDark,
-			cellPadding: { top: 1.8, bottom: 1.8, left: 1.5, right: 1.5 },
-			lineWidth: { bottom: 0.1 },
-			lineColor: [243, 244, 246]
-		},
+		headStyles: baseHeadStyles,
+		bodyStyles: baseBodyStyles,
 		columnStyles: {
 			0: { cellWidth: 'auto' },
 			1: { cellWidth: 34, halign: 'right' },
@@ -374,12 +441,12 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			4: { cellWidth: 16, halign: 'right' }
 		},
 		didParseCell: (data) => {
-			const cellText = String(data.cell.raw ?? '');
-			if (cellText.startsWith('Subtotal')) {
+			const label = getRowFirstCellText(data);
+			if (label.startsWith('Subtotal')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.lineWidth = { top: 0.2, bottom: 0.2 };
 				data.cell.styles.lineColor = [209, 213, 219];
-			} else if (cellText.startsWith('TOTAL PENERIMAAN')) {
+			} else if (label.startsWith('TOTAL PENERIMAAN')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.lineWidth = { top: 0.3, bottom: 0.6 };
 				data.cell.styles.lineColor = [31, 41, 55];
@@ -402,132 +469,25 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		y
 	);
 
-	const tunaiBebanUsaha = reportGroups.bebanUsahaTunai.reduce(
-		(a, b) => a + Number(b.nominal || 0),
-		0
-	);
-	const qrisBebanUsaha = reportGroups.bebanUsahaQris.reduce(
-		(a, b) => a + Number(b.nominal || 0),
-		0
-	);
-	const sumBebanUsaha = tunaiBebanUsaha + qrisBebanUsaha;
-
-	const tunaiBebanLain = reportGroups.bebanLainTunai.reduce(
-		(a, b) => a + Number(b.nominal || 0),
-		0
-	);
-	const qrisBebanLain = reportGroups.bebanLainQris.reduce((a, b) => a + Number(b.nominal || 0), 0);
-	const sumBebanLain = tunaiBebanLain + qrisBebanLain;
-
 	const totalPengeluaran = reportGroups.totalTunaiPengeluaran + reportGroups.totalQrisPengeluaran;
-
-	const expenseGrouped = groupRecordsByName([
-		...reportGroups.bebanUsahaTunai,
-		...reportGroups.bebanUsahaQris
-	]);
-	const otherExpenseGrouped = groupRecordsByName([
-		...reportGroups.bebanLainTunai,
-		...reportGroups.bebanLainQris
-	]);
-
-	const pengeluaranRows: TableRow[] = [];
-
-	// Sub-seksi A: Beban Usaha
-	pengeluaranRows.push([
-		{
-			content: 'A. Beban Usaha (Operasional & Bahan Baku)',
-			colSpan: 5,
-			styles: {
-				fontStyle: 'bold',
-				textColor: colDark,
-				fontSize: 7.5
-			}
-		}
-	]);
-
-	if (expenseGrouped.length === 0) {
-		pengeluaranRows.push([
-			{
-				content: 'Tidak ada data beban operasional pada periode ini',
-				colSpan: 5,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
-			}
-		]);
-	} else {
-		expenseGrouped.forEach((item) => {
-			const percent =
-				totalPengeluaran > 0 ? `${((item.total / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%';
-			pengeluaranRows.push([
-				`  • ${item.name}`,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			]);
-		});
-	}
-
-	// Subtotal Beban Usaha
-	pengeluaranRows.push([
-		'Subtotal Beban Usaha',
-		`Rp ${formatRupiah(tunaiBebanUsaha)}`,
-		`Rp ${formatRupiah(qrisBebanUsaha)}`,
-		`Rp ${formatRupiah(sumBebanUsaha)}`,
-		totalPengeluaran > 0 ? `${((sumBebanUsaha / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%'
-	]);
-
-	// Sub-seksi B: Beban Lainnya
-	pengeluaranRows.push([
-		{
-			content: 'B. Beban Lain-lain / Non-Operasional',
-			colSpan: 5,
-			styles: {
-				fontStyle: 'bold',
-				textColor: colDark,
-				fontSize: 7.5
-			}
-		}
-	]);
-
-	if (otherExpenseGrouped.length === 0) {
-		pengeluaranRows.push([
-			{
-				content: 'Tidak ada data beban lainnya pada periode ini',
-				colSpan: 5,
-				styles: { fontStyle: 'italic', halign: 'center', textColor: colMuted, fontSize: 7 }
-			}
-		]);
-	} else {
-		otherExpenseGrouped.forEach((item) => {
-			const percent =
-				totalPengeluaran > 0 ? `${((item.total / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%';
-			pengeluaranRows.push([
-				`  • ${item.name}`,
-				`Rp ${formatRupiah(item.tunai)}`,
-				`Rp ${formatRupiah(item.qris)}`,
-				`Rp ${formatRupiah(item.total)}`,
-				percent
-			]);
-		});
-	}
-
-	// Subtotal Beban Lain
-	pengeluaranRows.push([
-		'Subtotal Beban Lainnya',
-		`Rp ${formatRupiah(tunaiBebanLain)}`,
-		`Rp ${formatRupiah(qrisBebanLain)}`,
-		`Rp ${formatRupiah(sumBebanLain)}`,
-		totalPengeluaran > 0 ? `${((sumBebanLain / totalPengeluaran) * 100).toFixed(1)}%` : '0.0%'
-	]);
-
-	// TOTAL KESELURUHAN PENGELUARAN (A + B)
-	pengeluaranRows.push([
-		'TOTAL PENGELUARAN KAS (A + B)',
-		`Rp ${formatRupiah(reportGroups.totalTunaiPengeluaran)}`,
-		`Rp ${formatRupiah(reportGroups.totalQrisPengeluaran)}`,
-		`Rp ${formatRupiah(totalPengeluaran)}`,
-		'100.0%'
-	]);
+	const pengeluaranRows = buildCashFlowSectionRows({
+		titleA: 'A. Beban Usaha (Operasional & Bahan Baku)',
+		emptyTextA: 'Tidak ada data beban operasional pada periode ini',
+		recordsTunaiA: reportGroups.bebanUsahaTunai,
+		recordsQrisA: reportGroups.bebanUsahaQris,
+		subtotalLabelA: 'Subtotal Beban Usaha',
+		titleB: 'B. Beban Lain-lain / Non-Operasional',
+		emptyTextB: 'Tidak ada data beban lainnya pada periode ini',
+		recordsTunaiB: reportGroups.bebanLainTunai,
+		recordsQrisB: reportGroups.bebanLainQris,
+		subtotalLabelB: 'Subtotal Beban Lainnya',
+		grandTotalTunai: reportGroups.totalTunaiPengeluaran,
+		grandTotalQris: reportGroups.totalQrisPengeluaran,
+		grandTotalNominal: totalPengeluaran,
+		grandTotalLabel: 'TOTAL PENGELUARAN KAS (A + B)',
+		colDark,
+		colMuted
+	});
 
 	autoTable(doc, {
 		startY: y,
@@ -542,22 +502,8 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			]
 		],
 		body: pengeluaranRows as any,
-		headStyles: {
-			fillColor: false,
-			textColor: colDark,
-			fontStyle: 'bold',
-			fontSize: 7.5,
-			cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
-			lineWidth: { top: 0.3, bottom: 0.3 },
-			lineColor: [31, 41, 55]
-		},
-		bodyStyles: {
-			fontSize: 7.5,
-			textColor: colDark,
-			cellPadding: { top: 1.8, bottom: 1.8, left: 1.5, right: 1.5 },
-			lineWidth: { bottom: 0.1 },
-			lineColor: [243, 244, 246]
-		},
+		headStyles: baseHeadStyles,
+		bodyStyles: baseBodyStyles,
 		columnStyles: {
 			0: { cellWidth: 'auto' },
 			1: { cellWidth: 34, halign: 'right' },
@@ -566,12 +512,12 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			4: { cellWidth: 16, halign: 'right' }
 		},
 		didParseCell: (data) => {
-			const cellText = String(data.cell.raw ?? '');
-			if (cellText.startsWith('Subtotal')) {
+			const label = getRowFirstCellText(data);
+			if (label.startsWith('Subtotal')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.lineWidth = { top: 0.2, bottom: 0.2 };
 				data.cell.styles.lineColor = [209, 213, 219];
-			} else if (cellText.startsWith('TOTAL PENGELUARAN')) {
+			} else if (label.startsWith('TOTAL PENGELUARAN')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.lineWidth = { top: 0.3, bottom: 0.6 };
 				data.cell.styles.lineColor = [31, 41, 55];
@@ -656,21 +602,10 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			]
 		],
 		body: summaryRows as any,
-		headStyles: {
-			fillColor: false,
-			textColor: colDark,
-			fontStyle: 'bold',
-			fontSize: 7.5,
-			cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
-			lineWidth: { top: 0.3, bottom: 0.3 },
-			lineColor: [31, 41, 55]
-		},
+		headStyles: baseHeadStyles,
 		bodyStyles: {
-			fontSize: 7.5,
-			textColor: colDark,
-			cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
-			lineWidth: { bottom: 0.1 },
-			lineColor: [243, 244, 246]
+			...baseBodyStyles,
+			cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 }
 		},
 		columnStyles: {
 			0: { cellWidth: 'auto' },
@@ -679,14 +614,20 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' }
 		},
 		didParseCell: (data) => {
-			const cellText = String(data.cell.raw ?? '');
-			if (cellText.startsWith('Total Penerimaan') || cellText.startsWith('Laba (Rugi) Kotor')) {
+			const label = getRowFirstCellText(data);
+			if (label.startsWith('Total Penerimaan') || label.startsWith('Laba (Rugi) Kotor')) {
 				data.cell.styles.fontStyle = 'bold';
+				if (label.startsWith('Laba (Rugi) Kotor') && labaKotor < 0) {
+					data.cell.styles.textColor = colNegative;
+				}
 			}
-			if (cellText.startsWith('SALDO AKHIR KAS')) {
+			if (label.startsWith('SALDO AKHIR KAS')) {
 				data.cell.styles.fontStyle = 'bold';
 				data.cell.styles.lineWidth = { top: 0.3, bottom: 0.6 };
 				data.cell.styles.lineColor = [31, 41, 55];
+				if (labaBersih < 0) {
+					data.cell.styles.textColor = colNegative;
+				}
 			}
 		},
 		margin: { left: 14, right: 14 }
@@ -746,21 +687,10 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				['Tanggal/Waktu', 'Tipe', 'Kategori', 'Deskripsi / Keterangan', 'Metode', 'Nominal (Rp)']
 			],
 			body: transactionRows,
-			headStyles: {
-				fillColor: false,
-				textColor: colDark,
-				fontStyle: 'bold',
-				fontSize: 7.5,
-				cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
-				lineWidth: { top: 0.3, bottom: 0.3 },
-				lineColor: [31, 41, 55]
-			},
+			headStyles: baseHeadStyles,
 			bodyStyles: {
-				fontSize: 7.2,
-				textColor: colDark,
-				cellPadding: { top: 1.8, bottom: 1.8, left: 1.5, right: 1.5 },
-				lineWidth: { bottom: 0.1 },
-				lineColor: [243, 244, 246]
+				...baseBodyStyles,
+				fontSize: 7.2
 			},
 			columnStyles: {
 				0: { cellWidth: 26 },
