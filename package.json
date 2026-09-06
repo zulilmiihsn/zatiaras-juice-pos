@@ -56,7 +56,8 @@
 		"test:receipt-output": "tsx src/tests/receipt-output-tests.ts",
 		"test:report-grouping": "tsx src/tests/report-grouping-tests.ts",
 		"d1:setup:local": "node scripts/setup-local-d1.mjs",
-		"d1:seed:samarinda": "node scripts/seed-samarinda-menu.mjs --remote"
+		"d1:seed:samarinda": "node scripts/seed-samarinda-menu.mjs --remote",
+		"d1:seed:samarinda:recipes": "node scripts/seed-samarinda-recipes.mjs --remote"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260826.1",
