@@ -948,6 +948,9 @@ function generateSql() {
 	// Hapus produk dan kategori UAT dummy jika ada
 	lines.push(`DELETE FROM produk WHERE id = 'uat-produk-es-teh' AND cabang_id = '${CABANG_ID}';`);
 	lines.push(`DELETE FROM kategori WHERE id = 'uat-cat-minuman' AND cabang_id = '${CABANG_ID}';`);
+	lines.push(
+		`DELETE FROM resep_produk WHERE produk_id = 'uat-produk-es-teh' AND cabang_id = '${CABANG_ID}';`
+	);
 
 	// Insert Kategori
 	for (const kat of categories) {
