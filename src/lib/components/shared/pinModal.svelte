@@ -74,8 +74,7 @@
 
 {#if show}
 	<div
-		class="z-modal fixed inset-0 flex items-center justify-center"
-		style="top: 58px; bottom: 58px; background: linear-gradient(to bottom right, #f472b6, #ec4899, #a855f7);"
+		class="z-modal fixed inset-x-0 top-[58px] bottom-[58px] flex items-center justify-center bg-gradient-to-br from-pink-400 via-pink-500 to-purple-500"
 		transition:fade={{ duration: 200 }}
 		role="dialog"
 		aria-modal="true"

@@ -78,7 +78,6 @@
 		<div
 			class="addon-list addon-modal-content min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pb-6"
 			onclick={handleStopPropagation}
-			style="scrollbar-width:none;-ms-overflow-style:none;"
 		>
 			<div>
 				<label

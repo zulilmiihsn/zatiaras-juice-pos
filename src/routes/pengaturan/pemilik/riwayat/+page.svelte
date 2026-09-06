@@ -482,9 +482,8 @@
 					<span class="font-semibold text-gray-500">Jenis Pembayaran</span>
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-lg border-[1.5px] border-pink-200 bg-white px-3 py-2.5 font-medium text-pink-500 shadow-sm transition-colors hover:bg-pink-50"
+						class="flex w-full items-center justify-between rounded-lg border-[1.5px] border-pink-200 bg-white px-3 py-2.5 font-medium text-pink-500 shadow-sm transition-colors select-none hover:bg-pink-50"
 						onclick={() => (showDropdownPayment = true)}
-						style="user-select:none;"
 					>
 						<span class="truncate"
 							>{paymentOptions.find(

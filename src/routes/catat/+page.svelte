@@ -134,7 +134,6 @@
 	<main
 		aria-label="Halaman catat pemasukan pengeluaran"
 		class="page-content relative z-20 -mt-6 min-h-0 w-full max-w-full flex-1 overflow-x-hidden px-4 pb-24 md:pb-28"
-		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>
 		<div class="mx-auto flex w-full max-w-5xl flex-1 flex-col">
 			<!-- 2-Column Responsive Grid on Tablet (1-col on Mobile) -->

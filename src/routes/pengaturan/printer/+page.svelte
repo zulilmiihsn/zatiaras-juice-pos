@@ -203,10 +203,7 @@
 
 	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
 		<!-- Tabs Navigation -->
-		<div
-			class="glass-card mb-5 flex gap-2 overflow-x-auto rounded-2xl p-1.5 shadow-md"
-			style="scrollbar-width:none;-ms-overflow-style:none;"
-		>
+		<div class="glass-card mb-5 flex gap-2 overflow-x-auto rounded-2xl p-1.5 shadow-md">
 			<button
 				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
 				'detail'
@@ -560,95 +557,83 @@
 				<!-- Receipt Struk Preview -->
 				<div class="mx-auto w-full max-w-sm">
 					<div
-						class="relative overflow-hidden rounded-t-lg bg-white p-6 shadow-xl shadow-stone-200/50 sm:p-8"
-						style="border-bottom: 4px dotted #e5e7eb;"
+						class="relative overflow-hidden rounded-t-lg border-b-4 border-dotted border-gray-200 bg-white p-6 shadow-xl shadow-stone-200/50 sm:p-8"
 					>
-						<div
-							class="font-mono text-black"
-							style="font-size: 14px; line-height: 1.5; padding: 8px;"
-						>
-							<div style="text-align:center; margin-bottom: 16px;">
+						<div class="p-2 font-mono text-[14px] leading-relaxed text-black">
+							<div class="mb-4 text-center">
 								<img
 									src={LOGO_BASE64}
-									style="width:120px; height:120px; margin:0 auto 12px; display:block; filter:grayscale(100%) contrast(1.2);"
+									class="mx-auto mb-3 block h-[120px] w-[120px] contrast-125 grayscale"
 									alt="Logo"
 								/>
-								<div style="font-weight:bold; font-size: 20px; text-transform: uppercase;">
+								<div class="text-xl font-bold uppercase">
 									{namaToko || 'Nama Toko'}
 								</div>
-								<div style="font-size: 13px; margin-top: 4px;">{alamat || 'Alamat Toko'}</div>
+								<div class="mt-1 text-[13px]">{alamat || 'Alamat Toko'}</div>
 								{#if instagram || telepon}
-									<div style="font-size: 13px; margin-top: 2px;">
+									<div class="mt-0.5 text-[13px]">
 										{instagram}{instagram && telepon ? ' | ' : ''}{telepon}
 									</div>
 								{/if}
 							</div>
 
-							<div style="border-bottom: 1px dashed #333; margin-bottom: 12px;"></div>
+							<div class="mb-3 border-b border-dashed border-neutral-700"></div>
 
-							<div
-								style="text-align:left; font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between;"
-							>
+							<div class="mb-3 flex justify-between text-left text-[13px]">
 								<div>nama pelanggan</div>
 								<div>01/01/2024 10.00</div>
 							</div>
 
-							<table
-								style="width:100%; font-size: 14px; border-collapse:collapse; margin-bottom: 12px;"
-							>
+							<table class="mb-3 w-full border-collapse text-sm">
 								<tbody>
 									<tr>
-										<td style="text-align:left; padding-bottom:4px; font-weight: bold;"
-											>Jus Mangga <span style="font-size: 12px; font-weight: normal;">x2</span></td
+										<td class="pb-1 text-left font-bold"
+											>Jus Mangga <span class="text-xs font-normal">x2</span></td
 										>
-										<td style="text-align:right; padding-bottom:4px;">Rp20.000</td>
+										<td class="pb-1 text-right">Rp20.000</td>
 									</tr>
 									<tr>
-										<td style="font-size: 12px; padding-left: 8px; color: #333;">+ Topping Nata</td>
-										<td style="font-size: 12px; text-align:right; color: #333;">Rp4.000</td>
+										<td class="pl-2 text-xs text-neutral-700">+ Topping Nata</td>
+										<td class="text-right text-xs text-neutral-700">Rp4.000</td>
 									</tr>
 									<tr>
-										<td
-											colspan="2"
-											style="font-size: 12px; padding-left: 8px; padding-bottom:8px; color: #333; font-style: italic;"
+										<td colspan="2" class="pb-2 pl-2 text-xs text-neutral-700 italic"
 											>Tanpa Gula, Sedikit Es</td
 										>
 									</tr>
 									<tr>
-										<td style="text-align:left; padding-bottom:4px; font-weight: bold;"
-											>Jus Alpukat <span style="font-size: 12px; font-weight: normal;">x1</span></td
+										<td class="pb-1 text-left font-bold"
+											>Jus Alpukat <span class="text-xs font-normal">x1</span></td
 										>
-										<td style="text-align:right; padding-bottom:4px;">Rp15.000</td>
+										<td class="pb-1 text-right">Rp15.000</td>
 									</tr>
 								</tbody>
 							</table>
 
-							<div style="border-bottom: 1px dashed #333; margin-bottom: 12px;"></div>
+							<div class="mb-3 border-b border-dashed border-neutral-700"></div>
 
-							<table
-								style="width:100%; font-size: 14px; border-collapse:collapse; margin-bottom: 24px;"
-							>
+							<table class="mb-6 w-full border-collapse text-sm">
 								<tbody>
 									<tr>
-										<td style="text-align:left; padding-bottom:4px;">Total:</td>
-										<td style="text-align:right; font-weight: bold; font-size: 16px;">Rp35.000</td>
+										<td class="pb-1 text-left">Total:</td>
+										<td class="text-right text-base font-bold">Rp35.000</td>
 									</tr>
 									<tr>
-										<td style="text-align:left; font-size: 13px; padding-top: 4px;">Metode:</td>
-										<td style="text-align:right; font-size: 13px; padding-top: 4px;">Tunai</td>
+										<td class="pt-1 text-left text-[13px]">Metode:</td>
+										<td class="pt-1 text-right text-[13px]">Tunai</td>
 									</tr>
 									<tr>
-										<td style="text-align:left; font-size: 13px;">Dibayar:</td>
-										<td style="text-align:right; font-size: 13px;">Rp50.000</td>
+										<td class="text-left text-[13px]">Dibayar:</td>
+										<td class="text-right text-[13px]">Rp50.000</td>
 									</tr>
 									<tr>
-										<td style="text-align:left; font-size: 13px;">Kembalian:</td>
-										<td style="text-align:right; font-size: 13px;">Rp15.000</td>
+										<td class="text-left text-[13px]">Kembalian:</td>
+										<td class="text-right text-[13px]">Rp15.000</td>
 									</tr>
 								</tbody>
 							</table>
 
-							<div style="text-align:center; font-size: 13px; white-space:pre-line;">
+							<div class="text-center text-[13px] whitespace-pre-line">
 								{ucapan || 'Terima kasih'}
 							</div>
 						</div>

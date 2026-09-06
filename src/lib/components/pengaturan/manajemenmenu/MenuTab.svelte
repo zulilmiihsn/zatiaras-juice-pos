@@ -65,10 +65,7 @@
 		</div>
 
 		<!-- Category Filter Pills -->
-		<div
-			class="mx-auto flex max-w-5xl items-center gap-2.5 overflow-x-auto px-4 pb-3.5 md:px-6"
-			style="scrollbar-width:none;-ms-overflow-style:none;"
-		>
+		<div class="mx-auto flex max-w-5xl items-center gap-2.5 overflow-x-auto px-4 pb-3.5 md:px-6">
 			{#if isLoadingKategori}
 				{#each Array(4) as _, i (i)}
 					<div

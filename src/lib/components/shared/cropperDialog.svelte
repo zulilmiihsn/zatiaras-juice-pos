@@ -195,8 +195,7 @@
 	>
 		<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
 			<div
-				class="relative mb-4 aspect-square w-full overflow-hidden rounded-xl bg-gray-100"
-				style="height:300px;"
+				class="relative mb-4 aspect-square h-[300px] w-full overflow-hidden rounded-xl bg-gray-100"
 			>
 				<canvas
 					bind:this={canvasEl}
@@ -206,7 +205,7 @@
 					onmousemove={onPointerMove}
 					onmouseup={onPointerUp}
 					onmouseleave={onPointerUp}
-					style="width:100%;height:100%;touch-action:none;cursor:grab;"
+					class="h-full w-full cursor-grab touch-none"
 				></canvas>
 			</div>
 			<input

@@ -574,10 +574,7 @@
 				<LowStockAlertBanner lowStockItems={lowStockIngredients} />
 
 				<!-- [CATATAN]: Category Filter Pills -->
-				<div
-					class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4"
-					style="scrollbar-width:none;-ms-overflow-style:none;"
-				>
+				<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">
 					<button
 						class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {selectedCategory ===
 						'all'
@@ -673,10 +670,7 @@
 				</div>
 
 				<!-- Cart Scrollable Body -->
-				<div
-					class="min-h-0 flex-1 space-y-2 overflow-y-auto px-3.5 py-3 xl:px-4"
-					style="scrollbar-width:thin;"
-				>
+				<div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-3.5 py-3 xl:px-4">
 					{#if cart.items.length === 0}
 						<div
 							class="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-pink-200/80 bg-pink-50/30 p-5 text-center"
@@ -849,10 +843,7 @@
 				</div>
 			{/snippet}
 
-			<div
-				class="min-h-0 flex-1 space-y-3 overflow-y-auto px-1 py-3.5"
-				style="scrollbar-width:none;-ms-overflow-style:none;"
-			>
+			<div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-1 py-3.5">
 				{#if cart.items.length === 0}
 					<div
 						class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-pink-200/80 bg-pink-50/30 px-6 py-10 text-center"
@@ -1026,7 +1017,6 @@
 
 			<div
 				class="addon-list addon-modal-content min-h-0 flex-1 space-y-4 overflow-y-auto py-3.5 pb-4"
-				style="scrollbar-width:none;-ms-overflow-style:none;"
 			>
 				{#if selectedProduct && selectedProduct.tipe === 'minuman'}
 					<!-- [CATATAN]: Ukuran Porsi -->

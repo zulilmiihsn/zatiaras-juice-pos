@@ -50,7 +50,6 @@
 			<a
 				href="/pengaturan/pemilik/manajemenmenu"
 				class="soft-float-card group flex flex-col justify-between p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98]"
-				style="text-decoration:none;"
 			>
 				<div>
 					<div
@@ -72,7 +71,6 @@
 			<a
 				href="/pengaturan/pemilik/stok"
 				class="soft-float-card group relative flex flex-col justify-between border-pink-200/80 bg-gradient-to-b from-pink-50/40 to-white p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] md:p-6"
-				style="text-decoration:none;"
 			>
 				<div>
 					<div
@@ -94,7 +92,6 @@
 			<a
 				href="/pengaturan/pemilik/pajak"
 				class="soft-float-card group relative flex flex-col justify-between border-pink-200/80 bg-gradient-to-b from-pink-50/40 to-white p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] md:p-6"
-				style="text-decoration:none;"
 			>
 				<span
 					class="absolute top-3.5 right-3.5 rounded-full bg-pink-600 px-2 py-0.5 text-[9px] font-black text-white shadow-xs md:text-[10px]"
@@ -121,7 +118,6 @@
 			<a
 				href="/pengaturan/pemilik/gantikeamanan"
 				class="soft-float-card group flex flex-col justify-between p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] md:p-6"
-				style="text-decoration:none;"
 			>
 				<div>
 					<div
@@ -143,7 +139,6 @@
 			<a
 				href="/pengaturan/pemilik/riwayat"
 				class="soft-float-card group flex flex-col justify-between p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] md:p-6"
-				style="text-decoration:none;"
 			>
 				<div>
 					<div
@@ -165,7 +160,6 @@
 			<a
 				href="/pengaturan/pemilik/arsip"
 				class="soft-float-card group flex flex-col justify-between p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] md:p-6"
-				style="text-decoration:none;"
 			>
 				<div>
 					<div

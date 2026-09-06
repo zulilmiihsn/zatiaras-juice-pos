@@ -80,9 +80,8 @@
 	>
 		<span>{judul}</span>
 		<svg
-			class="h-4 w-4 text-zinc-400 transition-transform duration-200"
+			class="h-4 w-4 text-zinc-400 transition-transform duration-200 {show ? '' : 'rotate-180'}"
 			viewBox="0 0 20 20"
-			style="transform:rotate({show ? 0 : 180}deg)"
 		>
 			<polygon points="5,8 10,13 15,8" fill="currentColor" />
 		</svg>
@@ -149,9 +148,10 @@
 				Pemasukan
 			</span>
 			<svg
-				class="h-4 w-4 text-emerald-600 transition-transform duration-200"
+				class="h-4 w-4 text-emerald-600 transition-transform duration-200 {showPemasukan
+					? ''
+					: 'rotate-180'}"
 				viewBox="0 0 20 20"
-				style="transform:rotate({showPemasukan ? 0 : 180}deg)"
 			>
 				<polygon points="5,8 10,13 15,8" fill="currentColor" />
 			</svg>
@@ -205,9 +205,10 @@
 				Pengeluaran
 			</span>
 			<svg
-				class="h-4 w-4 text-rose-600 transition-transform duration-200"
+				class="h-4 w-4 text-rose-600 transition-transform duration-200 {showPengeluaran
+					? ''
+					: 'rotate-180'}"
 				viewBox="0 0 20 20"
-				style="transform:rotate({showPengeluaran ? 0 : 180}deg)"
 			>
 				<polygon points="5,8 10,13 15,8" fill="currentColor" />
 			</svg>

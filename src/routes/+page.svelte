@@ -414,7 +414,6 @@
 	<main
 		aria-label="Dashboard"
 		class="page-content relative z-20 -mt-6 min-h-0 w-full max-w-full flex-1 overflow-x-hidden px-4"
-		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>
 		<div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pb-8 md:pb-12">
 			<!-- Metrik Utama -->

@@ -6,14 +6,19 @@
 	import LaporanAccordions from '$lib/components/laporan/LaporanAccordions.svelte';
 	import LaporanAISection from '$lib/components/laporan/LaporanAISection.svelte';
 	import { createLaporanState } from '$lib/stores/laporanState.svelte';
-	import { generateLaporanPdf } from '$lib/services/reportPdfExport';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import FileDown from '@lucide/svelte/icons/file-down';
 
 	const s = createLaporanState();
+	let isExporting = $state(false);
 
-	function handleExportPdf() {
+	async function handleExportPdf() {
+		if (isExporting) return;
+		isExporting = true;
 		try {
+			// Beri nafas ke UI thread untuk render indikator loading
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			const { generateLaporanPdf } = await import('$lib/services/reportPdfExport');
 			generateLaporanPdf({
 				branchName: selectedBranch.value || 'Samarinda',
 				startDate: s.startDate,
@@ -25,6 +30,8 @@
 			s.toastManager.showToastNotification('Laporan PDF berhasil diunduh!', 'success');
 		} catch (err: any) {
 			s.toastManager.showToastNotification(err?.message || 'Gagal membuat file PDF.', 'error');
+		} finally {
+			isExporting = false;
 		}
 	}
 </script>
@@ -121,12 +128,19 @@
 
 				<!-- Button Download PDF -->
 				<button
-					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 					onclick={handleExportPdf}
-					title="Unduh Laporan PDF"
+					disabled={isExporting}
+					title={isExporting ? 'Sedang mengekspor PDF...' : 'Unduh Laporan PDF'}
 					aria-label="Unduh Laporan PDF"
 				>
-					<FileDown class="h-4.5 w-4.5 stroke-[2.2]" />
+					{#if isExporting}
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+						></span>
+					{:else}
+						<FileDown class="h-4.5 w-4.5 stroke-[2.2]" />
+					{/if}
 				</button>
 			</div>
 		</div>
@@ -135,7 +149,6 @@
 	<main
 		aria-label="Halaman laporan keuangan"
 		class="page-content relative z-20 -mt-6 min-h-0 w-full max-w-full flex-1 overflow-x-hidden px-4 pb-24 md:pb-28"
-		style="scrollbar-width:none;-ms-overflow-style:none;"
 	>
 		<div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pb-8 md:pb-12">
 			<!-- Ringkasan Keuangan (Laba Bersih, Pemasukan, Pengeluaran) -->

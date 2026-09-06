@@ -115,10 +115,7 @@
 
 	<!-- Navigasi Tab Menu/Kategori/Ekstra/Bahan/HPP -->
 	<div class="mx-auto mb-3 max-w-5xl px-4 md:px-6">
-		<div
-			class="flex gap-2.5 overflow-x-auto py-1 md:gap-3"
-			style="scrollbar-width:none;-ms-overflow-style:none;"
-		>
+		<div class="flex gap-2.5 overflow-x-auto py-1 md:gap-3">
 			<button
 				type="button"
 				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
@@ -1015,8 +1012,7 @@
 									{#each s.menus.filter( (menu) => s.selectedMenuIds.includes(menu.id) ) as menu (menu.id)}
 										<button
 											type="button"
-											class="inline-flex cursor-pointer items-center rounded-full bg-pink-100/90 px-3.5 py-1.5 text-xs font-bold text-pink-700 shadow-2xs transition-all hover:-translate-y-0.5 hover:bg-pink-200 hover:shadow-xs active:scale-95"
-											style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+											class="inline-flex max-w-[220px] cursor-pointer items-center truncate rounded-full bg-pink-100/90 px-3.5 py-1.5 text-xs font-bold text-pink-700 shadow-2xs transition-all hover:-translate-y-0.5 hover:bg-pink-200 hover:shadow-xs active:scale-95"
 											title={menu.nama}
 											onclick={() => s.toggleMenuInKategoriRealtime(menu.id)}
 											in:fly={{ y: 16, duration: 180 }}
@@ -1047,8 +1043,7 @@
 									{#each s.menus.filter( (menu) => s.unselectedMenuIds.includes(menu.id) ) as menu (menu.id)}
 										<button
 											type="button"
-											class="inline-flex cursor-pointer items-center rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-2xs transition-all hover:-translate-y-0.5 hover:border-pink-300 hover:bg-pink-50/50 hover:text-pink-600 active:scale-95"
-											style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+											class="inline-flex max-w-[220px] cursor-pointer items-center truncate rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-2xs transition-all hover:-translate-y-0.5 hover:border-pink-300 hover:bg-pink-50/50 hover:text-pink-600 active:scale-95"
 											title={menu.nama}
 											onclick={() => s.toggleMenuInKategoriRealtime(menu.id)}
 											in:fly={{ y: 16, duration: 180 }}

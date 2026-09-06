@@ -206,10 +206,7 @@
 
 {#if showNav}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
-		<div
-			class="min-h-0 flex-1 overflow-y-auto"
-			style="scrollbar-width:none;-ms-overflow-style:none;"
-		>
+		<div class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</div>
 		<div class="z-nav sticky bottom-0 overflow-visible md:pointer-events-none md:px-4">
