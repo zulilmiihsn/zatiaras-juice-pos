@@ -75,7 +75,7 @@
 			{:else}
 				<button
 					type="button"
-					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:text-base {selectedKategori ===
+					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-colors duration-150 md:text-base {selectedKategori ===
 					'Semua'
 						? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -86,7 +86,7 @@
 				{#each kategoriList as kat (kat.id)}
 					<button
 						type="button"
-						class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:text-base {selectedKategori ==
+						class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-colors duration-150 md:text-base {selectedKategori ==
 						kat.id
 							? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 							: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"

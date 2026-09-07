@@ -209,7 +209,7 @@
 						{#each paymentOptions as opt}
 							<button
 								type="button"
-								class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 active:scale-[0.98] {s.paymentMethod ===
+								class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-3.5 transition-colors duration-150 {s.paymentMethod ===
 								opt.id
 									? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-md shadow-pink-500/10'
 									: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'} {s.isOffline &&

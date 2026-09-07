@@ -205,7 +205,7 @@
 		<!-- Tabs Navigation -->
 		<div class="glass-card mb-5 flex gap-2 overflow-x-auto rounded-2xl p-1.5 shadow-md">
 			<button
-				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 md:py-3 md:text-sm {activeTab ===
 				'detail'
 					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
 					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"
@@ -214,7 +214,7 @@
 				Detail Struk
 			</button>
 			<button
-				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 md:py-3 md:text-sm {activeTab ===
 				'koneksi'
 					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
 					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"
@@ -223,7 +223,7 @@
 				Koneksi Printer POS
 			</button>
 			<button
-				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 active:scale-[0.98] md:py-3 md:text-sm {activeTab ===
+				class="min-w-[110px] flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 md:py-3 md:text-sm {activeTab ===
 				'preview'
 					? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs shadow-pink-500/20'
 					: 'bg-white/60 text-slate-700 hover:bg-white hover:text-pink-600'}"

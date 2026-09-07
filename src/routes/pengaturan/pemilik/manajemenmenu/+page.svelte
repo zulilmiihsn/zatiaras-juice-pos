@@ -118,7 +118,7 @@
 		<div class="flex gap-2.5 overflow-x-auto py-1 md:gap-3">
 			<button
 				type="button"
-				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
+				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-colors duration-150 md:px-6 md:text-base {s.activeTab ===
 				'menu'
 					? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 					: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -126,7 +126,7 @@
 			>
 			<button
 				type="button"
-				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
+				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-colors duration-150 md:px-6 md:text-base {s.activeTab ===
 				'kategori'
 					? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 					: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -134,7 +134,7 @@
 			>
 			<button
 				type="button"
-				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
+				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-colors duration-150 md:px-6 md:text-base {s.activeTab ===
 				'ekstra'
 					? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 					: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -142,7 +142,7 @@
 			>
 			<button
 				type="button"
-				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
+				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-colors duration-150 md:px-6 md:text-base {s.activeTab ===
 				'bahan'
 					? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 					: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -150,7 +150,7 @@
 			>
 			<button
 				type="button"
-				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] md:px-6 md:text-base {s.activeTab ===
+				class="min-h-[44px] shrink-0 cursor-pointer rounded-full px-5.5 py-2.5 text-sm font-bold transition-colors duration-150 md:px-6 md:text-base {s.activeTab ===
 				'hpp'
 					? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 					: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -524,7 +524,7 @@
 										<div class="mb-3.5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
 											<button
 												type="button"
-												class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all duration-150 active:scale-[0.98] {s.activeRecipePorsi ===
+												class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors duration-150 {s.activeRecipePorsi ===
 												'reguler'
 													? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-900/5'
 													: 'text-slate-500 hover:text-slate-800'}"
@@ -542,7 +542,7 @@
 											</button>
 											<button
 												type="button"
-												class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all duration-150 active:scale-[0.98] {s.activeRecipePorsi ===
+												class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors duration-150 {s.activeRecipePorsi ===
 												'jumbo'
 													? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-900/5'
 													: 'text-slate-500 hover:text-slate-800'}"
@@ -815,7 +815,7 @@
 						<div class="flex gap-2.5">
 							<button
 								type="button"
-								class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-all active:scale-[0.98] {s
+								class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-colors duration-150 {s
 									.menuForm.tipe === 'minuman'
 									? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-xs ring-2 ring-pink-500/20'
 									: 'border-slate-200/80 bg-white text-slate-600 hover:border-pink-200 hover:bg-slate-50'}"
@@ -826,7 +826,7 @@
 							</button>
 							<button
 								type="button"
-								class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-all active:scale-[0.98] {s
+								class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-colors duration-150 {s
 									.menuForm.tipe === 'makanan'
 									? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-xs ring-2 ring-pink-500/20'
 									: 'border-slate-200/80 bg-white text-slate-600 hover:border-pink-200 hover:bg-slate-50'}"
@@ -845,7 +845,7 @@
 							{#each s.kategoriList as kat}
 								<button
 									type="button"
-									class="flex-shrink-0 cursor-pointer rounded-xl border px-3.5 py-2 text-xs font-bold transition-all active:scale-[0.98] {s
+									class="flex-shrink-0 cursor-pointer rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors duration-150 {s
 										.menuForm.kategori_id === kat.id
 										? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-xs ring-2 ring-pink-500/20'
 										: 'border-slate-200/80 bg-white text-slate-600 hover:border-pink-200 hover:bg-slate-50'}"

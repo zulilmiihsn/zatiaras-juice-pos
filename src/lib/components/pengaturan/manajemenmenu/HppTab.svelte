@@ -225,7 +225,7 @@
 		>
 			<button
 				type="button"
-				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all active:scale-[0.98] sm:text-sm {activeHppSubTab ===
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 sm:text-sm {activeHppSubTab ===
 				'calculator'
 					? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 					: 'text-slate-600 hover:text-slate-900'}"
@@ -236,7 +236,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all active:scale-[0.98] sm:text-sm {activeHppSubTab ===
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 sm:text-sm {activeHppSubTab ===
 				'operasional'
 					? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 					: 'text-slate-600 hover:text-slate-900'}"
@@ -272,7 +272,7 @@
 				>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
 						'all'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"
@@ -283,7 +283,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
 						'reguler'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"
@@ -294,7 +294,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all active:scale-[0.98] sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
 						'jumbo'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"

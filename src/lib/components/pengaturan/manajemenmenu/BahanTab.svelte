@@ -105,7 +105,7 @@
 			<div class="scrollbar-hide -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
 				<button
 					type="button"
-					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 					'all'
 						? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"
@@ -125,7 +125,7 @@
 				{#if lowStockCount > 0}
 					<button
 						type="button"
-						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 						'low_stock'
 							? 'border border-rose-300 bg-rose-500 text-white shadow-xs shadow-rose-500/20'
 							: 'border border-rose-200 bg-rose-50/80 text-rose-700 hover:bg-rose-100'}"
@@ -149,7 +149,7 @@
 					{#if count > 0}
 						<button
 							type="button"
-							class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+							class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 							cat
 								? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
 								: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"

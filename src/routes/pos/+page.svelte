@@ -1029,7 +1029,7 @@
 						</div>
 						<div class="grid grid-cols-2 gap-2.5">
 							<button
-								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedPorsi ===
+								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-colors duration-150 sm:text-sm {selectedPorsi ===
 								'reguler'
 									? 'border-2 border-pink-500 bg-pink-500 text-white shadow-sm shadow-pink-500/25'
 									: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
@@ -1046,7 +1046,7 @@
 								</span>
 							</button>
 							<button
-								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedPorsi ===
+								class="flex min-h-[52px] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-colors duration-150 sm:text-sm {selectedPorsi ===
 								'jumbo'
 									? 'border-2 border-pink-500 bg-pink-500 text-white shadow-sm shadow-pink-500/25'
 									: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
@@ -1076,7 +1076,7 @@
 						<div class="grid grid-cols-3 gap-2.5">
 							{#each sugarOptions as s}
 								<button
-									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedSugar ===
+									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-colors duration-150 sm:text-sm {selectedSugar ===
 									s.id
 										? 'border-2 border-pink-500 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/25'
 										: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
@@ -1098,7 +1098,7 @@
 						<div class="grid grid-cols-3 gap-2.5">
 							{#each iceOptions as i}
 								<button
-									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-all duration-150 active:scale-[0.97] sm:text-sm {selectedIce ===
+									class="flex min-h-[46px] cursor-pointer items-center justify-center rounded-2xl px-3 py-2 text-xs font-bold transition-colors duration-150 sm:text-sm {selectedIce ===
 									i.id
 										? 'border-2 border-pink-500 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/25'
 										: 'border border-slate-200/90 bg-slate-50/70 text-slate-700 shadow-2xs hover:border-pink-200 hover:bg-white hover:text-pink-600'}"
@@ -1122,7 +1122,7 @@
 						<div class="grid grid-cols-2 gap-2.5">
 							{#each addOns.filter((a) => selectedProduct?.ekstra_ids?.includes(a.id)) as a (a.id)}
 								<button
-									class="flex min-h-[52px] w-full cursor-pointer items-center justify-between rounded-2xl p-2.5 text-left transition-all duration-150 active:scale-[0.97] sm:p-3 {selectedAddOns.includes(
+									class="flex min-h-[52px] w-full cursor-pointer items-center justify-between rounded-2xl p-2.5 text-left transition-colors duration-150 sm:p-3 {selectedAddOns.includes(
 										a.id
 									)
 										? 'border-2 border-pink-500 bg-pink-50/70 shadow-xs'

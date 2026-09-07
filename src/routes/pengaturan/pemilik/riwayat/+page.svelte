@@ -276,7 +276,7 @@
 			/>
 			<div class="flex gap-2">
 				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
 					'all'
 						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
@@ -286,7 +286,7 @@
 					}}>Semua</button
 				>
 				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
 					'qris'
 						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
@@ -296,7 +296,7 @@
 					}}>QRIS</button
 				>
 				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
 					'tunai'
 						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
