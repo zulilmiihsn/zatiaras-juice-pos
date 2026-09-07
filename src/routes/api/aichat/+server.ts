@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
-import { witaRangeToWitaQuery } from '$lib/utils/dateTime';
 import { formatRupiah } from '$lib/utils/currency';
 import { getD1Database, getDrizzleDb, normalizeBranch } from '$lib/server/branchResolver';
 import { getRawDb } from '$lib/server/dataApiHelpers';
@@ -18,18 +17,19 @@ import {
 	type DataRequirements
 } from './prompts';
 import {
-	fetchReportData,
-	aggregateMonthly,
-	computeAnalytics,
+	fetchReportDataSql,
 	buildReportContext
 } from './reportData';
 
-// [CATATAN]: OpenRouter API configuration
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'deepseek/deepseek-chat';
+// [CATATAN]: OpenRouter / AI Model configuration
+const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_MODEL = 'minimax/minimax-m3:free';
+const FALLBACK_MODEL = 'google/gemma-4-31b-it:free';
+const MODEL = env.AI_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL;
+
 const AI_WINDOW_MS = 15 * 60 * 1000;
-const AI_MAX_REQUESTS = 30;
-const OPENROUTER_TIMEOUT_MS = 15_000;
+const AI_MAX_REQUESTS = 40;
+const OPENROUTER_TIMEOUT_MS = 25_000;
 
 interface ChatMessage {
 	role: 'system' | 'user' | 'assistant';
@@ -41,16 +41,33 @@ interface OpenRouterOpts {
 	maxTokens: number;
 	temperature: number;
 	errorLabel: string;
+	model?: string;
+	tools?: Array<{ type: string; [key: string]: unknown }>;
 }
 
-/** Panggil OpenRouter chat-completion, kembalikan konten string (caller terapkan default/parse). */
+/** Panggil OpenRouter chat-completion non-streaming dengan fallback model & tools otomatis. */
 async function callOpenRouter(
 	apiKey: string,
-	systemMessage: ChatMessage,
+	messages: ChatMessage[],
 	opts: OpenRouterOpts
 ): Promise<string> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+	const targetModel = opts.model || MODEL;
+
+	const buildPayload = (modelName: string, withTools: boolean) => {
+		const payload: Record<string, unknown> = {
+			model: modelName,
+			messages,
+			max_tokens: opts.maxTokens,
+			temperature: opts.temperature
+		};
+		if (withTools && opts.tools && opts.tools.length > 0) {
+			payload.tools = opts.tools;
+		}
+		return JSON.stringify(payload);
+	};
+
 	let response: Response;
 	try {
 		response = await fetch(OPENROUTER_API_URL, {
@@ -61,14 +78,24 @@ async function callOpenRouter(
 				'HTTP-Referer': 'https://zatiaraspos.com',
 				'X-Title': opts.title
 			},
-			body: JSON.stringify({
-				model: MODEL,
-				messages: [systemMessage],
-				max_tokens: opts.maxTokens,
-				temperature: opts.temperature
-			}),
+			body: buildPayload(targetModel, true),
 			signal: controller.signal
 		});
+
+		// [CATATAN]: Jika gagal saat menyertakan tools, coba panggil ulang tanpa tools
+		if (!response.ok && opts.tools && opts.tools.length > 0) {
+			response = await fetch(OPENROUTER_API_URL, {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					'Content-Type': 'application/json',
+					'HTTP-Referer': 'https://zatiaraspos.com',
+					'X-Title': `${opts.title} (No Tools)`
+				},
+				body: buildPayload(targetModel, false),
+				signal: controller.signal
+			});
+		}
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
 			throw new Error(`${opts.errorLabel}: upstream timeout`);
@@ -79,10 +106,43 @@ async function callOpenRouter(
 	}
 
 	if (!response.ok) {
+		// [CATATAN]: Coba model cadangan jika model utama gagal (429 atau 5xx)
+		if (targetModel !== FALLBACK_MODEL) {
+			try {
+				let fallbackRes = await fetch(OPENROUTER_API_URL, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${apiKey}`,
+						'Content-Type': 'application/json',
+						'HTTP-Referer': 'https://zatiaraspos.com',
+						'X-Title': `${opts.title} (Fallback)`
+					},
+					body: buildPayload(FALLBACK_MODEL, Boolean(opts.tools?.length))
+				});
+
+				if (!fallbackRes.ok && opts.tools && opts.tools.length > 0) {
+					fallbackRes = await fetch(OPENROUTER_API_URL, {
+						method: 'POST',
+						headers: {
+							Authorization: `Bearer ${apiKey}`,
+							'Content-Type': 'application/json',
+							'HTTP-Referer': 'https://zatiaraspos.com',
+							'X-Title': `${opts.title} (Fallback No Tools)`
+						},
+						body: buildPayload(FALLBACK_MODEL, false)
+					});
+				}
+
+				if (fallbackRes.ok) {
+					const fallbackData = (await fallbackRes.json()) as any;
+					return fallbackData?.choices?.[0]?.message?.content || '';
+				}
+			} catch {}
+		}
 		throw new Error(`${opts.errorLabel}: ${response.status}`);
 	}
 
-	const data: unknown = await response.json();
+	const data = (await response.json()) as any;
 	if (
 		typeof data !== 'object' ||
 		data === null ||
@@ -101,6 +161,42 @@ async function callOpenRouter(
 	return data.choices[0].message.content;
 }
 
+/** Panggil OpenRouter dengan streaming response aktif & dukungan tools web search. */
+async function callOpenRouterStream(
+	apiKey: string,
+	messages: ChatMessage[],
+	opts: {
+		title: string;
+		maxTokens: number;
+		temperature: number;
+		model?: string;
+		tools?: Array<{ type: string; [key: string]: unknown }>;
+	}
+): Promise<Response> {
+	const targetModel = opts.model || MODEL;
+	const bodyObj: Record<string, unknown> = {
+		model: targetModel,
+		messages,
+		max_tokens: opts.maxTokens,
+		temperature: opts.temperature,
+		stream: true
+	};
+	if (opts.tools && opts.tools.length > 0) {
+		bodyObj.tools = opts.tools;
+	}
+
+	return await fetch(OPENROUTER_API_URL, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			'Content-Type': 'application/json',
+			'HTTP-Referer': 'https://zatiaraspos.com',
+			'X-Title': opts.title
+		},
+		body: JSON.stringify(bodyObj)
+	});
+}
+
 /** Bersihkan markdown code-fence (```json ... ```) dari output AI. */
 function stripJsonFence(content: string): string {
 	let clean = content.trim();
@@ -113,49 +209,434 @@ function stripJsonFence(content: string): string {
 	return clean;
 }
 
-// [CATATAN]: Util: format YYYY-MM-DD dalam zona WITA
+/** Format YYYY-MM-DD dalam zona waktu WITA (UTC+8). */
 function toYMDWita(date: Date): string {
-	const d = new Date(date);
-	const yyyy = d.getFullYear();
-	const mm = String(d.getMonth() + 1).padStart(2, '0');
-	const dd = String(d.getDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	const utcTime = date.getTime();
+	const witaTime = new Date(utcTime + 8 * 60 * 60 * 1000);
+	return witaTime.toISOString().slice(0, 10);
 }
 
-// [CATATAN]: AI 1: Data Requirement Analyzer
+/**
+ * Fast-path intent & date resolver:
+ * Memintas panggilan AI 1 untuk pertanyaan saran tombol cepat dan kata kunci standar.
+ * Menghasilkan latency 0ms dan zero token untuk 80% pertanyaan umum.
+ */
+function fastResolveRequirements(question: string, todayWita: string): DataRequirements | null {
+	const q = question.toLowerCase().trim();
+	const currentMonthStart = `${todayWita.slice(0, 7)}-01`;
+	const currentDate = new Date(`${todayWita}T00:00:00.000Z`);
+
+	const getPastDateStr = (daysAgo: number) => {
+		const d = new Date(currentDate);
+		d.setUTCDate(d.getUTCDate() - daysAgo);
+		return d.toISOString().slice(0, 10);
+	};
+
+	// 1. Performa Penjualan / Hari ini
+	if (
+		q.includes('performa penjualan') ||
+		q.includes('penjualan toko hari ini') ||
+		q.includes('omzet hari ini') ||
+		q === 'hari ini' ||
+		q.includes('bagaimana performa')
+	) {
+		return {
+			periode: { start: todayWita, end: todayWita, type: 'daily' },
+			jenisData: ['buku_kas', 'transaksi_kasir', 'payment_analysis'],
+			prioritas: 'sales_analysis',
+			scope: 'revenue_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis performa penjualan hari ini'
+		};
+	}
+
+	// 2. Kemarin
+	if (q.includes('kemarin') || q.includes('penjualan kemarin')) {
+		const yesterday = getPastDateStr(1);
+		return {
+			periode: { start: yesterday, end: yesterday, type: 'daily' },
+			jenisData: ['buku_kas', 'transaksi_kasir'],
+			prioritas: 'sales_analysis',
+			scope: 'revenue_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis performa kemarin'
+		};
+	}
+
+	// 3. Menu / Produk Terlaris
+	if (
+		q.includes('menu terlaris') ||
+		q.includes('paling laris') ||
+		q.includes('banyak terjual') ||
+		q.includes('produk terlaris')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['produk_terlaris', 'transaksi_kasir', 'produk'],
+			prioritas: 'product_analysis',
+			scope: 'product_performance',
+			reasoning: 'Shortcut Heuristik: Analisis produk terlaris bulan ini'
+		};
+	}
+
+	// 4. Keuntungan Bersih / Laba
+	if (
+		q.includes('keuntungan bersih') ||
+		q.includes('laba kotor') ||
+		q.includes('laba bersih') ||
+		q.includes('profit')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['buku_kas', 'financial_summary'],
+			prioritas: 'financial_analysis',
+			scope: 'revenue_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis laba dan keuangan bulan ini'
+		};
+	}
+
+	// 5. Tren Penjualan / 7 Hari Terakhir
+	if (
+		q.includes('tren penjualan') ||
+		q.includes('seminggu terakhir') ||
+		q.includes('7 hari') ||
+		q.includes('1 minggu')
+	) {
+		const sevenDaysAgo = getPastDateStr(6);
+		return {
+			periode: { start: sevenDaysAgo, end: todayWita, type: 'daily' },
+			jenisData: ['buku_kas', 'daily_trends', 'payment_analysis'],
+			prioritas: 'trend_analysis',
+			scope: 'trend_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis tren seminggu terakhir'
+		};
+	}
+
+	// 6. Bulan Lalu
+	if (q.includes('bulan lalu') || q.includes('bulan kemarin')) {
+		const firstOfCurrentMonth = new Date(
+			Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1)
+		);
+		const lastOfPrevMonth = new Date(firstOfCurrentMonth.getTime() - 86400000);
+		const firstOfPrevMonth = new Date(
+			Date.UTC(lastOfPrevMonth.getUTCFullYear(), lastOfPrevMonth.getUTCMonth(), 1)
+		);
+		return {
+			periode: {
+				start: firstOfPrevMonth.toISOString().slice(0, 10),
+				end: lastOfPrevMonth.toISOString().slice(0, 10),
+				type: 'monthly'
+			},
+			jenisData: ['buku_kas', 'transaksi_kasir', 'financial_summary'],
+			prioritas: 'sales_analysis',
+			scope: 'revenue_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis bulan lalu'
+		};
+	}
+
+	// 7. Bulan Ini
+	if (q.includes('bulan ini')) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['buku_kas', 'transaksi_kasir', 'financial_summary'],
+			prioritas: 'sales_analysis',
+			scope: 'revenue_analysis',
+			reasoning: 'Shortcut Heuristik: Analisis bulan ini'
+		};
+	}
+
+	// 8. Riset Pasar, Tren & Web Browsing
+	if (
+		q.includes('riset') ||
+		q.includes('tren') ||
+		q.includes('viral') ||
+		q.includes('browsing') ||
+		q.includes('internet') ||
+		q.includes('kompetitor') ||
+		q.includes('pesaing') ||
+		q.includes('tiktok') ||
+		q.includes('instagram') ||
+		q.includes('ide menu') ||
+		q.includes('resep baru')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['produk_terlaris', 'produk'],
+			prioritas: 'market_analysis',
+			scope: 'market_analysis',
+			reasoning: 'Shortcut Heuristik: Riset pasar dan tren minuman viral via web'
+		};
+	}
+
+	// 9. Konsultasi Strategi Bisnis, Menu Engineering & Psikologi Harga
+	if (
+		q.includes('strategi') ||
+		q.includes('psikologi') ||
+		q.includes('decoy') ||
+		q.includes('anchoring') ||
+		q.includes('bundling') ||
+		q.includes('marketing') ||
+		q.includes('cara menaikkan') ||
+		q.includes('rekomendasi harga') ||
+		q.includes('menu engineering') ||
+		q.includes('promosi')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['produk_terlaris', 'transaksi_kasir', 'financial_summary'],
+			prioritas: 'strategic_consulting',
+			scope: 'market_analysis',
+			reasoning: 'Shortcut Heuristik: Konsultasi strategi bisnis FnB dan psikologi harga'
+		};
+	}
+
+	// 10. Stok Bahan Baku & Peringatan Bahan Kritis
+	if (
+		q.includes('stok') ||
+		q.includes('bahan') ||
+		q.includes('sisa buah') ||
+		q.includes('buah habis') ||
+		q.includes('ambang stok') ||
+		q.includes('restok') ||
+		q.includes('persediaan')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['stok_bahan', 'produk'],
+			prioritas: 'inventory_analysis',
+			scope: 'inventory_management',
+			reasoning: 'Shortcut Heuristik: Evaluasi stok bahan baku dan peringatan restok'
+		};
+	}
+
+	// 11. HPP & Margin Profitabilitas Menu
+	if (
+		q.includes('hpp') ||
+		q.includes('margin') ||
+		q.includes('modal produk') ||
+		q.includes('paling untung') ||
+		q.includes('margin terbesar') ||
+		q.includes('margin tipis') ||
+		q.includes('keuntungan per cup')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['hpp_margin', 'transaksi_kasir', 'financial_summary'],
+			prioritas: 'margin_analysis',
+			scope: 'margin_optimization',
+			reasoning: 'Shortcut Heuristik: Analisis HPP dan margin keuntungan produk'
+		};
+	}
+
+	// 12. Selera & Kustomisasi Konsumen (Gula & Es)
+	if (
+		q.includes('gula') ||
+		q.includes('es') ||
+		q.includes('less sugar') ||
+		q.includes('level gula') ||
+		q.includes('selera') ||
+		q.includes('kustomisasi')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['customer_behavior', 'transaksi_kasir'],
+			prioritas: 'customer_analysis',
+			scope: 'customer_insights',
+			reasoning: 'Shortcut Heuristik: Analisis preferensi kustomisasi pelanggan (gula & es)'
+		};
+	}
+
+	// 13. Performa Shift & Sesi Toko
+	if (
+		q.includes('shift') ||
+		q.includes('sesi kasir') ||
+		q.includes('sesi toko') ||
+		q.includes('buka toko') ||
+		q.includes('tutup toko')
+	) {
+		return {
+			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
+			jenisData: ['shift_analysis', 'buku_kas'],
+			prioritas: 'shift_analysis',
+			scope: 'operational_efficiency',
+			reasoning: 'Shortcut Heuristik: Analisis performa shift dan sesi toko'
+		};
+	}
+
+	return null;
+}
+
+/** Deteksi apakah pertanyaan memerlukan riset eksternal ke web/internet */
+function isWebSearchRequested(question: string): boolean {
+	const q = question.toLowerCase();
+	const keywords = [
+		'browsing',
+		'browse',
+		'internet',
+		'cari di web',
+		'cari di internet',
+		'cari di google',
+		'googling',
+		'search',
+		'tren',
+		'trend',
+		'viral',
+		'hits',
+		'kompetitor',
+		'pesaing',
+		'pasaran',
+		'harga pasar',
+		'tiktok',
+		'instagram',
+		'sosmed',
+		'media sosial',
+		'resep baru',
+		'ide menu baru',
+		'kekinian'
+	];
+	return keywords.some((kw) => q.includes(kw));
+}
+
+/** Deteksi apakah pertanyaan merupakan konsultasi strategi/edukasi bisnis FnB */
+function isStrategicQuestion(question: string): boolean {
+	const q = question.toLowerCase();
+	const keywords = [
+		'strategi',
+		'taktik',
+		'tips',
+		'rekomendasi',
+		'psikologi',
+		'decoy',
+		'anchoring',
+		'bundling',
+		'charm pricing',
+		'menu engineering',
+		'cara menaikkan omzet',
+		'tingkatkan penjualan',
+		'digital marketing',
+		'local seo',
+		'reciprocity',
+		'loss aversion'
+	];
+	return keywords.some((kw) => q.includes(kw));
+}
+
+/** Deteksi apakah pertanyaan seputar stok/inventaris bahan baku */
+function isInventoryQuestion(question: string): boolean {
+	const q = question.toLowerCase();
+	const keywords = [
+		'stok',
+		'bahan',
+		'sisa buah',
+		'buah habis',
+		'ambang stok',
+		'restok',
+		'persediaan'
+	];
+	return keywords.some((kw) => q.includes(kw));
+}
+
+/** Ambil daftar memori & target bisnis cabang dari tabel pengaturan */
+async function getBusinessMemory(rawDb: ReturnType<typeof getRawDb>, branch: string): Promise<string> {
+	try {
+		const row = (await rawDb
+			.prepare(`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory' LIMIT 1`)
+			.bind(branch)
+			.first()) as { nilai?: string } | null;
+		if (row?.nilai) {
+			const parsed = JSON.parse(row.nilai);
+			if (Array.isArray(parsed.catatan) && parsed.catatan.length > 0) {
+				return parsed.catatan.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n');
+			}
+		}
+	} catch {}
+	return '';
+}
+
+/** Simpan catatan / target bisnis ke memori permanen cabang */
+async function saveBusinessMemoryNote(
+	rawDb: ReturnType<typeof getRawDb>,
+	branch: string,
+	note: string
+): Promise<string[]> {
+	const currentNotes: string[] = [];
+	try {
+		const row = (await rawDb
+			.prepare(`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory' LIMIT 1`)
+			.bind(branch)
+			.first()) as { nilai?: string } | null;
+		if (row?.nilai) {
+			const parsed = JSON.parse(row.nilai);
+			if (Array.isArray(parsed.catatan)) {
+				currentNotes.push(...parsed.catatan);
+			}
+		}
+	} catch {}
+
+	currentNotes.push(note.trim());
+	const trimmedNotes = currentNotes.slice(-10);
+
+	const payload = JSON.stringify({
+		catatan: trimmedNotes,
+		updated_at: new Date().toISOString()
+	});
+
+	await rawDb
+		.prepare(
+			`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
+			 VALUES (?, ?, 'ai_business_memory', ?, datetime('now'))
+			 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = datetime('now')`
+		)
+		.bind(crypto.randomUUID(), branch, payload)
+		.run();
+
+	return trimmedNotes;
+}
+
+/** Bersihkan semua memori bisnis cabang */
+async function clearBusinessMemory(rawDb: ReturnType<typeof getRawDb>, branch: string): Promise<void> {
+	await rawDb
+		.prepare(`DELETE FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory'`)
+		.bind(branch)
+		.run();
+}
+
+// [CATATAN]: AI 1: Data Requirement Analyzer (didukung konteks multi-turn)
 async function identifyDataRequirements(
 	question: string,
-	apiKey: string
+	apiKey: string,
+	recentContext?: string
 ): Promise<DataRequirements> {
-	// [CATATAN]: Hitung tanggal saat ini dalam WITA
 	const now = new Date();
 	const todayWita = toYMDWita(now);
 
-	const systemMessage: ChatMessage = {
-		role: 'system',
-		content: buildIdentifyDataRequirementsPrompt(question, todayWita)
-	};
+	const messages: ChatMessage[] = [
+		{
+			role: 'system',
+			content: buildIdentifyDataRequirementsPrompt(question, todayWita, recentContext)
+		},
+		{
+			role: 'user',
+			content: question
+		}
+	];
 
 	const content =
-		(await callOpenRouter(apiKey, systemMessage, {
+		(await callOpenRouter(apiKey, messages, {
 			title: 'Zatiaras POS - Data Requirement Analyzer',
 			maxTokens: 500,
-			temperature: 0.3,
+			temperature: 0.2,
 			errorLabel: 'AI 1 Error'
 		})) || '{}';
 
 	try {
 		const cleanContent = stripJsonFence(content);
-
 		const parsed: unknown = JSON.parse(cleanContent);
 		return parseDataRequirements(parsed, todayWita);
 	} catch (error) {
-		// [CATATAN]: Tidak ada fallback, langsung error
 		throw new Error(`AI 1 gagal mengidentifikasi kebutuhan data: ${error}`);
 	}
 }
 
-// [CATATAN]: AI 2: Business Analyst
+// [CATATAN]: AI 2: Business Analyst (Non-streaming fallback dengan memori bisnis & tools web)
 async function analyzeBusinessData(
 	question: string,
 	reportData: string,
@@ -168,28 +649,30 @@ async function analyzeBusinessData(
 		reasoning?: string;
 		dataRequirements?: { jenisData?: string[]; prioritas?: string; scope?: string };
 	},
-	apiKey: string
+	apiKey: string,
+	history: ChatMessage[] = [],
+	businessMemory?: string,
+	tools?: Array<{ type: string; [key: string]: unknown }>
 ): Promise<string> {
 	const systemMessage: ChatMessage = {
 		role: 'system',
-		content: buildAnalyzeBusinessDataPrompt(question, reportData, dateRange)
+		content: buildAnalyzeBusinessDataPrompt(question, reportData, dateRange, businessMemory)
 	};
 
+	const messages: ChatMessage[] = [systemMessage, ...history, { role: 'user', content: question }];
+
 	return (
-		(await callOpenRouter(apiKey, systemMessage, {
+		(await callOpenRouter(apiKey, messages, {
 			title: 'Zatiaras POS - Business Analyst',
-			maxTokens: 2000,
+			maxTokens: 2500,
 			temperature: 0.6,
-			errorLabel: 'AI 2 Error'
+			errorLabel: 'AI 2 Error',
+			tools
 		})) || 'Maaf, tidak dapat menghasilkan jawaban.'
 	);
 }
 
-/**
- * Bangun teks daftar produk/harga untuk prompt AI — query LANGSUNG dari DB yang
- * sudah di-scope ke branch (bukan productAnalysisService yang client-coupled +
- * cache module-global tak ber-key-branch → bocor lintas cabang). Lihat P0-1.
- */
+/** Bangun teks daftar produk/harga untuk analisis transaksi AI 3. */
 async function buildProductPromptData(
 	db: ReturnType<typeof getDrizzleDb>,
 	branch: ReturnType<typeof normalizeBranch>
@@ -259,7 +742,7 @@ async function buildProductPromptData(
 	return promptData;
 }
 
-// [CATATAN]: AI 3: Transaction Analyzer
+// [CATATAN]: AI 3: Transaction Analyzer (Text input ke transaksi kasir)
 async function analyzeTransactionText(
 	text: string,
 	apiKey: string,
@@ -275,7 +758,7 @@ async function analyzeTransactionText(
 	};
 
 	const content =
-		(await callOpenRouter(apiKey, systemMessage, {
+		(await callOpenRouter(apiKey, [systemMessage], {
 			title: 'Zatiaras POS - Transaction Analyzer',
 			maxTokens: 1000,
 			temperature: 0.3,
@@ -284,96 +767,28 @@ async function analyzeTransactionText(
 
 	try {
 		const cleanContent = stripJsonFence(content);
-
 		const parsed = JSON.parse(cleanContent);
-
 		return {
 			transactions: parsed.transactions || [],
 			confidence: parsed.confidence || 0.7,
 			recommendations: parsed.recommendations || []
 		};
-	} catch (error) {
-		// [CATATAN]: Fallback: coba parse manual berdasarkan kata kunci
-		const fallbackTransactions = [];
-
-		// [CATATAN]: Cari pola "masukkan uang X" atau "setor X"
-		const masukkanMatch = text.match(
-			/(?:masukkan|setor|tambah|masuk)\s*(?:uang\s*)?(\d+(?:rb|ribu|k|000)?)/i
-		);
-		if (masukkanMatch) {
-			let amount = parseInt(masukkanMatch[1].replace(/[^\d]/g, ''));
-			if (
-				masukkanMatch[1].includes('rb') ||
-				masukkanMatch[1].includes('ribu') ||
-				masukkanMatch[1].includes('k')
-			) {
-				amount *= 1000;
-			}
-
-			fallbackTransactions.push({
-				type: 'pemasukan',
-				amount: amount,
-				deskripsi: 'Setoran ke kas',
-				confidence: 0.8
-			});
-		}
-
-		// [CATATAN]: Cari pola "ambil X" atau "beli X" (bukan untuk produk)
-		const ambilMatch = text.match(
-			/(?:ambil|bayar|keluar|belanja|jajan)\s*(?:uang\s*)?(\d+(?:rb|ribu|k|000)?)/i
-		);
-		if (ambilMatch) {
-			let amount = parseInt(ambilMatch[1].replace(/[^\d]/g, ''));
-			if (
-				ambilMatch[1].includes('rb') ||
-				ambilMatch[1].includes('ribu') ||
-				ambilMatch[1].includes('k')
-			) {
-				amount *= 1000;
-			}
-
-			fallbackTransactions.push({
-				type: 'pengeluaran',
-				amount: amount,
-				deskripsi: 'Pengeluaran',
-				confidence: 0.8
-			});
-		}
-
-		// [CATATAN]: Cari pola penjualan produk
-		const penjualanMatch = text.match(
-			/(?:customer|ada|tadi|membeli|beli|catat|catatlah).*?(\d+)\s*([a-zA-Z\s]+)/i
-		);
-
-		if (penjualanMatch) {
-			const quantity = parseInt(penjualanMatch[1]);
-			const productName = penjualanMatch[2].trim().toLowerCase();
-
-			// [CATATAN]: Untuk fallback, kita tidak bisa hitung harga tanpa data produk
-			// [CATATAN]: Tapi kita bisa identifikasi sebagai penjualan
-			fallbackTransactions.push({
-				type: 'penjualan',
-				amount: 0, // Akan diisi oleh user atau sistem
-				deskripsi: `Penjualan ${quantity} ${productName}`,
-				confidence: 0.7
-			});
-		}
-
+	} catch {
 		return {
-			transactions: fallbackTransactions,
-			confidence: 0.6,
+			transactions: [],
+			confidence: 0.5,
 			recommendations: []
 		};
 	}
 }
 
-// [CATATAN]: Endpoint untuk analisis transaksi AI
+// [CATATAN]: POST Endpoint Utama /api/aichat
 export const POST: RequestHandler = async (event) => {
 	const { url } = event;
-	// [CATATAN]: P0-1: endpoint ini sebelumnya hanya rate-limit IP tanpa auth. Wajib login.
 	const session = requireAuthSession(event.locals);
 	const branch = requireSessionBranch(event.locals);
 	const db = getD1Database(event.platform?.env as Record<string, unknown> | undefined, branch);
+
 	const rateLimit = await consumeRateLimit(
 		db,
 		branch,
@@ -382,6 +797,7 @@ export const POST: RequestHandler = async (event) => {
 		AI_WINDOW_MS,
 		event.platform
 	);
+
 	if (!rateLimit.available) {
 		return json(
 			{
@@ -407,34 +823,28 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	// [CATATAN]: Cek apakah ini request untuk analisis transaksi
 	const action = url.searchParams.get('action');
-
 	if (action === 'analyze') {
 		return await handleTransactionAnalysis(event);
 	}
 
 	await requirePageAccess(db, session, 'laporan');
-
-	// [CATATAN]: Default: handle regular AI chat
 	return await handleRegularChat(event);
 };
 
-// [CATATAN]: Handler untuk analisis transaksi
+// [CATATAN]: Handler Analisis Transaksi Teks Kasir
 async function handleTransactionAnalysis(event: import('./$types').RequestEvent) {
 	const request = event.request;
-	// [CATATAN]: P0-1: branch dari session, bukan header x-branch yang bisa dipalsukan.
 	const branch = requireSessionBranch(event.locals);
+
 	try {
 		const { text } = await request.json();
-
 		if (!text || typeof text !== 'string') {
 			return json(
 				{ success: false, error: 'Teks transaksi diperlukan', code: 'VALIDATION_ERROR' },
 				{ status: 400 }
 			);
 		}
-
 		if (text.length > 2000) {
 			return json(
 				{ success: false, error: 'Teks transaksi terlalu panjang', code: 'VALIDATION_ERROR' },
@@ -442,9 +852,7 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 			);
 		}
 
-		// [CATATAN]: Get API key from environment
 		const apiKey = env.OPENROUTER_API_KEY;
-
 		if (!apiKey) {
 			return json(
 				{
@@ -456,25 +864,21 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 			);
 		}
 
-		// [CATATAN]: Data produk untuk konteks AI — query branch-scoped, fallback bila gagal.
 		let productData = '';
 		try {
 			productData = await buildProductPromptData(getDrizzleDb(event.platform, branch), branch);
 		} catch {
-			productData =
-				'Data produk tidak tersedia saat ini. JIKA USER MENYEBUTKAN PRODUK, JANGAN berikan rekomendasi untuk penjualan produk karena tidak ada informasi harga. Minta user untuk memberikan informasi harga atau detail transaksi yang lebih spesifik.';
+			productData = 'Data produk tidak tersedia saat ini.';
 		}
 
-		// [CATATAN]: Analisis transaksi menggunakan AI
 		const analysis = await analyzeTransactionText(text, apiKey, productData);
-
 		return json({
 			success: true,
 			transactions: analysis.transactions,
 			confidence: analysis.confidence,
 			recommendations: analysis.recommendations
 		});
-	} catch (error) {
+	} catch {
 		return json(
 			{
 				success: false,
@@ -486,11 +890,13 @@ async function handleTransactionAnalysis(event: import('./$types').RequestEvent)
 	}
 }
 
-// [CATATAN]: Handler untuk regular AI chat
+// [CATATAN]: Handler Chat Laporan Finansial (Streaming SSE + SQL Agregasi + Multi-Turn)
 async function handleRegularChat(event: import('./$types').RequestEvent) {
 	const request = event.request;
+
 	try {
-		const { question, branch } = await request.json();
+		const body = await request.json();
+		const { question, branch, stream = true, history } = body;
 
 		if (!question || typeof question !== 'string') {
 			return json(
@@ -499,9 +905,22 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// [CATATAN]: Get API key from environment
-		const apiKey = env.OPENROUTER_API_KEY;
+		const cleanQ = question.trim();
+		if (!cleanQ) {
+			return json(
+				{ success: false, error: 'Pertanyaan tidak boleh kosong', code: 'VALIDATION_ERROR' },
+				{ status: 400 }
+			);
+		}
 
+		if (cleanQ.length > 2000) {
+			return json(
+				{ success: false, error: 'Pertanyaan terlalu panjang', code: 'VALIDATION_ERROR' },
+				{ status: 400 }
+			);
+		}
+
+		const apiKey = env.OPENROUTER_API_KEY;
 		if (!apiKey) {
 			return json(
 				{
@@ -514,15 +933,6 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		if (question.length > 2000) {
-			return json(
-				{ success: false, error: 'Pertanyaan terlalu panjang', code: 'VALIDATION_ERROR' },
-				{ status: 400 }
-			);
-		}
-
-		// [CATATAN]: P0-1: branch di-scope ke session (admin boleh lintas-branch). Jangan percaya
-		// [CATATAN]: body mentah — sebelumnya fallback ke 'balikpapan' = baca data tenant lain.
 		let requestedBranch: ReturnType<typeof normalizeBranch>;
 		try {
 			requestedBranch = requireSessionBranch(event.locals, branch);
@@ -533,26 +943,104 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		// [CATATAN]: AI 1: Identifikasi kebutuhan data
-		const dataRequirements = await identifyDataRequirements(question, apiKey);
-
-		const db = getDrizzleDb(event.platform, requestedBranch);
 		const rawDb = getRawDb(event.platform, requestedBranch);
+		const db = getDrizzleDb(event.platform, requestedBranch);
 
-		// [CATATAN]: Hitung waktu WITA dari rentang yang diidentifikasi AI 1
-		// [CATATAN]: STANDAR: Gunakan WITA untuk query database
-		const { startWita, endWita } = witaRangeToWitaQuery(
-			dataRequirements.periode.start,
-			dataRequirements.periode.end
+		const qLower = cleanQ.toLowerCase();
+
+		// [CATATAN]: Perintah Simpan Catatan / Target Memori Bisnis (Long-Term Memory)
+		const rememberMatch = cleanQ.match(
+			/^(?:ingat|catat|simpan(?:\s+catatan)?|tambah(?:\s+memori)?)\s*:\s*(.+)$/i
 		);
-		const startDate = startWita;
-		const endDate = endWita;
+		if (rememberMatch) {
+			const noteToRemember = rememberMatch[1].trim();
+			const updatedNotes = await saveBusinessMemoryNote(rawDb, requestedBranch, noteToRemember);
+			const responseText =
+				`Catatan bisnis berhasil disimpan ke memori permanen cabang **${requestedBranch}**:\n\n` +
+				updatedNotes.map((c, i) => `${i + 1}. ${c}`).join('\n') +
+				`\n\n_Catatan ini akan otomatis dijadikan tolok ukur acuan pada setiap analisis laporan mendatang._`;
+			return json({
+				success: true,
+				answer: responseText,
+				isMemoryAction: true
+			});
+		}
 
-		// [CATATAN]: Konversi tanggal untuk konteks AI
+		// [CATATAN]: Perintah Lihat Memori Bisnis
+		if (
+			qLower === 'lihat memori' ||
+			qLower === 'lihat catatan bisnis' ||
+			qLower === 'cek memori' ||
+			qLower === 'apa saja memorimu?' ||
+			qLower === 'catatan bisnis' ||
+			qLower.includes('catatan bisnis yang tersimpan')
+		) {
+			const memoryText = await getBusinessMemory(rawDb, requestedBranch);
+			const responseText = memoryText
+				? `Berikut catatan memori bisnis cabang **${requestedBranch}** saat ini:\n\n${memoryText}\n\n_Ketik \`Ingat: <catatan>\` untuk menambah, atau \`Hapus memori\` untuk mereset._`
+				: `Belum ada catatan memori bisnis untuk cabang **${requestedBranch}**.\n\nKetik contoh: \`Ingat: Target omzet bulan ini 50 juta\` untuk mengajari AI acuan tokomu.`;
+			return json({
+				success: true,
+				answer: responseText,
+				isMemoryAction: true
+			});
+		}
 
-		// [CATATAN]: Konversi tanggal untuk konteks AI
+		// [CATATAN]: Perintah Hapus Memori Bisnis
+		if (
+			qLower === 'hapus memori' ||
+			qLower === 'reset memori' ||
+			qLower === 'hapus catatan bisnis' ||
+			qLower === 'bersihkan memori'
+		) {
+			await clearBusinessMemory(rawDb, requestedBranch);
+			return json({
+				success: true,
+				answer: `Seluruh catatan memori bisnis cabang **${requestedBranch}** telah berhasil dibersihkan.`,
+				isMemoryAction: true
+			});
+		}
+
+		// [CATATAN]: Ambil catatan memori bisnis cabang untuk disuntikkan ke prompt analisis
+		const businessMemory = await getBusinessMemory(rawDb, requestedBranch);
+
+		// [CATATAN]: Format riwayat chat multi-turn (10 bubble terakhir / 5 putaran tanya-jawab)
+		const sanitizedHistory: ChatMessage[] = Array.isArray(history)
+			? history
+					.slice(-10)
+					.filter(
+						(m) =>
+							m &&
+							(m.role === 'user' || m.role === 'assistant') &&
+							typeof m.content === 'string'
+					)
+					.map((m) => ({
+						role: m.role as 'user' | 'assistant',
+						content: String(m.content).slice(0, 1500)
+					}))
+			: [];
+
+		// [CATATAN]: Ringkasan konteks percakapan terakhir untuk memandu AI 1 memahami kata rujukan
+		const recentContextForAi1 = sanitizedHistory
+			.slice(-4)
+			.map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 250)}`)
+			.join('\n');
+
+		const todayWita = toYMDWita(new Date());
+
+		// [CATATAN]: Tahap 1: Evaluasi Kebutuhan Data (Bypass Heuristik Cepat atau AI 1 berkonteks)
+		let dataRequirements = fastResolveRequirements(cleanQ, todayWita);
+		if (!dataRequirements) {
+			dataRequirements = await identifyDataRequirements(cleanQ, apiKey, recentContextForAi1);
+		}
+
 		const formatDateForAI = (dateStr: string) => {
-			const date = new Date(dateStr);
+			const parts = dateStr.split('-');
+			const date = new Date(
+				parseInt(parts[0], 10),
+				parseInt(parts[1], 10) - 1,
+				parseInt(parts[2], 10)
+			);
 			return date.toLocaleDateString('id-ID', {
 				weekday: 'long',
 				year: 'numeric',
@@ -576,24 +1064,31 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			}
 		};
 
-		// [CATATAN]: Ambil data berpaginasi untuk periode yang diminta
-		const { bukuKasPos, bukuKasManual, transaksiKasirData } = await fetchReportData(
-			db,
+		// [CATATAN]: Tarik data agregasi langsung dari SQL D1 (skala besar, hemat RAM & anti timeout)
+		const reportResult = await fetchReportDataSql(
+			rawDb,
 			requestedBranch,
-			startDate,
-			endDate
+			dataRequirements.periode.start,
+			dataRequirements.periode.end
 		);
 
-		// [CATATAN]: Handle case when no data found
-		if (
-			(!bukuKasPos || bukuKasPos.length === 0) &&
-			(!bukuKasManual || bukuKasManual.length === 0)
-		) {
-			return new Response(
-				JSON.stringify({
+		const shouldSearchWeb = Boolean(body.webSearch) || isWebSearchRequested(cleanQ);
+		const isStrategyOrResearch =
+			dataRequirements.prioritas === 'market_analysis' ||
+			dataRequirements.prioritas === 'strategic_consulting' ||
+			dataRequirements.prioritas === 'inventory_analysis' ||
+			dataRequirements.prioritas === 'margin_analysis' ||
+			dataRequirements.prioritas === 'shift_analysis' ||
+			shouldSearchWeb ||
+			isStrategicQuestion(cleanQ) ||
+			isInventoryQuestion(cleanQ);
+
+		if (!reportResult.hasData && !isStrategyOrResearch) {
+			return json(
+				{
 					success: false,
 					code: 'NO_DATA',
-					error: 'Tidak ada data ditemukan untuk periode yang diminta',
+					error: 'Tidak ada data transaksi ditemukan untuk periode yang diminta',
 					dateRange: `${dataRequirements.periode.start} hingga ${dataRequirements.periode.end}`,
 					dataRequirements: {
 						jenisData: dataRequirements.jenisData,
@@ -601,282 +1096,66 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 						scope: dataRequirements.scope
 					},
 					suggestion:
-						'Coba gunakan periode yang lebih pendek atau periksa apakah ada data transaksi dalam rentang waktu tersebut'
-				}),
-				{
-					headers: { 'Content-Type': 'application/json' },
-					status: 404
-				}
+						'Coba gunakan periode lain atau pastikan toko sudah memiliki data transaksi di rentang waktu tersebut'
+				},
+				{ status: 404 }
 			);
 		}
 
-		// [CATATAN]: Data periode yang diminta - gunakan logika yang sama dengan DataService
-		const laporan: Record<string, unknown>[] = [];
-
-		// [CATATAN]: 1. Tambahkan data POS dari buku_kas (sumber='pos')
-		(bukuKasPos || []).forEach((item: Record<string, unknown>) => {
-			laporan.push({
-				...item,
-				sumber: 'pos',
-				nominal: item.nominal || 0 // Map amount ke nominal seperti DataService
-			});
-		});
-
-		// [CATATAN]: 2. Tambahkan data manual/catat
-		(bukuKasManual || []).forEach((item: Record<string, unknown>) => {
-			laporan.push({
-				...item,
-				sumber: item.sumber || 'catat',
-				nominal: item.nominal || 0 // Map amount ke nominal seperti DataService
-			});
-		});
-
-		// [CATATAN]: Hitung data periode yang diminta
-		const pemasukan = laporan.filter((t: Record<string, unknown>) => t.tipe === 'in');
-		const pengeluaran = laporan.filter((t: Record<string, unknown>) => t.tipe === 'out');
-
-		const totalPemasukan = pemasukan.reduce(
-			(s: number, t: Record<string, unknown>) => s + ((t.nominal as number) || 0),
-			0
-		);
-		const totalPengeluaran = pengeluaran.reduce(
-			(s: number, t: Record<string, unknown>) => s + ((t.nominal as number) || 0),
-			0
-		);
-		const labaKotor = totalPemasukan - totalPengeluaran;
-
-		let taxRate = 0.005;
-		let taxEnabled = true;
-		let taxThreshold = 500_000_000;
-		let applyThreshold = false;
-		try {
-			const taxConfigRow = (await rawDb
-				.prepare(
-					`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
-				)
-				.bind(branch)
-				.first()) as { nilai?: string } | null;
-			if (taxConfigRow?.nilai) {
-				const parsed = JSON.parse(taxConfigRow.nilai);
-				if (parsed && typeof parsed === 'object') {
-					if (parsed.enabled === false) taxEnabled = false;
-					if (typeof parsed.rate === 'number') taxRate = parsed.rate;
-					if (typeof parsed.threshold === 'number') taxThreshold = parsed.threshold;
-					if (typeof parsed.apply_threshold === 'boolean') applyThreshold = parsed.apply_threshold;
-				}
-			}
-		} catch {}
-
-		let pajak = 0;
-		if (taxEnabled && totalPemasukan > 0) {
-			pajak = applyThreshold
-				? Math.round(Math.min(totalPemasukan, Math.max(0, totalPemasukan - taxThreshold)) * taxRate)
-				: Math.round(totalPemasukan * taxRate);
-		}
-		const labaBersih = labaKotor - pajak;
-
-		// [CATATAN]: Format data per bulan untuk AI
-		const formattedRequestedMonthlyData = aggregateMonthly(laporan, transaksiKasirData);
-
-		const summary = {
-			pendapatan: totalPemasukan,
-			pengeluaran: totalPengeluaran,
-			saldo: totalPemasukan - totalPengeluaran,
-			labaKotor,
-			pajak,
-			labaBersih,
-			totalTransaksi: new Set(
-				(bukuKasPos || []).map((b: { transaction_id?: string }) => b.transaction_id).filter(Boolean)
-			).size,
-			// [CATATAN]: Data per bulan untuk periode yang diminta
-			requestedMonthlyData: formattedRequestedMonthlyData
-		};
-
-		// [CATATAN]: Breakdown pembayaran, pola waktu, tren harian, & statistik
-		const {
-			paymentBreakdown,
-			jamRamai,
-			dailyPerformance,
-			avgTransactionsPerDay,
-			avgRevenuePerDay,
-			avgTicketSize,
-			totalDays,
-			bestDay,
-			worstDay
-		} = computeAnalytics(laporan, bukuKasPos, totalPemasukan);
-
-		// [CATATAN]: Ambil metadata produk/kategori/tambahan berdasarkan kebutuhan data
-		let products: { id: string; nama: string; harga: number; kategori_id?: string | null }[] = [];
-		let categories: { id: string; nama: string }[] = [];
-		let addons: { id: string; nama: string; harga: number }[] = [];
-
-		// [CATATAN]: Fetch data berdasarkan jenis data yang diperlukan
-		if (dataRequirements.jenisData.includes('produk') || dataRequirements.jenisData.length === 0) {
-			products = await db
-				.select({
-					id: produk.id,
-					nama: produk.nama,
-					harga: produk.harga,
-					kategori_id: produk.kategori_id
-				})
-				.from(produk)
-				.where(eq(produk.cabang_id, requestedBranch))
-				.limit(1000);
+		if (!reportResult.hasData && isStrategyOrResearch) {
+			reportResult.serverReportData.summary = {
+				pendapatan: 0,
+				pengeluaran: 0,
+				labaKotor: 0,
+				pajak: 0,
+				labaBersih: 0,
+				totalTransaksi: 0,
+				requestedMonthlyData: []
+			};
 		}
 
-		if (
-			dataRequirements.jenisData.includes('kategori') ||
-			dataRequirements.jenisData.length === 0
-		) {
-			categories = await db
-				.select({ id: kategori.id, nama: kategori.nama })
-				.from(kategori)
-				.where(eq(kategori.cabang_id, requestedBranch))
-				.limit(1000);
-		}
-
-		if (
-			dataRequirements.jenisData.includes('tambahan') ||
-			dataRequirements.jenisData.length === 0
-		) {
-			addons = await db
-				.select({ id: tambahan.id, nama: tambahan.nama, harga: tambahan.harga })
-				.from(tambahan)
-				.where(eq(tambahan.cabang_id, requestedBranch))
-				.limit(1000);
-		}
-
-		// [CATATAN]: Hitung produk terlaris berdasarkan transaksi_kasir yang sudah diambil
-		const productIdToSale: Record<string, { jumlah: number; revenue: number; nama?: string }> = {};
-		// [CATATAN]: Prototype pollution guard: reject dangerous keys
-		const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-		interface TransaksiItem {
-			produk_id?: string;
-			jumlah?: number;
-			harga?: number;
-			amount?: number;
-			nama_kustom?: string;
-			produk?: { nama?: string };
-		}
-		for (const item of transaksiKasirData || []) {
-			const typedItem = item as TransaksiItem;
-			const pid = typedItem.produk_id;
-			if (!pid || typeof pid !== 'string' || FORBIDDEN_KEYS.has(pid)) continue;
-			const jumlah = Number(typedItem.jumlah || 0) || 0;
-			const satuan = Number(typedItem.harga || typedItem.amount || 0) || 0;
-			const revenue = satuan * (jumlah || 1);
-			// [CATATAN]: Ambil nama dari relasi produk atau nama_kustom
-			const productName =
-				typedItem.produk?.nama || typedItem.nama_kustom || `Produk ${pid.slice(0, 8)}`;
-			if (!Object.prototype.hasOwnProperty.call(productIdToSale, pid)) {
-				productIdToSale[pid] = { jumlah: 0, revenue: 0, nama: productName };
-			}
-			productIdToSale[pid].jumlah += jumlah || 0;
-			productIdToSale[pid].revenue += revenue;
-			if (!productIdToSale[pid].nama) productIdToSale[pid].nama = productName;
-		}
-		const produkTerlaris = Object.entries(productIdToSale)
-			.map(([pid, v]) => ({
-				id: pid,
-				nama: v.nama || pid,
-				totalTerjual: v.jumlah,
-				totalPendapatan: v.revenue
-			}))
-			.sort((a, b) => b.totalTerjual - a.totalTerjual)
-			.slice(0, 5);
-
-		// [CATATAN]: Cari produk spesifik jika user bertanya tentang harga
-		let specificProduct = null;
+		// [CATATAN]: Jika user menanyakan harga produk spesifik, ambil info produk dari DB
 		if (
 			dataRequirements.prioritas === 'product_analysis' &&
-			question.toLowerCase().includes('harga')
+			cleanQ.toLowerCase().includes('harga')
 		) {
-			// [CATATAN]: Cari produk yang disebutkan dalam pertanyaan
-			const productKeywords = [
-				'alpukat',
-				'mangga',
-				'jeruk',
-				'apel',
-				'pisang',
-				'semangka',
-				'melon',
-				'pepaya',
-				'naga',
-				'strawberry'
-			];
-			const foundKeyword = productKeywords.find((keyword) =>
-				question.toLowerCase().includes(keyword)
-			);
+			try {
+				const productsList = await db
+					.select({
+						id: produk.id,
+						nama: produk.nama,
+						harga: produk.harga
+					})
+					.from(produk)
+					.where(eq(produk.cabang_id, requestedBranch))
+					.limit(500);
 
-			if (foundKeyword) {
-				specificProduct = products.find((p) => p.nama.toLowerCase().includes(foundKeyword));
-			}
+				reportResult.serverReportData.products = productsList;
+				const productKeywords = [
+					'alpukat',
+					'mangga',
+					'jeruk',
+					'apel',
+					'pisang',
+					'semangka',
+					'melon',
+					'pepaya',
+					'naga',
+					'strawberry'
+				];
+				const foundKeyword = productKeywords.find((k) => cleanQ.toLowerCase().includes(k));
+				if (foundKeyword) {
+					reportResult.serverReportData.specificProduct =
+						productsList.find((p) => p.nama.toLowerCase().includes(foundKeyword)) || null;
+				}
+			} catch {}
 		}
 
-		// [CATATAN]: Sederhanakan konteks server
-		const serverReportData = {
-			summary,
-			startDate: dataRequirements.periode.start,
-			endDate: dataRequirements.periode.end,
-			tipe: dataRequirements.periode.type,
-			pembayaran: paymentBreakdown,
-			jamRamai,
-			products: (products || []).map((p: { id: string; nama: string; harga: number }) => ({
-				id: p.id,
-				nama: p.nama,
-				harga: p.harga
-			})),
-			categories: (categories || []).map((c: { id: string; nama: string }) => ({
-				id: c.id,
-				nama: c.nama
-			})),
-			addons: (addons || []).map((a: { id: string; nama: string; harga: number }) => ({
-				id: a.id,
-				nama: a.nama,
-				harga: a.harga
-			})),
-			produkTerlaris,
-			specificProduct, // Produk spesifik yang dicari
-			// [CATATAN]: Data analisis mendalam
-			dailyPerformance,
-			analytics: {
-				avgTransactionsPerDay: Math.round(avgTransactionsPerDay * 100) / 100,
-				avgRevenuePerDay: Math.round(avgRevenuePerDay),
-				avgTicketSize: Math.round(avgTicketSize),
-				totalDays,
-				bestDay:
-					bestDay.revenue > 0
-						? {
-								date: bestDay.formattedDate,
-								revenue: bestDay.revenue,
-								transactions: bestDay.count,
-								avgTicket: Math.round(bestDay.avgTicket)
-							}
-						: null,
-				worstDay:
-					worstDay.revenue > 0
-						? {
-								date: worstDay.formattedDate,
-								revenue: worstDay.revenue,
-								transactions: worstDay.count,
-								avgTicket: Math.round(worstDay.avgTicket)
-							}
-						: null
-			},
-			// [CATATAN]: Data requirements untuk konteks AI
-			dataRequirements: {
-				jenisData: dataRequirements.jenisData,
-				prioritas: dataRequirements.prioritas,
-				scope: dataRequirements.scope
-			}
-		};
+		reportResult.serverReportData.dataRequirements = dataRequirements;
+		const reportContext = buildReportContext(reportResult.serverReportData, rangeContext);
 
-		// [CATATAN]: Prepare context about the report data
-		const reportContext = buildReportContext(serverReportData, rangeContext);
-
-		// [CATATAN]: AI 2: Analisis data bisnis
-		const answer = await analyzeBusinessData(
-			question,
+		const systemPrompt = buildAnalyzeBusinessDataPrompt(
+			cleanQ,
 			reportContext,
 			{
 				start: rangeContext.requested.start,
@@ -886,7 +1165,175 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 				type: rangeContext.requested.type,
 				dataRequirements: rangeContext.dataRequirements
 			},
-			apiKey
+			businessMemory
+		);
+
+		const fullMessages: ChatMessage[] = [
+			{ role: 'system', content: systemPrompt },
+			...sanitizedHistory,
+			{ role: 'user', content: cleanQ }
+		];
+
+		const webSearchTools = shouldSearchWeb
+			? [{ type: 'openrouter:web_search' }]
+			: undefined;
+
+		// [CATATAN]: 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream
+		if (stream !== false) {
+			let upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
+				title: 'Zatiaras POS - Business Analyst',
+				maxTokens: 2500,
+				temperature: 0.6,
+				tools: webSearchTools
+			});
+
+			// Jika gagal saat menyertakan tools (misal model upstream menolak web search), coba tanpa tools
+			if (!upstreamRes.ok && webSearchTools) {
+				try {
+					upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
+						title: 'Zatiaras POS - Business Analyst (No Tools)',
+						maxTokens: 2500,
+						temperature: 0.6
+					});
+				} catch {}
+			}
+
+			if (!upstreamRes.ok && MODEL !== FALLBACK_MODEL) {
+				try {
+					upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
+						title: 'Zatiaras POS - Business Analyst (Fallback)',
+						maxTokens: 2500,
+						temperature: 0.6,
+						model: FALLBACK_MODEL,
+						tools: webSearchTools
+					});
+					if (!upstreamRes.ok && webSearchTools) {
+						upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
+							title: 'Zatiaras POS - Business Analyst (Fallback No Tools)',
+							maxTokens: 2500,
+							temperature: 0.6,
+							model: FALLBACK_MODEL
+						});
+					}
+				} catch {}
+			}
+
+			if (!upstreamRes.ok || !upstreamRes.body) {
+				return json(
+					{
+						success: false,
+						error: 'Asisten AI sementara tidak dapat merespons. Silakan coba lagi.'
+					},
+					{ status: 502 }
+				);
+			}
+
+			const encoder = new TextEncoder();
+			const decoder = new TextDecoder();
+
+			const sseStream = new ReadableStream({
+				async start(controller) {
+					// Kirim meta data pertama kali
+					controller.enqueue(
+						encoder.encode(
+							`data: ${JSON.stringify({
+								type: 'meta',
+								dateRange: {
+									start: dataRequirements.periode.start,
+									end: dataRequirements.periode.end,
+									reasoning: dataRequirements.reasoning
+								},
+								dataRequirements: {
+									jenisData: dataRequirements.jenisData,
+									prioritas: dataRequirements.prioritas,
+									scope: dataRequirements.scope
+								},
+								webSearch: shouldSearchWeb
+							})}\n\n`
+						)
+					);
+
+					const reader = upstreamRes.body!.getReader();
+					let buffer = '';
+
+					try {
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) break;
+
+							buffer += decoder.decode(value, { stream: true });
+							const lines = buffer.split('\n');
+							buffer = lines.pop() || '';
+
+							for (const line of lines) {
+								const trimmed = line.trim();
+								if (!trimmed || trimmed.startsWith(':')) continue;
+								if (trimmed.startsWith('data: ')) {
+									const dataStr = trimmed.slice(6).trim();
+									if (dataStr === '[DONE]') {
+										controller.enqueue(
+											encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+										);
+										controller.close();
+										return;
+									}
+									try {
+										const parsed = JSON.parse(dataStr);
+										const token = parsed.choices?.[0]?.delta?.content;
+										if (token) {
+											controller.enqueue(
+												encoder.encode(
+													`data: ${JSON.stringify({ type: 'token', text: token })}\n\n`
+												)
+											);
+										}
+									} catch {
+										// Abaikan chunk json parsial
+									}
+								}
+							}
+						}
+						controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+						controller.close();
+					} catch (err: any) {
+						controller.enqueue(
+							encoder.encode(
+								`data: ${JSON.stringify({
+									type: 'error',
+									error: err?.message || 'Koneksi stream terputus.'
+								})}\n\n`
+							)
+						);
+						controller.close();
+					}
+				}
+			});
+
+			return new Response(sseStream, {
+				headers: {
+					'Content-Type': 'text/event-stream; charset=utf-8',
+					'Cache-Control': 'no-cache, no-transform',
+					Connection: 'keep-alive'
+				}
+			});
+		}
+
+		// [CATATAN]: 2. Jika streaming dinonaktifkan (fallback non-streaming response)
+		const answer = await analyzeBusinessData(
+			cleanQ,
+			reportContext,
+			{
+				start: rangeContext.requested.start,
+				startFormatted: rangeContext.requested.startFormatted,
+				end: rangeContext.requested.end,
+				endFormatted: rangeContext.requested.endFormatted,
+				type: rangeContext.requested.type,
+				dataRequirements: rangeContext.dataRequirements
+			},
+			apiKey,
+			sanitizedHistory,
+			businessMemory,
+			webSearchTools
 		);
 
 		return json({
@@ -901,7 +1348,8 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 				jenisData: dataRequirements.jenisData,
 				prioritas: dataRequirements.prioritas,
 				scope: dataRequirements.scope
-			}
+			},
+			webSearch: shouldSearchWeb
 		});
 	} catch (error) {
 		return json(

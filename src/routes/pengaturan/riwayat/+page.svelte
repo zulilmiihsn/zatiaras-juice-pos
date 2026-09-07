@@ -9,11 +9,11 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import { formatRupiah } from '$lib/utils/currency';
-
 	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 	import { fetchTransaksiHariIni as fetchRiwayatHarian } from '$lib/services/riwayatService';
 	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
+	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 
 	// [CATATAN]: ─── State ─────────────────────────────────────────────────────────────
 	let pengaturanStruk = $state<ReceiptSettings | null>(null);
@@ -300,108 +300,14 @@
 </div>
 
 <!-- Modal Detail (Read Only) -->
-{#if showDetailModal && selectedTransaksi}
-	<div
-		class="z-modal fixed inset-0 flex items-end justify-center bg-black/40 px-0 backdrop-blur-sm sm:items-center sm:px-4"
-	>
-		<div
-			class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-t-2xl border border-pink-100 bg-white p-6 shadow-2xl sm:rounded-2xl sm:p-8"
-		>
-			<!-- Tutup -->
-			<button
-				class="absolute top-3 right-3 rounded-full bg-gray-100 p-2 shadow-sm hover:bg-gray-200"
-				onclick={() => (showDetailModal = false)}
-				aria-label="Tutup"
-			>
-				<svg
-					class="h-5 w-5 text-gray-500"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					viewBox="0 0 24 24"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
-			</button>
-
-			<h2 class="mb-1 text-center text-xl font-bold text-pink-600">Detail Transaksi</h2>
-
-			<!-- Badge read-only -->
-			<div class="mb-1 flex justify-center">
-				<span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
-					👁️ Hanya Lihat
-				</span>
-			</div>
-
-			<!-- Data transaksi -->
-			<div class="flex flex-col gap-3">
-				<div class="rounded-xl bg-pink-50 px-4 py-3">
-					<div class="mb-0.5 text-xs font-semibold text-gray-500">Deskripsi</div>
-					<div class="text-sm font-medium break-words text-gray-800">{selectedTransaksi.nama}</div>
-				</div>
-
-				{#if selectedTransaksi.nama_pelanggan}
-					<div class="rounded-xl bg-gray-50 px-4 py-3">
-						<div class="mb-0.5 text-xs font-semibold text-gray-500">Customer</div>
-						<div class="text-sm text-gray-700">{selectedTransaksi.nama_pelanggan}</div>
-					</div>
-				{/if}
-
-				<div class="grid grid-cols-2 gap-3">
-					<div class="rounded-xl bg-gray-50 px-4 py-3">
-						<div class="mb-0.5 text-xs font-semibold text-gray-500">Waktu</div>
-						<div class="text-sm text-gray-700">
-							{new Date(selectedTransaksi.waktu).toLocaleString('id-ID', {
-								dateStyle: 'medium',
-								timeStyle: 'short'
-							})}
-						</div>
-					</div>
-					<div class="rounded-xl bg-gray-50 px-4 py-3">
-						<div class="mb-0.5 text-xs font-semibold text-gray-500">Metode</div>
-						<div class="text-sm font-semibold text-pink-600 uppercase">
-							{selectedTransaksi.metode_bayar === 'qris' ||
-							selectedTransaksi.metode_bayar === 'non-tunai'
-								? 'QRIS'
-								: selectedTransaksi.metode_bayar || 'Tunai'}
-						</div>
-					</div>
-				</div>
-
-				<div class="rounded-xl bg-pink-50 px-4 py-3">
-					<div class="mb-0.5 text-xs font-semibold text-gray-500">Nominal</div>
-					<div class="text-xl font-bold text-pink-600">
-						Rp {formatRupiah(selectedTransaksi.nominal)}
-					</div>
-				</div>
-
-				<div class="rounded-xl bg-gray-50 px-4 py-3">
-					<div class="mb-0.5 text-xs font-semibold text-gray-500">Sumber</div>
-					<div class="text-sm text-gray-700">
-						{selectedTransaksi.sumber === 'pos' ? 'POS (Kasir)' : 'Input Manual'}
-					</div>
-				</div>
-			</div>
-
-			<!-- Tombol aksi -->
-			<div class="mt-1 flex gap-2">
-				<button
-					class="flex-1 rounded-xl bg-pink-100 py-3 text-base font-bold text-pink-600 transition-colors hover:bg-pink-200 disabled:opacity-60"
-					onclick={printStruk}
-					disabled={loading}
-				>
-					{loading ? 'Memproses...' : 'Cetak Ulang Struk'}
-				</button>
-				<button
-					class="flex-1 rounded-xl bg-pink-500 py-3 text-base font-bold text-white shadow-lg shadow-pink-200/30 transition-colors hover:bg-pink-600"
-					onclick={() => (showDetailModal = false)}
-				>
-					Tutup
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<DetailTransaksiModal
+	open={showDetailModal}
+	transaksi={selectedTransaksi}
+	readonly={true}
+	isPrinting={loading}
+	onClose={() => (showDetailModal = false)}
+	onPrint={printStruk}
+/>
 
 <!-- Toast -->
 {#if toastManager.showToast}
@@ -413,18 +319,4 @@
 	/>
 {/if}
 
-<style>
-	.animate-slideUpModal {
-		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	@keyframes slideUpModal {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-</style>
+

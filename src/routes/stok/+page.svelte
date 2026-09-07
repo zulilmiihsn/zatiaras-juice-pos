@@ -1057,13 +1057,18 @@
 	</main>
 
 	<!-- Floating Action Button (FAB) -->
-	<button
-		class="z-fab fixed right-6 bottom-20 flex h-14 w-14 items-center justify-center rounded-full bg-pink-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:bg-pink-600 active:scale-95"
-		onclick={openAddModal}
-		aria-label="Tambah Bahan Baku"
-	>
-		<Plus class="h-7 w-7" />
-	</button>
+	<div class="z-fab fixed right-4 bottom-20 sm:right-6 sm:bottom-24">
+		<button
+			class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+			onclick={openAddModal}
+			aria-label="Tambah Bahan Baku"
+		>
+			<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
+				<Plus class="h-4 w-4 stroke-[2.8] text-white" />
+			</div>
+			<span class="drop-shadow-2xs text-xs font-black tracking-wide sm:text-sm">Tambah Bahan</span>
+		</button>
+	</div>
 </div>
 
 <!-- Modal Tambah / Edit Bahan -->

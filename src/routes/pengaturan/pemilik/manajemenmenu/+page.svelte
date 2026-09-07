@@ -159,39 +159,59 @@
 		</div>
 	</div>
 
-	<!-- Floating Action Button (FAB) bulat untuk tambah data sesuai tab aktif -->
+	<!-- Floating Action Button (FAB) untuk tambah data sesuai tab aktif -->
 	{#if s.activeTab === 'menu'}
-		<button
-			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-			onclick={() => s.openMenuForm()}
-			aria-label="Tambah Menu"
-		>
-			<Plus class="h-6 w-6 stroke-[2.5]" />
-		</button>
+		<div class="z-fab fixed right-4 bottom-6 sm:right-6">
+			<button
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				onclick={() => s.openMenuForm()}
+				aria-label="Tambah Menu"
+			>
+				<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
+					<Plus class="h-4 w-4 stroke-[2.8] text-white" />
+				</div>
+				<span class="drop-shadow-2xs text-xs font-black tracking-wide sm:text-sm">Tambah Menu</span>
+			</button>
+		</div>
 	{:else if s.activeTab === 'kategori'}
-		<button
-			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-			onclick={() => s.openKategoriForm(null)}
-			aria-label="Tambah Kategori"
-		>
-			<Plus class="h-6 w-6 stroke-[2.5]" />
-		</button>
+		<div class="z-fab fixed right-4 bottom-6 sm:right-6">
+			<button
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				onclick={() => s.openKategoriForm(null)}
+				aria-label="Tambah Kategori"
+			>
+				<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
+					<Plus class="h-4 w-4 stroke-[2.8] text-white" />
+				</div>
+				<span class="drop-shadow-2xs text-xs font-black tracking-wide sm:text-sm">Tambah Kategori</span>
+			</button>
+		</div>
 	{:else if s.activeTab === 'ekstra'}
-		<button
-			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-			onclick={() => s.openEkstraForm()}
-			aria-label="Tambah Tambahan"
-		>
-			<Plus class="h-6 w-6 stroke-[2.5]" />
-		</button>
+		<div class="z-fab fixed right-4 bottom-6 sm:right-6">
+			<button
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				onclick={() => s.openEkstraForm()}
+				aria-label="Tambah Tambahan"
+			>
+				<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
+					<Plus class="h-4 w-4 stroke-[2.8] text-white" />
+				</div>
+				<span class="drop-shadow-2xs text-xs font-black tracking-wide sm:text-sm">Tambah Tambahan</span>
+			</button>
+		</div>
 	{:else if s.activeTab === 'bahan'}
-		<button
-			class="z-fab fixed right-6 bottom-6 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-			onclick={() => s.openBahanForm()}
-			aria-label="Tambah Bahan"
-		>
-			<Plus class="h-6 w-6 stroke-[2.5]" />
-		</button>
+		<div class="z-fab fixed right-4 bottom-6 sm:right-6">
+			<button
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				onclick={() => s.openBahanForm()}
+				aria-label="Tambah Bahan"
+			>
+				<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
+					<Plus class="h-4 w-4 stroke-[2.8] text-white" />
+				</div>
+				<span class="drop-shadow-2xs text-xs font-black tracking-wide sm:text-sm">Tambah Bahan</span>
+			</button>
+		</div>
 	{/if}
 
 	<!-- Konten tab dengan transisi geser -->

@@ -18,6 +18,7 @@
 	import { fetchTransaksiHariIni as fetchRiwayatHarian } from '$lib/services/riwayatService';
 	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
+	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 
 	let pengaturanStruk = $state<ReceiptSettings | null>(null);
 
@@ -429,106 +430,16 @@
 		</div>
 	{/if}
 
-	{#if showDetailModal && selectedTransaksi}
-		<div
-			class="z-modal fixed inset-0 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm md:px-0"
-		>
-			<div
-				class="animate-slideUpModal relative flex w-full max-w-md flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-6 shadow-2xl md:p-8"
-			>
-				<button
-					class="absolute top-3 right-3 rounded-full bg-gray-100 p-2 shadow-sm hover:bg-gray-200"
-					onclick={() => (showDetailModal = false)}
-					aria-label="Tutup"
-				>
-					<svg
-						class="h-5 w-5 text-gray-500"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg
-					>
-				</button>
-				<h2 class="mb-2 text-center text-xl font-bold text-pink-600">Detail Transaksi</h2>
-				<div class="mb-1 flex flex-col gap-1">
-					<span class="font-semibold text-gray-500">Deskripsi</span>
-					<div
-						class="rounded-lg bg-pink-50 px-3 py-2 text-base font-medium break-words whitespace-pre-line text-gray-800"
-					>
-						{selectedTransaksi.nama}
-					</div>
-				</div>
-				<div class="flex flex-col gap-1">
-					<span class="font-semibold text-gray-500">Customer</span>
-					<div class="text-base text-gray-700">{selectedTransaksi.nama_pelanggan || '-'}</div>
-				</div>
-				<div class="flex flex-col gap-1">
-					<span class="font-semibold text-gray-500">Waktu</span>
-					<div class="text-base text-gray-700">
-						{new Date(selectedTransaksi.waktu).toLocaleString('id-ID', {
-							dateStyle: 'medium',
-							timeStyle: 'short'
-						})}
-					</div>
-				</div>
-				<div class="flex flex-col gap-1">
-					<span class="font-semibold text-gray-500">Nominal</span>
-					<div class="text-lg font-bold text-pink-500">
-						Rp {formatRupiah(selectedTransaksi.nominal)}
-					</div>
-				</div>
-				<div class="mb-2 flex flex-col gap-1">
-					<span class="font-semibold text-gray-500">Jenis Pembayaran</span>
-					<button
-						type="button"
-						class="flex w-full items-center justify-between rounded-lg border-[1.5px] border-pink-200 bg-white px-3 py-2.5 font-medium text-pink-500 shadow-sm transition-colors select-none hover:bg-pink-50"
-						onclick={() => (showDropdownPayment = true)}
-					>
-						<span class="truncate"
-							>{paymentOptions.find(
-								(opt) =>
-									opt.value ===
-									(selectedTransaksi?.metode_bayar === 'non-tunai'
-										? 'qris'
-										: selectedTransaksi?.metode_bayar)
-							)?.label || 'Pilih'}</span
-						>
-						<svg
-							class="ml-2 h-4 w-4 text-pink-400"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							viewBox="0 0 24 24"
-							><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg
-						>
-					</button>
-					<DropdownSheet
-						open={showDropdownPayment}
-						value={selectedTransaksi.metode_bayar === 'non-tunai'
-							? 'qris'
-							: selectedTransaksi.metode_bayar}
-						options={paymentOptions}
-						onClose={() => (showDropdownPayment = false)}
-						onSelect={(value) => {
-							showDropdownPayment = false;
-							updatePaymentMethod(value);
-						}}
-					/>
-				</div>
-				<div class="mt-2 flex w-full gap-2">
-					<button
-						class="flex-1 rounded-xl bg-pink-100 py-3 text-base font-bold text-pink-600 transition-colors hover:bg-pink-200"
-						onclick={printStrukDariRiwayat}>Cetak Struk</button
-					>
-					<button
-						class="flex-1 rounded-xl bg-pink-500 py-3 text-base font-bold text-white shadow-lg shadow-pink-200/30 transition-colors hover:bg-pink-600"
-						onclick={() => (showDetailModal = false)}>Tutup</button
-					>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<DetailTransaksiModal
+		open={showDetailModal}
+		transaksi={selectedTransaksi}
+		readonly={false}
+		isPrinting={loading}
+		{paymentOptions}
+		onClose={() => (showDetailModal = false)}
+		onPrint={printStrukDariRiwayat}
+		onUpdatePaymentMethod={updatePaymentMethod}
+	/>
 
 	{#if toastManager.showToast}
 		<ToastNotification

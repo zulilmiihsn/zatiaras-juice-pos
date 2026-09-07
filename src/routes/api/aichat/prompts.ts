@@ -14,7 +14,11 @@ export interface BusinessAnalystDateRange {
 }
 
 // [CATATAN]: AI 1: Data Requirement Analyzer
-export function buildIdentifyDataRequirementsPrompt(question: string, todayWita: string): string {
+export function buildIdentifyDataRequirementsPrompt(
+	question: string,
+	todayWita: string,
+	recentContext?: string
+): string {
 	const currentMonthStart = `${todayWita.slice(0, 7)}-01`;
 	const currentDate = new Date(`${todayWita}T00:00:00.000Z`);
 	const twoMonthsAgo = new Date(
@@ -42,7 +46,10 @@ JENIS DATA YANG TERSEDIA:
 - payment_analysis: Analisis metode pembayaran (tunai, QRIS)
 - product_performance: Performa produk (terlaris, revenue)
 - financial_summary: Ringkasan keuangan (laba, pajak, dll)
-- customer_behavior: Perilaku customer dan preferensi
+- customer_behavior: Perilaku customer, preferensi kustomisasi (level gula & es)
+- stok_bahan: Sisa stok bahan baku, nilai persediaan, dan bahan kritis (butuh restok)
+- hpp_margin: Biaya HPP per item dan margin laba kotor per menu
+- shift_analysis: Performa shift/sesi kerja kasir dan toko
 - seasonal_analysis: Analisis musiman dan tren
 
 PRIORITAS ANALISIS:
@@ -51,14 +58,19 @@ PRIORITAS ANALISIS:
 - financial_analysis: Fokus pada analisis keuangan
 - trend_analysis: Fokus pada analisis tren
 - operational_analysis: Fokus pada analisis operasional
-- customer_analysis: Fokus pada analisis customer
+- customer_analysis: Fokus pada analisis customer & preferensi kustomisasi
+- inventory_analysis: Fokus pada analisis stok bahan dan alert restok
+- margin_analysis: Fokus pada analisis HPP dan margin profitabilitas menu
+- shift_analysis: Fokus pada analisis sesi kerja kasir/shift toko
 
 SCOPE ANALISIS:
 - product_performance: Performa produk dan penjualan
 - trend_analysis: Analisis tren dan perubahan
 - revenue_analysis: Analisis pendapatan dan keuangan
-- customer_insights: Insight customer dan behavior
-- operational_efficiency: Efisiensi operasional
+- customer_insights: Insight customer, behavior dan kustomisasi
+- operational_efficiency: Efisiensi operasional dan shift
+- inventory_management: Pengelolaan stok bahan dan restok
+- margin_optimization: Optimasi margin laba dan HPP
 - market_analysis: Analisis pasar dan kompetitif
 
 ATURAN TANGGAL:
@@ -95,19 +107,24 @@ CONTOH BERDASARKAN TANGGAL SAAT INI (${todayWita}):
 - "Bagaimana tren penjualan 2 bulan terakhir?" → periode: "${twoMonthsAgo} to ${todayWita}", jenisData: ["buku_kas", "daily_trends"], prioritas: "trend_analysis", scope: "trend_analysis"
 - "Berapa pendapatan hari ini?" → periode: "${todayWita} to ${todayWita}", jenisData: ["buku_kas"], prioritas: "financial_analysis", scope: "revenue_analysis"
 - "Metode pembayaran apa yang paling banyak digunakan?" → periode: "${currentMonthStart} to ${todayWita}", jenisData: ["buku_kas", "payment_analysis"], prioritas: "operational_analysis", scope: "operational_efficiency"
-
+${recentContext ? `\nKONTEKS PERCAKAPAN SEBELUMNYA (Gunakan ini jika pertanyaan user menggunakan kata rujukan seperti "itu", "tersebut", "tadi", "periode tadi"):\n${recentContext}\n` : ''}
 Pertanyaan user: "${question}"`;
 }
+
+import { FNB_EXPERT_KNOWLEDGE } from './fnbKnowledge';
 
 // [CATATAN]: AI 2: Business Analyst
 export function buildAnalyzeBusinessDataPrompt(
 	question: string,
 	reportData: string,
-	dateRange: BusinessAnalystDateRange
+	dateRange: BusinessAnalystDateRange,
+	businessMemory?: string
 ): string {
-	return `Anda adalah Asisten AI yang berperan sebagai pakar ekonomi dan bisnis untuk aplikasi POS Zatiaras Juice.
+	return `Anda adalah Asisten AI yang berperan sebagai Konsultan Bisnis, Pakar Marketing FnB, dan Analis Finansial untuk Zatiaras Juice.
 Zatiaras Juice adalah brand jus buah segar yang menjual berbagai varian minuman jus, smoothie, dan minuman sehat lainnya.
 
+${FNB_EXPERT_KNOWLEDGE}
+${businessMemory ? `\n=== MEMORI & TARGET BISNIS TOKO (JANGKA PANJANG) ===\n${businessMemory}\n(Gunakan target dan catatan di atas sebagai tolok ukur evaluasi dan insight rekomendasi)\n` : ''}
 KONTEKS DATA LENGKAP:
 ${reportData}
 
@@ -122,15 +139,31 @@ KEBUTUHAN DATA YANG DIPERLUKAN:
 - Prioritas: ${dateRange.dataRequirements?.prioritas || 'general_analysis'}
 - Scope: ${dateRange.dataRequirements?.scope || 'general_analysis'}
 
-ATURAN ANALISIS:
-1) Jawab SELALU dalam Bahasa Indonesia yang profesional namun ramah.
+ATURAN ANALISIS & KONSULTASI STRATEGIS:
+1) Jawab SELALU dalam Bahasa Indonesia yang profesional, ramah, dan solutif.
 2) Berikan jawaban LENGKAP dan DETAIL sesuai data, jangan disingkat, kecuali diminta singkat.
 3) WAJIB analisis tren dan perbandingan dalam periode yang diminta.
 4) Sertakan angka, persentase, tren, perbandingan periode dalam setiap analisis.
 5) Jelaskan "mengapa" dan "bagaimana" (reasoning bisnis) untuk setiap insight penting.
-6) Jika diminta perbandingan (bulan A vs bulan B, dll), WAJIB gunakan data yang tersedia dalam periode.
-7) Jika data terbatas/tidak ada, nyatakan keterbatasannya dan sebutkan data tambahan yang diperlukan.
-8) Hindari klaim tanpa dukungan data pada konteks yang diberikan.
+6) KETIKA DITANYA STRATEGI / REKOMENDASI / CARA MENAIKKAN OMZET:
+   - Hubungkan data angka riil toko (omzet, jam ramai/sepi, top produk, avg ticket) dengan prinsip di MODUL REFERENSI ILMU BISNIS FNB (Psikologi Harga, Decoy Effect, Anchoring, Bundling, Local SEO, Reciprocity, Scarcity).
+   - Berikan rekomendasi langkah operasional konkret (bukan teori mengambang).
+7) Jika ada hasil penelusuran web (web search), padukan tren pasar terkini dengan kondisi menu riil toko.
+8) Jika data terbatas/tidak ada, nyatakan keterbatasannya dan sebutkan data tambahan yang diperlukan.
+9) KETIKA DITANYA STOK / BAHAN BAKU:
+   - Evaluasi data di bagian "STOK & BAHAN BAKU".
+   - Prioritaskan bahan kritis yang berada di bawah ambang batas (sisa stok <= ambang) dan rekomendasikan restok segera.
+   - Sebutkan total nilai persediaan bahan toko.
+10) KETIKA DITANYA HPP & MARGIN KEUNTUNGAN:
+   - Evaluasi data di bagian "HPP & MARGIN KEUNTUNGAN MENU".
+   - Identifikasi menu dengan margin tertinggi (Star/Cash Cow) vs menu margin tipis.
+   - Berikan rekomendasi taktis (bundling menu margin tinggi, penyesuaian takaran resep, atau opsi up-selling).
+11) KETIKA DITANYA SELERA PELANGGAN / KUSTOMISASI:
+   - Evaluasi data di bagian "PREFERENSI & SELERA KONSUMEN" (distribusi level gula & es).
+   - Berikan wawasan kebiasaan pelanggan (misal: tren gaya hidup sehat *less sugar*) untuk standarisasi SOP operasional kasir/barista.
+12) KETIKA DITANYA SHIFT / SESI TOKO:
+   - Evaluasi data di bagian "SHIFT & SESI TOKO".
+   - Jelaskan rata-rata omzet per sesi kerja kasir dan status sesi terkini.
 
 FOKUS ANALISIS BERDASARKAN KEBUTUHAN DATA:
 - Prioritas: ${dateRange.dataRequirements?.prioritas || 'general_analysis'}
