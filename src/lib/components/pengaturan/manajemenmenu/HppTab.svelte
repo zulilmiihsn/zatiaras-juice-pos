@@ -113,7 +113,7 @@
 
 <div
 	in:fade={{ duration: 150 }}
-	class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-12 md:px-8"
+	class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-24 md:px-6"
 >
 	<!-- Top Summary Bento Cards (Compact 2x2 on mobile, 4-col on desktop) -->
 	<div class="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
@@ -155,10 +155,10 @@
 					<CupIcon class="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.2} />
 				</div>
 			</div>
-			<div class="truncate text-lg font-black tracking-tight text-pink-600 sm:text-2xl">
-				Rp {formatRupiah(Math.round(liveOverheadPerItem))}
+			<div class="truncate text-lg font-black tracking-tight text-pink-700 sm:text-2xl">
+				Rp {formatRupiah(liveOverheadPerItem)}
 			</div>
-			<p class="mt-0.5 truncate text-[10px] font-medium text-pink-700/70 sm:text-[11px]">
+			<p class="mt-0.5 truncate text-[10px] font-medium text-pink-600/70 sm:text-[11px]">
 				Beban tetap per gelas
 			</p>
 		</div>
@@ -221,11 +221,11 @@
 		class="mb-5 flex flex-col items-start gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between"
 	>
 		<div
-			class="grid w-full grid-cols-2 rounded-2xl border border-slate-200/80 bg-slate-100/90 p-1.5 shadow-2xs sm:w-auto sm:min-w-[420px]"
+			class="grid w-full grid-cols-2 rounded-full border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs sm:w-auto sm:min-w-[420px]"
 		>
 			<button
 				type="button"
-				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 sm:text-sm {activeHppSubTab ===
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 sm:text-sm {activeHppSubTab ===
 				'calculator'
 					? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 					: 'text-slate-600 hover:text-slate-900'}"
@@ -236,7 +236,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-colors duration-150 sm:text-sm {activeHppSubTab ===
+				class="flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 sm:text-sm {activeHppSubTab ===
 				'operasional'
 					? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 					: 'text-slate-600 hover:text-slate-900'}"
@@ -256,23 +256,23 @@
 				<!-- Search Filter -->
 				<div class="relative w-full sm:max-w-xs">
 					<Search
-						class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400"
+						class="pointer-events-none absolute top-1/2 left-3.5 h-4.5 w-4.5 -translate-y-1/2 text-slate-400"
 					/>
 					<input
 						type="text"
-						class="w-full rounded-2xl border border-slate-200/90 bg-white py-2.5 pr-4 pl-10 text-xs font-medium text-slate-900 shadow-2xs transition-all placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none sm:text-sm"
+						class="min-h-[44px] w-full rounded-full border border-slate-200/80 bg-white/95 py-2.5 pr-4 pl-10 text-xs font-medium text-slate-900 shadow-xs backdrop-blur-md transition-all placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 focus:outline-none sm:text-sm"
 						placeholder="Cari menu resep..."
 						bind:value={searchHppKeyword}
 					/>
 				</div>
 
-				<!-- Segmented Control for Porsi Size (Full Width touch area) -->
+				<!-- Segmented Control for Porsi Size (Pill style) -->
 				<div
-					class="grid w-full grid-cols-3 rounded-2xl border border-slate-200/80 bg-slate-100/90 p-1.5 shadow-2xs sm:w-80"
+					class="flex items-center gap-1 rounded-full border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs"
 				>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-150 active:scale-95 sm:text-sm {selectedPorsiView ===
 						'all'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"
@@ -283,7 +283,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-150 active:scale-95 sm:text-sm {selectedPorsiView ===
 						'reguler'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"
@@ -294,7 +294,7 @@
 					</button>
 					<button
 						type="button"
-						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors duration-150 sm:py-2.5 sm:text-sm {selectedPorsiView ===
+						class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all duration-150 active:scale-95 sm:text-sm {selectedPorsiView ===
 						'jumbo'
 							? 'bg-white text-pink-600 shadow-xs ring-1 ring-slate-200/60'
 							: 'text-slate-600 hover:text-slate-900'}"
@@ -498,10 +498,10 @@
 						</div>
 						<button
 							type="button"
-							class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-pink-300 bg-pink-50/60 px-3.5 py-2 text-xs font-bold text-pink-700 transition-all hover:border-pink-400 hover:bg-pink-100 active:scale-[0.98] sm:text-sm"
+							class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-pink-200 bg-pink-50/80 px-4 py-2 text-xs font-bold text-pink-700 shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-100 active:scale-95 sm:text-sm"
 							onclick={addHppExpenseItem}
 						>
-							<Plus class="h-4 w-4" />
+							<Plus class="h-4 w-4 stroke-[2.5]" />
 							<span>Tambah Pos</span>
 						</button>
 					</div>
@@ -541,7 +541,7 @@
 									<!-- Tombol Hapus Pos Biaya -->
 									<button
 										type="button"
-										class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-400 shadow-2xs transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 active:scale-95"
+										class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-400 shadow-2xs transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 active:scale-95"
 										onclick={() => removeHppExpenseItem(item.id)}
 										aria-label="Hapus pos biaya"
 										title="Hapus pos biaya ini"
@@ -647,7 +647,7 @@
 						<!-- Tombol Simpan -->
 						<button
 							type="submit"
-							class="flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 py-3.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
+							class="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
 						>
 							<Save class="h-4 w-4" />
 							<span>Simpan Pengaturan HPP</span>

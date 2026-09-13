@@ -18,7 +18,7 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const db = getDb(platform, branch);
-	const limit = parseDataLimit(url.searchParams.get('limit'));
+	const limit = parseDataLimit(url.searchParams.get('limit'), 2000, 5000);
 
 	const rows = await getBahanList(db, branch, limit);
 	return json(rows);

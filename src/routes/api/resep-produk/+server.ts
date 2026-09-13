@@ -19,7 +19,7 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const db = getDb(platform, branch);
-	const limit = parseDataLimit(url.searchParams.get('limit'));
+	const limit = parseDataLimit(url.searchParams.get('limit'), 5000, 10000);
 	const productId = url.searchParams.get('produk_id');
 
 	const rows = await getResepList(db, branch, productId, limit);

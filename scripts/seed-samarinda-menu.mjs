@@ -50,18 +50,40 @@ const categories = [
 ];
 
 const extras = [
-	{ id: 'ext-keju', nama: 'Keju Parut', harga: 4000 },
-	{ id: 'ext-milo', nama: 'Milo Bubuk', harga: 4000 },
-	{ id: 'ext-madu', nama: 'Madu Murni', harga: 3000 },
-	{ id: 'ext-skm', nama: 'Susu Kental Manis', harga: 2000 },
-	{ id: 'ext-yogurt', nama: 'Yogurt', harga: 5000 },
-	{ id: 'ext-ekstra-buah', nama: 'Ekstra Buah Potong', harga: 5000 },
-	{ id: 'ext-ekstra-durian', nama: 'Ekstra Durian', harga: 10000 }
+	{ id: '0f4be123-01f7-40bb-954a-b253ad334710', nama: 'Kripik singkong mbok nur', harga: 13000 },
+	{ id: '0ffe4a9f-65dd-4c67-ae6c-257bbf874103', nama: 'Yoghurt', harga: 12000 },
+	{ id: '22105d6e-de2c-48eb-aa90-c15dc5ee3756', nama: 'Madu', harga: 10000 },
+	{ id: '229cf3f2-8e0b-45ed-806c-d2635e0ffd62', nama: 'Topping Oreo', harga: 5000 },
+	{ id: '3b71b097-682b-41d8-a24e-85efe5e5a90a', nama: 'Durian', harga: 10000 },
+	{ id: '42d522cc-d9bb-4d08-baa2-de5818349595', nama: 'Yakult', harga: 12000 },
+	{ id: '47e6b1ed-9d48-4d7b-a5a7-ecfbb491f213', nama: 'Topping Keju', harga: 5000 },
+	{ id: '679787da-3b1d-4a00-bcd7-0e8040c829de', nama: 'Susu UHT Kecil', harga: 5000 },
+	{ id: '7bfc6368-5e9d-4cc6-b52c-c6dcdad2f9ff', nama: 'Susu UHT Jumbo', harga: 7000 },
+	{ id: 'af85e0c4-3a26-4092-ba75-277bc590c8e4', nama: 'Kripik pisang mbok nur', harga: 18000 },
+	{ id: 'b0c6ddf3-860f-4c96-bede-bef1dae4b98f', nama: 'Topping Milo', harga: 5000 },
+	{ id: 'e1692dca-8581-4c89-87cd-1718e3ad9e7d', nama: 'Topping Cococrunch', harga: 5000 },
+	{ id: 'e2d886eb-201e-4339-8c83-3d2260598b75', nama: 'Tropicana kecil', harga: 5000 },
+	{ id: 'f4274f04-f2f9-485b-8d26-e17185424acf', nama: 'Tropicana Jumbo', harga: 6000 }
 ];
 
-const standardJusExtras = JSON.stringify(['ext-madu', 'ext-skm', 'ext-yogurt', 'ext-ekstra-buah']);
-const kocokExtras = JSON.stringify(['ext-keju', 'ext-milo', 'ext-skm', 'ext-ekstra-durian']);
-const nonjusExtras = JSON.stringify(['ext-madu', 'ext-skm', 'ext-keju', 'ext-milo']);
+const drinkExtrasList = [
+	'47e6b1ed-9d48-4d7b-a5a7-ecfbb491f213', // Topping Keju
+	'b0c6ddf3-860f-4c96-bede-bef1dae4b98f', // Topping Milo
+	'229cf3f2-8e0b-45ed-806c-d2635e0ffd62', // Topping Oreo
+	'e1692dca-8581-4c89-87cd-1718e3ad9e7d', // Topping Cococrunch
+	'3b71b097-682b-41d8-a24e-85efe5e5a90a', // Durian
+	'22105d6e-de2c-48eb-aa90-c15dc5ee3756', // Madu
+	'0ffe4a9f-65dd-4c67-ae6c-257bbf874103', // Yoghurt
+	'42d522cc-d9bb-4d08-baa2-de5818349595', // Yakult
+	'679787da-3b1d-4a00-bcd7-0e8040c829de', // Susu UHT Kecil
+	'7bfc6368-5e9d-4cc6-b52c-c6dcdad2f9ff', // Susu UHT Jumbo
+	'e2d886eb-201e-4339-8c83-3d2260598b75', // Tropicana kecil
+	'f4274f04-f2f9-485b-8d26-e17185424acf' // Tropicana Jumbo
+];
+
+const standardJusExtras = JSON.stringify(drinkExtrasList);
+const kocokExtras = JSON.stringify(drinkExtrasList);
+const nonjusExtras = JSON.stringify(drinkExtrasList);
 const noExtras = JSON.stringify([]);
 
 // 95 Produk Resmi Samarinda

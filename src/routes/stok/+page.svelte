@@ -897,11 +897,13 @@
 						</div>
 					</div>
 				{:else}
-					<div class="flex flex-col gap-3 md:grid md:grid-cols-4 md:gap-3.5">
+					<div
+						class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-3.5"
+					>
 						{#each filteredBahan as bahan (bahan.id)}
 							{@const health = getStockHealth(bahan)}
 							<div
-								class="soft-float-card group relative flex flex-col justify-between gap-3.5 rounded-[26px] border bg-white/95 p-4.5 shadow-[0_2px_14px_rgba(0,0,0,0.03)] backdrop-blur-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] md:rounded-2xl {health.cardBg}"
+								class="soft-float-card group relative flex flex-col justify-between gap-3 rounded-[26px] border bg-white/95 p-4.5 shadow-[0_2px_14px_rgba(0,0,0,0.03)] backdrop-blur-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] md:rounded-2xl {health.cardBg}"
 							>
 								<!-- Top Row: Name + Health Badge -->
 								<div class="flex items-start justify-between gap-2">
@@ -916,14 +918,6 @@
 												{bahan.kategori || 'Bahan Baku'}
 											</span>
 										</div>
-
-										<div class="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-											<span>Modal Asli:</span>
-											<span class="font-extrabold text-pink-700">
-												Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}
-											</span>
-											<span class="text-slate-400">/ {bahan.satuan}</span>
-										</div>
 									</div>
 
 									<!-- Health Badge -->
@@ -932,6 +926,15 @@
 									>
 										{health.label}
 									</span>
+								</div>
+
+								<!-- Modal Asli Row: Never breaks awkwardly across lines -->
+								<div class="-mt-1 flex flex-wrap items-baseline gap-1 text-xs font-medium text-slate-500">
+									<span class="text-slate-400 whitespace-nowrap">Modal Asli:</span>
+									<span class="font-extrabold text-pink-700 whitespace-nowrap">
+										Rp&nbsp;{formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}
+									</span>
+									<span class="text-slate-400 whitespace-nowrap">/&nbsp;{bahan.satuan}</span>
 								</div>
 
 								<!-- Middle Section: Stock Metrics & Visual Progress Bar -->

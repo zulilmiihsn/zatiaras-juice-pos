@@ -75,9 +75,9 @@
 			{:else}
 				<button
 					type="button"
-					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-colors duration-150 md:text-base {selectedKategori ===
+					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-150 active:scale-95 md:text-base {selectedKategori ===
 					'Semua'
-						? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
+						? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20 ring-2 ring-pink-500/15'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 					onclick={() => (selectedKategori = 'Semua')}
 				>
@@ -86,9 +86,9 @@
 				{#each kategoriList as kat (kat.id)}
 					<button
 						type="button"
-						class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-colors duration-150 md:text-base {selectedKategori ==
+						class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-150 active:scale-95 md:text-base {selectedKategori ==
 						kat.id
-							? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
+							? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20 ring-2 ring-pink-500/15'
 							: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 						onclick={() => (selectedKategori = kat.id)}
 					>
@@ -105,7 +105,7 @@
 			{#if isLoadingMenus}
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
 					{#each Array(8) as _, i (i)}
-						<div class="aspect-[3/4] animate-pulse rounded-2xl bg-zinc-100 p-4"></div>
+						<div class="aspect-[3/4] animate-pulse rounded-2xl bg-slate-100 p-4"></div>
 					{/each}
 				</div>
 			{:else if filteredMenus.length === 0}
@@ -113,13 +113,13 @@
 					class="pointer-events-none flex min-h-[40vh] flex-col items-center justify-center py-12 text-center"
 				>
 					<div
-						class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-400"
+						class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-pink-500 shadow-xs ring-1 ring-slate-200/60"
 					>
 						<Utensils class="h-6 w-6" />
 					</div>
-					<div class="text-sm font-semibold text-zinc-700 md:text-base">Belum ada Menu</div>
-					<div class="mt-1 text-xs text-zinc-400 md:text-sm">
-						Tekan tombol (+) di pojok kanan bawah untuk menambah menu.
+					<div class="text-sm font-bold text-slate-800 md:text-base">Belum ada Menu</div>
+					<div class="mt-1 text-xs text-slate-400 md:text-sm">
+						Gunakan tombol Tambah Menu untuk menambahkan produk baru.
 					</div>
 				</div>
 			{:else if isGridView}
@@ -129,7 +129,7 @@
 				>
 					{#each filteredMenus as menu (menu.id)}
 						<div
-							class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md active:scale-[0.98] md:p-4"
+							class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.98] md:p-4"
 							role="button"
 							tabindex="0"
 							onclick={() => openMenuForm(menu)}
@@ -138,7 +138,7 @@
 							<!-- Delete Button -->
 							<div class="absolute top-2 right-2 z-10">
 								<button
-									class="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-sm ring-1 ring-zinc-900/10 backdrop-blur-xs transition-colors hover:bg-red-50 hover:text-red-600 md:h-8 md:w-8"
+									class="flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-400 shadow-sm ring-1 ring-slate-900/10 backdrop-blur-xs transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90 md:h-8 md:w-8"
 									onclick={(e) => {
 										e.stopPropagation();
 										confirmDeleteMenu(menu.id);
@@ -169,10 +169,10 @@
 
 							<!-- Info -->
 							<div class="min-w-0">
-								<div class="truncate text-sm font-bold text-zinc-900 md:text-base">
+								<div class="truncate text-sm font-bold text-slate-900 md:text-base">
 									{menu.nama}
 								</div>
-								<div class="mt-0.5 truncate text-xs text-zinc-400 md:text-sm">
+								<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
 									{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
 								</div>
 								<div class="mt-1.5 text-sm font-extrabold text-pink-600 md:text-base">
@@ -187,7 +187,7 @@
 				<div class="flex flex-col gap-2" transition:fade={{ duration: 120 }}>
 					{#each filteredMenus as menu (menu.id)}
 						<div
-							class="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-zinc-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md active:scale-[0.99] md:p-4"
+							class="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99] md:p-4"
 							role="button"
 							tabindex="0"
 							onclick={() => openMenuForm(menu)}
@@ -213,8 +213,8 @@
 
 							<!-- Details -->
 							<div class="min-w-0 flex-1">
-								<div class="truncate text-sm font-bold text-zinc-900 md:text-base">{menu.nama}</div>
-								<div class="mt-0.5 truncate text-xs text-zinc-400 md:text-sm">
+								<div class="truncate text-sm font-bold text-slate-900 md:text-base">{menu.nama}</div>
+								<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
 									{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
 								</div>
 								<div class="mt-1 text-sm font-extrabold text-pink-600 md:text-base">
@@ -224,7 +224,7 @@
 
 							<!-- Delete -->
 							<button
-								class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 md:h-9 md:w-9"
+								class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90 md:h-9 md:w-9"
 								onclick={(e) => {
 									e.stopPropagation();
 									confirmDeleteMenu(menu.id);

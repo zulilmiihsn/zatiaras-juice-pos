@@ -67,18 +67,18 @@
 
 		<!-- [CATATAN]: Hero Total Card Floating on Wave -->
 		<div
-			class="relative z-10 mx-auto max-w-sm rounded-full border border-white/40 bg-white/25 px-6 py-2.5 text-center text-white shadow-sm backdrop-blur-xl"
+			class="relative z-10 mx-auto max-w-sm rounded-full border border-white/40 bg-white/25 px-6 py-2.5 text-center text-white shadow-sm backdrop-blur-xl sm:max-w-md md:max-w-lg md:py-3.5"
 		>
-			<span class="text-[11px] font-bold tracking-wider text-white/90 uppercase"
+			<span class="text-[11px] font-bold tracking-wider text-white/90 uppercase md:text-xs"
 				>Total Pembayaran</span
 			>
-			<div class="text-2xl font-black tracking-tight drop-shadow-xs sm:text-3xl">
+			<div class="text-2xl font-black tracking-tight drop-shadow-xs sm:text-3xl md:text-4xl">
 				Rp {formatRupiah(s.totalHarga)}
 			</div>
 		</div>
 	</div>
 
-	<div class="relative z-20 mx-auto -mt-6 max-w-lg px-4">
+	<div class="relative z-20 mx-auto -mt-6 w-full max-w-lg px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl md:px-6">
 		{#if s.cart.length === 0}
 			<div
 				class="glass-card flex min-h-[50vh] flex-col items-center justify-center rounded-[32px] p-8 text-center shadow-lg"
@@ -98,174 +98,180 @@
 				>
 			</div>
 		{:else}
-			<div class="flex flex-col gap-3.5 pb-8">
-				{#if s.isOffline}
-					<div
-						class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-xs"
-					>
-						<WifiOff class="mt-0.5 h-5 w-5 shrink-0" />
-						<div>
-							<div class="text-xs font-bold">Mode Offline Aktif</div>
-							<div class="mt-0.5 text-xs text-amber-800">
-								Pembayaran tunai akan disimpan lokal sampai koneksi internet kembali.
+			<div class="grid grid-cols-1 gap-4 pb-8 md:grid-cols-12 md:items-start md:gap-6">
+				<!-- Left Column: Customer Info & Order Details (col-span-7) -->
+				<div class="flex flex-col gap-3.5 md:col-span-7">
+					{#if s.isOffline}
+						<div
+							class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-xs"
+						>
+							<WifiOff class="mt-0.5 h-5 w-5 shrink-0" />
+							<div>
+								<div class="text-xs font-bold">Mode Offline Aktif</div>
+								<div class="mt-0.5 text-xs text-amber-800">
+									Pembayaran tunai akan disimpan lokal sampai koneksi internet kembali.
+								</div>
 							</div>
 						</div>
-					</div>
-				{/if}
-
-				<!-- [CATATAN]: 1. Nama Pelanggan (Soft Float Card) -->
-				<div class="soft-float-card p-4 transition-all duration-200">
-					<label
-						class="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-500 uppercase"
-						for="nama"
-					>
-						<UserRound class="h-4 w-4 text-pink-600" />
-						Nama Pelanggan
-					</label>
-					<input
-						id="nama"
-						type="text"
-						class="w-full rounded-full border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
-						placeholder="Contoh: Kak Sarah / Meja 02..."
-						bind:value={s.customerName}
-						maxlength="50"
-					/>
-				</div>
-
-				<!-- [CATATAN]: 2. Pesanan Ringkasan (Glassmorphic Card) -->
-				<div class="glass-card rounded-[28px] p-4.5 shadow-lg">
-					<div class="mb-3 flex items-center justify-between">
-						<div
-							class="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-700 uppercase"
-						>
-							<ReceiptText class="h-4 w-4 text-pink-600" />
-							Rincian Pesanan
-						</div>
-						<div
-							class="rounded-full bg-pink-100/80 px-3 py-0.5 text-[11px] font-bold text-pink-800"
-						>
-							{s.totalQty} item
-						</div>
-					</div>
-					<ul class="divide-y divide-slate-100">
-						{#each s.cart as item (s.cartItemKey(item))}
-							{@const isJumbo = item.porsi === 'jumbo'}
-							{@const basePrice = isJumbo
-								? (item.product.harga_jumbo ?? item.product.harga ?? 0)
-								: (item.product.harga ?? 0)}
-							<li class="flex flex-col gap-1 py-2.5">
-								<div class="flex items-start justify-between gap-3">
-									<div class="min-w-0">
-										<div
-											class="flex items-center gap-1.5 truncate text-sm font-bold text-slate-900"
-										>
-											<span class="truncate">{item.product.nama}</span>
-											{#if isJumbo}
-												<span
-													class="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-200/70"
-												>
-													Jumbo
-												</span>
-											{/if}
-										</div>
-										<div class="mt-0.5 text-xs font-semibold text-slate-400">
-											{item.jumlah}x @ Rp {formatRupiah(basePrice)}
-										</div>
-									</div>
-									<span class="shrink-0 text-sm font-bold text-pink-700"
-										>Rp {formatRupiah(basePrice * item.jumlah)}</span
-									>
-								</div>
-								{#if item.addOns && item.addOns.length > 0}
-									<div
-										class="mt-1 flex flex-col gap-0.5 rounded-xl bg-slate-50/80 px-3 py-1.5 text-xs"
-									>
-										{#each item.addOns as ekstra}
-											<div class="flex justify-between gap-3 font-medium text-slate-600">
-												<span class="truncate">+ {ekstra.nama}</span>
-												<span class="shrink-0 font-bold"
-													>Rp {formatRupiah((ekstra.harga ?? 0) * item.jumlah)}</span
-												>
-											</div>
-										{/each}
-									</div>
-								{/if}
-								{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.catatan && item.catatan.trim())}
-									<div class="text-[11px] font-medium text-slate-400">
-										{formatOrderDetails(item)}
-									</div>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				</div>
-
-				<!-- [CATATAN]: 3. Metode Pembayaran (Pill Buttons) -->
-				<div class="soft-float-card p-4.5">
-					<div class="mb-3 text-xs font-bold tracking-wider text-slate-500 uppercase">
-						Pilih Metode Pembayaran
-					</div>
-					<div class="grid grid-cols-2 gap-3">
-						{#each paymentOptions as opt}
-							<button
-								type="button"
-								class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-3.5 transition-colors duration-150 {s.paymentMethod ===
-								opt.id
-									? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-md shadow-pink-500/10'
-									: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'} {s.isOffline &&
-								opt.id !== 'tunai'
-									? 'cursor-not-allowed opacity-45'
-									: ''}"
-								onclick={() => s.handleSetPaymentMethod(opt.id)}
-								disabled={s.isOffline && opt.id !== 'tunai'}
-							>
-								<div
-									class="flex h-10 w-10 items-center justify-center rounded-xl {s.paymentMethod ===
-									opt.id
-										? 'bg-pink-500 text-white'
-										: 'bg-slate-100 text-slate-500'}"
-								>
-									{#if opt.id === 'tunai'}
-										<Banknote class="h-5 w-5" />
-									{:else}
-										<CreditCard class="h-5 w-5" />
-									{/if}
-								</div>
-								<span class="text-xs font-bold"
-									>{opt.label}{s.isOffline && opt.id !== 'tunai' ? ' (online)' : ''}</span
-								>
-							</button>
-						{/each}
-					</div>
-				</div>
-
-				<!-- [CATATAN]: 4. Konfirmasi & Batalkan Buttons -->
-				<div class="mt-2 flex flex-col gap-2.5">
-					<button
-						class="w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-4 text-base font-bold text-white shadow-xl shadow-pink-500/25 transition-all duration-200 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-						onclick={s.handleBayar}
-						disabled={!s.canPay}
-					>
-						Konfirmasi & Proses Transaksi
-					</button>
-					{#if !s.canPay}
-						<div class="text-center text-xs font-bold text-rose-500">
-							{#if !s.paymentMethod && !s.customerName.trim()}
-								Mohon isi nama pelanggan & pilih metode pembayaran
-							{:else if !s.paymentMethod}
-								Mohon pilih metode pembayaran
-							{:else}
-								Mohon isi nama pelanggan
-							{/if}
-						</div>
 					{/if}
-					<button
-						class="mx-auto block w-full cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-500 shadow-xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-						type="button"
-						onclick={s.handleCancel}
-					>
-						Batalkan Transaksi
-					</button>
+
+					<!-- [CATATAN]: 1. Nama Pelanggan (Soft Float Card) -->
+					<div class="soft-float-card p-4 transition-all duration-200 md:p-5">
+						<label
+							class="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-500 uppercase md:text-sm"
+							for="nama"
+						>
+							<UserRound class="h-4 w-4 text-pink-600" />
+							Nama Pelanggan
+						</label>
+						<input
+							id="nama"
+							type="text"
+							class="w-full rounded-full border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all duration-200 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:py-3 md:text-base"
+							placeholder="Ilham / Meja 2"
+							bind:value={s.customerName}
+							maxlength="50"
+						/>
+					</div>
+
+					<!-- [CATATAN]: 2. Pesanan Ringkasan (Glassmorphic Card) -->
+					<div class="glass-card rounded-[28px] p-4.5 shadow-lg md:p-6">
+						<div class="mb-3 flex items-center justify-between">
+							<div
+								class="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-700 uppercase md:text-sm"
+							>
+								<ReceiptText class="h-4 w-4 text-pink-600" />
+								Rincian Pesanan
+							</div>
+							<div
+								class="rounded-full bg-pink-100/80 px-3 py-0.5 text-[11px] font-bold text-pink-800 md:text-xs"
+							>
+								{s.totalQty} item
+							</div>
+						</div>
+						<ul class="divide-y divide-slate-100">
+							{#each s.cart as item (s.cartItemKey(item))}
+								{@const isJumbo = item.porsi === 'jumbo'}
+								{@const basePrice = isJumbo
+									? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+									: (item.product.harga ?? 0)}
+								<li class="flex flex-col gap-1 py-2.5 md:py-3">
+									<div class="flex items-start justify-between gap-3">
+										<div class="min-w-0">
+											<div
+												class="flex items-center gap-1.5 truncate text-sm font-bold text-slate-900 md:text-base"
+											>
+												<span class="truncate">{item.product.nama}</span>
+												{#if isJumbo}
+													<span
+														class="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-200/70"
+													>
+														Jumbo
+													</span>
+												{/if}
+											</div>
+											<div class="mt-0.5 text-xs font-semibold text-slate-400">
+												{item.jumlah}x @ Rp {formatRupiah(basePrice)}
+											</div>
+										</div>
+										<span class="shrink-0 text-sm font-bold text-pink-700 md:text-base"
+											>Rp {formatRupiah(basePrice * item.jumlah)}</span
+										>
+									</div>
+									{#if item.addOns && item.addOns.length > 0}
+										<div
+											class="mt-1 flex flex-col gap-0.5 rounded-xl bg-slate-50/80 px-3 py-1.5 text-xs"
+										>
+											{#each item.addOns as ekstra}
+												<div class="flex justify-between gap-3 font-medium text-slate-600">
+													<span class="truncate">+ {ekstra.nama}</span>
+													<span class="shrink-0 font-bold"
+														>Rp {formatRupiah((ekstra.harga ?? 0) * item.jumlah)}</span
+													>
+												</div>
+											{/each}
+										</div>
+									{/if}
+									{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.catatan && item.catatan.trim())}
+										<div class="text-[11px] font-medium text-slate-400">
+											{formatOrderDetails(item)}
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</div>
+
+				<!-- Right Column: Payment Method & Action Buttons (col-span-5) -->
+				<div class="flex flex-col gap-3.5 md:col-span-5 md:sticky md:top-6">
+					<!-- [CATATAN]: 3. Metode Pembayaran (Pill Buttons) -->
+					<div class="soft-float-card p-4.5 md:p-5">
+						<div class="mb-3 text-xs font-bold tracking-wider text-slate-500 uppercase md:text-sm">
+							Pilih Metode Pembayaran
+						</div>
+						<div class="grid grid-cols-2 gap-3">
+							{#each paymentOptions as opt}
+								<button
+									type="button"
+									class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 transition-all duration-150 active:scale-95 {s.paymentMethod ===
+									opt.id
+										? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-md shadow-pink-500/10'
+										: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'} {s.isOffline &&
+									opt.id !== 'tunai'
+										? 'cursor-not-allowed opacity-45'
+										: ''}"
+									onclick={() => s.handleSetPaymentMethod(opt.id)}
+									disabled={s.isOffline && opt.id !== 'tunai'}
+								>
+									<div
+										class="flex h-11 w-11 items-center justify-center rounded-xl {s.paymentMethod ===
+										opt.id
+											? 'bg-pink-500 text-white'
+											: 'bg-slate-100 text-slate-500'}"
+									>
+										{#if opt.id === 'tunai'}
+											<Banknote class="h-5.5 w-5.5" />
+										{:else}
+											<CreditCard class="h-5.5 w-5.5" />
+										{/if}
+									</div>
+									<span class="text-xs font-bold md:text-sm"
+										>{opt.label}{s.isOffline && opt.id !== 'tunai' ? ' (online)' : ''}</span
+									>
+								</button>
+							{/each}
+						</div>
+					</div>
+
+					<!-- [CATATAN]: 4. Konfirmasi & Batalkan Buttons -->
+					<div class="mt-1 flex flex-col gap-2.5">
+						<button
+							class="w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-4 text-base font-bold text-white shadow-xl shadow-pink-500/25 transition-all duration-200 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+							onclick={s.handleBayar}
+							disabled={!s.canPay}
+						>
+							Konfirmasi & Proses Transaksi
+						</button>
+						{#if !s.canPay}
+							<div class="text-center text-xs font-bold text-rose-500">
+								{#if !s.paymentMethod && !s.customerName.trim()}
+									Mohon isi nama pelanggan & pilih metode pembayaran
+								{:else if !s.paymentMethod}
+									Mohon pilih metode pembayaran
+								{:else}
+									Mohon isi nama pelanggan
+								{/if}
+							</div>
+						{/if}
+						<button
+							class="mx-auto block w-full cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-500 shadow-xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+							type="button"
+							onclick={s.handleCancel}
+						>
+							Batalkan Transaksi
+						</button>
+					</div>
 				</div>
 			</div>
 		{/if}

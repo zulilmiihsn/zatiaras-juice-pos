@@ -23,9 +23,9 @@
 
 <div in:fade={{ duration: 150 }} class="flex min-h-0 flex-1 flex-col">
 	<!-- Fixed Header Section -->
-	<div class="flex-shrink-0 bg-transparent px-4 pb-2.5 md:px-6">
+	<div class="flex-shrink-0 bg-transparent">
 		<!-- Search Bar -->
-		<div class="mx-auto max-w-5xl">
+		<div class="mx-auto max-w-5xl px-4 pb-2.5 md:px-6">
 			<div class="relative flex items-center">
 				<span
 					class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400"
@@ -46,9 +46,9 @@
 	<div class="flex-1 overflow-y-auto">
 		<div class="mx-auto max-w-5xl px-4 pb-24 md:px-6">
 			{#if isLoadingEkstra}
-				<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
-					{#each Array(4) as _}
-						<div class="h-16 animate-pulse rounded-2xl bg-zinc-100"></div>
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-3.5">
+					{#each Array(6) as _}
+						<div class="h-20 animate-pulse rounded-2xl bg-zinc-100"></div>
 					{/each}
 				</div>
 			{:else if ekstraList.length === 0}
@@ -56,54 +56,61 @@
 					class="pointer-events-none flex min-h-[40vh] flex-col items-center justify-center py-12 text-center"
 				>
 					<div
-						class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-400"
+						class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 ring-1 ring-pink-100"
 					>
 						<PlusCircle class="h-6 w-6" />
 					</div>
-					<div class="text-sm font-semibold text-zinc-700 md:text-base">Belum ada Tambahan</div>
+					<div class="text-sm font-bold text-zinc-800 md:text-base">Belum ada Tambahan</div>
 					<div class="mt-1 text-xs text-zinc-400 md:text-sm">
-						Tekan tombol (+) di pojok kanan bawah untuk menambah menu tambahan / ekstra.
+						Gunakan tombol Tambah Tambahan untuk menambahkan menu ekstra / topping.
 					</div>
 				</div>
 			{:else}
-				<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-3.5">
 					{#each ekstraList.filter((e) => e.nama
 							.toLowerCase()
 							.includes(searchEkstra.trim().toLowerCase())) as ekstra}
 						<div
-							class="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm transition-all hover:border-zinc-300 hover:shadow-md active:scale-[0.99] md:p-4.5"
+							class="group relative flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
 							role="button"
 							tabindex="0"
 							onclick={() => openEkstraForm(ekstra)}
 							onkeydown={(e) => e.key === 'Enter' && openEkstraForm(ekstra)}
 						>
-							<div class="min-w-0 flex-1">
-								<div class="truncate text-sm font-bold text-zinc-900 md:text-base">
-									{ekstra.nama}
+							<div class="flex min-w-0 flex-1 items-center gap-3">
+								<div
+									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 ring-1 ring-pink-100 transition-transform group-hover:scale-105"
+								>
+									<PlusCircle class="h-5 w-5 stroke-[2]" />
 								</div>
-								<div class="mt-0.5 flex items-center gap-2">
-									<span class="text-xs font-bold text-pink-600 md:text-sm">
-										Rp {formatRupiah(ekstra.harga)}
-									</span>
-									{#if ekstra.bahan_id && ekstra.jumlah_bahan}
-										<span
-											class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/10 ring-inset md:text-xs"
-										>
-											{ekstra.jumlah_bahan}
-											{ekstra.satuan_resep || 'gram'}
+								<div class="min-w-0 flex-1">
+									<div class="truncate text-sm font-bold text-slate-900 md:text-base">
+										{ekstra.nama}
+									</div>
+									<div class="mt-0.5 flex flex-wrap items-center gap-2">
+										<span class="text-xs font-black text-pink-600 md:text-sm">
+											Rp {formatRupiah(ekstra.harga)}
 										</span>
-									{/if}
+										{#if ekstra.bahan_id && ekstra.jumlah_bahan}
+											<span
+												class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+											>
+												{ekstra.jumlah_bahan}
+												{ekstra.satuan_resep || 'gram'}
+											</span>
+										{/if}
+									</div>
 								</div>
 							</div>
 							<button
-								class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 md:h-9 md:w-9"
+								class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90"
 								onclick={(e) => {
 									e.stopPropagation();
 									confirmDeleteEkstra(ekstra.id);
 								}}
 								aria-label="Hapus Tambahan"
 							>
-								<Trash2 class="h-4 w-4 md:h-4.5 md:w-4.5" />
+								<Trash2 class="h-4 w-4" />
 							</button>
 						</div>
 					{/each}

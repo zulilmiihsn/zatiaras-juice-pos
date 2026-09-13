@@ -82,9 +82,12 @@ export function createBahanHppState(config: BahanHppConfig) {
 	}>({
 		rincian_biaya: [
 			{ id: 'sewa', nama: 'Sewa Lapak / Kios', nominal: '' },
+			{ id: 'gaji', nama: 'Gaji Karyawan', nominal: '' },
 			{ id: 'listrik', nama: 'Listrik', nominal: '' },
-			{ id: 'air', nama: 'Air Bersih', nominal: '' },
-			{ id: 'gaji', nama: 'Gaji Karyawan', nominal: '' }
+			{ id: 'air', nama: 'Air Bersih (Cuci / PDAM)', nominal: '' },
+			{ id: 'kemasan', nama: 'Kemasan (Cup, Tutup, Sedotan, Kresek)', nominal: '' },
+			{ id: 'es_batu', nama: 'Es Batu Kristal', nominal: '' },
+			{ id: 'air_galon', nama: 'Air Galon (Blender)', nominal: '' }
 		],
 		sewa_bulanan: '',
 		listrik_bulanan: '',

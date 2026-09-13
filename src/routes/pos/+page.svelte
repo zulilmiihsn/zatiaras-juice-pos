@@ -514,17 +514,17 @@
 	}
 </script>
 
-<div class="flex w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
+<div class="flex w-full max-w-full flex-col overflow-x-clip bg-[#faf7f8]">
 	<main
 		aria-label="Kasir POS"
-		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full flex-col overflow-x-hidden pb-32 md:pb-36"
+		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full flex-col overflow-x-clip pb-32 md:pb-12"
 	>
-		<!-- Responsive Layout on Tablet (Full 3x3 Grid on md:, Split View on lg:) -->
+		<!-- Responsive Layout: Single Column on Mobile, Split View on Tablet (md:) and Desktop (lg:) -->
 		<div
-			class="mx-auto flex w-full max-w-7xl flex-1 flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-5 lg:pt-4"
+			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 lg:px-5 md:pt-4"
 		>
-			<!-- Left Column: Catalog Area -->
-			<div class="flex min-w-0 flex-1 flex-col">
+			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
+			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
 				<!-- [CATATAN]: Fluid Wave Header for POS -->
 				<div
 					class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-8 shadow-xl shadow-pink-500/15 md:pt-6 md:pb-10 lg:rounded-[32px] lg:pt-5 lg:pb-7"
@@ -639,10 +639,11 @@
 				/>
 			</div>
 
-			<!-- Right Column: Dedicated Permanent Cart Panel on Tablet Landscape / Desktop -->
+			<!-- Right Column: Dedicated Permanent Fixed Cart Panel on Tablet and Desktop -->
 			<aside
-				aria-label="Panel Pesanan Kasir Tablet"
-				class="sticky top-4 hidden h-[calc(100dvh-130px)] w-[300px] flex-col rounded-[28px] border border-white/70 bg-white/90 shadow-xl backdrop-blur-xl lg:flex xl:w-[340px]"
+				aria-label="Panel Pesanan Kasir"
+				class="fixed top-4 z-20 hidden h-[calc(100dvh-124px)] max-h-[calc(100dvh-124px)] w-[280px] shrink-0 flex-col rounded-[28px] border border-white/70 bg-white/90 shadow-xl backdrop-blur-xl md:flex lg:w-[320px] xl:w-[350px]"
+				style="right: max(1rem, calc((100vw - 80rem) / 2 + 1.25rem));"
 			>
 				<!-- Cart Header -->
 				<div class="flex items-center justify-between border-b border-pink-100/60 px-4 py-3">

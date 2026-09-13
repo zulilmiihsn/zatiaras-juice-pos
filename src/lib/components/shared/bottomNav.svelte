@@ -68,7 +68,7 @@
 		{:else}
 			<!-- Regular Nav Tab -->
 			<a
-				class="group relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95 md:py-2 {isActive
+				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch py-1 transition-all duration-150 active:scale-95 md:py-2 {isActive
 					? 'text-pink-600'
 					: 'text-slate-400 hover:text-slate-600'}"
 				aria-label={nav.label}
@@ -83,7 +83,7 @@
 					/>
 				</div>
 				<span
-					class="text-[11px] transition-colors duration-150 md:text-xs {isActive
+					class="text-[11px] leading-tight transition-colors duration-150 md:text-xs {isActive
 						? 'font-bold text-pink-600'
 						: 'font-medium text-slate-500'}"
 				>
@@ -91,7 +91,7 @@
 				</span>
 				{#if isActive}
 					<span
-						class="absolute bottom-0.5 h-1 w-4 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 md:bottom-1 md:h-1.5 md:w-6"
+						class="absolute bottom-1 h-1 w-4 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 md:bottom-1.5 md:h-1.5 md:w-6"
 					></span>
 				{/if}
 			</a>

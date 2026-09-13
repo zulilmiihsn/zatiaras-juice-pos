@@ -217,14 +217,14 @@
 				oninput={onZoomInput}
 				class="mb-2 w-full accent-pink-500"
 			/>
-			<div class="mt-2 flex w-full gap-2">
+			<div class="mt-2 flex w-full gap-2.5">
 				<button
-					class="flex-1 rounded-xl bg-pink-500 px-4 py-2 text-base font-bold text-white shadow-md transition-colors hover:bg-pink-600"
+					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 					type="button"
 					onclick={handleOk}>Gunakan</button
 				>
 				<button
-					class="flex-1 rounded-xl border border-gray-300 px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-50"
+					class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95"
 					type="button"
 					onclick={handleCancel}>Batal</button
 				>

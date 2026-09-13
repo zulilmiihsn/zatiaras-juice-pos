@@ -84,8 +84,8 @@
 
 <div in:fade={{ duration: 150 }} class="flex min-h-0 flex-1 flex-col">
 	<!-- Fixed Header Section -->
-	<div class="flex-shrink-0 bg-transparent px-4 pb-2.5 md:px-6">
-		<div class="mx-auto flex max-w-5xl flex-col gap-3">
+	<div class="flex-shrink-0 bg-transparent">
+		<div class="mx-auto flex max-w-5xl flex-col gap-3 px-4 pb-2.5 md:px-6">
 			<!-- Search Bar -->
 			<div class="relative flex items-center">
 				<span
@@ -102,12 +102,12 @@
 			</div>
 
 			<!-- Category Filter Chips -->
-			<div class="scrollbar-hide -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1">
+			<div class="scrollbar-hide flex items-center gap-2 overflow-x-auto pb-1">
 				<button
 					type="button"
-					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 					'all'
-						? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-xs shadow-pink-500/20 ring-2 ring-pink-500/15'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"
 					onclick={() => (selectedBahanCategory = 'all')}
 				>
@@ -125,9 +125,9 @@
 				{#if lowStockCount > 0}
 					<button
 						type="button"
-						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+						class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 						'low_stock'
-							? 'border border-rose-300 bg-rose-500 text-white shadow-xs shadow-rose-500/20'
+							? 'border border-rose-300 bg-rose-500 text-white shadow-xs shadow-rose-500/20 ring-2 ring-rose-500/15'
 							: 'border border-rose-200 bg-rose-50/80 text-rose-700 hover:bg-rose-100'}"
 						onclick={() => (selectedBahanCategory = 'low_stock')}
 					>
@@ -149,9 +149,9 @@
 					{#if count > 0}
 						<button
 							type="button"
-							class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-150 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
+							class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 							cat
-								? 'border border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+								? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-xs shadow-pink-500/20 ring-2 ring-pink-500/15'
 								: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"
 							onclick={() => (selectedBahanCategory = cat)}
 						>
@@ -197,12 +197,12 @@
 							Belum Ada Master Bahan Baku
 						</div>
 						<div class="mt-1 text-xs text-slate-400 md:text-sm">
-							Tekan tombol (+) di pojok kanan bawah untuk menambah buah, gula, susu, cup, dll.
+							Gunakan tombol Tambah Bahan untuk menambah buah, gula, susu, cup, dll.
 						</div>
 					{/if}
 				</div>
 			{:else}
-				<div class="flex flex-col gap-2.5 md:grid md:grid-cols-2 md:gap-3">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-3.5">
 					{#each filteredBahan as bahan}
 						{@const isLow =
 							Number(bahan.ambang_stok || 0) > 0 &&
@@ -210,89 +210,95 @@
 						{@const yieldPct = Number(bahan.yield_persen ?? 100)}
 
 						<div
-							class="group flex cursor-pointer items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99] md:p-4.5"
+							class="group relative flex cursor-pointer flex-col justify-between gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
 							role="button"
 							tabindex="0"
 							onclick={() => openBahanForm(bahan)}
 							onkeydown={(e) => e.key === 'Enter' && openBahanForm(bahan)}
 						>
-							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-2">
-									<div class="truncate text-sm font-black text-slate-900 md:text-base">
-										{bahan.nama}
-									</div>
-									<span
-										class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold text-slate-600 md:text-xs"
-									>
-										{bahan.kategori || 'Bahan Baku'}
-									</span>
-									{#if yieldPct < 100}
-										<span
-											class="rounded-full border border-pink-100 bg-pink-50 px-2 py-0.5 text-[10px] font-extrabold text-pink-700 md:text-xs"
-										>
-											Bersih {yieldPct}%
+							<!-- Top Row: Name + Badges & Actions -->
+							<div class="flex items-start justify-between gap-2">
+								<div class="min-w-0 flex-1">
+									<div class="flex flex-wrap items-center gap-1.5">
+										<span class="truncate text-sm font-black text-slate-900 md:text-base">
+											{bahan.nama}
 										</span>
-									{/if}
+										<span
+											class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-extrabold text-slate-600"
+										>
+											{bahan.kategori || 'Bahan Baku'}
+										</span>
+										{#if yieldPct < 100}
+											<span
+												class="rounded-full border border-pink-100 bg-pink-50 px-2 py-0.5 text-[10px] font-extrabold text-pink-700"
+											>
+												Bersih {yieldPct}%
+											</span>
+										{/if}
+									</div>
 								</div>
 
-								<div
-									class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 md:text-sm"
-								>
+								<div class="flex shrink-0 items-center gap-1.5">
+									<button
+										type="button"
+										class="flex cursor-pointer items-center gap-1 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-50 hover:text-pink-700 active:scale-95"
+										onclick={(e) => {
+											e.stopPropagation();
+											openMutasiBahanForm(bahan);
+										}}
+										aria-label="Ubah Stok Bahan"
+									>
+										<ArrowUpDown class="h-3.5 w-3.5" />
+										<span>Ubah Stok</span>
+									</button>
+									<button
+										type="button"
+										class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-all hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90"
+										onclick={(e) => {
+											e.stopPropagation();
+											confirmDeleteBahan(bahan.id);
+										}}
+										aria-label="Hapus Bahan Baku"
+									>
+										<Trash2 class="h-3.5 w-3.5" />
+									</button>
+								</div>
+							</div>
+
+							<!-- Bottom Row: Stock, Minimum limit, Modal Bersih -->
+							<div
+								class="flex flex-wrap items-center justify-between gap-y-1 gap-x-2 border-t border-slate-100/80 pt-2 text-xs"
+							>
+								<div class="flex flex-wrap items-center gap-1.5 text-slate-500">
 									<span class="font-bold text-slate-800">
 										Stok: {formatSmartStock(bahan.stok_saat_ini, bahan.satuan)}
 									</span>
 									{#if Number(bahan.ambang_stok || 0) > 0}
 										<span class="text-slate-300">•</span>
 										<span class="text-slate-400">
-											Batas Min. {formatSmartStock(bahan.ambang_stok || 0, bahan.satuan)}
+											Min: {formatSmartStock(bahan.ambang_stok || 0, bahan.satuan)}
 										</span>
 									{/if}
 								</div>
 
-								<div class="mt-1 text-xs font-semibold text-slate-700 md:text-sm">
-									Modal Bersih: <span class="font-bold text-pink-600"
+								<div class="font-semibold text-slate-700">
+									Modal: <span class="font-bold text-pink-600"
 										>Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}</span
 									>
-									/ {bahan.satuan}
+									<span class="text-slate-400">/{bahan.satuan}</span>
 								</div>
-
-								{#if isLow}
-									<div class="mt-2">
-										<span
-											class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 md:text-xs"
-										>
-											<AlertTriangle class="h-3 w-3" />
-											Stok Menipis
-										</span>
-									</div>
-								{/if}
 							</div>
 
-							<div class="flex shrink-0 items-center gap-2">
-								<button
-									type="button"
-									class="flex cursor-pointer items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition-all hover:bg-pink-50 hover:text-pink-700 hover:ring-1 hover:ring-pink-200 active:scale-95 md:px-3.5 md:py-2 md:text-sm"
-									onclick={(e) => {
-										e.stopPropagation();
-										openMutasiBahanForm(bahan);
-									}}
-									aria-label="Ubah Stok Bahan"
-								>
-									<ArrowUpDown class="h-3.5 w-3.5 md:h-4 md:w-4" />
-									<span>Ubah Stok</span>
-								</button>
-								<button
-									type="button"
-									class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 hover:ring-1 hover:ring-rose-200 active:scale-95 md:h-9 md:w-9"
-									onclick={(e) => {
-										e.stopPropagation();
-										confirmDeleteBahan(bahan.id);
-									}}
-									aria-label="Hapus Bahan Baku"
-								>
-									<Trash2 class="h-4 w-4 md:h-4.5 md:w-4.5" />
-								</button>
-							</div>
+							{#if isLow}
+								<div class="-mt-1">
+									<span
+										class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+									>
+										<AlertTriangle class="h-3 w-3" />
+										Stok Menipis
+									</span>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>

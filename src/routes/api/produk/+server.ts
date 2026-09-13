@@ -9,6 +9,7 @@ import { makeResourceRoute } from '$lib/server/resourceRouteHelpers';
  */
 export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 	resource: 'produk',
+	defaultLimit: 1000,
 	read: async ({ db, branch }, limit) =>
 		db
 			.select()

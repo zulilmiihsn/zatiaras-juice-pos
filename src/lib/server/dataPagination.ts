@@ -17,7 +17,7 @@ export type CursorPage<T> = {
 export function parseDataLimit(
 	raw: string | null,
 	defaultLimit = DEFAULT_DATA_LIMIT,
-	maxLimit = MAX_DATA_LIMIT
+	maxLimit = Math.max(MAX_DATA_LIMIT, defaultLimit)
 ): number {
 	if (raw == null || raw.trim() === '') return defaultLimit;
 	if (!/^\d+$/.test(raw)) throw kitError(400, 'limit harus berupa bilangan bulat');

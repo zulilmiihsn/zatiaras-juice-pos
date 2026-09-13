@@ -671,7 +671,7 @@ const ingredients = [
 		kategori: 'Camilan',
 		stok: 50,
 		ambang: 5,
-		biaya: 8000
+		biaya: 4000
 	},
 	{
 		id: 'bhn-smd-mi-lidi',
@@ -720,6 +720,80 @@ const ingredients = [
 		stok: 30,
 		ambang: 5,
 		biaya: 10000
+	},
+
+	// 4. Bahan Baku Khusus Tambahan / Topping
+	{
+		id: 'bhn-smd-kripik-singkong-mbok-nur',
+		nama: 'Kripik Singkong Mbok Nur',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 11000
+	},
+	{
+		id: 'bhn-smd-kripik-pisang-mbok-nur',
+		nama: 'Kripik Pisang Mbok Nur',
+		satuan: 'pack',
+		tipe_satuan: 'jumlah',
+		isi: 1,
+		satuan_beli: 'pack',
+		kategori: 'Camilan',
+		stok: 30,
+		ambang: 5,
+		biaya: 16000
+	},
+	{
+		id: 'bhn-smd-oreo',
+		nama: 'Oreo Biskuit / Crumb',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 133,
+		satuan_beli: 'pack 133g',
+		kategori: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 68
+	},
+	{
+		id: 'bhn-smd-cococrunch',
+		nama: 'Koko Krunch Cereal',
+		satuan: 'gram',
+		tipe_satuan: 'berat',
+		isi: 330,
+		satuan_beli: 'pack 330g',
+		kategori: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 100
+	},
+	{
+		id: 'bhn-smd-yakult',
+		nama: 'Yakult Botol (65ml)',
+		satuan: 'botol',
+		tipe_satuan: 'jumlah',
+		isi: 5,
+		satuan_beli: 'pack 5 btl',
+		kategori: 'Pemanis & Susu',
+		stok: 50,
+		ambang: 10,
+		biaya: 2500
+	},
+	{
+		id: 'bhn-smd-tropicana-slim',
+		nama: 'Gula Tropicana Slim Sachet',
+		satuan: 'sachet',
+		tipe_satuan: 'jumlah',
+		isi: 50,
+		satuan_beli: 'box 50 sachet',
+		kategori: 'Pemanis & Susu',
+		stok: 100,
+		ambang: 20,
+		biaya: 900
 	}
 ];
 
@@ -1837,38 +1911,105 @@ const productRecipes = [
 	}
 ];
 
-// Definisi Bahan untuk 7 Tambahan / Extras
+// Definisi Bahan untuk 16 Tambahan / Extras Resmi
 const extrasMaterials = [
-	{ id: 'ext-keju', bahan_id: 'bhn-smd-keju', jumlah: 20, satuan_resep: 'gram', jumlah_dasar: 20 },
 	{
-		id: 'ext-milo',
+		id: '0f4be123-01f7-40bb-954a-b253ad334710',
+		bahan_id: 'bhn-smd-kripik-singkong-mbok-nur',
+		jumlah: 1,
+		satuan_resep: 'pack',
+		jumlah_dasar: 1
+	},
+	{
+		id: 'af85e0c4-3a26-4092-ba75-277bc590c8e4',
+		bahan_id: 'bhn-smd-kripik-pisang-mbok-nur',
+		jumlah: 1,
+		satuan_resep: 'pack',
+		jumlah_dasar: 1
+	},
+	{
+		id: '47e6b1ed-9d48-4d7b-a5a7-ecfbb491f213',
+		bahan_id: 'bhn-smd-keju',
+		jumlah: 20,
+		satuan_resep: 'gram',
+		jumlah_dasar: 20
+	},
+	{
+		id: 'b0c6ddf3-860f-4c96-bede-bef1dae4b98f',
 		bahan_id: 'bhn-smd-milo-bubuk',
 		jumlah: 15,
 		satuan_resep: 'gram',
 		jumlah_dasar: 15
 	},
-	{ id: 'ext-madu', bahan_id: 'bhn-smd-madu', jumlah: 15, satuan_resep: 'ml', jumlah_dasar: 15 },
-	{ id: 'ext-skm', bahan_id: 'bhn-smd-skm', jumlah: 15, satuan_resep: 'ml', jumlah_dasar: 15 },
 	{
-		id: 'ext-yogurt',
-		bahan_id: 'bhn-smd-yogurt',
-		jumlah: 50,
-		satuan_resep: 'ml',
-		jumlah_dasar: 50
-	},
-	{
-		id: 'ext-ekstra-buah',
-		bahan_id: 'bhn-smd-melon',
-		jumlah: 50,
+		id: '229cf3f2-8e0b-45ed-806c-d2635e0ffd62',
+		bahan_id: 'bhn-smd-oreo',
+		jumlah: 20,
 		satuan_resep: 'gram',
-		jumlah_dasar: 50
+		jumlah_dasar: 20
 	},
 	{
-		id: 'ext-ekstra-durian',
+		id: 'e1692dca-8581-4c89-87cd-1718e3ad9e7d',
+		bahan_id: 'bhn-smd-cococrunch',
+		jumlah: 20,
+		satuan_resep: 'gram',
+		jumlah_dasar: 20
+	},
+	{
+		id: '3b71b097-682b-41d8-a24e-85efe5e5a90a',
 		bahan_id: 'bhn-smd-durian',
 		jumlah: 83.33,
 		satuan_resep: 'gram',
 		jumlah_dasar: 83.33
+	},
+	{
+		id: '22105d6e-de2c-48eb-aa90-c15dc5ee3756',
+		bahan_id: 'bhn-smd-madu',
+		jumlah: 20,
+		satuan_resep: 'ml',
+		jumlah_dasar: 20
+	},
+	{
+		id: '0ffe4a9f-65dd-4c67-ae6c-257bbf874103',
+		bahan_id: 'bhn-smd-yogurt',
+		jumlah: 80,
+		satuan_resep: 'ml',
+		jumlah_dasar: 80
+	},
+	{
+		id: '42d522cc-d9bb-4d08-baa2-de5818349595',
+		bahan_id: 'bhn-smd-yakult',
+		jumlah: 1,
+		satuan_resep: 'botol',
+		jumlah_dasar: 1
+	},
+	{
+		id: '679787da-3b1d-4a00-bcd7-0e8040c829de',
+		bahan_id: 'bhn-smd-susu-uht',
+		jumlah: 60,
+		satuan_resep: 'ml',
+		jumlah_dasar: 60
+	},
+	{
+		id: '7bfc6368-5e9d-4cc6-b52c-c6dcdad2f9ff',
+		bahan_id: 'bhn-smd-susu-uht',
+		jumlah: 100,
+		satuan_resep: 'ml',
+		jumlah_dasar: 100
+	},
+	{
+		id: 'e2d886eb-201e-4339-8c83-3d2260598b75',
+		bahan_id: 'bhn-smd-tropicana-slim',
+		jumlah: 1,
+		satuan_resep: 'sachet',
+		jumlah_dasar: 1
+	},
+	{
+		id: 'f4274f04-f2f9-485b-8d26-e17185424acf',
+		bahan_id: 'bhn-smd-tropicana-slim',
+		jumlah: 2,
+		satuan_resep: 'sachet',
+		jumlah_dasar: 2
 	}
 ];
 
