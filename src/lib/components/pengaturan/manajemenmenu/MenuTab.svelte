@@ -77,7 +77,7 @@
 					type="button"
 					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-150 active:scale-95 md:text-base {selectedKategori ===
 					'Semua'
-						? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20 ring-2 ring-pink-500/15'
+						? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm ring-2 shadow-pink-500/20 ring-pink-500/15'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 					onclick={() => (selectedKategori = 'Semua')}
 				>
@@ -88,7 +88,7 @@
 						type="button"
 						class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-150 active:scale-95 md:text-base {selectedKategori ==
 						kat.id
-							? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20 ring-2 ring-pink-500/15'
+							? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm ring-2 shadow-pink-500/20 ring-pink-500/15'
 							: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 						onclick={() => (selectedKategori = kat.id)}
 					>
@@ -213,7 +213,9 @@
 
 							<!-- Details -->
 							<div class="min-w-0 flex-1">
-								<div class="truncate text-sm font-bold text-slate-900 md:text-base">{menu.nama}</div>
+								<div class="truncate text-sm font-bold text-slate-900 md:text-base">
+									{menu.nama}
+								</div>
 								<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
 									{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
 								</div>

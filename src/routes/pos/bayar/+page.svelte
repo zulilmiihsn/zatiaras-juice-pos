@@ -78,7 +78,9 @@
 		</div>
 	</div>
 
-	<div class="relative z-20 mx-auto -mt-6 w-full max-w-lg px-4 sm:max-w-2xl md:max-w-4xl lg:max-w-5xl md:px-6">
+	<div
+		class="relative z-20 mx-auto -mt-6 w-full max-w-lg px-4 sm:max-w-2xl md:max-w-4xl md:px-6 lg:max-w-5xl"
+	>
 		{#if s.cart.length === 0}
 			<div
 				class="glass-card flex min-h-[50vh] flex-col items-center justify-center rounded-[32px] p-8 text-center shadow-lg"
@@ -204,7 +206,7 @@
 				</div>
 
 				<!-- Right Column: Payment Method & Action Buttons (col-span-5) -->
-				<div class="flex flex-col gap-3.5 md:col-span-5 md:sticky md:top-6">
+				<div class="flex flex-col gap-3.5 md:sticky md:top-6 md:col-span-5">
 					<!-- [CATATAN]: 3. Metode Pembayaran (Pill Buttons) -->
 					<div class="soft-float-card p-4.5 md:p-5">
 						<div class="mb-3 text-xs font-bold tracking-wider text-slate-500 uppercase md:text-sm">

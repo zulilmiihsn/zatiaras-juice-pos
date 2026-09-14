@@ -83,18 +83,114 @@ const baseCategories = [
 
 // 12 Clean Extras
 const baseTambahan = [
-	{ id: '47abf33e-c67f-43cb-9e31-4f1427c78f8e', nama: 'Susu UHT', harga: 5000, bahan_key: 'susu-uht', jumlah: 100, satuan_resep: 'ml', jumlah_dasar: 100 },
-	{ id: '70798fa5-7b2a-4a51-9920-61493e67e8e0', nama: 'Oatmilk', harga: 11000, bahan_key: 'oatmilk', jumlah: 100, satuan_resep: 'ml', jumlah_dasar: 100 },
-	{ id: '8307d6d5-83fc-4af7-8e84-cf8016da9818', nama: 'Topping Keju', harga: 4000, bahan_key: 'keju', jumlah: 15, satuan_resep: 'gram', jumlah_dasar: 15 },
-	{ id: '8b364415-80bf-4c82-8a17-1cf65e29c6a8', nama: 'Madu', harga: 10000, bahan_key: 'madu', jumlah: 20, satuan_resep: 'ml', jumlah_dasar: 20 },
-	{ id: '90350ad8-5fb2-46e6-9216-8e783dd28bcf', nama: 'Topping oat', harga: 3000, bahan_key: 'oat', jumlah: 15, satuan_resep: 'gram', jumlah_dasar: 15 },
-	{ id: 'c4560016-8b9c-4f05-8cea-58defbeeaae8', nama: 'Topping Cococrunch', harga: 4000, bahan_key: 'cococrunch', jumlah: 15, satuan_resep: 'gram', jumlah_dasar: 15 },
-	{ id: 'c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf', nama: 'Yakult', harga: 6000, bahan_key: 'yakult', jumlah: 1, satuan_resep: 'botol', jumlah_dasar: 1 },
-	{ id: 'cc9a3925-a8a1-46e4-aeef-5d72fd5280fc', nama: 'Topping Milo', harga: 4000, bahan_key: 'milo-bubuk', jumlah: 15, satuan_resep: 'gram', jumlah_dasar: 15 },
-	{ id: 'ee0d3f49-3702-44c4-b0be-9ec7a2740316', nama: 'Yogurt', harga: 13000, bahan_key: 'yogurt', jumlah: 50, satuan_resep: 'ml', jumlah_dasar: 50 },
-	{ id: 'f153654f-5d73-479d-8b88-0f2c657b7808', nama: 'Tropicana', harga: 4000, bahan_key: 'tropicana-slim', jumlah: 1, satuan_resep: 'sachet', jumlah_dasar: 1 },
-	{ id: 'fd31f91e-be14-4d43-9f2d-be3e62313d9c', nama: 'Granola', harga: 8000, bahan_key: 'granola', jumlah: 20, satuan_resep: 'gram', jumlah_dasar: 20 },
-	{ id: 'fdb09684-3e7b-466c-9249-ae66cd281f09', nama: 'Ciacide', harga: 10000, bahan_key: 'chia-seed', jumlah: 10, satuan_resep: 'gram', jumlah_dasar: 10 }
+	{
+		id: '47abf33e-c67f-43cb-9e31-4f1427c78f8e',
+		nama: 'Susu UHT',
+		harga: 5000,
+		bahan_key: 'susu-uht',
+		jumlah: 100,
+		satuan_resep: 'ml',
+		jumlah_dasar: 100
+	},
+	{
+		id: '70798fa5-7b2a-4a51-9920-61493e67e8e0',
+		nama: 'Oatmilk',
+		harga: 11000,
+		bahan_key: 'oatmilk',
+		jumlah: 100,
+		satuan_resep: 'ml',
+		jumlah_dasar: 100
+	},
+	{
+		id: '8307d6d5-83fc-4af7-8e84-cf8016da9818',
+		nama: 'Topping Keju',
+		harga: 4000,
+		bahan_key: 'keju',
+		jumlah: 15,
+		satuan_resep: 'gram',
+		jumlah_dasar: 15
+	},
+	{
+		id: '8b364415-80bf-4c82-8a17-1cf65e29c6a8',
+		nama: 'Madu',
+		harga: 10000,
+		bahan_key: 'madu',
+		jumlah: 20,
+		satuan_resep: 'ml',
+		jumlah_dasar: 20
+	},
+	{
+		id: '90350ad8-5fb2-46e6-9216-8e783dd28bcf',
+		nama: 'Topping oat',
+		harga: 3000,
+		bahan_key: 'oat',
+		jumlah: 15,
+		satuan_resep: 'gram',
+		jumlah_dasar: 15
+	},
+	{
+		id: 'c4560016-8b9c-4f05-8cea-58defbeeaae8',
+		nama: 'Topping Cococrunch',
+		harga: 4000,
+		bahan_key: 'cococrunch',
+		jumlah: 15,
+		satuan_resep: 'gram',
+		jumlah_dasar: 15
+	},
+	{
+		id: 'c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf',
+		nama: 'Yakult',
+		harga: 6000,
+		bahan_key: 'yakult',
+		jumlah: 1,
+		satuan_resep: 'botol',
+		jumlah_dasar: 1
+	},
+	{
+		id: 'cc9a3925-a8a1-46e4-aeef-5d72fd5280fc',
+		nama: 'Topping Milo',
+		harga: 4000,
+		bahan_key: 'milo-bubuk',
+		jumlah: 15,
+		satuan_resep: 'gram',
+		jumlah_dasar: 15
+	},
+	{
+		id: 'ee0d3f49-3702-44c4-b0be-9ec7a2740316',
+		nama: 'Yogurt',
+		harga: 13000,
+		bahan_key: 'yogurt',
+		jumlah: 50,
+		satuan_resep: 'ml',
+		jumlah_dasar: 50
+	},
+	{
+		id: 'f153654f-5d73-479d-8b88-0f2c657b7808',
+		nama: 'Tropicana',
+		harga: 4000,
+		bahan_key: 'tropicana-slim',
+		jumlah: 1,
+		satuan_resep: 'sachet',
+		jumlah_dasar: 1
+	},
+	{
+		id: 'fd31f91e-be14-4d43-9f2d-be3e62313d9c',
+		nama: 'Granola',
+		harga: 8000,
+		bahan_key: 'granola',
+		jumlah: 20,
+		satuan_resep: 'gram',
+		jumlah_dasar: 20
+	},
+	{
+		id: 'fdb09684-3e7b-466c-9249-ae66cd281f09',
+		nama: 'Ciacide',
+		harga: 10000,
+		bahan_key: 'chia-seed',
+		jumlah: 10,
+		satuan_resep: 'gram',
+		jumlah_dasar: 10
+	}
 ];
 
 const JUMBO_EXTRA_ID = '2573669a-b068-4fe1-baeb-24f8f39c9caa';
@@ -119,14 +215,31 @@ const blankCategoryMapping = {
 	'Banofie fie': '0caf87d5-995b-4c0d-8ca9-f9b28b136fcd',
 	'Buah strawberry': '0caf87d5-995b-4c0d-8ca9-f9b28b136fcd',
 	'Salad buah': '0caf87d5-995b-4c0d-8ca9-f9b28b136fcd',
-	'Blender': '0caf87d5-995b-4c0d-8ca9-f9b28b136fcd'
+	Blender: '0caf87d5-995b-4c0d-8ca9-f9b28b136fcd'
 };
 
 const foodKeywords = [
-	'keripik', 'salad', 'puding', 'lumpia', 'yogurt', 'buko', 'pisang coklat',
-	'bumbu rujak', 'madu', 'blender', 'banofie', 'buah potong', 'buah strawberry',
-	'manisan', 'smoothies bowl', 'bolu gulung', 'panada', 'bakwan', 'basreng',
-	'jelangkote', 'asinan'
+	'keripik',
+	'salad',
+	'puding',
+	'lumpia',
+	'yogurt',
+	'buko',
+	'pisang coklat',
+	'bumbu rujak',
+	'madu',
+	'blender',
+	'banofie',
+	'buah potong',
+	'buah strawberry',
+	'manisan',
+	'smoothies bowl',
+	'bolu gulung',
+	'panada',
+	'bakwan',
+	'basreng',
+	'jelangkote',
+	'asinan'
 ];
 
 function isFoodItem(name, tipe) {
@@ -137,7 +250,12 @@ function isFoodItem(name, tipe) {
 
 function isPremiumDrink(name) {
 	const lower = (name || '').toLowerCase();
-	return lower.includes('durian') || lower.includes('kurma') || lower.includes('kiwi') || lower.startsWith('baby');
+	return (
+		lower.includes('durian') ||
+		lower.includes('kurma') ||
+		lower.includes('kiwi') ||
+		lower.startsWith('baby')
+	);
 }
 
 function computeHargaJumbo(product) {
@@ -152,99 +270,678 @@ function computeHargaJumbo(product) {
 
 // Master Ingredients (64 Samarinda Standard + 4 Topping Additions)
 const masterIngredients = [
-	{ key: 'alpukat', nama: 'Alpukat Frozen', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Buah', stok: 10000, ambang: 500, biaya: 35 },
-	{ key: 'mangga', nama: 'Mangga Frozen', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Buah', stok: 10000, ambang: 500, biaya: 30 },
-	{ key: 'buah-naga', nama: 'Buah Naga Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 25 },
-	{ key: 'jeruk-peras', nama: 'Jeruk Peras Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 300, ambang: 30, biaya: 1500 },
-	{ key: 'jeruk-sunkist', nama: 'Jeruk Sunkist', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 5000 },
-	{ key: 'stroberi', nama: 'Stroberi Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'butir', kat: 'Buah', stok: 1000, ambang: 50, biaya: 500 },
-	{ key: 'durian', nama: 'Durian Frozen', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'pack 1kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 70 },
-	{ key: 'jambu-guava', nama: 'Jambu Guava Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 18 },
-	{ key: 'sirsak', nama: 'Sirsak Frozen', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Buah', stok: 10000, ambang: 500, biaya: 30 },
-	{ key: 'apel', nama: 'Apel Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 4000 },
-	{ key: 'melon', nama: 'Melon Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 15 },
-	{ key: 'semangka', nama: 'Semangka Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 10 },
-	{ key: 'nanas', nama: 'Nanas Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 12 },
-	{ key: 'pisang-cavendish', nama: 'Pisang Cavendish Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 2000 },
-	{ key: 'tomat', nama: 'Tomat Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 200, ambang: 20, biaya: 1000 },
-	{ key: 'wortel', nama: 'Wortel Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 15 },
-	{ key: 'timun', nama: 'Timun Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 1500 },
-	{ key: 'pakcoy', nama: 'Pakcoy Sayur Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'batang', kat: 'Buah', stok: 100, ambang: 10, biaya: 1000 },
-	{ key: 'terong-belanda', nama: 'Terong Belanda Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 1500 },
-	{ key: 'daging-kelapa', nama: 'Daging Kelapa Muda', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 5000, ambang: 300, biaya: 25 },
-	{ key: 'kiwi-green', nama: 'Kiwi Green Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 7000 },
-	{ key: 'pepaya', nama: 'Pepaya Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 10000, ambang: 500, biaya: 10 },
-	{ key: 'mangga-kuini', nama: 'Mangga Kuini', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Buah', stok: 5000, ambang: 300, biaya: 35 },
-	{ key: 'anggur-merah', nama: 'Anggur Merah Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'butir', kat: 'Buah', stok: 1000, ambang: 50, biaya: 400 },
-	{ key: 'kurma', nama: 'Kurma Manis', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'butir', kat: 'Buah', stok: 500, ambang: 30, biaya: 800 },
-	{ key: 'pir', nama: 'Pir Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 4000 },
-	{ key: 'bit-beetroot', nama: 'Bit / Beetroot Segar', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Buah', stok: 5000, ambang: 300, biaya: 30 },
-	{ key: 'nangka', nama: 'Nangka Manis Segar', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Buah', stok: 5000, ambang: 300, biaya: 25 },
-	{ key: 'lemon-segar', nama: 'Lemon Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 3500 },
-	{ key: 'belimbing', nama: 'Belimbing Segar', satuan: 'pcs', tipe: 'jumlah', isi: 1, beli: 'buah', kat: 'Buah', stok: 100, ambang: 10, biaya: 2500 },
-	{ key: 'kacang-merah', nama: 'Kacang Merah Matang', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'kg', kat: 'Bahan Pokok', stok: 5000, ambang: 300, biaya: 25 },
+	{
+		key: 'alpukat',
+		nama: 'Alpukat Frozen',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 35
+	},
+	{
+		key: 'mangga',
+		nama: 'Mangga Frozen',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		key: 'buah-naga',
+		nama: 'Buah Naga Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 25
+	},
+	{
+		key: 'jeruk-peras',
+		nama: 'Jeruk Peras Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 300,
+		ambang: 30,
+		biaya: 1500
+	},
+	{
+		key: 'jeruk-sunkist',
+		nama: 'Jeruk Sunkist',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 5000
+	},
+	{
+		key: 'stroberi',
+		nama: 'Stroberi Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'butir',
+		kat: 'Buah',
+		stok: 1000,
+		ambang: 50,
+		biaya: 500
+	},
+	{
+		key: 'durian',
+		nama: 'Durian Frozen',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'pack 1kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 70
+	},
+	{
+		key: 'jambu-guava',
+		nama: 'Jambu Guava Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 18
+	},
+	{
+		key: 'sirsak',
+		nama: 'Sirsak Frozen',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		key: 'apel',
+		nama: 'Apel Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 4000
+	},
+	{
+		key: 'melon',
+		nama: 'Melon Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 15
+	},
+	{
+		key: 'semangka',
+		nama: 'Semangka Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 10
+	},
+	{
+		key: 'nanas',
+		nama: 'Nanas Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 12
+	},
+	{
+		key: 'pisang-cavendish',
+		nama: 'Pisang Cavendish Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 2000
+	},
+	{
+		key: 'tomat',
+		nama: 'Tomat Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 200,
+		ambang: 20,
+		biaya: 1000
+	},
+	{
+		key: 'wortel',
+		nama: 'Wortel Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 15
+	},
+	{
+		key: 'timun',
+		nama: 'Timun Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 1500
+	},
+	{
+		key: 'pakcoy',
+		nama: 'Pakcoy Sayur Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'batang',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 1000
+	},
+	{
+		key: 'terong-belanda',
+		nama: 'Terong Belanda Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 1500
+	},
+	{
+		key: 'daging-kelapa',
+		nama: 'Daging Kelapa Muda',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 25
+	},
+	{
+		key: 'kiwi-green',
+		nama: 'Kiwi Green Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 7000
+	},
+	{
+		key: 'pepaya',
+		nama: 'Pepaya Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 10000,
+		ambang: 500,
+		biaya: 10
+	},
+	{
+		key: 'mangga-kuini',
+		nama: 'Mangga Kuini',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 35
+	},
+	{
+		key: 'anggur-merah',
+		nama: 'Anggur Merah Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'butir',
+		kat: 'Buah',
+		stok: 1000,
+		ambang: 50,
+		biaya: 400
+	},
+	{
+		key: 'kurma',
+		nama: 'Kurma Manis',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'butir',
+		kat: 'Buah',
+		stok: 500,
+		ambang: 30,
+		biaya: 800
+	},
+	{
+		key: 'pir',
+		nama: 'Pir Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 4000
+	},
+	{
+		key: 'bit-beetroot',
+		nama: 'Bit / Beetroot Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 30
+	},
+	{
+		key: 'nangka',
+		nama: 'Nangka Manis Segar',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Buah',
+		stok: 5000,
+		ambang: 300,
+		biaya: 25
+	},
+	{
+		key: 'lemon-segar',
+		nama: 'Lemon Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 3500
+	},
+	{
+		key: 'belimbing',
+		nama: 'Belimbing Segar',
+		satuan: 'pcs',
+		tipe: 'jumlah',
+		isi: 1,
+		beli: 'buah',
+		kat: 'Buah',
+		stok: 100,
+		ambang: 10,
+		biaya: 2500
+	},
+	{
+		key: 'kacang-merah',
+		nama: 'Kacang Merah Matang',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'kg',
+		kat: 'Bahan Pokok',
+		stok: 5000,
+		ambang: 300,
+		biaya: 25
+	},
 
 	// Pemanis & Olahan Susu
-	{ key: 'skm', nama: 'Susu Kental Manis (Putih)', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'pouch 1L', kat: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 25 },
-	{ key: 'skm-cokelat', nama: 'Susu Kental Manis Cokelat', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'pouch 1L', kat: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 25 },
-	{ key: 'gula-cair', nama: 'Gula Cair (Simple Syrup)', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 30000, ambang: 2000, biaya: 15 },
-	{ key: 'gula-aren', nama: 'Gula Aren Cair', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 35 },
-	{ key: 'madu', nama: 'Madu Murni Cair', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 50 },
-	{ key: 'susu-uht', nama: 'Susu UHT Fresh Milk', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'karton 1L', kat: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 20 },
-	{ key: 'santan', nama: 'Santan Matang', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 25 },
-	{ key: 'yogurt', nama: 'Yogurt Plain', satuan: 'ml', tipe: 'volume', isi: 500, beli: 'cup 500ml', kat: 'Pemanis & Susu', stok: 5000, ambang: 250, biaya: 40 },
-	{ key: 'keju', nama: 'Keju Cheddar Blok', satuan: 'gram', tipe: 'berat', isi: 2000, beli: 'blok 2kg', kat: 'Pemanis & Susu', stok: 4000, ambang: 200, biaya: 60 },
-	{ key: 'krimer-base', nama: 'Cream Base / Krimer', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 30 },
-	{ key: 'sirup-cocopandan', nama: 'Sirup Merah Cocopandan', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'botol 1L', kat: 'Pemanis & Susu', stok: 5000, ambang: 300, biaya: 30 },
-	{ key: 'yakult', nama: 'Yakult Botol (65ml)', satuan: 'botol', tipe: 'jumlah', isi: 5, beli: 'pack 5 btl', kat: 'Pemanis & Susu', stok: 50, ambang: 10, biaya: 2500 },
-	{ key: 'tropicana-slim', nama: 'Gula Tropicana Slim Sachet', satuan: 'sachet', tipe: 'jumlah', isi: 50, beli: 'box 50 sachet', kat: 'Pemanis & Susu', stok: 100, ambang: 20, biaya: 900 },
-	{ key: 'teh-base', nama: 'Teh Seduh Base', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 20000, ambang: 1000, biaya: 10 },
-	{ key: 'milo-bubuk', nama: 'Milo Bubuk', satuan: 'gram', tipe: 'berat', isi: 1000, beli: 'pack 1kg', kat: 'Bubuk Minuman', stok: 5000, ambang: 300, biaya: 80 },
+	{
+		key: 'skm',
+		nama: 'Susu Kental Manis (Putih)',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'pouch 1L',
+		kat: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 25
+	},
+	{
+		key: 'skm-cokelat',
+		nama: 'Susu Kental Manis Cokelat',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'pouch 1L',
+		kat: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 25
+	},
+	{
+		key: 'gula-cair',
+		nama: 'Gula Cair (Simple Syrup)',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 30000,
+		ambang: 2000,
+		biaya: 15
+	},
+	{
+		key: 'gula-aren',
+		nama: 'Gula Aren Cair',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 35
+	},
+	{
+		key: 'madu',
+		nama: 'Madu Murni Cair',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 50
+	},
+	{
+		key: 'susu-uht',
+		nama: 'Susu UHT Fresh Milk',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'karton 1L',
+		kat: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 20
+	},
+	{
+		key: 'santan',
+		nama: 'Santan Matang',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 25
+	},
+	{
+		key: 'yogurt',
+		nama: 'Yogurt Plain',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 500,
+		beli: 'cup 500ml',
+		kat: 'Pemanis & Susu',
+		stok: 5000,
+		ambang: 250,
+		biaya: 40
+	},
+	{
+		key: 'keju',
+		nama: 'Keju Cheddar Blok',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 2000,
+		beli: 'blok 2kg',
+		kat: 'Pemanis & Susu',
+		stok: 4000,
+		ambang: 200,
+		biaya: 60
+	},
+	{
+		key: 'krimer-base',
+		nama: 'Cream Base / Krimer',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 30
+	},
+	{
+		key: 'sirup-cocopandan',
+		nama: 'Sirup Merah Cocopandan',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'botol 1L',
+		kat: 'Pemanis & Susu',
+		stok: 5000,
+		ambang: 300,
+		biaya: 30
+	},
+	{
+		key: 'yakult',
+		nama: 'Yakult Botol (65ml)',
+		satuan: 'botol',
+		tipe: 'jumlah',
+		isi: 5,
+		beli: 'pack 5 btl',
+		kat: 'Pemanis & Susu',
+		stok: 50,
+		ambang: 10,
+		biaya: 2500
+	},
+	{
+		key: 'tropicana-slim',
+		nama: 'Gula Tropicana Slim Sachet',
+		satuan: 'sachet',
+		tipe: 'jumlah',
+		isi: 50,
+		beli: 'box 50 sachet',
+		kat: 'Pemanis & Susu',
+		stok: 100,
+		ambang: 20,
+		biaya: 900
+	},
+	{
+		key: 'teh-base',
+		nama: 'Teh Seduh Base',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 20000,
+		ambang: 1000,
+		biaya: 10
+	},
+	{
+		key: 'milo-bubuk',
+		nama: 'Milo Bubuk',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 1000,
+		beli: 'pack 1kg',
+		kat: 'Bubuk Minuman',
+		stok: 5000,
+		ambang: 300,
+		biaya: 80
+	},
 
 	// Toppings & Extras
-	{ key: 'cococrunch', nama: 'Koko Krunch Cereal', satuan: 'gram', tipe: 'berat', isi: 330, beli: 'pack 330g', kat: 'Topping', stok: 2000, ambang: 200, biaya: 100 },
-	{ key: 'oreo', nama: 'Oreo Biskuit / Crumb', satuan: 'gram', tipe: 'berat', isi: 133, beli: 'pack 133g', kat: 'Topping', stok: 2000, ambang: 200, biaya: 68 },
-	{ key: 'oatmilk', nama: 'Susu Oatmilk', satuan: 'ml', tipe: 'volume', isi: 1000, beli: 'liter', kat: 'Pemanis & Susu', stok: 10000, ambang: 500, biaya: 40 },
-	{ key: 'oat', nama: 'Topping Rolled Oat', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Topping', stok: 2000, ambang: 200, biaya: 50 },
-	{ key: 'granola', nama: 'Granola Topping', satuan: 'gram', tipe: 'berat', isi: 500, beli: 'pack 500g', kat: 'Topping', stok: 2000, ambang: 200, biaya: 90 },
-	{ key: 'chia-seed', nama: 'Chia Seed Topping', satuan: 'gram', tipe: 'berat', isi: 250, beli: 'pack 250g', kat: 'Topping', stok: 1000, ambang: 100, biaya: 120 }
+	{
+		key: 'cococrunch',
+		nama: 'Koko Krunch Cereal',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 330,
+		beli: 'pack 330g',
+		kat: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 100
+	},
+	{
+		key: 'oreo',
+		nama: 'Oreo Biskuit / Crumb',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 133,
+		beli: 'pack 133g',
+		kat: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 68
+	},
+	{
+		key: 'oatmilk',
+		nama: 'Susu Oatmilk',
+		satuan: 'ml',
+		tipe: 'volume',
+		isi: 1000,
+		beli: 'liter',
+		kat: 'Pemanis & Susu',
+		stok: 10000,
+		ambang: 500,
+		biaya: 40
+	},
+	{
+		key: 'oat',
+		nama: 'Topping Rolled Oat',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 50
+	},
+	{
+		key: 'granola',
+		nama: 'Granola Topping',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 500,
+		beli: 'pack 500g',
+		kat: 'Topping',
+		stok: 2000,
+		ambang: 200,
+		biaya: 90
+	},
+	{
+		key: 'chia-seed',
+		nama: 'Chia Seed Topping',
+		satuan: 'gram',
+		tipe: 'berat',
+		isi: 250,
+		beli: 'pack 250g',
+		kat: 'Topping',
+		stok: 1000,
+		ambang: 100,
+		biaya: 120
+	}
 ];
 
 // Recipe generator for all 87 drinks
 const fruitIngredients = {
-	'alpukat': { key: 'alpukat', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
-	'mangga': { key: 'mangga', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
-	'naga': { key: 'buah-naga', reg: 0.5, jmb: 0.75, unit: 'buah', base: 250, baseJmb: 375 },
-	'buahnaga': { key: 'buah-naga', reg: 0.5, jmb: 0.75, unit: 'buah', base: 250, baseJmb: 375 },
-	'jeruk': { key: 'jeruk-peras', reg: 3, jmb: 5, unit: 'buah', base: 3, baseJmb: 5 },
-	'jerukperas': { key: 'jeruk-peras', reg: 3, jmb: 5, unit: 'buah', base: 3, baseJmb: 5 },
-	'stroberi': { key: 'stroberi', reg: 8, jmb: 12, unit: 'pcs', base: 8, baseJmb: 12 },
-	'strawberry': { key: 'stroberi', reg: 8, jmb: 12, unit: 'pcs', base: 8, baseJmb: 12 },
-	'durian': { key: 'durian', reg: 75, jmb: 120, unit: 'gram', base: 75, baseJmb: 120 },
-	'jambu': { key: 'jambu-guava', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'jambubiji': { key: 'jambu-guava', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'sirsak': { key: 'sirsak', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
-	'apel': { key: 'apel', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'melon': { key: 'melon', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'semangka': { key: 'semangka', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'nanas': { key: 'nanas', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'pisang': { key: 'pisang-cavendish', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'tomat': { key: 'tomat', reg: 2, jmb: 3, unit: 'buah', base: 2, baseJmb: 3 },
-	'wortel': { key: 'wortel', reg: 100, jmb: 150, unit: 'gram', base: 100, baseJmb: 150 },
-	'timun': { key: 'timun', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'pakcoy': { key: 'pakcoy', reg: 2, jmb: 3, unit: 'buah', base: 2, baseJmb: 3 },
-	'kiwi': { key: 'kiwi-green', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'pepaya': { key: 'pepaya', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
-	'kuini': { key: 'mangga-kuini', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
-	'manggakuini': { key: 'mangga-kuini', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
-	'anggur': { key: 'anggur-merah', reg: 10, jmb: 15, unit: 'butir', base: 10, baseJmb: 15 },
-	'kurma': { key: 'kurma', reg: 5, jmb: 8, unit: 'butir', base: 5, baseJmb: 8 },
-	'pir': { key: 'pir', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'pear': { key: 'pir', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'bit': { key: 'bit-beetroot', reg: 120, jmb: 180, unit: 'gram', base: 120, baseJmb: 180 },
-	'nangka': { key: 'nangka', reg: 100, jmb: 150, unit: 'gram', base: 100, baseJmb: 150 },
-	'lemon': { key: 'lemon-segar', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
-	'milo': { key: 'milo-bubuk', reg: 30, jmb: 45, unit: 'gram', base: 30, baseJmb: 45 }
+	alpukat: { key: 'alpukat', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
+	mangga: { key: 'mangga', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
+	naga: { key: 'buah-naga', reg: 0.5, jmb: 0.75, unit: 'buah', base: 250, baseJmb: 375 },
+	buahnaga: { key: 'buah-naga', reg: 0.5, jmb: 0.75, unit: 'buah', base: 250, baseJmb: 375 },
+	jeruk: { key: 'jeruk-peras', reg: 3, jmb: 5, unit: 'buah', base: 3, baseJmb: 5 },
+	jerukperas: { key: 'jeruk-peras', reg: 3, jmb: 5, unit: 'buah', base: 3, baseJmb: 5 },
+	stroberi: { key: 'stroberi', reg: 8, jmb: 12, unit: 'pcs', base: 8, baseJmb: 12 },
+	strawberry: { key: 'stroberi', reg: 8, jmb: 12, unit: 'pcs', base: 8, baseJmb: 12 },
+	durian: { key: 'durian', reg: 75, jmb: 120, unit: 'gram', base: 75, baseJmb: 120 },
+	jambu: { key: 'jambu-guava', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	jambubiji: { key: 'jambu-guava', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	sirsak: { key: 'sirsak', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
+	apel: { key: 'apel', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	melon: { key: 'melon', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	semangka: { key: 'semangka', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	nanas: { key: 'nanas', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	pisang: { key: 'pisang-cavendish', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	tomat: { key: 'tomat', reg: 2, jmb: 3, unit: 'buah', base: 2, baseJmb: 3 },
+	wortel: { key: 'wortel', reg: 100, jmb: 150, unit: 'gram', base: 100, baseJmb: 150 },
+	timun: { key: 'timun', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	pakcoy: { key: 'pakcoy', reg: 2, jmb: 3, unit: 'buah', base: 2, baseJmb: 3 },
+	kiwi: { key: 'kiwi-green', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	pepaya: { key: 'pepaya', reg: 200, jmb: 300, unit: 'gram', base: 200, baseJmb: 300 },
+	kuini: { key: 'mangga-kuini', reg: 166.67, jmb: 250, unit: 'potong', base: 166.67, baseJmb: 250 },
+	manggakuini: {
+		key: 'mangga-kuini',
+		reg: 166.67,
+		jmb: 250,
+		unit: 'potong',
+		base: 166.67,
+		baseJmb: 250
+	},
+	anggur: { key: 'anggur-merah', reg: 10, jmb: 15, unit: 'butir', base: 10, baseJmb: 15 },
+	kurma: { key: 'kurma', reg: 5, jmb: 8, unit: 'butir', base: 5, baseJmb: 8 },
+	pir: { key: 'pir', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	pear: { key: 'pir', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	bit: { key: 'bit-beetroot', reg: 120, jmb: 180, unit: 'gram', base: 120, baseJmb: 180 },
+	nangka: { key: 'nangka', reg: 100, jmb: 150, unit: 'gram', base: 100, baseJmb: 150 },
+	lemon: { key: 'lemon-segar', reg: 1, jmb: 1.5, unit: 'buah', base: 1, baseJmb: 1.5 },
+	milo: { key: 'milo-bubuk', reg: 30, jmb: 45, unit: 'gram', base: 30, baseJmb: 45 }
 };
 
 function buildRecipeForDrink(productName) {
@@ -476,13 +1173,33 @@ function buildRecipeForDrink(productName) {
 			const f2 = fruitIngredients[parts[1]] || fruitIngredients['mangga'];
 			return {
 				reguler: [
-					{ bahan_key: f1.key, jumlah: Math.round((f1.reg / 2) * 100) / 100, satuan_resep: f1.unit, jumlah_dasar: Math.round((f1.base / 2) * 100) / 100 },
-					{ bahan_key: f2.key, jumlah: Math.round((f2.reg / 2) * 100) / 100, satuan_resep: f2.unit, jumlah_dasar: Math.round((f2.base / 2) * 100) / 100 },
+					{
+						bahan_key: f1.key,
+						jumlah: Math.round((f1.reg / 2) * 100) / 100,
+						satuan_resep: f1.unit,
+						jumlah_dasar: Math.round((f1.base / 2) * 100) / 100
+					},
+					{
+						bahan_key: f2.key,
+						jumlah: Math.round((f2.reg / 2) * 100) / 100,
+						satuan_resep: f2.unit,
+						jumlah_dasar: Math.round((f2.base / 2) * 100) / 100
+					},
 					...sweetReg
 				],
 				jumbo: [
-					{ bahan_key: f1.key, jumlah: Math.round((f1.jmb / 2) * 100) / 100, satuan_resep: f1.unit, jumlah_dasar: Math.round((f1.baseJmb / 2) * 100) / 100 },
-					{ bahan_key: f2.key, jumlah: Math.round((f2.jmb / 2) * 100) / 100, satuan_resep: f2.unit, jumlah_dasar: Math.round((f2.baseJmb / 2) * 100) / 100 },
+					{
+						bahan_key: f1.key,
+						jumlah: Math.round((f1.jmb / 2) * 100) / 100,
+						satuan_resep: f1.unit,
+						jumlah_dasar: Math.round((f1.baseJmb / 2) * 100) / 100
+					},
+					{
+						bahan_key: f2.key,
+						jumlah: Math.round((f2.jmb / 2) * 100) / 100,
+						satuan_resep: f2.unit,
+						jumlah_dasar: Math.round((f2.baseJmb / 2) * 100) / 100
+					},
 					...sweetJmb
 				]
 			};
@@ -681,7 +1398,9 @@ function executeD1(dbTarget, sqlContent, isRemoteTarget) {
 }
 
 async function main() {
-	console.log(`=== STARTING SEED FOR BALIKPAPAN, BALIKPAPAN 2, AND BERAU (${isRemote ? 'REMOTE' : 'LOCAL'}) ===`);
+	console.log(
+		`=== STARTING SEED FOR BALIKPAPAN, BALIKPAPAN 2, AND BERAU (${isRemote ? 'REMOTE' : 'LOCAL'}) ===`
+	);
 
 	// 1. Generate SQL for Balikpapan 1
 	console.log('\n[1/3] Generating catalog for Balikpapan 1 (balikpapan)...');

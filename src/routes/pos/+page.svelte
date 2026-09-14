@@ -521,7 +521,7 @@
 	>
 		<!-- Responsive Layout: Single Column on Mobile, Split View on Tablet (md:) and Desktop (lg:) -->
 		<div
-			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 lg:px-5 md:pt-4"
+			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 md:pt-4 lg:px-5"
 		>
 			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
 			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">

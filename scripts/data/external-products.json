@@ -1,962 +1,962 @@
 [
-  {
-    "id": "0558ac90-d5ff-48e6-a36b-dbca93eb784f",
-    "nama": "Pisang mix naga",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "06a7d65f-dd89-44a9-887b-e41492980cea",
-    "nama": "Salad sayur",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "1194b4ff-d74d-4101-b229-11b3d2eaf358",
-    "nama": "Baby Strawberry",
-    "kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "147bf468-98b5-49a0-b028-05846dab0cd5",
-    "nama": "Jus mixberry",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 31000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "15eba95f-e303-4a0b-821f-20b8a9a0c150",
-    "nama": "Keripik seblak",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 10000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "1639680c-9bb5-4d71-8969-640c7f203ed7",
-    "nama": "Jus naga mix pir",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\"]"
-  },
-  {
-    "id": "1ca98024-cbd4-4d6c-a8f3-078938373f78",
-    "nama": "Jus anggur",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "1ccb5bac-e19e-4fcc-97eb-941abf63ab1f",
-    "nama": "Fruit Tea",
-    "kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": ""
-  },
-  {
-    "id": "22ac03e4-167d-4af5-aecb-ce06c8e535a6",
-    "nama": "Jus pisang",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 19000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "264aa9f2-661d-48f6-af71-1aa75ce938c8",
-    "nama": "Alpukat mix kurma",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 27000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "26ffff4f-14a8-4062-9e50-f9c80d3fd4de",
-    "nama": "Sop buah",
-    "kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "293e30d3-b456-4c55-942b-9a1ebb895020",
-    "nama": "Jus Naga",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
-  },
-  {
-    "id": "2a6dceff-8fe6-4684-85e7-9026f5794e37",
-    "nama": "Baby Milo",
-    "kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "2adc3246-ec26-42a2-852f-15693be38fb4",
-    "nama": "Jus pakcoy mix nanas",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "2d2a64e2-ea14-42b7-ad6a-7013df180f4d",
-    "nama": "Keripik usus",
-    "kategori_id": "",
-    "harga": 11000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "2f026171-e643-46d6-aefd-82a97b4fe713",
-    "nama": "Mangga mix strawberry",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 27000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "2f0e8533-e84f-449f-b4c0-2ce4cbae6825",
-    "nama": "Lychee Tea",
-    "kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "2fccaca9-eaa5-4f10-a44a-557f2524ba1d",
-    "nama": "Baby mango",
-    "kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "3103cfa8-57b5-45de-bdd4-a6ee9219e371",
-    "nama": "Jeruk peras",
-    "kategori_id": "",
-    "harga": 7000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "311134a2-4e16-4219-8158-3c6d0e3d7ad2",
-    "nama": "Puding buah strawberry",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "361a8781-b381-461b-8299-78afb675d9b7",
-    "nama": "Jus bit",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 24000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "38686578-16c2-499e-8fb2-1a14cac884bd",
-    "nama": "Lumpia mihun",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 7000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "38cb5104-f36e-46c4-bda9-0af8c1411f7a",
-    "nama": "Alpukat mix durian",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 28000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "3d9d79da-9dc7-4303-a1df-f006f8415348",
-    "nama": "Jus Pir",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "3dd4d258-4103-4756-a282-2484b873eb17",
-    "nama": "Yogurt",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 13000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "402b7e6d-8e70-4291-9ca2-4519ff165dfb",
-    "nama": "Mangga mix naga",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "43083e17-40f1-4134-968a-b0baed3b016b",
-    "nama": "Apel mix timun",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "4693ea35-5683-48fa-9bf0-ce4c9ae48f63",
-    "nama": "Jus nangka",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
-  },
-  {
-    "id": "477612a6-ebd0-4618-9d1c-2b6afb93c59a",
-    "nama": "Smoothies bowl avocado",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 35000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "4c39c0d6-d17e-45b3-895d-5640074c8984",
-    "nama": "Apel mix wortel",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "4c9cb213-20a7-4696-966c-b483c47a258f",
-    "nama": "Kacang merah",
-    "kategori_id": "",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "4ca41f1b-4552-41dc-b5b2-d27b06b7c1da",
-    "nama": "Semangka mix kurma",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 27000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "55fef90a-bad1-4170-9525-1b13a33ead92",
-    "nama": "Bolu gulung",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 10000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "56737572-0373-44f8-8499-e6c638490a59",
-    "nama": "Apel mix naga",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "569a5f43-d7fc-474a-95b1-2994a80531d7",
-    "nama": "Es timun serut",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "5c3a5c45-1abe-40dc-9c3a-b9d205e9f5f0",
-    "nama": "Jus Alpukat",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"17b7dd1a-fef5-4c21-a0b5-d94454cc8371\",\"0ee45061-2a1e-4ebb-8f7b-9f01f7979ae3\",\"4ca8c6db-af25-4f0f-aa06-2a2fbe9fd480\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"a25ada12-cc78-4240-9d28-8d998e1967ed\",\"c27ac51e-9da2-48bc-9c78-a972546a8f4c\",\"8e524f11-3ae9-4f6d-a9b2-6ef6551debf7\",\"72b51338-ba3f-4cb1-86ba-d1e1902a9a29\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "5ecce545-193e-46b5-aa52-2f82b097467e",
-    "nama": "Mangga Kocok",
-    "kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "5fc3962d-d9b3-420f-ad4f-b20cfda1c9aa",
-    "nama": "Alpukat Kocok",
-    "kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
-  },
-  {
-    "id": "607078f7-5d7e-445b-b573-cb765c216f33",
-    "nama": "Buko alpukat",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 30000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "67fd8658-fa74-49a4-a8a1-bfa37cafc82c",
-    "nama": "Jus Melon",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
-  },
-  {
-    "id": "6bdec147-f337-4132-a7a0-8e9da74d4b37",
-    "nama": "Jus durian",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "6c8734e8-7b14-477d-99e8-ec62f1a1752b",
-    "nama": "Jelangkote",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 6000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "6d416976-9571-49d7-ac7e-cbbf258363d9",
-    "nama": "Durian kocok",
-    "kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
-    "harga": 28000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "6ed3eefc-a37b-4cea-840b-2695db10c90b",
-    "nama": "Apel mix bit",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 27000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "73f3686c-06e8-4811-844b-6e212c2a3f62",
-    "nama": "Pisang Coklat",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 12000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "743b8b0d-5aec-4120-873e-1e1e44e51e00",
-    "nama": "Smoothies bowl mixberry",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 35000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "75c7bf4a-3da2-4ff2-a7f5-a6873b9550b1",
-    "nama": "Bumbu rujak bangkok",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "7aaa4a79-1f68-43d2-83ca-719523954b85",
-    "nama": "Madu uray",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 164000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "7bf09c45-f7bf-47b2-8999-4e950d802e1f",
-    "nama": "Es milo malaysia",
-    "kategori_id": "",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\"]"
-  },
-  {
-    "id": "7ec238ea-98f6-46af-8e59-17ae6452ea8a",
-    "nama": "Jus Sirsak",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "8030c46b-44c2-4b0f-906a-725a1a2f5623",
-    "nama": "Pakcoy mix pir",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "80aaa8e5-3cf0-4d59-a28f-1d3a66ccbb27",
-    "nama": "Jus Wortel",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 12000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "8244990c-06cd-45a9-9af0-ac6c8ded2b46",
-    "nama": "Pisang mix mangga",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "8265c662-104b-401a-98a5-0b0ad94cf878",
-    "nama": "Jus jeruk",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
-  },
-  {
-    "id": "835964c1-ac1e-4019-817a-edeeef997fc8",
-    "nama": "Basreng",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 15000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "887fc09d-302c-46c9-b220-c86fef1153fe",
-    "nama": "Pisang mix nangka",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "8fa28bae-825e-460b-a6c5-edd7df233cf9",
-    "nama": "Pisang mix strawberry",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "907bbd65-1729-4f1d-a6b3-75ee0a12dc6a",
-    "nama": "Jus mangga",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
-  },
-  {
-    "id": "924c3f90-3e8b-42fc-b4a5-dc8d173bab07",
-    "nama": "Strawberry Milky",
-    "kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
-    "harga": 28000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "931f166a-3650-4523-acd5-8fc9333ee9f3",
-    "nama": "Pisang mix alpukat",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "939fd2b5-586c-455a-8357-dee59c66ffee",
-    "nama": "Mangga kuini",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
-  },
-  {
-    "id": "959e3c5c-3063-450d-8d33-33527a85942b",
-    "nama": "Naga mix nanas",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "9681def5-979b-4e32-a2a9-dbb267107730",
-    "nama": "Orange yakult",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 21000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "973b288c-86ac-4360-ac15-693d9272690d",
-    "nama": "Salad buah",
-    "kategori_id": "",
-    "harga": 28000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "97995074-9b15-4a1c-b442-e433833aceaa",
-    "nama": "Jus jambu biji",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "9d8e20fe-7fe0-442a-88e2-2dd6a41fe443",
-    "nama": "Jus 3 diva",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "9e45d3de-dfb7-430d-ae48-380f54fd2f23",
-    "nama": "Buah strawberry",
-    "kategori_id": "",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "a1e50d9e-ea7e-4cba-a3e6-4bde844cc4af",
-    "nama": "Pisang ijo",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 15000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "a2441494-f550-4b08-9ef6-70b7ce1ce8be",
-    "nama": "Apel mix strawberry",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 28000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "a255f5dc-3b1f-418c-af03-3d329e394527",
-    "nama": "Rujak bangkok",
-    "kategori_id": "",
-    "harga": 20000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "a46dbe11-ab51-4666-9c7e-f57342fd8588",
-    "nama": "Puding susu",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 16000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "a5e9ee1c-5f70-41ea-ad47-1dc731ddf602",
-    "nama": "Es Longan leci",
-    "kategori_id": "",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "a721fed0-e3cc-4cea-ae07-bc903d23e928",
-    "nama": "Apel nanas yogurt",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 30000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
-  },
-  {
-    "id": "a92261da-136d-4b6b-ab61-7d8067efaf4a",
-    "nama": "Lemon peras",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "a928b3fa-9673-473f-9a13-c15f85aa0d6f",
-    "nama": "Jus pakcoy",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 12000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
-  },
-  {
-    "id": "aefda821-9056-4c17-b416-edd7ad1c381b",
-    "nama": "Asinan rambutan",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 25000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "b40cfae5-e0c7-4854-b377-11c78b609442",
-    "nama": "Pisang mix jambu",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "b4a213a7-ea0e-40a4-ba50-306aaf857526",
-    "nama": "Baby Avocado",
-    "kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  },
-  {
-    "id": "b5053af0-38ea-4fc1-8ddf-67e30920e449",
-    "nama": "Jus Tomat",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "b50891d0-41f6-4241-9b16-feac3f1fd4e9",
-    "nama": "Semangka mix nanas",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "bb3efbaa-0eb6-4709-ad9c-d272f6734c09",
-    "nama": "Es buah jadul",
-    "kategori_id": "",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "bbf4a2d4-2b9b-4540-9524-40afd4e319f1",
-    "nama": "Semangka mix lemon",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "bdac1df8-34a7-4596-bdd2-9bc70f88640d",
-    "nama": "Choco banana",
-    "kategori_id": "",
-    "harga": 27000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "c18e42a8-8380-41c6-8893-d1d02bb23f0f",
-    "nama": "Buko strawberry",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 35000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "c35de829-d72f-4246-b748-839986a7846c",
-    "nama": "Jus Strawberry",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "c49a82fb-8ed6-4e30-aa7c-7d598e2cd16a",
-    "nama": "Apel mix pakcoy",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "c4efe137-5bc8-400c-8d8a-a81ea93390bc",
-    "nama": "Mango milky",
-    "kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "c74e5bf8-7883-489e-abc9-299113fe4cc9",
-    "nama": "Buah potong",
-    "kategori_id": "",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "c942ac91-ca3e-4672-ab38-460b738ae098",
-    "nama": "Apel mix nanas",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "c9ab5cdb-c9d1-41bd-845e-8204b17005ac",
-    "nama": "Jus Apel",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
-  },
-  {
-    "id": "cfa08565-97d1-4525-b33d-83bee0ef0005",
-    "nama": "Pisang mix pepaya",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "d01eebdd-0b0e-45d6-bda0-ee65ac2ec1ba",
-    "nama": "Sirsak Yakult",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "d01f3163-53b6-4769-8fcb-9298e396a96d",
-    "nama": "Pisang mix kurma",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 23000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "d0d50959-da92-415d-b387-d0bf1495f4a7",
-    "nama": "Apel mix tomat",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "d134ab43-e56d-491c-b5af-909f9d960c81",
-    "nama": "Jus pepaya",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "d20eb152-f3e9-437a-a9ca-0a0e0361b625",
-    "nama": "Orange milky",
-    "kategori_id": "",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "d2c3b603-1997-4f64-9ddf-17a41e14d10f",
-    "nama": "Manisan kiamboy",
-    "kategori_id": "",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "d3199351-6f1d-4006-ae85-29d180d46a32",
-    "nama": "Smoothies bowl mango",
-    "kategori_id": "",
-    "harga": 35000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "d43a71b4-25c2-4db7-b381-999b99c9363f",
-    "nama": "Jus Timun",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 12000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "d496d248-98dc-40fb-8bc0-17c279fc1e71",
-    "nama": "Jus Nanas",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "d537c23d-6d99-4825-949c-f24a2c776d1d",
-    "nama": "Honey lemon",
-    "kategori_id": "",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "d7e7ea8b-db36-4a96-ba8b-22ac7e6ed9f6",
-    "nama": "Jus wortel mix jeruk",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "d8a814e0-c475-4f81-b512-7f7dc4943230",
-    "nama": "Panada",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 7000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "d9be4de5-14c9-431e-8d7c-101bfdc4162f",
-    "nama": "Asinan buah",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 25000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "dd15d7bc-41d4-4178-8e04-f7b403a5abda",
-    "nama": "Jus Kurma",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 24000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
-  },
-  {
-    "id": "df232ca4-b5e3-4f60-8835-3119edd1efcc",
-    "nama": "Baby dragon",
-    "kategori_id": "",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\"]"
-  },
-  {
-    "id": "e0401383-4cd5-4c11-82a8-8c8489c421b6",
-    "nama": "Lemon Tea",
-    "kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
-    "harga": 16000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "e243f8d1-592a-4ef6-b62f-982557e3b6fd",
-    "nama": "Jus Pear",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": ""
-  },
-  {
-    "id": "e88bef80-1f0c-41b1-9ae0-59248a028eec",
-    "nama": "Jus pisang mix strawberry",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
-  },
-  {
-    "id": "ea1c5606-4b11-4272-8c07-7f9d275ac558",
-    "nama": "Nanas mix timun",
-    "kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
-    "harga": 18000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "eb56f974-7d74-4f6a-a0b0-7ea0671379de",
-    "nama": "Jus Semangka",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 15000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
-  },
-  {
-    "id": "f028c75d-de38-4683-9a4a-bffedd89bfa5",
-    "nama": "Banofie fie",
-    "kategori_id": "",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "f126256f-1633-48bb-b0e9-e46e870ca8f9",
-    "nama": "Bakwan",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 10000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "f30b0e78-dce4-4672-9a83-222858dc4b63",
-    "nama": "Blender",
-    "kategori_id": "",
-    "harga": 75000,
-    "tipe": "minuman",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "f6128186-67d0-4969-83c1-31ee411dc698",
-    "nama": "Naga kocok",
-    "kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
-  },
-  {
-    "id": "fc79c70d-b1d3-403c-bd26-446ace085cb6",
-    "nama": "Baby kurma",
-    "kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
-    "harga": 30000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\"]"
-  },
-  {
-    "id": "fcac009d-dcbd-479c-b590-e136ff5edfe9",
-    "nama": "Pisang kocok",
-    "kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
-    "harga": 25000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
-  },
-  {
-    "id": "fdb70062-cdef-4397-8f55-d18094fda220",
-    "nama": "Puding regal",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 7000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "fe7c3905-b753-4835-95d3-3d777e240ce5",
-    "nama": "Buko mangga",
-    "kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
-    "harga": 30000,
-    "tipe": "makanan",
-    "ekstra_ids": "[]"
-  },
-  {
-    "id": "fefd6057-2f85-4f49-8efa-e58a5f68a6e9",
-    "nama": "Kiwi",
-    "kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
-    "harga": 20000,
-    "tipe": "minuman",
-    "ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
-  }
+	{
+		"id": "0558ac90-d5ff-48e6-a36b-dbca93eb784f",
+		"nama": "Pisang mix naga",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "06a7d65f-dd89-44a9-887b-e41492980cea",
+		"nama": "Salad sayur",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "1194b4ff-d74d-4101-b229-11b3d2eaf358",
+		"nama": "Baby Strawberry",
+		"kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "147bf468-98b5-49a0-b028-05846dab0cd5",
+		"nama": "Jus mixberry",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 31000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "15eba95f-e303-4a0b-821f-20b8a9a0c150",
+		"nama": "Keripik seblak",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 10000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "1639680c-9bb5-4d71-8969-640c7f203ed7",
+		"nama": "Jus naga mix pir",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\"]"
+	},
+	{
+		"id": "1ca98024-cbd4-4d6c-a8f3-078938373f78",
+		"nama": "Jus anggur",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "1ccb5bac-e19e-4fcc-97eb-941abf63ab1f",
+		"nama": "Fruit Tea",
+		"kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": ""
+	},
+	{
+		"id": "22ac03e4-167d-4af5-aecb-ce06c8e535a6",
+		"nama": "Jus pisang",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 19000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "264aa9f2-661d-48f6-af71-1aa75ce938c8",
+		"nama": "Alpukat mix kurma",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 27000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "26ffff4f-14a8-4062-9e50-f9c80d3fd4de",
+		"nama": "Sop buah",
+		"kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "293e30d3-b456-4c55-942b-9a1ebb895020",
+		"nama": "Jus Naga",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
+	},
+	{
+		"id": "2a6dceff-8fe6-4684-85e7-9026f5794e37",
+		"nama": "Baby Milo",
+		"kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "2adc3246-ec26-42a2-852f-15693be38fb4",
+		"nama": "Jus pakcoy mix nanas",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "2d2a64e2-ea14-42b7-ad6a-7013df180f4d",
+		"nama": "Keripik usus",
+		"kategori_id": "",
+		"harga": 11000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "2f026171-e643-46d6-aefd-82a97b4fe713",
+		"nama": "Mangga mix strawberry",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 27000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "2f0e8533-e84f-449f-b4c0-2ce4cbae6825",
+		"nama": "Lychee Tea",
+		"kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "2fccaca9-eaa5-4f10-a44a-557f2524ba1d",
+		"nama": "Baby mango",
+		"kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "3103cfa8-57b5-45de-bdd4-a6ee9219e371",
+		"nama": "Jeruk peras",
+		"kategori_id": "",
+		"harga": 7000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "311134a2-4e16-4219-8158-3c6d0e3d7ad2",
+		"nama": "Puding buah strawberry",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "361a8781-b381-461b-8299-78afb675d9b7",
+		"nama": "Jus bit",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 24000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "38686578-16c2-499e-8fb2-1a14cac884bd",
+		"nama": "Lumpia mihun",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 7000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "38cb5104-f36e-46c4-bda9-0af8c1411f7a",
+		"nama": "Alpukat mix durian",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 28000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "3d9d79da-9dc7-4303-a1df-f006f8415348",
+		"nama": "Jus Pir",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "3dd4d258-4103-4756-a282-2484b873eb17",
+		"nama": "Yogurt",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 13000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "402b7e6d-8e70-4291-9ca2-4519ff165dfb",
+		"nama": "Mangga mix naga",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "43083e17-40f1-4134-968a-b0baed3b016b",
+		"nama": "Apel mix timun",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "4693ea35-5683-48fa-9bf0-ce4c9ae48f63",
+		"nama": "Jus nangka",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
+	},
+	{
+		"id": "477612a6-ebd0-4618-9d1c-2b6afb93c59a",
+		"nama": "Smoothies bowl avocado",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 35000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "4c39c0d6-d17e-45b3-895d-5640074c8984",
+		"nama": "Apel mix wortel",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "4c9cb213-20a7-4696-966c-b483c47a258f",
+		"nama": "Kacang merah",
+		"kategori_id": "",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "4ca41f1b-4552-41dc-b5b2-d27b06b7c1da",
+		"nama": "Semangka mix kurma",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 27000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "55fef90a-bad1-4170-9525-1b13a33ead92",
+		"nama": "Bolu gulung",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 10000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "56737572-0373-44f8-8499-e6c638490a59",
+		"nama": "Apel mix naga",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "569a5f43-d7fc-474a-95b1-2994a80531d7",
+		"nama": "Es timun serut",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "5c3a5c45-1abe-40dc-9c3a-b9d205e9f5f0",
+		"nama": "Jus Alpukat",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"17b7dd1a-fef5-4c21-a0b5-d94454cc8371\",\"0ee45061-2a1e-4ebb-8f7b-9f01f7979ae3\",\"4ca8c6db-af25-4f0f-aa06-2a2fbe9fd480\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"a25ada12-cc78-4240-9d28-8d998e1967ed\",\"c27ac51e-9da2-48bc-9c78-a972546a8f4c\",\"8e524f11-3ae9-4f6d-a9b2-6ef6551debf7\",\"72b51338-ba3f-4cb1-86ba-d1e1902a9a29\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "5ecce545-193e-46b5-aa52-2f82b097467e",
+		"nama": "Mangga Kocok",
+		"kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "5fc3962d-d9b3-420f-ad4f-b20cfda1c9aa",
+		"nama": "Alpukat Kocok",
+		"kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
+	},
+	{
+		"id": "607078f7-5d7e-445b-b573-cb765c216f33",
+		"nama": "Buko alpukat",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 30000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "67fd8658-fa74-49a4-a8a1-bfa37cafc82c",
+		"nama": "Jus Melon",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
+	},
+	{
+		"id": "6bdec147-f337-4132-a7a0-8e9da74d4b37",
+		"nama": "Jus durian",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "6c8734e8-7b14-477d-99e8-ec62f1a1752b",
+		"nama": "Jelangkote",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 6000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "6d416976-9571-49d7-ac7e-cbbf258363d9",
+		"nama": "Durian kocok",
+		"kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
+		"harga": 28000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "6ed3eefc-a37b-4cea-840b-2695db10c90b",
+		"nama": "Apel mix bit",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 27000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "73f3686c-06e8-4811-844b-6e212c2a3f62",
+		"nama": "Pisang Coklat",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 12000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "743b8b0d-5aec-4120-873e-1e1e44e51e00",
+		"nama": "Smoothies bowl mixberry",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 35000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "75c7bf4a-3da2-4ff2-a7f5-a6873b9550b1",
+		"nama": "Bumbu rujak bangkok",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "7aaa4a79-1f68-43d2-83ca-719523954b85",
+		"nama": "Madu uray",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 164000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "7bf09c45-f7bf-47b2-8999-4e950d802e1f",
+		"nama": "Es milo malaysia",
+		"kategori_id": "",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\"]"
+	},
+	{
+		"id": "7ec238ea-98f6-46af-8e59-17ae6452ea8a",
+		"nama": "Jus Sirsak",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "8030c46b-44c2-4b0f-906a-725a1a2f5623",
+		"nama": "Pakcoy mix pir",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "80aaa8e5-3cf0-4d59-a28f-1d3a66ccbb27",
+		"nama": "Jus Wortel",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 12000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "8244990c-06cd-45a9-9af0-ac6c8ded2b46",
+		"nama": "Pisang mix mangga",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "8265c662-104b-401a-98a5-0b0ad94cf878",
+		"nama": "Jus jeruk",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
+	},
+	{
+		"id": "835964c1-ac1e-4019-817a-edeeef997fc8",
+		"nama": "Basreng",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 15000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "887fc09d-302c-46c9-b220-c86fef1153fe",
+		"nama": "Pisang mix nangka",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "8fa28bae-825e-460b-a6c5-edd7df233cf9",
+		"nama": "Pisang mix strawberry",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "907bbd65-1729-4f1d-a6b3-75ee0a12dc6a",
+		"nama": "Jus mangga",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
+	},
+	{
+		"id": "924c3f90-3e8b-42fc-b4a5-dc8d173bab07",
+		"nama": "Strawberry Milky",
+		"kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
+		"harga": 28000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "931f166a-3650-4523-acd5-8fc9333ee9f3",
+		"nama": "Pisang mix alpukat",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "939fd2b5-586c-455a-8357-dee59c66ffee",
+		"nama": "Mangga kuini",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
+	},
+	{
+		"id": "959e3c5c-3063-450d-8d33-33527a85942b",
+		"nama": "Naga mix nanas",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "9681def5-979b-4e32-a2a9-dbb267107730",
+		"nama": "Orange yakult",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 21000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "973b288c-86ac-4360-ac15-693d9272690d",
+		"nama": "Salad buah",
+		"kategori_id": "",
+		"harga": 28000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "97995074-9b15-4a1c-b442-e433833aceaa",
+		"nama": "Jus jambu biji",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "9d8e20fe-7fe0-442a-88e2-2dd6a41fe443",
+		"nama": "Jus 3 diva",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "9e45d3de-dfb7-430d-ae48-380f54fd2f23",
+		"nama": "Buah strawberry",
+		"kategori_id": "",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "a1e50d9e-ea7e-4cba-a3e6-4bde844cc4af",
+		"nama": "Pisang ijo",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 15000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "a2441494-f550-4b08-9ef6-70b7ce1ce8be",
+		"nama": "Apel mix strawberry",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 28000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "a255f5dc-3b1f-418c-af03-3d329e394527",
+		"nama": "Rujak bangkok",
+		"kategori_id": "",
+		"harga": 20000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "a46dbe11-ab51-4666-9c7e-f57342fd8588",
+		"nama": "Puding susu",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 16000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "a5e9ee1c-5f70-41ea-ad47-1dc731ddf602",
+		"nama": "Es Longan leci",
+		"kategori_id": "",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "a721fed0-e3cc-4cea-ae07-bc903d23e928",
+		"nama": "Apel nanas yogurt",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 30000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
+	},
+	{
+		"id": "a92261da-136d-4b6b-ab61-7d8067efaf4a",
+		"nama": "Lemon peras",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "a928b3fa-9673-473f-9a13-c15f85aa0d6f",
+		"nama": "Jus pakcoy",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 12000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\"]"
+	},
+	{
+		"id": "aefda821-9056-4c17-b416-edd7ad1c381b",
+		"nama": "Asinan rambutan",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 25000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "b40cfae5-e0c7-4854-b377-11c78b609442",
+		"nama": "Pisang mix jambu",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "b4a213a7-ea0e-40a4-ba50-306aaf857526",
+		"nama": "Baby Avocado",
+		"kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	},
+	{
+		"id": "b5053af0-38ea-4fc1-8ddf-67e30920e449",
+		"nama": "Jus Tomat",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "b50891d0-41f6-4241-9b16-feac3f1fd4e9",
+		"nama": "Semangka mix nanas",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "bb3efbaa-0eb6-4709-ad9c-d272f6734c09",
+		"nama": "Es buah jadul",
+		"kategori_id": "",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "bbf4a2d4-2b9b-4540-9524-40afd4e319f1",
+		"nama": "Semangka mix lemon",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "bdac1df8-34a7-4596-bdd2-9bc70f88640d",
+		"nama": "Choco banana",
+		"kategori_id": "",
+		"harga": 27000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "c18e42a8-8380-41c6-8893-d1d02bb23f0f",
+		"nama": "Buko strawberry",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 35000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "c35de829-d72f-4246-b748-839986a7846c",
+		"nama": "Jus Strawberry",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "c49a82fb-8ed6-4e30-aa7c-7d598e2cd16a",
+		"nama": "Apel mix pakcoy",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "c4efe137-5bc8-400c-8d8a-a81ea93390bc",
+		"nama": "Mango milky",
+		"kategori_id": "d236a91d-f420-4c50-beda-86a5d8bb1fc1",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "c74e5bf8-7883-489e-abc9-299113fe4cc9",
+		"nama": "Buah potong",
+		"kategori_id": "",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "c942ac91-ca3e-4672-ab38-460b738ae098",
+		"nama": "Apel mix nanas",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "c9ab5cdb-c9d1-41bd-845e-8204b17005ac",
+		"nama": "Jus Apel",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
+	},
+	{
+		"id": "cfa08565-97d1-4525-b33d-83bee0ef0005",
+		"nama": "Pisang mix pepaya",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "d01eebdd-0b0e-45d6-bda0-ee65ac2ec1ba",
+		"nama": "Sirsak Yakult",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "d01f3163-53b6-4769-8fcb-9298e396a96d",
+		"nama": "Pisang mix kurma",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 23000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "d0d50959-da92-415d-b387-d0bf1495f4a7",
+		"nama": "Apel mix tomat",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "d134ab43-e56d-491c-b5af-909f9d960c81",
+		"nama": "Jus pepaya",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "d20eb152-f3e9-437a-a9ca-0a0e0361b625",
+		"nama": "Orange milky",
+		"kategori_id": "",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "d2c3b603-1997-4f64-9ddf-17a41e14d10f",
+		"nama": "Manisan kiamboy",
+		"kategori_id": "",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "d3199351-6f1d-4006-ae85-29d180d46a32",
+		"nama": "Smoothies bowl mango",
+		"kategori_id": "",
+		"harga": 35000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "d43a71b4-25c2-4db7-b381-999b99c9363f",
+		"nama": "Jus Timun",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 12000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "d496d248-98dc-40fb-8bc0-17c279fc1e71",
+		"nama": "Jus Nanas",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "d537c23d-6d99-4825-949c-f24a2c776d1d",
+		"nama": "Honey lemon",
+		"kategori_id": "",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "d7e7ea8b-db36-4a96-ba8b-22ac7e6ed9f6",
+		"nama": "Jus wortel mix jeruk",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "d8a814e0-c475-4f81-b512-7f7dc4943230",
+		"nama": "Panada",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 7000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "d9be4de5-14c9-431e-8d7c-101bfdc4162f",
+		"nama": "Asinan buah",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 25000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "dd15d7bc-41d4-4178-8e04-f7b403a5abda",
+		"nama": "Jus Kurma",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 24000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\"]"
+	},
+	{
+		"id": "df232ca4-b5e3-4f60-8835-3119edd1efcc",
+		"nama": "Baby dragon",
+		"kategori_id": "",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\"]"
+	},
+	{
+		"id": "e0401383-4cd5-4c11-82a8-8c8489c421b6",
+		"nama": "Lemon Tea",
+		"kategori_id": "c50f807d-3d4a-4f9e-a75e-931f24805983",
+		"harga": 16000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "e243f8d1-592a-4ef6-b62f-982557e3b6fd",
+		"nama": "Jus Pear",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": ""
+	},
+	{
+		"id": "e88bef80-1f0c-41b1-9ae0-59248a028eec",
+		"nama": "Jus pisang mix strawberry",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\"]"
+	},
+	{
+		"id": "ea1c5606-4b11-4272-8c07-7f9d275ac558",
+		"nama": "Nanas mix timun",
+		"kategori_id": "aeffa7d0-ab74-4511-a7dd-177e7409b431",
+		"harga": 18000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "eb56f974-7d74-4f6a-a0b0-7ea0671379de",
+		"nama": "Jus Semangka",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 15000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\"]"
+	},
+	{
+		"id": "f028c75d-de38-4683-9a4a-bffedd89bfa5",
+		"nama": "Banofie fie",
+		"kategori_id": "",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "f126256f-1633-48bb-b0e9-e46e870ca8f9",
+		"nama": "Bakwan",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 10000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "f30b0e78-dce4-4672-9a83-222858dc4b63",
+		"nama": "Blender",
+		"kategori_id": "",
+		"harga": 75000,
+		"tipe": "minuman",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "f6128186-67d0-4969-83c1-31ee411dc698",
+		"nama": "Naga kocok",
+		"kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\"]"
+	},
+	{
+		"id": "fc79c70d-b1d3-403c-bd26-446ace085cb6",
+		"nama": "Baby kurma",
+		"kategori_id": "fc4e8dfe-d6bf-4888-b9e4-8e322aff5ad2",
+		"harga": 30000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\"]"
+	},
+	{
+		"id": "fcac009d-dcbd-479c-b590-e136ff5edfe9",
+		"nama": "Pisang kocok",
+		"kategori_id": "e260ae70-a514-46dc-abe8-7590cd23254e",
+		"harga": 25000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"fdb09684-3e7b-466c-9249-ae66cd281f09\"]"
+	},
+	{
+		"id": "fdb70062-cdef-4397-8f55-d18094fda220",
+		"nama": "Puding regal",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 7000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "fe7c3905-b753-4835-95d3-3d777e240ce5",
+		"nama": "Buko mangga",
+		"kategori_id": "0caf87d5-995b-4c0d-8ca9-f9b28b136fcd",
+		"harga": 30000,
+		"tipe": "makanan",
+		"ekstra_ids": "[]"
+	},
+	{
+		"id": "fefd6057-2f85-4f49-8efa-e58a5f68a6e9",
+		"nama": "Kiwi",
+		"kategori_id": "4bdba4e4-fb04-432b-95bc-d0d2c561fcab",
+		"harga": 20000,
+		"tipe": "minuman",
+		"ekstra_ids": "[\"47abf33e-c67f-43cb-9e31-4f1427c78f8e\",\"f153654f-5d73-479d-8b88-0f2c657b7808\",\"70798fa5-7b2a-4a51-9920-61493e67e8e0\",\"8b364415-80bf-4c82-8a17-1cf65e29c6a8\",\"90350ad8-5fb2-46e6-9216-8e783dd28bcf\",\"fd31f91e-be14-4d43-9f2d-be3e62313d9c\",\"ee0d3f49-3702-44c4-b0be-9ec7a2740316\",\"cc9a3925-a8a1-46e4-aeef-5d72fd5280fc\",\"c4560016-8b9c-4f05-8cea-58defbeeaae8\",\"c6c71c02-e4ee-41ef-9b7c-77cc5e6d8baf\",\"8307d6d5-83fc-4af7-8e84-cf8016da9818\",\"2573669a-b068-4fe1-baeb-24f8f39c9caa\"]"
+	}
 ]

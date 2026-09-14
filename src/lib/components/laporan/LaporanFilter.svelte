@@ -78,9 +78,9 @@
 				>
 					{#each [{ id: 'harian', label: 'Harian' }, { id: 'mingguan', label: 'Mingguan' }, { id: 'bulanan', label: 'Bulanan' }, { id: 'tahunan', label: 'Tahunan' }] as p}
 						<button
-							class="cursor-pointer rounded-full py-2.5 px-4 text-xs font-extrabold transition-all duration-200 active:scale-95 {filterType ===
+							class="cursor-pointer rounded-full px-4 py-2.5 text-xs font-extrabold transition-all duration-200 active:scale-95 {filterType ===
 							p.id
-								? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
+								? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 								: 'border border-slate-200/90 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 							onclick={() => (filterType = p.id as typeof filterType)}
 							onkeydown={(e) => e.key === 'Enter' && (filterType = p.id as typeof filterType)}
@@ -212,4 +212,3 @@
 		</div>
 	</div>
 {/if}
-

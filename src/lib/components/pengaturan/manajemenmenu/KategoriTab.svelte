@@ -47,7 +47,7 @@
 	<div class="flex-1 overflow-y-auto">
 		<div class="mx-auto max-w-5xl px-4 pb-24 md:px-6">
 			{#if isLoadingKategori}
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-3.5">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-3.5 lg:grid-cols-3">
 					{#each Array(6) as _}
 						<div class="h-20 animate-pulse rounded-2xl bg-zinc-100"></div>
 					{/each}
@@ -67,7 +67,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-3.5">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-3.5 lg:grid-cols-3">
 					{#each kategoriList.filter((kat) => kat.nama
 							.toLowerCase()
 							.includes(searchKategoriKeyword.trim().toLowerCase())) as kat}

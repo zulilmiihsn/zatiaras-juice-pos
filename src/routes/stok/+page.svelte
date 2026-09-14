@@ -898,7 +898,7 @@
 					</div>
 				{:else}
 					<div
-						class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-3.5"
+						class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 md:gap-3.5 lg:grid-cols-3 xl:grid-cols-4"
 					>
 						{#each filteredBahan as bahan (bahan.id)}
 							{@const health = getStockHealth(bahan)}
@@ -929,12 +929,14 @@
 								</div>
 
 								<!-- Modal Asli Row: Never breaks awkwardly across lines -->
-								<div class="-mt-1 flex flex-wrap items-baseline gap-1 text-xs font-medium text-slate-500">
-									<span class="text-slate-400 whitespace-nowrap">Modal Asli:</span>
-									<span class="font-extrabold text-pink-700 whitespace-nowrap">
+								<div
+									class="-mt-1 flex flex-wrap items-baseline gap-1 text-xs font-medium text-slate-500"
+								>
+									<span class="whitespace-nowrap text-slate-400">Modal Asli:</span>
+									<span class="font-extrabold whitespace-nowrap text-pink-700">
 										Rp&nbsp;{formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}
 									</span>
-									<span class="text-slate-400 whitespace-nowrap">/&nbsp;{bahan.satuan}</span>
+									<span class="whitespace-nowrap text-slate-400">/&nbsp;{bahan.satuan}</span>
 								</div>
 
 								<!-- Middle Section: Stock Metrics & Visual Progress Bar -->

@@ -113,7 +113,7 @@
 
 <div
 	in:fade={{ duration: 150 }}
-	class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-24 md:px-6"
+	class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 pb-24 md:px-6"
 >
 	<!-- Top Summary Bento Cards (Compact 2x2 on mobile, 4-col on desktop) -->
 	<div class="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">

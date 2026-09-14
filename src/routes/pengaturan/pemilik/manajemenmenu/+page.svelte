@@ -121,40 +121,40 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'menu'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:outline-none focus:text-slate-700 focus:border-slate-200/80 focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
+						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'menu')}>Menu</button
 				>
 				<button
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'kategori'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:outline-none focus:text-slate-700 focus:border-slate-200/80 focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
+						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'kategori')}>Kategori</button
 				>
 				<button
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'ekstra'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:outline-none focus:text-slate-700 focus:border-slate-200/80 focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
+						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'ekstra')}>Tambahan</button
 				>
 				<button
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'bahan'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:outline-none focus:text-slate-700 focus:border-slate-200/80 focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
+						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'bahan')}>Bahan</button
 				>
 				<button
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'hpp'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md shadow-pink-500/25 ring-2 ring-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:outline-none focus:text-slate-700 focus:border-slate-200/80 focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
+						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'hpp')}>HPP</button
 				>
 			</div>
