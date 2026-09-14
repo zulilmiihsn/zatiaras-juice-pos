@@ -152,18 +152,18 @@
 						<div
 							class="h-4 w-4 rounded-full transition-all duration-150 {pinInput.length > i
 								? 'scale-110 bg-white shadow-xs'
-								: 'border-2 border-white/50 bg-white/30'}"
+								: 'border-2 border-white/50 bg-white/30'} {isVerifying ? 'animate-pulse' : ''}"
 						></div>
 					{/each}
 				</div>
 				<!-- Reserve space for error to avoid layout shift -->
 				<div
-					class="mb-2 h-5 text-center text-sm font-semibold text-white/90 {pinError
+					class="mb-2 h-5 text-center text-sm font-semibold text-white/90 {pinError || isVerifying
 						? 'visible opacity-100'
 						: 'invisible opacity-0'}"
 					aria-live="polite"
 				>
-					{pinError}
+					{isVerifying ? 'Memverifikasi...' : pinError}
 				</div>
 
 				<!-- Numpad -->
@@ -171,34 +171,37 @@
 					{#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as num}
 						<button
 							type="button"
-							class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+							class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
 							onclick={() => handlePinInput(num)}
+							disabled={isVerifying}
 						>
 							{num}
 						</button>
 					{/each}
+					<div class="h-16 w-16" aria-hidden="true"></div>
 					<button
 						type="button"
-						class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-sm font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:scale-[0.98]"
-						onclick={handleDelete}
-						disabled={isVerifying || pinInput.length === 0}
-					>
-						Hapus
-					</button>
-					<button
-						type="button"
-						class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+						class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
 						onclick={() => handlePinInput(0)}
+						disabled={isVerifying}
 					>
 						0
 					</button>
 					<button
 						type="button"
-						class="h-16 w-16 rounded-2xl border border-white/30 bg-white text-sm font-bold text-pink-600 shadow-lg transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-						onclick={handleVerify}
-						disabled={isVerifying || pinInput.length !== 4}
+						class="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+						onclick={handleDelete}
+						disabled={isVerifying || pinInput.length === 0}
+						aria-label="Hapus"
 					>
-						{isVerifying ? 'Proses' : 'Buka'}
+						<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-8.172a2 2 0 01-1.414-.586L3 12z"
+							/>
+						</svg>
 					</button>
 				</div>
 			</div>
