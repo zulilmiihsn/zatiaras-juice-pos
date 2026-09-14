@@ -74,13 +74,21 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 		)
 		.bind(pinHash, new Date().toISOString(), branch, settings.id)
 		.run();
-	await revokeBranchPageUnlocks(platform, branch);
-	await appendAuditLog(rawDb, branch, {
-		action: hasConfiguredPin ? 'pin.changed' : 'pin.configured',
-		entityType: 'pengaturan',
-		entityId: String(settings.id),
-		session
-	});
+	try {
+		await revokeBranchPageUnlocks(platform, branch);
+	} catch (e) {
+		console.warn('[pin] revokeBranchPageUnlocks failed:', e);
+	}
+	try {
+		await appendAuditLog(rawDb, branch, {
+			action: hasConfiguredPin ? 'pin.changed' : 'pin.configured',
+			entityType: 'pengaturan',
+			entityId: String(settings.id),
+			session
+		});
+	} catch (e) {
+		console.warn('[pin] appendAuditLog failed:', e);
+	}
 
 	return json({ ok: true, pinConfigured: true });
 };

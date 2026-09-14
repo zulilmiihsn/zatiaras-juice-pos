@@ -270,6 +270,10 @@
 			pinError = 'PIN harus 4 digit angka.';
 			return;
 		}
+		if (['0000', '1111', '1234', '4321'].includes(newPin)) {
+			pinError = 'PIN terlalu mudah ditebak (hindari 1234, 0000, 1111, 4321).';
+			return;
+		}
 
 		isSavingPin = true;
 		try {

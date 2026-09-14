@@ -2,7 +2,7 @@ import { constantTimeEqual } from '$lib/server/secureCompare';
 
 const PIN_HASH_ALGORITHM = 'PBKDF2';
 const PIN_HASH_DIGEST = 'SHA-256';
-const PIN_HASH_ITERATIONS = 210_000;
+const PIN_HASH_ITERATIONS = 10_000;
 const PIN_HASH_BYTES = 32;
 const PIN_SALT_BYTES = 16;
 const PIN_HASH_PREFIX = 'pbkdf2-sha256';
@@ -69,7 +69,7 @@ export async function verifyPinHash(pin: string, encoded: string): Promise<boole
 	const salt = hexToBytes(saltHex);
 	if (
 		!Number.isInteger(iterations) ||
-		iterations < 100_000 ||
+		iterations < 5_000 ||
 		iterations > 1_000_000 ||
 		!salt ||
 		salt.length < 16 ||
