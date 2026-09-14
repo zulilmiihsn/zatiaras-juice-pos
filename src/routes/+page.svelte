@@ -219,6 +219,8 @@
 		}
 	}
 
+	let offDashboardRefreshBus: (() => void) | null = null;
+
 	onMount(() => {
 		if (typeof window !== 'undefined' && !localStorage.getItem('zatiaras_session')) {
 			return;
@@ -227,8 +229,15 @@
 		if (browser) {
 			window.addEventListener('openTokoModal', handleOpenTokoModal);
 		}
+		offDashboardRefreshBus = refreshBus.on('dashboard', () => {
+			cekSesiToko();
+		});
 	});
 	onDestroy(() => {
+		if (offDashboardRefreshBus) {
+			offDashboardRefreshBus();
+			offDashboardRefreshBus = null;
+		}
 		if (browser) {
 			window.removeEventListener('openTokoModal', handleOpenTokoModal);
 		}

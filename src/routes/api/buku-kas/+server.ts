@@ -20,7 +20,28 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const rawDb = getRawDb(platform, branch);
-	await requirePageAccess(rawDb, locals.authSession!, 'catat');
+	const session = locals.authSession!;
+
+	const idSesiToko = url.searchParams.get('id_sesi_toko');
+	const sumber = url.searchParams.get('sumber');
+
+	// [CATATAN]: Jika query buku_kas untuk shift kasir (hitung laci kasir), bypass cek halaman catat.
+	// Jika query pos (grafik omzet mingguan dashboard), izinkan jika halaman beranda atau catat terbuka.
+	if (!idSesiToko) {
+		if (sumber === 'pos') {
+			const isUnlocked =
+				session.role !== 'kasir' ||
+				(Number(session.unlockExpiresAt || 0) > Date.now() &&
+					Boolean(
+						session.unlockedPages?.includes('beranda') || session.unlockedPages?.includes('catat')
+					));
+			if (!isUnlocked) {
+				await requirePageAccess(rawDb, session, 'beranda');
+			}
+		} else {
+			await requirePageAccess(rawDb, session, 'catat');
+		}
+	}
 	const db = getDb(platform, branch);
 
 	const limit = parseDataLimit(url.searchParams.get('limit'));

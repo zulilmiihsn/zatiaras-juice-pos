@@ -20,6 +20,7 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { createLayoutState } from '$lib/stores/layoutState.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
+	import { refreshBus } from '$lib/utils/refreshBus';
 	import PendingTransactionsSheet from '$lib/components/shared/PendingTransactionsSheet.svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -129,6 +130,12 @@
 		pinUnlockedForCurrentPage = true;
 		showPinModal = false;
 		await invalidateAll();
+		refreshBus.emit('dashboard');
+		if (browser) {
+			window.dispatchEvent(
+				new CustomEvent('page-unlocked', { detail: { page: currentLockedPage } })
+			);
+		}
 	}
 
 	function handlePinError(_detail: { message: string }) {}
