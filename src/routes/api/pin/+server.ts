@@ -53,7 +53,7 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const hasLegacyPin = Boolean(settings.pin && settings.pin !== '1234');
 	const hasConfiguredPin = Boolean(settings.pin_hash || hasLegacyPin);
 	if (hasConfiguredPin) {
-		if (!/^\d{4,6}$/.test(currentPin)) throw kitError(400, 'PIN lama wajib diisi');
+		if (!/^\d{4}$/.test(currentPin)) throw kitError(400, 'PIN lama wajib diisi');
 		const currentValid = settings.pin_hash
 			? await verifyPinHash(currentPin, settings.pin_hash)
 			: constantTimeEqual(currentPin, settings.pin || '');

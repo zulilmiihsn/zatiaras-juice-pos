@@ -105,12 +105,16 @@ export async function loginWithUsername(username: string, password: string, bran
 			const settingsData = settingsRes.ok ? await settingsRes.json() : null;
 			const row = Array.isArray(settingsData) ? settingsData[0] : null;
 			if (row) {
-				setSecuritySettings({ lockedPages: row.halaman_terkunci || [] });
+				const isConfigured = row.pinConfigured === true;
+				setSecuritySettings({
+					lockedPages: isConfigured ? row.halaman_terkunci || [] : [],
+					pinConfigured: isConfigured
+				});
 			} else {
-				setSecuritySettings({ lockedPages: [] });
+				setSecuritySettings({ lockedPages: [], pinConfigured: false });
 			}
 		} catch {
-			setSecuritySettings({ lockedPages: [] });
+			setSecuritySettings({ lockedPages: [], pinConfigured: false });
 		}
 	} else {
 		clearSecuritySettings();

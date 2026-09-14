@@ -9,6 +9,7 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { getNowWita } from '$lib/utils/dateTime';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
+	import { securitySettings } from '$lib/stores/securitySettings.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
 	import DashboardMetrics from '$lib/components/dashboard/DashboardMetrics.svelte';
 	import WeeklyChart from '$lib/components/dashboard/WeeklyChart.svelte';
@@ -233,19 +234,34 @@
 		}
 	});
 
-	function handleOpenTokoModal() {
-		// [CATATAN]: Jika kasir, wajib verifikasi PIN di server dahulu.
+	async function handleOpenTokoModal() {
+		// [CATATAN]: Jika kasir, cek apakah PIN sudah dikonfigurasi.
+		// Jika belum disetup pemilik, auto-bypass agar kasir bisa langsung buka/tutup sesi kios.
 		if (currentUserRole === 'kasir') {
-			pendingAction = () => {
-				cekSesiToko().then(() => {
-					isBukaToko = !tokoAktifLocal;
-					showTokoModal = true;
-				});
-			};
-			showActionPinModal = true;
-			return;
+			let isPinSet = securitySettings.value?.pinConfigured;
+			if (isPinSet === undefined) {
+				try {
+					const data = (await transactionService.getOne('pengaturan')) as {
+						pinConfigured?: boolean;
+					} | null;
+					isPinSet = data?.pinConfigured === true;
+				} catch {
+					isPinSet = false;
+				}
+			}
+
+			if (isPinSet) {
+				pendingAction = () => {
+					cekSesiToko().then(() => {
+						isBukaToko = !tokoAktifLocal;
+						showTokoModal = true;
+					});
+				};
+				showActionPinModal = true;
+				return;
+			}
 		}
-		// [CATATAN]: Non-kasir langsung buka modal
+		// [CATATAN]: Non-kasir atau PIN belum disetup langsung buka modal (auto-bypass)
 		cekSesiToko().then(() => {
 			isBukaToko = !tokoAktifLocal;
 			showTokoModal = true;

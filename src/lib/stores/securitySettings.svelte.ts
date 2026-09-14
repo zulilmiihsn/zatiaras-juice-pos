@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 
 interface SecuritySettings {
 	lockedPages: string[] | null;
+	pinConfigured?: boolean;
 }
 
 // [CATATAN]: Initialize store with data from localStorage if available
@@ -12,8 +13,11 @@ const initialValue = browser
 				if (!saved) return null;
 
 				const parsed = JSON.parse(saved);
+				const isPinConfigured = parsed?.pinConfigured === true;
 				return {
-					lockedPages: Array.isArray(parsed?.lockedPages) ? parsed.lockedPages : null
+					lockedPages:
+						isPinConfigured && Array.isArray(parsed?.lockedPages) ? parsed.lockedPages : [],
+					pinConfigured: isPinConfigured
 				} as SecuritySettings;
 			} catch (e) {
 				console.error('Error parsing security settings from localStorage:', e);
@@ -35,7 +39,8 @@ export function setSecuritySettings(settings: SecuritySettings) {
 			localStorage.setItem(
 				'zatiaras_security_settings',
 				JSON.stringify({
-					lockedPages: settings.lockedPages
+					lockedPages: settings.lockedPages,
+					pinConfigured: settings.pinConfigured
 				})
 			);
 		} catch (e) {

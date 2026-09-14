@@ -47,8 +47,8 @@ async function derivePin(
 }
 
 export function validateNewPin(pin: unknown): string | null {
-	if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
-		return 'PIN harus 4-6 digit angka';
+	if (typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
+		return 'PIN harus 4 digit angka';
 	}
 	if (DISALLOWED_PINS.has(pin)) {
 		return 'Gunakan PIN yang tidak mudah ditebak';

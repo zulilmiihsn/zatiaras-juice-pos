@@ -64,9 +64,14 @@
 		try {
 			const data = (await transactionService.getOne('pengaturan')) as {
 				halaman_terkunci?: string[];
+				pinConfigured?: boolean;
 			} | null;
 			if (data) {
-				setSecuritySettings({ lockedPages: data.halaman_terkunci || [] });
+				const isConfigured = data.pinConfigured === true;
+				setSecuritySettings({
+					lockedPages: isConfigured ? data.halaman_terkunci || [] : [],
+					pinConfigured: isConfigured
+				});
 			}
 		} catch {
 			// [CATATAN]: no-op
@@ -91,19 +96,22 @@
 		const currentUserRole = userRole.value;
 		const currentSecuritySettings = securitySettings.value;
 		const currentPath = $page.url.pathname;
-		if (currentUserRole === 'kasir' && !currentSecuritySettings) {
+		if (currentUserRole === 'kasir') {
 			void loadKasirSecuritySettings();
 		}
 		if (currentPath !== lastPath) {
 			pinUnlockedForCurrentPage = false;
 			lastPath = currentPath;
 		}
-		const lockedPage = currentSecuritySettings?.lockedPages?.find((lockedPageName) => {
-			const fullLockedPath = mapLockedNameToPath(lockedPageName);
-			if (!fullLockedPath) return false;
-			if (fullLockedPath === '/') return currentPath === '/';
-			return currentPath === fullLockedPath || currentPath.startsWith(fullLockedPath + '/');
-		});
+		const isPinConfigured = currentSecuritySettings?.pinConfigured === true;
+		const lockedPage = isPinConfigured
+			? currentSecuritySettings?.lockedPages?.find((lockedPageName) => {
+					const fullLockedPath = mapLockedNameToPath(lockedPageName);
+					if (!fullLockedPath) return false;
+					if (fullLockedPath === '/') return currentPath === '/';
+					return currentPath === fullLockedPath || currentPath.startsWith(fullLockedPath + '/');
+				})
+			: null;
 		const normalizedLockedPage = lockedPage?.toLowerCase();
 		const isCurrentPageLocked = Boolean(lockedPage);
 		if (currentUserRole === 'kasir' && isCurrentPageLocked && !pinUnlockedForCurrentPage) {
@@ -126,9 +134,9 @@
 	function handlePinError(_detail: { message: string }) {}
 
 	function handlePinClose() {
+		showPinModal = false;
 		if (!pinUnlockedForCurrentPage) {
-			auth.logout();
-			goto('/login');
+			goto('/pos');
 		}
 	}
 
@@ -209,7 +217,18 @@
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</div>
-		<div class="z-nav sticky bottom-0 overflow-visible md:pointer-events-none md:px-4">
+		{#if showPinModal}
+			<PinModal
+				show={showPinModal}
+				title="Akses Terkunci"
+				subtitle="Masukkan PIN untuk mengakses halaman ini"
+				onVerify={(pin) => verifyPagePin(pin, currentLockedPage)}
+				onSuccess={handlePinSuccess}
+				onError={handlePinError}
+				onClose={handlePinClose}
+			/>
+		{/if}
+		<div class="z-fab sticky bottom-0 overflow-visible md:pointer-events-none md:px-4">
 			<div class="md:pointer-events-auto">
 				<BottomNav />
 			</div>
@@ -220,19 +239,18 @@
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			{@render children()}
 		</div>
+		{#if showPinModal}
+			<PinModal
+				show={showPinModal}
+				title="Akses Terkunci"
+				subtitle="Masukkan PIN untuk mengakses halaman ini"
+				onVerify={(pin) => verifyPagePin(pin, currentLockedPage)}
+				onSuccess={handlePinSuccess}
+				onError={handlePinError}
+				onClose={handlePinClose}
+			/>
+		{/if}
 	</div>
-{/if}
-
-{#if showPinModal}
-	<PinModal
-		show={showPinModal}
-		title="Akses Terkunci"
-		subtitle="Masukkan PIN untuk mengakses halaman ini"
-		onVerify={(pin) => verifyPagePin(pin, currentLockedPage)}
-		onSuccess={handlePinSuccess}
-		onError={handlePinError}
-		onClose={handlePinClose}
-	/>
 {/if}
 
 <svelte:head>

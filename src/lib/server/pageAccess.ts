@@ -25,11 +25,21 @@ export async function requirePageAccess(
 	if (session.role === 'pemilik' || session.role === 'admin') return;
 
 	const settings = (await rawDb
-		.prepare('SELECT halaman_terkunci FROM pengaturan WHERE cabang_id = ? LIMIT 1')
+		.prepare('SELECT pin, pin_hash, halaman_terkunci FROM pengaturan WHERE cabang_id = ? LIMIT 1')
 		.bind(session.branch)
-		.first()) as { halaman_terkunci?: unknown } | null;
+		.first()) as {
+		pin?: string | null;
+		pin_hash?: string | null;
+		halaman_terkunci?: unknown;
+	} | null;
 
-	if (!settings) throw kitError(403, 'PIN_REQUIRED');
+	if (!settings) return;
+
+	const pinConfigured = Boolean(settings.pin_hash || (settings.pin && settings.pin !== '1234'));
+	if (!pinConfigured) {
+		// PIN belum dikonfigurasi pemilik: auto-bypass agar operasional kasir tidak terblokir
+		return;
+	}
 
 	let lockedPages: string[];
 	try {

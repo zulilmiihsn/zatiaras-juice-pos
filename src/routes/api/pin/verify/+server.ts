@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const body = (await request.json().catch(() => null)) as { pin?: unknown; page?: unknown } | null;
 	const pin = typeof body?.pin === 'string' ? body.pin : '';
-	if (!/^\d{4,6}$/.test(pin) || !isProtectedPage(body?.page)) {
+	if (!/^\d{4}$/.test(pin) || !isProtectedPage(body?.page)) {
 		throw kitError(400, 'PIN atau halaman tidak valid');
 	}
 

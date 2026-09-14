@@ -23,6 +23,7 @@
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 	import { getApiErrorMessage, reportApiFailure } from '$lib/utils/errorHandling';
 	import { transactionService } from '$lib/services/transactionService';
+	import { setSecuritySettings } from '$lib/stores/securitySettings.svelte';
 
 	// [CATATAN]: ─── Active Tab & Mode ─────────────────────────────────────────────────
 	let activeSecurityTab = $state<'pemilik' | 'kasir'>('pemilik');
@@ -30,7 +31,7 @@
 	let kasirChangeMode = $state<'all' | 'username' | 'password'>('all');
 
 	// [CATATAN]: ─── State Kredensial Pemilik ──────────────────────────────────────────
-	let oldUsername = $state('');
+	let oldUsername = $state('pemilik');
 	let newUsername = $state('');
 	let oldPassword = $state('');
 	let newPassword = $state('');
@@ -97,6 +98,10 @@
 			pinConfigured = data.pinConfigured === true;
 			lockedPages = data.halaman_terkunci || [];
 			pengaturanKeamananId = data.id ?? '';
+			setSecuritySettings({
+				lockedPages: pinConfigured ? lockedPages : [],
+				pinConfigured
+			});
 		}
 	});
 
@@ -105,8 +110,7 @@
 		userPassError = '';
 
 		if (!oldUsername.trim()) {
-			userPassError = 'Username saat ini wajib diisi.';
-			return;
+			oldUsername = 'pemilik';
 		}
 		if (!oldPassword.trim()) {
 			userPassError = 'Password saat ini wajib diisi untuk verifikasi.';
@@ -181,8 +185,7 @@
 		kasirUserPassError = '';
 
 		if (!kasirOldUsername.trim()) {
-			kasirUserPassError = 'Username kasir saat ini wajib diisi.';
-			return;
+			kasirOldUsername = 'kasir';
 		}
 		if (!kasirOldPassword.trim()) {
 			kasirUserPassError = 'Password kasir saat ini wajib diisi untuk verifikasi.';
@@ -263,8 +266,8 @@
 			pinError = 'Konfirmasi PIN tidak cocok.';
 			return;
 		}
-		if (newPin.length < 4 || newPin.length > 6 || !/^[0-9]+$/.test(newPin)) {
-			pinError = 'PIN harus 4-6 digit angka.';
+		if (newPin.length !== 4 || !/^[0-9]+$/.test(newPin)) {
+			pinError = 'PIN harus 4 digit angka.';
 			return;
 		}
 
@@ -287,6 +290,10 @@
 			confirmPin = '';
 			pinError = '';
 			pinConfigured = true;
+			setSecuritySettings({
+				lockedPages,
+				pinConfigured: true
+			});
 		} catch (error) {
 			console.error('[gantikeamanan] update PIN gagal:', error);
 			pinError = 'Gagal menyimpan perubahan. Coba lagi.';
@@ -311,8 +318,14 @@
 				{ halaman_terkunci: lockedPages },
 				{ id: pengaturanKeamananId }
 			);
+			setSecuritySettings({
+				lockedPages: pinConfigured ? lockedPages : [],
+				pinConfigured
+			});
 			toastManager.showToastNotification(
-				'Pengaturan halaman terkunci berhasil disimpan!',
+				pinConfigured
+					? 'Pengaturan halaman terkunci berhasil disimpan!'
+					: 'Pengaturan halaman disimpan. Proteksi aktif setelah PIN diatur.',
 				'success'
 			);
 		} catch (error) {
@@ -479,23 +492,25 @@
 								</span>
 							</div>
 
-							<!-- 1. Username Saat Ini (Selalu tampil sebagai identitas) -->
-							<div>
-								<label
-									for="old-username"
-									class="mb-1.5 block text-xs font-bold text-slate-700 md:text-sm"
-								>
-									Username Pemilik Saat Ini
-								</label>
-								<input
-									id="old-username"
-									type="text"
-									class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-									placeholder="Username saat ini"
-									bind:value={oldUsername}
-									required
-								/>
-							</div>
+							<!-- 1. Username Saat Ini (Hanya tampil jika ubah username atau keduanya) -->
+							{#if pemilikChangeMode === 'all' || pemilikChangeMode === 'username'}
+								<div>
+									<label
+										for="old-username"
+										class="mb-1.5 block text-xs font-bold text-slate-700 md:text-sm"
+									>
+										Username Pemilik Saat Ini
+									</label>
+									<input
+										id="old-username"
+										type="text"
+										class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+										placeholder="Username saat ini"
+										bind:value={oldUsername}
+										required
+									/>
+								</div>
+							{/if}
 
 							<!-- 2. Username Baru (Jika mode 'all' atau 'username') -->
 							{#if pemilikChangeMode === 'all' || pemilikChangeMode === 'username'}
@@ -661,23 +676,25 @@
 								</span>
 							</div>
 
-							<!-- 1. Username Kasir Saat Ini -->
-							<div>
-								<label
-									for="kasir-old-username"
-									class="mb-1.5 block text-xs font-bold text-slate-700 md:text-sm"
-								>
-									Username Kasir Saat Ini
-								</label>
-								<input
-									id="kasir-old-username"
-									type="text"
-									class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-									placeholder="Username kasir saat ini"
-									bind:value={kasirOldUsername}
-									required
-								/>
-							</div>
+							<!-- 1. Username Kasir Saat Ini (Hanya tampil jika ubah username atau keduanya) -->
+							{#if kasirChangeMode === 'all' || kasirChangeMode === 'username'}
+								<div>
+									<label
+										for="kasir-old-username"
+										class="mb-1.5 block text-xs font-bold text-slate-700 md:text-sm"
+									>
+										Username Kasir Saat Ini
+									</label>
+									<input
+										id="kasir-old-username"
+										type="text"
+										class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+										placeholder="Username kasir saat ini"
+										bind:value={kasirOldUsername}
+										required
+									/>
+								</div>
+							{/if}
 
 							<!-- 2. Username Baru Kasir (Jika mode 'all' atau 'username') -->
 							{#if kasirChangeMode === 'all' || kasirChangeMode === 'username'}
@@ -846,7 +863,7 @@
 							</div>
 							<div>
 								<h2 class="text-sm font-black text-slate-900 md:text-base">PIN Keamanan</h2>
-								<p class="text-xs text-slate-500 md:text-sm">4-6 digit angka untuk proteksi</p>
+								<p class="text-xs text-slate-500 md:text-sm">4 digit angka untuk proteksi</p>
 							</div>
 						</div>
 
@@ -879,9 +896,9 @@
 										id="old-pin"
 										type={showOldPin ? 'text' : 'password'}
 										inputmode="numeric"
-										maxlength="6"
+										maxlength="4"
 										class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm tracking-widest text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-										placeholder="PIN lama (4-6 angka)"
+										placeholder="PIN lama (4 angka)"
 										bind:value={oldPin}
 										required
 									/>
@@ -903,7 +920,7 @@
 							<div
 								class="rounded-xl border border-amber-200/80 bg-amber-50/70 p-3 text-xs font-medium text-amber-800"
 							>
-								Tetapkan PIN baru 4-6 digit sebelum mengaktifkan kunci halaman.
+								Tetapkan PIN baru 4 digit sebelum mengaktifkan kunci halaman.
 							</div>
 						{/if}
 
@@ -920,9 +937,9 @@
 										id="new-pin"
 										type={showNewPin ? 'text' : 'password'}
 										inputmode="numeric"
-										maxlength="6"
+										maxlength="4"
 										class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm tracking-widest text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-										placeholder="PIN baru"
+										placeholder="PIN baru (4 angka)"
 										bind:value={newPin}
 										required
 									/>
@@ -953,9 +970,9 @@
 										id="confirm-pin"
 										type={showConfirmPin ? 'text' : 'password'}
 										inputmode="numeric"
-										maxlength="6"
+										maxlength="4"
 										class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm tracking-widest text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-										placeholder="Ulangi PIN"
+										placeholder="Ulangi PIN (4 angka)"
 										bind:value={confirmPin}
 										required
 									/>
@@ -1041,8 +1058,10 @@
 									<Home class="h-4.5 w-4.5 stroke-[2.2]" />
 								</div>
 								<div>
-									<div class="text-xs font-bold text-slate-900 md:text-sm">Beranda (Kasir POS)</div>
-									<div class="text-[11px] text-slate-400">Proteksi menu penjualan utama</div>
+									<div class="text-xs font-bold text-slate-900 md:text-sm">Beranda</div>
+									<div class="text-[11px] text-slate-400">
+										Proteksi ringkasan & metrik dashboard
+									</div>
 								</div>
 							</div>
 							<div

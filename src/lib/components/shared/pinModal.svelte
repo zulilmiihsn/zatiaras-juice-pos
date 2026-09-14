@@ -28,8 +28,11 @@
 	let isVerifying = $state(false);
 
 	function handlePinInput(num: number) {
-		if (!isVerifying && pinInput.length < 6) {
+		if (!isVerifying && pinInput.length < 4) {
 			pinInput += num.toString();
+			if (pinInput.length === 4) {
+				handleVerify();
+			}
 		}
 	}
 
@@ -38,7 +41,7 @@
 	}
 
 	async function handleVerify() {
-		if (isVerifying || pinInput.length < 4) return;
+		if (isVerifying || pinInput.length !== 4) return;
 		const entered = pinInput;
 		isVerifying = true;
 		let result: { ok: boolean; message?: string };
@@ -66,24 +69,66 @@
 		}
 	}
 
+	function handleKeyDown(event: KeyboardEvent) {
+		if (!show) return;
+		if (event.key >= '0' && event.key <= '9') {
+			event.preventDefault();
+			handlePinInput(parseInt(event.key, 10));
+		} else if (event.key === 'Backspace') {
+			event.preventDefault();
+			handleDelete();
+		} else if (event.key === 'Enter') {
+			event.preventDefault();
+			if (pinInput.length === 4) {
+				handleVerify();
+			}
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
+			show = false;
+			if (onClose) onClose();
+		}
+	}
+
 	// [CATATAN]: Cleanup on component destroy
 	onDestroy(() => {
 		if (errorTimeout) clearTimeout(errorTimeout);
 	});
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
 {#if show}
 	<div
-		class="z-modal fixed inset-x-0 top-[58px] bottom-[58px] flex items-center justify-center bg-gradient-to-br from-pink-400 via-pink-500 to-purple-500"
+		class="fixed inset-0 z-40 flex items-center justify-center bg-gradient-to-br from-pink-500/95 via-pink-600/95 to-purple-600/95 pb-20 backdrop-blur-md"
 		transition:fade={{ duration: 200 }}
 		role="dialog"
 		aria-modal="true"
 	>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<div
-				class="w-full max-w-sm rounded-3xl border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
+				class="relative w-full max-w-sm rounded-3xl border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
 				transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 			>
+				{#if onClose}
+					<button
+						type="button"
+						class="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95"
+						onclick={() => {
+							show = false;
+							if (onClose) onClose();
+						}}
+						aria-label="Tutup"
+					>
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					</button>
+				{/if}
 				<div class="mb-4 text-center">
 					<div
 						class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 shadow-lg"
@@ -101,13 +146,13 @@
 					<p class="text-sm text-pink-100">{subtitle}</p>
 				</div>
 
-				<!-- PIN Display -->
-				<div class="mb-2 flex justify-center gap-2 {isShaking ? 'animate-shake' : ''}">
-					{#each Array(6) as _, i}
+				<!-- PIN Display (Fixed 4 Digits) -->
+				<div class="mb-2 flex justify-center gap-3.5 {isShaking ? 'animate-shake' : ''}">
+					{#each Array(4) as _, i}
 						<div
-							class="h-4 w-4 rounded-full {pinInput.length > i
-								? 'bg-white'
-								: 'border border-white/50 bg-white/30'}"
+							class="h-4 w-4 rounded-full transition-all duration-150 {pinInput.length > i
+								? 'scale-110 bg-white shadow-xs'
+								: 'border-2 border-white/50 bg-white/30'}"
 						></div>
 					{/each}
 				</div>
@@ -151,7 +196,7 @@
 						type="button"
 						class="h-16 w-16 rounded-2xl border border-white/30 bg-white text-sm font-bold text-pink-600 shadow-lg transition-all duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
 						onclick={handleVerify}
-						disabled={isVerifying || pinInput.length < 4}
+						disabled={isVerifying || pinInput.length !== 4}
 					>
 						{isVerifying ? 'Proses' : 'Buka'}
 					</button>
