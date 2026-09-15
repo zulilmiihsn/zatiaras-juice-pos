@@ -771,7 +771,7 @@ Isi oleh agen pekerja sesudah pekerjaan benar-benar diverifikasi. `Pending` bera
 - [x] B6 — F07, F12, F13. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B6 di bawah.
 - [x] B7 — F17, F18, F22, F23, F24. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B7 di bawah.
 - [x] B8 — F11, F25, F27, F28, F21. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B8 di bawah.
-- [x] B9 — Regresi integrasi/rilis. Status: gate hijau kecuali E2E terblokir lingkungan (lihat Hasil B9). Belum commit/push/migrasi remote/deploy.
+- [x] B9 — Regresi integrasi/rilis. Status: gate hijau kecuali E2E terblokir lingkungan (lihat Hasil B9). Commit `21e5f99`; belum push/migrasi remote/deploy.
 
 Template hasil per paket:
 
