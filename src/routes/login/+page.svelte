@@ -66,8 +66,11 @@
 			return;
 		}
 		const sanitizedUsername = sanitizeInput(username);
-		const sanitizedPassword = sanitizeInput(password);
-		if (securityUtils.detectSuspiciousActivity('login', sanitizedUsername + sanitizedPassword)) {
+		// Password dikirim apa adanya (tanpa sanitizeInput): pola HTML/SQL adalah
+		// karakter sah dalam password. Rate limit + panjang tetap berlaku.
+		// Aturan tepi: password di-trim di create/change/verify agar konsisten
+		// dengan kredensial tersimpan (terdokumentasi di server).
+		if (securityUtils.detectSuspiciousActivity('login', sanitizedUsername)) {
 			errorMessage = 'Aktivitas mencurigakan terdeteksi. Silakan coba lagi.';
 			securityUtils.logSecurityEvent('login_attempt_blocked', {
 				username: sanitizedUsername,
@@ -80,7 +83,7 @@
 		}
 		isLoading = true;
 		try {
-			await loginWithUsername(sanitizedUsername, sanitizedPassword, branch);
+			await loginWithUsername(sanitizedUsername, password, branch);
 			showSuccessModal = true;
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			goto('/');

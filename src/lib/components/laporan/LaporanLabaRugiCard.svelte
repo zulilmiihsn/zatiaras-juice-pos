@@ -88,7 +88,7 @@
 		class="flex items-center justify-between rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm font-bold text-pink-600 shadow-sm sm:text-base"
 	>
 		<span class="text-xs font-bold tracking-wider text-zinc-500 uppercase sm:text-sm"
-			>Laba (Rugi) Bersih</span
+			>Estimasi Laba Setelah Simulasi Pajak</span
 		>
 		<span class="font-extrabold text-pink-600"
 			>Rp {summary?.labaBersih !== null && summary?.labaBersih !== undefined

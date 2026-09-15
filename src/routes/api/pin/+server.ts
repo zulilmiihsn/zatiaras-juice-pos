@@ -12,7 +12,7 @@ const PIN_CHANGE_WINDOW_MS = 15 * 60 * 1000;
 const PIN_CHANGE_MAX_ATTEMPTS = 5;
 
 type PinRow = {
-	id: number;
+	id: string;
 	pin: string | null;
 	pin_hash: string | null;
 };
@@ -45,7 +45,9 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	}
 
 	const settings = (await rawDb
-		.prepare('SELECT id, pin, pin_hash FROM pengaturan WHERE cabang_id = ? LIMIT 1')
+		.prepare(
+			'SELECT id, pin, pin_hash FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL LIMIT 1'
+		)
 		.bind(branch)
 		.first()) as PinRow | null;
 	if (!settings) throw kitError(409, 'Pengaturan cabang belum tersedia');
@@ -66,14 +68,15 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	if (unchanged) throw kitError(400, 'PIN baru harus berbeda');
 
 	const pinHash = await hashPin(newPin);
-	await rawDb
+	const updateResult = (await rawDb
 		.prepare(
 			`UPDATE pengaturan
 			 SET pin_hash = ?, pin = NULL, updated_at = ?
-			 WHERE cabang_id = ? AND id = ?`
+			 WHERE cabang_id = ? AND id = ? AND kunci IS NULL`
 		)
-		.bind(pinHash, new Date().toISOString(), branch, settings.id)
-		.run();
+		.bind(pinHash, new Date().toISOString(), branch, String(settings.id))
+		.run()) as unknown as { meta?: { changes?: number } };
+	if (!Number(updateResult?.meta?.changes ?? 0)) throw kitError(409, 'Pengaturan cabang berubah');
 	try {
 		await revokeBranchPageUnlocks(platform, branch);
 	} catch (e) {

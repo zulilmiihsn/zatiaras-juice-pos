@@ -31,6 +31,52 @@ export async function getSesiTokoList(
 }
 
 /**
+ * Ringkasan sesi: agregasi SELURUH ledger sesi dalam satu query.
+ * Formula laci: modal awal + pemasukan tunai − pengeluaran tunai.
+ * totalPemasukan mencakup semua `in` (jangan disebut penjualan POS bila ada setoran manual).
+ */
+export async function getSesiSummary(rawDb: D1Database, branch: string, sessionId: string) {
+	const row = (await rawDb
+		.prepare(
+			`SELECT s.id AS id, s.kas_awal AS modalAwal,
+				COALESCE(SUM(CASE WHEN b.tipe = 'in' THEN b.nominal ELSE 0 END), 0) AS totalPemasukan,
+				COALESCE(SUM(CASE WHEN b.tipe = 'in' AND b.metode_bayar = 'tunai' THEN b.nominal ELSE 0 END), 0) AS pemasukanTunai,
+				COALESCE(SUM(CASE WHEN b.tipe = 'in' AND b.metode_bayar != 'tunai' THEN b.nominal ELSE 0 END), 0) AS pemasukanNonTunai,
+				COALESCE(SUM(CASE WHEN b.tipe = 'out' AND b.metode_bayar = 'tunai' THEN b.nominal ELSE 0 END), 0) AS pengeluaranTunai,
+				COUNT(b.id) AS baris
+			 FROM sesi_toko s
+			 LEFT JOIN buku_kas b ON b.cabang_id = s.cabang_id AND b.id_sesi_toko = s.id
+			 WHERE s.cabang_id = ? AND s.id = ?
+			 GROUP BY s.id, s.kas_awal
+			 LIMIT 1`
+		)
+		.bind(branch, sessionId)
+		.first()) as {
+		id?: string;
+		modalAwal?: number;
+		totalPemasukan?: number;
+		pemasukanTunai?: number;
+		pemasukanNonTunai?: number;
+		pengeluaranTunai?: number;
+		baris?: number;
+	} | null;
+	if (!row?.id) return null;
+	const modalAwal = Number(row.modalAwal || 0);
+	const pemasukanTunai = Number(row.pemasukanTunai || 0);
+	const pengeluaranTunai = Number(row.pengeluaranTunai || 0);
+	return {
+		id: row.id,
+		modalAwal,
+		totalPemasukan: Number(row.totalPemasukan || 0),
+		pemasukanTunai,
+		pemasukanNonTunai: Number(row.pemasukanNonTunai || 0),
+		pengeluaranTunai,
+		uangKasir: modalAwal + pemasukanTunai - pengeluaranTunai,
+		baris: Number(row.baris || 0)
+	};
+}
+
+/**
  * Menyisipkan sesi toko baru (buka toko).
  */
 export async function insertSesiTokoRows(

@@ -15,6 +15,10 @@ export interface ReportGroups {
 	totalTunaiPemasukan: number;
 	totalQrisPengeluaran: number;
 	totalTunaiPengeluaran: number;
+	/** Kas bersih periode per metode (pemasukan − pengeluaran). Bukan saldo akhir absolut. */
+	netTunai: number;
+	netNonTunai: number;
+	netTotal: number;
 }
 
 function emptyGroups(): ReportGroups {
@@ -32,7 +36,10 @@ function emptyGroups(): ReportGroups {
 		totalQrisPemasukan: 0,
 		totalTunaiPemasukan: 0,
 		totalQrisPengeluaran: 0,
-		totalTunaiPengeluaran: 0
+		totalTunaiPengeluaran: 0,
+		netTunai: 0,
+		netNonTunai: 0,
+		netTotal: 0
 	};
 }
 
@@ -88,6 +95,10 @@ export function groupReportTransactions(records: BukuKasRecord[]): ReportGroups 
 			else groups.totalQrisPengeluaran += nominal;
 		}
 	}
+
+	groups.netTunai = groups.totalTunaiPemasukan - groups.totalTunaiPengeluaran;
+	groups.netNonTunai = groups.totalQrisPemasukan - groups.totalQrisPengeluaran;
+	groups.netTotal = groups.netTunai + groups.netNonTunai;
 
 	return groups;
 }

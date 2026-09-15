@@ -1,37 +1,13 @@
 import { json, error as kitError } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { requireAnyRole, requireAuthSession } from '$lib/server/apiAuth';
+import { parseHppModelResponse, type HppParsedPurchase } from '$lib/utils/hppParse';
 import type { RequestHandler } from './$types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'deepseek/deepseek-chat';
 
-type ParsedPurchase = {
-	nama: string;
-	satuan: 'gram' | 'ml' | 'pcs' | 'buah';
-	purchase_qty: number;
-	purchase_cost: number;
-	biaya_per_satuan: number;
-};
-
-function normalizeUnit(satuan: string): { satuan: ParsedPurchase['satuan']; multiplier: number } {
-	const normalized = satuan.toLowerCase();
-	if (['kg', 'kilo', 'kilogram'].includes(normalized)) return { satuan: 'gram', multiplier: 1000 };
-	if (['g', 'gr', 'gram'].includes(normalized)) return { satuan: 'gram', multiplier: 1 };
-	if (['l', 'liter'].includes(normalized)) return { satuan: 'ml', multiplier: 1000 };
-	if (['ml', 'mili', 'mililiter'].includes(normalized)) return { satuan: 'ml', multiplier: 1 };
-	if (['buah'].includes(normalized)) return { satuan: 'buah', multiplier: 1 };
-	return { satuan: 'pcs', multiplier: 1 };
-}
-
-function normalizeName(value: string): string {
-	return value
-		.replace(/\b(beli|belanja|stok|harga|rp)\b/gi, '')
-		.replace(/\s+/g, ' ')
-		.trim();
-}
-
-async function parseWithAi(text: string, apiKey: string): Promise<ParsedPurchase[]> {
+async function parseWithAi(text: string, apiKey: string): Promise<HppParsedPurchase[]> {
 	const response = await fetch(OPENROUTER_API_URL, {
 		method: 'POST',
 		headers: {
@@ -46,7 +22,7 @@ async function parseWithAi(text: string, apiKey: string): Promise<ParsedPurchase
 				{
 					role: 'system',
 					content:
-						'Anda membantu owner Zatiaras Juice menghitung HPP dari cerita belanja mingguan. Parse cerita natural menjadi JSON array bahan. Unit output hanya gram, ml, pcs, buah. Konversi kg ke gram dan liter ke ml. purchase_qty adalah kuantitas setelah konversi. purchase_cost adalah total harga beli bahan itu. biaya_per_satuan = purchase_cost / purchase_qty. Field wajib: name, satuan, purchase_qty, purchase_cost, biaya_per_satuan. Jika ada item ambigu, tetap ambil yang jelas saja. Return JSON array saja tanpa markdown.'
+						'Anda membantu owner Zatiaras Juice menghitung HPP dari cerita belanja mingguan. Parse cerita natural menjadi JSON array bahan. Unit output hanya gram, ml, pcs, buah. Konversi kg ke gram dan liter ke ml. purchase_qty adalah kuantitas jumlah dasar setelah konversi. purchase_cost adalah total harga beli bahan itu. biaya_per_satuan = purchase_cost / purchase_qty. Field wajib: nama, satuan, purchase_qty, purchase_cost, biaya_per_satuan. Contoh: [{"nama":"Gula Pasir","satuan":"gram","purchase_qty":1000,"purchase_cost":20000,"biaya_per_satuan":20}]. Jika ada item ambigu, tetap ambil yang jelas saja. Return JSON array saja tanpa markdown.'
 				},
 				{ role: 'user', content: text }
 			],
@@ -56,29 +32,8 @@ async function parseWithAi(text: string, apiKey: string): Promise<ParsedPurchase
 	});
 	if (!response.ok) throw new Error(`AI parse failed ${response.status}`);
 	const data = await response.json();
-	const content = String(data?.choices?.[0]?.message?.content || '[]')
-		.replace(/^```json/i, '')
-		.replace(/^```/i, '')
-		.replace(/```$/i, '')
-		.trim();
-	const parsed = JSON.parse(content);
-	if (!Array.isArray(parsed)) return [];
-	return parsed
-		.map((item) => {
-			const satuan = normalizeUnit(String(item.satuan || 'pcs')).satuan;
-			const purchaseQty = Number(item.purchase_qty || 0);
-			const purchaseCost = Number(item.purchase_cost || 0);
-			return {
-				nama: normalizeName(String(item.nama || '')),
-				satuan,
-				purchase_qty: purchaseQty,
-				purchase_cost: purchaseCost,
-				biaya_per_satuan:
-					Number(item.biaya_per_satuan || 0) ||
-					(purchaseQty > 0 ? Math.round((purchaseCost / purchaseQty) * 100) / 100 : 0)
-			};
-		})
-		.filter((item) => item.nama && item.purchase_qty > 0 && item.purchase_cost > 0);
+	const content = String(data?.choices?.[0]?.message?.content || '[]');
+	return parseHppModelResponse(content);
 }
 
 export const POST: RequestHandler = async ({ request, locals, platform }) => {

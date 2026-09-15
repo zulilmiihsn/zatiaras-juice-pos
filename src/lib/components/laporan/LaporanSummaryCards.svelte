@@ -32,7 +32,7 @@
 		<div class="relative z-10 flex items-center justify-between">
 			<div>
 				<span class="text-[11px] font-bold tracking-wider text-pink-700 uppercase"
-					>Laba (Rugi) Bersih</span
+					>Hasil Kas Periode</span
 				>
 				<div
 					class="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl {Number(
@@ -44,6 +44,9 @@
 					Rp {summary?.saldo !== null && summary?.saldo !== undefined
 						? formatRupiah(summary.saldo)
 						: '0'}
+				</div>
+				<div class="mt-0.5 text-[11px] font-medium text-slate-500">
+					Pemasukan − pengeluaran, sebelum simulasi pajak
 				</div>
 			</div>
 			<div
@@ -58,10 +61,12 @@
 			class="relative z-10 mt-3.5 flex items-center justify-between border-t border-slate-200/60 pt-3 text-xs"
 		>
 			<span class="font-bold text-slate-700">
-				QRIS: <span class="font-bold text-pink-700">Rp {formatRupiah(totalQrisAll)}</span>
+				QRIS (volume): <span class="font-bold text-pink-700">Rp {formatRupiah(totalQrisAll)}</span>
 			</span>
 			<span class="font-bold text-slate-700">
-				Tunai: <span class="font-bold text-emerald-700">Rp {formatRupiah(totalTunaiAll)}</span>
+				Tunai (volume): <span class="font-bold text-emerald-700"
+					>Rp {formatRupiah(totalTunaiAll)}</span
+				>
 			</span>
 		</div>
 	</div>

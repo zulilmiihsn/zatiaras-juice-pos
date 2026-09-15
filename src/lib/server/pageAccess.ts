@@ -25,7 +25,9 @@ export async function requirePageAccess(
 	if (session.role === 'pemilik' || session.role === 'admin') return;
 
 	const settings = (await rawDb
-		.prepare('SELECT pin, pin_hash, halaman_terkunci FROM pengaturan WHERE cabang_id = ? LIMIT 1')
+		.prepare(
+			'SELECT pin, pin_hash, halaman_terkunci FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL LIMIT 1'
+		)
 		.bind(session.branch)
 		.first()) as {
 		pin?: string | null;

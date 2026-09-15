@@ -48,6 +48,7 @@ export function createCatatState() {
 	let sesiAktif = $state<TokoSession | null>(null);
 	let recentTransactions = $state<CatatRecentTransaction[]>([]);
 	let isLoadingRecent = $state(false);
+	let isSubmitting = $state(false);
 
 	const toastManager = createToastManager();
 
@@ -131,14 +132,19 @@ export function createCatatState() {
 		transaction_time: string;
 		metode_bayar: string;
 		jenis: string;
-	}) {
+	}): Promise<
+		| { status: 'saved'; id: string }
+		| { status: 'queued'; id: string }
+		| { status: 'blocked'; reason: string }
+		| { status: 'failed'; reason: string }
+	> {
 		await cekSesiTokoAktif();
 		const id_sesi_toko = sesiAktif?.id || null;
 		if (!id_sesi_toko && currentUserRole === 'kasir') {
 			notifModalMsg = 'Kasir tidak boleh melakukan transaksi saat toko tutup!';
 			notifModalType = 'error';
 			showNotifModal = true;
-			return;
+			return { status: 'blocked', reason: 'toko_tutup' };
 		}
 		if (!id_sesi_toko && currentUserRole !== 'kasir') {
 			notifModalMsg =
@@ -147,6 +153,7 @@ export function createCatatState() {
 			showNotifModal = true;
 		}
 		const utcTime = witaToUtcISO(form.transaction_date, form.transaction_time || '00:00');
+		// ID intent stabil per pemanggilan; retry payload sama pakai ID ini.
 		const trx = {
 			id: crypto.randomUUID(),
 			tipe: mode === 'pemasukan' ? 'in' : 'out',
@@ -163,26 +170,39 @@ export function createCatatState() {
 				await transactionService.insertRows('buku_kas', trx);
 			} catch (err) {
 				if (err instanceof TypeError || !navigator.onLine) {
-					await addPendingTransaction(trx);
-					notifModalMsg = 'Koneksi terputus. Transaksi disimpan dan akan dikirim saat online.';
+					try {
+						await addPendingTransaction(trx);
+					} catch {
+						return { status: 'failed', reason: 'queue_gagal' };
+					}
+					notifModalMsg = 'Koneksi terputus. Transaksi antre dan akan dikirim saat online.';
 					notifModalType = 'success';
 					showNotifModal = true;
-					return;
+					return { status: 'queued', id: trx.id };
 				}
 				notifModalMsg =
 					'Gagal menyimpan transaksi ke database: ' +
 					(err instanceof Error ? err.message : 'Unknown error');
 				notifModalType = 'error';
 				showNotifModal = true;
-				return;
+				return { status: 'failed', reason: 'server' };
 			}
-			await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
-			await cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir');
+			// Refresh terpisah dari hasil mutasi: gagal refresh tidak membatalkan sukses.
+			try {
+				await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
+				await cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir');
+			} catch {}
+			return { status: 'saved', id: trx.id };
 		} else {
-			await addPendingTransaction(trx);
-			notifModalMsg = 'Transaksi disimpan offline dan akan otomatis sync saat online.';
+			try {
+				await addPendingTransaction(trx);
+			} catch {
+				return { status: 'failed', reason: 'queue_gagal' };
+			}
+			notifModalMsg = 'Transaksi antre offline dan akan otomatis sync saat online.';
 			notifModalType = 'success';
 			showNotifModal = true;
+			return { status: 'queued', id: trx.id };
 		}
 	}
 
@@ -203,6 +223,7 @@ export function createCatatState() {
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = '';
+		if (isSubmitting) return;
 		if (!securityUtils.checkFormRateLimit('catat_form')) {
 			error = 'Terlalu banyak submission. Silakan tunggu sebentar.';
 			return;
@@ -269,17 +290,30 @@ export function createCatatState() {
 			error = completeValidation.errors.join('\n');
 			return;
 		}
-		await saveTransaksi(dataToValidate);
-		await loadRecentTransactions();
-		snackbarMsg = 'Transaksi berhasil dicatat!';
-		showSnackbar = true;
-		setTimeout(() => {
-			showSnackbar = false;
-		}, 1800);
-		rawNominal = '';
-		nominal = '';
-		namaJenis = '';
-		nama = '';
+		isSubmitting = true;
+		try {
+			const result = await saveTransaksi(dataToValidate);
+			if (result.status === 'saved' || result.status === 'queued') {
+				try {
+					await loadRecentTransactions();
+				} catch {}
+				snackbarMsg =
+					result.status === 'queued'
+						? 'Transaksi antre, menunggu sinkronisasi.'
+						: 'Transaksi berhasil dicatat!';
+				showSnackbar = true;
+				setTimeout(() => {
+					showSnackbar = false;
+				}, 1800);
+				rawNominal = '';
+				nominal = '';
+				namaJenis = '';
+				nama = '';
+			}
+			// blocked/failed: input utuh, pesan sudah tampil via modal/error.
+		} finally {
+			isSubmitting = false;
+		}
 	}
 
 	function getJenisLabel(val: string): string {
@@ -395,6 +429,9 @@ export function createCatatState() {
 		},
 		get isLoadingRecent() {
 			return isLoadingRecent;
+		},
+		get isSubmitting() {
+			return isSubmitting;
 		},
 		loadRecentTransactions,
 		toastManager,

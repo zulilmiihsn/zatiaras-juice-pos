@@ -9,7 +9,8 @@ import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createHppCalculator } from '$lib/utils/manajemenmenuHpp';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import {
-	safeConvertToBaseUnit,
+	convertToBaseUnit,
+	safeConvertFromBaseUnit,
 	detectUnitCategory,
 	type UnitCategory
 } from '$lib/utils/unitConversion';
@@ -195,19 +196,26 @@ export function createBahanHppState(config: BahanHppConfig) {
 			const cat = (bahan.kategori || 'Bahan Baku').trim() || 'Bahan Baku';
 			const isKnown = availableCategoryOptions.includes(cat);
 			const detectedType = bahan.tipe_satuan || detectUnitCategory(bahan.satuan || 'gram');
+			const baseUnit = bahan.satuan || (detectedType === 'cairan' ? 'ml' : 'gram');
+			const buyUnit = bahan.satuan_beli || baseUnit;
+			const pack = Number(bahan.isi_per_kemasan) || 1;
+			const storedBaseQty = Number(bahan.jumlah_beli_terakhir) || 0;
+			const displayQty = safeConvertFromBaseUnit(storedBaseQty, buyUnit, baseUnit, pack);
 			bahanForm = {
 				nama: bahan.nama,
 				tipe_satuan: detectedType,
-				satuan: bahan.satuan || (detectedType === 'cairan' ? 'ml' : 'gram'),
+				satuan: baseUnit,
 				isi_per_kemasan: formatRupiah(bahan.isi_per_kemasan || 1) || '1',
-				satuan_beli: bahan.satuan_beli || bahan.satuan || 'kg',
+				satuan_beli: buyUnit,
 				kategoriSelect: isKnown ? cat : '__new__',
 				customKategori: isKnown ? '' : cat,
 				kategori: cat,
 				stok_saat_ini: formatRupiah(bahan.stok_saat_ini) || '0',
 				ambang_stok: formatRupiah(bahan.ambang_stok) || '0',
 				yield_persen: formatRupiah(bahan.yield_persen ?? 100) || '100',
-				jumlah_beli_terakhir: formatRupiah(bahan.jumlah_beli_terakhir),
+				jumlah_beli_terakhir: formatRupiah(
+					Number.isFinite(displayQty) ? displayQty : storedBaseQty
+				),
 				biaya_beli_terakhir: formatRupiah(bahan.biaya_beli_terakhir)
 			};
 		} else {
@@ -263,13 +271,19 @@ export function createBahanHppState(config: BahanHppConfig) {
 				: bahanForm.kategoriSelect.trim()) || 'Bahan Baku';
 		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
 
-		// Convert purchase quantity to base unit (e.g. 1 kg -> 1000 gram)
-		const purchaseQuantityInBase = safeConvertToBaseUnit(
-			purchaseQuantityInput,
-			bahanForm.satuan_beli || bahanForm.satuan,
-			bahanForm.satuan,
-			packSize
-		);
+		// Convert purchase quantity to base unit (e.g. 1 kg -> 1000 gram), strict.
+		let purchaseQuantityInBase: number;
+		try {
+			purchaseQuantityInBase = convertToBaseUnit(
+				purchaseQuantityInput,
+				bahanForm.satuan_beli || bahanForm.satuan,
+				bahanForm.satuan,
+				packSize
+			);
+		} catch {
+			config.showNotif('Satuan beli tidak kompatibel dengan satuan dasar', 'warning');
+			return;
+		}
 
 		const rawYield = parseRupiah(bahanForm.yield_persen) || 100;
 		const yieldPercent = Math.min(100, Math.max(1, rawYield));

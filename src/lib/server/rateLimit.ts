@@ -81,61 +81,47 @@ export async function consumeRateLimit(
 	const resetAt = now + windowMs;
 	const id = rateLimitId(branch, identifier);
 
-	try {
-		await db.prepare('DELETE FROM rate_limits WHERE reset_at <= ?').bind(now).run();
-
-		const current = (await db
-			.prepare('SELECT count, reset_at FROM rate_limits WHERE id = ? LIMIT 1')
-			.bind(id)
-			.first()) as { count: number; reset_at: number } | null;
-
-		if (!current || current.reset_at <= now) {
-			await db
-				.prepare(
-					`INSERT INTO rate_limits (id, cabang_id, identifier, count, reset_at, updated_at)
-					 VALUES (?, ?, ?, 1, ?, ?)
-					 ON CONFLICT(id) DO UPDATE SET count = 1, reset_at = excluded.reset_at, updated_at = excluded.updated_at`
-				)
-				.bind(id, branch, identifier, resetAt, now)
-				.run();
-
-			return {
-				allowed: true,
-				available: true,
-				backend: 'd1',
-				limit,
-				count: 1,
-				retryAfterSeconds: 0,
-				resetAt
-			};
-		}
-
-		if (current.count >= limit) {
-			return {
-				allowed: false,
-				available: true,
-				backend: 'd1',
-				limit,
-				count: current.count,
-				retryAfterSeconds: Math.ceil((current.reset_at - now) / 1000),
-				resetAt: current.reset_at
-			};
-		}
-
-		const nextCount = current.count + 1;
-		await db
-			.prepare('UPDATE rate_limits SET count = ?, updated_at = ? WHERE id = ?')
-			.bind(nextCount, now, id)
-			.run();
-
+	if (!Number.isFinite(limit) || limit < 1) {
 		return {
-			allowed: true,
+			allowed: false,
+			available: false,
+			backend: 'unavailable',
+			limit: Number.isFinite(limit) ? limit : 0,
+			count: 0,
+			retryAfterSeconds: Math.max(1, Math.ceil(windowMs / 1000)),
+			resetAt: now + windowMs
+		};
+	}
+
+	try {
+		// Satu UPSERT atomik: reset window atau increment dalam satu statement.
+		// Keputusan allowed dari hasil mutasi (count <= limit), bukan baca-lalu-tulis.
+		const mutated = (await db
+			.prepare(
+				`INSERT INTO rate_limits (id, cabang_id, identifier, count, reset_at, updated_at)
+				 VALUES (?, ?, ?, 1, ?, ?)
+				 ON CONFLICT(id) DO UPDATE SET
+					count = CASE WHEN rate_limits.reset_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
+					reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END,
+					updated_at = excluded.updated_at
+				 RETURNING count, reset_at`
+			)
+			.bind(id, branch, identifier, resetAt, now, now, now)
+			.first()) as { count?: number; reset_at?: number } | null;
+
+		if (!mutated || typeof mutated.count !== 'number') throw new Error('upsert tanpa RETURNING');
+
+		const count = Number(mutated.count);
+		const rowResetAt = Number(mutated.reset_at || resetAt);
+		const allowed = count <= limit;
+		return {
+			allowed,
 			available: true,
 			backend: 'd1',
 			limit,
-			count: nextCount,
-			retryAfterSeconds: 0,
-			resetAt: current.reset_at
+			count,
+			retryAfterSeconds: allowed ? 0 : Math.max(0, Math.ceil((rowResetAt - now) / 1000)),
+			resetAt: rowResetAt
 		};
 	} catch {
 		return {

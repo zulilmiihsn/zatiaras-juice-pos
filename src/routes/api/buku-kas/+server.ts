@@ -55,7 +55,10 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 		tipe: url.searchParams.get('tipe'),
 		id: url.searchParams.get('id'),
 		transactionId: url.searchParams.get('transaction_id'),
-		idSesiToko: url.searchParams.get('id_sesi_toko')
+		idSesiToko: url.searchParams.get('id_sesi_toko'),
+		direction: url.searchParams.get('direction'),
+		search: url.searchParams.get('search'),
+		metode: url.searchParams.get('metode')
 	};
 
 	const result = await getBukuKasList(db, branch, filter, limit, cursor, cursorPagination);

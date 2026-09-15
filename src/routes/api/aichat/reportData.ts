@@ -1,4 +1,5 @@
 import { formatRupiah } from '$lib/utils/currency';
+import { calculateEngineTax, legacyToSettings, validateTaxSettings } from '$lib/tax/engine';
 import type { D1Database } from '@cloudflare/workers-types';
 
 export interface FormattedMonth {
@@ -567,31 +568,33 @@ export async function fetchReportDataSql(
 	const pengeluaran = summaryRes?.pengeluaran || 0;
 	const labaKotor = pendapatan - pengeluaran;
 
-	// [CATATAN]: Parsing konfigurasi pajak
-	let taxRate = 0.005;
-	let taxEnabled = true;
-	let taxThreshold = 500_000_000;
-	let applyThreshold = false;
-
+	// Pajak via adapter + mesin kanonik yang sama dengan laporan.
+	let persistedSettings = legacyToSettings(null);
 	if (taxConfigRes?.nilai) {
 		try {
-			const parsed = JSON.parse(taxConfigRes.nilai);
-			if (parsed && typeof parsed === 'object') {
-				if (parsed.enabled === false) taxEnabled = false;
-				if (typeof parsed.rate === 'number') taxRate = parsed.rate;
-				if (typeof parsed.threshold === 'number') taxThreshold = parsed.threshold;
-				if (typeof parsed.apply_threshold === 'boolean') applyThreshold = parsed.apply_threshold;
+			const parsed = JSON.parse(taxConfigRes.nilai) as {
+				schema_version?: number;
+				settings?: unknown;
+			} & Record<string, unknown>;
+			if (parsed && typeof parsed === 'object' && parsed.schema_version === 2 && parsed.settings) {
+				const v = validateTaxSettings(parsed.settings);
+				if (v.ok) persistedSettings = parsed.settings as typeof persistedSettings;
+			} else if (parsed && typeof parsed === 'object') {
+				persistedSettings = legacyToSettings(
+					parsed as Partial<import('$lib/tax/engine').LegacyTaxConfig>
+				);
 			}
 		} catch {}
 	}
 
-	let pajak = 0;
-	if (taxEnabled && pendapatan > 0) {
-		pajak = applyThreshold
-			? Math.round(Math.min(pendapatan, Math.max(0, pendapatan - taxThreshold)) * taxRate)
-			: Math.round(pendapatan * taxRate);
-	}
-	const labaBersih = labaKotor - pajak;
+	const taxEngineResult = calculateEngineTax({
+		settings: persistedSettings,
+		periodTurnover: pendapatan,
+		periodGrossProfit: labaKotor,
+		ytdTurnoverBefore: 0
+	});
+	const pajak = taxEngineResult.totalPajak;
+	const labaBersih = taxEngineResult.labaBersih;
 	const totalTransaksi = summaryRes?.totalTransaksiPos || summaryRes?.totalTransaksi || 0;
 
 	// [CATATAN]: Format data bulanan

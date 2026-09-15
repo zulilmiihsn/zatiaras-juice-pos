@@ -14,6 +14,7 @@
 	import { transactionService } from '$lib/services/transactionService';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
 	import { securitySettings, setSecuritySettings } from '$lib/stores/securitySettings.svelte';
+	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { requireAuth } from '$lib/utils/authGuard';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
@@ -58,26 +59,47 @@
 	let pinUnlockedForCurrentPage = false;
 	let lastPath = '';
 	let isLoadingSecuritySettings = false;
+	let securityRefreshCounter = $state(0);
+	let securityRequestGen = 0;
+
+	function settingsEqual(
+		a: { lockedPages: string[] | null; pinConfigured?: boolean } | null,
+		b: { lockedPages: string[] | null; pinConfigured?: boolean } | null
+	): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		if (Boolean(a.pinConfigured) !== Boolean(b.pinConfigured)) return false;
+		const al = a.lockedPages ?? [];
+		const bl = b.lockedPages ?? [];
+		return al.length === bl.length && al.every((v, i) => v === bl[i]);
+	}
 
 	async function loadKasirSecuritySettings() {
 		if (isLoadingSecuritySettings) return;
 		isLoadingSecuritySettings = true;
+		const gen = ++securityRequestGen;
+		const roleAtStart = userRole.value;
+		const branchAtStart = selectedBranch.value;
 		try {
 			const data = (await transactionService.getOne('pengaturan')) as {
 				halaman_terkunci?: string[];
 				pinConfigured?: boolean;
 			} | null;
+			// Buang hasil basi sesi/cabang lain.
+			if (gen !== securityRequestGen) return;
+			if (userRole.value !== roleAtStart || selectedBranch.value !== branchAtStart) return;
 			if (data) {
 				const isConfigured = data.pinConfigured === true;
-				setSecuritySettings({
+				const next = {
 					lockedPages: isConfigured ? data.halaman_terkunci || [] : [],
 					pinConfigured: isConfigured
-				});
+				};
+				if (!settingsEqual(securitySettings.value, next)) setSecuritySettings(next);
 			}
 		} catch {
 			// [CATATAN]: no-op
 		} finally {
-			isLoadingSecuritySettings = false;
+			if (gen === securityRequestGen) isLoadingSecuritySettings = false;
 		}
 	}
 
@@ -92,14 +114,23 @@
 		if ($navigating) pinUnlockedForCurrentPage = false;
 	});
 
+	// Effect fetch: hanya identitas sesi/role/cabang + sinyal refresh eksplisit.
+	// Sengaja TIDAK membaca securitySettings.value agar tulis store tidak memicu fetch lagi.
 	$effect(() => {
 		if (!browser) return;
+		const role = userRole.value;
+		const branch = selectedBranch.value;
+		void securityRefreshCounter;
+		if (role === 'kasir' && branch) {
+			void loadKasirSecuritySettings();
+		}
+	});
+
+	// Effect tampilan: baca settings + path tanpa fetch.
+	$effect(() => {
 		const currentUserRole = userRole.value;
 		const currentSecuritySettings = securitySettings.value;
 		const currentPath = $page.url.pathname;
-		if (currentUserRole === 'kasir') {
-			void loadKasirSecuritySettings();
-		}
 		if (currentPath !== lastPath) {
 			pinUnlockedForCurrentPage = false;
 			lastPath = currentPath;
@@ -129,6 +160,7 @@
 	async function handlePinSuccess() {
 		pinUnlockedForCurrentPage = true;
 		showPinModal = false;
+		securityRefreshCounter++;
 		await invalidateAll();
 		refreshBus.emit('dashboard');
 		if (browser) {

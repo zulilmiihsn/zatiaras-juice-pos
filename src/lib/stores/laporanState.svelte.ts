@@ -150,7 +150,24 @@ export function createLaporanState() {
 			const pendapatanVal = Number(rawSummary.pendapatan || 0);
 			const pengeluaranVal = Number(rawSummary.pengeluaran || 0);
 			const labaKotorVal = Number(rawSummary.labaKotor || pendapatanVal - pengeluaranVal);
-			const taxResult = calculateTaxes(
+			// Pajak memakai ringkasan server (YTD + config persisted).
+			// Hitung lokal hanya bila server tak memberi angka (cache offline).
+			const serverPajak = typeof rawSummary.pajak === 'number' ? rawSummary.pajak : null;
+			const serverBersih = typeof rawSummary.labaBersih === 'number' ? rawSummary.labaBersih : null;
+			const serverBreakdown = Array.isArray(
+				(reportDataContent as { taxBreakdown?: unknown }).taxBreakdown
+			)
+				? (
+						reportDataContent as {
+							taxBreakdown: Array<{ nama: string; persentase: number; nominal: number }>;
+						}
+					).taxBreakdown
+				: null;
+			const serverLabel =
+				typeof (reportDataContent as { taxLabel?: unknown }).taxLabel === 'string'
+					? (reportDataContent as { taxLabel: string }).taxLabel
+					: null;
+			const fallback = calculateTaxes(
 				pendapatanVal,
 				labaKotorVal,
 				getTaxSettings(selectedBranch.value)
@@ -161,14 +178,16 @@ export function createLaporanState() {
 				pengeluaran: pengeluaranVal,
 				saldo: labaKotorVal,
 				labaKotor: labaKotorVal,
-				pajak: taxResult.totalPajak,
-				labaBersih: taxResult.labaBersih,
-				taxBreakdown: taxResult.breakdowns.map((b) => ({
-					nama: b.nama,
-					persentase: b.persentase,
-					nominal: b.nominalPajak
-				})),
-				taxLabel: taxResult.activeTaxesLabel
+				pajak: serverPajak ?? fallback.totalPajak,
+				labaBersih: serverBersih ?? fallback.labaBersih,
+				taxBreakdown:
+					serverBreakdown ??
+					fallback.breakdowns.map((b) => ({
+						nama: b.nama,
+						persentase: b.persentase,
+						nominal: b.nominalPajak
+					})),
+				taxLabel: serverLabel ?? fallback.activeTaxesLabel
 			};
 			laporan = reportDataContent.transactions || [];
 			await reportCacheMetrics('laporan');

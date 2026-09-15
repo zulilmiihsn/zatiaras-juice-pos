@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
+import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 
 const settings: ReceiptSettings = {
@@ -54,7 +55,48 @@ const sale = buildSaleReceiptHtml({
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
-assert.equal(hash(reprint), '0a699f228e3ae5abe1ea203337c36ea7a59c1b284177be1e62bbdd9474a877bb');
+// F17/F18: base 10.000 + topping 3.000 x2 -> baris 20.000 + 6.000 = 26.000
+{
+	const lines = toReceiptLines([
+		{
+			nama_produk: 'Jus Beku',
+			nama_kustom: null,
+			produk: { nama: 'Jus Baru' },
+			jumlah: 2,
+			nominal: 26_000,
+			harga: 13_000,
+			harga_dasar: 10_000,
+			total_tambahan: 3_000,
+			snapshot_tambahan: JSON.stringify([{ nama: 'Nata', harga: 3_000 }])
+		}
+	]);
+	assert.equal(lines.length, 1);
+	assert.equal(lines[0].nama, 'Jus Beku');
+	assert.equal(lines[0].subtotal, 26_000);
+	assert.equal(lines[0].inklusifSaja, false);
+	assert.equal(lines[0].addOns.length, 1);
+	assert.equal(lines[0].addOns[0].total, 6_000);
+	assert.equal(lines[0].baseUnit !== null && lines[0].baseUnit * 2 + 6_000, 26_000);
+}
+// Snapshot beku menang atas katalog terbaru; custom fallback; nominal 0 sah.
+{
+	const lines = toReceiptLines([
+		{ nama_produk: null, nama_kustom: 'Custom UAT', jumlah: 1, nominal: 5_000, harga: 5_000 },
+		{ jumlah: 1, nominal: 0, harga: 0 }
+	]);
+	assert.equal(lines[0].nama, 'Custom UAT');
+	assert.equal(lines[1].subtotal, 0);
+	assert.equal(lines[1].nama, 'Produk Custom');
+}
+// Legacy inklusif tanpa breakdown: subtotal utuh, tanpa tebak topping.
+{
+	const lines = toReceiptLines([{ nama_kustom: 'Lama', jumlah: 2, harga: 10_000 }]);
+	assert.equal(lines[0].subtotal, 20_000);
+	assert.equal(lines[0].inklusifSaja, true);
+	assert.equal(lines[0].addOns.length, 0);
+}
+
+assert.equal(hash(reprint), '7773c4dfeecf8e1f5ad9ae67a8b9a1f37403c1981a187c11e131d651bd852115');
 assert.equal(hash(sale), '192a2c1fd559ba3fce3f9ed241a7742843b57d4b489ef731fbfc7e677c83181d');
-console.log('Receipt HTML hashes match pre-refactor output.');
+console.log('Receipt HTML hashes match post-F17/F18 output (subtotal + @ + escape).');
 process.exit(0);

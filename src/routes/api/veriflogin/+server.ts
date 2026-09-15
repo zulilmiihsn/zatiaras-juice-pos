@@ -148,8 +148,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 				}
 			);
 		}
-		// [CATATAN]: Verifikasi hash password
-		const match = await bcrypt.compare(password, user.password);
+		// [CATATAN]: Aturan tepi spasi (terdokumentasi): password di-trim di
+		// create/change/verify agar konsisten dengan hash tersimpan.
+		// Pola HTML/SQL di DALAM password tidak diubah/ditolak.
+		const passwordTrimmed = typeof password === 'string' ? password.trim() : password;
+		const match = await bcrypt.compare(passwordTrimmed, user.password);
 		if (!match) {
 			await appendAuditLog(rawDb, branchId, {
 				action: 'login.failed',

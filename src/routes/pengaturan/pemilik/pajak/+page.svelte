@@ -102,6 +102,16 @@
 				<span>{taxState.saveSuccessMessage}</span>
 			</div>
 		{/if}
+		{#if taxState.saveError}
+			<div
+				class="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-800 shadow-sm"
+			>
+				<span>{taxState.saveError}</span>
+			</div>
+		{/if}
+		{#if taxState.isSaving}
+			<div class="text-xs font-bold text-slate-400">Menyimpan...</div>
+		{/if}
 
 		<!-- 1. Master Toggle Switch Card -->
 		<div class="soft-float-card flex items-center justify-between gap-4 p-5">

@@ -4,6 +4,7 @@
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import X from '@lucide/svelte/icons/x';
 	import Calendar from '@lucide/svelte/icons/calendar';
+	import { getReportYears } from '$lib/utils/reportYears';
 
 	let {
 		showFilter = $bindable(false),
@@ -22,6 +23,9 @@
 		filterYear: string;
 		onapply: () => void;
 	} = $props();
+
+	// Satu daftar untuk kedua selector; ikut tahun WITA + tahun terpilih.
+	const availableYears = $derived(getReportYears(filterYear));
 </script>
 
 {#if showFilter}
@@ -167,8 +171,8 @@
 							class="flex-1 rounded-2xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
 							bind:value={filterYear}
 						>
-							{#each Array(6) as _, i}
-								<option value={(2020 + i).toString()}>{2020 + i}</option>
+							{#each availableYears as yr}
+								<option value={yr}>{yr}</option>
 							{/each}
 						</select>
 					</div>
@@ -187,8 +191,8 @@
 						class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
 						bind:value={filterYear}
 					>
-						{#each Array(6) as _, i}
-							<option value={(2020 + i).toString()}>{2020 + i}</option>
+						{#each availableYears as yr}
+							<option value={yr}>{yr}</option>
 						{/each}
 					</select>
 				</div>

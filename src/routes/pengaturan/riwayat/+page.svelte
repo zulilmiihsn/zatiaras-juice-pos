@@ -10,8 +10,9 @@
 	import { transactionService } from '$lib/services/transactionService';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
-	import { fetchTransaksiHariIni as fetchRiwayatHarian } from '$lib/services/riwayatService';
+	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
+	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 
@@ -19,6 +20,9 @@
 	let pengaturanStruk = $state<ReceiptSettings | null>(null);
 	let transaksiHariIni = $state<HistoryItem[]>([]);
 	let loading = $state(true);
+	let loadingMore = $state(false);
+	let nextCursor = $state<string | null>(null);
+	let hasMore = $state(false);
 	let searchKeyword = $state('');
 	let filterPayment = $state('all');
 	let showDetailModal = $state(false);
@@ -29,14 +33,35 @@
 	// [CATATAN]: ─── Helpers ───────────────────────────────────────────────────────────
 	async function fetchTransaksiHariIni() {
 		loading = true;
+		nextCursor = null;
+		hasMore = false;
 		try {
-			transaksiHariIni = await fetchRiwayatHarian({ searchKeyword, filterPayment });
+			const page = await fetchTransaksiHariIniPage({ searchKeyword, filterPayment });
+			transaksiHariIni = page.items;
+			nextCursor = page.nextCursor;
+			hasMore = page.hasMore;
 		} catch (err) {
 			ErrorHandler.logError(err, 'fetchTransaksiHariIni (riwayat kasir)');
 			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
 			transaksiHariIni = [];
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function muatLebihBanyak() {
+		if (loadingMore || !hasMore || !nextCursor) return;
+		loadingMore = true;
+		try {
+			const page = await fetchTransaksiHariIniPage({ searchKeyword, filterPayment }, nextCursor);
+			transaksiHariIni = [...transaksiHariIni, ...page.items];
+			nextCursor = page.nextCursor;
+			hasMore = page.hasMore;
+		} catch (err) {
+			ErrorHandler.logError(err, 'fetchTransaksiHariIni (riwayat kasir)');
+			toastManager.showToastNotification('Gagal memuat halaman berikut', 'error');
+		} finally {
+			loadingMore = false;
 		}
 	}
 
@@ -68,6 +93,7 @@
 			}
 
 			const html = buildReceiptHtml(selectedTransaksi, pengaturanStruk, items);
+			const lines = toReceiptLines(items);
 			const escposData = {
 				storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
 				address: pengaturanStruk?.alamat,
@@ -76,11 +102,17 @@
 				customerName: selectedTransaksi.nama_pelanggan || '',
 				dateTime: new Date(selectedTransaksi.waktu).toLocaleString('id-ID'),
 				items:
-					items.length > 0
-						? items.map((item: any) => ({
-								name: item.nama_kustom || item.produk?.nama || 'Produk Custom',
-								qty: Number(item.jumlah || 1),
-								price: Number(item.harga || 0) * Number(item.jumlah || 1)
+					lines.length > 0
+						? lines.map((line) => ({
+								name: line.nama,
+								qty: line.jumlah,
+								price: line.inklusifSaja
+									? line.subtotal
+									: Math.round((line.baseUnit ?? 0) * line.jumlah * 100) / 100,
+								addOns: line.inklusifSaja
+									? []
+									: line.addOns.map((a) => ({ name: a.nama, price: a.total })),
+								details: [line.gula, line.es, line.catatan].filter(Boolean).join(', ')
 							}))
 						: [
 								{
@@ -295,6 +327,16 @@
 					</div>
 				{/each}
 			</div>
+			{#if hasMore}
+				<button
+					type="button"
+					onclick={muatLebihBanyak}
+					disabled={loadingMore}
+					class="soft-float-card mt-3 w-full cursor-pointer p-4 text-center text-sm font-bold text-pink-600 transition-all hover:border-pink-200 active:scale-[0.99] disabled:opacity-50"
+				>
+					{loadingMore ? 'Memuat...' : 'Muat lebih banyak'}
+				</button>
+			{/if}
 		{/if}
 	</div>
 </div>

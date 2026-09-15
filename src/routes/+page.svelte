@@ -16,7 +16,7 @@
 	import TokoModal from '$lib/components/dashboard/TokoModal.svelte';
 	import TopBarAiAssistant from '$lib/components/shared/topBarAiAssistant.svelte';
 	import { createToastManager } from '$lib/utils/ui';
-	import { getSesiAktif } from '$lib/services/sesiTokoService';
+	import { getSesiAktif, getSesiSummary } from '$lib/services/sesiTokoService';
 	import { transactionService } from '$lib/services/transactionService';
 	import CupIcon from '$lib/components/icons/CupIcon.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
@@ -170,6 +170,18 @@
 
 		if (sesiAktif?.id) {
 			try {
+				const summary = await getSesiSummary(sesiAktif.id);
+				if (summary) {
+					sesiKasSummary = {
+						modalAwal: summary.modalAwal,
+						totalPenjualan: summary.totalPemasukan,
+						pemasukanTunai: summary.pemasukanTunai,
+						pemasukanNonTunai: summary.pemasukanNonTunai,
+						pengeluaranTunai: summary.pengeluaranTunai,
+						uangKasir: summary.uangKasir
+					};
+					return;
+				}
 				const kasRaw = (await transactionService.getRows('buku_kas', {
 					id_sesi_toko: sesiAktif.id
 				})) as unknown as BukuKasRecord[];

@@ -26,12 +26,17 @@ export function createPosState() {
 
 	let posRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 	let posRefreshInFlight = false;
-	let lastPOSPayloadFingerprint = '';
+	let catalogRequestGen = 0;
 	let isInitialLoad = true;
 
 	async function loadPOSData() {
+		const gen = ++catalogRequestGen;
+		const branchAtStart = selectedBranch.value;
 		try {
 			const catalog = await productService.getPosCatalog();
+			// Abaikan respons basi setelah switch cabang.
+			if (gen !== catalogRequestGen) return;
+			if (selectedBranch.value !== branchAtStart) return;
 			const nextProducts = catalog.products;
 			const nextCategories = catalog.categories;
 			const nextAddons = catalog.addOns;
@@ -50,32 +55,8 @@ export function createPosState() {
 				return;
 			}
 
-			const nextFingerprint = [
-				(nextProducts || []).length,
-				(nextProducts || [])
-					.map(
-						(item) =>
-							`${item?.id || ''}:${item?.harga ?? 0}:${item?.harga_jumbo ?? ''}:${item?.stok ?? ''}`
-					)
-					.join(','),
-				(nextCategories || []).length,
-				(nextCategories || []).map((item) => item?.id || '').join(','),
-				(nextAddons || []).length,
-				(nextAddons || []).map((item) => `${item?.id || ''}:${item?.harga ?? 0}`).join(','),
-				(nextIngredients || []).length,
-				(nextIngredients || [])
-					.map((item) => `${item?.id || ''}:${item?.stok_saat_ini ?? 0}`)
-					.join(','),
-				(nextRecipes || []).length
-			].join('|');
-
-			if (nextFingerprint === lastPOSPayloadFingerprint) {
-				posLoadError = '';
-				await reportCacheMetrics('pos');
-				return;
-			}
-
-			lastPOSPayloadFingerprint = nextFingerprint;
+			// Terapkan payload tervalidasi secara utuh (nama, resep, gambar,
+			// token, flag ikut muncul). Tidak ada fingerprint parsial.
 			produkData = nextProducts || [];
 			kategoriData = nextCategories || [];
 			tambahanData = nextAddons || [];

@@ -1,5 +1,6 @@
 import type { AiRecommendation, AutoApplyResult } from '$lib/types/ai';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import { userRole } from '$lib/stores/userRole.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
@@ -86,7 +87,7 @@ export class AutoApplyService {
 	private async applySingleRecommendation(recommendation: AiRecommendation): Promise<void> {
 		switch (recommendation.action) {
 			case 'create_transaction':
-				await this.createTransaction(recommendation.data as TransactionData);
+				await this.createTransaction(recommendation.data as TransactionData, recommendation.id);
 				break;
 			case 'update_transaction':
 				await this.updateTransaction(recommendation.data as UpdateTransactionData);
@@ -99,7 +100,7 @@ export class AutoApplyService {
 		}
 	}
 
-	private async createTransaction(data: TransactionData): Promise<void> {
+	private async createTransaction(data: TransactionData, recommendationId?: string): Promise<void> {
 		if (!data.type) throw new Error('Type transaksi tidak valid');
 		if (!data.amount || data.amount <= 0)
 			throw new Error('Amount transaksi tidak valid atau kosong');
@@ -107,38 +108,7 @@ export class AutoApplyService {
 			throw new Error('Description transaksi tidak valid atau kosong');
 
 		if (data.type === 'penjualan') {
-			const products = Array.isArray(data.products) && data.products.length ? data.products : [];
-			const res = await apiFetch('/api/pos/transaction', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					idempotency_key: crypto.randomUUID(),
-					nama_pelanggan: data.customerName || null,
-					metode_bayar: data.metode_bayar || 'tunai',
-					cash_received: Number(data.amount),
-					items: products.length
-						? products.map((product: Record<string, unknown>) => ({
-								product_id: product.id || null,
-								nama_kustom: product.id ? null : product.nama || data.deskripsi,
-								custom_price: product.id ? null : Number(product.harga || data.amount),
-								jumlah: product.quantity || product.jumlah || 1,
-								add_on_ids: ((product.addOns as Array<{ id?: unknown }>) || [])
-									.map((addOn) => addOn.id)
-									.filter(Boolean)
-							}))
-						: [
-								{
-									product_id: null,
-									nama_kustom: String(data.deskripsi).trim(),
-									custom_price: Number(data.amount),
-									jumlah: 1,
-									add_on_ids: []
-								}
-							]
-				})
-			});
-
-			await throwIfNotOk(res, 'Gagal menyimpan transaksi POS');
+			await this.createPenjualanViaQuote(data, recommendationId || 'tanpa-id');
 			return;
 		}
 
@@ -166,6 +136,145 @@ export class AutoApplyService {
 		});
 
 		await throwIfNotOk(res, 'Gagal menyimpan transaksi');
+
+		if (typeof window !== 'undefined') {
+			try {
+				window.dispatchEvent(
+					new CustomEvent('ai-recommendations-applied', { detail: { success: true } })
+				);
+				refreshBus.emit('laporan');
+				refreshBus.emit('riwayat');
+			} catch {
+				/* sinyal refresh UI best-effort */
+			}
+		}
+	}
+
+	private normalisasiItemPenjualan(data: TransactionData) {
+		const cleanStr = (v: unknown, max: number): string | null => {
+			if (typeof v !== 'string') return null;
+			const s = v.trim().slice(0, max);
+			return s ? s : null;
+		};
+		const toQty = (v: unknown): number => {
+			const n = Number(v);
+			if (!Number.isInteger(n) || n <= 0 || n > 99)
+				throw new Error('Qty item rekomendasi tidak valid (1-99)');
+			return n;
+		};
+		const raw = Array.isArray(data.products) && data.products.length ? data.products : null;
+		const items = (raw ?? [null]).map((p) => {
+			const product = (p ?? {}) as Record<string, unknown>;
+			const productId =
+				product.id != null && String(product.id).trim() !== '' ? String(product.id) : null;
+			const addOns = product.addOns;
+			const add_on_ids = (Array.isArray(addOns) ? addOns : [])
+				.map((a) => (a && typeof a === 'object' ? (a as { id?: unknown }).id : a))
+				.map((id) => String(id ?? '').trim())
+				.filter(Boolean);
+			if (!productId) {
+				// Item custom: harga dari model TIDAK dipakai; pemilik isi harga valid.
+				if (userRole.value !== 'pemilik')
+					throw new Error('Item custom rekomendasi hanya boleh dibuat pemilik');
+				const customPrice = Number(product.harga);
+				if (!Number.isFinite(customPrice) || customPrice <= 0)
+					throw new Error('Harga item custom rekomendasi tidak valid');
+				return {
+					product_id: null,
+					nama_kustom: cleanStr(product.nama, 80) || String(data.deskripsi).trim().slice(0, 80),
+					custom_price: customPrice,
+					jumlah: toQty(product.quantity ?? product.jumlah ?? 1),
+					add_on_ids,
+					porsi: 'reguler',
+					gula: cleanStr(product.gula, 30),
+					es: cleanStr(product.es, 30),
+					catatan: cleanStr(product.catatan, 240)
+				};
+			}
+			return {
+				product_id: productId,
+				nama_kustom: null,
+				custom_price: null,
+				jumlah: toQty(product.quantity ?? product.jumlah ?? 1),
+				add_on_ids,
+				porsi: (() => {
+					const porsi = String(product.porsi || 'reguler').toLowerCase();
+					return porsi === 'jumbo' ? 'jumbo' : 'reguler';
+				})(),
+				gula: cleanStr(product.gula, 30),
+				es: cleanStr(product.es, 30),
+				catatan: cleanStr(product.catatan, 240)
+			};
+		});
+		if (!items.length) throw new Error('Rekomendasi penjualan tanpa item valid');
+		return items;
+	}
+
+	/**
+	 * Alur quote: normalisasi -> POST quote (CSRF) -> bandingkan total quote
+	 * dengan nominal rekomendasi -> commit item YANG SAMA dengan quote.
+	 * Beda nominal = butuh review, jangan catat otomatis. Key idempoten stabil
+	 * per rekomendasi (bukan dari model); expiry ditangani requote sekali.
+	 */
+	private async createPenjualanViaQuote(
+		data: TransactionData,
+		recommendationId: string
+	): Promise<void> {
+		const items = this.normalisasiItemPenjualan(data);
+		const metode =
+			String(data.metode_bayar || 'tunai').toLowerCase() === 'non-tunai' ? 'non-tunai' : 'tunai';
+		// Key stabil per intent rekomendasi selama retry; bukan keluaran model.
+		const intentKey = `ai-rekomendasi-${recommendationId}`;
+
+		const mintaQuote = async () => {
+			const res = await apiFetch('/api/pos/quote', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ items })
+			});
+			await throwIfNotOk(res, 'Gagal meminta quote harga');
+			return (await res.json()) as { quote_token?: string; total_amount?: number };
+		};
+
+		let quote = await mintaQuote();
+		if (!quote.quote_token || typeof quote.total_amount !== 'number')
+			throw new Error('Quote harga tidak valid');
+
+		const modelAmount = Number(data.amount);
+		if (Number.isFinite(modelAmount) && modelAmount > 0 && modelAmount !== quote.total_amount) {
+			throw new Error(
+				`Total quote Rp ${quote.total_amount.toLocaleString('id-ID')} berbeda dari rekomendasi Rp ${modelAmount.toLocaleString('id-ID')}. Tinjau di POS sebelum mencatat.`
+			);
+		}
+
+		const commit = async (quoteToken: string) => {
+			const res = await apiFetch('/api/pos/transaction', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					mode: 'online',
+					quote_token: quoteToken,
+					idempotency_key: intentKey,
+					nama_pelanggan: data.customerName || null,
+					metode_bayar: metode,
+					// Uang diterima = total quote server, bukan nominal model.
+					cash_received: quote.total_amount,
+					items
+				})
+			});
+			return res;
+		};
+
+		let res = await commit(quote.quote_token);
+		if (res.status === 409) {
+			const detail = await parseApiError(res, '').catch(() => '');
+			if (/kedaluwarsa|quote/i.test(String(detail))) {
+				quote = await mintaQuote();
+				if (!quote.quote_token) throw new Error('Quote harga tidak valid');
+				res = await commit(quote.quote_token);
+			}
+		}
+		await throwIfNotOk(res, 'Gagal menyimpan transaksi POS');
 
 		if (typeof window !== 'undefined') {
 			try {

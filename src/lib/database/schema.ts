@@ -3,6 +3,7 @@ import {
 	check,
 	index,
 	integer,
+	primaryKey,
 	real,
 	sqliteTable,
 	text,
@@ -223,6 +224,8 @@ export const bukuKas = sqliteTable(
 		idempotency_key: text('idempotency_key'),
 		request_fingerprint: text('request_fingerprint'),
 		receipt_snapshot: text('receipt_snapshot'),
+		revision: integer('revision').notNull().default(0),
+		mutation_token: text('mutation_token'),
 		id_sesi_toko: text('id_sesi_toko'),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
@@ -233,6 +236,56 @@ export const bukuKas = sqliteTable(
 		index('idx_buku_kas_branch_transaction').on(table.cabang_id, table.transaction_id),
 		index('idx_buku_kas_branch_sesi').on(table.cabang_id, table.id_sesi_toko),
 		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key)
+	]
+);
+
+export const posVoidMarkers = sqliteTable(
+	'pos_void_markers',
+	{
+		cabang_id: text('cabang_id').notNull(),
+		transaction_id: text('transaction_id').notNull(),
+		idempotency_key: text('idempotency_key'),
+		request_fingerprint: text('request_fingerprint'),
+		actor: text('actor'),
+		created_at: text('created_at').default(now())
+	},
+	(table) => [
+		primaryKey({ columns: [table.cabang_id, table.transaction_id] }),
+		index('idx_pos_void_markers_branch_key').on(table.cabang_id, table.idempotency_key)
+	]
+);
+
+export const archiveJobs = sqliteTable(
+	'archive_jobs',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		before_year: integer('before_year').notNull(),
+		cutoff: text('cutoff').notNull(),
+		status: text('status').notNull(),
+		owner_token: text('owner_token').notNull(),
+		lease_expires_at: integer('lease_expires_at').notNull(),
+		object_key: text('object_key'),
+		checksum: text('checksum'),
+		counts: text('counts'),
+		created_at: text('created_at').default(now()),
+		updated_at: text('updated_at').default(now())
+	},
+	(table) => [index('idx_archive_jobs_branch_status').on(table.cabang_id, table.status)]
+);
+
+export const archiveJobItems = sqliteTable(
+	'archive_job_items',
+	{
+		job_id: text('job_id').notNull(),
+		cabang_id: text('cabang_id').notNull(),
+		buku_kas_id: text('buku_kas_id').notNull(),
+		transaction_id: text('transaction_id'),
+		revision: integer('revision').notNull().default(0)
+	},
+	(table) => [
+		primaryKey({ columns: [table.job_id, table.buku_kas_id] }),
+		index('idx_archive_job_items_job').on(table.job_id)
 	]
 );
 
@@ -353,13 +406,15 @@ export const pengaturan = sqliteTable(
 		telepon: text('telepon'),
 		instagram: text('instagram'),
 		ucapan: text('ucapan'),
-		pajak_config: text('pajak_config'),
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [
 		index('idx_pengaturan_branch').on(table.cabang_id),
-		uniqueIndex('idx_pengaturan_branch_kunci').on(table.cabang_id, table.kunci)
+		uniqueIndex('idx_pengaturan_branch_kunci').on(table.cabang_id, table.kunci),
+		uniqueIndex('idx_pengaturan_branch_main')
+			.on(table.cabang_id)
+			.where(sql`${table.kunci} IS NULL`)
 	]
 );
 

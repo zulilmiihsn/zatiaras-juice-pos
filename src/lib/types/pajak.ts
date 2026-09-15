@@ -8,6 +8,7 @@ export interface TaxItemConfig {
 	isEnabled: boolean;
 	deskripsi?: string;
 	useThreshold500Juta?: boolean; // Khusus PPh Final WP Orang Pribadi (omzet < 500jt/th bebas pajak)
+	thresholdAmount?: number; // Ambang fasilitas per tahun; default 500jt bila tak diisi
 }
 
 export interface TaxSettings {

@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { calculateCartTotal } from '$lib/utils/performance';
+import { buildCartItemKey } from '$lib/utils/cartKey';
 import type { CartItem } from '$lib/types/cart';
 import type { PosProduct, PosAddOn } from '$lib/stores/posState.svelte';
 
@@ -79,22 +80,25 @@ export function createPosCart() {
 		ice: string,
 		note: string
 	): string {
-		const sortedAddOns = [...addOnIds].sort().join(',');
-		return `${productId}-${porsi || 'reguler'}-${sortedAddOns}-${sugar}-${ice}-${note.trim()}`;
+		return buildCartItemKey({
+			productId,
+			porsi,
+			addOnIds,
+			gula: sugar,
+			es: ice,
+			catatan: note
+		});
 	}
 
 	function cartItemKey(item: CartItem): string {
-		return [
-			item.product.id,
-			item.porsi || 'reguler',
-			(item.addOns || [])
-				.map((a) => a.id)
-				.sort()
-				.join(','),
-			item.gula,
-			item.es,
-			item.catatan
-		].join('|');
+		return buildCartItemKey({
+			productId: item.product.id,
+			porsi: item.porsi || 'reguler',
+			addOnIds: (item.addOns || []).map((a) => a.id),
+			gula: item.gula,
+			es: item.es,
+			catatan: item.catatan
+		});
 	}
 
 	function addItem(

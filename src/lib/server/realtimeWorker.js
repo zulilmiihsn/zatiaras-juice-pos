@@ -4,6 +4,33 @@ export { RealtimeDurableObject } from './realtimeDurableObject.js';
 const LOG_RETENTION_DAYS = 90;
 const CLEANUP_TABLES = ['audit_logs', 'request_metrics'];
 const DB_BINDINGS = ['DB_SAMARINDA_GROUP', 'DB_BALIKPAPAN_GROUP', 'DB_BERAU_GROUP'];
+const AUDIT_METADATA_BYTES = 8192;
+
+/** Metadata berbatas yang tetap JSON valid (jangan potong string mentah).
+ * @param {unknown} value
+ */
+function boundedMetadata(value) {
+	if (value === null || value === undefined) return null;
+	let direct = null;
+	try {
+		direct = JSON.stringify(value);
+	} catch {
+		return '{"truncated":true}';
+	}
+	if (new TextEncoder().encode(direct).length <= AUDIT_METADATA_BYTES) return direct;
+	/** @type {Record<string, unknown>} */
+	const summary = {};
+	try {
+		for (const [k, v] of Object.entries(value)) {
+			if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+				summary[k] = `${k}:${String(v)}`.slice(0, 120);
+			}
+		}
+	} catch {
+		return '{"truncated":true}';
+	}
+	return JSON.stringify({ truncated: true, summary });
+}
 
 export default {
 	/**
@@ -58,7 +85,7 @@ export default {
 								input.entityId == null ? null : String(input.entityId),
 								input.transactionId || null,
 								input.amount || null,
-								input.metadata ? JSON.stringify(input.metadata).slice(0, 8192) : null,
+								boundedMetadata(input.metadata),
 								input.ipHash || null,
 								new Date().toISOString(),
 								row.id

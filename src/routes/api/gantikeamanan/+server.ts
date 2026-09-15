@@ -189,8 +189,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			);
 		}
 
-		// Verifikasi password saat ini
-		const match = await bcrypt.compare(String(passwordLama), user.password);
+		// Verifikasi password saat ini (trim konsisten dengan create/change/verify).
+		const match = await bcrypt.compare(String(passwordLama).trim(), user.password);
 		if (!match) {
 			return new Response(
 				JSON.stringify({

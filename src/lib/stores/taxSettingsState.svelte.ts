@@ -8,13 +8,19 @@ import {
 import type { TaxSettings, TaxItemConfig, TaxCalculationResult } from '$lib/types/pajak';
 
 export function createTaxSettingsState() {
-	let settings = $state<TaxSettings>(getTaxSettings());
+	let draft = $state<TaxSettings>(getTaxSettings());
+	let persisted = $state<TaxSettings>(getTaxSettings());
+	let revision = $state<number>(0);
 	let isSaving = $state<boolean>(false);
+	let saveError = $state<string | null>(null);
 	let saveSuccessMessage = $state<string | null>(null);
+	let successTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async function syncWithServer(branch?: string) {
 		const synced = await syncTaxSettingsWithServer(branch);
-		settings = synced;
+		draft = structuredClone(synced);
+		persisted = structuredClone(synced);
+		saveError = null;
 		return synced;
 	}
 
@@ -23,49 +29,61 @@ export function createTaxSettingsState() {
 	}
 
 	function refresh() {
-		settings = getTaxSettings();
+		draft = getTaxSettings();
 		void syncWithServer();
 	}
 
-	function persist() {
+	async function persist(): Promise<boolean> {
 		isSaving = true;
-		const ok = saveTaxSettings(settings);
-		isSaving = false;
-		if (ok) {
+		saveError = null;
+		try {
+			const res = await saveTaxSettings(draft);
+			if (!res.ok) {
+				saveError = res.conflict
+					? 'Berubah di perangkat lain. Muat ulang lalu coba lagi.'
+					: res.message;
+				return false;
+			}
+			persisted = structuredClone(res.settings);
+			draft = structuredClone(res.settings);
+			revision = res.revision;
+			if (successTimer) clearTimeout(successTimer);
 			saveSuccessMessage = 'Pengaturan pajak berhasil disimpan.';
-			setTimeout(() => {
+			successTimer = setTimeout(() => {
 				saveSuccessMessage = null;
 			}, 3000);
+			return true;
+		} finally {
+			isSaving = false;
 		}
-		return ok;
 	}
 
 	function setMasterTaxEnabled(enabled: boolean) {
-		settings.isTaxEnabled = enabled;
-		persist();
+		draft.isTaxEnabled = enabled;
+		void persist();
 	}
 
 	function toggleTax(id: string, enabled: boolean) {
-		const target = settings.taxes.find((t) => t.id === id);
+		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.isEnabled = enabled;
-			persist();
+			void persist();
 		}
 	}
 
 	function updateTaxPercentage(id: string, percentage: number) {
-		const target = settings.taxes.find((t) => t.id === id);
+		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.persentase = Math.max(0, Math.min(100, Number(percentage) || 0));
-			persist();
+			void persist();
 		}
 	}
 
 	function toggleTaxThreshold(id: string, useThreshold: boolean) {
-		const target = settings.taxes.find((t) => t.id === id);
+		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.useThreshold500Juta = useThreshold;
-			persist();
+			void persist();
 		}
 	}
 
@@ -83,31 +101,47 @@ export function createTaxSettingsState() {
 			deskripsi: deskripsi?.trim() || 'Pajak kustom toko'
 		};
 
-		settings.taxes.push(newItem);
-		persist();
+		draft.taxes.push(newItem);
+		void persist();
 	}
 
 	function removeCustomTax(id: string) {
-		settings.taxes = settings.taxes.filter((t) => t.id !== id);
-		persist();
+		draft.taxes = draft.taxes.filter((t) => t.id !== id);
+		void persist();
 	}
 
 	function resetToDefaults() {
-		settings = JSON.parse(JSON.stringify(DEFAULT_TAX_SETTINGS));
-		persist();
+		draft = JSON.parse(JSON.stringify(DEFAULT_TAX_SETTINGS));
+		void persist();
 	}
 
-	// Calculate helper
-	function compute(pendapatanBruto: number, labaKotor: number): TaxCalculationResult {
-		return calculateTaxes(pendapatanBruto, labaKotor, settings);
+	// Simulasi draft eksplisit (halaman pajak). Laporan memakai summary server.
+	function compute(
+		pendapatanBruto: number,
+		labaKotor: number,
+		ytdEnd?: number
+	): TaxCalculationResult {
+		return calculateTaxes(pendapatanBruto, labaKotor, draft, ytdEnd);
 	}
 
 	return {
 		get settings() {
-			return settings;
+			return draft;
+		},
+		set settings(v: TaxSettings) {
+			draft = v;
+		},
+		get persisted() {
+			return persisted;
+		},
+		get revision() {
+			return revision;
 		},
 		get isSaving() {
 			return isSaving;
+		},
+		get saveError() {
+			return saveError;
 		},
 		get saveSuccessMessage() {
 			return saveSuccessMessage;

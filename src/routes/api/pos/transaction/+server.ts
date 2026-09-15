@@ -297,6 +297,16 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	});
 
 	const existing = await getExistingByIdempotency(db, branch, idempotencyKey, idempotencyAvailable);
+	if (idempotencyAvailable && idempotencyKey) {
+		const voided = (await db
+			.prepare(
+				`SELECT transaction_id FROM pos_void_markers WHERE cabang_id = ? AND idempotency_key = ? LIMIT 1`
+			)
+			.bind(branch, idempotencyKey)
+			.first()) as { transaction_id?: string } | null;
+		if (voided && !existing)
+			throw kitError(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
+	}
 	if (existing) {
 		if (existing.request_fingerprint !== requestFingerprint) {
 			throw kitError(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
@@ -524,6 +534,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			});
 		}
 		const message = error instanceof Error ? error.message : String(error);
+		if (message.includes('TRANSACTION_VOIDED')) {
+			throw kitError(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
+		}
 		if (message.includes('INSUFFICIENT_STOCK')) {
 			await recordErrorEvent(platform, branch, {
 				source: 'POST /api/pos/transaction',

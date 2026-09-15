@@ -10,6 +10,7 @@ import { LOGO_BASE64 } from './logoBase64.js';
 import { formatRupiah } from './currency.js';
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
 import { formatOrderDetails } from './orderDetails.js';
+import { toReceiptLines } from './receiptLines.js';
 
 type SaleReceiptItem = {
 	product: { nama: string; harga?: number | null; harga_jumbo?: number | null };
@@ -128,20 +129,39 @@ export function buildReceiptHtml(
 
 	let body = `<div style='text-align:center;font-weight:bold;font-size:14px;margin-bottom:8px;'>*** CETAK ULANG ***</div>`;
 	body += `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
-	body += `<div>${trx.nama_pelanggan || ''}</div>`;
+	body += `<div>${escapeHtml(trx.nama_pelanggan || '')}</div>`;
 	body += `<div>${new Date(trx.waktu).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
 	body += `</div>`;
 
 	body += `<table style='width:100%;font-size:14px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
 
 	if (items.length > 0) {
-		items.forEach((item: Record<string, unknown>) => {
-			const produk = item.produk as Record<string, unknown> | undefined;
-			const itemName = item.nama_kustom || (produk && produk.nama) || 'Produk Custom';
-			body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${itemName} <span style='font-size:12px;font-weight:normal;'>x${item.jumlah}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(Number(item.harga))}</td></tr>`;
-		});
+		for (const line of toReceiptLines(items)) {
+			const at =
+				line.jumlah > 1 && line.unitInklusif !== null
+					? ` <span style='font-size:12px;font-weight:normal;'>@Rp${formatRupiah(line.unitInklusif)}</span>`
+					: '';
+			body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(line.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span>${at}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(line.subtotal)}</td></tr>`;
+			if (!line.inklusifSaja) {
+				for (const a of line.addOns) {
+					body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(a.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span></td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah(a.total)}</td></tr>`;
+				}
+				const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
+				if (detail) {
+					body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
+				}
+			} else {
+				// Legacy inklusif: topping sudah termasuk, jangan tambah nominal.
+				if (line.addOns.length === 0) {
+					const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
+					if (detail) {
+						body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
+					}
+				}
+			}
+		}
 	} else {
-		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${trx.nama}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(trx.nominal ?? 0)}</td></tr>`;
+		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(trx.nama)}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(trx.nominal ?? 0)}</td></tr>`;
 	}
 
 	body += `</tbody></table>`;
@@ -154,9 +174,9 @@ export function buildReceiptHtml(
 	body += `<tr><td style='text-align:left;font-size:13px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:13px;padding-top:4px;'>${METHOD_LABELS[methodKey] || methodKey}</td></tr>`;
 	body += `</tbody></table>`;
 
-	const footer = `<div style='text-align:center;font-size:13px;white-space:pre-line;'>${p.ucapan}</div>`;
+	const footer = `<div style='text-align:center;font-size:13px;white-space:pre-line;'>${escapeHtml(p.ucapan)}</div>`;
 	return buildReceiptShell(
-		{ settings: p, marginBottom: 12, renderText: (value) => String(value) },
+		{ settings: p, marginBottom: 12, renderText: (value) => escapeHtml(value) },
 		body,
 		footer
 	);

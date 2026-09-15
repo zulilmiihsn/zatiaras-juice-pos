@@ -71,6 +71,28 @@ export async function getSesiAktif(): Promise<TokoSession | null> {
 	}
 }
 
+export interface SesiSummary {
+	id: string;
+	modalAwal: number;
+	totalPemasukan: number;
+	pemasukanTunai: number;
+	pemasukanNonTunai: number;
+	pengeluaranTunai: number;
+	uangKasir: number;
+	baris: number;
+}
+
+export async function getSesiSummary(sesiId: string): Promise<SesiSummary | null> {
+	const qs = new URLSearchParams({ branch: branch(), summary: '1', id: sesiId }).toString();
+	try {
+		const res = await fetch(`/api/sesi-toko?${qs}`);
+		if (!res.ok) return null;
+		return (await res.json()) as SesiSummary;
+	} catch {
+		return null;
+	}
+}
+
 export async function bukaToko(openingCash: number, openingTime: string): Promise<void> {
 	const response = await fetchWithCsrfRetry('/api/sesi-toko', {
 		method: 'POST',

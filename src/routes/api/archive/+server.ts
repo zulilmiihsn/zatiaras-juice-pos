@@ -1,7 +1,16 @@
 import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getRawDb } from '$lib/server/dataApiHelpers';
-import { createHash } from 'node:crypto';
+import {
+	acquireArchiveJob,
+	cutoffForYear,
+	deterministicSummaryId,
+	getCompletedJobForYear,
+	sealManifestItems,
+	setJobStatus,
+	sha256Hex,
+	verifyReadbackBytes
+} from '$lib/server/archiveService';
 import type { RequestHandler } from './$types';
 
 /**
@@ -93,32 +102,48 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	}
 
 	// [CATATAN]: Cutoff 1 Jan 00:00 WITA (UTC+8) -> dikonversi ke UTC ISO string
-	const cutoffWita = new Date(`${year}-01-01T00:00:00+08:00`);
-	const cutoff = cutoffWita.toISOString();
+	const { cutoffWita, cutoff } = cutoffForYear(year);
 
 	const rawDb = getRawDb(platform, branch);
-	const bucket = platform?.env?.STORAGE;
+	const bucket = platform?.env?.STORAGE as
+		| {
+				put: (k: string, v: string, o?: unknown) => Promise<unknown>;
+				get: (k: string) => Promise<null | {
+					text: () => Promise<string>;
+					arrayBuffer: () => Promise<ArrayBuffer>;
+				}>;
+		  }
+		| undefined;
 	if (!bucket) throw kitError(503, 'Storage tidak tersedia');
 
-	// [CATATAN]: Branch archive lock guard untuk mencegah operasi arsip konkuren
-	const existingLock = (await rawDb
-		.prepare(
-			`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = 'archive_lock' LIMIT 1`
-		)
-		.bind(branch)
-		.first()
-		.catch(() => null)) as { nilai?: string; updated_at?: string } | null;
-
-	// [CATATAN]: Archive Resume Capability: Jika tahun ini sudah pernah selesai diarsipkan, kembalikan data yang tersimpan
-	const completedJob = (await rawDb
-		.prepare(`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = ? LIMIT 1`)
+	// Resume: job completed baru dulu, lalu pointer legacy agar arsip lama tetap dikenali.
+	const completed = await getCompletedJobForYear(rawDb, branch, year).catch(() => null);
+	if (completed?.object_key) {
+		let count = 0;
+		try {
+			count = Number((JSON.parse(completed.counts || '{}') as { total?: number }).total || 0);
+		} catch {}
+		return json({
+			ok: true,
+			resumed: true,
+			count,
+			key: completed.object_key,
+			message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
+		});
+	}
+	const legacyCompleted = (await rawDb
+		.prepare(`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = ? LIMIT 1`)
 		.bind(branch, `archive_job_${year}`)
 		.first()
-		.catch(() => null)) as { nilai?: string; updated_at?: string } | null;
-
-	if (completedJob?.nilai) {
+		.catch(() => null)) as { nilai?: string } | null;
+	if (legacyCompleted?.nilai) {
 		try {
-			const parsed = JSON.parse(completedJob.nilai);
+			const parsed = JSON.parse(legacyCompleted.nilai) as {
+				status?: string;
+				key?: string;
+				count?: number;
+				filename?: string;
+			};
 			if (parsed.status === 'completed' && parsed.key) {
 				return json({
 					ok: true,
@@ -132,25 +157,17 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		} catch {}
 	}
 
-	if (existingLock?.nilai === 'locked') {
-		const lockTime = new Date(existingLock.updated_at || 0).getTime();
-		if (Date.now() - lockTime < 10 * 60 * 1000) {
+	// Klaim job atomik (ganti string lock tanpa pemilik).
+	let job;
+	try {
+		job = await acquireArchiveJob(rawDb, branch, year, cutoff);
+	} catch (e) {
+		if ((e as Error & { code?: string }).code === 'ARCHIVE_LOCKED')
 			throw kitError(409, 'Proses pengarsipan sedang berjalan untuk cabang ini. Coba lagi nanti.');
-		}
+		throw e;
 	}
-
-	// Pasang lock
-	await rawDb
-		.prepare(
-			`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-			 VALUES (?, ?, 'archive_lock', 'locked', ?)
-			 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = 'locked', updated_at = excluded.updated_at`
-		)
-		.bind(crypto.randomUUID(), branch, new Date().toISOString())
-		.run()
-		.catch(() => {});
-
-	const archiveJobId = crypto.randomUUID();
+	const archiveJobId = job.id;
+	let jobOwner = job.owner_token;
 
 	try {
 		// Conflict Detection 1: Pastikan tidak ada sesi toko yang sedang aktif di cabang ini
@@ -183,32 +200,14 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			);
 		}
 
-		// Job Tracking: Catat awal proses pengarsipan
-		await rawDb
-			.prepare(
-				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-				 VALUES (?, ?, 'archive_job', ?, ?)
-				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
-			)
-			.bind(
-				crypto.randomUUID(),
-				branch,
-				JSON.stringify({
-					id: archiveJobId,
-					status: 'running',
-					year,
-					started_at: new Date().toISOString()
-				}),
-				new Date().toISOString()
-			)
-			.run()
-			.catch(() => {});
+		// Tandai uploading (gagal ownership = worker lama, batalkan).
+		if (!(await setJobStatus(rawDb, archiveJobId, jobOwner, 'uploading')))
+			throw kitError(409, 'Klaim arsip kedaluwarsa. Coba lagi.');
 
-		const [bukuKasResult, transaksiKasirResult] = await Promise.all([
+		const [bukuKasResult, transaksiKasirResult] = (await rawDb.batch([
 			rawDb
 				.prepare('SELECT * FROM buku_kas WHERE cabang_id = ? AND waktu < ?')
-				.bind(branch, cutoff)
-				.all(),
+				.bind(branch, cutoff),
 			rawDb
 				.prepare(
 					`SELECT tk.* FROM transaksi_kasir tk
@@ -217,33 +216,15 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				 WHERE tk.cabang_id = ? AND bk.waktu < ?`
 				)
 				.bind(branch, cutoff)
-				.all()
-		]);
-		const bukuKas = (bukuKasResult.results || []) as Array<Record<string, unknown>>;
-		const transaksiKasir = (transaksiKasirResult.results || []) as Array<Record<string, unknown>>;
+		])) as unknown as Array<{ results?: Array<Record<string, unknown>> }>;
+		const bukuKas = (bukuKasResult?.results || []) as Array<Record<string, unknown>>;
+		const transaksiKasir = (transaksiKasirResult?.results || []) as Array<Record<string, unknown>>;
 
 		const total = bukuKas.length + transaksiKasir.length;
 		if (total === 0) {
-			await rawDb
-				.prepare(
-					`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-					 VALUES (?, ?, 'archive_job', ?, ?)
-					 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
-				)
-				.bind(
-					crypto.randomUUID(),
-					branch,
-					JSON.stringify({
-						id: archiveJobId,
-						status: 'completed',
-						year,
-						total: 0,
-						completed_at: new Date().toISOString()
-					}),
-					new Date().toISOString()
-				)
-				.run()
-				.catch(() => {});
+			await setJobStatus(rawDb, archiveJobId, jobOwner, 'completed', {
+				counts: JSON.stringify({ total: 0, buku_kas: 0, transaksi_kasir: 0 })
+			});
 
 			return json({
 				ok: true,
@@ -252,24 +233,42 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			});
 		}
 
-		const archiveId = crypto.randomUUID();
+		const archiveId = archiveJobId;
+		const itemManifest = bukuKas.map((r) => ({
+			id: String(r.id),
+			transaction_id: (r.transaction_id as string | null) ?? null,
+			revision: Number(r.revision ?? 0)
+		}));
+		const tkIds = transaksiKasir.map((r) => String(r.id)).filter(Boolean);
 		const archive = {
 			meta: {
 				schema_version: 2,
 				archive_id: archiveId,
+				job_id: archiveJobId,
 				branch,
 				before_year: year,
 				cutoff_wita: cutoffWita.toISOString(),
 				exported_at: new Date().toISOString(),
 				counts: { buku_kas: bukuKas.length, transaksi_kasir: transaksiKasir.length }
 			},
+			items: itemManifest,
 			buku_kas: bukuKas,
 			transaksi_kasir: transaksiKasir
 		};
 		const content = JSON.stringify(archive);
-		const checksum = createHash('sha256').update(content).digest('hex');
+		const checksum = sha256Hex(content);
 		const filename = `arsip-${branch}-sebelum-${year}-${archiveId.slice(0, 8)}.json`;
 		const key = `arsip/${branch}/${year}/${filename}`;
+		await sealManifestItems(
+			rawDb,
+			archiveJobId,
+			branch,
+			bukuKas.map((r) => ({
+				id: String(r.id),
+				transaction_id: (r.transaction_id as string | null) ?? null,
+				revision: Number(r.revision ?? 0)
+			}))
+		);
 
 		// [CATATAN]: Simpan ke R2 DULU — kalau gagal, lempar error & JANGAN hapus apa pun dari DB
 		await bucket.put(key, content, {
@@ -283,11 +282,11 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			}
 		});
 
-		// [CATATAN]: Verifikasi readback dari R2 untuk membuktikan objek benar tersimpan utuh
+		// F19: verifikasi ISI readback (hash + ukuran), bukan sekadar ada.
 		const readback = await bucket.get(key);
-		if (!readback) {
+		if (!readback)
 			throw kitError(500, 'Verifikasi integritas arsip R2 gagal: objek tidak dapat dibaca kembali');
-		}
+		verifyReadbackBytes(content, await readback.text());
 
 		// [CATATAN]: Rekapitulasi transaksi manual ke ringkasan_kas_arsip_harian agar histori laporan tetap utuh
 		const manualSummaries = new Map<
@@ -336,20 +335,40 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			manualSummaries.set(summaryKey, current);
 		}
 
-		const batchStatements = [];
+		const finalizeToken = crypto.randomUUID();
+		const batchStatements = [
+			rawDb
+				.prepare(
+					`UPDATE archive_jobs SET status = 'finalizing', owner_token = ?, updated_at = ?
+					 WHERE id = ? AND owner_token = ? AND status IN ('claimed','uploading')`
+				)
+				.bind(finalizeToken, new Date().toISOString(), archiveJobId, jobOwner)
+		];
+		jobOwner = finalizeToken;
+		const jobGuard = `EXISTS (SELECT 1 FROM archive_jobs WHERE id = ? AND owner_token = ? AND status = 'finalizing')`;
+		const noSession = `NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)`;
 
-		// 1. Simpan ringkasan arsip manual
+		// 1. Ringkasan arsip manual, ID deterministik job+dimensi (retry tidak ganda).
 		for (const s of manualSummaries.values()) {
+			const sid = deterministicSummaryId(
+				archiveJobId,
+				s.tanggal_wita,
+				s.tipe,
+				s.jenis,
+				s.metode_bayar
+			);
 			batchStatements.push(
 				rawDb
 					.prepare(
 						`INSERT INTO ringkasan_kas_arsip_harian (
 						id, cabang_id, archive_id, tanggal_wita, tipe, jenis, metode_bayar,
 						jumlah_transaksi, total_nominal, created_at
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					)
+					SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+					WHERE ${jobGuard} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
 					)
 					.bind(
-						crypto.randomUUID(),
+						sid,
 						branch,
 						archiveId,
 						s.tanggal_wita,
@@ -358,63 +377,80 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						s.metode_bayar,
 						s.count,
 						s.total_nominal,
-						new Date().toISOString()
+						new Date().toISOString(),
+						archiveJobId,
+						finalizeToken,
+						sid
 					)
 			);
 		}
 
-		// 2. Anti-TOCTOU: Hapus HANYA exact row IDs yang sudah tersimpan di file arsip
-		const bkIds = bukuKas.map((r) => String(r.id)).filter(Boolean);
-		const tkIds = transaksiKasir.map((r) => String(r.id)).filter(Boolean);
-
-		// Chunked delete in batches of 50
+		// 2. Hapus exact manifest; revision harus cocok + sesi tutup + job guard.
+		// transaksi detail dulu, header terakhir.
 		for (let i = 0; i < tkIds.length; i += 50) {
 			const chunk = tkIds.slice(i, i + 50);
 			const placeholders = chunk.map(() => '?').join(',');
 			batchStatements.push(
 				rawDb
-					.prepare(`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})`)
-					.bind(branch, ...chunk)
+					.prepare(
+						`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})
+						 AND ${jobGuard} AND ${noSession}`
+					)
+					.bind(branch, ...chunk, archiveJobId, finalizeToken, branch)
 			);
 		}
-		for (let i = 0; i < bkIds.length; i += 50) {
-			const chunk = bkIds.slice(i, i + 50);
+		for (let i = 0; i < itemManifest.length; i += 20) {
+			const chunk = itemManifest.slice(i, i + 20);
 			const placeholders = chunk.map(() => '?').join(',');
+			const ids = chunk.map((m) => m.id);
 			batchStatements.push(
 				rawDb
-					.prepare(`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})`)
-					.bind(branch, ...chunk)
+					.prepare(
+						`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})
+						 AND ${jobGuard} AND ${noSession}
+						 AND NOT EXISTS (
+							SELECT 1 FROM buku_kas b
+							JOIN archive_job_items m ON m.job_id = ? AND m.buku_kas_id = b.id
+							WHERE b.cabang_id = ? AND b.id IN (${placeholders}) AND b.revision != m.revision
+						 )`
+					)
+					.bind(branch, ...ids, archiveJobId, finalizeToken, branch, archiveJobId, branch, ...ids)
 			);
 		}
 
-		if (batchStatements.length > 0) {
-			await rawDb.batch(batchStatements);
-		}
-
-		await rawDb
-			.prepare(
-				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-				 VALUES (?, ?, 'archive_job', ?, ?)
-				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
-			)
-			.bind(
-				crypto.randomUUID(),
-				branch,
-				JSON.stringify({
-					id: archiveJobId,
-					status: 'completed',
-					year,
+		batchStatements.push(
+			rawDb
+				.prepare(
+					`UPDATE archive_jobs SET status = 'completed', object_key = ?, checksum = ?, counts = ?, updated_at = ?
+					 WHERE id = ? AND owner_token = ? AND status = 'finalizing'`
+				)
+				.bind(
 					key,
 					checksum,
-					counts: archive.meta.counts,
-					completed_at: new Date().toISOString()
-				}),
-				new Date().toISOString()
-			)
-			.run()
-			.catch(() => {});
+					JSON.stringify({ total, ...archive.meta.counts }),
+					new Date().toISOString(),
+					archiveJobId,
+					finalizeToken
+				)
+		);
 
-		// Catat resume pointer untuk tahun spesifik
+		const finalResults = (await rawDb.batch(batchStatements)) as unknown as Array<{
+			changes?: number;
+			meta?: { changes?: number };
+		}>;
+		const claimChanges =
+			typeof finalResults?.[0]?.changes === 'number'
+				? finalResults[0].changes
+				: (finalResults?.[0]?.meta?.changes ?? 0);
+		if (claimChanges === 0) {
+			await setJobStatus(rawDb, archiveJobId, finalizeToken, 'orphan').catch(() => {});
+			throw kitError(
+				409,
+				'Arsip berubah bersamaan (sesi/edit/void). Snapshot orphan, ledger utuh. Coba lagi.'
+			);
+		}
+
+		// Pointer legacy agar UI lama tetap resume; bukan sumber status utama.
 		await rawDb
 			.prepare(
 				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
@@ -449,36 +485,13 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			counts: archive.meta.counts
 		});
 	} catch (err) {
-		await rawDb
-			.prepare(
-				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-				 VALUES (?, ?, 'archive_job', ?, ?)
-				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at`
-			)
-			.bind(
-				crypto.randomUUID(),
-				branch,
-				JSON.stringify({
-					id: archiveJobId,
-					status: 'failed',
-					year,
-					error: err instanceof Error ? err.message : String(err),
-					failed_at: new Date().toISOString()
-				}),
-				new Date().toISOString()
-			)
-			.run()
-			.catch(() => {});
+		if (typeof archiveJobId === 'string' && typeof jobOwner === 'string') {
+			const msg = err instanceof Error ? err.message : String(err);
+			const orphan = /bersamaan|kedaluwarsa|lease|upload/i.test(msg);
+			await setJobStatus(rawDb, archiveJobId, jobOwner, orphan ? 'orphan' : 'failed').catch(
+				() => {}
+			);
+		}
 		throw err;
-	} finally {
-		await rawDb
-			.prepare(
-				`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
-				 VALUES (?, ?, 'archive_lock', 'unlocked', ?)
-				 ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = 'unlocked', updated_at = excluded.updated_at`
-			)
-			.bind(crypto.randomUUID(), branch, new Date().toISOString())
-			.run()
-			.catch(() => {});
 	}
 };

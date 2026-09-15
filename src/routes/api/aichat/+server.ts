@@ -17,6 +17,7 @@ import {
 	type DataRequirements
 } from './prompts';
 import { fetchReportDataSql, buildReportContext } from './reportData';
+import { resolveAiPeriod, hasPeriodQualifier, detectAiIntent } from '$lib/server/aiPeriod';
 
 // [CATATAN]: OpenRouter / AI Model configuration
 const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions';
@@ -239,291 +240,33 @@ function toYMDWita(date: Date): string {
 }
 
 /**
- * Fast-path intent & date resolver:
- * Memintas panggilan AI 1 untuk pertanyaan saran tombol cepat dan kata kunci standar.
- * Menghasilkan latency 0ms dan zero token untuk 80% pertanyaan umum.
+ * Fast-path intent & date resolver (F27): periode eksplisit dulu, lalu intent.
+ * Ambigu/tak dikenali -> null agar analyzer lanjutan dipakai.
  */
 function fastResolveRequirements(question: string, todayWita: string): DataRequirements | null {
 	const q = question.toLowerCase().trim();
-	const currentMonthStart = `${todayWita.slice(0, 7)}-01`;
-	const currentDate = new Date(`${todayWita}T00:00:00.000Z`);
-
-	const getPastDateStr = (daysAgo: number) => {
-		const d = new Date(currentDate);
-		d.setUTCDate(d.getUTCDate() - daysAgo);
-		return d.toISOString().slice(0, 10);
+	const period = resolveAiPeriod(q, todayWita);
+	if (hasPeriodQualifier(q) && !period) return null;
+	const intent = detectAiIntent(q);
+	if (!intent) return null;
+	const resolved = period ?? {
+		start: `${todayWita.slice(0, 7)}-01`,
+		end: todayWita,
+		type: 'monthly' as const
 	};
-
-	// 1. Performa Penjualan / Hari ini
-	if (
-		q.includes('performa penjualan') ||
-		q.includes('penjualan toko hari ini') ||
-		q.includes('omzet hari ini') ||
-		q === 'hari ini' ||
-		q.includes('bagaimana performa')
-	) {
-		return {
-			periode: { start: todayWita, end: todayWita, type: 'daily' },
-			jenisData: ['buku_kas', 'transaksi_kasir', 'payment_analysis'],
-			prioritas: 'sales_analysis',
-			scope: 'revenue_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis performa penjualan hari ini'
-		};
-	}
-
-	// 2. Kemarin
-	if (q.includes('kemarin') || q.includes('penjualan kemarin')) {
-		const yesterday = getPastDateStr(1);
-		return {
-			periode: { start: yesterday, end: yesterday, type: 'daily' },
-			jenisData: ['buku_kas', 'transaksi_kasir'],
-			prioritas: 'sales_analysis',
-			scope: 'revenue_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis performa kemarin'
-		};
-	}
-
-	// 3. Menu / Produk Terlaris
-	if (
-		q.includes('menu terlaris') ||
-		q.includes('paling laris') ||
-		q.includes('banyak terjual') ||
-		q.includes('produk terlaris')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['produk_terlaris', 'transaksi_kasir', 'produk'],
-			prioritas: 'product_analysis',
-			scope: 'product_performance',
-			reasoning: 'Shortcut Heuristik: Analisis produk terlaris bulan ini'
-		};
-	}
-
-	// 4. Keuntungan Bersih / Laba
-	if (
-		q.includes('keuntungan bersih') ||
-		q.includes('laba kotor') ||
-		q.includes('laba bersih') ||
-		q.includes('profit')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['buku_kas', 'financial_summary'],
-			prioritas: 'financial_analysis',
-			scope: 'revenue_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis laba dan keuangan bulan ini'
-		};
-	}
-
-	// 5. Tren Penjualan / 7 Hari Terakhir
-	if (
-		q.includes('tren penjualan') ||
-		q.includes('seminggu terakhir') ||
-		q.includes('7 hari') ||
-		q.includes('1 minggu')
-	) {
-		const sevenDaysAgo = getPastDateStr(6);
-		return {
-			periode: { start: sevenDaysAgo, end: todayWita, type: 'daily' },
-			jenisData: ['buku_kas', 'daily_trends', 'payment_analysis'],
-			prioritas: 'trend_analysis',
-			scope: 'trend_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis tren seminggu terakhir'
-		};
-	}
-
-	// 6. Bulan Lalu
-	if (q.includes('bulan lalu') || q.includes('bulan kemarin')) {
-		const firstOfCurrentMonth = new Date(
-			Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1)
-		);
-		const lastOfPrevMonth = new Date(firstOfCurrentMonth.getTime() - 86400000);
-		const firstOfPrevMonth = new Date(
-			Date.UTC(lastOfPrevMonth.getUTCFullYear(), lastOfPrevMonth.getUTCMonth(), 1)
-		);
-		return {
-			periode: {
-				start: firstOfPrevMonth.toISOString().slice(0, 10),
-				end: lastOfPrevMonth.toISOString().slice(0, 10),
-				type: 'monthly'
+	try {
+		return parseDataRequirements(
+			{
+				periode: resolved,
+				jenisData: intent.jenisData,
+				prioritas: intent.prioritas,
+				scope: intent.scope
 			},
-			jenisData: ['buku_kas', 'transaksi_kasir', 'financial_summary'],
-			prioritas: 'sales_analysis',
-			scope: 'revenue_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis bulan lalu'
-		};
+			todayWita
+		);
+	} catch {
+		return null;
 	}
-
-	// 7. Bulan Ini
-	if (q.includes('bulan ini')) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['buku_kas', 'transaksi_kasir', 'financial_summary'],
-			prioritas: 'sales_analysis',
-			scope: 'revenue_analysis',
-			reasoning: 'Shortcut Heuristik: Analisis bulan ini'
-		};
-	}
-
-	// 8. Riset Pasar, Tren & Web Browsing
-	if (
-		q.includes('riset') ||
-		q.includes('tren') ||
-		q.includes('viral') ||
-		q.includes('browsing') ||
-		q.includes('internet') ||
-		q.includes('kompetitor') ||
-		q.includes('pesaing') ||
-		q.includes('tiktok') ||
-		q.includes('instagram') ||
-		q.includes('ide menu') ||
-		q.includes('resep baru')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['produk_terlaris', 'produk'],
-			prioritas: 'market_analysis',
-			scope: 'market_analysis',
-			reasoning: 'Shortcut Heuristik: Riset pasar dan tren minuman viral via web'
-		};
-	}
-
-	// 9. Konsultasi Strategi Bisnis, Rekomendasi, Tips & Pertumbuhan Toko
-	if (
-		q.includes('strategi') ||
-		q.includes('psikologi') ||
-		q.includes('decoy') ||
-		q.includes('anchoring') ||
-		q.includes('bundling') ||
-		q.includes('marketing') ||
-		q.includes('cara') ||
-		q.includes('harus apa') ||
-		q.includes('apa yang harus') ||
-		q.includes('saran') ||
-		q.includes('rekomendasi') ||
-		q.includes('menurutmu') ||
-		q.includes('pendapatmu') ||
-		q.includes('gimana') ||
-		q.includes('bagaimana') ||
-		q.includes('maju') ||
-		q.includes('laris') ||
-		q.includes('ramai') ||
-		q.includes('sepi') ||
-		q.includes('kaya') ||
-		q.includes('sukses') ||
-		q.includes('tingkatkan') ||
-		q.includes('kembangkan') ||
-		q.includes('evaluasi') ||
-		q.includes('solusi') ||
-		q.includes('ide') ||
-		q.includes('tips') ||
-		q.includes('bantu') ||
-		q.includes('menu engineering') ||
-		q.includes('promosi')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: [
-				'produk_terlaris',
-				'transaksi_kasir',
-				'financial_summary',
-				'hpp_margin',
-				'stok_bahan'
-			],
-			prioritas: 'strategic_consulting',
-			scope: 'market_analysis',
-			reasoning: 'Shortcut Heuristik: Konsultasi strategi bisnis FnB dan pertumbuhan toko'
-		};
-	}
-
-	// 10. Stok Bahan Baku & Peringatan Bahan Kritis
-	if (
-		q.includes('stok') ||
-		q.includes('bahan') ||
-		q.includes('sisa buah') ||
-		q.includes('buah habis') ||
-		q.includes('ambang stok') ||
-		q.includes('restok') ||
-		q.includes('persediaan')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['stok_bahan', 'produk'],
-			prioritas: 'inventory_analysis',
-			scope: 'inventory_management',
-			reasoning: 'Shortcut Heuristik: Evaluasi stok bahan baku dan peringatan restok'
-		};
-	}
-
-	// 11. HPP & Margin Profitabilitas Menu
-	if (
-		q.includes('hpp') ||
-		q.includes('margin') ||
-		q.includes('modal produk') ||
-		q.includes('paling untung') ||
-		q.includes('margin terbesar') ||
-		q.includes('margin tipis') ||
-		q.includes('keuntungan per cup')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['hpp_margin', 'transaksi_kasir', 'financial_summary'],
-			prioritas: 'margin_analysis',
-			scope: 'margin_optimization',
-			reasoning: 'Shortcut Heuristik: Analisis HPP dan margin keuntungan produk'
-		};
-	}
-
-	// 12. Selera & Kustomisasi Konsumen (Gula & Es)
-	if (
-		q.includes('gula') ||
-		q.includes('es') ||
-		q.includes('less sugar') ||
-		q.includes('level gula') ||
-		q.includes('selera') ||
-		q.includes('kustomisasi')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['customer_behavior', 'transaksi_kasir'],
-			prioritas: 'customer_analysis',
-			scope: 'customer_insights',
-			reasoning: 'Shortcut Heuristik: Analisis preferensi kustomisasi pelanggan (gula & es)'
-		};
-	}
-
-	// 13. Performa Shift & Sesi Toko
-	if (
-		q.includes('shift') ||
-		q.includes('sesi kasir') ||
-		q.includes('sesi toko') ||
-		q.includes('buka toko') ||
-		q.includes('tutup toko')
-	) {
-		return {
-			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-			jenisData: ['shift_analysis', 'buku_kas'],
-			prioritas: 'shift_analysis',
-			scope: 'operational_efficiency',
-			reasoning: 'Shortcut Heuristik: Analisis performa shift dan sesi toko'
-		};
-	}
-
-	// 14. Fallback Default untuk Pertanyaan Terbuka / Konsultasi Bebas
-	return {
-		periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
-		jenisData: [
-			'buku_kas',
-			'transaksi_kasir',
-			'produk_terlaris',
-			'financial_summary',
-			'hpp_margin',
-			'stok_bahan'
-		],
-		prioritas: 'strategic_consulting',
-		scope: 'general_analysis',
-		reasoning: 'Shortcut Heuristik: Analisis komprehensif data bisnis bulan berjalan'
-	};
 }
 
 /** Deteksi apakah pertanyaan memerlukan riset eksternal ke web/internet */

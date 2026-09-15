@@ -11,7 +11,8 @@ import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types'
 export async function buildDailySummaryReversalStatements(
 	rawDb: D1Database,
 	branch: BranchId,
-	transactionId: string
+	transactionId: string,
+	guard?: { headerId: string; mutationToken: string }
 ): Promise<{ found: boolean; statements: D1PreparedStatement[] }> {
 	// [CATATAN]: Agregat kontribusi transaksi: tanggal WITA dari created_at item, dan
 	// [CATATAN]: metode bayar dari buku_kas induknya.
@@ -68,6 +69,11 @@ export async function buildDailySummaryReversalStatements(
 			}
 		).results || [];
 
+	const guardSql = guard
+		? ` AND EXISTS (SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?)`
+		: ``;
+	const guardArgs = guard ? [branch, guard.headerId, guard.mutationToken] : [];
+
 	const statements: D1PreparedStatement[] = [
 		rawDb
 			.prepare(
@@ -79,9 +85,9 @@ export async function buildDailySummaryReversalStatements(
 					penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
 					total_hpp = MAX(0, total_hpp - ?),
 					updated_at = ?
-				 WHERE cabang_id = ? AND tanggal_penjualan = ?`
+				 WHERE cabang_id = ? AND tanggal_penjualan = ?${guardSql}`
 			)
-			.bind(itemQty, gross, cashDelta, nonCashDelta, hpp, now, branch, salesDate),
+			.bind(itemQty, gross, cashDelta, nonCashDelta, hpp, now, branch, salesDate, ...guardArgs),
 		...products.map((p) =>
 			rawDb
 				.prepare(
@@ -92,7 +98,7 @@ export async function buildDailySummaryReversalStatements(
 						penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
 						jumlah_transaksi = MAX(0, jumlah_transaksi - 1),
 						updated_at = ?
-					 WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ?`
+					 WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ?${guardSql}`
 				)
 				.bind(
 					Number(p.jumlah || 0),
@@ -102,7 +108,8 @@ export async function buildDailySummaryReversalStatements(
 					now,
 					branch,
 					salesDate,
-					String(p.produk_id)
+					String(p.produk_id),
+					...guardArgs
 				)
 		)
 	];

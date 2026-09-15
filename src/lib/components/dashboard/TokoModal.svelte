@@ -5,7 +5,7 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import X from '@lucide/svelte/icons/x';
 	import { transactionService } from '$lib/services/transactionService';
-	import { bukaToko, tutupToko } from '$lib/services/sesiTokoService';
+	import { bukaToko, tutupToko, getSesiSummary } from '$lib/services/sesiTokoService';
 	import { getNowWita, getTodayWita, witaToUtcISO } from '$lib/utils/dateTime';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { BukuKasRecord, TokoSession } from '$lib/types';
@@ -44,6 +44,20 @@
 
 	async function hitungRingkasanTutup() {
 		if (!sesiAktif) return;
+		// Ringkasan server: agregasi SELURUH ledger sesi (bukan 200 baris pertama).
+		try {
+			const summary = await getSesiSummary(sesiAktif.id);
+			if (summary) {
+				ringkasanTutup = {
+					modalAwal: summary.modalAwal,
+					totalPenjualan: summary.totalPemasukan,
+					pemasukanTunai: summary.pemasukanTunai,
+					pengeluaranTunai: summary.pengeluaranTunai,
+					uangKasir: summary.uangKasir
+				};
+				return;
+			}
+		} catch {}
 		const kasRaw = (await transactionService.getRows('buku_kas', {
 			id_sesi_toko: sesiAktif.id
 		})) as unknown as BukuKasRecord[];

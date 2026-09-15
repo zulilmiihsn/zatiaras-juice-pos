@@ -492,6 +492,18 @@ export class DashboardService {
 					throw new Error(`Gagal memuat laporan (${aggRes.status})`);
 				}
 				const aggData = await aggRes.json();
+				const serverSummary = (aggData?.summary ?? null) as {
+					pendapatan?: number;
+					pengeluaran?: number;
+					saldo?: number;
+					labaKotor?: number;
+					pajak?: number;
+					labaBersih?: number;
+				} | null;
+				const serverTax = (aggData?.taxContext ?? null) as {
+					breakdowns?: Array<{ nama: string; persentase: number; nominal: number }>;
+					label?: string;
+				} | null;
 				const laporan: Record<string, unknown>[] = Array.isArray(aggData?.transactions)
 					? aggData.transactions
 					: [];
@@ -501,7 +513,18 @@ export class DashboardService {
 				const totalPemasukan = pemasukan.reduce((s, t) => s + ((t.nominal as number) || 0), 0);
 				const totalPengeluaran = pengeluaran.reduce((s, t) => s + ((t.nominal as number) || 0), 0);
 				const labaKotor = totalPemasukan - totalPengeluaran;
-				const taxResult = calculateTaxes(totalPemasukan, labaKotor);
+				// Pajak + laba bersih memakai ringkasan server (konteks YTD + config persisted).
+				const serverPajak = typeof serverSummary?.pajak === 'number' ? serverSummary.pajak : null;
+				const serverBersih =
+					typeof serverSummary?.labaBersih === 'number' ? serverSummary.labaBersih : null;
+				const fallback = calculateTaxes(totalPemasukan, labaKotor);
+				const breakdowns = Array.isArray(serverTax?.breakdowns)
+					? serverTax.breakdowns
+					: fallback.breakdowns.map((b) => ({
+							nama: b.nama,
+							persentase: b.persentase,
+							nominal: b.nominalPajak
+						}));
 
 				return {
 					data: {
@@ -510,14 +533,10 @@ export class DashboardService {
 							pengeluaran: totalPengeluaran,
 							saldo: labaKotor,
 							labaKotor,
-							pajak: taxResult.totalPajak,
-							labaBersih: taxResult.labaBersih,
-							taxBreakdown: taxResult.breakdowns.map((b) => ({
-								nama: b.nama,
-								persentase: b.persentase,
-								nominal: b.nominalPajak
-							})),
-							taxLabel: taxResult.activeTaxesLabel
+							pajak: serverPajak ?? fallback.totalPajak,
+							labaBersih: serverBersih ?? fallback.labaBersih,
+							taxBreakdown: breakdowns,
+							taxLabel: serverTax?.label ?? fallback.activeTaxesLabel
 						},
 						pemasukanUsaha: pemasukan.filter((t) => t.jenis === 'pendapatan_usaha'),
 						pemasukanLain: pemasukan.filter((t) => t.jenis === 'lainnya'),

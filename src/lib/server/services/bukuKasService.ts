@@ -1,10 +1,11 @@
-import { and, asc, eq, gte, lte, gt, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lt, lte, gt, or, type SQL } from 'drizzle-orm';
 import { bukuKas } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
 import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { toCursorPage } from '$lib/server/dataPagination';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { containsPosLedger, POS_LEDGER_ROUTE_MESSAGE } from '$lib/server/ledgerPolicy';
+import { newMutationToken, batchClaimChanges } from '$lib/server/ledgerCas';
 import { error as kitError } from '@sveltejs/kit';
 
 export type Database = ReturnType<typeof getDb>;
@@ -18,6 +19,10 @@ export interface BukuKasFilter {
 	id?: string | null;
 	transactionId?: string | null;
 	idSesiToko?: string | null;
+	/** 'asc' default lama; 'desc' untuk riwayat terbaru dulu. */
+	direction?: string | null;
+	search?: string | null;
+	metode?: string | null;
 }
 
 /**
@@ -31,6 +36,28 @@ export async function getBukuKasList(
 	cursor: { sortValue: string; id: string } | null,
 	cursorPagination: boolean
 ) {
+	const rows = await getBukuKasQuery(db, branch, filter, limit, cursor, cursorPagination);
+	if (!cursorPagination) return { rows, isPage: false as const };
+	return {
+		page: toCursorPage(rows, limit, (row) => ({ sortValue: row.waktu, id: String(row.id) })),
+		isPage: true as const
+	};
+}
+
+/**
+ * Query inti buku_kas dipakai GET biasa + cursor pagination.
+ * Filter search/metode/tanggal diterapkan SEBELUM limit di server.
+ * direction 'desc' = terbaru dulu (waktu DESC, id DESC); default 'asc' lama.
+ */
+async function getBukuKasQuery(
+	db: Database,
+	branch: string,
+	filter: BukuKasFilter,
+	limit: number,
+	cursor: { sortValue: string; id: string } | null,
+	cursorPagination: boolean
+) {
+	const descDir = filter.direction === 'desc';
 	const filters: SQL[] = [eq(bukuKas.cabang_id, branch)];
 	if (filter.startTime) filters.push(gte(bukuKas.waktu, filter.startTime));
 	if (filter.endTime) filters.push(lte(bukuKas.waktu, filter.endTime));
@@ -39,27 +66,37 @@ export async function getBukuKasList(
 	if (filter.id) filters.push(eq(bukuKas.id, filter.id));
 	if (filter.transactionId) filters.push(eq(bukuKas.transaction_id, filter.transactionId));
 	if (filter.idSesiToko) filters.push(eq(bukuKas.id_sesi_toko, filter.idSesiToko));
+	if (filter.metode) {
+		if (filter.metode === 'tunai') filters.push(eq(bukuKas.metode_bayar, 'tunai'));
+		else if (filter.metode === 'qris' || filter.metode === 'non-tunai')
+			filters.push(or(eq(bukuKas.metode_bayar, 'qris'), eq(bukuKas.metode_bayar, 'non-tunai'))!);
+	}
+	if (filter.search) {
+		const q = `%${filter.search}%`;
+		filters.push(or(like(bukuKas.deskripsi, q), like(bukuKas.nama_pelanggan, q))!);
+	}
 	if (cursor) {
 		filters.push(
-			or(
-				gt(bukuKas.waktu, cursor.sortValue),
-				and(eq(bukuKas.waktu, cursor.sortValue), gt(bukuKas.id, cursor.id))
-			)!
+			descDir
+				? or(
+						lt(bukuKas.waktu, cursor.sortValue),
+						and(eq(bukuKas.waktu, cursor.sortValue), lt(bukuKas.id, cursor.id))
+					)!
+				: or(
+						gt(bukuKas.waktu, cursor.sortValue),
+						and(eq(bukuKas.waktu, cursor.sortValue), gt(bukuKas.id, cursor.id))
+					)!
 		);
 	}
 
-	const rows = await db
+	return db
 		.select()
 		.from(bukuKas)
 		.where(and(...filters))
-		.orderBy(asc(bukuKas.waktu), asc(bukuKas.id))
+		.orderBy(
+			...(descDir ? [desc(bukuKas.waktu), desc(bukuKas.id)] : [asc(bukuKas.waktu), asc(bukuKas.id)])
+		)
 		.limit(cursorPagination ? limit + 1 : limit);
-
-	if (!cursorPagination) return { rows, isPage: false as const };
-	return {
-		page: toCursorPage(rows, limit, (row) => ({ sortValue: row.waktu, id: String(row.id) })),
-		isPage: true as const
-	};
 }
 
 /**
@@ -74,6 +111,9 @@ export async function insertBukuKasRows(
 	rows: Array<Record<string, unknown>>
 ) {
 	if (containsPosLedger(rows)) throw kitError(409, POS_LEDGER_ROUTE_MESSAGE);
+	for (const row of rows) {
+		for (const k of ['revision', 'mutation_token']) delete (row as Record<string, unknown>)[k];
+	}
 
 	// Dedup by id
 	const newRows: Array<Record<string, unknown>> = [];
@@ -122,7 +162,7 @@ export async function updateBukuKasRow(
 ) {
 	const existing = (await rawDb
 		.prepare(
-			'SELECT id, sumber, transaction_id, nominal, waktu, metode_bayar FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1'
+			'SELECT id, sumber, transaction_id, nominal, waktu, metode_bayar, revision FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1'
 		)
 		.bind(branch, String(id))
 		.first()) as {
@@ -132,6 +172,7 @@ export async function updateBukuKasRow(
 		nominal?: number;
 		waktu?: string;
 		metode_bayar?: string;
+		revision?: number | null;
 	} | null;
 	if (!existing) throw kitError(404, 'Entri buku kas tidak ditemukan');
 
@@ -152,135 +193,146 @@ export async function updateBukuKasRow(
 		const newMethod =
 			String(payload.metode_bayar || '').toLowerCase() === 'tunai' ? 'tunai' : 'non-tunai';
 
-		if (oldMethod !== newMethod) {
-			const now = new Date().toISOString();
-			const statements = [];
+		if (oldMethod === newMethod) return { ok: true, duplicate: true };
+		if (existing.transaction_id) {
+			const siblings = (await rawDb
+				.prepare(
+					`SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id = ? AND transaction_id = ? AND sumber = 'pos'`
+				)
+				.bind(branch, existing.transaction_id)
+				.first()) as { n?: number } | null;
+			if (Number(siblings?.n ?? 1) > 1) throw kitError(409, 'Transaksi legacy tidak konsisten');
+		}
+		const expectedRevision = Number(existing.revision ?? 0);
+		const mutationToken = newMutationToken();
+		const now = new Date().toISOString();
+		const guardArgs = [branch, existing.id, mutationToken] as const;
+		const statements = [
+			rawDb
+				.prepare(
+					`UPDATE buku_kas SET metode_bayar = ?, revision = revision + 1, mutation_token = ?, updated_at = ?
+					 WHERE cabang_id = ? AND id = ? AND sumber = 'pos' AND revision = ?`
+				)
+				.bind(newMethod, mutationToken, now, branch, existing.id, expectedRevision)
+		];
 
-			if (existing.transaction_id) {
+		const gross = Number(existing.nominal || 0);
+		const salesDateRow = (await rawDb
+			.prepare("SELECT date(datetime(?, '+8 hours')) AS tanggal_penjualan")
+			.bind(existing.waktu || now)
+			.first()) as { tanggal_penjualan?: string } | null;
+		const salesDate = salesDateRow?.tanggal_penjualan;
+		const guardSql = `AND EXISTS (SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?)`;
+
+		if (salesDate && gross > 0) {
+			if (newMethod === 'non-tunai') {
 				statements.push(
 					rawDb
 						.prepare(
-							'UPDATE buku_kas SET metode_bayar = ?, updated_at = ? WHERE cabang_id = ? AND transaction_id = ?'
+							`UPDATE ringkasan_penjualan_harian SET
+								penjualan_tunai = MAX(0, penjualan_tunai - ?),
+								penjualan_nontunai = penjualan_nontunai + ?,
+								updated_at = ?
+							WHERE cabang_id = ? AND tanggal_penjualan = ? ${guardSql}`
 						)
-						.bind(newMethod, now, branch, existing.transaction_id)
+						.bind(gross, gross, now, branch, salesDate, ...guardArgs)
 				);
 			} else {
 				statements.push(
 					rawDb
 						.prepare(
-							'UPDATE buku_kas SET metode_bayar = ?, updated_at = ? WHERE cabang_id = ? AND id = ?'
+							`UPDATE ringkasan_penjualan_harian SET
+								penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
+								penjualan_tunai = penjualan_tunai + ?,
+								updated_at = ?
+							WHERE cabang_id = ? AND tanggal_penjualan = ? ${guardSql}`
 						)
-						.bind(newMethod, now, branch, String(id))
+						.bind(gross, gross, now, branch, salesDate, ...guardArgs)
 				);
 			}
 
-			const gross = Number(existing.nominal || 0);
-			const salesDateRow = (await rawDb
-				.prepare("SELECT date(datetime(?, '+8 hours')) AS tanggal_penjualan")
-				.bind(existing.waktu || now)
-				.first()) as { tanggal_penjualan?: string } | null;
-			const salesDate = salesDateRow?.tanggal_penjualan;
-
-			if (salesDate && gross > 0) {
-				if (newMethod === 'non-tunai') {
-					statements.push(
-						rawDb
+			if (existing.transaction_id) {
+				const products =
+					(
+						(await rawDb
 							.prepare(
-								`UPDATE ringkasan_penjualan_harian SET
-									penjualan_tunai = MAX(0, penjualan_tunai - ?),
-									penjualan_nontunai = penjualan_nontunai + ?,
-									updated_at = ?
-								WHERE cabang_id = ? AND tanggal_penjualan = ?`
+								`SELECT COALESCE(produk_id, 'custom:' || nama_produk) AS produk_id,
+									COALESCE(SUM(nominal), 0) AS gross
+							 FROM transaksi_kasir
+							 WHERE cabang_id = ? AND transaction_id = ?
+							 GROUP BY COALESCE(produk_id, 'custom:' || nama_produk)`
 							)
-							.bind(gross, gross, now, branch, salesDate)
-					);
-				} else {
-					statements.push(
-						rawDb
-							.prepare(
-								`UPDATE ringkasan_penjualan_harian SET
-									penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
-									penjualan_tunai = penjualan_tunai + ?,
-									updated_at = ?
-								WHERE cabang_id = ? AND tanggal_penjualan = ?`
-							)
-							.bind(gross, gross, now, branch, salesDate)
-					);
-				}
+							.bind(branch, existing.transaction_id)
+							.all()) as { results?: Array<{ produk_id?: string; gross?: number }> }
+					).results || [];
 
-				if (existing.transaction_id) {
-					const products =
-						(
-							(await rawDb
+				for (const p of products) {
+					if (!p.produk_id) continue;
+					const itemGross = Number(p.gross || 0);
+					if (newMethod === 'non-tunai') {
+						statements.push(
+							rawDb
 								.prepare(
-									`SELECT COALESCE(produk_id, 'custom:' || nama_produk) AS produk_id,
-										COALESCE(SUM(nominal), 0) AS gross
-								 FROM transaksi_kasir
-								 WHERE cabang_id = ? AND transaction_id = ?
-								 GROUP BY COALESCE(produk_id, 'custom:' || nama_produk)`
+									`UPDATE penjualan_produk_harian SET
+										penjualan_tunai = MAX(0, penjualan_tunai - ?),
+										penjualan_nontunai = penjualan_nontunai + ?,
+										updated_at = ?
+									WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ? ${guardSql}`
 								)
-								.bind(branch, existing.transaction_id)
-								.all()) as { results?: Array<{ produk_id?: string; gross?: number }> }
-						).results || [];
-
-					for (const p of products) {
-						if (!p.produk_id) continue;
-						const itemGross = Number(p.gross || 0);
-						if (newMethod === 'non-tunai') {
-							statements.push(
-								rawDb
-									.prepare(
-										`UPDATE penjualan_produk_harian SET
-											penjualan_tunai = MAX(0, penjualan_tunai - ?),
-											penjualan_nontunai = penjualan_nontunai + ?,
-											updated_at = ?
-										WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ?`
-									)
-									.bind(itemGross, itemGross, now, branch, salesDate, p.produk_id)
-							);
-						} else {
-							statements.push(
-								rawDb
-									.prepare(
-										`UPDATE penjualan_produk_harian SET
-											penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
-											penjualan_tunai = penjualan_tunai + ?,
-											updated_at = ?
-										WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ?`
-									)
-									.bind(itemGross, itemGross, now, branch, salesDate, p.produk_id)
-							);
-						}
+								.bind(itemGross, itemGross, now, branch, salesDate, p.produk_id, ...guardArgs)
+						);
+					} else {
+						statements.push(
+							rawDb
+								.prepare(
+									`UPDATE penjualan_produk_harian SET
+										penjualan_nontunai = MAX(0, penjualan_nontunai - ?),
+										penjualan_tunai = penjualan_tunai + ?,
+										updated_at = ?
+									WHERE cabang_id = ? AND tanggal_penjualan = ? AND produk_id = ? ${guardSql}`
+								)
+								.bind(itemGross, itemGross, now, branch, salesDate, p.produk_id, ...guardArgs)
+						);
 					}
 				}
 			}
+		}
 
-			if (statements.length > 0) {
-				await rawDb.batch(statements);
-			}
+		const batchResults = (await rawDb.batch(statements)) as unknown;
+		if (batchClaimChanges(batchResults) === 0) {
+			const reread = (await rawDb
+				.prepare(`SELECT metode_bayar FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1`)
+				.bind(branch, existing.id)
+				.first()) as { metode_bayar?: string } | null;
+			const currentMethod =
+				String(reread?.metode_bayar || '').toLowerCase() === 'tunai' ? 'tunai' : 'non-tunai';
+			if (reread && currentMethod === newMethod) return { ok: true, duplicate: true };
+			throw kitError(409, 'Transaksi berubah bersamaan. Muat ulang lalu coba lagi.');
+		}
 
-			await publish(platform, branch, 'buku_kas', 'update', {
-				id,
+		await publish(platform, branch, 'buku_kas', 'update', {
+			id,
+			transaction_id: existing.transaction_id
+		});
+		if (existing.transaction_id) {
+			await publish(platform, branch, 'transaksi_kasir', 'update', {
 				transaction_id: existing.transaction_id
 			});
-			if (existing.transaction_id) {
-				await publish(platform, branch, 'transaksi_kasir', 'update', {
-					transaction_id: existing.transaction_id
-				});
-			}
-			await auditDataChange(rawDb, branch, session, 'buku_kas', 'update_metode_bayar', id, {
-				transaction_id: existing.transaction_id,
-				from: oldMethod,
-				to: newMethod
-			});
-			return { ok: true };
 		}
+		await auditDataChange(rawDb, branch, session, 'buku_kas', 'update_metode_bayar', id, {
+			transaction_id: existing.transaction_id,
+			from: oldMethod,
+			to: newMethod
+		});
 		return { ok: true };
 	}
 
+	const manualPayload = sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>);
+	for (const k of ['revision', 'mutation_token'])
+		delete (manualPayload as Record<string, unknown>)[k];
 	await db
 		.update(bukuKas)
-		.set(sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>))
+		.set({ ...manualPayload, revision: (existing.revision ?? 0) + 1 })
 		.where(and(eq(bukuKas.cabang_id, branch), eq(bukuKas.id, String(id))));
 	await publish(platform, branch, 'buku_kas', 'update', { id });
 	await auditDataChange(rawDb, branch, session, 'buku_kas', 'update', id, {

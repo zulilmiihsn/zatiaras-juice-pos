@@ -49,7 +49,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	}
 
 	const settings = (await rawDb
-		.prepare('SELECT pin, pin_hash FROM pengaturan WHERE cabang_id = ? LIMIT 1')
+		.prepare('SELECT pin, pin_hash FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL LIMIT 1')
 		.bind(branch)
 		.first()) as { pin?: string | null; pin_hash?: string | null } | null;
 	if (!settings?.pin_hash && (!settings?.pin || settings.pin === '1234')) {
@@ -65,7 +65,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	if (!settings.pin_hash && settings.pin) {
 		const migratedHash = await hashPin(pin);
 		await rawDb
-			.prepare('UPDATE pengaturan SET pin_hash = ?, pin = NULL, updated_at = ? WHERE cabang_id = ?')
+			.prepare(
+				'UPDATE pengaturan SET pin_hash = ?, pin = NULL, updated_at = ? WHERE cabang_id = ? AND kunci IS NULL'
+			)
 			.bind(migratedHash, new Date().toISOString(), branch)
 			.run();
 	}

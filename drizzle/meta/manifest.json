@@ -23,5 +23,8 @@
 	"0021_produk_harga_jumbo.sql": "ac17be144ad264d6af91ae1c8d63300f40530a0aae14240a2b58db52f5ddbefd",
 	"0022_drop_legacy_resep_unique_index.sql": "ed299c7210f4ce4bad61d1eeec609f02fb9e8201b91ae1ea944dc18b6bf96a8b",
 	"0023_idempotency_receipt_and_archive_summary.sql": "26b898b249aa75d6a7e067f91f8aedffa166a39c03c321b1f8f5bce9885b9571",
-	"0024_pengaturan_kunci_nilai_key_value.sql": "f40892c95eed5cabb655edd05280c98397a94ce9a8474dcfc93aab0319e4ce35"
+	"0024_pengaturan_kunci_nilai_key_value.sql": "f40892c95eed5cabb655edd05280c98397a94ce9a8474dcfc93aab0319e4ce35",
+	"0025_pengaturan_text_id.sql": "c812d84875309673847fe126d0d002a264a6358d2bd4e8c388de055027e874d4",
+	"0026_buku_kas_cas_void.sql": "627bb9d71e64c881aebbcbedfcd323fc57dabc6096689b7fbbd22cacbdaf1df5",
+	"0027_archive_jobs.sql": "db173c9c5a1a008a7fa7d0ff403e3a8e4fb18896026de32650994cf48bfe181d"
 }

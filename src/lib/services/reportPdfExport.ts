@@ -565,7 +565,15 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 			`Rp ${formatRupiah(labaKotor)}`
 		],
 		[
-			summary?.taxLabel ? `Pajak Penghasilan (${summary.taxLabel})` : 'Pajak Penghasilan (0,5%)',
+			'Hasil Kas Periode (bersih per metode)',
+			`Rp ${formatRupiah(reportGroups.netTunai)}`,
+			`Rp ${formatRupiah(reportGroups.netNonTunai)}`,
+			`Rp ${formatRupiah(reportGroups.netTotal)}`
+		],
+		[
+			summary?.taxLabel
+				? `Simulasi Pajak non-kas (${summary.taxLabel})`
+				: 'Simulasi Pajak non-kas (0,5%)',
 			'-',
 			'-',
 			`Rp ${formatRupiah(pajak)}`
@@ -583,12 +591,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		});
 	}
 
-	summaryRows.push([
-		'SALDO AKHIR KAS / LABA BERSIH (A - B - Pajak)',
-		`Rp ${formatRupiah(reportGroups.totalTunaiAll)}`,
-		`Rp ${formatRupiah(reportGroups.totalQrisAll)}`,
-		`Rp ${formatRupiah(labaBersih)}`
-	]);
+	summaryRows.push(['Estimasi Setelah Simulasi Pajak', '-', '-', `Rp ${formatRupiah(labaBersih)}`]);
 
 	autoTable(doc, {
 		startY: y,

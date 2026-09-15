@@ -69,6 +69,17 @@ function legacyGroup(records: BukuKasRecord[]) {
 	};
 }
 
+function netOf(groups: {
+	totalTunaiPemasukan: number;
+	totalTunaiPengeluaran: number;
+	totalQrisPemasukan: number;
+	totalQrisPengeluaran: number;
+}) {
+	const netTunai = groups.totalTunaiPemasukan - groups.totalTunaiPengeluaran;
+	const netNonTunai = groups.totalQrisPemasukan - groups.totalQrisPengeluaran;
+	return { netTunai, netNonTunai, netTotal: netTunai + netNonTunai };
+}
+
 const fixture: BukuKasRecord[] = [
 	record('income-business-cash', 'in', 'pendapatan_usaha', 'tunai', 10_000),
 	record('income-business-qris', 'in', 'pendapatan_usaha', 'qris', 20_000),
@@ -84,5 +95,17 @@ const fixture: BukuKasRecord[] = [
 	record('excluded-expense-income-kind', 'out', 'pendapatan_usaha', 'qris', 13_000)
 ];
 
-assert.deepEqual(groupReportTransactions(fixture), legacyGroup(fixture));
+assert.deepEqual(groupReportTransactions(fixture), {
+	...legacyGroup(fixture),
+	...netOf(legacyGroup(fixture))
+});
+// F24: 100rb masuk / 30rb keluar tunai, tax 0 -> kas 70rb (bukan 130rb volume).
+{
+	const g = groupReportTransactions([
+		record('in1', 'in', 'pendapatan_usaha', 'tunai', 100_000),
+		record('out1', 'out', 'beban_usaha', 'tunai', 30_000)
+	]);
+	assert.equal(g.netTunai, 70_000);
+	assert.equal(g.netTotal, 70_000);
+}
 console.log('Report grouping one-pass output matches legacy filters.');

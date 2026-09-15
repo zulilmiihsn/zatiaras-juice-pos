@@ -73,6 +73,7 @@
 		const baseUnit = selectedEkstraBahan.satuan || 'gram';
 		const packSize = selectedEkstraBahan.isi_per_kemasan || 1;
 		const baseQty = safeConvertToBaseUnit(qty, unit, baseUnit, packSize);
+		if (!Number.isFinite(baseQty)) return 0;
 		const unitCost = Number(selectedEkstraBahan.biaya_per_satuan || 0);
 		return baseQty * unitCost;
 	});

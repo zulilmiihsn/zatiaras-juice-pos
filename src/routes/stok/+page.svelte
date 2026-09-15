@@ -30,7 +30,9 @@
 	import {
 		UNIT_CATEGORIES,
 		convertToBaseUnit,
+		convertFromBaseUnit,
 		safeConvertToBaseUnit,
+		safeConvertFromBaseUnit,
 		detectUnitCategory,
 		getCompatibleUnits,
 		formatSmartStock,
@@ -265,19 +267,25 @@
 		const cat = (bahan.kategori || 'Bahan Baku').trim() || 'Bahan Baku';
 		const isKnown = availableCategoryOptions.includes(cat);
 		const detectedType = bahan.tipe_satuan || detectUnitCategory(bahan.satuan || 'gram');
+		const baseUnit = bahan.satuan || (detectedType === 'cairan' ? 'ml' : 'gram');
+		const buyUnit = bahan.satuan_beli || baseUnit;
+		const pack = Number(bahan.isi_per_kemasan) || 1;
+		const storedBaseQty = Number(bahan.jumlah_beli_terakhir) || 0;
+		const displayQty = safeConvertFromBaseUnit(storedBaseQty, buyUnit, baseUnit, pack);
 		bahanForm = {
 			nama: bahan.nama,
 			tipe_satuan: detectedType,
-			satuan: bahan.satuan || (detectedType === 'cairan' ? 'ml' : 'gram'),
-			isi_per_kemasan: formatRupiah(bahan.isi_per_kemasan || 1) || '1',
-			satuan_beli: bahan.satuan_beli || bahan.satuan || 'kg',
+			satuan: baseUnit,
+			isi_per_kemasan: formatQuantity(bahan.isi_per_kemasan || 1) || '1',
+			satuan_beli: buyUnit,
 			kategoriSelect: isKnown ? cat : '__new__',
 			customKategori: isKnown ? '' : cat,
 			kategori: cat,
-			stok_saat_ini: formatRupiah(bahan.stok_saat_ini) || '0',
-			ambang_stok: formatRupiah(bahan.ambang_stok) || '0',
-			yield_persen: formatRupiah(bahan.yield_persen ?? 100) || '100',
-			jumlah_beli_terakhir: formatRupiah(bahan.jumlah_beli_terakhir) || '',
+			stok_saat_ini: formatQuantity(bahan.stok_saat_ini) || '0',
+			ambang_stok: formatQuantity(bahan.ambang_stok) || '0',
+			yield_persen: formatQuantity(bahan.yield_persen ?? 100) || '100',
+			jumlah_beli_terakhir:
+				formatQuantity(Number.isFinite(displayQty) ? displayQty : storedBaseQty) || '',
 			biaya_beli_terakhir: formatRupiah(bahan.biaya_beli_terakhir) || ''
 		};
 		showBahanModal = true;
@@ -298,12 +306,18 @@
 		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
 		const purchaseQty = Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir));
 		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
-		const purchaseQuantityInBase = safeConvertToBaseUnit(
-			purchaseQty,
-			bahanForm.satuan_beli || bahanForm.satuan,
-			bahanForm.satuan,
-			packSize
-		);
+		let purchaseQuantityInBase: number;
+		try {
+			purchaseQuantityInBase = convertToBaseUnit(
+				purchaseQty,
+				bahanForm.satuan_beli || bahanForm.satuan,
+				bahanForm.satuan,
+				packSize
+			);
+		} catch {
+			notify('Satuan beli tidak kompatibel dengan satuan dasar', 'error');
+			return;
+		}
 		const rawYield = parseRupiah(bahanForm.yield_persen) || 100;
 		const yieldPercent = Math.min(100, Math.max(1, rawYield));
 		const yieldFactor = yieldPercent / 100;
@@ -462,12 +476,17 @@
 		if (!selectedBahanForMutasi || !mutasiAmount) return 0;
 		const parsed = parseFloat(String(mutasiAmount).replace(/,/g, '.'));
 		if (!parsed || isNaN(parsed) || parsed <= 0) return 0;
-		return safeConvertToBaseUnit(
-			parsed,
-			mutasiUnit,
-			selectedBahanForMutasi.satuan || 'gram',
-			Number(selectedBahanForMutasi.isi_per_kemasan) || 1
-		);
+		try {
+			const base = convertToBaseUnit(
+				parsed,
+				mutasiUnit,
+				selectedBahanForMutasi.satuan || 'gram',
+				Number(selectedBahanForMutasi.isi_per_kemasan) || 1
+			);
+			return Number.isFinite(base) ? base : 0;
+		} catch {
+			return 0;
+		}
 	});
 
 	const mutasiPreviewFinalStock = $derived.by(() => {
@@ -597,6 +616,7 @@
 				});
 
 				// 3. Jika Kulakan & opsi update HPP aktif -> update harga beli terakhir & biaya_per_satuan di tabel bahan
+				// Kontrak: jumlah_beli_terakhir = jumlah dasar (baseQty), bukan input mentah.
 				if (mutasiType === 'tambah' && updateHppWithPurchase && baseQty > 0) {
 					const rawYield = Number(selectedBahanForMutasi.yield_persen || 100);
 					const yieldFactor = Math.min(100, Math.max(1, rawYield)) / 100;
@@ -604,13 +624,11 @@
 					const newUnitCost =
 						netUsable > 0 ? calculateEffectiveUnitCost(parsedNominal, netUsable) : 0;
 
-					const purchaseInputQty = parseFloat(String(mutasiAmount).replace(/,/g, '.')) || baseQty;
-
 					await transactionService.updateRows(
 						'bahan',
 						{
 							biaya_beli_terakhir: parsedNominal,
-							jumlah_beli_terakhir: purchaseInputQty,
+							jumlah_beli_terakhir: baseQty,
 							biaya_per_satuan: newUnitCost
 						},
 						{ id: String(selectedBahanForMutasi.id) }

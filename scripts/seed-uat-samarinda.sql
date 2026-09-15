@@ -39,6 +39,8 @@ WHERE NOT EXISTS (
 INSERT INTO pengaturan (
 	id,
 	cabang_id,
+	kunci,
+	nilai,
 	halaman_terkunci,
 	nama_toko,
 	alamat,
@@ -47,8 +49,10 @@ INSERT INTO pengaturan (
 	ucapan
 )
 SELECT
-	910001,
+	'910001',
 	'samarinda',
+	NULL,
+	NULL,
 	'["laporan","beranda","pengaturan","catat"]',
 	'Zatiaras UAT Samarinda',
 	'Samarinda',
@@ -56,7 +60,7 @@ SELECT
 	'@zatiaras.uat',
 	'Terima kasih'
 WHERE NOT EXISTS (
-	SELECT 1 FROM pengaturan WHERE cabang_id = 'samarinda'
+	SELECT 1 FROM pengaturan WHERE cabang_id = 'samarinda' AND kunci IS NULL
 );
 
 INSERT INTO kategori (

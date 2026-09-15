@@ -64,16 +64,20 @@ export const ALL_UNITS: Record<UnitCategory, UnitOption[]> = {
 };
 
 /**
- * Mendeteksi kategori satuan secara cerdas berdasarkan nama satuan
+ * Mendeteksi kategori satuan secara cerdas berdasarkan nama satuan.
+ * Nama ambigu (sdm/sdt/potong) memakai konteks kategori bila diberi.
  */
-export function detectUnitCategory(satuanName: string): UnitCategory {
-	if (!satuanName) return 'berat';
+export function detectUnitCategory(satuanName: string, context?: UnitCategory): UnitCategory {
+	if (!satuanName) return context ?? 'berat';
 	const s = satuanName.trim().toLowerCase();
+	const ambiguous = ['sdm', 'sendok makan', 'sdt', 'sendok teh', 'potong'];
+	if (context && ambiguous.includes(s)) return context;
 
 	if (
 		[
 			'ml',
 			'mililiter',
+			'mili',
 			'liter',
 			'l',
 			'centong',
@@ -128,8 +132,84 @@ export function getCompatibleUnits(baseUnitOrCategory: string): UnitOption[] {
 	return ALL_UNITS[category] || ALL_UNITS.berat;
 }
 
+const UNIT_ALIASES: Record<string, string> = {
+	g: 'gram',
+	gr: 'gram',
+	kilo: 'kg',
+	kilogram: 'kg',
+	mili: 'ml',
+	mililiter: 'ml',
+	l: 'liter',
+	bks: 'pack',
+	bungkus: 'pack',
+	karton: 'dus',
+	piece: 'pcs',
+	pieces: 'pcs',
+	'kg.': 'kg',
+	'g.': 'gram'
+};
+
+function canonicalUnit(value: string): string {
+	const s = (value || '').trim().toLowerCase();
+	return UNIT_ALIASES[s] ?? s;
+}
+
+function findUnitDef(value: string, preferred?: UnitCategory): UnitOption | undefined {
+	const v = canonicalUnit(value);
+	if (preferred && ALL_UNITS[preferred]) {
+		const hit = ALL_UNITS[preferred].find((u) => u.value.toLowerCase() === v);
+		if (hit) return hit;
+	}
+	const order: UnitCategory[] = ['cairan', 'berat', 'kemasan', 'unit'];
+	for (const cat of order) {
+		if (cat === preferred) continue;
+		const hit = ALL_UNITS[cat].find((u) => u.value.toLowerCase() === v);
+		if (hit) return hit;
+	}
+	return undefined;
+}
+
+function resolveFactors(fromUnit: string, baseUnit: string, packSize: number) {
+	const cleanFrom = canonicalUnit(fromUnit);
+	const cleanBase = canonicalUnit(baseUnit);
+	if (!cleanFrom || !cleanBase) throw new Error('Satuan tidak dikenal');
+	if (!Number.isFinite(packSize) || packSize <= 0) throw new Error('Isi kemasan tidak valid');
+
+	const baseDef = findUnitDef(cleanBase);
+	const baseCategory: UnitCategory = baseDef?.category ?? detectUnitCategory(cleanBase);
+	const fromDef = findUnitDef(cleanFrom, baseCategory) ?? findUnitDef(cleanFrom);
+	if (!fromDef) throw new Error(`Satuan tidak dikenal: ${fromUnit}`);
+	const resolvedBaseDef = baseDef ?? findUnitDef(cleanBase, fromDef.category);
+	if (!resolvedBaseDef) throw new Error(`Satuan dasar tidak dikenal: ${baseUnit}`);
+
+	const isCount = (c: UnitCategory) => c === 'kemasan' || c === 'unit';
+	if (
+		fromDef.category !== resolvedBaseDef.category &&
+		!(isCount(fromDef.category) && isCount(resolvedBaseDef.category))
+	) {
+		throw new Error(
+			`Konversi satuan tidak kompatibel: ${fromUnit} (${fromDef.category}) tidak dapat dikonversi ke ${baseUnit} (${resolvedBaseDef.category})`
+		);
+	}
+
+	const packUnits = ['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'];
+	let fromFactor = fromDef.factorToBase;
+	let baseFactor = resolvedBaseDef.factorToBase;
+	if (packUnits.includes(cleanFrom)) fromFactor = Math.max(1, packSize);
+	if (packUnits.includes(cleanBase)) baseFactor = Math.max(1, packSize);
+	if (
+		!Number.isFinite(fromFactor) ||
+		fromFactor <= 0 ||
+		!Number.isFinite(baseFactor) ||
+		baseFactor <= 0
+	)
+		throw new Error('Faktor satuan tidak valid');
+	return { cleanFrom, cleanBase, fromFactor, baseFactor };
+}
+
 /**
- * Mengkonversi nilai dari satuan tertentu ke satuan dasar (base unit)
+ * Mengkonversi nilai dari satuan tertentu ke satuan dasar (base unit).
+ * Ambigu sdm/sdt/potong ikut kategori satuan dasar. Strict: input invalid throw.
  */
 export function convertToBaseUnit(
 	amount: number,
@@ -137,48 +217,44 @@ export function convertToBaseUnit(
 	baseUnit: string,
 	packSize: number = 1
 ): number {
-	if (!amount || isNaN(amount)) return 0;
+	if (typeof amount !== 'number' || !Number.isFinite(amount)) throw new Error('Jumlah tidak valid');
+	if (amount === 0) return 0;
+	if (amount < 0) throw new Error('Jumlah tidak boleh negatif');
 
-	const cleanFrom = (fromUnit || '').trim().toLowerCase();
-	const cleanBase = (baseUnit || '').trim().toLowerCase();
+	const { cleanFrom, cleanBase, fromFactor, baseFactor } = resolveFactors(
+		fromUnit,
+		baseUnit,
+		packSize
+	);
+	if (cleanFrom === cleanBase) return Math.round(amount * 10000) / 10000;
 
-	if (cleanFrom === cleanBase) return amount;
-
-	const fromCategory = detectUnitCategory(cleanFrom);
-	const baseCategory = detectUnitCategory(cleanBase);
-
-	const isCountCategory = (cat: UnitCategory) => cat === 'kemasan' || cat === 'unit';
-
-	if (
-		fromCategory !== baseCategory &&
-		!(isCountCategory(fromCategory) && isCountCategory(baseCategory))
-	) {
-		throw new Error(
-			`Konversi satuan tidak kompatibel: ${fromUnit} (${fromCategory}) tidak dapat dikonversi ke ${baseUnit} (${baseCategory})`
-		);
-	}
-
-	const unitList = [...(ALL_UNITS[baseCategory] || []), ...(ALL_UNITS[fromCategory] || [])];
-	const fromUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanFrom);
-	const baseUnitDef = unitList.find((u) => u.value.toLowerCase() === cleanBase);
-
-	let fromFactor = fromUnitDef ? fromUnitDef.factorToBase : 1;
-	let baseFactor = baseUnitDef ? baseUnitDef.factorToBase : 1;
-
-	// Handle dynamic pack size
-	const isPackUnit = (unit: string) =>
-		['pack', 'bks', 'bungkus', 'dus', 'roll', 'karton'].includes(unit);
-
-	if (isPackUnit(cleanFrom)) {
-		fromFactor = Math.max(1, packSize);
-	}
-	if (isPackUnit(cleanBase)) {
-		baseFactor = Math.max(1, packSize);
-	}
-
-	// Calculate base unit amount
 	const inBaseAmount = (amount * fromFactor) / baseFactor;
 	return Math.round(inBaseAmount * 10000) / 10000;
+}
+
+/**
+ * Konversi balik satuan dasar -> satuan tampil (beli). Faktor sama dengan maju.
+ */
+export function convertFromBaseUnit(
+	baseAmount: number,
+	toUnit: string,
+	baseUnit: string,
+	packSize: number = 1
+): number {
+	if (typeof baseAmount !== 'number' || !Number.isFinite(baseAmount))
+		throw new Error('Jumlah dasar tidak valid');
+	if (baseAmount === 0) return 0;
+	if (baseAmount < 0) throw new Error('Jumlah dasar tidak boleh negatif');
+
+	const { cleanFrom, cleanBase, fromFactor, baseFactor } = resolveFactors(
+		toUnit,
+		baseUnit,
+		packSize
+	);
+	if (cleanFrom === cleanBase) return Math.round(baseAmount * 10000) / 10000;
+
+	const display = (baseAmount * baseFactor) / fromFactor;
+	return Math.round(display * 10000) / 10000;
 }
 
 export function safeConvertToBaseUnit(
@@ -190,7 +266,20 @@ export function safeConvertToBaseUnit(
 	try {
 		return convertToBaseUnit(amount, fromUnit, baseUnit, packSize);
 	} catch {
-		return amount;
+		return NaN;
+	}
+}
+
+export function safeConvertFromBaseUnit(
+	baseAmount: number,
+	toUnit: string,
+	baseUnit: string,
+	packSize: number = 1
+): number {
+	try {
+		return convertFromBaseUnit(baseAmount, toUnit, baseUnit, packSize);
+	} catch {
+		return NaN;
 	}
 }
 

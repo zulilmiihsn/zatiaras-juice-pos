@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { validateNumber, sanitizeInput } from '$lib/utils/validation';
+import { buildCartItemKey } from '$lib/utils/cartKey';
 import { securityUtils } from '$lib/utils/security';
 import { userRole } from '$lib/stores/userRole.svelte';
 import { posCart } from '$lib/stores/posCart.svelte';
@@ -50,6 +51,8 @@ interface CommittedReceipt {
 		jumlah: number;
 		harga: number;
 		nominal: number;
+		harga_dasar?: number;
+		total_tambahan?: number;
 		tambahan: Array<{ id: string; nama: string; harga: number }>;
 		gula: string | null;
 		es: string | null;
@@ -136,16 +139,14 @@ export function createBayarState() {
 	);
 
 	function cartItemKey(item: CartItem): string {
-		return [
-			item.product.id,
-			item.addOns
-				.map((addOn) => addOn.id)
-				.sort()
-				.join(','),
-			item.gula,
-			item.es,
-			item.catatan
-		].join('|');
+		return buildCartItemKey({
+			productId: item.product.id,
+			porsi: item.porsi || 'reguler',
+			addOnIds: item.addOns.map((addOn) => addOn.id),
+			gula: item.gula,
+			es: item.es,
+			catatan: item.catatan
+		});
 	}
 
 	function showErrorNotif(message: string) {
@@ -547,6 +548,8 @@ export function createBayarState() {
 					jumlah: item.jumlah,
 					harga: unitPrice,
 					nominal: unitPrice * item.jumlah,
+					harga_dasar: basePrice,
+					total_tambahan: addOnsTotal,
 					tambahan: (item.addOns || []).map((a) => ({
 						id: String(a.id),
 						nama: a.nama,
@@ -588,12 +591,14 @@ export function createBayarState() {
 	}
 
 	function printStrukViaEscPosService() {
+		// Struk komit: harga dasar (tanpa topping) + rincian topping terpisah.
+		// harga inklusif TIDAK dipakai sebagai dasar agar tidak ganda.
 		const receiptItems = committedReceipt
 			? committedReceipt.items.map((item) => ({
 					product: {
 						id: item.product_id ?? '',
 						nama: item.nama,
-						harga: item.harga,
+						harga: item.harga_dasar ?? item.harga,
 						harga_jumbo: undefined,
 						tipe: 'produk' as const
 					},

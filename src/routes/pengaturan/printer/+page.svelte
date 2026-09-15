@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Store from '@lucide/svelte/icons/store';
@@ -33,6 +33,7 @@
 	let telepon = $state('');
 	let instagram = $state('');
 	let ucapan = $state('');
+	let pengaturanId = $state<string | null>(null);
 	let isSaving = $state(false);
 	let activeTab = $state<'detail' | 'preview' | 'koneksi'>('detail');
 
@@ -64,13 +65,17 @@
 		try {
 			const data = (await transactionService.getOne('pengaturan')) as Record<string, string> | null;
 			if (data) {
+				pengaturanId = typeof data.id === 'string' ? data.id : null;
 				namaToko = data.nama_toko || defaultData.namaToko;
 				alamat = data.alamat || defaultData.alamat;
 				telepon = data.telepon || defaultData.telepon;
 				instagram = data.instagram || defaultData.instagram;
 				ucapan = data.ucapan || defaultData.ucapan;
+			} else {
+				pengaturanId = null;
 			}
 		} catch {
+			pengaturanId = null;
 			// [CATATAN]: loadFromLocal();
 		}
 
@@ -93,7 +98,6 @@
 		event.preventDefault();
 		isSaving = true;
 		const data = {
-			id: 1, // Always use id=1 for single row
 			nama_toko: namaToko,
 			alamat,
 			telepon,
@@ -101,15 +105,30 @@
 			ucapan
 		};
 		try {
-			const existing = await transactionService.getOne('pengaturan');
-			if (existing) {
-				await transactionService.updateRows('pengaturan', data, { id: '1' });
+			const existingId =
+				pengaturanId ??
+				((await transactionService.getOne('pengaturan')) as { id?: string } | null)?.id ??
+				null;
+			if (existingId) {
+				pengaturanId = String(existingId);
+				await transactionService.updateRows('pengaturan', data, { id: String(existingId) });
 			} else {
-				await transactionService.insertRows('pengaturan', data);
+				const inserted = await transactionService.insertRows('pengaturan', data);
+				const newId = (inserted as { data?: Array<{ id?: string }> })?.data?.[0]?.id;
+				if (newId) pengaturanId = String(newId);
 			}
 			toastManager.showToastNotification('Pengaturan berhasil disimpan!', 'success');
 		} catch (e) {
-			toastManager.showToastNotification('Gagal menyimpan pengaturan.', 'error');
+			const msg = e instanceof Error ? e.message : String(e);
+			if (/404|tidak ditemukan/i.test(msg)) {
+				pengaturanId = null;
+				toastManager.showToastNotification(
+					'Data cabang hilang. Muat ulang lalu simpan lagi.',
+					'error'
+				);
+			} else {
+				toastManager.showToastNotification('Gagal menyimpan pengaturan.', 'error');
+			}
 		} finally {
 			isSaving = false;
 		}
@@ -171,6 +190,10 @@
 
 	onMount(async () => {
 		loadPengaturan();
+	});
+
+	onDestroy(() => {
+		toastManager.dispose();
 	});
 </script>
 

@@ -17,13 +17,65 @@ export type AuditLogInput = {
 	session?: AuditSession | null;
 };
 
-function toJson(value: Record<string, unknown> | null | undefined) {
-	if (!value) return null;
+const AUDIT_METADATA_BYTES = 8192;
+
+function utf8Length(value: string): number {
+	return new TextEncoder().encode(value).length;
+}
+
+/**
+ * Metadata dibatasi SEBELUM stringify sehingga JSON tetap valid.
+ * Envelope audit (action/entity/actor/branch/transaction) selalu utuh.
+ */
+
+function safeStringify(value: unknown): string | null {
 	try {
-		return JSON.stringify(value).slice(0, 8192);
+		const seen = new Set();
+		return JSON.stringify(value, (_key, val) => {
+			if (val && typeof val === 'object') {
+				if (seen.has(val)) return '[cyclic]';
+				seen.add(val);
+			}
+			return val;
+		});
 	} catch {
 		return null;
 	}
+}
+
+function boundedMetadataObject(
+	value: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+	if (!value) return null;
+	const direct = safeStringify(value);
+	if (direct !== null && utf8Length(direct) <= AUDIT_METADATA_BYTES) return value;
+	const summary: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(value)) {
+		if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+			summary[k] = `${k}:${String(v)}`.slice(0, 120);
+			if ((safeStringify(summary)?.length ?? 0) > 1024) {
+				delete summary[k];
+				break;
+			}
+		}
+	}
+	return {
+		truncated: true,
+		byte_size: direct !== null ? utf8Length(direct) : null,
+		summary
+	};
+}
+
+/** Payload outbox valid JSON; envelope wajib utuh, metadata dibatasi dulu. */
+export function buildAuditPayload(input: AuditLogInput): string {
+	const payload = safeStringify({ ...input, metadata: boundedMetadataObject(input.metadata) });
+	return payload ?? '{}';
+}
+
+function boundedMetadataJson(value: Record<string, unknown> | null | undefined): string | null {
+	const obj = boundedMetadataObject(value);
+	if (!obj) return null;
+	return safeStringify(obj);
 }
 
 export function auditLogStatement(
@@ -61,7 +113,7 @@ export function auditLogStatement(
 			input.entityId == null ? null : String(input.entityId),
 			input.transactionId ?? null,
 			input.amount ?? null,
-			toJson(input.metadata),
+			boundedMetadataJson(input.metadata),
 			input.ipHash ?? null,
 			new Date().toISOString()
 		);
@@ -112,7 +164,7 @@ export async function appendAuditLog(
 	input: AuditLogInput
 ) {
 	const id = crypto.randomUUID();
-	const payload = toJson(input) || '{}';
+	const payload = buildAuditPayload(input);
 	const now = new Date().toISOString();
 	try {
 		await outboxInsertStatement(db, branch, id, payload, now).run();
@@ -162,15 +214,32 @@ export async function flushAuditLogOutbox(
 ): Promise<number> {
 	const rows = (await db
 		.prepare(
-			`SELECT id, payload FROM audit_log_outbox
+			`SELECT id, payload, attempt_count FROM audit_log_outbox
 			 WHERE cabang_id = ? ORDER BY created_at ASC LIMIT ?`
 		)
 		.bind(branch, limit)
-		.all()) as { results?: Array<{ id: string; payload: string }> };
+		.all()) as { results?: Array<{ id: string; payload: string; attempt_count?: number }> };
 	let flushed = 0;
 	for (const row of rows.results || []) {
+		let input: AuditLogInput;
 		try {
-			const input = JSON.parse(row.payload) as AuditLogInput;
+			input = JSON.parse(row.payload) as AuditLogInput;
+			if (!input || typeof input !== 'object' || typeof input.action !== 'string')
+				throw new Error('payload outbox invalid');
+		} catch (error) {
+			// Outbox lama invalid: karantina setelah beberapa percobaan agar event baru jalan.
+			if (Number(row.attempt_count || 0) >= 5) {
+				await db
+					.prepare('DELETE FROM audit_log_outbox WHERE id = ?')
+					.bind(row.id)
+					.run()
+					.catch(() => {});
+			} else {
+				await markOutboxFailure(db, row.id, error);
+			}
+			continue;
+		}
+		try {
 			await db
 				.prepare(
 					`INSERT OR IGNORE INTO audit_logs (
@@ -189,7 +258,7 @@ export async function flushAuditLogOutbox(
 					input.entityId == null ? null : String(input.entityId),
 					input.transactionId ?? null,
 					input.amount ?? null,
-					toJson(input.metadata),
+					boundedMetadataJson(input.metadata),
 					input.ipHash ?? null,
 					new Date().toISOString()
 				)

@@ -6,6 +6,7 @@ import { requirePageAccess } from '$lib/server/pageAccess';
 import { parseDataLimit } from '$lib/server/dataPagination';
 import {
 	getSesiTokoList,
+	getSesiSummary,
 	insertSesiTokoRows,
 	updateSesiTokoRow
 } from '$lib/server/services/sesiTokoService';
@@ -17,6 +18,14 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
+	const rawDb = getRawDb(platform, branch);
+	if (url.searchParams.get('summary') === '1' || url.searchParams.get('summary') === 'true') {
+		const sid = url.searchParams.get('id');
+		if (!sid) throw kitError(400, 'id sesi diperlukan');
+		const summary = await getSesiSummary(rawDb, branch, sid);
+		if (!summary) throw kitError(404, 'Sesi tidak ditemukan');
+		return json(summary);
+	}
 	const db = getDb(platform, branch);
 	const limit = parseDataLimit(url.searchParams.get('limit'));
 	const id = url.searchParams.get('id');
