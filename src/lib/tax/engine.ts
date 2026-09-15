@@ -40,6 +40,15 @@ export function validateTaxSettings(input: unknown): { ok: boolean; errors: stri
 			if (!ALLOWED_TYPES.includes(t.tipe as EngineTaxType))
 				errors.push(`Tipe pajak tidak valid: ${String(t.tipe)}`);
 			if (!isValidRate(t.persentase)) errors.push(`Persentase pajak tidak valid: ${String(t.id)}`);
+			if (typeof t.isEnabled !== 'boolean')
+				errors.push(`isEnabled pajak tidak valid: ${String(t.id)}`);
+			if (t.useThreshold500Juta !== undefined && typeof t.useThreshold500Juta !== 'boolean')
+				errors.push(`useThreshold500Juta tidak valid: ${String(t.id)}`);
+			if (t.thresholdAmount !== undefined) {
+				const th = t.thresholdAmount;
+				if (typeof th !== 'number' || !Number.isFinite(th) || th < 0)
+					errors.push(`thresholdAmount tidak valid: ${String(t.id)}`);
+			}
 		}
 	}
 	return { ok: errors.length === 0, errors };

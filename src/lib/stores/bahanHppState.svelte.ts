@@ -3,7 +3,7 @@ import {
 	createHppState,
 	type HppParsedItem
 } from '$lib/services/manajemenmenuCrud';
-import { formatRupiah, parseRupiah } from '$lib/utils/currency';
+import { formatRupiah, parseRupiah, parseQuantityInput } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createHppCalculator } from '$lib/utils/manajemenmenuHpp';
@@ -263,13 +263,13 @@ export function createBahanHppState(config: BahanHppConfig) {
 			config.showNotif('Nama bahan wajib diisi', 'warning');
 			return;
 		}
-		const purchaseQuantityInput = Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir));
+		const purchaseQuantityInput = Math.max(0, parseQuantityInput(bahanForm.jumlah_beli_terakhir));
 		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
 		const resolvedCategory =
 			(bahanForm.kategoriSelect === '__new__'
 				? bahanForm.customKategori.trim()
 				: bahanForm.kategoriSelect.trim()) || 'Bahan Baku';
-		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
+		const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1);
 
 		// Convert purchase quantity to base unit (e.g. 1 kg -> 1000 gram), strict.
 		let purchaseQuantityInBase: number;
@@ -285,7 +285,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 			return;
 		}
 
-		const rawYield = parseRupiah(bahanForm.yield_persen) || 100;
+		const rawYield = parseQuantityInput(bahanForm.yield_persen) || 100;
 		const yieldPercent = Math.min(100, Math.max(1, rawYield));
 		const yieldFactor = yieldPercent / 100;
 		const netUsableQuantityInBase = purchaseQuantityInBase * yieldFactor;
@@ -297,8 +297,8 @@ export function createBahanHppState(config: BahanHppConfig) {
 			isi_per_kemasan: packSize,
 			satuan_beli: bahanForm.satuan_beli || bahanForm.satuan,
 			kategori: resolvedCategory,
-			stok_saat_ini: Math.max(0, parseRupiah(bahanForm.stok_saat_ini)),
-			ambang_stok: Math.max(0, parseRupiah(bahanForm.ambang_stok)),
+			stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)),
+			ambang_stok: Math.max(0, parseQuantityInput(bahanForm.ambang_stok)),
 			yield_persen: yieldPercent,
 			jumlah_beli_terakhir: purchaseQuantityInBase,
 			biaya_beli_terakhir: purchaseCost,
@@ -331,7 +331,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 
 	async function saveMutasiBahan() {
 		if (!mutasiBahanId) return;
-		const delta = Number(mutasiBahanForm.delta_jumlah || 0);
+		const delta = parseQuantityInput(mutasiBahanForm.delta_jumlah);
 		if (!Number.isFinite(delta) || delta === 0) {
 			config.showNotif('Jumlah stok masuk atau keluar wajib diisi', 'warning');
 			return;

@@ -135,6 +135,36 @@ function outboxInsertStatement(
 		.bind(id, branch, payload, now, now);
 }
 
+async function quarantineOutboxRow(
+	db: import('@cloudflare/workers-types').D1Database,
+	row: { id: string; cabang_id?: string; payload: string; attempt_count?: number },
+	branch: BranchId,
+	reason: unknown
+): Promise<void> {
+	try {
+		const now = new Date().toISOString();
+		await db.batch([
+			db
+				.prepare(
+					`INSERT OR IGNORE INTO audit_log_quarantine (id, cabang_id, payload, reason, attempt_count, created_at, quarantined_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?)`
+				)
+				.bind(
+					row.id,
+					row.cabang_id ?? branch,
+					row.payload,
+					String(reason instanceof Error ? reason.message : reason).slice(0, 1000),
+					Number(row.attempt_count || 0),
+					now,
+					now
+				),
+			db.prepare('DELETE FROM audit_log_outbox WHERE id = ?').bind(row.id)
+		]);
+	} catch {
+		// Karantina best-effort; jangan tutupi operasi utama.
+	}
+}
+
 async function markOutboxFailure(
 	db: import('@cloudflare/workers-types').D1Database,
 	id: string,
@@ -214,11 +244,13 @@ export async function flushAuditLogOutbox(
 ): Promise<number> {
 	const rows = (await db
 		.prepare(
-			`SELECT id, payload, attempt_count FROM audit_log_outbox
+			`SELECT id, cabang_id, payload, attempt_count FROM audit_log_outbox
 			 WHERE cabang_id = ? ORDER BY created_at ASC LIMIT ?`
 		)
 		.bind(branch, limit)
-		.all()) as { results?: Array<{ id: string; payload: string; attempt_count?: number }> };
+		.all()) as {
+		results?: Array<{ id: string; cabang_id?: string; payload: string; attempt_count?: number }>;
+	};
 	let flushed = 0;
 	for (const row of rows.results || []) {
 		let input: AuditLogInput;
@@ -227,16 +259,8 @@ export async function flushAuditLogOutbox(
 			if (!input || typeof input !== 'object' || typeof input.action !== 'string')
 				throw new Error('payload outbox invalid');
 		} catch (error) {
-			// Outbox lama invalid: karantina setelah beberapa percobaan agar event baru jalan.
-			if (Number(row.attempt_count || 0) >= 5) {
-				await db
-					.prepare('DELETE FROM audit_log_outbox WHERE id = ?')
-					.bind(row.id)
-					.run()
-					.catch(() => {});
-			} else {
-				await markOutboxFailure(db, row.id, error);
-			}
+			// Invalid selamanya: karantina dengan alasan (bukan hapus diam-diam).
+			await quarantineOutboxRow(db, row, branch, error);
 			continue;
 		}
 		try {
@@ -266,7 +290,12 @@ export async function flushAuditLogOutbox(
 			await db.prepare('DELETE FROM audit_log_outbox WHERE id = ?').bind(row.id).run();
 			flushed += 1;
 		} catch (error) {
-			await markOutboxFailure(db, row.id, error);
+			// Gagal berulang (mis. constraint) -> karantina agar antrean jalan terus.
+			if (Number(row.attempt_count || 0) >= 5) {
+				await quarantineOutboxRow(db, row, branch, error);
+			} else {
+				await markOutboxFailure(db, row.id, error);
+			}
 		}
 	}
 	return flushed;

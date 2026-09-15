@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
@@ -75,6 +75,7 @@
 	let showConfirmPin = $state(false);
 
 	const toastManager = createToastManager();
+	onDestroy(() => toastManager.dispose());
 
 	onMount(async () => {
 		if (userRole.value !== 'pemilik') {

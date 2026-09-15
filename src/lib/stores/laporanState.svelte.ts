@@ -152,20 +152,19 @@ export function createLaporanState() {
 			const labaKotorVal = Number(rawSummary.labaKotor || pendapatanVal - pengeluaranVal);
 			// Pajak memakai ringkasan server (YTD + config persisted).
 			// Hitung lokal hanya bila server tak memberi angka (cache offline).
+			// Rincian/label dibaca dari summary yang SAMA dengan angka pajak.
 			const serverPajak = typeof rawSummary.pajak === 'number' ? rawSummary.pajak : null;
 			const serverBersih = typeof rawSummary.labaBersih === 'number' ? rawSummary.labaBersih : null;
-			const serverBreakdown = Array.isArray(
-				(reportDataContent as { taxBreakdown?: unknown }).taxBreakdown
-			)
+			const serverBreakdown = Array.isArray((rawSummary as { taxBreakdown?: unknown }).taxBreakdown)
 				? (
-						reportDataContent as {
+						rawSummary as {
 							taxBreakdown: Array<{ nama: string; persentase: number; nominal: number }>;
 						}
 					).taxBreakdown
 				: null;
 			const serverLabel =
-				typeof (reportDataContent as { taxLabel?: unknown }).taxLabel === 'string'
-					? (reportDataContent as { taxLabel: string }).taxLabel
+				typeof (rawSummary as { taxLabel?: unknown }).taxLabel === 'string'
+					? (rawSummary as { taxLabel: string }).taxLabel
 					: null;
 			const fallback = calculateTaxes(
 				pendapatanVal,
@@ -545,6 +544,7 @@ export function createLaporanState() {
 			return reportGroups;
 		},
 		toastManager,
+		dispose: () => toastManager.dispose(),
 		formatDate,
 		getDeskripsiLaporan,
 		openDatePicker,

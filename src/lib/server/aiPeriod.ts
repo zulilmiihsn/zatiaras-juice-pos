@@ -32,10 +32,64 @@ function prevMonthRange(todayWita: string): AiPeriod {
 	};
 }
 
+const MONTHS = [
+	['januari', 'january', 1],
+	['februari', 'february', 2],
+	['maret', 'march', 3],
+	['april', 'april', 4],
+	['mei', 'may', 5],
+	['juni', 'june', 6],
+	['juli', 'july', 7],
+	['agustus', 'august', 8],
+	['september', 'september', 9],
+	['oktober', 'october', 10],
+	['november', 'november', 11],
+	['desember', 'december', 12]
+] as Array<[string, string, number]>;
+
+function findMonth(question: string): number | null {
+	for (const [id, en, n] of MONTHS) {
+		if (includesWord(question, id) || includesWord(question, en)) return n;
+	}
+	return null;
+}
+
+function findYear(question: string): number | null {
+	const m = question.match(/\b(20\d{2})\b/);
+	return m ? Number(m[1]) : null;
+}
+
+function monthRange(year: number, month: number, todayWita: string): AiPeriod {
+	const start = `${year}-${String(month).padStart(2, '0')}-01`;
+	const lastDay = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 0))
+		.toISOString()
+		.slice(0, 10);
+	const end = lastDay > todayWita ? todayWita : lastDay;
+	return { start, end: end < start ? start : end, type: 'monthly' };
+}
+
 /** Periode eksplisit; null bila tak ada qualifier tanggal yang dikenali. */
 export function resolveAiPeriod(question: string, todayWita: string): AiPeriod | null {
 	const q = question.toLowerCase();
 	const monthStart = `${todayWita.slice(0, 7)}-01`;
+	const thisYear = Number(todayWita.slice(0, 4));
+	if (q.includes('tahun lalu')) {
+		const y = thisYear - 1;
+		return { start: `${y}-01-01`, end: `${y}-12-31`, type: 'monthly' };
+	}
+	if (q.includes('tahun ini')) {
+		return { start: `${thisYear}-01-01`, end: todayWita, type: 'monthly' };
+	}
+	const namedMonth = findMonth(q);
+	if (namedMonth !== null) {
+		const explicitYear = findYear(q);
+		const y = explicitYear ?? thisYear;
+		if (y > thisYear || y < 2020) return null;
+		// Bulan depan tanpa tahun eksplisit = ambigu, serahkan ke analyzer.
+		if (explicitYear === null && y === thisYear && namedMonth > Number(todayWita.slice(5, 7)))
+			return null;
+		return monthRange(y, namedMonth, todayWita);
+	}
 	if (q.includes('bulan lalu') || q.includes('bulan kemarin')) return prevMonthRange(todayWita);
 	if (q.includes('bulan ini')) return { start: monthStart, end: todayWita, type: 'monthly' };
 	if (q.includes('kemarin')) {
@@ -51,7 +105,7 @@ export function resolveAiPeriod(question: string, todayWita: string): AiPeriod |
 
 export function hasPeriodQualifier(question: string): boolean {
 	const q = question.toLowerCase();
-	return (
+	if (
 		q.includes('bulan lalu') ||
 		q.includes('bulan kemarin') ||
 		q.includes('bulan ini') ||
@@ -60,8 +114,20 @@ export function hasPeriodQualifier(question: string): boolean {
 		q.includes('7 hari') ||
 		q.includes('seminggu terakhir') ||
 		q.includes('1 minggu') ||
+		q.includes('tahun lalu') ||
+		q.includes('tahun ini') ||
+		q.includes('minggu lalu') ||
+		q.includes('pekan lalu') ||
+		q.includes('kemarin lusa') ||
+		q.includes('kuartal') ||
+		q.includes('triwulan') ||
+		q.includes('semester') ||
+		findMonth(q) !== null ||
+		findYear(q) !== null ||
 		/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(q)
-	);
+	)
+		return true;
+	return false;
 }
 
 export interface AiIntent {

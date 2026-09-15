@@ -4,13 +4,13 @@
 	import BottomNav from '$lib/components/shared/bottomNav.svelte';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, onDestroy, type Snippet } from 'svelte';
 	import { goto, invalidateAll, onNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import Download from '@lucide/svelte/icons/download';
 	import { posGridView } from '$lib/stores/posGridView.svelte';
 	import { auth } from '$lib/auth/auth';
-	import { userRole } from '$lib/stores/userRole.svelte';
+	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
 	import { securitySettings, setSecuritySettings } from '$lib/stores/securitySettings.svelte';
@@ -28,6 +28,7 @@
 
 	const layoutSt = createLayoutState();
 	let showPendingTransactions = $state(false);
+	onDestroy(() => layoutSt.dispose());
 
 	// [CATATAN]: ── Navigasi & View Transitions ──────────────────────────────────────────
 	onNavigate((navigation) => {
@@ -61,6 +62,7 @@
 	let isLoadingSecuritySettings = false;
 	let securityRefreshCounter = $state(0);
 	let securityRequestGen = 0;
+	let securityRefreshQueued = false;
 
 	function settingsEqual(
 		a: { lockedPages: string[] | null; pinConfigured?: boolean } | null,
@@ -75,19 +77,25 @@
 	}
 
 	async function loadKasirSecuritySettings() {
-		if (isLoadingSecuritySettings) return;
+		// Identitas sesi penuh: perubahan apa pun menginvalidasi request lama.
+		const identityAtStart = securityIdentity();
+		if (isLoadingSecuritySettings) {
+			// Jangan hilangkan refresh cabang baru: antrekan lalu mulai sesudah in-flight.
+			securityRefreshQueued = true;
+			return;
+		}
 		isLoadingSecuritySettings = true;
 		const gen = ++securityRequestGen;
-		const roleAtStart = userRole.value;
-		const branchAtStart = selectedBranch.value;
 		try {
 			const data = (await transactionService.getOne('pengaturan')) as {
 				halaman_terkunci?: string[];
 				pinConfigured?: boolean;
 			} | null;
-			// Buang hasil basi sesi/cabang lain.
-			if (gen !== securityRequestGen) return;
-			if (userRole.value !== roleAtStart || selectedBranch.value !== branchAtStart) return;
+			// Buang hasil basi sesi/cabang lain; antrekan refresh identitas terbaru.
+			if (gen !== securityRequestGen || securityIdentity() !== identityAtStart) {
+				securityRefreshQueued = true;
+				return;
+			}
 			if (data) {
 				const isConfigured = data.pinConfigured === true;
 				const next = {
@@ -100,7 +108,22 @@
 			// [CATATAN]: no-op
 		} finally {
 			if (gen === securityRequestGen) isLoadingSecuritySettings = false;
+			if (securityRefreshQueued) {
+				securityRefreshQueued = false;
+				void loadKasirSecuritySettings();
+			}
 		}
+	}
+
+	function securityIdentity(): string {
+		const profile = userProfile.value as { username?: unknown; id?: unknown } | null;
+		const user =
+			typeof profile?.username === 'string'
+				? profile.username
+				: typeof profile?.id === 'string'
+					? profile.id
+					: '';
+		return `${userRole.value || ''}|${selectedBranch.value || ''}|${user}`;
 	}
 
 	function mapLockedNameToPath(name: string): string {
@@ -120,6 +143,8 @@
 		if (!browser) return;
 		const role = userRole.value;
 		const branch = selectedBranch.value;
+		const sessionUser = (userProfile.value as { username?: unknown } | null)?.username ?? '';
+		void sessionUser;
 		void securityRefreshCounter;
 		if (role === 'kasir' && branch) {
 			void loadKasirSecuritySettings();

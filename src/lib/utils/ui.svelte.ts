@@ -1,4 +1,5 @@
 import { NOTIF } from '$lib/constants/ui';
+import { onDestroy } from 'svelte';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -39,6 +40,15 @@ export function createToastManager() {
 
 	function dispose() {
 		clearTimer();
+	}
+
+	// Cleanup bersama: bila dibuat saat init komponen, timer ikut dibuang
+	// saat pemilik dihancurkan. Di luar komponen (store modul), abaikan dan
+	// pakai dispose() manual.
+	try {
+		onDestroy(() => clearTimer());
+	} catch {
+		// bukan konteks komponen
 	}
 
 	return {

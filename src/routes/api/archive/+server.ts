@@ -3,9 +3,11 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { getRawDb } from '$lib/server/dataApiHelpers';
 import {
 	acquireArchiveJob,
+	countEligibleRows,
 	cutoffForYear,
 	deterministicSummaryId,
 	getCompletedJobForYear,
+	manifestIntactSql,
 	sealManifestItems,
 	setJobStatus,
 	sha256Hex,
@@ -116,48 +118,84 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		| undefined;
 	if (!bucket) throw kitError(503, 'Storage tidak tersedia');
 
-	// Resume: job completed baru dulu, lalu pointer legacy agar arsip lama tetap dikenali.
-	const completed = await getCompletedJobForYear(rawDb, branch, year).catch(() => null);
-	if (completed?.object_key) {
-		let count = 0;
-		try {
-			count = Number((JSON.parse(completed.counts || '{}') as { total?: number }).total || 0);
-		} catch {}
+	// Eligible recount dulu: resume hanya bila tak ada row baru.
+	// Retry sesudah sukses (row sudah terhapus) kembali hasil sama;
+	// row baru/backdate/restored memicu job baru, bukan resume tahun.
+	const eligible = await countEligibleRows(rawDb, branch, cutoff);
+	if (eligible === 0) {
+		const completed = await getCompletedJobForYear(rawDb, branch, year).catch(() => null);
+		if (completed?.object_key) {
+			let count = 0;
+			try {
+				count = Number((JSON.parse(completed.counts || '{}') as { total?: number }).total || 0);
+			} catch {}
+			return json({
+				ok: true,
+				resumed: true,
+				count,
+				key: completed.object_key,
+				message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
+			});
+		}
+		const legacyCompleted = (await rawDb
+			.prepare(`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = ? LIMIT 1`)
+			.bind(branch, `archive_job_${year}`)
+			.first()
+			.catch(() => null)) as { nilai?: string } | null;
+		if (legacyCompleted?.nilai) {
+			try {
+				const parsed = JSON.parse(legacyCompleted.nilai) as {
+					status?: string;
+					key?: string;
+					count?: number;
+					filename?: string;
+				};
+				if (parsed.status === 'completed' && parsed.key) {
+					return json({
+						ok: true,
+						resumed: true,
+						count: parsed.count || 0,
+						key: parsed.key,
+						filename: parsed.filename,
+						message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
+					});
+				}
+			} catch {}
+		}
 		return json({
 			ok: true,
-			resumed: true,
-			count,
-			key: completed.object_key,
-			message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
+			count: 0,
+			message: `Tidak ada transaksi sebelum ${year} (WITA) untuk diarsipkan.`
 		});
 	}
-	const legacyCompleted = (await rawDb
-		.prepare(`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = ? LIMIT 1`)
-		.bind(branch, `archive_job_${year}`)
+
+	// Pemeriksaan konflik SEBELUM klaim agar job gagal tak memblokir cabang.
+	const activeSessionPre = (await rawDb
+		.prepare(`SELECT id FROM sesi_toko WHERE cabang_id = ? AND is_active = 1 LIMIT 1`)
+		.bind(branch)
 		.first()
-		.catch(() => null)) as { nilai?: string } | null;
-	if (legacyCompleted?.nilai) {
-		try {
-			const parsed = JSON.parse(legacyCompleted.nilai) as {
-				status?: string;
-				key?: string;
-				count?: number;
-				filename?: string;
-			};
-			if (parsed.status === 'completed' && parsed.key) {
-				return json({
-					ok: true,
-					resumed: true,
-					count: parsed.count || 0,
-					key: parsed.key,
-					filename: parsed.filename,
-					message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
-				});
-			}
-		} catch {}
+		.catch(() => null)) as { id?: string } | null;
+	if (activeSessionPre?.id) {
+		throw kitError(
+			409,
+			'Konflik arsip: Sesi toko masih aktif di cabang ini. Tutup sesi kasir terlebih dahulu.'
+		);
+	}
+	const pendingPre = (await rawDb
+		.prepare(
+			`SELECT count(*) as cnt FROM antrean_offline WHERE cabang_id = ? AND status IN ('pending', 'syncing')`
+		)
+		.bind(branch)
+		.first()
+		.catch(() => null)) as { cnt?: number } | null;
+	if (pendingPre && Number(pendingPre.cnt) > 0) {
+		throw kitError(
+			409,
+			`Konflik arsip: Ada ${pendingPre.cnt} transaksi offline yang belum tersinkronisasi. Selesaikan sinkronisasi terlebih dahulu.`
+		);
 	}
 
-	// Klaim job atomik (ganti string lock tanpa pemilik).
+	// Klaim job atomik per cabang (cutoff berbeda pun saling eksklusi).
 	let job;
 	try {
 		job = await acquireArchiveJob(rawDb, branch, year, cutoff);
@@ -170,36 +208,6 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	let jobOwner = job.owner_token;
 
 	try {
-		// Conflict Detection 1: Pastikan tidak ada sesi toko yang sedang aktif di cabang ini
-		const activeSession = (await rawDb
-			.prepare(`SELECT id FROM sesi_toko WHERE cabang_id = ? AND is_active = 1 LIMIT 1`)
-			.bind(branch)
-			.first()
-			.catch(() => null)) as { id?: string } | null;
-
-		if (activeSession?.id) {
-			throw kitError(
-				409,
-				'Konflik arsip: Sesi toko masih aktif di cabang ini. Tutup sesi kasir terlebih dahulu.'
-			);
-		}
-
-		// Conflict Detection 2: Pastikan tidak ada antrean offline yang tertunda
-		const pendingQueue = (await rawDb
-			.prepare(
-				`SELECT count(*) as cnt FROM antrean_offline WHERE cabang_id = ? AND status IN ('pending', 'syncing')`
-			)
-			.bind(branch)
-			.first()
-			.catch(() => null)) as { cnt?: number } | null;
-
-		if (pendingQueue && Number(pendingQueue.cnt) > 0) {
-			throw kitError(
-				409,
-				`Konflik arsip: Ada ${pendingQueue.cnt} transaksi offline yang belum tersinkronisasi. Selesaikan sinkronisasi terlebih dahulu.`
-			);
-		}
-
 		// Tandai uploading (gagal ownership = worker lama, batalkan).
 		if (!(await setJobStatus(rawDb, archiveJobId, jobOwner, 'uploading')))
 			throw kitError(409, 'Klaim arsip kedaluwarsa. Coba lagi.');
@@ -222,10 +230,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 		const total = bukuKas.length + transaksiKasir.length;
 		if (total === 0) {
+			// Row hilang antara recount dan snapshot (void/concurent delete): tak ada yang diarsipkan.
 			await setJobStatus(rawDb, archiveJobId, jobOwner, 'completed', {
 				counts: JSON.stringify({ total: 0, buku_kas: 0, transaksi_kasir: 0 })
 			});
-
 			return json({
 				ok: true,
 				count: 0,
@@ -336,17 +344,23 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		}
 
 		const finalizeToken = crypto.randomUUID();
+		const nowMs = Date.now();
 		const batchStatements = [
+			// Klaim finalisasi: ownership + lease + sesi tutup dalam satu statement.
 			rawDb
 				.prepare(
 					`UPDATE archive_jobs SET status = 'finalizing', owner_token = ?, updated_at = ?
-					 WHERE id = ? AND owner_token = ? AND status IN ('claimed','uploading')`
+					 WHERE id = ? AND owner_token = ? AND status IN ('claimed','uploading')
+					 AND lease_expires_at > ?
+					 AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)`
 				)
-				.bind(finalizeToken, new Date().toISOString(), archiveJobId, jobOwner)
+				.bind(finalizeToken, new Date().toISOString(), archiveJobId, jobOwner, nowMs, branch)
 		];
 		jobOwner = finalizeToken;
 		const jobGuard = `EXISTS (SELECT 1 FROM archive_jobs WHERE id = ? AND owner_token = ? AND status = 'finalizing')`;
 		const noSession = `NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)`;
+		// Seluruh manifest harus utuh (ada + revision sama); drift apa pun menggagalkan SEMUA efek.
+		const manifestOk = manifestIntactSql();
 
 		// 1. Ringkasan arsip manual, ID deterministik job+dimensi (retry tidak ganda).
 		for (const s of manualSummaries.values()) {
@@ -365,7 +379,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						jumlah_transaksi, total_nominal, created_at
 					)
 					SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-					WHERE ${jobGuard} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
+					WHERE ${jobGuard} AND ${noSession} AND ${manifestOk} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
 					)
 					.bind(
 						sid,
@@ -380,12 +394,15 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						new Date().toISOString(),
 						archiveJobId,
 						finalizeToken,
+						branch,
+						branch,
+						archiveJobId,
 						sid
 					)
 			);
 		}
 
-		// 2. Hapus exact manifest; revision harus cocok + sesi tutup + job guard.
+		// 2. Hapus exact manifest; drift/revisi/sesi menggagalkan hapus.
 		// transaksi detail dulu, header terakhir.
 		for (let i = 0; i < tkIds.length; i += 50) {
 			const chunk = tkIds.slice(i, i + 50);
@@ -394,9 +411,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				rawDb
 					.prepare(
 						`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard} AND ${noSession}`
+						 AND ${jobGuard} AND ${noSession} AND ${manifestOk}`
 					)
-					.bind(branch, ...chunk, archiveJobId, finalizeToken, branch)
+					.bind(branch, ...chunk, archiveJobId, finalizeToken, branch, branch, archiveJobId)
 			);
 		}
 		for (let i = 0; i < itemManifest.length; i += 20) {
@@ -407,14 +424,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				rawDb
 					.prepare(
 						`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard} AND ${noSession}
-						 AND NOT EXISTS (
-							SELECT 1 FROM buku_kas b
-							JOIN archive_job_items m ON m.job_id = ? AND m.buku_kas_id = b.id
-							WHERE b.cabang_id = ? AND b.id IN (${placeholders}) AND b.revision != m.revision
-						 )`
+						 AND ${jobGuard} AND ${noSession} AND ${manifestOk}`
 					)
-					.bind(branch, ...ids, archiveJobId, finalizeToken, branch, archiveJobId, branch, ...ids)
+					.bind(branch, ...ids, archiveJobId, finalizeToken, branch, branch, archiveJobId)
 			);
 		}
 
@@ -422,7 +434,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			rawDb
 				.prepare(
 					`UPDATE archive_jobs SET status = 'completed', object_key = ?, checksum = ?, counts = ?, updated_at = ?
-					 WHERE id = ? AND owner_token = ? AND status = 'finalizing'`
+					 WHERE id = ? AND owner_token = ? AND status = 'finalizing' AND ${manifestOk} AND ${noSession}`
 				)
 				.bind(
 					key,
@@ -430,7 +442,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					JSON.stringify({ total, ...archive.meta.counts }),
 					new Date().toISOString(),
 					archiveJobId,
-					finalizeToken
+					finalizeToken,
+					branch,
+					archiveJobId,
+					branch
 				)
 		);
 
@@ -446,7 +461,21 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			await setJobStatus(rawDb, archiveJobId, finalizeToken, 'orphan').catch(() => {});
 			throw kitError(
 				409,
-				'Arsip berubah bersamaan (sesi/edit/void). Snapshot orphan, ledger utuh. Coba lagi.'
+				'Arsip berubah bersamaan (sesi/lease/edit/void). Snapshot orphan, ledger utuh. Coba lagi.'
+			);
+		}
+		// Klaim menang belum berarti efek sah: pastikan completed, bila tidak
+		// berarti guard manifest/sesi menggagalkan efek -> orphan, ledger utuh.
+		const finalJob = (await rawDb
+			.prepare(`SELECT status FROM archive_jobs WHERE id = ? LIMIT 1`)
+			.bind(archiveJobId)
+			.first()
+			.catch(() => null)) as { status?: string } | null;
+		if (finalJob?.status !== 'completed') {
+			await setJobStatus(rawDb, archiveJobId, finalizeToken, 'orphan').catch(() => {});
+			throw kitError(
+				409,
+				'Data berubah saat finalisasi (edit/void/sesi). Snapshot orphan, ledger utuh. Coba lagi.'
 			);
 		}
 

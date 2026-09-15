@@ -49,6 +49,10 @@ export function createCatatState() {
 	let recentTransactions = $state<CatatRecentTransaction[]>([]);
 	let isLoadingRecent = $state(false);
 	let isSubmitting = $state(false);
+	// Intent gagal terakhir: submit ulang isi SAMA sesudah gagal memakai ID sama
+	// (dedup id server cegah ganda saat status ambigu). Sukses membersihkan;
+	// isi sama yang disengaja sesudah sukses = transaksi baru dengan ID baru.
+	let lastFailed: { fp: string; id: string } | null = null;
 
 	const toastManager = createToastManager();
 
@@ -153,9 +157,20 @@ export function createCatatState() {
 			showNotifModal = true;
 		}
 		const utcTime = witaToUtcISO(form.transaction_date, form.transaction_time || '00:00');
-		// ID intent stabil per pemanggilan; retry payload sama pakai ID ini.
+		const intentFp = JSON.stringify({
+			mode,
+			nominal: form.nominal,
+			deskripsi: form.deskripsi,
+			date: form.transaction_date,
+			time: form.transaction_time,
+			metode: form.metode_bayar,
+			jenis: form.jenis,
+			sesi: id_sesi_toko
+		});
+		// ID stabil untuk retry sesudah gagal; sukses/isi beda selalu ID baru.
+		const intentId = lastFailed && lastFailed.fp === intentFp ? lastFailed.id : crypto.randomUUID();
 		const trx = {
-			id: crypto.randomUUID(),
+			id: intentId,
 			tipe: mode === 'pemasukan' ? 'in' : 'out',
 			sumber: 'catat',
 			metode_bayar: form.metode_bayar,
@@ -173,11 +188,17 @@ export function createCatatState() {
 					try {
 						await addPendingTransaction(trx);
 					} catch {
+						notifModalMsg =
+							'Gagal menyimpan antrean offline (penyimpanan lokal penuh/gagal). Transaksi BELUM tersimpan; coba lagi.';
+						notifModalType = 'error';
+						showNotifModal = true;
+						lastFailed = { fp: intentFp, id: intentId };
 						return { status: 'failed', reason: 'queue_gagal' };
 					}
 					notifModalMsg = 'Koneksi terputus. Transaksi antre dan akan dikirim saat online.';
 					notifModalType = 'success';
 					showNotifModal = true;
+					lastFailed = null;
 					return { status: 'queued', id: trx.id };
 				}
 				notifModalMsg =
@@ -185,6 +206,7 @@ export function createCatatState() {
 					(err instanceof Error ? err.message : 'Unknown error');
 				notifModalType = 'error';
 				showNotifModal = true;
+				lastFailed = { fp: intentFp, id: intentId };
 				return { status: 'failed', reason: 'server' };
 			}
 			// Refresh terpisah dari hasil mutasi: gagal refresh tidak membatalkan sukses.
@@ -192,16 +214,23 @@ export function createCatatState() {
 				await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
 				await cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir');
 			} catch {}
+			lastFailed = null;
 			return { status: 'saved', id: trx.id };
 		} else {
 			try {
 				await addPendingTransaction(trx);
 			} catch {
+				notifModalMsg =
+					'Gagal menyimpan antrean offline (penyimpanan lokal penuh/gagal). Transaksi BELUM tersimpan; coba lagi.';
+				notifModalType = 'error';
+				showNotifModal = true;
+				lastFailed = { fp: intentFp, id: intentId };
 				return { status: 'failed', reason: 'queue_gagal' };
 			}
 			notifModalMsg = 'Transaksi antre offline dan akan otomatis sync saat online.';
 			notifModalType = 'success';
 			showNotifModal = true;
+			lastFailed = null;
 			return { status: 'queued', id: trx.id };
 		}
 	}
@@ -435,6 +464,7 @@ export function createCatatState() {
 		},
 		loadRecentTransactions,
 		toastManager,
+		dispose: () => toastManager.dispose(),
 		jenisPemasukan,
 		jenisPengeluaran,
 		init,

@@ -1,5 +1,5 @@
 import { createEkstraCrud } from '$lib/services/manajemenmenuCrud';
-import { formatRupiah, parseRupiah } from '$lib/utils/currency';
+import { formatRupiah, parseRupiah, parseQuantityInput } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { convertToBaseUnit } from '$lib/utils/unitConversion';
 import type { AddOn, Ingredient } from '$lib/types/product';
@@ -92,7 +92,7 @@ export function createEkstraState(deps: EkstraDeps) {
 		if (ekstraForm.bahan_id) {
 			bahan_id = String(ekstraForm.bahan_id);
 			const bahan = deps.getBahanList().find((b) => String(b.id) === bahan_id);
-			jumlah_bahan = parseFloat(ekstraForm.jumlah_bahan) || 0;
+			jumlah_bahan = parseQuantityInput(ekstraForm.jumlah_bahan) || 0;
 			satuan_resep = ekstraForm.satuan_resep || bahan?.satuan || 'gram';
 			const baseUnit = bahan?.satuan || 'gram';
 			const packSize = bahan?.isi_per_kemasan || 1;

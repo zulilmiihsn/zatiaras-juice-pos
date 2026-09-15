@@ -137,27 +137,25 @@ export function buildReceiptHtml(
 
 	if (items.length > 0) {
 		for (const line of toReceiptLines(items)) {
+			// Breakdown terpercaya: baris dasar + topping terpisah (jumlah = subtotal).
+			// Inklusif legacy: satu baris subtotal, topping sudah termasuk.
+			const mainTotal =
+				!line.inklusifSaja && line.baseUnit !== null
+					? Math.round(line.baseUnit * line.jumlah * 100) / 100
+					: line.subtotal;
 			const at =
 				line.jumlah > 1 && line.unitInklusif !== null
 					? ` <span style='font-size:12px;font-weight:normal;'>@Rp${formatRupiah(line.unitInklusif)}</span>`
 					: '';
-			body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(line.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span>${at}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(line.subtotal)}</td></tr>`;
+			body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(line.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span>${at}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(mainTotal)}</td></tr>`;
 			if (!line.inklusifSaja) {
 				for (const a of line.addOns) {
 					body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(a.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span></td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah(a.total)}</td></tr>`;
 				}
-				const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
-				if (detail) {
-					body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
-				}
-			} else {
-				// Legacy inklusif: topping sudah termasuk, jangan tambah nominal.
-				if (line.addOns.length === 0) {
-					const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
-					if (detail) {
-						body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
-					}
-				}
+			}
+			const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
+			if (detail) {
+				body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
 			}
 		}
 	} else {

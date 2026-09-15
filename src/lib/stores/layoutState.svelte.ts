@@ -169,6 +169,7 @@ export function createLayoutState() {
 			return isPendingSyncing;
 		},
 		toastManager,
+		dispose: () => toastManager.dispose(),
 		setupPwa,
 		setupWindowListeners,
 		updatePending,

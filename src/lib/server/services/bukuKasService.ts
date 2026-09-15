@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lt, lte, gt, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lt, lte, gt, or, sql, type SQL } from 'drizzle-orm';
 import { bukuKas } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
 import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
@@ -330,9 +330,10 @@ export async function updateBukuKasRow(
 	const manualPayload = sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>);
 	for (const k of ['revision', 'mutation_token'])
 		delete (manualPayload as Record<string, unknown>)[k];
+	// Increment atomik satu statement (bukan snapshot+1) agar dua update tak berbagi versi.
 	await db
 		.update(bukuKas)
-		.set({ ...manualPayload, revision: (existing.revision ?? 0) + 1 })
+		.set({ ...manualPayload, revision: sql`revision + 1`, updated_at: new Date().toISOString() })
 		.where(and(eq(bukuKas.cabang_id, branch), eq(bukuKas.id, String(id))));
 	await publish(platform, branch, 'buku_kas', 'update', { id });
 	await auditDataChange(rawDb, branch, session, 'buku_kas', 'update', id, {

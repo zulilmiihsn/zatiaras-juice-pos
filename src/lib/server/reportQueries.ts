@@ -216,6 +216,7 @@ export async function buildLaporanAggregate(
 	// Rentang lintas tahun dipecah per tahun pajak; threshold reset tiap Januari.
 	async function turnoverBetween(from: string, to: string): Promise<number> {
 		if (from > to) return 0;
+		// Query WAJIB: gagal dibaca -> propagasikan error, jangan tampilkan 0 palsu.
 		const [p, m, a] = await Promise.all([
 			rawDb
 				.prepare(
@@ -224,8 +225,7 @@ export async function buildLaporanAggregate(
 					 WHERE cabang_id = ? AND tanggal_penjualan >= ? AND tanggal_penjualan <= ?`
 				)
 				.bind(branch, from, to)
-				.first()
-				.catch(() => ({ gross: 0 })) as Promise<{ gross?: number }>,
+				.first() as Promise<{ gross?: number }>,
 			rawDb
 				.prepare(
 					`SELECT COALESCE(SUM(nominal),0) AS total
@@ -235,8 +235,7 @@ export async function buildLaporanAggregate(
 						AND date(datetime(waktu, '+8 hours')) >= ? AND date(datetime(waktu, '+8 hours')) <= ?`
 				)
 				.bind(branch, from, to)
-				.first()
-				.catch(() => ({ total: 0 })) as Promise<{ total?: number }>,
+				.first() as Promise<{ total?: number }>,
 			rawDb
 				.prepare(
 					`SELECT COALESCE(SUM(total_nominal),0) AS total
@@ -245,8 +244,7 @@ export async function buildLaporanAggregate(
 						AND tanggal_wita >= ? AND tanggal_wita <= ?`
 				)
 				.bind(branch, from, to)
-				.first()
-				.catch(() => ({ total: 0 })) as Promise<{ total?: number }>
+				.first() as Promise<{ total?: number }>
 		]);
 		return Number(p?.gross || 0) + Number(m?.total || 0) + Number(a?.total || 0);
 	}

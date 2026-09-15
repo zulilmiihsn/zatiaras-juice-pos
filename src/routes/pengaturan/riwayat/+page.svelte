@@ -29,6 +29,7 @@
 	let selectedTransaksi = $state<HistoryItem | null>(null);
 
 	const toastManager = createToastManager();
+	onDestroy(() => toastManager.dispose());
 
 	// [CATATAN]: ─── Helpers ───────────────────────────────────────────────────────────
 	async function fetchTransaksiHariIni() {

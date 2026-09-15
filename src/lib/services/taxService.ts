@@ -252,6 +252,7 @@ async function persistTaxSettings(
 	}
 	type SaveTaxResponse = {
 		ok?: boolean;
+		branch?: string;
 		schema_version?: number;
 		revision?: number;
 		settings?: unknown;
@@ -276,6 +277,9 @@ async function persistTaxSettings(
 	}
 	const v = validateTaxSettings(json.settings);
 	if (!v.ok) return { ok: false, conflict: false, message: 'Respons server tidak valid.' };
+	// Intent cabang harus sama dengan cabang efektif server; jangan cache silang.
+	if (typeof json.branch === 'string' && json.branch !== targetBranch)
+		return { ok: false, conflict: false, message: 'Cabang sesi berubah. Muat ulang.' };
 	const saved = json.settings as TaxSettings;
 	const revision = Number(json.revision || 0);
 	writePersistedCache(targetBranch, saved);

@@ -15,11 +15,16 @@ export function createTaxSettingsState() {
 	let saveError = $state<string | null>(null);
 	let saveSuccessMessage = $state<string | null>(null);
 	let successTimer: ReturnType<typeof setTimeout> | null = null;
+	let dirty = false;
+	let syncGen = 0;
 
 	async function syncWithServer(branch?: string) {
+		const gen = ++syncGen;
 		const synced = await syncTaxSettingsWithServer(branch);
-		draft = structuredClone(synced);
+		if (gen !== syncGen) return synced;
 		persisted = structuredClone(synced);
+		// Jangan timpa draft yang sedang diedit; hanya cache persisted.
+		if (!dirty) draft = structuredClone(synced);
 		saveError = null;
 		return synced;
 	}
@@ -30,6 +35,7 @@ export function createTaxSettingsState() {
 
 	function refresh() {
 		draft = getTaxSettings();
+		dirty = false;
 		void syncWithServer();
 	}
 
@@ -44,6 +50,7 @@ export function createTaxSettingsState() {
 					: res.message;
 				return false;
 			}
+			dirty = false;
 			persisted = structuredClone(res.settings);
 			draft = structuredClone(res.settings);
 			revision = res.revision;
@@ -58,8 +65,13 @@ export function createTaxSettingsState() {
 		}
 	}
 
+	function markDirty() {
+		dirty = true;
+	}
+
 	function setMasterTaxEnabled(enabled: boolean) {
 		draft.isTaxEnabled = enabled;
+		markDirty();
 		void persist();
 	}
 
@@ -67,6 +79,7 @@ export function createTaxSettingsState() {
 		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.isEnabled = enabled;
+			markDirty();
 			void persist();
 		}
 	}
@@ -75,6 +88,7 @@ export function createTaxSettingsState() {
 		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.persentase = Math.max(0, Math.min(100, Number(percentage) || 0));
+			markDirty();
 			void persist();
 		}
 	}
@@ -83,6 +97,7 @@ export function createTaxSettingsState() {
 		const target = draft.taxes.find((t) => t.id === id);
 		if (target) {
 			target.useThreshold500Juta = useThreshold;
+			markDirty();
 			void persist();
 		}
 	}
@@ -102,16 +117,19 @@ export function createTaxSettingsState() {
 		};
 
 		draft.taxes.push(newItem);
+		markDirty();
 		void persist();
 	}
 
 	function removeCustomTax(id: string) {
 		draft.taxes = draft.taxes.filter((t) => t.id !== id);
+		markDirty();
 		void persist();
 	}
 
 	function resetToDefaults() {
 		draft = JSON.parse(JSON.stringify(DEFAULT_TAX_SETTINGS));
+		markDirty();
 		void persist();
 	}
 
@@ -130,6 +148,7 @@ export function createTaxSettingsState() {
 		},
 		set settings(v: TaxSettings) {
 			draft = v;
+			markDirty();
 		},
 		get persisted() {
 			return persisted;

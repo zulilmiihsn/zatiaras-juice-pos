@@ -419,6 +419,7 @@ export function createManajemenmenuState() {
 			activeTab = v;
 		},
 		toastManager,
+		dispose: () => toastManager.dispose(),
 		formatRupiah,
 		parseRupiah,
 		handleRupiahInput

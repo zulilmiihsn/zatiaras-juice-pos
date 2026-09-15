@@ -21,7 +21,12 @@
 	import { productService } from '$lib/services/productService';
 	import { transactionService } from '$lib/services/transactionService';
 	import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
-	import { formatRupiah, parseRupiah } from '$lib/utils/currency';
+	import {
+		formatRupiah,
+		formatQuantityInput,
+		parseRupiah,
+		parseQuantityInput
+	} from '$lib/utils/currency';
 	import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 	import { realtimeManager } from '$lib/realtime/realtimeManager';
 	import { refreshBus } from '$lib/utils/refreshBus';
@@ -304,8 +309,8 @@
 		}
 
 		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
-		const purchaseQty = Math.max(0, parseRupiah(bahanForm.jumlah_beli_terakhir));
-		const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1);
+		const purchaseQty = Math.max(0, parseQuantityInput(bahanForm.jumlah_beli_terakhir));
+		const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1);
 		let purchaseQuantityInBase: number;
 		try {
 			purchaseQuantityInBase = convertToBaseUnit(
@@ -318,7 +323,7 @@
 			notify('Satuan beli tidak kompatibel dengan satuan dasar', 'error');
 			return;
 		}
-		const rawYield = parseRupiah(bahanForm.yield_persen) || 100;
+		const rawYield = parseQuantityInput(bahanForm.yield_persen) || 100;
 		const yieldPercent = Math.min(100, Math.max(1, rawYield));
 		const yieldFactor = yieldPercent / 100;
 		const netUsableQuantityInBase = purchaseQuantityInBase * yieldFactor;
@@ -339,8 +344,8 @@
 			isi_per_kemasan: packSize,
 			satuan_beli: bahanForm.satuan_beli || bahanForm.satuan,
 			kategori: resolvedCategory,
-			stok_saat_ini: Math.max(0, parseRupiah(bahanForm.stok_saat_ini)),
-			ambang_stok: Math.max(0, parseRupiah(bahanForm.ambang_stok)),
+			stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)),
+			ambang_stok: Math.max(0, parseQuantityInput(bahanForm.ambang_stok)),
 			yield_persen: yieldPercent,
 			biaya_beli_terakhir: purchaseCost,
 			jumlah_beli_terakhir: purchaseQuantityInBase,
@@ -474,7 +479,7 @@
 
 	const mutasiBaseAmount = $derived.by(() => {
 		if (!selectedBahanForMutasi || !mutasiAmount) return 0;
-		const parsed = parseFloat(String(mutasiAmount).replace(/,/g, '.'));
+		const parsed = parseQuantityInput(mutasiAmount);
 		if (!parsed || isNaN(parsed) || parsed <= 0) return 0;
 		try {
 			const base = convertToBaseUnit(
@@ -676,7 +681,7 @@
 		}
 	}
 
-	// Format input helper
+	// Format input helper: uang pakai Rupiah, jumlah pakai desimal terjaga.
 	function handleRupiahFormat(
 		e: Event,
 		field:
@@ -687,8 +692,13 @@
 			| 'isi_per_kemasan'
 	) {
 		const target = e.target as HTMLInputElement;
-		const parsed = parseRupiah(target.value);
-		bahanForm[field] = parsed ? formatRupiah(parsed) : '';
+		if (field === 'biaya_beli_terakhir') {
+			const parsed = parseRupiah(target.value);
+			bahanForm[field] = parsed ? formatRupiah(parsed) : '';
+			return;
+		}
+		const parsed = parseQuantityInput(target.value);
+		bahanForm[field] = target.value.trim() === '' ? '' : formatQuantityInput(parsed);
 	}
 
 	// Lifecycle
@@ -1464,10 +1474,10 @@
 						</div>
 					{/if}
 
-					{#if parseRupiah(bahanForm.jumlah_beli_terakhir) > 0}
-						{@const numQty = parseRupiah(bahanForm.jumlah_beli_terakhir)}
+					{#if parseQuantityInput(bahanForm.jumlah_beli_terakhir) > 0}
+						{@const numQty = parseQuantityInput(bahanForm.jumlah_beli_terakhir)}
 						{@const numCost = parseRupiah(bahanForm.biaya_beli_terakhir)}
-						{@const packSize = Math.max(1, parseRupiah(bahanForm.isi_per_kemasan) || 1)}
+						{@const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1)}
 						{@const baseQty = safeConvertToBaseUnit(
 							numQty,
 							bahanForm.satuan_beli || bahanForm.satuan,

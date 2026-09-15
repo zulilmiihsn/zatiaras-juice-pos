@@ -90,9 +90,9 @@ export async function acquireArchiveJob(
 	}
 	const active = (await rawDb
 		.prepare(
-			`SELECT * FROM archive_jobs WHERE cabang_id = ? AND before_year = ? AND status IN ('claimed','uploading','finalizing') LIMIT 1`
+			`SELECT * FROM archive_jobs WHERE cabang_id = ? AND status IN ('claimed','uploading','finalizing') LIMIT 1`
 		)
-		.bind(branch, year)
+		.bind(branch)
 		.first()) as unknown as ArchiveJob | null;
 	if (!active) throw new Error('Klaim arsip gagal tanpa job aktif');
 	if (active.lease_expires_at > now) {
@@ -209,4 +209,25 @@ export function deterministicSummaryId(
 	metode: string | null
 ): string {
 	return `${jobId}:${tanggal}:${tipe}:${jenis}:${metode ?? 'none'}`;
+}
+
+/**
+ * Fragmen guard: seluruh manifest job masih ada dengan revision sama.
+ * Dipakai pada SETIAP efek finalisasi + klaim completed. Argumen: (cabang, jobId).
+ */
+export function manifestIntactSql(): string {
+	return `NOT EXISTS (SELECT 1 FROM archive_job_items m LEFT JOIN buku_kas b ON b.cabang_id = ? AND b.id = m.buku_kas_id WHERE m.job_id = ? AND (b.id IS NULL OR b.revision != m.revision))`;
+}
+
+export async function countEligibleRows(
+	rawDb: D1Database,
+	branch: string,
+	cutoff: string
+): Promise<number> {
+	const row = (await rawDb
+		.prepare(`SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id = ? AND waktu < ?`)
+		.bind(branch, cutoff)
+		.first()
+		.catch(() => null)) as { n?: number } | null;
+	return Number(row?.n || 0);
 }

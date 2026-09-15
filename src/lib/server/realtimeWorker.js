@@ -32,6 +32,38 @@ function boundedMetadata(value) {
 	return JSON.stringify({ truncated: true, summary });
 }
 
+/**
+ * Pindahkan row outbox rusak/gagal Tayang ke tabel karantina (bukan hapus).
+ * @param {any} db
+ * @param {{id: string, cabang_id?: string, payload: string, attempt_count?: number}} row
+ * @param {any} reason
+ */
+async function quarantineRow(db, row, reason) {
+	const reasonText = reason instanceof Error ? reason.message : String(reason);
+	try {
+		const now = new Date().toISOString();
+		await db.batch([
+			db
+				.prepare(
+					`INSERT OR IGNORE INTO audit_log_quarantine (id, cabang_id, payload, reason, attempt_count, created_at, quarantined_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?)`
+				)
+				.bind(
+					row.id,
+					row.cabang_id || null,
+					row.payload,
+					reasonText.slice(0, 1000),
+					Number(row.attempt_count || 0),
+					now,
+					now
+				),
+			db.prepare('DELETE FROM audit_log_outbox WHERE id = ?').bind(row.id)
+		]);
+	} catch {
+		// Jangan gagalkan cron karena karantina.
+	}
+}
+
 export default {
 	/**
 	 * @param {Request} request
@@ -60,13 +92,22 @@ export default {
 			try {
 				const rows = await db
 					.prepare(
-						`SELECT id, payload FROM audit_log_outbox
+						`SELECT id, cabang_id, payload, attempt_count FROM audit_log_outbox
 						 WHERE cabang_id IS NOT NULL ORDER BY created_at ASC LIMIT 100`
 					)
 					.all();
 				for (const row of rows.results || []) {
+					let input = null;
 					try {
-						const input = JSON.parse(row.payload);
+						input = JSON.parse(row.payload);
+						if (!input || typeof input !== 'object' || typeof input.action !== 'string') {
+							throw new Error('payload outbox invalid');
+						}
+					} catch (parseError) {
+						await quarantineRow(db, row, parseError);
+						continue;
+					}
+					try {
 						await db
 							.prepare(
 								`INSERT OR IGNORE INTO audit_logs (
@@ -92,8 +133,23 @@ export default {
 							)
 							.run();
 						await db.prepare('DELETE FROM audit_log_outbox WHERE id = ?').bind(row.id).run();
-					} catch {
-						// Keep failed rows for the next scheduled retry.
+					} catch (insertError) {
+						const insertMessage =
+							insertError instanceof Error ? insertError.message : String(insertError);
+						if (Number(row.attempt_count || 0) >= 5) {
+							await quarantineRow(db, row, insertMessage);
+						} else {
+							try {
+								await db
+									.prepare(
+										'UPDATE audit_log_outbox SET attempt_count = attempt_count + 1, last_error = ?, updated_at = ? WHERE id = ?'
+									)
+									.bind(insertMessage.slice(0, 1000), new Date().toISOString(), row.id)
+									.run();
+							} catch {
+								// Jangan gagalkan cron karena satu row.
+							}
+						}
 					}
 				}
 			} catch {

@@ -6,8 +6,52 @@ import {
 	parseRestoreArgs,
 	sha256Hex,
 	validateArchive,
-	buildRestoreSql
+	buildRestoreSql,
+	diffAgainstExisting,
+	BK_FIELDS,
+	TK_FIELDS
 } from './restore-archive-lib.mjs';
+
+/** Query baca target via wrangler (bentuk eksekusi D1 proyek). Gagal -> null. */
+function queryTarget(sql) {
+	const out = spawnSync(
+		'npx',
+		[
+			'wrangler',
+			'd1',
+			'execute',
+			resolvedBinding,
+			isRemote ? '--remote' : '--local',
+			'--config=wrangler.pages.jsonc',
+			`--command=${sql}`,
+			'--json',
+			'--yes'
+		],
+		{ stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32' }
+	);
+	if (out.status !== 0) return null;
+	try {
+		const parsed = JSON.parse(out.stdout);
+		const first = Array.isArray(parsed) ? parsed[0] : parsed;
+		return first?.results ?? null;
+	} catch {
+		return null;
+	}
+}
+
+function chunked(rows, size) {
+	const out = [];
+	for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+	return out;
+}
+
+function witaDate(waktu) {
+	try {
+		return new Date(new Date(waktu).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+	} catch {
+		return String(waktu || '').slice(0, 10);
+	}
+}
 
 /**
  * Validasi dan restore data arsip JSON ZatiarasPOS (ARC-002)
@@ -138,10 +182,72 @@ if (isDryRun) {
 	process.exit(0);
 }
 
-console.log('\n[RESTORE]: Generating SQL transaction statements...');
+console.log('\n[RESTORE]: Preflight target (konflik + agregat POS)...');
+
+const existingBk = new Map();
+const existingTk = new Map();
+for (const chunk of chunked(buku_kas, 50)) {
+	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
+	const rows = queryTarget(
+		`SELECT id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id FROM buku_kas WHERE id IN (${ids})`
+	);
+	if (!rows) {
+		console.error('Preflight gagal membaca target buku_kas. Hentikan apply.');
+		process.exit(1);
+	}
+	for (const r of rows) existingBk.set(String(r.id), r);
+}
+for (const chunk of chunked(transaksi_kasir, 50)) {
+	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
+	const rows = queryTarget(
+		`SELECT id, cabang_id, buku_kas_id, jumlah, nominal, transaction_id FROM transaksi_kasir WHERE id IN (${ids})`
+	);
+	if (!rows) {
+		console.error('Preflight gagal membaca target transaksi_kasir. Hentikan apply.');
+		process.exit(1);
+	}
+	for (const r of rows) existingTk.set(String(r.id), r);
+}
+
+const bkDiff = diffAgainstExisting(buku_kas, existingBk, BK_FIELDS);
+const tkDiff = diffAgainstExisting(transaksi_kasir, existingTk, TK_FIELDS);
+if (bkDiff.conflict.length > 0 || tkDiff.conflict.length > 0) {
+	console.error(
+		`CONFLICT: ${bkDiff.conflict.length} buku_kas + ${tkDiff.conflict.length} transaksi_kasir memiliki ID sama dengan data berbeda. Apply dihentikan; tidak ada row ditimpa.`
+	);
+	for (const c of [...bkDiff.conflict, ...tkDiff.conflict].slice(0, 10))
+		console.error(` - ${c.id}`);
+	process.exit(1);
+}
 console.log(
-	'Preflight: pastikan target masih punya agregat POS periode arsip; bila agregat hilang, hentikan dan rebuild dulu (laporan tidak diklaim lengkap).'
+	`Preflight konflik: ${bkDiff.skip.length} identik dilewati, ${bkDiff.insert.length + tkDiff.insert.length} baru akan dimasukkan.`
 );
+
+// Preflight agregat nyata: snapshot POS butuh agregat harian target, bila hilang hentikan.
+const posDates = [
+	...new Set(buku_kas.filter((r) => String(r.sumber || '') === 'pos').map((r) => witaDate(r.waktu)))
+].filter(Boolean);
+if (posDates.length > 0) {
+	const inList = posDates.map((d) => `'${d}'`).join(',');
+	const aggRows = queryTarget(
+		`SELECT tanggal_penjualan FROM ringkasan_penjualan_harian WHERE cabang_id = '${branch.replace(/'/g, "''")}' AND tanggal_penjualan IN (${inList})`
+	);
+	if (!aggRows) {
+		console.error('Preflight agregat gagal dibaca. Hentikan apply.');
+		process.exit(1);
+	}
+	const have = new Set(aggRows.map((r) => String(r.tanggal_penjualan)));
+	const missing = posDates.filter((d) => !have.has(d));
+	if (missing.length > 0) {
+		console.error(
+			`Preflight agregat: target kehilangan agregat POS tanggal ${missing.slice(0, 10).join(', ')}. Hentikan apply sampai jalur rebuild teruji; laporan tak diklaim lengkap.`
+		);
+		process.exit(1);
+	}
+	console.log(`Preflight agregat: ${posDates.length} tanggal POS tercakup.`);
+}
+
+console.log('\n[RESTORE]: Generating SQL transaction statements...');
 
 const built = buildRestoreSql(archive, { sha256 });
 const sqlText = built.sql;
@@ -182,6 +288,10 @@ if (result.status !== 0) {
 }
 
 console.log('✅ RESTORE COMPLETED SUCCESSFULLY!');
-console.log(`- Restored ${buku_kas.length} buku_kas rows`);
-console.log(`- Restored ${transaksi_kasir.length} transaksi_kasir rows`);
-console.log(`- Cleaned up archive summary markers for ${archiveId}`);
+console.log(
+	`- Dimasukkan ${bkDiff.insert.length} buku_kas + ${tkDiff.insert.length} transaksi_kasir`
+);
+console.log(
+	`- Dilewati identik ${bkDiff.skip.length + tkDiff.skip.length} (idempoten, apply kedua no-op)`
+);
+console.log(`- Marker archive_restore_${built.archiveId} tercatat; sumber POS dipertahankan`);

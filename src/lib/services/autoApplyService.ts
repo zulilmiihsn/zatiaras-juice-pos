@@ -4,6 +4,7 @@ import { userRole } from '$lib/stores/userRole.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { productService } from '$lib/services/productService';
 
 interface TransactionData {
 	type: string;
@@ -56,19 +57,32 @@ export class AutoApplyService {
 		};
 
 		try {
-			const uniqueRecommendations = this.deduplicateRecommendations(recommendations);
+			// Retry parsial aman: lewati ID yang sudah tercatat berhasil (persisted per cabang),
+			// hanya item gagal/unknown yang diulang. Dedup server via stable intent ID
+			// menutup retry ambigu (respons hilang sesudah commit).
+			const fresh = this.deduplicateRecommendations(recommendations).filter(
+				(r) => !this.isAlreadyApplied(r.id)
+			);
+			const skipped = recommendations.length - fresh.length;
 
-			for (const recommendation of uniqueRecommendations) {
+			for (const recommendation of fresh) {
 				try {
-					await this.applySingleRecommendation(recommendation);
+					const note = await this.applySingleRecommendation(recommendation);
+					this.markApplied(recommendation.id);
 					result.appliedRecommendations.push(recommendation.id);
+					if (note) result.message += (result.message ? ' ' : '') + note;
 				} catch (error) {
 					result.errors.push(`Gagal menerapkan ${recommendation.title}: ${error}`);
 				}
 			}
 
 			if (result.appliedRecommendations.length > 0) {
-				result.message = `Berhasil menerapkan ${result.appliedRecommendations.length} rekomendasi. Transaksi telah tercatat di laporan dan riwayat.`;
+				result.message =
+					`Berhasil menerapkan ${result.appliedRecommendations.length} rekomendasi. Transaksi telah tercatat di laporan dan riwayat.` +
+					(result.message ? ` ${result.message}` : '');
+			}
+			if (skipped > 0) {
+				result.message += `${result.message ? ' ' : ''}${skipped} rekomendasi sudah diterapkan sebelumnya, dilewati.`;
 			}
 
 			if (result.errors.length > 0) {
@@ -84,23 +98,64 @@ export class AutoApplyService {
 		return result;
 	}
 
-	private async applySingleRecommendation(recommendation: AiRecommendation): Promise<void> {
+	private appliedKey(): string {
+		try {
+			const branch = String(selectedBranch.value || 'default').toLowerCase();
+			return `ai_applied_${branch}`;
+		} catch {
+			return 'ai_applied_default';
+		}
+	}
+
+	private readApplied(): Set<string> {
+		try {
+			const raw = localStorage.getItem(this.appliedKey());
+			const arr = raw ? (JSON.parse(raw) as unknown) : [];
+			return new Set(
+				Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : []
+			);
+		} catch {
+			return new Set();
+		}
+	}
+
+	private isAlreadyApplied(id: string): boolean {
+		try {
+			return this.readApplied().has(id);
+		} catch {
+			return false;
+		}
+	}
+
+	private markApplied(id: string): void {
+		try {
+			const set = this.readApplied();
+			set.add(id);
+			localStorage.setItem(this.appliedKey(), JSON.stringify([...set].slice(-500)));
+		} catch {}
+	}
+
+	private async applySingleRecommendation(
+		recommendation: AiRecommendation
+	): Promise<string | void> {
 		switch (recommendation.action) {
 			case 'create_transaction':
-				await this.createTransaction(recommendation.data as TransactionData, recommendation.id);
-				break;
+				return this.createTransaction(recommendation.data as TransactionData, recommendation.id);
 			case 'update_transaction':
 				await this.updateTransaction(recommendation.data as UpdateTransactionData);
-				break;
+				return;
 			case 'create_category':
 				await this.createCategory(recommendation.data as CategoryData);
-				break;
+				return;
 			default:
 				throw new Error(`Action tidak didukung: ${recommendation.action}`);
 		}
 	}
 
-	private async createTransaction(data: TransactionData, recommendationId?: string): Promise<void> {
+	private async createTransaction(
+		data: TransactionData,
+		recommendationId?: string
+	): Promise<string | void> {
 		if (!data.type) throw new Error('Type transaksi tidak valid');
 		if (!data.amount || data.amount <= 0)
 			throw new Error('Amount transaksi tidak valid atau kosong');
@@ -108,14 +163,14 @@ export class AutoApplyService {
 			throw new Error('Description transaksi tidak valid atau kosong');
 
 		if (data.type === 'penjualan') {
-			await this.createPenjualanViaQuote(data, recommendationId || 'tanpa-id');
-			return;
+			return this.createPenjualanViaQuote(data, recommendationId || 'tanpa-id');
 		}
 
 		const branch = selectedBranch.value;
 		// [CATATAN]: 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
 		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
-		const transactionId = crypto.randomUUID();
+		// Intent stabil per rekomendasi: retry aman via dedup id server.
+		const transactionId = `ai-manual-${recommendationId || crypto.randomUUID()}`;
 
 		const payload = {
 			id: transactionId,
@@ -219,7 +274,7 @@ export class AutoApplyService {
 	private async createPenjualanViaQuote(
 		data: TransactionData,
 		recommendationId: string
-	): Promise<void> {
+	): Promise<string> {
 		const items = this.normalisasiItemPenjualan(data);
 		const metode =
 			String(data.metode_bayar || 'tunai').toLowerCase() === 'non-tunai' ? 'non-tunai' : 'tunai';
@@ -241,11 +296,14 @@ export class AutoApplyService {
 			throw new Error('Quote harga tidak valid');
 
 		const modelAmount = Number(data.amount);
-		if (Number.isFinite(modelAmount) && modelAmount > 0 && modelAmount !== quote.total_amount) {
-			throw new Error(
-				`Total quote Rp ${quote.total_amount.toLocaleString('id-ID')} berbeda dari rekomendasi Rp ${modelAmount.toLocaleString('id-ID')}. Tinjau di POS sebelum mencatat.`
-			);
-		}
+		const cekNominal = (total: number) => {
+			if (Number.isFinite(modelAmount) && modelAmount > 0 && modelAmount !== total) {
+				throw new Error(
+					`Total quote Rp ${total.toLocaleString('id-ID')} berbeda dari rekomendasi Rp ${modelAmount.toLocaleString('id-ID')}. Tinjau di POS sebelum mencatat.`
+				);
+			}
+		};
+		cekNominal(quote.total_amount);
 
 		const commit = async (quoteToken: string) => {
 			const res = await apiFetch('/api/pos/transaction', {
@@ -270,7 +328,10 @@ export class AutoApplyService {
 			const detail = await parseApiError(res, '').catch(() => '');
 			if (/kedaluwarsa|quote/i.test(String(detail))) {
 				quote = await mintaQuote();
-				if (!quote.quote_token) throw new Error('Quote harga tidak valid');
+				if (!quote.quote_token || typeof quote.total_amount !== 'number')
+					throw new Error('Quote harga tidak valid');
+				// Requote WAJIB divalidasi ulang; nominal berubah perlu review kembali.
+				cekNominal(quote.total_amount);
 				res = await commit(quote.quote_token);
 			}
 		}
@@ -287,6 +348,9 @@ export class AutoApplyService {
 				/* sinyal refresh UI best-effort */
 			}
 		}
+		// Kontrak kas eksplisit: tunai dicatat lunas persis total quote.
+		// Pastikan uang tunai benar-benar diterima sebelum menandai sukses.
+		return `Penjualan Rp ${Number(quote.total_amount).toLocaleString('id-ID')} tercatat lunas ${metode === 'tunai' ? 'tunai' : 'non-tunai'} sesuai quote.`;
 	}
 
 	private async updateTransaction(data: UpdateTransactionData): Promise<void> {
@@ -314,12 +378,27 @@ export class AutoApplyService {
 
 	private async createCategory(data: CategoryData): Promise<void> {
 		const branch = selectedBranch.value;
+		const nama = String(data.nama || '').trim();
+		if (!nama) throw new Error('Nama kategori tidak valid');
+		// Idempoten: kategori nama sama dianggap sudah diterapkan.
+		try {
+			const existing = (await productService.getCategories()) as Array<{ nama?: string }>;
+			if (
+				existing.some(
+					(c) =>
+						String(c.nama || '')
+							.trim()
+							.toLowerCase() === nama.toLowerCase()
+				)
+			)
+				return;
+		} catch {}
 		const res = await apiFetch('/api/kategori', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				branch,
-				payload: { id: crypto.randomUUID(), nama: data.nama, deskripsi: data.deskripsi }
+				payload: { id: crypto.randomUUID(), nama, deskripsi: data.deskripsi }
 			})
 		});
 

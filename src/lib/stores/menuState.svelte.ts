@@ -5,7 +5,7 @@ import {
 	readImageFile,
 	uploadMenuImageFromDataUrl
 } from '$lib/utils/manajemenmenuImage';
-import { formatRupiah, parseRupiah } from '$lib/utils/currency';
+import { formatRupiah, parseRupiah, parseQuantityInput } from '$lib/utils/currency';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { convertToBaseUnit } from '$lib/utils/unitConversion';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
@@ -218,7 +218,7 @@ export function createMenuState(deps: MenuDeps) {
 
 	function addRecipeItem() {
 		const bahanId = recipeDraft.bahan_id;
-		const jumlah = Number(recipeDraft.jumlah_per_item || 0);
+		const jumlah = parseQuantityInput(recipeDraft.jumlah_per_item);
 		if (!bahanId || !Number.isFinite(jumlah) || jumlah <= 0) {
 			deps.showNotif('Pilih bahan dan isi takaran resep.', 'warning');
 			return;

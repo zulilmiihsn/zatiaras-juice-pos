@@ -26,5 +26,7 @@
 	"0024_pengaturan_kunci_nilai_key_value.sql": "f40892c95eed5cabb655edd05280c98397a94ce9a8474dcfc93aab0319e4ce35",
 	"0025_pengaturan_text_id.sql": "c812d84875309673847fe126d0d002a264a6358d2bd4e8c388de055027e874d4",
 	"0026_buku_kas_cas_void.sql": "627bb9d71e64c881aebbcbedfcd323fc57dabc6096689b7fbbd22cacbdaf1df5",
-	"0027_archive_jobs.sql": "db173c9c5a1a008a7fa7d0ff403e3a8e4fb18896026de32650994cf48bfe181d"
+	"0027_archive_jobs.sql": "db173c9c5a1a008a7fa7d0ff403e3a8e4fb18896026de32650994cf48bfe181d",
+	"0028_archive_branch_claim.sql": "59b554caae7b7de9efcfb026c238e50f7703bae31cdf16e1bcd840f945fa48c8",
+	"0029_audit_quarantine.sql": "b2de3a495b1f2a38b661b3571b1132baedd7e982b9f70d5b9daae5211f11a772"
 }

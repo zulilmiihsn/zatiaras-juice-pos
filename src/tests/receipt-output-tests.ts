@@ -95,6 +95,32 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 	assert.equal(lines[0].inklusifSaja, true);
 	assert.equal(lines[0].addOns.length, 0);
 }
+// Nama numerik sah tidak dibuang.
+{
+	const lines = toReceiptLines([{ nama_produk: '123', jumlah: 1, nominal: 5_000, harga: 5_000 }]);
+	assert.equal(lines[0].nama, '123');
+}
+// R07: render HTML fixture topping — baris dasar + topping = subtotal, tanpa ganda.
+{
+	const toppingHtml = buildReceiptHtml(history, settings, [
+		{
+			nama_produk: 'Jus Beku',
+			nama_kustom: null,
+			jumlah: 2,
+			nominal: 26_000,
+			harga: 13_000,
+			harga_dasar: 10_000,
+			total_tambahan: 3_000,
+			snapshot_tambahan: JSON.stringify([{ nama: 'Nata', harga: 3_000 }])
+		}
+	]);
+	const count = (s: string, sub: string) => s.split(sub).length - 1;
+	assert.ok(toppingHtml.includes('Jus Beku'), 'nama snapshot tampil');
+	assert.ok(toppingHtml.includes('Rp20.000'), 'baris dasar 10.000x2');
+	assert.ok(toppingHtml.includes('Rp6.000'), 'baris topping 3.000x2');
+	assert.equal(count(toppingHtml, 'Rp26.000'), 0, 'subtotal inklusif tak tampil ganda');
+	assert.ok(toppingHtml.includes('Rp25.000'), 'total header ikut nominal transaksi');
+}
 
 assert.equal(hash(reprint), '7773c4dfeecf8e1f5ad9ae67a8b9a1f37403c1981a187c11e131d651bd852115');
 assert.equal(hash(sale), '192a2c1fd559ba3fce3f9ed241a7742843b57d4b489ef731fbfc7e677c83181d');

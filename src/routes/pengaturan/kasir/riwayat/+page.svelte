@@ -39,6 +39,7 @@
 
 	// [CATATAN]: Toast management
 	const toastManager = createToastManager();
+	onDestroy(() => toastManager.dispose());
 
 	async function fetchTransaksiHariIni() {
 		loading = true;

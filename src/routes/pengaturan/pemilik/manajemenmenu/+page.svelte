@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { createManajemenmenuState } from '$lib/stores/manajemenmenuState.svelte';
-	import { formatRupiah } from '$lib/utils/currency';
+	import { formatRupiah, parseQuantityInput } from '$lib/utils/currency';
 	import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -36,6 +37,7 @@
 	import CropperDialog from '$lib/components/shared/cropperDialog.svelte';
 
 	const s = createManajemenmenuState();
+	onDestroy(() => s.dispose());
 
 	const currentPorsiRecipes = $derived(
 		s.recipeItems.filter((r) => (r.porsi || 'reguler') === s.activeRecipePorsi)
@@ -68,7 +70,7 @@
 
 	const ekstraModalHpp = $derived.by(() => {
 		if (!selectedEkstraBahan || !s.ekstraForm.jumlah_bahan) return 0;
-		const qty = parseFloat(s.ekstraForm.jumlah_bahan) || 0;
+		const qty = parseQuantityInput(s.ekstraForm.jumlah_bahan) || 0;
 		const unit = s.ekstraForm.satuan_resep || selectedEkstraBahan.satuan || 'gram';
 		const baseUnit = selectedEkstraBahan.satuan || 'gram';
 		const packSize = selectedEkstraBahan.isi_per_kemasan || 1;

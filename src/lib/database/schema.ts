@@ -549,3 +549,17 @@ export const auditLogOutbox = sqliteTable(
 	},
 	(table) => [index('idx_audit_log_outbox_branch_created').on(table.cabang_id, table.created_at)]
 );
+
+export const auditLogQuarantine = sqliteTable(
+	'audit_log_quarantine',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		payload: text('payload').notNull(),
+		reason: text('reason'),
+		attempt_count: integer('attempt_count').notNull().default(0),
+		created_at: text('created_at').default(now()),
+		quarantined_at: text('quarantined_at').default(now())
+	},
+	(table) => [index('idx_audit_log_quarantine_branch').on(table.cabang_id)]
+);

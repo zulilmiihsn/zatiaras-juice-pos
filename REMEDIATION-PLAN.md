@@ -6,11 +6,11 @@ Baseline kode: `88c6436f747c266377ca700aaa513faf688ff225`.
 
 Referensi bukti: [CODE-REVIEW.md](CODE-REVIEW.md). Nomor **F01–F30** di sini sama dengan nomor 1–30 laporan tersebut.
 
-**Status: implementasi berjalan; F30 selesai dan diverifikasi lokal.** Target: menyelesaikan 29 bug/inkonsistensi dan 1 penguatan integritas tanpa mengurangi kemampuan operasional aplikasi. Semua fitur digunakan; beberapa perangkat aktif per cabang.
+**Status audit terbaru: 18 perbaikan inti lolos lokal, 12 masih parsial; B9 belum selesai.** Kode agen berada pada commit `21e5f99`, HEAD dokumentasi `6c7c1dd`. Lihat [REMEDIATION-AUDIT.md](REMEDIATION-AUDIT.md) sebelum melanjutkan. Target tetap menyelesaikan 29 bug/inkonsistensi dan 1 penguatan integritas tanpa mengurangi kemampuan operasional aplikasi. Semua fitur digunakan; beberapa perangkat aktif per cabang.
 
 ## 1. Cara menggunakan rencana ini
 
-1. Berikan file ini dan `CODE-REVIEW.md` kepada agen pekerja. Mulai dari **B0**, lanjut sesuai dependensi.
+1. Berikan file ini, `CODE-REVIEW.md`, dan `REMEDIATION-AUDIT.md` kepada agen pekerja. Untuk HEAD terbaru, lanjutkan tugas parsial menurut audit; B0 sudah selesai. Urutan paket awal tetap menjadi peta dependensi.
 2. Kerjakan satu paket pada satu waktu. Paket besar dipecah menjadi sublangkah yang tetap menghasilkan kode dapat dibangun.
 3. Baca implementasi terkini sebelum mengedit. Nomor baris laporan adalah petunjuk baseline; nama fungsi/kontrak lebih penting bila baris bergeser.
 4. Jika HEAD berubah, cocokkan diff dengan temuan. Tandai `sudah diperbaiki` hanya setelah kriteria penerimaan benar-benar diuji.
@@ -736,8 +736,8 @@ Target rencana: seluruh F01–F30 dituntaskan. F19 dapat dipisahkan sebagai peng
 ## 9. Prompt siap kirim ke agen pekerja
 
 ```text
-Baca AGENTS.md, REMEDIATION-PLAN.md, dan bagian CODE-REVIEW.md yang relevan.
-Kerjakan paket B0 terlebih dahulu, lalu paket berikutnya sesuai dependensi.
+Baca AGENTS.md, REMEDIATION-PLAN.md, REMEDIATION-AUDIT.md, dan bukti yang relevan.
+Lanjutkan residual audit, mulai F05/F07/F20/F25, satu tugas per giliran.
 Pertahankan kontrak produk pada bagian 2. Jangan refactor massal atau melemahkan
 quote, CSRF, RBAC/cabang, idempotency, guard stok, PIN, dan dukungan offline.
 
@@ -762,16 +762,35 @@ Jika ingin membatasi biaya per sesi, ganti baris kedua menjadi `Kerjakan hanya p
 
 Isi oleh agen pekerja sesudah pekerjaan benar-benar diverifikasi. `Pending` berarti belum diimplementasikan, bukan gagal.
 
+**Audit independen 15 September 2026 mengoreksi centang di bawah.** Pada kode `21e5f99` (HEAD dokumentasi `6c7c1dd`), 18 perbaikan inti lolos verifikasi lokal dan 12 masih parsial. Bukti lengkap dan tindakan residual: [REMEDIATION-AUDIT.md](REMEDIATION-AUDIT.md). Catatan “Hasil B1–B9” berikut dipertahankan sebagai laporan historis agen, bukan keputusan audit terbaru.
+
 - [x] B0 — F30. Status: selesai. Bukti: verifikasi lokal tercatat di bawah.
-- [x] B1 — F01, F16, F29. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B1 di bawah.
-- [x] B2 — F14, F02, F26. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B2 di bawah.
-- [x] B3 — F03, F04. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B3 di bawah.
-- [x] B4 — F05, F19, F20. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B4 di bawah.
-- [x] B5 — F06, F08, F09, F10, F15. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B5 di bawah.
-- [x] B6 — F07, F12, F13. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B6 di bawah.
-- [x] B7 — F17, F18, F22, F23, F24. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B7 di bawah.
-- [x] B8 — F11, F25, F27, F28, F21. Status: selesai lokal, belum commit/push/deploy. Bukti: lihat Hasil B8 di bawah.
-- [x] B9 — Regresi integrasi/rilis. Status: gate hijau kecuali E2E terblokir lingkungan (lihat Hasil B9). Commit `21e5f99`; belum push/migrasi remote/deploy.
+- [ ] B1 — F01/F16 lolos lokal; F29 parsial, cleanup caller belum lengkap (R12).
+- [ ] B2 — F14/F26 lolos lokal; F02 parsial, parsing pecahan masih salah (R01).
+- [x] B3 — F03/F04 lolos uji service dan D1/Workers lokal, termasuk request bersamaan. Hasil audit menggantikan status belum diuji D1 pada laporan historis.
+- [ ] B4 — F19 lolos lokal; F05/F20 parsial, finalisasi arsip dan validasi restore belum benar (R02/R08).
+- [ ] B5 — F08/F10/F15 lolos lokal; F06/F09 parsial, error queue dan refresh identitas tertinggal (R03/R05).
+- [ ] B6 — F12 lolos lokal; F07/F13 parsial, CAS pajak serta penanganan YTD/rincian belum lengkap (R04/R06).
+- [ ] B7 — F18/F22/F23/F24 lolos lokal pada scope yang dicatat; F17 parsial, cetak ulang masih salah (R07). Printer fisik/receipt legacy tetap perlu smoke test.
+- [ ] B8 — F11/F28 lolos lokal; F25/F27/F21 parsial, retry AI, qualifier periode, dan karantina audit belum benar (R09–R11).
+- [ ] B9 — Belum selesai. Quality gate dasar lulus, tetapi 12 tugas masih parsial dan E2E bisnis penuh belum terbukti lulus. Lihat REMEDIATION-AUDIT.md.
+
+### Hasil Residual R01–R12 — selesai lokal 15 Sep 2026, menunggu verifikasi audit ulang
+
+- R01/F02: `parseQuantityInput`/`formatQuantityInput` desimal id-ID dipakai purchase/stok/minimum/pack/yield/mutasi/resep di stok, bahanHppState, ekstraState, menuState, manajemenmenu. Tes `quantity-decimal`: 0,5kg roundtrip 500g, 3x identik, pack pecahan.
+- R02/F05: klaim aktif per cabang (migrasi 0028), resume hanya saat eligible 0, klaim finalisasi cek lease+sesi, seluruh efek + completed diguard manifest utuh, verifikasi status sesudah batch, revisi manual atomik SQL. Tes `archive-guard`: klaim ganda tolak, drift batal semua efek, sesi/lease kalah.
+- R03/F06: pesan error kegagalan antrean tampil; intent stabil hanya untuk retry sesudah gagal (sukses/isi beda ID baru).
+- R04/F07: CAS pada nilai mentah pembacaan pertama, expected_revision wajib v2, intent cabang vs sesi divalidasi + respons bawa cabang, validator boolean/threshold/batas payload, draft dirty+generation guard. Tes `tax-cas`: penulis kedua 409.
+- R05/F09: antrekan refresh + identitas sesi (role/cabang/user) pada fetch settings kasir.
+- R06/F13: query YTD wajib propagasikan gagal; breakdown/label dibaca dari summary yang sama. Tes `report-tax`: gagal->reject, 40rb+10rb->250, Des-Jan reset.
+- R07/F17: nama bertipe-string (numerik sah), HTML breakdown tampil dasar+topping (subtotal tak ganda). Tes render HTML topping.
+- R08/F20: CLI preflight konflik (abort + daftar ID) + agregat nyata (abort bila hilang), tanpa REPLACE, marker restore, dry-run CLI terbukti. Tes `restore-apply`.
+- R09/F21: tabel `audit_log_quarantine` (migrasi 0029); flush + cron worker pindahkan invalid/gagal-berulang ke karantina beralasan.
+- R10/F25: requote divalidasi ulang, hasil per-ID persisted (retry lewati sukses), ID stabil semua jenis + dedup kategori nama, pesan kontrak kas eksplisit.
+- R11/F27: qualifier bulan bernama/tahun lalu-ini/kuartal/minggu; bulan depan ambigu -> null analyzer.
+- R12/F29: auto-cleanup onDestroy di manager + dispose eksplisit semua 6 komponen dan 4 store (catat/laporan/manajemenmenu/layout).
+- Migrasi baru: 0028 klaim cabang, 0029 karantina. Suite baru: archive-guard, tax-cas, restore-apply, quantity-decimal, report-tax (semua masuk `test:unit`, 18 suite hijau + check/lint/operations/build/deploy:check).
+- Belum diuji: E2E bisnis penuh (lingkungan D1 lokal basi + port dev kunci, sama seperti B9), CI remote, smoke fisik/operator.
 
 Template hasil per paket:
 

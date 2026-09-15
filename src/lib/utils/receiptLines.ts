@@ -38,15 +38,17 @@ function num(value: unknown): number | null {
 	return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
 
+function nonEmptyString(value: unknown): string | null {
+	return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function pickName(item: Record<string, unknown>): string {
-	const snapshot = num(item.nama_produk) === null ? (item.nama_produk as unknown) : null;
-	if (typeof snapshot === 'string' && snapshot.trim()) return snapshot.trim();
-	const custom = item.nama_kustom;
-	if (typeof custom === 'string' && custom.trim()) return custom.trim();
-	const produk = item.produk as Record<string, unknown> | undefined;
-	const legacy = produk?.nama;
-	if (typeof legacy === 'string' && legacy.trim()) return legacy.trim();
-	return 'Produk Custom';
+	return (
+		nonEmptyString(item.nama_produk) ??
+		nonEmptyString(item.nama_kustom) ??
+		nonEmptyString((item.produk as Record<string, unknown> | undefined)?.nama) ??
+		'Produk Custom'
+	);
 }
 
 function pickAddOns(item: Record<string, unknown>, qty: number): ReceiptAddOnLine[] {

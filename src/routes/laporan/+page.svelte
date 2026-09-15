@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import LaporanFilter from '$lib/components/laporan/LaporanFilter.svelte';
 	import LaporanSummaryCards from '$lib/components/laporan/LaporanSummaryCards.svelte';
@@ -15,6 +16,7 @@
 
 	const s = createLaporanState();
 	let isExporting = $state(false);
+	onDestroy(() => s.dispose());
 
 	async function handleExportPdf() {
 		if (isExporting) return;

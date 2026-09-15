@@ -132,6 +132,7 @@
 
 	// [CATATAN]: Toast notification — use shared createToastManager
 	const toastManager = createToastManager();
+	onDestroy(() => toastManager.dispose());
 
 	// [CATATAN]: Shim for local callers that expect showToastNotification(msg, type)
 	function showToastNotification(

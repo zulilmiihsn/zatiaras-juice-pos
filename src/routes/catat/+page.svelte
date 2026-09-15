@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { fade, fly } from 'svelte/transition';
 	import DropdownSheet from '$lib/components/shared/dropdownSheet.svelte';
@@ -14,6 +14,8 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 
 	const s = createCatatState();
+
+	onDestroy(() => s.dispose());
 
 	onMount(async () => {
 		await s.init();

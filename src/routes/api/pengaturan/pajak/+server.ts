@@ -41,6 +41,7 @@ async function loadEnvelope(
 	settings: TaxSettings;
 	legacy: BranchTaxConfig;
 	updated_at?: string;
+	rawNilai: string | null;
 }> {
 	try {
 		const row = (await rawDb
@@ -64,7 +65,8 @@ async function loadEnvelope(
 						revision: Number(v2.revision || 0),
 						settings,
 						legacy: { ...settingsToLegacy(settings), updated_at: row.updated_at },
-						updated_at: row.updated_at
+						updated_at: row.updated_at,
+						rawNilai: row.nilai
 					};
 				}
 			} else if (parsed && typeof parsed === 'object') {
@@ -74,7 +76,8 @@ async function loadEnvelope(
 					revision: 0,
 					settings: legacyToSettings(legacy),
 					legacy,
-					updated_at: row.updated_at
+					updated_at: row.updated_at,
+					rawNilai: row.nilai
 				};
 			}
 		}
@@ -82,7 +85,8 @@ async function loadEnvelope(
 	return {
 		revision: 0,
 		settings: legacyToSettings(DEFAULT_TAX_CONFIG),
-		legacy: DEFAULT_TAX_CONFIG
+		legacy: DEFAULT_TAX_CONFIG,
+		rawNilai: null
 	};
 }
 
@@ -101,21 +105,26 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 };
 
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
-	const branch = requireSessionBranch(locals);
+	const body = (await parseBody<Record<string, unknown>>(request)) ?? {};
+	// Intent cabang client harus sama dengan sesi; jangan tulis cabang lain diam-diam.
+	const branch = requireSessionBranch(locals, (body.branch as string | null) ?? null);
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = (await parseBody<Record<string, unknown>>(request)) ?? {};
 	const rawDb = getRawDb(platform, branch);
 	const stored = await loadEnvelope(rawDb, branch);
 
 	let next: TaxSettings;
 	if (body.schema_version === 2 || body.settings !== undefined) {
-		// Kontrak v2: daftar penuh + CAS revision.
+		// Kontrak v2: daftar penuh + CAS revision wajib.
 		const v = validateTaxSettings(body.settings);
 		if (!v.ok) throw kitError(400, v.errors.join('; '));
+		if (JSON.stringify(body.settings).length > 32 * 1024)
+			throw kitError(400, 'Payload konfigurasi pajak terlalu besar');
 		const expected = (body as { expected_revision?: unknown }).expected_revision;
-		if (expected !== undefined && Number(expected) !== stored.revision)
+		if (expected === undefined || !Number.isInteger(Number(expected)))
+			throw kitError(400, 'expected_revision wajib pada kontrak v2');
+		if (Number(expected) !== stored.revision)
 			throw kitError(409, 'Konfigurasi berubah di perangkat lain. Muat ulang lalu coba lagi.');
 		next = body.settings as TaxSettings;
 	} else if ((body as { config?: unknown }).config !== undefined) {
@@ -174,7 +183,9 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 		updated_at: new Date().toISOString()
 	});
 	const now = new Date().toISOString();
-	const oldNilai = await currentNilai(rawDb, branch);
+	// CAS atomik pada nilai mentah pembacaan PERTAMA (bukan baca ulang sesudah
+	// hitung payload). Baris baru (old NULL): INSERT biasa. Konflik -> 409.
+	const oldNilai = stored.rawNilai;
 	// CAS atomik: tulis hanya bila nilai masih sama seperti dibaca.
 	// Baris baru (old NULL): INSERT biasa. Konflik nilai -> changes 0 -> 409.
 	const applied = (await rawDb
@@ -200,12 +211,21 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 		)
 		.run()) as unknown as { meta?: { changes?: number } };
 	if (Number(applied?.meta?.changes ?? 0) === 0) {
-		const current = await currentNilai(rawDb, branch);
+		const current = (
+			(await rawDb
+				.prepare(
+					`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
+				)
+				.bind(branch)
+				.first()
+				.catch(() => null)) as { nilai?: string } | null
+		)?.nilai;
 		if (current === envelope) {
 			// Retry request sama yang sudah commit sebelum respons.
 			return json({
 				ok: true,
 				duplicate: true,
+				branch,
 				schema_version: TAX_CONTRACT_VERSION,
 				revision,
 				settings: next,
@@ -223,26 +243,10 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 
 	return json({
 		ok: true,
+		branch,
 		schema_version: TAX_CONTRACT_VERSION,
 		revision,
 		settings: next,
 		data: { ...settingsToLegacy(next), updated_at: now }
 	});
 };
-
-async function currentNilai(
-	rawDb: ReturnType<typeof getRawDb>,
-	branch: string
-): Promise<string | null> {
-	try {
-		const row = (await rawDb
-			.prepare(
-				`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
-			)
-			.bind(branch)
-			.first()) as { nilai?: string } | null;
-		return row?.nilai ?? null;
-	} catch {
-		return null;
-	}
-}
