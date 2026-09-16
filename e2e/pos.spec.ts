@@ -76,7 +76,7 @@ test('owner completes authoritative cash checkout through POS UI', async ({ page
 		await cashInput.fill('12000');
 		await expect(cashInput).toHaveValue('12.000');
 		await page.getByRole('button', { name: 'C', exact: true }).click();
-		await page.getByRole('button', { name: 'Rp 10.000', exact: true }).click();
+		await page.getByRole('button', { name: '+ Rp 10.000', exact: true }).click();
 		await expect(cashInput).toHaveValue('10.000');
 		const checkoutResponse = page.waitForResponse(
 			(response) =>

@@ -214,7 +214,7 @@
 
 {#if layoutSt.pendingCount > 0}
 	<div
-		class="animate-fade-in z-fab fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl"
+		class="animate-fade-in z-sheet fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl"
 		data-testid="pending-transaction-banner"
 	>
 		{#if layoutSt.isOffline}

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { gotoHydrated } from './helpers';
 import type { createTaxSettingsState } from '../src/lib/stores/taxSettingsState.svelte';
 
 declare global {
@@ -132,9 +133,8 @@ test('bahan decimal typing keeps fraction until blur and saves base qty', async 
 		}
 		await route.fulfill({ json: [ingredient] });
 	});
-	await page.goto('/stok');
 	// Tunggu hidrasi + data (tombol Ubah hanya ada sesudah render client).
-	await page.getByRole('button', { name: 'Ubah', exact: true }).first().waitFor({ timeout: 60000 });
+	await gotoHydrated(page, '/stok', 'button:has-text("Ubah")');
 	await page.getByRole('button', { name: 'Ubah', exact: true }).first().click();
 	const qty = page.locator('#modal-bahan-beli-qty');
 	// Tampilan balik: 500 gram -> "0,5" kg.
@@ -158,9 +158,7 @@ test('bahan add flow keeps typed fraction and posts base qty', async ({ page }) 
 		}
 		await route.fulfill({ json: [] });
 	});
-	await page.goto('/stok');
-	// Tunggu hidrasi: daftar kosong ter-render oleh client.
-	await page.getByText('Belum Ada Stok Bahan').waitFor({ timeout: 60000 });
+	await gotoHydrated(page, '/stok', 'text=Belum Ada Stok Bahan');
 	await page.getByRole('button', { name: 'Tambah Bahan Baku' }).click();
 	await page.locator('#modal-bahan-nama').fill('Gula E2E');
 	const qty = page.locator('#modal-bahan-beli-qty');
