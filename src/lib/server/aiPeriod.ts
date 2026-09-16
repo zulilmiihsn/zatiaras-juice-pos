@@ -68,6 +68,33 @@ function monthRange(year: number, month: number, todayWita: string): AiPeriod {
 	return { start, end: end < start ? start : end, type: 'monthly' };
 }
 
+/** Tanggal eksplisit "15 Agustus 2026" (hari+bulan[+tahun]) -> satu hari, bukan sebulan.
+ * Pola ada tetapi tanggal mustahil ("29 Februari 2025") -> 'invalid' agar
+ * pemanggil menyerahkan ke analyzer, bukan melebar diam-diam ke sebulan. */
+function findExplicitDay(question: string, todayWita: string): AiPeriod | 'invalid' | null {
+	const thisYear = Number(todayWita.slice(0, 4));
+	for (const [id, en] of MONTHS) {
+		const m =
+			question.match(new RegExp(`\\b(\\d{1,2})\\s+(?:${id}|${en})\\s*(20\\d{2})?`, 'i')) ??
+			question.match(new RegExp(`\\b(?:${id}|${en})\\s+(\\d{1,2})\\s*,\\s*(20\\d{2})`, 'i')) ??
+			question.match(new RegExp(`\\b(?:${id}|${en})\\s+(\\d{1,2})(?!\\d)`, 'i'));
+		if (!m) continue;
+		const day = Number(m[1]);
+		const year = m[2] ? Number(m[2]) : thisYear;
+		if (year > thisYear || year < 2020) return null;
+		const dim = new Date(Date.UTC(year, monthNumber(id), 0)).getUTCDate();
+		if (day < 1 || day > dim) return 'invalid';
+		const ymd = `${year}-${String(monthNumber(id)).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+		return { start: ymd, end: ymd, type: 'daily' };
+	}
+	return null;
+}
+
+function monthNumber(id: string): number {
+	const hit = MONTHS.find(([name]) => name === id);
+	return hit ? hit[2] : 1;
+}
+
 /** Periode eksplisit; null bila tak ada qualifier tanggal yang dikenali. */
 export function resolveAiPeriod(question: string, todayWita: string): AiPeriod | null {
 	const q = question.toLowerCase();
@@ -80,6 +107,9 @@ export function resolveAiPeriod(question: string, todayWita: string): AiPeriod |
 	if (q.includes('tahun ini')) {
 		return { start: `${thisYear}-01-01`, end: todayWita, type: 'monthly' };
 	}
+	const explicitDay = findExplicitDay(q, todayWita);
+	if (explicitDay === 'invalid') return null;
+	if (explicitDay) return explicitDay;
 	const namedMonth = findMonth(q);
 	if (namedMonth !== null) {
 		const explicitYear = findYear(q);

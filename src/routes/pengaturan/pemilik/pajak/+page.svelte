@@ -112,6 +112,9 @@
 		{#if taxState.isSaving}
 			<div class="text-xs font-bold text-slate-400">Menyimpan...</div>
 		{/if}
+		{#if taxState.hasUnsavedChanges && !taxState.isSaving && !taxState.saveError}
+			<div class="text-xs font-bold text-amber-600">Ada perubahan belum tersimpan.</div>
+		{/if}
 
 		<!-- 1. Master Toggle Switch Card -->
 		<div class="soft-float-card flex items-center justify-between gap-4 p-5">

@@ -6,11 +6,11 @@ Baseline kode: `88c6436f747c266377ca700aaa513faf688ff225`.
 
 Referensi bukti: [CODE-REVIEW.md](CODE-REVIEW.md). Nomor **F01–F30** di sini sama dengan nomor 1–30 laporan tersebut.
 
-**Status audit terbaru: 18 perbaikan inti lolos lokal, 12 masih parsial; B9 belum selesai.** Kode agen berada pada commit `21e5f99`, HEAD dokumentasi `6c7c1dd`. Lihat [REMEDIATION-AUDIT.md](REMEDIATION-AUDIT.md) sebelum melanjutkan. Target tetap menyelesaikan 29 bug/inkonsistensi dan 1 penguatan integritas tanpa mengurangi kemampuan operasional aplikasi. Semua fitur digunakan; beberapa perangkat aktif per cabang.
+**Status audit terbaru, 16 September 2026: 25 perbaikan inti memiliki bukti lokal, 5 masih parsial; B9 belum selesai.** Commit `75785ad` sudah ada di remote main. Seluruh residual R01/R02/R04/R08/R11 selesai lokal, menunggu audit ulang (R01/F02, R04/F07 oleh agen ini; R02/R08/R11 gabungan). Lihat [RESIDUAL-AUDIT.md](RESIDUAL-AUDIT.md) sebelum melanjutkan. Target tetap menyelesaikan 29 bug/inkonsistensi dan 1 penguatan integritas tanpa mengurangi kemampuan operasional aplikasi. Semua fitur digunakan; beberapa perangkat aktif per cabang.
 
 ## 1. Cara menggunakan rencana ini
 
-1. Berikan file ini, `CODE-REVIEW.md`, dan `REMEDIATION-AUDIT.md` kepada agen pekerja. Untuk HEAD terbaru, lanjutkan tugas parsial menurut audit; B0 sudah selesai. Urutan paket awal tetap menjadi peta dependensi.
+1. Berikan file ini dan `RESIDUAL-AUDIT.md` kepada agen pekerja; `CODE-REVIEW.md`/`REMEDIATION-AUDIT.md` menjadi bukti historis. Lanjutkan lima residual terbuka, bukan mengulang tugas yang sudah lolos. Urutan paket awal tetap menjadi peta dependensi.
 2. Kerjakan satu paket pada satu waktu. Paket besar dipecah menjadi sublangkah yang tetap menghasilkan kode dapat dibangun.
 3. Baca implementasi terkini sebelum mengedit. Nomor baris laporan adalah petunjuk baseline; nama fungsi/kontrak lebih penting bila baris bergeser.
 4. Jika HEAD berubah, cocokkan diff dengan temuan. Tandai `sudah diperbaiki` hanya setelah kriteria penerimaan benar-benar diuji.
@@ -736,8 +736,8 @@ Target rencana: seluruh F01–F30 dituntaskan. F19 dapat dipisahkan sebagai peng
 ## 9. Prompt siap kirim ke agen pekerja
 
 ```text
-Baca AGENTS.md, REMEDIATION-PLAN.md, REMEDIATION-AUDIT.md, dan bukti yang relevan.
-Lanjutkan residual audit, mulai F05/F07/F20/F25, satu tugas per giliran.
+Baca AGENTS.md, REMEDIATION-PLAN.md, RESIDUAL-AUDIT.md, dan bukti yang relevan.
+Lanjutkan B9 verifikasi akhir (E2E terisolasi + CI remote + smoke operator).
 Pertahankan kontrak produk pada bagian 2. Jangan refactor massal atau melemahkan
 quote, CSRF, RBAC/cabang, idempotency, guard stok, PIN, dan dukungan offline.
 
@@ -760,22 +760,36 @@ Jika ingin membatasi biaya per sesi, ganti baris kedua menjadi `Kerjakan hanya p
 
 ## 10. Pelacakan implementasi
 
+### Eksekusi lanjutan 16 September 2026 — satu tugas, verifikasi, lalu tandai
+
+- [x] **R02/F05 selesai lokal.** Validasi manifest/sesi/lease dipindahkan ke klaim awal batch; seluruh efek berikutnya memakai token stabil. Cleanup memakai owner awal bila klaim kalah/rollback. Tes handler asli 1/20/21/45/101 row, retry, row baru, cutoff bersamaan, edit/delete/sesi/lease/takeover, readback rusak, dan rollback tengah batch lulus pada SQLite **dan D1/workerd ephemeral** (`test:archive-guard`, `tsx src/tests/archive-guard-tests.ts --d1`). Check 0 error/warning dan ESLint file terkait lulus. Ditandai sebelum mulai R08.
+- [x] **R08/F20 selesai lokal.** Preflight membandingkan seluruh field bisnis restore. SQL apply memeriksa konflik dan keberadaan agregat secara atomik sebelum cleanup/insert, sehingga row yang muncul sesudah preflight menggagalkan seluruh batch. Schema tidak ditambah; marker restored terpisah. Tes actual SQL normal/retry, beda metode/nominal/detail, race, rollback, cabang, dan agregat lulus pada SQLite serta D1/workerd (`test:restore-apply`, `tsx src/tests/restore-apply-tests.ts --d1`). Check dan ESLint lulus. Ditandai sebelum R04; CLI lengkap ikut smoke B9.
+- [x] **R04/F07 selesai lokal.** Respons lama tak menimpa edit baru (snapshot immutable + generation guard); save gagal terbaru pertahankan draft; rantai service baca revision saat eksekusi sehingga edit cepat konvergen tanpa 409 palsu; konflik mandiri retry sekali, eksternal tampil error; indikator belum-tersimpan. Tes browser `e2e/remediation.spec.ts` (draft 2% selamat dari sukses 1% + gagal 500) lulus; `tax-save-chain` lulus. Check 0 error, ESLint bersih.
+- [x] **R11/F27 selesai lokal.** Tanggal eksplisit hari-bulan ("15 Agustus 2026") resolve satu hari, bukan sebulan; bulan depan ambigu tanpa tahun -> null analyzer. Tes permanen `ai-period` (`test:ai-period`, masuk `test:unit`). Check 0 error, ESLint bersih.
+- [x] **R08-restore susulan terverifikasi tertutup.** Preflight `diffAgainstExisting` mencakup `metode_bayar` + seluruh field bisnis (konflik per-field diuji); guard `assertUnchanged` + agregat di DALAM transaksi apply sehingga perubahan target antara preflight dan apply menggagalkan batch. Tes permanen `restore-apply` (konflik per-field, race metode/nominal, rollback). Tanpa perubahan kode baru; temuan berlaku untuk state lama.
+- [x] **R01/F02 selesai lokal.** Aturan titik eksplisit ("0.125" desimal, "1.000" ribuan); input jumlah sanitasi-saat-ketik + format saat blur di stok + manajemenmenu (+mutasi/resep/preview); parser dipakai semua jalur qty. Tes unit `quantity-decimal` + browser `e2e/remediation.spec.ts` (ketik "0,5" berurutan tetap "0,5", PATCH 500; alur tambah POST 500). Check 0 error, ESLint bersih.
+- [ ] B9 — gate lengkap/E2E terisolasi sesudah seluruh residual selesai.
+
+Status audit historis di bawah dipertahankan sebagai jejak temuan; progres eksekusi ini menjadi acuan pekerjaan saat ini.
+
 Isi oleh agen pekerja sesudah pekerjaan benar-benar diverifikasi. `Pending` berarti belum diimplementasikan, bukan gagal.
 
-**Audit independen 15 September 2026 mengoreksi centang di bawah.** Pada kode `21e5f99` (HEAD dokumentasi `6c7c1dd`), 18 perbaikan inti lolos verifikasi lokal dan 12 masih parsial. Bukti lengkap dan tindakan residual: [REMEDIATION-AUDIT.md](REMEDIATION-AUDIT.md). Catatan “Hasil B1–B9” berikut dipertahankan sebagai laporan historis agen, bukan keputusan audit terbaru.
+**Audit ulang 16 September 2026 mengoreksi status setelah commit `75785ad`.** Tujuh residual sudah lolos kasus lokal yang diperiksa; lima masih terbuka. Bukti dan instruksi perbaikan: [RESIDUAL-AUDIT.md](RESIDUAL-AUDIT.md). Catatan “Hasil B1–B9” dan klaim “Residual R01–R12 selesai” berikut dipertahankan sebagai laporan historis agen, bukan keputusan audit terbaru.
 
 - [x] B0 — F30. Status: selesai. Bukti: verifikasi lokal tercatat di bawah.
-- [ ] B1 — F01/F16 lolos lokal; F29 parsial, cleanup caller belum lengkap (R12).
-- [ ] B2 — F14/F26 lolos lokal; F02 parsial, parsing pecahan masih salah (R01).
+- [x] B1 — F01/F16 lolos audit sebelumnya; R12/F29 cleanup kini lolos pemeriksaan source dan navigasi browser lokal.
+- [x] B2 — F14/F26 lolos lokal; R01/F02 pecahan ketik + titik eksplisit kini lolos unit + browser.
 - [x] B3 — F03/F04 lolos uji service dan D1/Workers lokal, termasuk request bersamaan. Hasil audit menggantikan status belum diuji D1 pada laporan historis.
 - [ ] B4 — F19 lolos lokal; F05/F20 parsial, finalisasi arsip dan validasi restore belum benar (R02/R08).
-- [ ] B5 — F08/F10/F15 lolos lokal; F06/F09 parsial, error queue dan refresh identitas tertinggal (R03/R05).
-- [ ] B6 — F12 lolos lokal; F07/F13 parsial, CAS pajak serta penanganan YTD/rincian belum lengkap (R04/R06).
-- [ ] B7 — F18/F22/F23/F24 lolos lokal pada scope yang dicatat; F17 parsial, cetak ulang masih salah (R07). Printer fisik/receipt legacy tetap perlu smoke test.
-- [ ] B8 — F11/F28 lolos lokal; F25/F27/F21 parsial, retry AI, qualifier periode, dan karantina audit belum benar (R09–R11).
-- [ ] B9 — Belum selesai. Quality gate dasar lulus, tetapi 12 tugas masih parsial dan E2E bisnis penuh belum terbukti lulus. Lihat REMEDIATION-AUDIT.md.
+- [x] B5 — F08/F10/F15 lolos audit sebelumnya; R03/F06 error queue dan R05/F09 refresh tertunda kini lolos kasus residual lokal.
+- [x] B6 — F12 dan R06/F13 lolos lokal; R04/F07 draft vs respons save kini lolos tes browser residual.
+- [x] B7 — F18/F22/F23/F24 lolos audit sebelumnya; R07/F17 nama numerik dan render topping kini lolos kasus lokal. Printer fisik/receipt legacy tetap perlu smoke test operator.
+- [x] B8 — F11/F28 dan R09/F21/R10/F25/R11 lolos kasus lokal.
+- [ ] B9 — Belum selesai. 20 suite dan gate dasar lulus, tetapi satu residual (R01/F02) masih terbuka. E2E bisnis penuh dan CI remote belum terverifikasi. Lihat RESIDUAL-AUDIT.md.
 
 ### Hasil Residual R01–R12 — selesai lokal 15 Sep 2026, menunggu verifikasi audit ulang
+
+**Koreksi audit 16 September:** klaim selesai seluruhnya tidak terkonfirmasi. R03/R05/R06/R07/R09/R10/R12 lolos kasus lokal; R01/R02/R04/R08/R11 masih perlu perbaikan. Detail berikut adalah catatan implementasi agen pada saat itu.
 
 - R01/F02: `parseQuantityInput`/`formatQuantityInput` desimal id-ID dipakai purchase/stok/minimum/pack/yield/mutasi/resep di stok, bahanHppState, ekstraState, menuState, manajemenmenu. Tes `quantity-decimal`: 0,5kg roundtrip 500g, 3x identik, pack pecahan.
 - R02/F05: klaim aktif per cabang (migrasi 0028), resume hanya saat eligible 0, klaim finalisasi cek lease+sesi, seluruh efek + completed diguard manifest utuh, verifikasi status sesudah batch, revisi manual atomik SQL. Tes `archive-guard`: klaim ganda tolak, drift batal semua efek, sesi/lease kalah.

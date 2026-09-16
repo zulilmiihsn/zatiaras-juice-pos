@@ -1525,7 +1525,8 @@
 								type="text"
 								class="w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-3 text-sm font-bold text-slate-900 transition-all hover:border-pink-300 hover:bg-white focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
 								bind:value={s.bahanForm.stok_saat_ini}
-								oninput={s.handleRupiahInput(s.bahanForm, 'stok_saat_ini')}
+								oninput={s.handleQuantityInput(s.bahanForm, 'stok_saat_ini')}
+								onblur={() => s.formatQuantityField(s.bahanForm, 'stok_saat_ini')}
 								placeholder="0"
 							/>
 						</div>
@@ -1543,7 +1544,8 @@
 								type="text"
 								class="w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-3 text-sm font-bold text-slate-900 transition-all hover:border-pink-300 hover:bg-white focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
 								bind:value={s.bahanForm.isi_per_kemasan}
-								oninput={s.handleRupiahInput(s.bahanForm, 'isi_per_kemasan')}
+								oninput={s.handleQuantityInput(s.bahanForm, 'isi_per_kemasan')}
+								onblur={() => s.formatQuantityField(s.bahanForm, 'isi_per_kemasan')}
 								placeholder="Contoh: 50"
 							/>
 						</div>
@@ -1559,7 +1561,8 @@
 							type="text"
 							class="w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-3 text-sm font-bold text-slate-900 transition-all hover:border-pink-300 hover:bg-white focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
 							bind:value={s.bahanForm.ambang_stok}
-							oninput={s.handleRupiahInput(s.bahanForm, 'ambang_stok')}
+							oninput={s.handleQuantityInput(s.bahanForm, 'ambang_stok')}
+							onblur={() => s.formatQuantityField(s.bahanForm, 'ambang_stok')}
 							placeholder="0"
 						/>
 					</div>
@@ -1580,7 +1583,8 @@
 										type="text"
 										class="w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-900 transition-all hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
 										bind:value={s.bahanForm.jumlah_beli_terakhir}
-										oninput={s.handleRupiahInput(s.bahanForm, 'jumlah_beli_terakhir')}
+										oninput={s.handleQuantityInput(s.bahanForm, 'jumlah_beli_terakhir')}
+										onblur={() => s.formatQuantityField(s.bahanForm, 'jumlah_beli_terakhir')}
 										placeholder="1"
 									/>
 									<div class="relative w-28">
@@ -1704,16 +1708,12 @@
 							</div>
 						{/if}
 
-						{#if Number(String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0) > 0}
-							{@const numQty = Number(
-								String(s.bahanForm.jumlah_beli_terakhir).replace(/\./g, '') || 0
-							)}
+						{#if parseQuantityInput(s.bahanForm.jumlah_beli_terakhir) > 0}
+							{@const numQty = parseQuantityInput(s.bahanForm.jumlah_beli_terakhir)}
 							{@const numCost = Number(
 								String(s.bahanForm.biaya_beli_terakhir).replace(/\./g, '') || 0
 							)}
-							{@const packSize = Number(
-								String(s.bahanForm.isi_per_kemasan).replace(/\./g, '') || 1
-							)}
+							{@const packSize = parseQuantityInput(s.bahanForm.isi_per_kemasan) || 1}
 							{@const baseQty = safeConvertToBaseUnit(
 								numQty,
 								s.bahanForm.satuan_beli || s.bahanForm.satuan,

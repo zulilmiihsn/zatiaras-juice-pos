@@ -2,7 +2,13 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createToastManager } from '$lib/utils/ui';
 import { ErrorHandler } from '$lib/utils/errorHandling';
-import { formatRupiah, parseRupiah, handleRupiahInput } from '$lib/utils/currency';
+import {
+	formatRupiah,
+	parseRupiah,
+	handleRupiahInput,
+	handleQuantityInput,
+	formatQuantityField
+} from '$lib/utils/currency';
 import { NOTIF } from '$lib/constants/ui';
 import { createMenuState } from '$lib/stores/menuState.svelte';
 import { createKategoriState } from '$lib/stores/kategoriState.svelte';
@@ -422,6 +428,8 @@ export function createManajemenmenuState() {
 		dispose: () => toastManager.dispose(),
 		formatRupiah,
 		parseRupiah,
-		handleRupiahInput
+		handleRupiahInput,
+		handleQuantityInput,
+		formatQuantityField
 	};
 }

@@ -1,4 +1,5 @@
 import {
+	getCachedTaxRevision,
 	getTaxSettings,
 	saveTaxSettings,
 	syncTaxSettingsWithServer,
@@ -6,26 +7,37 @@ import {
 	calculateTaxes
 } from '$lib/services/taxService';
 import type { TaxSettings, TaxItemConfig, TaxCalculationResult } from '$lib/types/pajak';
+import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 
 export function createTaxSettingsState() {
 	let draft = $state<TaxSettings>(getTaxSettings());
 	let persisted = $state<TaxSettings>(getTaxSettings());
 	let revision = $state<number>(0);
-	let isSaving = $state<boolean>(false);
+	let pendingSaves = $state(0);
 	let saveError = $state<string | null>(null);
 	let saveSuccessMessage = $state<string | null>(null);
 	let successTimer: ReturnType<typeof setTimeout> | null = null;
 	let dirty = false;
 	let syncGen = 0;
+	let editGeneration = 0;
+	let saveGeneration = 0;
+	// JSON terakhir yang diketahui tersimpan di server; pembanding konflik mandiri.
+	let persistedSnapshot = JSON.stringify(persisted);
 
 	async function syncWithServer(branch?: string) {
 		const gen = ++syncGen;
-		const synced = await syncTaxSettingsWithServer(branch);
-		if (gen !== syncGen) return synced;
+		const targetBranch = branch || selectedBranch.value;
+		const editsAtStart = editGeneration;
+		const synced = await syncTaxSettingsWithServer(targetBranch);
+		if (gen !== syncGen || selectedBranch.value !== targetBranch) return synced;
 		persisted = structuredClone(synced);
+		persistedSnapshot = JSON.stringify(synced);
+		revision = getCachedTaxRevision(targetBranch);
 		// Jangan timpa draft yang sedang diedit; hanya cache persisted.
-		if (!dirty) draft = structuredClone(synced);
-		saveError = null;
+		if (!dirty && !pendingSaves && editsAtStart === editGeneration) {
+			draft = structuredClone(synced);
+			saveError = null;
+		}
 		return synced;
 	}
 
@@ -34,39 +46,80 @@ export function createTaxSettingsState() {
 	}
 
 	function refresh() {
+		editGeneration++;
 		draft = getTaxSettings();
 		dirty = false;
 		void syncWithServer();
 	}
 
 	async function persist(): Promise<boolean> {
-		isSaving = true;
+		const generation = ++saveGeneration;
+		const targetBranch = selectedBranch.value;
+		// Invalidate any GET started before this write.
+		syncGen++;
+		pendingSaves++;
 		saveError = null;
+		saveSuccessMessage = null;
 		try {
-			const res = await saveTaxSettings(draft);
-			if (!res.ok) {
-				saveError = res.conflict
-					? 'Berubah di perangkat lain. Muat ulang lalu coba lagi.'
-					: res.message;
-				return false;
+			// Kirim snapshot saat attempt; draft hidup tetap bisa diedit selama flight.
+			for (let attempt = 0; attempt < 2; attempt++) {
+				const snapshot = $state.snapshot(draft);
+				const sentAtEdit = editGeneration;
+				const res = await saveTaxSettings(snapshot, targetBranch);
+				if (selectedBranch.value !== targetBranch) return res.ok;
+				if (res.ok) {
+					persisted = structuredClone(res.settings);
+					persistedSnapshot = JSON.stringify(res.settings);
+					revision = res.revision;
+					// Respons lama hanya boleh merapikan bila tak ada edit lebih baru.
+					// Edit susulan selalu membawa persist sendiri, jadi tanpa susulan di sini.
+					if (sentAtEdit === editGeneration && JSON.stringify(draft) === JSON.stringify(snapshot)) {
+						dirty = false;
+						draft = structuredClone(res.settings);
+						if (generation === saveGeneration) {
+							if (successTimer) clearTimeout(successTimer);
+							saveSuccessMessage = 'Pengaturan pajak berhasil disimpan.';
+							successTimer = setTimeout(() => {
+								saveSuccessMessage = null;
+							}, 3000);
+						}
+					}
+					return true;
+				}
+				if (!res.conflict || attempt > 0) {
+					if (generation === saveGeneration) {
+						saveError = res.conflict
+							? 'Berubah di perangkat lain. Muat ulang lalu coba lagi.'
+							: res.message;
+					}
+					return false;
+				}
+				// 409: bedakan konflik mandiri (rantai save sendiri) dari eksternal.
+				// Baseline dicatat SEBELUM sync; hanya server yang sama-dengan-baseline
+				// boleh ditulis ulang. Jika perangkat lain mengubah, draft dipertahankan.
+				const baseline = persistedSnapshot;
+				const fresh = await syncTaxSettingsWithServer(targetBranch);
+				if (selectedBranch.value !== targetBranch) return false;
+				persisted = structuredClone(fresh);
+				persistedSnapshot = JSON.stringify(fresh);
+				revision = getCachedTaxRevision(targetBranch);
+				if (JSON.stringify(fresh) !== baseline) {
+					if (generation === saveGeneration) {
+						saveError = 'Berubah di perangkat lain. Muat ulang lalu coba lagi.';
+					}
+					return false;
+				}
+				// Konflik mandiri: ulangi sekali dengan revision segar.
 			}
-			dirty = false;
-			persisted = structuredClone(res.settings);
-			draft = structuredClone(res.settings);
-			revision = res.revision;
-			if (successTimer) clearTimeout(successTimer);
-			saveSuccessMessage = 'Pengaturan pajak berhasil disimpan.';
-			successTimer = setTimeout(() => {
-				saveSuccessMessage = null;
-			}, 3000);
-			return true;
+			return false;
 		} finally {
-			isSaving = false;
+			pendingSaves--;
 		}
 	}
 
 	function markDirty() {
 		dirty = true;
+		editGeneration++;
 	}
 
 	function setMasterTaxEnabled(enabled: boolean) {
@@ -157,7 +210,10 @@ export function createTaxSettingsState() {
 			return revision;
 		},
 		get isSaving() {
-			return isSaving;
+			return pendingSaves > 0;
+		},
+		get hasUnsavedChanges() {
+			return dirty || pendingSaves > 0;
 		},
 		get saveError() {
 			return saveError;

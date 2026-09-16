@@ -25,7 +25,9 @@
 		formatRupiah,
 		formatQuantityInput,
 		parseRupiah,
-		parseQuantityInput
+		parseQuantityInput,
+		sanitizeQuantityDraft,
+		formatQuantityField
 	} from '$lib/utils/currency';
 	import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 	import { realtimeManager } from '$lib/realtime/realtimeManager';
@@ -681,7 +683,8 @@
 		}
 	}
 
-	// Format input helper: uang pakai Rupiah, jumlah pakai desimal terjaga.
+	// Format input helper: uang format tiap ketik; jumlah HANYA sanitasi saat
+	// ketik (draft "0," dipertahankan) dan diformat pada blur.
 	function handleRupiahFormat(
 		e: Event,
 		field:
@@ -697,8 +700,13 @@
 			bahanForm[field] = parsed ? formatRupiah(parsed) : '';
 			return;
 		}
-		const parsed = parseQuantityInput(target.value);
-		bahanForm[field] = target.value.trim() === '' ? '' : formatQuantityInput(parsed);
+		bahanForm[field] = sanitizeQuantityDraft(target.value);
+	}
+
+	function handleQuantityBlur(
+		field: 'stok_saat_ini' | 'ambang_stok' | 'jumlah_beli_terakhir' | 'isi_per_kemasan'
+	) {
+		formatQuantityField(bahanForm, field);
 	}
 
 	// Lifecycle
@@ -1289,6 +1297,7 @@
 							class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={bahanForm.stok_saat_ini}
 							oninput={(e) => handleRupiahFormat(e, 'stok_saat_ini')}
+							onblur={() => handleQuantityBlur('stok_saat_ini')}
 							placeholder="0"
 						/>
 					</div>
@@ -1308,6 +1317,7 @@
 							class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={bahanForm.isi_per_kemasan}
 							oninput={(e) => handleRupiahFormat(e, 'isi_per_kemasan')}
+							onblur={() => handleQuantityBlur('isi_per_kemasan')}
 							placeholder="Contoh: 50"
 						/>
 					</div>
@@ -1326,6 +1336,7 @@
 						class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 						bind:value={bahanForm.ambang_stok}
 						oninput={(e) => handleRupiahFormat(e, 'ambang_stok')}
+						onblur={() => handleQuantityBlur('ambang_stok')}
 						placeholder="Contoh: 5"
 					/>
 					<p class="text-xs text-zinc-400">
@@ -1350,6 +1361,7 @@
 									class="w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 									bind:value={bahanForm.jumlah_beli_terakhir}
 									oninput={(e) => handleRupiahFormat(e, 'jumlah_beli_terakhir')}
+									onblur={() => handleQuantityBlur('jumlah_beli_terakhir')}
 									placeholder="1"
 								/>
 								<div class="relative w-28">

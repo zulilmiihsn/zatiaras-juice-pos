@@ -116,6 +116,11 @@ function writeRevision(targetBranch: string, revision: number): void {
 	} catch {}
 }
 
+export function getCachedTaxRevision(branch?: string): number {
+	if (!browser) return 0;
+	return readRevision((branch || currentBranch()).toLowerCase());
+}
+
 function notifyUpdated(settings: TaxSettings, targetBranch: string, revision: number): void {
 	if (!browser) return;
 	try {
@@ -208,11 +213,13 @@ export function saveTaxSettings(settings: TaxSettings, branch?: string): Promise
 	const targetBranch = (branch || currentBranch()).toLowerCase();
 	const v = validateTaxSettings(settings);
 	if (!v.ok) return Promise.resolve({ ok: false, conflict: false, message: v.errors.join('; ') });
+	// Capture at enqueue time; a Svelte draft may be mutated before its turn to write.
+	const snapshot = JSON.parse(JSON.stringify(settings)) as TaxSettings;
 	const prev =
 		saveChains.get(targetBranch) ??
-		Promise.resolve({ ok: true, revision: readRevision(targetBranch), settings });
+		Promise.resolve({ ok: true, revision: readRevision(targetBranch), settings: snapshot });
 	const next = prev.then(() =>
-		persistTaxSettings(settings, targetBranch).catch((e): SaveTaxResult => ({
+		persistTaxSettings(snapshot, targetBranch).catch((e): SaveTaxResult => ({
 			ok: false,
 			conflict: false,
 			message: e instanceof Error ? e.message : 'Gagal menyimpan pengaturan pajak.'
