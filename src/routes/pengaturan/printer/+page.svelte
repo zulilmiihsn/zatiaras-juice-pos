@@ -10,6 +10,7 @@
 	import Bluetooth from '@lucide/svelte/icons/bluetooth';
 	import Usb from '@lucide/svelte/icons/cable';
 	import Smartphone from '@lucide/svelte/icons/smartphone';
+	import Monitor from '@lucide/svelte/icons/monitor';
 	import Printer from '@lucide/svelte/icons/printer';
 	import Check from '@lucide/svelte/icons/check';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
@@ -510,6 +511,35 @@
 								<p class="mt-1 text-xs leading-relaxed text-stone-500">
 									Penyelamat untuk printer Bluetooth Classic (SPP 2.0/3.0 murah) di Android.
 									Meneruskan data struk ke aplikasi driver helper.
+								</p>
+							</div>
+						</label>
+
+						<!-- Opsi 4: Server Lokal (Windows / PC Kasir) -->
+						<label
+							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
+							'server'
+								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
+								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+						>
+							<input
+								type="radio"
+								name="printer-method"
+								value="server"
+								bind:group={printerMethod}
+								class="mt-1 h-4 w-4 text-pink-600 accent-pink-500"
+							/>
+							<div class="flex-1">
+								<div class="flex items-center gap-2">
+									<Monitor class="h-4 w-4 text-pink-500" />
+									<span class="text-sm font-bold text-stone-800"
+										>Jalur 4 — Server Lokal (RawBT Print Server)</span
+									>
+								</div>
+								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+									Untuk PC kasir Windows. Mengirim struk ke RawBT Print Server lokal
+									(127.0.0.1:40213) via HTTP, fallback WebSocket. Pastikan aplikasinya sudah
+									dijalankan di komputer ini.
 								</p>
 							</div>
 						</label>

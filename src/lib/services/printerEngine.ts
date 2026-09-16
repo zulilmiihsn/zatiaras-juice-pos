@@ -1,29 +1,24 @@
 /**
  * Unified Multi-Method Printer Engine (Thermal POS Exclusive)
- * Mendukung 3 jalur pencetakan kasir murni:
+ * Mendukung 4 jalur pencetakan kasir murni:
  * 1. Web Bluetooth (BLE 4.0/5.0) — ESC/POS Direct
  * 2. WebUSB (Kabel USB Printer POS) — ESC/POS Direct
  * 3. Android Intent (RawBT / iMin Helper App) — Gzip Base64
+ * 4. Server Lokal (RawBT Print Server di Windows/PC) — HTTP POST + WebSocket
  */
 
 import { browser } from '$app/environment';
 import { buildReceiptEscPos } from '$lib/utils/escposBuilder';
-import { printViaIntent } from '$lib/utils/receiptPrint';
+import { buildPrintIntentUrl, printViaIntent } from '$lib/utils/receiptPrint';
+import {
+	DEFAULT_PRINTER_CONFIG,
+	parsePrinterConfig,
+	type PaperSize,
+	type PrinterConfig,
+	type PrinterMethod
+} from '$lib/utils/printerConfig';
 
-export type PrinterMethod = 'bluetooth' | 'usb' | 'intent';
-export type PaperSize = '58mm' | '80mm';
-
-export interface PrinterConfig {
-	method: PrinterMethod;
-	paperSize: PaperSize;
-	deviceName?: string;
-}
-
-const DEFAULT_CONFIG: PrinterConfig = {
-	method: 'intent',
-	paperSize: '58mm',
-	deviceName: ''
-};
+export type { PaperSize, PrinterConfig, PrinterMethod };
 
 // Known BLE Service UUIDs used by common 58mm/80mm thermal printers
 const KNOWN_BLE_SERVICES = [
@@ -106,24 +101,14 @@ let activeUsbEndpointNumber: number | null = null;
 
 /** Baca konfigurasi printer dari localStorage */
 export function getPrinterConfig(): PrinterConfig {
-	if (!browser) return DEFAULT_CONFIG;
+	if (!browser) return { ...DEFAULT_PRINTER_CONFIG };
 	try {
 		const raw = localStorage.getItem('pos_printer_config');
-		if (raw) {
-			const parsed = JSON.parse(raw);
-			return {
-				method:
-					parsed.method === 'bluetooth' || parsed.method === 'usb' || parsed.method === 'intent'
-						? parsed.method
-						: DEFAULT_CONFIG.method,
-				paperSize: parsed.paperSize === '80mm' ? '80mm' : '58mm',
-				deviceName: parsed.deviceName || ''
-			};
-		}
+		if (raw) return parsePrinterConfig(JSON.parse(raw));
 	} catch {
 		// fallback
 	}
-	return DEFAULT_CONFIG;
+	return { ...DEFAULT_PRINTER_CONFIG };
 }
 
 /** Simpan konfigurasi printer ke localStorage */
@@ -334,6 +319,48 @@ async function sendUsbData(
 	await device.transferOut(endpointNumber, data);
 }
 
+// Endpoint RawBT Print Server lokal (dijalankan di PC kasir Windows).
+const LOCAL_PRINT_HTTP_ENDPOINTS = ['http://127.0.0.1:40213/print', 'http://localhost:40213/print'];
+const LOCAL_PRINT_WS_ENDPOINTS = ['ws://localhost:40213/', 'ws://127.0.0.1:40213/'];
+
+/** Kirim struk ke Server Lokal via HTTP POST, fallback WebSocket. */
+async function sendToLocalServer(intentUrl: string): Promise<void> {
+	for (const url of LOCAL_PRINT_HTTP_ENDPOINTS) {
+		try {
+			await fetch(url, { method: 'POST', mode: 'no-cors', body: intentUrl });
+			return;
+		} catch {
+			// coba endpoint berikutnya
+		}
+	}
+	await sendToLocalServerWs(intentUrl, 0);
+}
+
+function sendToLocalServerWs(intentUrl: string, index: number): Promise<void> {
+	if (index >= LOCAL_PRINT_WS_ENDPOINTS.length) {
+		throw new Error(
+			"Server printer lokal tidak dapat diakses! Pastikan 'RawBT Print Server' sudah dijalankan di komputer ini."
+		);
+	}
+	return new Promise((resolve, reject) => {
+		let sent = false;
+		try {
+			const socket = new WebSocket(LOCAL_PRINT_WS_ENDPOINTS[index]);
+			socket.onopen = () => {
+				sent = true;
+				socket.send(intentUrl);
+				socket.close(1000, 'Print request sent');
+				resolve();
+			};
+			socket.onerror = () => {
+				if (!sent) void sendToLocalServerWs(intentUrl, index + 1).then(resolve, reject);
+			};
+		} catch {
+			void sendToLocalServerWs(intentUrl, index + 1).then(resolve, reject);
+		}
+	});
+}
+
 export interface UnifiedPrintPayload {
 	html: string;
 	receiptData?: Parameters<typeof buildReceiptEscPos>[0];
@@ -341,7 +368,7 @@ export interface UnifiedPrintPayload {
 
 /**
  * Router Utama Cetak Struk
- * Otomatis menggunakan salah satu dari 3 metode yang dipilih user di Pengaturan Printer.
+ * Otomatis menggunakan salah satu dari 4 metode yang dipilih user di Pengaturan Printer.
  */
 export async function printReceiptUnified(payload: UnifiedPrintPayload): Promise<void> {
 	const config = getPrinterConfig();
@@ -377,6 +404,11 @@ export async function printReceiptUnified(payload: UnifiedPrintPayload): Promise
 		case 'intent':
 		default: {
 			printViaIntent(payload.html);
+			break;
+		}
+
+		case 'server': {
+			await sendToLocalServer(buildPrintIntentUrl(payload.html));
 			break;
 		}
 	}
@@ -434,6 +466,8 @@ export async function testPrintUnified(method: PrinterMethod, paperSize: PaperSi
 		} else {
 			throw new Error('Koneksi USB printer gagal dibentuk');
 		}
+	} else if (method === 'server') {
+		await sendToLocalServer(buildPrintIntentUrl(dummyHtml));
 	} else {
 		printViaIntent(dummyHtml);
 	}

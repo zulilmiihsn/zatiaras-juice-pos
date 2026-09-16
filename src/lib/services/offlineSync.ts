@@ -12,7 +12,11 @@ import {
 	removePendingTransaction,
 	retryFailedPendingTransactions
 } from '$lib/utils/offline';
-import { classifySyncFailure, getRetryDelayMs, isPendingReady } from '$lib/utils/offlineQueue';
+import {
+	classifySyncFailure,
+	getRetryDelayMs,
+	selectSyncablePendings
+} from '$lib/utils/offlineQueue';
 import { dbPost } from '$lib/services/dataApiClient';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
@@ -79,6 +83,10 @@ async function scheduleNextPendingSync(): Promise<void> {
 	schedulePendingSync(Math.max(250, nextAttemptAt - Date.now()));
 }
 
+/**
+ * Pilih antrean yang boleh disinkronkan sekarang: lihat selectSyncablePendings
+ * murni di $lib/utils/offlineQueue (tanpa IO, teruji unit).
+ */
 async function runPendingTransactionSync(
 	force = false,
 	queueIds?: ReadonlySet<string>
@@ -89,12 +97,10 @@ async function runPendingTransactionSync(
 			? localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda'
 			: 'samarinda';
 
-	const pendings = (await getPendingTransactions()).filter((item) => {
-		if (item.requires_owner_review) return false;
-		if (item.branch && item.branch !== activeBranch) return false;
-		if (queueIds?.has(item.queue_id)) return true;
-		if (item.failure_kind === 'auth' || item.failure_kind === 'conflict') return false;
-		return force || isPendingReady(item);
+	const pendings = selectSyncablePendings(await getPendingTransactions(), {
+		activeBranch,
+		force,
+		queueIds
 	});
 	if (!pendings.length) return;
 	let synced = 0;

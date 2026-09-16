@@ -223,10 +223,14 @@ export function buildSaleReceiptHtml(input: SaleReceiptInput): string {
 	return buildReceiptShell({ settings, marginBottom: 16, renderText: escapeHtml }, body, footer);
 }
 
-/** Kirim HTML struk ke printer via Android print-intent (gzip + base64). */
-export function printViaIntent(html: string): void {
+/** Bangun URL intent cetak (gzip + base64) tanpa navigasi; dipakai ulang jalur server. */
+export function buildPrintIntentUrl(html: string): string {
 	const gzip = pako.gzip(JSON.stringify([html]));
 	const base64 = Base64.fromUint8Array(gzip);
-	const intentUrl = `intent://#Intent;scheme=print-intent;S.content=${base64};end`;
-	window.location.href = intentUrl;
+	return `intent://#Intent;scheme=print-intent;S.content=${base64};end`;
+}
+
+/** Kirim HTML struk ke printer via Android print-intent (gzip + base64). */
+export function printViaIntent(html: string): void {
+	window.location.href = buildPrintIntentUrl(html);
 }

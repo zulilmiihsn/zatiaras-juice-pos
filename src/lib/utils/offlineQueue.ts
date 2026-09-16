@@ -129,6 +129,25 @@ export function isPendingReady(item: PendingTransaction, now = Date.now()): bool
 	return item.next_attempt_at <= now;
 }
 
+/**
+ * Pilih antrean yang boleh disinkronkan sekarang (murni, tanpa IO).
+ * Permanen ditahan: butuh review owner, cabang beda, gagal auth/konflik.
+ */
+export function selectSyncablePendings(
+	items: PendingTransaction[],
+	options: { activeBranch: string; force?: boolean; queueIds?: ReadonlySet<string> } = {
+		activeBranch: 'samarinda'
+	}
+): PendingTransaction[] {
+	return items.filter((item) => {
+		if (item.requires_owner_review) return false;
+		if (item.branch && item.branch !== options.activeBranch) return false;
+		if (options.queueIds?.has(item.queue_id)) return true;
+		if (item.failure_kind === 'auth' || item.failure_kind === 'conflict') return false;
+		return Boolean(options.force) || isPendingReady(item);
+	});
+}
+
 export function classifySyncFailure(status?: number): Exclude<PendingFailureKind, null> {
 	if (status === 401 || status === 403) return 'auth';
 	if (status === 400 || status === 404 || status === 409 || status === 422) return 'conflict';
