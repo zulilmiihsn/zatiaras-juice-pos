@@ -21,12 +21,15 @@ export default defineConfig({
 		video: 'retain-on-failure',
 		...devices['Desktop Chrome']
 	},
-	webServer: {
-		command: `pnpm dev --force --host 127.0.0.1 --port ${e2ePort} --mode e2e`,
-		url: `${baseURL}/login`,
-		reuseExistingServer: Boolean(process.env.E2E_PORT),
-		timeout: 120_000,
-		stdout: 'pipe',
-		stderr: 'pipe'
-	}
+	webServer:
+		process.env.E2E_EXTERNAL_SERVER === '1'
+			? undefined
+			: {
+					command: `pnpm dev --force --host 127.0.0.1 --port ${e2ePort} --mode e2e`,
+					url: `${baseURL}/login`,
+					reuseExistingServer: Boolean(process.env.E2E_PORT),
+					timeout: 120_000,
+					stdout: 'pipe',
+					stderr: 'pipe'
+				}
 });

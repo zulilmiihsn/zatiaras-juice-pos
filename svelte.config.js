@@ -40,7 +40,10 @@ const config = {
 		adapter: adapter({
 			config: './wrangler.pages.jsonc',
 			platformProxy: {
-				configPath: './wrangler.pages.jsonc'
+				configPath: process.env.ZATIARAS_E2E_CONFIG || './wrangler.pages.jsonc',
+				...(process.env.ZATIARAS_E2E_CONFIG && process.env.ZATIARAS_E2E_STATE
+					? { persist: { path: process.env.ZATIARAS_E2E_STATE } }
+					: {})
 			}
 		})
 	}

@@ -345,22 +345,43 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 		const finalizeToken = crypto.randomUUID();
 		const nowMs = Date.now();
+		// Validate the snapshot once, before this batch starts deleting its rows.
+		const manifestOk = manifestIntactSql();
 		const batchStatements = [
-			// Klaim finalisasi: ownership + lease + sesi tutup dalam satu statement.
+			// A successful claim is the stable guard for every effect in this atomic batch.
 			rawDb
 				.prepare(
 					`UPDATE archive_jobs SET status = 'finalizing', owner_token = ?, updated_at = ?
 					 WHERE id = ? AND owner_token = ? AND status IN ('claimed','uploading')
 					 AND lease_expires_at > ?
-					 AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)`
+					 AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)
+					 AND ${manifestOk}
+					 AND (SELECT COUNT(*) FROM archive_job_items WHERE job_id = ? AND cabang_id = ?) = ?
+					 AND (SELECT COUNT(*) FROM transaksi_kasir tk
+					      JOIN archive_job_items m ON m.buku_kas_id = tk.buku_kas_id AND m.cabang_id = tk.cabang_id
+					      WHERE m.job_id = ?) = ?
+					 AND NOT EXISTS (SELECT 1 FROM json_each(?) expected
+					      WHERE NOT EXISTS (SELECT 1 FROM transaksi_kasir tk WHERE tk.cabang_id = ? AND tk.id = expected.value))`
 				)
-				.bind(finalizeToken, new Date().toISOString(), archiveJobId, jobOwner, nowMs, branch)
+				.bind(
+					finalizeToken,
+					new Date().toISOString(),
+					archiveJobId,
+					jobOwner,
+					nowMs,
+					branch,
+					branch,
+					archiveJobId,
+					archiveJobId,
+					branch,
+					itemManifest.length,
+					archiveJobId,
+					tkIds.length,
+					JSON.stringify(tkIds),
+					branch
+				)
 		];
-		jobOwner = finalizeToken;
 		const jobGuard = `EXISTS (SELECT 1 FROM archive_jobs WHERE id = ? AND owner_token = ? AND status = 'finalizing')`;
-		const noSession = `NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)`;
-		// Seluruh manifest harus utuh (ada + revision sama); drift apa pun menggagalkan SEMUA efek.
-		const manifestOk = manifestIntactSql();
 
 		// 1. Ringkasan arsip manual, ID deterministik job+dimensi (retry tidak ganda).
 		for (const s of manualSummaries.values()) {
@@ -379,7 +400,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						jumlah_transaksi, total_nominal, created_at
 					)
 					SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-					WHERE ${jobGuard} AND ${noSession} AND ${manifestOk} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
+					WHERE ${jobGuard} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
 					)
 					.bind(
 						sid,
@@ -394,15 +415,12 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 						new Date().toISOString(),
 						archiveJobId,
 						finalizeToken,
-						branch,
-						branch,
-						archiveJobId,
 						sid
 					)
 			);
 		}
 
-		// 2. Hapus exact manifest; drift/revisi/sesi menggagalkan hapus.
+		// 2. Delete exact snapshot IDs under the winning claim (no recheck after deletion).
 		// transaksi detail dulu, header terakhir.
 		for (let i = 0; i < tkIds.length; i += 50) {
 			const chunk = tkIds.slice(i, i + 50);
@@ -411,9 +429,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				rawDb
 					.prepare(
 						`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard} AND ${noSession} AND ${manifestOk}`
+						 AND ${jobGuard}`
 					)
-					.bind(branch, ...chunk, archiveJobId, finalizeToken, branch, branch, archiveJobId)
+					.bind(branch, ...chunk, archiveJobId, finalizeToken)
 			);
 		}
 		for (let i = 0; i < itemManifest.length; i += 20) {
@@ -424,9 +442,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				rawDb
 					.prepare(
 						`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard} AND ${noSession} AND ${manifestOk}`
+						 AND ${jobGuard}`
 					)
-					.bind(branch, ...ids, archiveJobId, finalizeToken, branch, branch, archiveJobId)
+					.bind(branch, ...ids, archiveJobId, finalizeToken)
 			);
 		}
 
@@ -434,7 +452,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			rawDb
 				.prepare(
 					`UPDATE archive_jobs SET status = 'completed', object_key = ?, checksum = ?, counts = ?, updated_at = ?
-					 WHERE id = ? AND owner_token = ? AND status = 'finalizing' AND ${manifestOk} AND ${noSession}`
+					 WHERE id = ? AND owner_token = ? AND status = 'finalizing'`
 				)
 				.bind(
 					key,
@@ -442,10 +460,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 					JSON.stringify({ total, ...archive.meta.counts }),
 					new Date().toISOString(),
 					archiveJobId,
-					finalizeToken,
-					branch,
-					archiveJobId,
-					branch
+					finalizeToken
 				)
 		);
 
@@ -458,26 +473,14 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				? finalResults[0].changes
 				: (finalResults?.[0]?.meta?.changes ?? 0);
 		if (claimChanges === 0) {
-			await setJobStatus(rawDb, archiveJobId, finalizeToken, 'orphan').catch(() => {});
 			throw kitError(
 				409,
 				'Arsip berubah bersamaan (sesi/lease/edit/void). Snapshot orphan, ledger utuh. Coba lagi.'
 			);
 		}
-		// Klaim menang belum berarti efek sah: pastikan completed, bila tidak
-		// berarti guard manifest/sesi menggagalkan efek -> orphan, ledger utuh.
-		const finalJob = (await rawDb
-			.prepare(`SELECT status FROM archive_jobs WHERE id = ? LIMIT 1`)
-			.bind(archiveJobId)
-			.first()
-			.catch(() => null)) as { status?: string } | null;
-		if (finalJob?.status !== 'completed') {
-			await setJobStatus(rawDb, archiveJobId, finalizeToken, 'orphan').catch(() => {});
-			throw kitError(
-				409,
-				'Data berubah saat finalisasi (edit/void/sesi). Snapshot orphan, ledger utuh. Coba lagi.'
-			);
-		}
+		// Ownership changes only after the batch commits; on rollback/claim loss cleanup
+		// must still use the original owner. Never describe a committed delete as untouched.
+		jobOwner = finalizeToken;
 
 		// Pointer legacy agar UI lama tetap resume; bukan sumber status utama.
 		await rawDb

@@ -34,11 +34,12 @@ export function parseRupiah(value: string | number | null | undefined): number {
  * pecahan (0,5 -> 5) dan hanya untuk UANG bulat.
  *
  * Aturan eksplisit bila satu pemisah:
- * - koma tunggal -> selalu desimal ("0,5", "1.000,5" via aturan terakhir).
- * - dua pemisah -> yang TERAKHIR desimal.
+ * - koma tunggal -> SELALU desimal ("0,5", "1,125"). Formatter id-ID selalu
+ *   memakai koma desimal, jadi parser harus membaliknya persis (roundtrip).
+ *   Koma ganda -> ribuan ("1,000,000").
  * - titik tunggal -> ribuan hanya bila tepat 3 digit sesudahnya DAN bagian
  *   bulat tak berawalan nol ("1.000", "10.000"); selain itu desimal
- *   ("0.5", "0.125", "12.34").
+ *   ("0.5", "0.125", "12.34"). Titik ganda -> ribuan.
  */
 export function parseQuantityInput(value: string | number | null | undefined): number {
 	if (value === null || value === undefined || value === '') return 0;
@@ -57,10 +58,7 @@ export function parseQuantityInput(value: string | number | null | undefined): n
 	} else if (commas > 1) {
 		dec = null;
 	} else if (commas === 1) {
-		// Koma tunggal: desimal ("0,5"), kecuali pola ribuan AS ("1,000",
-		// tak berawalan nol) yang ditoleransi seperti aturan titik.
-		const [cint, cfrac = ''] = s.split(',');
-		dec = /^\d{3}$/.test(cfrac) && /^[1-9]\d*$/.test(cint) ? null : ',';
+		dec = ',';
 	} else if (dots > 1) {
 		dec = null;
 	} else if (dots === 1) {

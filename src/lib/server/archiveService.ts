@@ -213,10 +213,10 @@ export function deterministicSummaryId(
 
 /**
  * Fragmen guard: seluruh manifest job masih ada dengan revision sama.
- * Dipakai pada SETIAP efek finalisasi + klaim completed. Argumen: (cabang, jobId).
+ * Precondition klaim finalisasi saja, sebelum row dihapus. Argumen: (cabang, jobId).
  */
 export function manifestIntactSql(): string {
-	return `NOT EXISTS (SELECT 1 FROM archive_job_items m LEFT JOIN buku_kas b ON b.cabang_id = ? AND b.id = m.buku_kas_id WHERE m.job_id = ? AND (b.id IS NULL OR b.revision != m.revision))`;
+	return `NOT EXISTS (SELECT 1 FROM archive_job_items m LEFT JOIN buku_kas b ON b.cabang_id = m.cabang_id AND b.id = m.buku_kas_id WHERE m.cabang_id = ? AND m.job_id = ? AND (b.id IS NULL OR b.revision != m.revision))`;
 }
 
 export async function countEligibleRows(
@@ -227,7 +227,6 @@ export async function countEligibleRows(
 	const row = (await rawDb
 		.prepare(`SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id = ? AND waktu < ?`)
 		.bind(branch, cutoff)
-		.first()
-		.catch(() => null)) as { n?: number } | null;
+		.first()) as { n?: number } | null;
 	return Number(row?.n || 0);
 }

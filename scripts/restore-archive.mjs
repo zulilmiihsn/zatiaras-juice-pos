@@ -188,9 +188,7 @@ const existingBk = new Map();
 const existingTk = new Map();
 for (const chunk of chunked(buku_kas, 50)) {
 	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
-	const rows = queryTarget(
-		`SELECT id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id FROM buku_kas WHERE id IN (${ids})`
-	);
+	const rows = queryTarget(`SELECT id, ${BK_FIELDS.join(', ')} FROM buku_kas WHERE id IN (${ids})`);
 	if (!rows) {
 		console.error('Preflight gagal membaca target buku_kas. Hentikan apply.');
 		process.exit(1);
@@ -200,7 +198,7 @@ for (const chunk of chunked(buku_kas, 50)) {
 for (const chunk of chunked(transaksi_kasir, 50)) {
 	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
 	const rows = queryTarget(
-		`SELECT id, cabang_id, buku_kas_id, jumlah, nominal, transaction_id FROM transaksi_kasir WHERE id IN (${ids})`
+		`SELECT id, ${TK_FIELDS.join(', ')} FROM transaksi_kasir WHERE id IN (${ids})`
 	);
 	if (!rows) {
 		console.error('Preflight gagal membaca target transaksi_kasir. Hentikan apply.');

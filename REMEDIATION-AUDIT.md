@@ -1,5 +1,7 @@
 # Audit penyelesaian F01–F30
 
+> **Pembaruan 16 September 2026:** dokumen ini adalah audit historis commit `21e5f99`. Audit ulang commit `75785ad` ada di [RESIDUAL-AUDIT.md](RESIDUAL-AUDIT.md): 7 dari12 residual lolos lokal,5 belum tuntas. Gunakan status terbaru tersebut untuk handoff.
+
 Tanggal: 15 September 2026.
 
 Commit implementasi: `21e5f99f59013538c60f78aff7a61ba3af665893`.

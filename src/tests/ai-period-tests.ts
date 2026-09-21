@@ -53,6 +53,27 @@ assert.deepEqual(resolveAiPeriod('menu terlaris bulan Agustus 2026', ref), {
 	end: '2026-08-31',
 	type: 'monthly'
 });
+// Rentang hari dalam sebulan, bukan satu hari saja.
+assert.deepEqual(resolveAiPeriod('laporan 1 sampai 15 Agustus 2026', ref), {
+	start: '2026-08-01',
+	end: '2026-08-15',
+	type: 'daily'
+});
+assert.deepEqual(resolveAiPeriod('1-15 Agustus', ref), {
+	start: '2026-08-01',
+	end: '2026-08-15',
+	type: 'daily'
+});
+// Rentang terbalik tak dilebarkan diam-diam.
+assert.equal(resolveAiPeriod('laporan 15 sampai 1 Agustus 2026', ref), null);
+// Dua bulan: awal bulan pertama s/d akhir bulan kedua.
+assert.deepEqual(resolveAiPeriod('rekap Agustus sampai September 2026', ref), {
+	start: '2026-08-01',
+	end: '2026-09-15',
+	type: 'monthly'
+});
+// Bungkus tahun tanpa kepastian -> analyzer.
+assert.equal(resolveAiPeriod('rekap Desember sampai Januari', ref), null);
 // Tahun relatif.
 assert.deepEqual(resolveAiPeriod('rekap tahun lalu', ref), {
 	start: '2025-01-01',
@@ -88,3 +109,34 @@ for (const q of [
 }
 
 console.log('ai-period-tests: all assertions passed');
+
+assert.deepEqual(resolveAiPeriod('menu terlaris tanggal 15 Agustus tahun lalu', ref), {
+	start: '2025-08-15',
+	end: '2025-08-15',
+	type: 'daily'
+});
+assert.deepEqual(resolveAiPeriod('tahun lalu laporan 1 sampai 15 Agustus', ref), {
+	start: '2025-08-01',
+	end: '2025-08-15',
+	type: 'daily'
+});
+assert.deepEqual(resolveAiPeriod('rekap Juli sampai Agustus tahun lalu', ref), {
+	start: '2025-07-01',
+	end: '2025-08-31',
+	type: 'monthly'
+});
+for (const q of [
+	'bandingkan menu terlaris Juli dan Agustus 2026',
+	'menu terlaris Juli dan Agustus 2026',
+	'laporan 15 Juli sampai 15 Agustus 2026',
+	'laporan 15 Juli sampai Agustus 2026',
+	'laporan Januari sampai Maret dan Agustus 2026',
+	'laporan 15 Agustus 2026 tahun lalu',
+	'laporan kemarin tahun lalu',
+	'laporan bulan lalu tahun lalu',
+	'laporan 1 sampai 15 Agustus 2027'
+]) {
+	assert.equal(resolveAiPeriod(q, ref), null, q);
+	assert.equal(hasPeriodQualifier(q), true, q);
+}
+console.log('ai-period-tests: composite qualifiers and analyzer fallbacks passed');

@@ -1,38 +1,43 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import { createHash, randomUUID } from 'node:crypto';
 
-/**
- * Builder + validasi restore arsip (F20). Dipakai CLI scripts/restore-archive.mjs
- * dan tes. Default dry-run; tidak ada efek samping saat build.
- */
+/** @typedef {Record<string, unknown>} Row */
+/** @typedef {{meta: {schema_version?: number, archive_id?: string, id?: string, branch?: string, counts?: {buku_kas: number, transaksi_kasir: number}}, buku_kas: Row[], transaksi_kasir?: Row[]}} Archive */
 
+/** @param {string[]} argv */
 export function parseRestoreArgs(argv) {
+	/** @param {string} name */
 	const at = (name) => {
 		const i = argv.indexOf(name);
 		return i >= 0 ? argv[i + 1] : null;
 	};
 	return {
 		file: at('--file'),
-		apply: argv.includes('--apply'),
+		apply: argv.includes('--apply') && !argv.includes('--dry-run'),
 		remote: argv.includes('--remote'),
 		binding: at('--binding'),
 		expectSha256: at('--expect-sha256')
 	};
 }
 
+/** @param {string} content */
 export function sha256Hex(content) {
 	return createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
-export function sqlVal(val) {
-	if (val === null || val === undefined) return 'NULL';
-	if (typeof val === 'number') return Number.isFinite(val) ? String(val) : 'NULL';
-	if (typeof val === 'boolean') return val ? '1' : '0';
-	return `'${String(val).replace(/'/g, "''")}'`;
+/** @param {unknown} value */
+export function sqlVal(value) {
+	if (value === null || value === undefined) return 'NULL';
+	if (typeof value === 'number') {
+		if (!Number.isFinite(value)) throw new Error('Non-finite archive number');
+		return String(value);
+	}
+	if (typeof value === 'boolean') return value ? '1' : '0';
+	return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+/** @param {Archive} archive */
 export function validateArchive(archive) {
+	/** @type {string[]} */
 	const errors = [];
 	if (
 		!archive ||
@@ -42,93 +47,194 @@ export function validateArchive(archive) {
 	) {
 		return {
 			ok: false,
-			errors: ['Struktur arsip tidak memenuhi spesifikasi (missing meta / buku_kas)']
+			errors: ['Missing meta / buku_kas'],
+			branch: '',
+			buku_kas: [],
+			transaksi_kasir: []
 		};
 	}
-	const schemaVersion = Number(archive.meta.schema_version || 1);
-	if (![1, 2].includes(schemaVersion))
-		errors.push(`Versi skema arsip tidak didukung: ${archive.meta.schema_version}`);
+	const branch = archive.meta.branch || '';
+	if (!['samarinda', 'samarinda2', 'balikpapan', 'balikpapan2', 'berau'].includes(branch))
+		errors.push('Cabang arsip tidak valid');
+	if (![1, 2].includes(Number(archive.meta.schema_version || 1)))
+		errors.push('Versi arsip tidak didukung');
+	if (!(archive.meta.archive_id || archive.meta.id)) errors.push('Identitas arsip wajib');
 	const buku_kas = archive.buku_kas;
-	const transaksi_kasir = Array.isArray(archive.transaksi_kasir) ? archive.transaksi_kasir : [];
-	const branch = archive.meta.branch || 'samarinda';
-	if (archive.meta.counts) {
-		if (archive.meta.counts.buku_kas !== buku_kas.length)
-			errors.push(`MISMATCH buku_kas (${buku_kas.length} != ${archive.meta.counts.buku_kas})`);
-		if (archive.meta.counts.transaksi_kasir !== transaksi_kasir.length)
-			errors.push(
-				`MISMATCH transaksi_kasir (${transaksi_kasir.length} != ${archive.meta.counts.transaksi_kasir})`
-			);
-	}
-	const bkIds = new Set();
-	for (const r of buku_kas) {
-		if (!r.id || bkIds.has(r.id)) {
-			errors.push(`Duplikat/ID invalid buku_kas: ${r.id}`);
-			break;
+	const transaksi_kasir = archive.transaksi_kasir ?? [];
+	if (!Array.isArray(transaksi_kasir))
+		return {
+			ok: false,
+			errors: ['transaksi_kasir harus array'],
+			branch,
+			buku_kas,
+			transaksi_kasir: []
+		};
+	if (
+		archive.meta.counts &&
+		(archive.meta.counts.buku_kas !== buku_kas.length ||
+			archive.meta.counts.transaksi_kasir !== transaksi_kasir.length)
+	)
+		errors.push('Counts arsip tidak cocok');
+	const ids = new Set();
+	for (const row of buku_kas) {
+		if (!row || !row.id || ids.has(String(row.id))) {
+			errors.push('ID buku kas invalid/duplikat');
+			continue;
 		}
-		bkIds.add(r.id);
-		if (r.cabang_id && r.cabang_id !== branch)
-			errors.push(`Cabang row ${r.id} != metadata ${branch}`);
+		ids.add(String(row.id));
+		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang row ${row.id} berbeda`);
 	}
-	for (const t of transaksi_kasir) {
-		if (t.cabang_id && t.cabang_id !== branch)
-			errors.push(`Cabang detail ${t.id} != metadata ${branch}`);
-		if (t.buku_kas_id && !bkIds.has(t.buku_kas_id))
-			errors.push(`Orphan detail ${t.id} -> ${t.buku_kas_id}`);
+	const detailIds = new Set();
+	for (const row of transaksi_kasir) {
+		if (!row || !row.id || detailIds.has(String(row.id))) {
+			errors.push('ID detail invalid/duplikat');
+			continue;
+		}
+		detailIds.add(String(row.id));
+		if (!ids.has(String(row.buku_kas_id))) errors.push(`Orphan detail ${row.id}`);
+		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang detail ${row.id} berbeda`);
 	}
 	return { ok: errors.length === 0, errors, branch, buku_kas, transaksi_kasir };
 }
 
-/**
- * Bandingkan snapshot vs row target yang sudah ada.
- * - identik -> skip (idempoten, apply kedua no-op)
- * - beda -> conflict (hentikan, jangan timpa transaksi baru)
- */
+// Compare all restored business values. Operational revision/token and updated_at
+// are not transaction content; legacy missing values use the same defaults as INSERT.
+export const BK_FIELDS = [
+	'cabang_id',
+	'waktu',
+	'sumber',
+	'tipe',
+	'jenis',
+	'nominal',
+	'jumlah',
+	'deskripsi',
+	'nama_pelanggan',
+	'metode_bayar',
+	'transaction_id',
+	'idempotency_key',
+	'request_fingerprint',
+	'receipt_snapshot',
+	'id_sesi_toko',
+	'created_at'
+];
+export const TK_FIELDS = [
+	'cabang_id',
+	'buku_kas_id',
+	'produk_id',
+	'nama_kustom',
+	'jumlah',
+	'nominal',
+	'harga',
+	'nama_produk',
+	'harga_dasar',
+	'total_tambahan',
+	'snapshot_tambahan',
+	'gula',
+	'es',
+	'catatan',
+	'snapshot_hpp',
+	'nominal_hpp',
+	'transaction_id',
+	'created_at'
+];
+const NUMERIC_FIELDS = new Set([
+	'nominal',
+	'jumlah',
+	'harga',
+	'harga_dasar',
+	'total_tambahan',
+	'nominal_hpp'
+]);
+
+/** @param {Row} row @param {string} field */
+function fieldValue(row, field) {
+	const value = row[field] ?? (['total_tambahan', 'nominal_hpp'].includes(field) ? 0 : null);
+	return value !== null && NUMERIC_FIELDS.has(field) ? Number(value) : value;
+}
+
+/** @param {Row[]} snapshotRows @param {Map<string, Row>} existingById @param {string[]} fields */
 export function diffAgainstExisting(snapshotRows, existingById, fields) {
-	const skip = [];
-	const conflict = [];
-	const insert = [];
+	/** @type {Row[]} */ const skip = [];
+	/** @type {{id: unknown, expected: Row, actual: Row}[]} */ const conflict = [];
+	/** @type {Row[]} */ const insert = [];
 	for (const row of snapshotRows) {
-		const cur = existingById.get(String(row.id));
-		if (!cur) {
-			insert.push(row);
-			continue;
-		}
-		const same = fields.every((f) => String(cur[f] ?? '') === String(row[f] ?? ''));
-		if (same) skip.push(row);
-		else conflict.push({ id: row.id, expected: row, actual: cur });
+		const current = existingById.get(String(row.id));
+		if (!current) insert.push(row);
+		else if (fields.every((field) => fieldValue(current, field) === fieldValue(row, field)))
+			skip.push(row);
+		else conflict.push({ id: row.id, expected: row, actual: current });
 	}
 	return { skip, conflict, insert };
 }
 
-const BK_FIELDS = ['cabang_id', 'waktu', 'sumber', 'tipe', 'jenis', 'nominal', 'transaction_id'];
-const TK_FIELDS = ['cabang_id', 'buku_kas_id', 'jumlah', 'nominal', 'transaction_id'];
-
+/** @param {Archive} archive @param {{sha256?: string}} opts */
 export function buildRestoreSql(archive, opts = {}) {
-	const { branch, buku_kas, transaksi_kasir } = validateArchive(archive);
-	const archiveId = archive.meta.archive_id || archive.meta.id || 'unknown';
+	const validated = validateArchive(archive);
+	if (!validated.ok) throw new Error(validated.errors.join('; '));
+	const { branch, buku_kas, transaksi_kasir } = validated;
+	const archiveId = archive.meta.archive_id || archive.meta.id || '';
 	const now = new Date().toISOString();
 	const lines = ['-- ZatiarasPOS Archive Restore Transaction', 'BEGIN TRANSACTION;'];
-	// Hapus ringkasan manual arsip yang sama (cabang+archive), satu unit commit restore.
+	// Failing SQL assertion aborts the enclosing D1/SQLite transaction BEFORE cleanup.
+	// SQLite json() is used to raise an error without persistent guard tables/triggers.
+	/** @param {string} condition @param {string} code */
+	const guard = (condition, code) =>
+		lines.push(`SELECT CASE WHEN (${condition}) THEN 1 ELSE json(${sqlVal(code)}) END;`);
+	/** @param {string} table @param {Row[]} rows @param {string[]} fields */
+	function assertUnchanged(table, rows, fields) {
+		for (const row of rows) {
+			const normalized = { ...row, cabang_id: row.cabang_id || branch };
+			const same = fields.map((f) => `${f} IS ${sqlVal(fieldValue(normalized, f))}`).join(' AND ');
+			guard(
+				`NOT EXISTS (SELECT 1 FROM ${table} WHERE id = ${sqlVal(row.id)} AND NOT (${same}))`,
+				`RESTORE_CONFLICT:${table}:${row.id}`
+			);
+		}
+	}
+	assertUnchanged('buku_kas', buku_kas, BK_FIELDS);
+	assertUnchanged('transaksi_kasir', transaksi_kasir, TK_FIELDS);
+	for (const row of buku_kas.filter((r) => r.sumber === 'pos')) {
+		const date = `date(datetime(${sqlVal(row.waktu)}, '+8 hours'))`;
+		guard(
+			`EXISTS (SELECT 1 FROM ringkasan_penjualan_harian WHERE cabang_id=${sqlVal(branch)} AND tanggal_penjualan=${date})`,
+			'RESTORE_MISSING_POS_SUMMARY'
+		);
+	}
+	for (const row of transaksi_kasir) {
+		const header = buku_kas.find((h) => h.id === row.buku_kas_id);
+		if (header?.sumber !== 'pos') continue;
+		const productId = row.produk_id ?? `custom:${row.nama_produk}`;
+		guard(
+			`EXISTS (SELECT 1 FROM penjualan_produk_harian WHERE cabang_id=${sqlVal(branch)} AND tanggal_penjualan=date(datetime(${sqlVal(row.created_at || header.waktu)}, '+8 hours')) AND produk_id=${sqlVal(productId)})`,
+			'RESTORE_MISSING_PRODUCT_SUMMARY'
+		);
+	}
 	lines.push(
-		`DELETE FROM ringkasan_kas_arsip_harian WHERE cabang_id = ${sqlVal(branch)} AND archive_id = ${sqlVal(archiveId)};`
+		`DELETE FROM ringkasan_kas_arsip_harian WHERE cabang_id=${sqlVal(branch)} AND archive_id=${sqlVal(archiveId)};`
 	);
-	// sumber DIPERTAHANKAN persis (pos tetap pos) agar laporan tidak ganda.
-	// Penanda restore ada di pengaturan, bukan field bisnis.
-	for (const b of buku_kas) {
-		lines.push(
-			`INSERT INTO buku_kas (id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi, nama_pelanggan, metode_bayar, transaction_id, idempotency_key, request_fingerprint, receipt_snapshot, id_sesi_toko, created_at, updated_at) SELECT ${sqlVal(b.id)}, ${sqlVal(b.cabang_id || branch)}, ${sqlVal(b.waktu)}, ${sqlVal(b.sumber)}, ${sqlVal(b.tipe)}, ${sqlVal(b.jenis)}, ${sqlVal(b.nominal)}, ${sqlVal(b.jumlah)}, ${sqlVal(b.deskripsi)}, ${sqlVal(b.nama_pelanggan)}, ${sqlVal(b.metode_bayar)}, ${sqlVal(b.transaction_id)}, ${sqlVal(b.idempotency_key)}, ${sqlVal(b.request_fingerprint)}, ${sqlVal(b.receipt_snapshot)}, ${sqlVal(b.id_sesi_toko)}, ${sqlVal(b.created_at)}, ${sqlVal(b.updated_at || now)} WHERE NOT EXISTS (SELECT 1 FROM buku_kas WHERE id = ${sqlVal(b.id)});`
-		);
+	/** @param {string} table @param {Row[]} rows @param {string[]} fields */
+	function insertRows(table, rows, fields) {
+		for (const row of rows) {
+			const normalized = { ...row, cabang_id: row.cabang_id || branch };
+			const columns = ['id', ...fields, 'updated_at'];
+			const values = [
+				row.id,
+				...fields.map((f) => fieldValue(normalized, f)),
+				row.updated_at || now
+			];
+			lines.push(
+				`INSERT INTO ${table} (${columns.join(',')}) SELECT ${values.map(sqlVal).join(',')} WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE id=${sqlVal(row.id)});`
+			);
+		}
 	}
-	for (const t of transaksi_kasir) {
-		lines.push(
-			`INSERT INTO transaksi_kasir (id, cabang_id, buku_kas_id, produk_id, nama_kustom, jumlah, nominal, harga, nama_produk, harga_dasar, total_tambahan, snapshot_tambahan, gula, es, catatan, snapshot_hpp, nominal_hpp, transaction_id, created_at, updated_at) SELECT ${sqlVal(t.id)}, ${sqlVal(t.cabang_id || branch)}, ${sqlVal(t.buku_kas_id)}, ${sqlVal(t.produk_id)}, ${sqlVal(t.nama_kustom)}, ${sqlVal(t.jumlah)}, ${sqlVal(t.nominal)}, ${sqlVal(t.harga)}, ${sqlVal(t.nama_produk)}, ${sqlVal(t.harga_dasar)}, ${sqlVal(t.total_tambahan || 0)}, ${sqlVal(t.snapshot_tambahan)}, ${sqlVal(t.gula)}, ${sqlVal(t.es)}, ${sqlVal(t.catatan)}, ${sqlVal(t.snapshot_hpp)}, ${sqlVal(t.nominal_hpp || 0)}, ${sqlVal(t.transaction_id)}, ${sqlVal(t.created_at)}, ${sqlVal(t.updated_at || now)} WHERE NOT EXISTS (SELECT 1 FROM transaksi_kasir WHERE id = ${sqlVal(t.id)});`
-		);
-	}
+	insertRows('buku_kas', buku_kas, BK_FIELDS);
+	insertRows('transaksi_kasir', transaksi_kasir, TK_FIELDS);
 	lines.push(
-		`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at) VALUES (${sqlVal(randomUUID())}, ${sqlVal(branch)}, ${sqlVal('archive_restore_' + archiveId)}, ${sqlVal(JSON.stringify({ restored_at: now, archive_id: archiveId, sha256: opts.sha256 || null }))}, ${sqlVal(now)}) ON CONFLICT(cabang_id, kunci) DO UPDATE SET nilai = excluded.nilai, updated_at = excluded.updated_at;`
+		`INSERT INTO pengaturan(id,cabang_id,kunci,nilai,updated_at) VALUES(${sqlVal(randomUUID())},${sqlVal(branch)},${sqlVal('archive_restore_' + archiveId)},${sqlVal(JSON.stringify({ restored_at: now, archive_id: archiveId, sha256: opts.sha256 || null }))},${sqlVal(now)}) ON CONFLICT(cabang_id,kunci) DO UPDATE SET nilai=excluded.nilai,updated_at=excluded.updated_at;`
+	);
+	lines.push(
+		`UPDATE archive_jobs SET status='restored',updated_at=${sqlVal(now)} WHERE cabang_id=${sqlVal(branch)} AND id=${sqlVal(archiveId)} AND status='completed';`
 	);
 	lines.push('COMMIT;');
-	return { sql: lines.join('\n'), branch, archiveId };
+	return { sql: lines.join('\n'), statements: lines.slice(2, -1), branch, archiveId };
 }
-
-export { BK_FIELDS, TK_FIELDS };

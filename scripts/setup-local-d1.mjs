@@ -8,17 +8,20 @@
  * Pakai:
  *   node scripts/setup-local-d1.mjs [--fresh]
  *
- * --fresh menghapus state D1 lokal binding ini dulu lalu apply dari 0000.
- * Wajib untuk E2E terisolasi; state basi antar-migrasi adalah sumber
- * kegagalan "no such column" yang acak. Tanpa --fresh, database yang sudah
- * mencapai skema kanonik 0014 tidak menjalankan ulang migration historis.
- * Bila state terkunci (dev server jalan), gagal dengan pesan jelas.
+ * E2E memakai scripts/run-playwright-local.mjs dengan persistence temporer
+ * unik. --fresh ditolak agar state dev tidak terhapus tidak sengaja.
  */
 import { spawnSync } from 'node:child_process';
-import { readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+
+if (process.argv.includes('--fresh')) {
+	throw new Error(
+		'Reset state dev tidak didukung. Gunakan pnpm test:e2e:all untuk database terisolasi.'
+	);
+}
 
 const BINDING = 'DB_SAMARINDA_GROUP';
 const CONFIG = 'wrangler.pages.jsonc';
@@ -70,26 +73,9 @@ function hasCanonicalBaseSchema() {
 }
 
 const canonicalBaseReady = hasCanonicalBaseSchema();
-const fresh = process.argv.includes('--fresh');
-if (fresh) {
-	const stateDir = resolve('.wrangler/state/v3/d1');
-	if (existsSync(stateDir)) {
-		try {
-			rmSync(stateDir, { recursive: true, force: true });
-			console.log('-> state D1 lokal dibersihkan (--fresh)');
-		} catch {
-			console.error(
-				'Gagal menghapus state D1 lokal (terkunci?). Matikan dev server / proses wrangler lain lalu ulangi.'
-			);
-			process.exit(1);
-		}
-	}
-}
-const migrations = fresh
-	? allMigrations
-	: canonicalBaseReady
-		? allMigrations.filter((migration) => migration.number > 14)
-		: allMigrations;
+const migrations = canonicalBaseReady
+	? allMigrations.filter((migration) => migration.number > 14)
+	: allMigrations;
 
 const steps = [
 	...migrations,
@@ -101,7 +87,7 @@ function run(file) {
 }
 
 let failed = false;
-if (canonicalBaseReady && !fresh) {
+if (canonicalBaseReady) {
 	console.log('-> baseline 0000-0014 ... SKIP (skema kanonik sudah ada)');
 }
 for (const step of steps) {

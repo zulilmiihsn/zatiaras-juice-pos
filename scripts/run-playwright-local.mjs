@@ -1,103 +1,113 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
-import { spawn, spawnSync } from 'node:child_process';
-import net from 'node:net';
+import { fork, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createRequire } from 'node:module';
+import { createE2eEnvironment } from './e2e-environment.mjs';
 
-const envPath = '.env.e2e.local';
-const previousEnv = existsSync(envPath) ? readFileSync(envPath, 'utf8') : null;
-const playwrightArgs = process.argv.slice(2);
+const require = createRequire(import.meta.url);
+const environment = createE2eEnvironment();
+/** @type {import('node:child_process').ChildProcess | undefined} */
+let server;
+/** @type {import('node:child_process').ChildProcess | undefined} */
+let tests;
+let exitCode = 1;
+let stopped = true;
 
-function run(command, args, env = process.env) {
-	const result = spawnSync(command, args, {
-		cwd: process.cwd(),
+try {
+	const initialized = await environment.initialize();
+	console.log(
+		`[e2e] ${initialized.migrations} migrations x ${initialized.databases} isolated D1 databases ready`
+	);
+	const env = {
+		...process.env,
+		ZATIARAS_E2E_CONFIG: environment.configPath,
+		ZATIARAS_E2E_STATE: environment.persistPath
+	};
+	const child = fork(new URL('./e2e-server.mjs', import.meta.url), [], {
 		env,
-		stdio: 'inherit',
-		shell: process.platform === 'win32'
+		execArgv: [],
+		stdio: ['ignore', 'inherit', 'inherit', 'ipc']
 	});
-	if (result.status !== 0) {
-		throw new Error(
-			`${command} ${args.join(' ')} gagal dengan status ${result.status ?? 'unknown'}`
-		);
-	}
-}
-
-function findFreePort() {
-	return new Promise((resolve, reject) => {
-		const server = net.createServer();
-		server.on('error', reject);
-		server.listen(0, '127.0.0.1', () => {
-			const address = server.address();
-			const port = typeof address === 'object' && address ? address.port : 0;
-			server.close(() => resolve(port));
+	server = child;
+	stopped = false;
+	const port = await new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error('E2E server startup timed out')), 120000);
+		child.once('error', reject);
+		child.once('exit', (code) => {
+			clearTimeout(timer);
+			reject(new Error(`E2E server exited during startup (${code})`));
 		});
-	});
-}
-
-function waitForUrl(url, timeoutMs = 120_000) {
-	const start = Date.now();
-	return new Promise((resolve, reject) => {
-		const tick = async () => {
-			try {
-				const res = await fetch(url);
-				await res.text().catch(() => null);
-				if (res.status < 500) return resolve();
-			} catch {}
-			if (Date.now() - start > timeoutMs) {
-				reject(new Error(`dev server tidak siap di ${url}`));
+		child.once('message', (message) => {
+			clearTimeout(timer);
+			if (
+				!message ||
+				typeof message !== 'object' ||
+				!('port' in message) ||
+				typeof message.port !== 'number'
+			) {
+				reject(new Error('Invalid E2E server ready message'));
 				return;
 			}
-			setTimeout(tick, 1000);
-		};
-		tick();
+			resolve(message.port);
+		});
 	});
-}
-
-let devChild = null;
-function stopDevServer() {
-	if (!devChild || devChild.killed) return;
-	try {
-		if (process.platform === 'win32') {
-			spawnSync('taskkill', ['/pid', String(devChild.pid), '/T', '/F'], { stdio: 'ignore' });
-		} else {
-			devChild.kill();
-		}
-	} catch {}
-	devChild = null;
-}
-try {
-	writeFileSync(
-		envPath,
-		[
-			`POS_PRICE_SIGNING_KEY=${randomBytes(48).toString('base64url')}`,
-			`POS_PRICE_SIGNING_KEY_ID=e2e-${Date.now()}`,
-			''
-		].join('\n'),
-		'utf8'
-	);
-	// State bersih tiap run: E2E terisolasi dari D1 dev yang basi/terkunci parsial.
-	run('node', ['scripts/setup-local-d1.mjs', '--fresh']);
-	const port = await findFreePort();
-	console.log(`[e2e] dev server di http://127.0.0.1:${port}`);
-	devChild = spawn(
-		'pnpm',
-		['dev', '--force', '--host', '127.0.0.1', '--port', String(port), '--mode', 'e2e'],
-		{
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: 'pipe',
-			shell: process.platform === 'win32'
-		}
-	);
-	devChild.stdout?.on('data', () => {});
-	devChild.stderr?.on('data', () => {});
-	await waitForUrl(`http://127.0.0.1:${port}/login`);
-	run('pnpm', ['exec', 'playwright', 'test', ...playwrightArgs], {
-		...process.env,
-		E2E_PORT: String(port),
-		E2E_BASE_URL: `http://127.0.0.1:${port}`
+	const baseURL = `http://127.0.0.1:${port}`;
+	console.log(`[e2e] ${baseURL}; persistence ${environment.persistPath}`);
+	exitCode = await new Promise((resolve, reject) => {
+		tests = spawn(
+			process.execPath,
+			[require.resolve('@playwright/test/cli'), 'test', ...process.argv.slice(2)],
+			{
+				stdio: 'inherit',
+				shell: false,
+				env: {
+					...env,
+					E2E_PORT: String(port),
+					E2E_BASE_URL: baseURL,
+					E2E_EXTERNAL_SERVER: '1',
+					UAT_PASSWORD: environment.password
+				}
+			}
+		);
+		tests.once('error', reject);
+		tests.once('exit', (code) => resolve(code ?? 1));
 	});
+} catch (error) {
+	console.error('[e2e]', error instanceof Error ? error.message : String(error));
 } finally {
-	stopDevServer();
-	if (previousEnv === null) rmSync(envPath, { force: true });
-	else writeFileSync(envPath, previousEnv, 'utf8');
+	if (tests && tests.exitCode === null) {
+		tests.kill();
+		await once(tests, 'exit').catch(() => {});
+	}
+	if (server) {
+		let timer;
+		try {
+			if (server.exitCode === null && server.signalCode === null) {
+				const exit = once(server, 'exit');
+				if (server.connected) server.send('shutdown');
+				else server.kill();
+				await Promise.race([
+					exit,
+					new Promise((_, reject) => {
+						timer = setTimeout(() => reject(new Error('E2E server shutdown timed out')), 20000);
+					})
+				]);
+			}
+			stopped = true;
+		} catch (error) {
+			exitCode = 1;
+			console.error('[e2e] Shutdown failed; isolated run retained:', environment.directory, error);
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	if (stopped) {
+		try {
+			environment.cleanup();
+			console.log('[e2e] Owned temporary state removed; dev state untouched.');
+		} catch (error) {
+			exitCode = 1;
+			console.error('[e2e] Cleanup failed; run retained:', environment.directory, error);
+		}
+	}
 }
+process.exit(exitCode);

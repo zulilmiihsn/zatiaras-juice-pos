@@ -80,8 +80,8 @@ function findExplicitDay(question: string, todayWita: string): AiPeriod | 'inval
 			question.match(new RegExp(`\\b(?:${id}|${en})\\s+(\\d{1,2})(?!\\d)`, 'i'));
 		if (!m) continue;
 		const day = Number(m[1]);
-		const year = m[2] ? Number(m[2]) : thisYear;
-		if (year > thisYear || year < 2020) return null;
+		const year = m[2] ? Number(m[2]) : (findYear(question) ?? thisYear);
+		if (year > thisYear || year < 2020) return 'invalid';
 		const dim = new Date(Date.UTC(year, monthNumber(id), 0)).getUTCDate();
 		if (day < 1 || day > dim) return 'invalid';
 		const ymd = `${year}-${String(monthNumber(id)).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -95,18 +95,124 @@ function monthNumber(id: string): number {
 	return hit ? hit[2] : 1;
 }
 
+function monthEnd(year: number, month: number): string {
+	return new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 0))
+		.toISOString()
+		.slice(0, 10);
+}
+
+const RANGE_SEP = '(?:sampai|s/d|s\\.d\\.?|-|–)';
+
+function monthNamePattern(): string {
+	return MONTHS.map(([id, en]) => `${id}|${en}`).join('|');
+}
+
+/** "1 sampai 15 Agustus [2026]" -> rentang hari dalam sebulan. */
+function findDayRange(question: string, todayWita: string): AiPeriod | 'invalid' | null {
+	const thisYear = Number(todayWita.slice(0, 4));
+	const m = question.match(
+		new RegExp(
+			`\\b(\\d{1,2})\\s*${RANGE_SEP}\\s*(\\d{1,2})\\s+(${monthNamePattern()})\\s*(20\\d{2})?`,
+			'i'
+		)
+	);
+	if (!m) return null;
+	const month = monthNumberByName(m[3]);
+	if (month === null) return null;
+	const year = m[4] ? Number(m[4]) : (findYear(question) ?? thisYear);
+	if (year > thisYear || year < 2020) return 'invalid';
+	const dim = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	const d1 = Number(m[1]);
+	const d2 = Number(m[2]);
+	if (d1 < 1 || d2 < 1 || d1 > dim || d2 > dim || d1 > d2) return 'invalid';
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const start = `${year}-${pad(month)}-${pad(d1)}`;
+	if (start > todayWita) return 'invalid';
+	const rawEnd = `${year}-${pad(month)}-${pad(d2)}`;
+	const end = rawEnd > todayWita ? todayWita : rawEnd;
+	return { start, end: end < start ? start : end, type: 'daily' };
+}
+
+function monthNumberByName(name: string): number | null {
+	const lower = name.toLowerCase();
+	for (const [id, en, n] of MONTHS) {
+		if (lower === id || lower === en) return n;
+	}
+	return null;
+}
+
+/** "Agustus sampai September [2026]" -> awal bulan1 s/d akhir bulan2 (setahun). */
+function findMonthRange(question: string, todayWita: string): AiPeriod | 'invalid' | null {
+	const thisYear = Number(todayWita.slice(0, 4));
+	const m = question.match(
+		new RegExp(
+			`\\b(${monthNamePattern()})\\s*${RANGE_SEP}\\s*(${monthNamePattern()})\\s*(20\\d{2})?`,
+			'i'
+		)
+	);
+	if (!m) return null;
+	const m1 = monthNumberByName(m[1]);
+	const m2 = monthNumberByName(m[2]);
+	if (m1 === null || m2 === null) return null;
+	const year = m[3] ? Number(m[3]) : (findYear(question) ?? thisYear);
+	if (year > thisYear || year < 2020 || m2 < m1) return 'invalid';
+	const pad = (n: number) => String(n).padStart(2, '0');
+	const start = `${year}-${pad(m1)}-01`;
+	if (start > todayWita) return 'invalid';
+	const end = monthEnd(year, m2);
+	return { start, end: end > todayWita ? todayWita : end, type: 'monthly' };
+}
+
 /** Periode eksplisit; null bila tak ada qualifier tanggal yang dikenali. */
 export function resolveAiPeriod(question: string, todayWita: string): AiPeriod | null {
-	const q = question.toLowerCase();
+	let q = question.toLowerCase();
 	const monthStart = `${todayWita.slice(0, 7)}-01`;
 	const thisYear = Number(todayWita.slice(0, 4));
-	if (q.includes('tahun lalu')) {
-		const y = thisYear - 1;
-		return { start: `${y}-01-01`, end: `${y}-12-31`, type: 'monthly' };
+	const monthMentions = [...q.matchAll(new RegExp(`\\b(${monthNamePattern()})\\b`, 'gi'))];
+	const years = [...q.matchAll(/\b20\d{2}\b/g)];
+	const relativeYears = [...q.matchAll(/\btahun (lalu|ini)\b/g)];
+	// A comparison needs multiple periods; do not silently turn it into one aggregate.
+	if (/\b(bandingkan|dibandingkan|perbandingan|versus|vs)\b/.test(q)) return null;
+	if (years.length > 1 || relativeYears.length > 1) return null;
+	if (
+		monthMentions.length &&
+		/\b(bulan (lalu|kemarin|ini)|kemarin|hari ini|minggu|pekan)\b/.test(q)
+	)
+		return null;
+	if (relativeYears.length) {
+		const year = relativeYears[0][1] === 'lalu' ? thisYear - 1 : thisYear;
+		if (years.length && Number(years[0][0]) !== year) return null;
+		if (!monthMentions.length) {
+			// Day/week/numeric-date qualifiers must not be swallowed by a full-year result.
+			if (
+				/\b(tanggal|bulan|hari|minggu|pekan|kemarin|kuartal|semester|triwulan)\b|\d{1,2}[/-]\d{1,2}/.test(
+					q
+				)
+			)
+				return null;
+			return {
+				start: `${year}-01-01`,
+				end: year === thisYear ? todayWita : `${year}-12-31`,
+				type: 'monthly'
+			};
+		}
+		q = q.replace(/\btahun (lalu|ini)\b/, '').trim();
+		if (!years.length) q += ` ${year}`;
 	}
-	if (q.includes('tahun ini')) {
-		return { start: `${thisYear}-01-01`, end: todayWita, type: 'monthly' };
+	// Rentang didahulukan: "1 sampai 15 Agustus" bukan "15 Agustus" saja.
+	const dayRange = monthMentions.length === 1 ? findDayRange(q, todayWita) : null;
+	if (dayRange === 'invalid') return null;
+	if (dayRange) return dayRange;
+	const monthRangeValue = monthMentions.length === 2 ? findMonthRange(q, todayWita) : null;
+	if (monthRangeValue === 'invalid') return null;
+	if (monthRangeValue) {
+		// A day-qualified endpoint is not a whole-month range ("15 Juli sampai Agustus").
+		if (findExplicitDay(q, todayWita) !== null) return null;
+		return monthRangeValue;
 	}
+	// Unsupported lists or cross-month day ranges belong to the existing analyzer.
+	if (monthMentions.length > 1 || /\b(sampai|hingga|s\/d|s\.d)\b|\d\s*[-–]\s*\d/.test(q))
+		return null;
 	const explicitDay = findExplicitDay(q, todayWita);
 	if (explicitDay === 'invalid') return null;
 	if (explicitDay) return explicitDay;

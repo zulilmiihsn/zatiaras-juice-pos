@@ -13,6 +13,9 @@ assert.equal(parseQuantityInput('1.000'), 1000);
 assert.equal(parseQuantityInput('1.000,5'), 1000.5);
 assert.equal(parseQuantityInput('0.5'), 0.5);
 assert.equal(parseQuantityInput('0.125'), 0.125);
+assert.equal(parseQuantityInput('1,125'), 1.125);
+assert.equal(parseQuantityInput('10,125'), 10.125);
+assert.equal(parseQuantityInput('1,000'), 1);
 assert.equal(parseQuantityInput('12.34'), 12.34);
 assert.equal(parseQuantityInput('10.000'), 10000);
 assert.equal(parseQuantityInput('1,000,000'), 1000000);
@@ -22,6 +25,14 @@ assert.equal(parseQuantityInput('-0,5'), -0.5);
 assert.equal(parseQuantityInput('abc'), 0);
 assert.equal(parseQuantityInput('1.2.3'), 123);
 assert.equal(parseQuantityInput('Rp 1.000,50'), 1000.5);
+// Roundtrip formatter<->parser harus identik (temuan audit: 1,125 -> 1125).
+for (const n of [0, 0.5, 0.125, 1, 1.5, 12.34, 100, 1000, 1500.25, 1000000, 0.0001]) {
+	assert.equal(
+		parseQuantityInput(formatQuantityInput(n)),
+		n,
+		`roundtrip ${n} via "${formatQuantityInput(n)}"`
+	);
+}
 assert.equal(parseQuantityInput('2'), 2);
 assert.equal(parseQuantityInput(''), 0);
 // Draft ketik dipertahankan (format hanya saat blur).
@@ -43,5 +54,20 @@ for (let i = 0; i < 3; i++) {
 assert.equal(base, 1000);
 // Pack isi N pecahan.
 assert.equal(convertToBaseUnit(parseQuantityInput('0,5'), 'pack', 'pcs', 50), 25);
+
+// Values produced by our own id-ID formatter must preserve their meaning.
+for (const quantity of [1.125, 10.125, 1234.125, -1.125, 1.0125, 0.0001]) {
+	assert.equal(parseQuantityInput(formatQuantityInput(quantity)), quantity);
+	let grams = convertToBaseUnit(quantity < 0 ? -quantity : quantity, 'kg', 'gram');
+	const original = grams;
+	for (let save = 0; save < 3; save++) {
+		grams = convertToBaseUnit(
+			parseQuantityInput(formatQuantityInput(convertFromBaseUnit(grams, 'kg', 'gram'))),
+			'kg',
+			'gram'
+		);
+	}
+	assert.equal(grams, original);
+}
 
 console.log('quantity-decimal-tests: all assertions passed');

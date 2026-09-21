@@ -106,46 +106,55 @@ test('latest tax draft survives an older success and a newer failed save', async
 	).toEqual({ rate: 2, saved: 1, saving: false, success: null });
 });
 
-test('bahan decimal typing keeps fraction until blur and saves base qty', async ({ page }) => {
-	await mockSession(page);
-	const ingredient = {
-		id: 'b-uji',
-		nama: 'Gula Uji',
-		satuan: 'gram',
-		tipe_satuan: 'berat',
-		satuan_beli: 'kg',
-		isi_per_kemasan: 1,
-		kategori: 'Bahan Baku',
-		stok_saat_ini: 1000,
-		ambang_stok: 10,
-		yield_persen: 100,
-		biaya_per_satuan: 20,
-		jumlah_beli_terakhir: 500,
-		biaya_beli_terakhir: 20000,
-		is_active: true
-	};
-	let patched: Record<string, unknown> | null = null;
-	await page.route('**/api/bahan*', async (route) => {
-		if (route.request().method() === 'PATCH') {
-			patched = route.request().postDataJSON()?.payload as Record<string, unknown>;
-			await route.fulfill({ json: { ok: true } });
-			return;
-		}
-		await route.fulfill({ json: [ingredient] });
+for (const [storedBase, display] of [
+	[500, '0,5'],
+	[1125, '1,125'],
+	[10125, '10,125'],
+	[1234125, '1.234,125']
+] as const) {
+	test(`bahan decimal ${display} survives typing, blur and save`, async ({ page }) => {
+		await mockSession(page);
+		const ingredient = {
+			id: 'b-uji',
+			nama: 'Gula Uji',
+			satuan: 'gram',
+			tipe_satuan: 'berat',
+			satuan_beli: 'kg',
+			isi_per_kemasan: 1,
+			kategori: 'Bahan Baku',
+			stok_saat_ini: 1000,
+			ambang_stok: 10,
+			yield_persen: 100,
+			biaya_per_satuan: 20,
+			jumlah_beli_terakhir: storedBase,
+			biaya_beli_terakhir: 20000,
+			is_active: true
+		};
+		let patched: Record<string, unknown> | null = null;
+		await page.route('**/api/bahan*', async (route) => {
+			if (route.request().method() === 'PATCH') {
+				patched = route.request().postDataJSON()?.payload as Record<string, unknown>;
+				await route.fulfill({ json: { ok: true } });
+				return;
+			}
+			await route.fulfill({ json: [ingredient] });
+		});
+		// Tunggu hidrasi + data (tombol Ubah hanya ada sesudah render client).
+		await gotoHydrated(page, '/stok', 'button:has-text("Ubah")');
+		await page.getByRole('button', { name: 'Ubah', exact: true }).first().click();
+		const qty = page.locator('#modal-bahan-beli-qty');
+		await expect(qty).toHaveValue(display);
+		await qty.fill('');
+		await qty.pressSequentially(display, { delay: 50 });
+		await expect(qty).toHaveValue(display);
+		await qty.press('Tab');
+		await expect(qty).toHaveValue(display);
+		await page
+			.locator('#stok-bahan-form')
+			.evaluate((form: HTMLFormElement) => form.requestSubmit());
+		await expect.poll(() => patched?.jumlah_beli_terakhir, { timeout: 10000 }).toBe(storedBase);
 	});
-	// Tunggu hidrasi + data (tombol Ubah hanya ada sesudah render client).
-	await gotoHydrated(page, '/stok', 'button:has-text("Ubah")');
-	await page.getByRole('button', { name: 'Ubah', exact: true }).first().click();
-	const qty = page.locator('#modal-bahan-beli-qty');
-	// Tampilan balik: 500 gram -> "0,5" kg.
-	await expect(qty).toHaveValue('0,5');
-	await qty.fill('');
-	await qty.pressSequentially('0,5', { delay: 50 });
-	// Draft ketik dipertahankan (tak dipaksa jadi "5" sebelum blur).
-	await expect(qty).toHaveValue('0,5');
-	await page.locator('#stok-bahan-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
-	await expect.poll(() => patched?.jumlah_beli_terakhir, { timeout: 10000 }).toBe(500);
-});
+}
 
 test('bahan add flow keeps typed fraction and posts base qty', async ({ page }) => {
 	await mockSession(page);

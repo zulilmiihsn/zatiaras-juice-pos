@@ -1,101 +1,162 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { POST } from '../routes/api/archive/+server';
+import { acquireArchiveJob } from '../lib/server/archiveService';
+import { createTestD1 } from './helpers/testD1';
 
-// R02: guard finalisasi arsip — satu klaim per cabang, manifest utuh, sesi tutup.
-const dir = resolve('drizzle');
-const files = readdirSync(dir)
-	.filter((f) => f.endsWith('.sql'))
-	.sort();
-const db = new DatabaseSync(':memory:');
-for (const f of files) {
-	const c = readFileSync(join(dir, f), 'utf8');
-	for (const s of c
-		.split('--> statement-breakpoint')
-		.map((x) => x.trim())
-		.filter(Boolean)) {
-		db.exec(s);
+const { db, close } = await createTestD1();
+const objects = new Map<string, string>();
+let onUpload: () => Promise<void> = async () => {};
+let corrupt = false;
+const storage = {
+	async put(key: string, value: string) {
+		objects.set(key, value);
+		await onUpload();
+	},
+	async get(key: string) {
+		return objects.has(key)
+			? { text: async () => (corrupt ? 'CORRUPT' : objects.get(key)!) }
+			: null;
 	}
+};
+async function archive(year = 2026) {
+	return POST({
+		request: new Request('https://test.invalid/api/archive', {
+			method: 'POST',
+			body: JSON.stringify({ before_year: year })
+		}),
+		locals: {
+			authSession: { id: 's', userId: 'u', username: 'owner', role: 'pemilik', branch: 'samarinda' }
+		},
+		platform: { env: { DB_SAMARINDA_GROUP: db, STORAGE: storage } }
+	} as unknown as Parameters<typeof POST>[0]);
 }
-
-// 1. Dua cutoff berbeda tak bisa klaim bersamaan dalam satu cabang.
-db.prepare(
-	'INSERT INTO archive_jobs (id,cabang_id,before_year,cutoff,status,owner_token,lease_expires_at) VALUES (?,?,?,?,?,?,?)'
-).run('j1', 'samarinda', 2026, 'x', 'claimed', 'o1', Date.now() + 600000);
-assert.throws(() => {
-	db.prepare(
-		'INSERT INTO archive_jobs (id,cabang_id,before_year,cutoff,status,owner_token,lease_expires_at) VALUES (?,?,?,?,?,?,?)'
-	).run('j2', 'samarinda', 2027, 'x', 'claimed', 'o2', Date.now() + 600000);
-}, /UNIQUE/i);
-db.prepare(
-	'INSERT INTO archive_jobs (id,cabang_id,before_year,cutoff,status,owner_token,lease_expires_at) VALUES (?,?,?,?,?,?,?)'
-).run('j3', 'balikpapan', 2027, 'x', 'claimed', 'o3', Date.now() + 600000);
-
-// 2. Edit saat upload: drift revision menggagalkan SEMUA efek termasuk summary+completed.
-const now = new Date().toISOString();
-db.prepare(
-	'INSERT INTO buku_kas (id,cabang_id,waktu,sumber,tipe,jenis,nominal,revision) VALUES (?,?,?,?,?,?,?,?)'
-).run('bk1', 'samarinda', '2024-01-01T00:00:00.000Z', 'catat', 'in', 'pendapatan_usaha', 150000, 0);
-db.prepare(
-	'INSERT INTO archive_job_items (job_id,cabang_id,buku_kas_id,revision) VALUES (?,?,?,?)'
-).run('j1', 'samarinda', 'bk1', 0);
-// nominal diubah + revision naik setelah snapshot
-db.prepare('UPDATE buku_kas SET nominal = ?, revision = revision + 1 WHERE id = ?').run(
-	200000,
-	'bk1'
-);
-const manifestOk =
-	'NOT EXISTS (SELECT 1 FROM archive_job_items m LEFT JOIN buku_kas b ON b.cabang_id = ? AND b.id = m.buku_kas_id WHERE m.job_id = ? AND (b.id IS NULL OR b.revision != m.revision))';
-const sum = db
-	.prepare(
-		`INSERT INTO ringkasan_kas_arsip_harian (id,cabang_id,archive_id,tanggal_wita,tipe,jenis,jumlah_transaksi,total_nominal,created_at) SELECT ?,?,?,?,?,?,?,?,? WHERE ${manifestOk} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
-	)
-	.run(
-		's1',
-		'samarinda',
-		'a1',
-		'2024-01-01',
-		'in',
-		'pendapatan_usaha',
-		1,
-		150000,
-		now,
-		'samarinda',
-		'j1',
-		's1'
+async function reset(count: number) {
+	objects.clear();
+	corrupt = false;
+	onUpload = async () => {};
+	await db.batch(
+		[
+			'DROP TRIGGER IF EXISTS fail_archive',
+			...[
+				'transaksi_kasir',
+				'buku_kas',
+				'archive_job_items',
+				'archive_jobs',
+				'ringkasan_kas_arsip_harian',
+				'sesi_toko',
+				'pengaturan'
+			].map((table) => `DELETE FROM ${table}`)
+		].map((q) => db.prepare(q))
 	);
-assert.equal(sum.changes, 0, 'summary tidak boleh masuk saat manifest drift');
-const del = db
-	.prepare(`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN ('bk1') AND ${manifestOk}`)
-	.run('samarinda', 'samarinda', 'j1');
-assert.equal(del.changes, 0, 'ledger tidak boleh terhapus saat drift');
-assert.equal(
-	(db.prepare('SELECT nominal FROM buku_kas WHERE id = ?').get('bk1') as { nominal: number })
-		.nominal,
-	200000
-);
-
-// 3. Sesi dibuka saat upload: klaim finalisasi kalah.
-db.prepare(
-	'INSERT INTO sesi_toko (id,cabang_id,kas_awal,waktu_buka,is_active) VALUES (?,?,?,?,?)'
-).run('s1', 'samarinda', 100000, now, 1);
-const claim = db
-	.prepare(
-		`UPDATE archive_jobs SET status='finalizing' WHERE id=? AND owner_token=? AND status IN ('claimed','uploading') AND lease_expires_at > ? AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id=? AND is_active=1)`
-	)
-	.run('j1', 'o1', Date.now(), 'samarinda');
-assert.equal(claim.changes, 0, 'klaim kalah saat sesi aktif');
-
-// 4. Lease habis: klaim kalah.
-db.prepare(
-	"UPDATE archive_jobs SET status='uploading', owner_token='o9', lease_expires_at=? WHERE id='j3'"
-).run(Date.now() - 1000);
-const claimExpired = db
-	.prepare(
-		`UPDATE archive_jobs SET status='finalizing' WHERE id=? AND owner_token=? AND status IN ('claimed','uploading') AND lease_expires_at > ? AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id=? AND is_active=1)`
-	)
-	.run('j3', 'o9', Date.now(), 'balikpapan');
-assert.equal(claimExpired.changes, 0, 'klaim kalah saat lease habis');
-
-console.log('archive-guard-tests: all assertions passed');
+	await db.batch(
+		Array.from({ length: count }, (_, i) =>
+			db
+				.prepare(
+					`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,metode_bayar)
+		 VALUES(?,'samarinda','2025-12-01','catat','in','pendapatan_usaha',1000,'tunai')`
+				)
+				.bind(`bk${i}`)
+		)
+	);
+}
+async function totals() {
+	return {
+		rows: await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first<number>('n'),
+		amount: await db
+			.prepare('SELECT COALESCE(SUM(total_nominal),0) AS n FROM ringkasan_kas_arsip_harian')
+			.first<number>('n'),
+		active: await db
+			.prepare(
+				"SELECT COUNT(*) AS n FROM archive_jobs WHERE status IN ('claimed','uploading','finalizing')"
+			)
+			.first<number>('n')
+	};
+}
+try {
+	for (const count of [1, 20, 21, 45, 101]) {
+		await reset(count);
+		assert.equal((await archive()).status, 200);
+		assert.deepEqual(await totals(), { rows: 0, amount: count * 1000, active: 0 });
+		assert.equal(await db.prepare('SELECT status FROM archive_jobs').first('status'), 'completed');
+		const retry = (await (await archive()).json()) as { resumed?: boolean };
+		assert.equal(retry.resumed, true);
+		assert.equal(objects.size, 1);
+		assert.deepEqual(await totals(), { rows: 0, amount: count * 1000, active: 0 });
+	}
+	// New eligible data must not be hidden by the prior completed pointer.
+	await db
+		.prepare(
+			"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal) VALUES('new','samarinda','2025-12-02','catat','in','pendapatan_usaha',500)"
+		)
+		.run();
+	assert.equal((await archive()).status, 200);
+	assert.equal((await totals()).amount, 101500);
+	for (const conflict of ['edit', 'delete', 'session', 'lease', 'takeover']) {
+		await reset(45);
+		onUpload = async () => {
+			if (conflict === 'edit')
+				await db
+					.prepare("UPDATE buku_kas SET revision=revision+1, nominal=2000 WHERE id='bk0'")
+					.run();
+			if (conflict === 'delete') await db.prepare("DELETE FROM buku_kas WHERE id='bk0'").run();
+			if (conflict === 'session')
+				await db
+					.prepare(
+						"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,is_active,kas_awal) VALUES('open','samarinda','2026-09-16',1,0)"
+					)
+					.run();
+			if (conflict === 'lease' || conflict === 'takeover')
+				await db.prepare('UPDATE archive_jobs SET lease_expires_at=0').run();
+			if (conflict === 'takeover') await acquireArchiveJob(db, 'samarinda', 2027, '2027-01-01');
+		};
+		await assert.rejects(archive, (e: { status?: number }) => e.status === 409);
+		assert.deepEqual(await totals(), {
+			rows: conflict === 'delete' ? 44 : 45,
+			amount: 0,
+			active: conflict === 'takeover' ? 1 : 0
+		});
+	}
+	await reset(45);
+	await db
+		.prepare(
+			"CREATE TRIGGER fail_archive BEFORE DELETE ON buku_kas WHEN OLD.id='bk25' BEGIN SELECT RAISE(ABORT,'injected failure'); END"
+		)
+		.run();
+	await assert.rejects(archive);
+	assert.deepEqual(await totals(), { rows: 45, amount: 0, active: 0 });
+	await reset(1);
+	corrupt = true;
+	await assert.rejects(archive);
+	assert.deepEqual(await totals(), { rows: 1, amount: 0, active: 0 });
+	await reset(1);
+	let release!: () => void;
+	const barrier = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	let uploaded!: () => void;
+	const ready = new Promise<void>((resolve) => {
+		uploaded = resolve;
+	});
+	onUpload = async () => {
+		uploaded();
+		await barrier;
+	};
+	const first = archive();
+	await ready;
+	try {
+		await assert.rejects(
+			() => archive(2027),
+			(e: { status?: number }) => e.status === 409
+		);
+	} finally {
+		release();
+	}
+	assert.equal((await first).status, 200);
+	assert.deepEqual(await totals(), { rows: 0, amount: 1000, active: 0 });
+	console.log(
+		'archive-guard-tests: actual handler normal/chunks/retry/conflicts/rollback passed',
+		process.argv.includes('--d1') ? '(workerd D1)' : '(SQLite)'
+	);
+} finally {
+	await close();
+}
