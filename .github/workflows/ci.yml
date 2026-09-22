@@ -210,11 +210,56 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  e2e:
+    name: E2E Browser Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [static, operations]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Full E2E Suite
+        run: pnpm test:e2e:all
+
+      - name: Verify No Project State Touched
+        run: |
+          test ! -d .wrangler || (echo 'E2E created .wrangler in repo' && exit 1)
+          test -z "$(git status --porcelain)" || (git status --short && exit 1)
+
+      - name: Upload E2E Report
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-report-${{ github.sha }}
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
   build:
     name: Build Application Bundle
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [static, operations, unit, quality]
+    needs: [static, operations, unit, quality, e2e]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5

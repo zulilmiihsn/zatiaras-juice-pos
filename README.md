@@ -118,6 +118,7 @@ Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil t
 | `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan |
 | `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                          |
 | `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                          |
+| `pnpm test:e2e:all` | 22 tes browser terisolasi (D1/config/port/password unik per run, tanpa menyentuh `.wrangler/state`)    |
 
 Suite lokal khusus juga tersedia untuk checkout, CSP, CSRF, workflow akhir, rate limit, dan load test. Lihat seluruh script `test:*` di `package.json`; beberapa suite menyiapkan D1 lokal dan dapat membuat serta membersihkan data UAT.
 

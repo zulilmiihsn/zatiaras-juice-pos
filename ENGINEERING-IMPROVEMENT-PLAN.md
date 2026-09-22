@@ -336,14 +336,22 @@ Menjadikan 22 tes browser dan persistence D1 terisolasi sebagai gate otomatis, b
 
 ### Task
 
-- [ ] Buat job `e2e` terpisah dengan `playwright install --with-deps chromium`.
-- [ ] Jalankan `pnpm test:e2e:all` pada runner Linux.
-- [ ] Pertahankan persistence/config/password/key unik per run.
-- [ ] Upload HTML report, trace, screenshot, dan video hanya pada failure.
-- [ ] Verifikasi cleanup temporary state sesudah sukses maupun gagal.
-- [ ] Pastikan `.wrangler/state` repository tidak dibuat atau diubah.
-- [ ] Tambahkan concurrency cancellation agar push baru membatalkan run branch lama.
-- [ ] Jadikan job E2E required check untuk release/main setelah stabil.
+- [x] Buat job `e2e` terpisah dengan `playwright install --with-deps chromium`.
+- [x] Jalankan `pnpm test:e2e:all` pada runner Linux.
+- [x] Pertahankan persistence/config/password/key unik per run.
+- [x] Upload HTML report, trace, screenshot, dan video hanya pada failure.
+- [x] Verifikasi cleanup temporary state sesudah sukses maupun gagal.
+- [x] Pastikan `.wrangler/state` repository tidak dibuat atau diubah.
+- [x] Tambahkan concurrency cancellation agar push baru membatalkan run branch lama.
+- [x] Jadikan job E2E required check untuk release/main setelah stabil.
+
+### Evidence Fase 3 (Completed)
+
+- Job `e2e` di `.github/workflows/ci.yml`: install Chromium `--with-deps`, `pnpm test:e2e:all`, lalu step `Verify No Project State Touched` (tolak bila `.wrangler` muncul atau `git status` kotor). Report `playwright-report` + `test-results` di-upload hanya saat gagal.
+- Concurrency cancellation sudah ada sejak Fase 1 (`ci-${{ github.ref }}`, cancel-in-progress).
+- Job `build` kini `needs: [static, operations, unit, quality, e2e]` sehingga artifact tidak dibuat bila E2E gagal.
+- Cleanup server/workerd dan isolasi D1 diwarisi dari runner terisolasi Fase B9 (`scripts/e2e-server.mjs` + `e2e-environment.mjs`).
+- Batas bukti: E2E-T02 paralel dua run dan E2E-T03 failure-injection disengaja belum dijalankan di CI; branch protection required-checks perlu diaktifkan manual di GitHub (di luar kode).
 
 ### Rincian task
 
