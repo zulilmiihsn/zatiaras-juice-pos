@@ -435,10 +435,18 @@ Svelte UI
 
 ### Task 4B - Archive
 
-- [ ] Ekstrak `ArchiveUseCase` dari route.
-- [ ] Pisahkan claim/lease, snapshot R2, readback, summary, finalisasi D1, dan cleanup.
-- [ ] Pertahankan guard atomik dan tes race yang sudah lulus.
-- [ ] Route hanya validasi request, role, branch, lalu memanggil use case.
+- [x] Ekstrak `ArchiveUseCase` dari route.
+- [x] Pisahkan claim/lease, snapshot R2, readback, summary, finalisasi D1, dan cleanup.
+- [x] Pertahankan guard atomik dan tes race yang sudah lulus.
+- [x] Route hanya validasi request, role, branch, lalu memanggil use case.
+
+### Evidence 4B - ArchiveUseCase (Completed)
+
+- Baru `src/lib/server/archiveUseCase.ts`: `previewArchive`, `runArchive`, pure `buildArchiveSnapshot` + `summarizeManualRows`, typed `ArchiveUseCaseError` (status HTTP). Primitif klaim/guard tetap di `archiveService.ts`. Tidak import SvelteKit.
+- Route `src/routes/api/archive/+server.ts` 529 -> ~120 baris: auth, parsing, panggil use case, petakan varian hasil/error ke json/kitError. Seluruh string pesan, bentuk respons (empty/resumed/legacy/completed + `content`), dan penandaan orphan/failed dipertahankan; pesan validasi GET (`Parameter before_year tidak valid`) dipertahankan di route.
+- Baru `src/tests/archive-usecase-tests.ts`: validasi tahun, perakitan snapshot deterministik (counts/key/checksum/manifest), grup summary manual, tepi WITA 16:00Z, fallback waktu rusak. Dirantai ke `test:unit` + step CI `Run Archive Usecase Suite`.
+- Parity: `archive-guard-tests` (import POST route, tanpa diubah) lulus SQLite dan workerd D1 (`--d1`); full 23/23 suite unit lulus; check 0/0, ESLint + Prettier lulus.
+- Sisa 4A-lanjutan (use case intent/laporan/memory) + 4C POS belum dikerjakan.
 
 ### Task 4C - POS
 
