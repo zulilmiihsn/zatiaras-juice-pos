@@ -235,3 +235,18 @@ jobs:
 
       - name: Build Application Bundle
         run: pnpm build
+
+      - name: Record Release Manifest
+        env:
+          RELEASE_COMMIT_SHA: ${{ github.sha }}
+        run: pnpm deploy:manifest
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            .svelte-kit/cloudflare
+            build-artifacts.json
+          retention-days: 14
+          if-no-files-found: error

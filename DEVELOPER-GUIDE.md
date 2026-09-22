@@ -223,6 +223,22 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
   CONFIRM_D1_RESTORE=<binding> pnpm d1:restore -- --database <binding> --file <backup.sql>
   ```
 
+### C. Release & Artifact (Provenance)
+
+- Rilis hanya dari branch `main`/`release/*` dengan working tree bersih dan `RELEASE_COMMIT_SHA` = HEAD.
+- Gerbang penuh operator (jalankan `test:release` + tulis manifest):
+  ```bash
+  RELEASE_COMMIT_SHA=<sha> pnpm deploy:preflight
+  ```
+- Verifikasi ulang tanpa rebuild (dipakai workflow Deploy sebelum Pages/realtime):
+  ```bash
+  RELEASE_COMMIT_SHA=<sha> pnpm deploy:verify
+  ```
+- Manifest `build-artifacts.json` (gitignored) mengikat commit SHA, versi Node/pnpm, checksum `wrangler*.jsonc`, checksum `drizzle/meta/manifest.json` + `_journal.json`, dan SHA-256 seluruh file `.svelte-kit/cloudflare`. Satu file berubah/hilang/tambahan = release ditolak.
+- CI job **Build** mengunggah artifact `release-<sha>`; workflow **Deploy** (`workflow_dispatch`, environment `production`, default dry-run) mengunduh artifact itu, verifikasi manifest, lalu deploy tanpa rebuild.
+- Migrasi D1 tidak pernah otomatis ikut app deploy; jalankan manual per binding sesudah backup (lihat Migrasi D1 di README).
+- Deploy realtime + Pages tidak atomik: bila Pages gagal sesudah realtime sukses, catat deployment ID tiap target dan ikuti runbook rollback (dispatch SHA sebelumnya). Rollback Pages tidak mengembalikan schema D1.
+
 ---
 
 ## 10. Panduan Toko & Batasan Sistem (Operational Limits)

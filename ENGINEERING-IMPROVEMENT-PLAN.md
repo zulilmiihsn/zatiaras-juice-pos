@@ -235,23 +235,34 @@ Memastikan release hanya menggunakan artifact yang dibangun dari commit hijau ya
 
 ### Task immediate guard
 
-- [ ] Ubah `deploy:preflight` agar menjalankan `deploy:check` dan full release gate, bukan hanya `test:all`.
-- [ ] Pastikan build output dibuat ulang sebelum dipakai. Jangan menerima `.svelte-kit/cloudflare` lama.
-- [ ] Wajibkan `RELEASE_COMMIT_SHA`; jangan default diam-diam ke HEAD tanpa verifikasi remote.
-- [ ] Verifikasi working tree bersih, HEAD sama dengan SHA release, dan commit berada pada branch yang diizinkan.
-- [ ] Hash seluruh file artifact, bukan hanya 50 file pertama.
-- [ ] Masukkan commit SHA, waktu build, Node/pnpm version, checksum config, dan checksum manifest migrasi ke artifact manifest.
-- [ ] Gagalkan deploy bila artifact manifest hilang, berubah, atau SHA tidak cocok.
-- [ ] Sinkronkan `README.md` dan `DEVELOPER-GUIDE.md` dengan perilaku script sebenarnya.
+- [x] Ubah `deploy:preflight` agar menjalankan `deploy:check` dan full release gate, bukan hanya `test:all`.
+- [x] Pastikan build output dibuat ulang sebelum dipakai. Jangan menerima `.svelte-kit/cloudflare` lama.
+- [x] Wajibkan `RELEASE_COMMIT_SHA`; jangan default diam-diam ke HEAD tanpa verifikasi remote.
+- [x] Verifikasi working tree bersih, HEAD sama dengan SHA release, dan commit berada pada branch yang diizinkan.
+- [x] Hash seluruh file artifact, bukan hanya 50 file pertama.
+- [x] Masukkan commit SHA, waktu build, Node/pnpm version, checksum config, dan checksum manifest migrasi ke artifact manifest.
+- [x] Gagalkan deploy bila artifact manifest hilang, berubah, atau SHA tidak cocok.
+- [x] Sinkronkan `README.md` dan `DEVELOPER-GUIDE.md` dengan perilaku script sebenarnya.
 
 ### Target architecture
 
-- [ ] CI membangun `.svelte-kit/cloudflare` tepat satu kali setelah seluruh gate hijau.
-- [ ] CI mengunggah artifact immutable bernama berdasarkan commit SHA.
-- [ ] Job deploy mengunduh artifact tersebut; tidak membangun ulang dan tidak memakai output workstation.
-- [ ] GitHub Environment production memakai approval manual.
-- [ ] Deploy realtime dan Pages mencatat SHA artifact yang sama.
-- [ ] Migrasi D1 tetap workflow terpisah dengan backup dan approval; jangan otomatis digabung dengan app deploy.
+- [x] CI membangun `.svelte-kit/cloudflare` tepat satu kali setelah seluruh gate hijau.
+- [x] CI mengunggah artifact immutable bernama berdasarkan commit SHA.
+- [x] Job deploy mengunduh artifact tersebut; tidak membangun ulang dan tidak memakai output workstation.
+- [x] GitHub Environment production memakai approval manual.
+- [x] Deploy realtime dan Pages mencatat SHA artifact yang sama.
+- [x] Migrasi D1 tetap workflow terpisah dengan backup dan approval; jangan otomatis digabung dengan app deploy.
+
+### Evidence Fase 2 (Completed)
+
+- `scripts/preflight-release.mjs` ditulis ulang: mode default full gate (`deploy:check` + `test:release`), `--manifest-only` untuk CI, `--verify-only` tanpa mutasi. `RELEASE_COMMIT_SHA` 40-hex wajib di semua mode.
+- Manifest `build-artifacts.json` (gitignored) kini memuat schema, commit SHA, branch, waktu UTC, versi Node/pnpm, checksum `wrangler*.jsonc`, checksum `drizzle/meta/manifest.json` + `_journal.json`, dan SHA-256 seluruh file artifact (batas 50 file dihapus; build lokal ~170 file).
+- `scripts/preflight-release.test.mjs`: 8 tes node:test lulus (manifest segar, 61 file, tamper/hilang/tambahan/SHA/config-change/missing-manifest). Dirantai ke `test:operations` via `test:release-gate`.
+- Verifikasi manual lokal: tanpa SHA ditolak (REL-T02); SHA salah ditolak; manifest lama 50-file milik commit lain ditolak mentah (schema/SHA/unrecorded files).
+- CI job **Build** menjalankan `deploy:manifest` + upload artifact `release-<sha>` (build output + manifest, retensi 14 hari).
+- Workflow baru `.github/workflows/deploy.yml` (`workflow_dispatch`, environment `production`): download artifact `release-<sha>`, `--verify-only`, lalu deploy realtime + Pages hanya bila `dry_run=false`. Migrasi D1 tidak tersentuh workflow ini.
+- `deploy:all` tetap preflight + realtime + pages, tetapi preflight kini full gate; README + DEVELOPER-GUIDE §9C disinkronkan.
+- Batas bukti: deploy workflow belum pernah di-dispatch (butuh secrets + approval pemilik); E2E CI masuk Fase 3.
 
 ### File sasaran
 

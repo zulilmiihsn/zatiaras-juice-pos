@@ -117,18 +117,20 @@ Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil t
 | `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                        |
 | `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan |
 | `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                          |
-| `pnpm test:release` | `test:all`, build produksi, lalu Playwright E2E POS lokal                                              |
+| `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                          |
 
 Suite lokal khusus juga tersedia untuk checkout, CSP, CSRF, workflow akhir, rate limit, dan load test. Lihat seluruh script `test:*` di `package.json`; beberapa suite menyiapkan D1 lokal dan dapat membuat serta membersihkan data UAT.
 
 ## Build dan deployment
 
 ```bash
-pnpm build
-pnpm deploy:check
+RELEASE_COMMIT_SHA=<40-char-sha> pnpm deploy:preflight
+RELEASE_COMMIT_SHA=<40-char-sha> pnpm deploy:verify
 pnpm deploy:all
 ```
 
-`deploy:all` memeriksa konfigurasi, membangun aplikasi, menerapkan Worker realtime, lalu menerapkan output Pages. Perintah ini tidak menerapkan migrasi D1.
+`deploy:preflight` adalah gerbang rilis: menolak working tree kotor, mewajibkan `RELEASE_COMMIT_SHA` sama dengan HEAD pada branch `main`/`release/*`, menjalankan `deploy:check` + full `test:release` (`test:all`, build, seluruh E2E), lalu menulis `build-artifacts.json` berisi SHA commit, versi Node/pnpm, checksum tiga config Wrangler, checksum manifest migrasi, dan SHA-256 **seluruh** file `.svelte-kit/cloudflare`. `deploy:verify` memeriksa ulang manifest tanpa membangun ulang; gagal bila satu file berubah, ada file tak tercatat, config/migrasi berubah, atau SHA tidak cocok.
+
+`deploy:all` = preflight + deploy Worker realtime + deploy Pages. Perintah ini tidak menerapkan migrasi D1 dan tidak boleh dipakai tanpa `RELEASE_COMMIT_SHA`. Deploy produksi resmi lewat workflow **Deploy** (`workflow_dispatch`, environment `production`): unduh artifact CI `release-<sha>`, verifikasi manifest, lalu deploy realtime + Pages dari artifact yang sama tanpa rebuild. Rollback = dispatch ulang SHA sebelumnya; rollback Pages tidak mengembalikan schema D1 (ikuti runbook migrasi/restore).
 
 Panduan arsitektur, konvensi teknis, dan runbook operasional tersedia di [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).
