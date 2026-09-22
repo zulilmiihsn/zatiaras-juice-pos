@@ -18,12 +18,12 @@ import {
 } from './prompts';
 import { fetchReportDataSql, buildReportContext } from './reportData';
 import { resolveAiPeriod, hasPeriodQualifier, detectAiIntent } from '$lib/server/aiPeriod';
+import { callAiChat, requestAiStreamResilient } from '$lib/server/aiGateway';
 
-// [CATATAN]: OpenRouter / AI Model configuration
+// [CATATAN]: OpenRouter / AI Model configuration (env). Daftar fallback model,
+// timeout, dan retry dimiliki $lib/server/aiGateway.
 const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openrouter/free';
-const FALLBACK_MODEL = 'nvidia/nemotron-3.5-lightning:free';
-const SECONDARY_FALLBACK_MODEL = 'inclusionai/ling-3.0-flash-fin:free';
 const MODEL = env.AI_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL;
 
 function getOpenRouterApiKey(platform: any): string | undefined {
@@ -46,175 +46,10 @@ function getOpenRouterModel(platform: any): string {
 
 const AI_WINDOW_MS = 15 * 60 * 1000;
 const AI_MAX_REQUESTS = 40;
-const OPENROUTER_TIMEOUT_MS = 25_000;
 
 interface ChatMessage {
 	role: 'system' | 'user' | 'assistant';
 	content: string;
-}
-
-interface OpenRouterOpts {
-	title: string;
-	maxTokens: number;
-	temperature: number;
-	errorLabel: string;
-	model?: string;
-	tools?: Array<{ type: string; [key: string]: unknown }>;
-}
-
-/** Panggil OpenRouter chat-completion non-streaming dengan fallback model & tools otomatis. */
-async function callOpenRouter(
-	apiKey: string,
-	messages: ChatMessage[],
-	opts: OpenRouterOpts
-): Promise<string> {
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
-	const targetModel = opts.model || MODEL;
-
-	const buildPayload = (modelName: string, withTools: boolean) => {
-		const payload: Record<string, unknown> = {
-			model: modelName,
-			messages,
-			max_tokens: opts.maxTokens,
-			temperature: opts.temperature
-		};
-		if (withTools && opts.tools && opts.tools.length > 0) {
-			payload.tools = opts.tools;
-		}
-		return JSON.stringify(payload);
-	};
-
-	let response: Response;
-	try {
-		response = await fetch(OPENROUTER_API_URL, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				'HTTP-Referer': 'https://zatiaraspos.com',
-				'X-Title': opts.title
-			},
-			body: buildPayload(targetModel, true),
-			signal: controller.signal
-		});
-
-		// [CATATAN]: Jika gagal saat menyertakan tools, coba panggil ulang tanpa tools
-		if (!response.ok && opts.tools && opts.tools.length > 0) {
-			response = await fetch(OPENROUTER_API_URL, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-					'HTTP-Referer': 'https://zatiaraspos.com',
-					'X-Title': `${opts.title} (No Tools)`
-				},
-				body: buildPayload(targetModel, false),
-				signal: controller.signal
-			});
-		}
-	} catch (error) {
-		if (error instanceof Error && error.name === 'AbortError') {
-			throw new Error(`${opts.errorLabel}: upstream timeout`);
-		}
-		throw error;
-	} finally {
-		clearTimeout(timeout);
-	}
-
-	if (!response.ok) {
-		// [CATATAN]: Coba model cadangan jika model utama gagal (429 atau 5xx)
-		const fallbackModels = [FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL].filter(
-			(m) => m !== targetModel
-		);
-		for (const altModel of fallbackModels) {
-			try {
-				let fallbackRes = await fetch(OPENROUTER_API_URL, {
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${apiKey}`,
-						'Content-Type': 'application/json',
-						'HTTP-Referer': 'https://zatiaraspos.com',
-						'X-Title': `${opts.title} (Fallback ${altModel})`
-					},
-					body: buildPayload(altModel, Boolean(opts.tools?.length))
-				});
-
-				if (!fallbackRes.ok && opts.tools && opts.tools.length > 0) {
-					fallbackRes = await fetch(OPENROUTER_API_URL, {
-						method: 'POST',
-						headers: {
-							Authorization: `Bearer ${apiKey}`,
-							'Content-Type': 'application/json',
-							'HTTP-Referer': 'https://zatiaraspos.com',
-							'X-Title': `${opts.title} (Fallback ${altModel} No Tools)`
-						},
-						body: buildPayload(altModel, false)
-					});
-				}
-
-				if (fallbackRes.ok) {
-					const fallbackData = (await fallbackRes.json()) as any;
-					return fallbackData?.choices?.[0]?.message?.content || '';
-				}
-			} catch {}
-		}
-		throw new Error(`${opts.errorLabel}: ${response.status}`);
-	}
-
-	const data = (await response.json()) as any;
-	if (
-		typeof data !== 'object' ||
-		data === null ||
-		!('choices' in data) ||
-		!Array.isArray(data.choices) ||
-		typeof data.choices[0] !== 'object' ||
-		data.choices[0] === null ||
-		!('message' in data.choices[0]) ||
-		typeof data.choices[0].message !== 'object' ||
-		data.choices[0].message === null ||
-		!('content' in data.choices[0].message) ||
-		typeof data.choices[0].message.content !== 'string'
-	) {
-		throw new Error(`${opts.errorLabel}: respons upstream tidak valid`);
-	}
-	return data.choices[0].message.content;
-}
-
-/** Panggil OpenRouter dengan streaming response aktif & dukungan tools web search. */
-async function callOpenRouterStream(
-	apiKey: string,
-	messages: ChatMessage[],
-	opts: {
-		title: string;
-		maxTokens: number;
-		temperature: number;
-		model?: string;
-		tools?: Array<{ type: string; [key: string]: unknown }>;
-	}
-): Promise<Response> {
-	const targetModel = opts.model || MODEL;
-	const bodyObj: Record<string, unknown> = {
-		model: targetModel,
-		messages,
-		max_tokens: opts.maxTokens,
-		temperature: opts.temperature,
-		stream: true
-	};
-	if (opts.tools && opts.tools.length > 0) {
-		bodyObj.tools = opts.tools;
-	}
-
-	return await fetch(OPENROUTER_API_URL, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': 'https://zatiaraspos.com',
-			'X-Title': opts.title
-		},
-		body: JSON.stringify(bodyObj)
-	});
 }
 
 /** Bersihkan markdown code-fence atau teks percakapan dan ekstrak object JSON murni. */
@@ -456,10 +291,11 @@ async function identifyDataRequirements(
 		];
 
 		const content =
-			(await callOpenRouter(apiKey, messages, {
+			(await callAiChat(apiKey, OPENROUTER_API_URL, messages, {
 				title: 'Zatiaras POS - Data Requirement Analyzer',
 				maxTokens: 500,
 				temperature: 0.2,
+				model: MODEL,
 				errorLabel: 'AI 1 Error'
 			})) || '{}';
 
@@ -511,10 +347,11 @@ async function analyzeBusinessData(
 	const messages: ChatMessage[] = [systemMessage, ...history, { role: 'user', content: question }];
 
 	return (
-		(await callOpenRouter(apiKey, messages, {
+		(await callAiChat(apiKey, OPENROUTER_API_URL, messages, {
 			title: 'Zatiaras POS - Business Analyst',
 			maxTokens: 2500,
 			temperature: 0.6,
+			model: MODEL,
 			errorLabel: 'AI 2 Error',
 			tools
 		})) || 'Maaf, tidak dapat menghasilkan jawaban.'
@@ -607,10 +444,11 @@ async function analyzeTransactionText(
 	};
 
 	const content =
-		(await callOpenRouter(apiKey, [systemMessage], {
+		(await callAiChat(apiKey, OPENROUTER_API_URL, [systemMessage], {
 			title: 'Zatiaras POS - Transaction Analyzer',
 			maxTokens: 1000,
 			temperature: 0.3,
+			model: MODEL,
 			errorLabel: 'AI 3 Error'
 		})) || '{}';
 
@@ -1023,52 +861,18 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 
 		const webSearchTools = shouldSearchWeb ? [{ type: 'openrouter:web_search' }] : undefined;
 
-		// [CATATAN]: 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream
+		// [CATATAN]: 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream.
+		// Retry tanpa tools + fallback model ditangani aiGateway (dengan timeout).
 		if (stream !== false) {
 			const chatModel = getOpenRouterModel(event.platform);
-			let upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
+			const upstreamRes = await requestAiStreamResilient(apiKey, OPENROUTER_API_URL, fullMessages, {
 				title: 'Zatiaras POS - Business Analyst',
 				maxTokens: 2500,
 				temperature: 0.6,
 				model: chatModel,
-				tools: webSearchTools
+				tools: webSearchTools,
+				errorLabel: 'AI Stream Error'
 			});
-
-			// Jika gagal saat menyertakan tools (misal model upstream menolak web search), coba tanpa tools
-			if (!upstreamRes.ok && webSearchTools) {
-				try {
-					upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
-						title: 'Zatiaras POS - Business Analyst (No Tools)',
-						maxTokens: 2500,
-						temperature: 0.6,
-						model: chatModel
-					});
-				} catch {}
-			}
-
-			const streamFallbacks = [FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL].filter(
-				(m) => m !== chatModel
-			);
-			for (const altModel of streamFallbacks) {
-				if (upstreamRes.ok && upstreamRes.body) break;
-				try {
-					upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
-						title: `Zatiaras POS - Business Analyst (Fallback ${altModel})`,
-						maxTokens: 2500,
-						temperature: 0.6,
-						model: altModel,
-						tools: webSearchTools
-					});
-					if (!upstreamRes.ok && webSearchTools) {
-						upstreamRes = await callOpenRouterStream(apiKey, fullMessages, {
-							title: `Zatiaras POS - Business Analyst (Fallback ${altModel} No Tools)`,
-							maxTokens: 2500,
-							temperature: 0.6,
-							model: altModel
-						});
-					}
-				} catch {}
-			}
 
 			if (!upstreamRes.ok || !upstreamRes.body) {
 				const errText = await upstreamRes.text().catch(() => '');

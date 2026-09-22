@@ -418,12 +418,20 @@ Svelte UI
 
 ### Task 4A - AI
 
-- [ ] Ekstrak `AiGateway` untuk timeout, retry, fallback model, parsing response, dan error mapping.
-- [ ] Terapkan timeout pada primary, fallback, dan streaming request.
+- [x] Ekstrak `AiGateway` untuk timeout, retry, fallback model, parsing response, dan error mapping.
+- [x] Terapkan timeout pada primary, fallback, dan streaming request.
 - [ ] Ekstrak use case identifikasi intent, pengambilan data laporan, memory, dan auto-apply.
-- [ ] Hilangkan `any` pada response/model/platform yang berada di critical path.
-- [ ] Pertahankan fast period resolver sebagai pure module dan analyzer sebagai fallback eksplisit.
-- [ ] Tambahkan contract test untuk timeout, malformed response, fallback, abort, dan branch scope.
+- [x] Hilangkan `any` pada response/model/platform yang berada di critical path.
+- [x] Pertahankan fast period resolver sebagai pure module dan analyzer sebagai fallback eksplisit.
+- [x] Tambahkan contract test untuk timeout, malformed response, fallback, abort, dan branch scope.
+
+### Evidence 4A - AiGateway (Completed)
+
+- Baru `src/lib/server/aiGateway.ts`: `callAiChat`, `requestAiStream`, `requestAiStreamResilient`, typed `AiGatewayError` (`UPSTREAM_TIMEOUT`/`UPSTREAM_ERROR`/`INVALID_RESPONSE`), tanpa import SvelteKit/store/browser. Tiap percobaan punya deadline sendiri (dulu fallback/stream tanpa timeout). Urutan fallback, retry tanpa tools, dan fallback `|| ''` dipertahankan; timeout fallback terakhir diteruskan apa adanya.
+- Route `src/routes/api/aichat/+server.ts` 1223 -> 1027 baris: hapus `callOpenRouter`/`callOpenRouterStream` lokal, blok stream fallback 43 baris jadi satu panggilan resilient. Tiga pemanggil non-streaming + satu streaming lulus typecheck.
+- Baru `src/tests/ai-gateway-tests.ts`: 12 contract test (sukses, fallback 429, semua-gagal + status, timeout primary/fallback/stream + abort signal, malformed, retry tanpa tools, parity `|| ''`, urutan judul stream, respons terakhir !ok, error terakhir, tanpa bocor key). Dirantai ke `test:unit` + step CI `Run AI Gateway Suite`.
+- Lokal: 22/22 suite unit, check 0/0, ESLint + Prettier lulus.
+- Sisa 4A (use case intent/laporan/memory) + 4B archive + 4C POS belum dikerjakan.
 
 ### Task 4B - Archive
 

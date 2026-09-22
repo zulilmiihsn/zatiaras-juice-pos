@@ -134,6 +134,9 @@ jobs:
       - name: Run AI Period Suite
         run: pnpm test:ai-period
 
+      - name: Run AI Gateway Suite
+        run: pnpm test:ai-gateway
+
       - name: Run Tax Suite
         run: pnpm test:tax
 
