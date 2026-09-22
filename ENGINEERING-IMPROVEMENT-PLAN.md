@@ -156,15 +156,26 @@ Menemukan penyebab nyata kegagalan CI #64, memperbaiki portabilitas, dan menghas
 
 ### Task
 
-- [ ] Ambil log lengkap job `Run All Test Suites` melalui GitHub UI/CLI/API terautentikasi.
-- [ ] Catat command, suite, assertion, OS, Node, dan stack trace pertama yang gagal.
-- [ ] Reproduksi pada Ubuntu dengan Node dari `.node-version` dan install frozen lockfile.
-- [ ] Jalankan setiap kelompok terpisah: `test:operations`, `test:quality`, dan `test:unit`.
-- [ ] Perbaiki akar masalah. Jangan menambah retry atau skip untuk menyembunyikan kegagalan deterministik.
-- [ ] Pecah workflow menjadi job/step yang memberi nama suite gagal secara langsung.
-- [ ] Simpan output test sebagai artifact saat gagal.
-- [ ] Gunakan timeout job agar proses workerd/Playwright yang macet tidak menggantung tanpa batas.
-- [ ] Perbarui action yang memberi warning runtime deprecated bila versi stabil pengganti tersedia.
+- [x] Ambil log lengkap job `Run All Test Suites` melalui GitHub UI/CLI/API terautentikasi.
+- [x] Catat command, suite, assertion, OS, Node, dan stack trace pertama yang gagal.
+- [x] Reproduksi pada Ubuntu dengan Node dari `.node-version` dan install frozen lockfile.
+- [x] Jalankan setiap kelompok terpisah: `test:operations`, `test:quality`, dan `test:unit`.
+- [x] Perbaiki akar masalah. Jangan menambah retry atau skip untuk menyembunyikan kegagalan deterministik.
+- [x] Pecah workflow menjadi job/step yang memberi nama suite gagal secara langsung.
+- [x] Simpan output test sebagai artifact saat gagal.
+- [x] Gunakan timeout job agar proses workerd/Playwright yang macet tidak menggantung tanpa batas.
+- [x] Perbarui action yang memberi warning runtime deprecated bila versi stabil pengganti tersedia.
+
+### Evidence Fase 1 (Completed)
+
+- CI #64 (`fdcd884`): single job gagal pada `Run All Test Suites`, build dilewati. Log detail butuh auth (API log 403); anotasi hanya generik.
+- CI #65 (`dc9d328`): setelah pecah 5 job, `Static` + `Operations` gagal pada `Setup Node.js` dengan error publik `Unable to locate executable file: pnpm`. Root cause: `setup-node@v5` dijalankan sebelum pnpm terinstal.
+- Fix: `pnpm/action-setup` dipindah sebelum `setup-node`, `cache: pnpm` diaktifkan, `upload-artifact` naik ke v5.
+- CI #66 (`f61de056`): setup lolos; `Unit Tests` gagal tepat pada step `Run Receipt Output Suite` dalam 1 detik. Root cause: `receipt-output-tests.ts` assert SHA256 HTML yang memuat `toLocaleString('id-ID')` — output ICU beda antara Node 26/Windows vs Node 24/Ubuntu.
+- Fix: hapus golden hash; ganti contract struktural portabel (subtotal, handle `@`, escape `<script>`), tanpa ubah production code. Lokal `pnpm test:receipt-output` lulus.
+- CI #68 (`fc927d0f`): **success** — 5/5 job hijau (Static, Operations, Unit 21/21 suite, Quality, Build).
+- Commit: `dc9d328`, `f61de056`, `f3ad321`, `fc927d0f` pada `main`, semua ter-push ke `origin/main`.
+- Batas bukti: run kedua hijau berurutan masih menunggu; E2E CI dan release artifact safety masuk Fase 2-3.
 
 ### File sasaran
 
