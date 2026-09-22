@@ -450,10 +450,17 @@ Svelte UI
 
 ### Task 4C - POS
 
-- [ ] Pertahankan modul checkout yang sudah ada: loader, financials, fingerprint, statement builder.
-- [ ] Pindahkan orkestrasi `POST /api/pos/transaction` ke `CheckoutUseCase`.
-- [ ] Pertahankan signed quote, idempotency, fingerprint, receipt snapshot, stock guard, dan batch atomik.
-- [ ] Jangan mengubah kontrak offline replay tanpa tes backward compatibility queue IndexedDB.
+- [x] Pertahankan modul checkout yang sudah ada: loader, financials, fingerprint, statement builder.
+- [x] Pindahkan orkestrasi `POST /api/pos/transaction` ke `CheckoutUseCase`.
+- [x] Pertahankan signed quote, idempotency, fingerprint, receipt snapshot, stock guard, dan batch atomik.
+- [x] Jangan mengubah kontrak offline replay tanpa tes backward compatibility queue IndexedDB.
+
+### Evidence 4C - CheckoutUseCase (Completed)
+
+- Baru `src/lib/server/checkout/checkoutUseCase.ts`: `executeCheckout` + typed `CheckoutUseCaseError`. Seluruh orkestrasi (capabilities, rate limit, validasi, quote online/offline replay + verifikasi token katalog, idempotency + void guard, normalisasi, fallback katalog offline, wave baca paralel, resep wave kedua, financials, quote-drift guard, cash guard, receipt snapshot, batch atomik + idempotency race, audit + realtime publish) pindah verbatim; modul checkout tak tersentuh. Tanpa import SvelteKit runtime.
+- Route `POST /api/pos/transaction` 676 -> ~40 baris: auth cabang, role, DB, parsing body, panggil use case, petakan hasil/error. Bentuk respons (`ok/idempotent/data`, header `x-d1-meta`) dan seluruh pesan error dipertahankan.
+- Parity: `pos-integrity-tests` + 23/23 suite unit lulus; E2E POS subset lokal 2/2 lulus (checkout otoritatif + antrean offline) dengan cleanup sukses; check 0/0, ESLint + Prettier lulus. Full 22 E2E berjalan di CI.
+- Sisa 4A-lanjutan (use case intent/laporan/memory) belum dikerjakan; Fase 5-6 belum mulai.
 
 ### Rincian task dan urutan
 
