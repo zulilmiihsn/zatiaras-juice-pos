@@ -433,6 +433,15 @@ Svelte UI
 - Lokal: 22/22 suite unit, check 0/0, ESLint + Prettier lulus.
 - Sisa 4A (use case intent/laporan/memory) + 4B archive + 4C POS belum dikerjakan.
 
+### Evidence 4A-lanjutan - AiChatUseCase (Completed)
+
+- Modul route-local `prompts.ts`/`reportData.ts`/`fnbKnowledge.ts` pindah ke `$lib/server/ai/` via `git mv` (histori terjaga); import di route + `hardening-regression-tests` diperbarui.
+- Baru `src/lib/server/ai/aiChatUseCase.ts`: pure `extractJsonFromText`/`toYMDWita`/`fastResolveRequirements`/3 classifier/`formatDateForAI`/`sanitizeChatHistory`/`recentContextForAi1`, perintah memori (`parseMemoryCommand` + `runMemoryAction` + get/save/clear), orkestrasi AI 1/2/3 (`identifyDataRequirements`/`analyzeBusinessData`/`analyzeTransactionText`/`buildProductPromptData`), dan pipeline `prepareReportAnalysis` (requirements -> range -> SQL D1 -> konteks prompt + hasil NO_DATA). Tanpa import SvelteKit runtime; cabang memakai `BranchId`.
+- Route aichat kini hanya: env/model config, POST (auth/rate/dispatch), dua handler (validasi + panggil use case/gateway + respons json/SSE). Seluruh string pesan, bentuk respons, dan alur stream/non-stream dipertahankan.
+- Baru `src/tests/ai-chat-usecase-tests.ts`: command parser, sanitasi riwayat, konteks, WITA, format tanggal, JSON, fast-resolve null/positif, memori DB (simpan/baca/isolasi cabang/retensi 10), dan teks kontrak runMemoryAction. Dirantai ke `test:unit` + step CI.
+- Lokal: 24/24 suite unit, check 0/0, ESLint + Prettier lulus.
+- Fase 4 selesai seluruhnya (4A gateway + use case, 4B archive, 4C POS).
+
 ### Task 4B - Archive
 
 - [x] Ekstrak `ArchiveUseCase` dari route.

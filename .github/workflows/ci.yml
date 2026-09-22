@@ -137,6 +137,9 @@ jobs:
       - name: Run AI Gateway Suite
         run: pnpm test:ai-gateway
 
+      - name: Run AI Chat Usecase Suite
+        run: pnpm test:ai-chat-usecase
+
       - name: Run Tax Suite
         run: pnpm test:tax
 

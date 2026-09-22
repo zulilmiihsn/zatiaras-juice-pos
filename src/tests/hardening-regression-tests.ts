@@ -58,7 +58,7 @@ assert.throws(
 assert.throws(() => parseDataLimit('-1'), /bilangan bulat/);
 assert.throws(() => parseDataLimit('501'), /antara 1 dan 500/);
 
-import { parseDataRequirements } from '../routes/api/aichat/prompts';
+import { parseDataRequirements } from '../lib/server/ai/prompts';
 
 const reqParsed = parseDataRequirements(
 	{ periode: { start: '2026-09-01', end: '2026-09-02' } },
