@@ -19,15 +19,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -49,15 +50,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -67,7 +69,7 @@ jobs:
 
       - name: Upload Operations Logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: operations-logs-${{ github.sha }}
           path: |
@@ -85,15 +87,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -103,7 +106,7 @@ jobs:
 
       - name: Upload Unit Logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: unit-logs-${{ github.sha }}
           path: |
@@ -121,15 +124,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -139,7 +143,7 @@ jobs:
 
       - name: Upload Quality Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: quality-report-${{ github.sha }}
           path: code-quality-report.md
@@ -155,15 +159,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
