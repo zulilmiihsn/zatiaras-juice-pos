@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
@@ -53,7 +52,7 @@ const sale = buildSaleReceiptHtml({
 	printedAt: new Date('2026-06-29T08:30:00.000Z')
 });
 
-const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const count = (s: string, sub: string) => s.split(sub).length - 1;
 
 // F17/F18: base 10.000 + topping 3.000 x2 -> baris 20.000 + 6.000 = 26.000
 {
@@ -114,7 +113,6 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 			snapshot_tambahan: JSON.stringify([{ nama: 'Nata', harga: 3_000 }])
 		}
 	]);
-	const count = (s: string, sub: string) => s.split(sub).length - 1;
 	assert.ok(toppingHtml.includes('Jus Beku'), 'nama snapshot tampil');
 	assert.ok(toppingHtml.includes('Rp20.000'), 'baris dasar 10.000x2');
 	assert.ok(toppingHtml.includes('Rp6.000'), 'baris topping 3.000x2');
@@ -122,7 +120,34 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 	assert.ok(toppingHtml.includes('Rp25.000'), 'total header ikut nominal transaksi');
 }
 
-assert.equal(hash(reprint), '7773c4dfeecf8e1f5ad9ae67a8b9a1f37403c1981a187c11e131d651bd852115');
-assert.equal(hash(sale), '192a2c1fd559ba3fce3f9ed241a7742843b57d4b489ef731fbfc7e677c83181d');
-console.log('Receipt HTML hashes match post-F17/F18 output (subtotal + @ + escape).');
+// F17/F18 structural contract (portabel lintas OS/Node/ICU):
+// jangan hash seluruh HTML karena toLocaleString('id-ID') berbeda antar runtime.
+// Verifikasi subtotal, handle @, dan escaping secara eksplisit.
+{
+	assert.ok(reprint.includes('Jus UAT'), 'reprint memuat nama item');
+	assert.ok(reprint.includes('Rp25.000'), 'reprint memuat total transaksi');
+	assert.ok(reprint.includes('@toko.uat'), 'reprint memuat handle @');
+	assert.ok(reprint.includes('Terima kasih'), 'reprint memuat ucapan');
+	assert.ok(!reprint.includes('<script'), 'reprint tidak memuat tag mentah');
+}
+{
+	assert.ok(sale.includes('Jus UAT'), 'sale memuat nama produk');
+	assert.ok(sale.includes('Ekstra UAT'), 'sale memuat topping');
+	assert.ok(sale.includes('Rp20.000'), 'sale memuat baris dasar 10.000x2');
+	assert.ok(sale.includes('Rp5.000'), 'sale memuat baris topping 2.500x2');
+	assert.ok(sale.includes('Rp25.000'), 'sale memuat total');
+	assert.ok(sale.includes('Rp30.000'), 'sale memuat uang dibayar');
+	assert.ok(sale.includes('MENUNGGU SINKRONISASI'), 'sale menandai antrean offline');
+	assert.ok(sale.includes('@toko.uat'), 'sale memuat handle @');
+}
+{
+	// Escaping: input berbahaya tidak boleh menjadi HTML aktif.
+	const evil = buildReceiptHtml(history, settings, [
+		{ nama_kustom: '<script>alert(1)</script>', jumlah: 1, harga: 1_000 }
+	]);
+	assert.ok(!evil.includes('<script>'), 'tag script di-escape');
+	assert.ok(evil.includes('&lt;script&gt;'), 'escape entity tampil');
+	assert.equal(count(evil, 'Rp1.000') >= 1, true, 'subtotal evil tetap tampil');
+}
+console.log('Receipt structural contract matches post-F17/F18 output (subtotal + @ + escape).');
 process.exit(0);
