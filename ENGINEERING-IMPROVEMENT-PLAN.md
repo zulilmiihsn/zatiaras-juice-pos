@@ -351,6 +351,7 @@ Menjadikan 22 tes browser dan persistence D1 terisolasi sebagai gate otomatis, b
 - Concurrency cancellation sudah ada sejak Fase 1 (`ci-${{ github.ref }}`, cancel-in-progress).
 - Job `build` kini `needs: [static, operations, unit, quality, e2e]` sehingga artifact tidak dibuat bila E2E gagal.
 - Cleanup server/workerd dan isolasi D1 diwarisi dari runner terisolasi Fase B9 (`scripts/e2e-server.mjs` + `e2e-environment.mjs`).
+- CI #71 (`06668b4`): **success, 6/6 job** — Static, Operations, Unit, E2E Browser Tests, Quality, Build. E2E lolos di Linux pada percobaan pertama; step `Verify No Project State Touched` lulus (tanpa `.wrangler`, git status bersih).
 - Batas bukti: E2E-T02 paralel dua run dan E2E-T03 failure-injection disengaja belum dijalankan di CI; branch protection required-checks perlu diaktifkan manual di GitHub (di luar kode).
 
 ### Rincian task
