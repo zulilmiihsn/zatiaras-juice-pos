@@ -14,13 +14,14 @@ import path from 'path';
 
 const workspaceRoot = process.cwd();
 
-function runCommand(cmd: string): string {
+function runCommand(cmd: string, timeoutMs = 600000): string {
 	return execSync(cmd, {
 		cwd: workspaceRoot,
 		encoding: 'utf8',
 		stdio: 'pipe',
 		shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
-		env: process.env
+		env: process.env,
+		timeout: timeoutMs
 	});
 }
 
@@ -148,7 +149,7 @@ export const lintingTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🔍 Running ESLint check...');
-					runCommand('pnpm eslint .');
+					runCommand('pnpm exec eslint .');
 
 					const executionTime = Date.now() - startTime;
 
@@ -179,7 +180,7 @@ export const lintingTests: CodeQualityTestSuiteDef = {
 
 				try {
 					console.log('🎨 Checking code formatting...');
-					runCommand('pnpm prettier --check .');
+					runCommand('pnpm exec prettier --check .');
 
 					const executionTime = Date.now() - startTime;
 

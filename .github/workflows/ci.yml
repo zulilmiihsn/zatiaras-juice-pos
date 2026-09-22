@@ -6,21 +6,28 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  validate:
-    name: Validate Quality & Test Gates
+  static:
+    name: Static Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -34,8 +41,132 @@ jobs:
       - name: Format Check
         run: pnpm format:check
 
-      - name: Run All Test Suites
-        run: pnpm test:all
+  operations:
+    name: Operations Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Operations Suites
+        run: pnpm test:operations
+
+      - name: Upload Operations Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operations-logs-${{ github.sha }}
+          path: |
+            **/*.log
+            code-quality-report.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [static, operations]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Unit Suites
+        run: pnpm test:unit
+
+      - name: Upload Unit Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-logs-${{ github.sha }}
+          path: |
+            **/*.log
+            code-quality-report.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  quality:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [static]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Quality Suites
+        run: pnpm test:quality
+
+      - name: Upload Quality Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report-${{ github.sha }}
+          path: code-quality-report.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  build:
+    name: Build Application Bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [static, operations, unit, quality]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build Application Bundle
         run: pnpm build
