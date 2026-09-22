@@ -101,8 +101,68 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Unit Suites
-        run: pnpm test:unit
+      - name: Run Hardening Suite
+        run: pnpm test:hardening
+
+      - name: Run Stores Suite
+        run: pnpm test:stores
+
+      - name: Run Offline Suite
+        run: pnpm test:offline
+
+      - name: Run POS Integrity Suite
+        run: pnpm test:pos-integrity
+
+      - name: Run Ingredient Yield Suite
+        run: pnpm test:ingredient-yield
+
+      - name: Run Quantity Decimal Suite
+        run: pnpm test:quantity-decimal
+
+      - name: Run Receipt Output Suite
+        run: pnpm test:receipt-output
+
+      - name: Run Report Grouping Suite
+        run: pnpm test:report-grouping
+
+      - name: Run Report Tax Suite
+        run: pnpm test:report-tax
+
+      - name: Run Service Pure Suite
+        run: pnpm test:service-pure
+
+      - name: Run AI Period Suite
+        run: pnpm test:ai-period
+
+      - name: Run Tax Suite
+        run: pnpm test:tax
+
+      - name: Run Tax CAS Suite
+        run: pnpm test:tax-cas
+
+      - name: Run Tax Save Chain Suite
+        run: pnpm test:tax-save-chain
+
+      - name: Run Archive Restore Suite
+        run: pnpm test:archive-restore
+
+      - name: Run Archive Guard Suite
+        run: pnpm test:archive-guard
+
+      - name: Run Restore Apply Suite
+        run: pnpm test:restore-apply
+
+      - name: Run Menu Atomic Suite
+        run: pnpm test:menu-atomic
+
+      - name: Run Realtime Suite
+        run: pnpm test:realtime
+
+      - name: Run Migration Matrix Suite
+        run: pnpm test:migration-matrix
+
+      - name: Run A11y Suite
+        run: pnpm test:a11y
 
       - name: Upload Unit Logs
         if: failure()
