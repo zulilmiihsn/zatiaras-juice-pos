@@ -9,7 +9,7 @@
  * membawa status HTTP; route memetakan ke kitError/json.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import type { BranchId } from './branchResolver';
+import type { BranchContext } from './branchResolver';
 import {
 	acquireArchiveJob,
 	countEligibleRows,
@@ -192,7 +192,7 @@ export function summarizeManualRows(bukuKas: ArchiveRow[]): Map<string, ManualSu
 /** Preview arsip tanpa mutasi. */
 export async function previewArchive(
 	rawDb: D1Database,
-	branch: BranchId,
+	branch: BranchContext,
 	year: number
 ): Promise<ArchivePreview> {
 	validateArchiveYear(year);
@@ -255,7 +255,7 @@ export async function previewArchive(
 export async function runArchive(
 	rawDb: D1Database,
 	bucket: ArchiveBucket | undefined,
-	branch: BranchId,
+	branch: BranchContext,
 	year: number
 ): Promise<ArchiveResult> {
 	validateArchiveYear(year);

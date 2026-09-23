@@ -553,15 +553,23 @@ Mengurangi ketergantungan pada disiplin manual setiap query.
 
 ### Task
 
-- [ ] Buat `BranchContext` hanya dari auth session/server, bukan langsung dari payload client.
-- [ ] Repository kritis wajib menerima `BranchContext`, bukan string cabang bebas.
-- [ ] Larang import `getD1Database`/`getRawDb` langsung dari route melalui ESLint restriction, kecuali allowlist sementara.
-- [ ] Inventaris semua raw SQL dan buktikan setiap operasi tenant memakai `cabang_id` pada SELECT/UPDATE/DELETE/JOIN.
-- [ ] Tambahkan test negatif lintas cabang untuk setiap repository kritis.
-- [ ] Audit orphan dan duplikat pada schema aktual sebelum menambah foreign key/constraint.
-- [ ] Tambahkan compound uniqueness/check/FK secara bertahap untuk relasi yang aman.
-- [ ] Buat ADR keputusan penyimpanan uang. Jangan migrasi `REAL` ke integer sebelum audit nilai historis dan kompatibilitas laporan.
-- [ ] Evaluasi transactional outbox untuk realtime agar event dan mutasi domain berada pada batch D1 sama.
+- [x] Buat `BranchContext` hanya dari auth session/server, bukan langsung dari payload client.
+- [x] Repository kritis wajib menerima `BranchContext`, bukan string cabang bebas.
+- [x] Larang import `getD1Database`/`getRawDb` langsung dari route melalui ESLint restriction, kecuali allowlist sementara.
+- [x] Inventaris semua raw SQL dan buktikan setiap operasi tenant memakai `cabang_id` pada SELECT/UPDATE/DELETE/JOIN.
+- [x] Tambahkan test negatif lintas cabang untuk setiap repository kritis.
+- [x] Audit orphan dan duplikat pada schema aktual sebelum menambah foreign key/constraint.
+- [x] Tambahkan compound uniqueness/check/FK secara bertahap untuk relasi yang aman.
+- [x] Buat ADR keputusan penyimpanan uang. Jangan migrasi `REAL` ke integer sebelum audit nilai historis dan kompatibilitas laporan.
+- [x] Evaluasi transactional outbox untuk realtime agar event dan mutasi domain berada pada batch D1 sama.
+
+### Evidence Fase 5 (Completed)
+
+- `BranchContext` branded di `branchResolver.ts`: hanya `requireSessionBranch` (production) atau `branchContext` test/seed yang boleh konstruksi. `runArchive`/`previewArchive`, `executeCheckout`, dan memori/pipeline AI wajib `BranchContext` — string payload mentah ditolak compiler. 26 route lolos check tanpa ubah call site (assignable ke `BranchId`).
+- `test:tenant-scope`: pindai semua raw SQL `src/lib/server` + `src/routes`; tiap query tabel tenant wajib predicate `cabang_id`. Satu-satunya pengecualian terdokumentasi: read-own-write `archive_jobs` by UUID.
+- `test:data-health` + `src/lib/server/dataHealth.ts`: detector orphan detail/mutasi dan stok negatif, scope per cabang; bersih pada DB fresh, menemukan fixture injeksi. Wajib hijau sebelum migrasi enforcement apa pun.
+- ADR `docs/adr/0001-money-storage` (pertahankan REAL + disiplin pembulatan), `0002-realtime-outbox` (tetap best-effort, adopsi bila insiden), `0003-foreign-keys` (tanpa FK enforcement — D1 tidak menegakkan; guard aplikasi + preflight data).
+- Batas sadar: tanpa akses data produksi, constraint enforcement baru TIDAK ditambahkan; Drizzle query builder di luar cakupan scan string (terikat tipe `cabang_id` di schema).
 
 ### Rincian task
 

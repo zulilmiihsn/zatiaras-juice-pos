@@ -9,7 +9,7 @@
  * Tidak import SvelteKit runtime maupun modul route.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import type { BranchId } from '../branchResolver';
+import type { BranchContext } from '../branchResolver';
 import type { getDrizzleDb } from '../branchResolver';
 import { eq } from 'drizzle-orm';
 import { kategori, produk, tambahan } from '../../database/schema';
@@ -245,7 +245,7 @@ export function parseMemoryCommand(cleanQ: string): MemoryCommand {
 }
 
 /** Ambil daftar memori & target bisnis cabang dari tabel pengaturan */
-export async function getBusinessMemory(rawDb: D1Database, branch: BranchId): Promise<string> {
+export async function getBusinessMemory(rawDb: D1Database, branch: BranchContext): Promise<string> {
 	try {
 		const row = (await rawDb
 			.prepare(
@@ -266,7 +266,7 @@ export async function getBusinessMemory(rawDb: D1Database, branch: BranchId): Pr
 /** Simpan catatan / target bisnis ke memori permanen cabang (maksimal 10). */
 export async function saveBusinessMemoryNote(
 	rawDb: D1Database,
-	branch: BranchId,
+	branch: BranchContext,
 	note: string
 ): Promise<string[]> {
 	const currentNotes: string[] = [];
@@ -306,7 +306,7 @@ export async function saveBusinessMemoryNote(
 }
 
 /** Bersihkan semua memori bisnis cabang */
-export async function clearBusinessMemory(rawDb: D1Database, branch: BranchId): Promise<void> {
+export async function clearBusinessMemory(rawDb: D1Database, branch: BranchContext): Promise<void> {
 	await rawDb
 		.prepare(`DELETE FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory'`)
 		.bind(branch)
@@ -316,7 +316,7 @@ export async function clearBusinessMemory(rawDb: D1Database, branch: BranchId): 
 /** Jalankan perintah memori dan bangun teks jawaban. */
 export async function runMemoryAction(
 	rawDb: D1Database,
-	branch: BranchId,
+	branch: BranchContext,
 	action: Exclude<MemoryCommand, null>
 ): Promise<{ answer: string }> {
 	if (action.type === 'save') {
@@ -435,7 +435,7 @@ export async function analyzeBusinessData(
 /** Bangun teks daftar produk/harga untuk analisis transaksi AI 3. */
 export async function buildProductPromptData(
 	db: ReturnType<typeof getDrizzleDb>,
-	branch: BranchId
+	branch: BranchContext
 ): Promise<string> {
 	const [products, cats, addOns] = await Promise.all([
 		db
@@ -576,7 +576,7 @@ export interface ReportPipelineEmpty {
 export async function prepareReportAnalysis(input: {
 	rawDb: D1Database;
 	db: ReturnType<typeof getDrizzleDb>;
-	branch: BranchId;
+	branch: BranchContext;
 	cleanQ: string;
 	deps: AiDeps;
 	history: unknown;

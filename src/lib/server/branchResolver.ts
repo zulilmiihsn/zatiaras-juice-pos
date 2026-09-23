@@ -11,6 +11,19 @@ export const BRANCH_GROUPS = {
 export type BranchId = (typeof BRANCH_GROUPS)[keyof typeof BRANCH_GROUPS][number];
 export type BranchDbBinding = keyof typeof BRANCH_GROUPS;
 
+/**
+ * Cabang terverifikasi dari session. Use case kritis (arsip, checkout, AI)
+ * hanya menerima tipe ini, bukan string mentah — compiler menolak payload
+ * client yang belum lewat verifikasi session.
+ * Konstruksi: requireSessionBranch (production) atau branchContext (test/seed).
+ */
+export type BranchContext = BranchId & { readonly __branchContext: unique symbol };
+
+/** Bungkus BranchId tervalidasi menjadi context. Hanya untuk test/seed. */
+export function branchContext(branch: BranchId): BranchContext {
+	return branch as BranchContext;
+}
+
 const BRANCH_ALIASES: Record<string, BranchId> = {
 	samarinda: 'samarinda',
 	samarinda2: 'samarinda2',

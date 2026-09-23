@@ -1,5 +1,5 @@
 import { error as kitError } from '@sveltejs/kit';
-import { normalizeBranch, type BranchId } from '$lib/server/branchResolver';
+import { branchContext, normalizeBranch, type BranchContext } from '$lib/server/branchResolver';
 
 type AppLocals = App.Locals;
 
@@ -11,7 +11,7 @@ export function requireAuthSession(locals: AppLocals) {
 	return session;
 }
 
-export function requireSessionBranch(locals: AppLocals, requestedBranch?: unknown): BranchId {
+export function requireSessionBranch(locals: AppLocals, requestedBranch?: unknown): BranchContext {
 	const session = requireAuthSession(locals);
 	const sessionBranch = normalizeBranch(session.branch);
 	const requested = requestedBranch ? normalizeBranch(requestedBranch) : sessionBranch;
@@ -20,7 +20,7 @@ export function requireSessionBranch(locals: AppLocals, requestedBranch?: unknow
 		throw kitError(403, 'Branch tidak sesuai session');
 	}
 
-	return requested;
+	return branchContext(requested);
 }
 
 export function requireAnyRole(role: string, allowed: string[]) {

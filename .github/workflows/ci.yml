@@ -167,6 +167,12 @@ jobs:
       - name: Run Menu Atomic Suite
         run: pnpm test:menu-atomic
 
+      - name: Run Tenant Scope Suite
+        run: pnpm test:tenant-scope
+
+      - name: Run Data Health Suite
+        run: pnpm test:data-health
+
       - name: Run Realtime Suite
         run: pnpm test:realtime
 

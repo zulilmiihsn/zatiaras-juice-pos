@@ -12,7 +12,11 @@ import {
 	clearBusinessMemory,
 	toYMDWita
 } from '$lib/server/ai/aiChatUseCase';
+import { branchContext } from '$lib/server/branchResolver';
 import { createTestD1 } from './helpers/testD1';
+
+const samarinda = branchContext('samarinda');
+const balikpapan = branchContext('balikpapan');
 
 // parseMemoryCommand: klasifikasi perintah memori.
 assert.deepEqual(parseMemoryCommand('Ingat: target 50 juta'), {
@@ -93,28 +97,28 @@ assert.equal(fastResolveRequirements('xyzzy foo bar', '2026-09-16'), null);
 {
 	const { db, close } = await createTestD1();
 	try {
-		assert.equal(await getBusinessMemory(db, 'samarinda'), '');
-		const notes = await saveBusinessMemoryNote(db, 'samarinda', 'Target 50 juta');
+		assert.equal(await getBusinessMemory(db, samarinda), '');
+		const notes = await saveBusinessMemoryNote(db, samarinda, 'Target 50 juta');
 		assert.deepEqual(notes, ['Target 50 juta']);
-		assert.equal(await getBusinessMemory(db, 'samarinda'), '1. Target 50 juta');
+		assert.equal(await getBusinessMemory(db, samarinda), '1. Target 50 juta');
 		// Isolasi cabang: cabang lain tidak melihat catatan ini.
-		assert.equal(await getBusinessMemory(db, 'balikpapan'), '');
+		assert.equal(await getBusinessMemory(db, balikpapan), '');
 		// Retensi maksimal 10 catatan.
-		for (let i = 0; i < 11; i++) await saveBusinessMemoryNote(db, 'samarinda', `n${i}`);
-		const kept = await getBusinessMemory(db, 'samarinda');
+		for (let i = 0; i < 11; i++) await saveBusinessMemoryNote(db, samarinda, `n${i}`);
+		const kept = await getBusinessMemory(db, samarinda);
 		assert.ok(!kept.includes('Target 50 juta'));
 		assert.ok(kept.includes('n10'));
 		assert.equal(kept.split('\n').length, 10);
 		// runMemoryAction: save/view/clear dengan teks kontrak.
-		await clearBusinessMemory(db, 'samarinda');
-		const saved = await runMemoryAction(db, 'samarinda', { type: 'save', note: 'Buka jam 7' });
+		await clearBusinessMemory(db, samarinda);
+		const saved = await runMemoryAction(db, samarinda, { type: 'save', note: 'Buka jam 7' });
 		assert.ok(saved.answer.includes('samarinda') && saved.answer.includes('Buka jam 7'));
-		const viewed = await runMemoryAction(db, 'samarinda', { type: 'view' });
+		const viewed = await runMemoryAction(db, samarinda, { type: 'view' });
 		assert.ok(viewed.answer.includes('Buka jam 7'));
-		const cleared = await runMemoryAction(db, 'samarinda', { type: 'clear' });
+		const cleared = await runMemoryAction(db, samarinda, { type: 'clear' });
 		assert.ok(cleared.answer.includes('dibersihkan'));
-		assert.equal(await getBusinessMemory(db, 'samarinda'), '');
-		const emptyView = await runMemoryAction(db, 'samarinda', { type: 'view' });
+		assert.equal(await getBusinessMemory(db, samarinda), '');
+		const emptyView = await runMemoryAction(db, samarinda, { type: 'view' });
 		assert.ok(emptyView.answer.includes('Belum ada'));
 	} finally {
 		await close();

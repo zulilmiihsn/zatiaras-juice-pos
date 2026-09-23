@@ -10,7 +10,7 @@
  * yang membawa status HTTP; route memetakan ke kitError/json.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import type { BranchId } from '../branchResolver';
+import type { BranchContext } from '../branchResolver';
 import { publishBranchEvent } from '../realtimePublisher';
 import { appendAuditLog } from '../auditLog';
 import { consumeRateLimit } from '../rateLimit';
@@ -135,7 +135,7 @@ function buildReceiptFromQuote(
 
 export interface CheckoutInput {
 	db: D1Database;
-	branch: BranchId;
+	branch: BranchContext;
 	session: CheckoutSession;
 	platform: App.Platform | undefined;
 	rawBody: unknown;

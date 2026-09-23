@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
-import { getD1Database, getDrizzleDb, normalizeBranch } from '$lib/server/branchResolver';
+import { getD1Database, getDrizzleDb, type BranchContext } from '$lib/server/branchResolver';
 import { getRawDb } from '$lib/server/dataApiHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { consumeRateLimit } from '$lib/server/rateLimit';
@@ -198,7 +198,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			);
 		}
 
-		let requestedBranch: ReturnType<typeof normalizeBranch>;
+		let requestedBranch: BranchContext;
 		try {
 			requestedBranch = requireSessionBranch(event.locals, branch);
 		} catch {
