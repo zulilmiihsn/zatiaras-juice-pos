@@ -4,6 +4,7 @@ import { join, relative, sep } from 'node:path';
 const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 
+/** @param {string} dir @param {string[]} [out] @returns {string[]} */
 function walk(dir, out = []) {
 	for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
 		a.name.localeCompare(b.name)
@@ -20,11 +21,13 @@ function walk(dir, out = []) {
 }
 
 const files = walk(SRC);
+/** @param {string} f @returns {number} */
 const linesOf = (f) => readFileSync(f, 'utf8').split('\n').length;
 const byLines = files
 	.map((f) => ({ file: relative(ROOT, f).replace(/\\/g, '/'), lines: linesOf(f) }))
 	.sort((a, b) => b.lines - a.lines);
 
+/** @param {RegExp} re @returns {number} */
 const countMatches = (re) => {
 	let n = 0;
 	for (const f of files) {
