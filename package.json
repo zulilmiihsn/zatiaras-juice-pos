@@ -19,6 +19,7 @@
 		"deploy:all": "pnpm deploy:preflight && pnpm deploy:realtime && pnpm deploy:pages",
 		"d1:backup": "node scripts/d1-backup.mjs",
 		"d1:restore": "node scripts/d1-restore.mjs",
+		"d1:restore:drill": "node scripts/restore-drill-local.mjs",
 		"d1:migrate": "node scripts/migrate-production.mjs --apply",
 		"d1:migrate:live": "node scripts/migrate-production.mjs --apply --live",
 		"security:rotate-production": "node scripts/rotate-production-credentials.mjs",

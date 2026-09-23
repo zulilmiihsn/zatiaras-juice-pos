@@ -24,13 +24,24 @@ Syarat lulus: file `COMPLETE` terbit, ketiga binding
 (`DB_SAMARINDA_GROUP`, `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`) verified.
 Simpan backup di media berbeda dari source. Jangan hapus sebelum retention berakhir.
 
-## 2. Restore drill (database NON-production)
+## 2. Restore drill (tanpa DB non-production: drill lokal)
+
+Tanpa database non-production, buktikan dump dapat direstore secara lokal
+(read-only, in-memory, tidak menyentuh D1 mana pun):
+
+```powershell
+pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_berau_group.sql"
+pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_balikpapan_group.sql"
+pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_samarinda_group.sql"
+```
+
+Syarat lulus: tiap file `PASS restore drill lokal` dengan daftar tabel + row count.
+Bila ada DB non-production, drill penuh ke sana:
 
 ```powershell
 CONFIRM_D1_RESTORE=<binding-nonprod> pnpm d1:restore -- --database <binding> --file <backup.sql>
 ```
 
-Syarat lulus: row count dan checksum sesuai manifest backup.
 DILARANG restore ke database production untuk sekadar test.
 
 ## 3. Schema diff production vs 30 migrasi

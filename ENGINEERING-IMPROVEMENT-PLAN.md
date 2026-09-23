@@ -758,6 +758,16 @@ BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
   printer fisik, dan release record. Jangan klaim siap produksi sebelum ini
   dieksekusi dan dicatat sesuai runbook.
 
+### Evidence eksekusi operator 23 Sep 2026 (berjalan)
+
+- Backup: `backup-2026-09-23T07-30-43-194Z-f664f13f-3585-40e9-935d-538e5dfdbe08`
+  — 3/3 shard PASS + manifest verified + file COMPLETE.
+- Restore drill lokal (`d1:restore:drill`, baru): Berau 22 tabel/825 rows,
+  Balikpapan 22 tabel/1655 rows, Samarinda 23 tabel/18671 rows — PASS semua.
+- Catatan data: `buku_kas`/`transaksi_kasir` 0 di semua shard (transaksi lama
+  kemungkinan sudah diarsip ke R2); `request_metrics` Samarinda 16.603 rows.
+- Sisa operator: migrasi live, dispatch Deploy, smoke cabang, printer fisik.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
