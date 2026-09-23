@@ -784,6 +784,16 @@ BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
   shard (tabel ada, kolom benar, row count utuh, probe tulis UUID/claim/CAS
   lulus). Menunggu persetujuan pemilik untuk apply per shard.
 
+### Apply production 23 Sep 2026 — SUKSES 3/3 (operator + pendampingan)
+
+- Samarinda: 20 query, 74 rows written, tanpa error. Verifikasi: 4 tabel ada,
+  `pengaturan` tetap 2 rows, `id` TEXT.
+- Balikpapan: 20 query, 73 rows written, tanpa error. Verifikasi:
+  `pengaturan_n: 2`, `new_tables: 4`.
+- Berau: 20 query, 68 rows written, tanpa error. Verifikasi:
+  `pengaturan_n: 1`, `new_tables: 4`.
+- Tanpa rollback, tanpa data hilang. Sisa: dispatch Deploy, smoke, printer.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
