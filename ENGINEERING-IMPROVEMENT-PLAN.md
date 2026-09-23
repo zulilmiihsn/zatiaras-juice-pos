@@ -648,6 +648,7 @@ Mengurangi biaya memahami perubahan, mempercepat diagnosis, dan mencegah regresi
 - `test:docs-drift`: perintah `pnpm` dalam backtick di README/DEVELOPER-GUIDE/plan + `run:` workflow harus ada di `package.json`; binary `pnpm exec` harus terinstal; 6 job CI wajib ada (MNT-08).
 - Dependensi: `sharp@<0.35.4: 0.35.4` di `pnpm-workspace.yaml` menutup high GHSA-rgj7-g3m4-5g8c (transitif miniflare); `pnpm audit --audit-level high` kini bersih dan menjadi step CI `Dependency Audit` (MNT-09). Lockfile sinkron (`--frozen-lockfile` lulus).
 - Lokal: 27/27 suite unit lulus; check/lint/format bersih.
+- CI #77 merah pada `TypeScript Check`: `scripts/quality-baseline.mjs` (diimpor test) kena checkJs implicit-any. Fix JSDoc `@param` + commit terpisah; CI #78 hijau.
 - Ditunda sadar (risiko > manfaat saat ini): migrasi satu runner (MNT-02/03, granularitas per-step CI sudah memberi diagnostik), fixtures bersama lintas domain (MNT-04), schema runtime terpusat (MNT-05 lanjutan), coverage threshold 90% (butuh instrumentasi; guard caps sebagai pengganti sementara), hapus komentar historis (MNT-08 kecil, antre).
 
 ### Rincian task
