@@ -90,9 +90,12 @@ try {
 		console.log(`Applying migrations to ${shard}...`);
 		const liveFlag = isLive ? '--remote' : '--local';
 		try {
-			execSync(`npx wrangler d1 migrations apply ${shard} ${liveFlag}`, {
-				stdio: 'inherit'
-			});
+			execSync(
+				`npx wrangler d1 migrations apply ${shard} ${liveFlag} --config wrangler.pages.jsonc`,
+				{
+					stdio: 'inherit'
+				}
+			);
 		} catch (execErr) {
 			console.error(
 				`💥 First-fail-stop: Migration execution failed on shard ${shard}. Halting remaining shards.`
