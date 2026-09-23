@@ -51,16 +51,34 @@ node scripts/migrate-production.mjs
 ```
 
 Syarat lulus lokal: 30/30 checksum cocok (sudah hijau di CI via migration-matrix).
-Lalu bandingkan schema aktual tiap shard remote sebelum apply; bila drift tidak
-dijelaskan: STOP, buat repair/migration eksplisit sesudah review.
+Lalu bandingkan schema aktual tiap shard remote sebelum apply. Status 23 Sep 2026:
+production 0/30 applied (dibangun di luar rantai) — DILARANG `d1:migrate:live`
+rantai penuh (rename/drop/rebuild buta). Gunakan rekonsiliasi §4.
 
-## 4. Migrasi per shard (remote live, first-fail-stop)
+## 4. Rekonsiliasi production per shard (remote live, satu shard sekali jalan)
+
+Hanya `scripts/reconcile-prod-0030.sql` (aditif + rebuild pengaturan preserving,
+terverifikasi 11/11 pada salinan backup ketiga shard). Per shard, berurutan,
+verifikasi di antara shard:
 
 ```powershell
-pnpm d1:migrate:live
+pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
+pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
+pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
 ```
 
-Berhenti di shard pertama yang gagal; JANGAN lanjut ke shard berikutnya.
+Verifikasi tiap shard sesudah apply:
+
+```sql
+SELECT name FROM sqlite_master WHERE type = 'table'
+  AND name IN ('archive_jobs','archive_job_items','pos_void_markers','audit_log_quarantine');
+PRAGMA table_info(buku_kas); -- wajib ada revision, mutation_token
+PRAGMA table_info(pengaturan); -- id wajib TEXT
+SELECT COUNT(*) FROM pengaturan; -- sama dengan sebelum apply
+```
+
+Berhenti di shard pertama yang gagal; JANGAN lanjut atau rerun buta (2x ALTER
+TABLE gagal bila kolom sudah ada — comment 2 baris itu bila retry terverifikasi).
 Rollback: `node scripts/rollback-migration.mjs --shard=<SHARD> [--live] [--apply]`
 atau restore dari backup langkah 1. Rollback Pages TIDAK mengembalikan schema D1.
 

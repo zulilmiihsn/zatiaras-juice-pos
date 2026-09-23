@@ -769,6 +769,21 @@ BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
   Samarinda 16.603 rows.
 - Sisa operator: migrasi live, dispatch Deploy, smoke cabang, printer fisik.
 
+### Temuan migrasi 23 Sep 2026 (runbook diperbarui, MENUNGGU persetujuan apply)
+
+- `d1:migrate:live` gagal aman di shard pertama (first-fail-stop): script tidak
+  meneruskan `--config wrangler.pages.jsonc` sehingga wrangler mencari folder
+  `./migrations`. Production tak tersentuh. Fix sudah commit.
+- `migrations list` remote: production 0/30 applied — schema dibangun di luar
+  rantai. Rantai penuh DILARANG untuk prod saat ini.
+- Diff ketiga shard identik: hilang `archive_jobs`, `archive_job_items`,
+  `pos_void_markers`, `audit_log_quarantine`; `buku_kas` tanpa
+  `revision`/`mutation_token`; `pengaturan.id` INTEGER vs TEXT.
+- `scripts/reconcile-prod-0030.sql` (satu file, aditif + rebuild preserving,
+  di luar rantai drizzle): terverifikasi 11/11 pada salinan backup ketiga
+  shard (tabel ada, kolom benar, row count utuh, probe tulis UUID/claim/CAS
+  lulus). Menunggu persetujuan pemilik untuk apply per shard.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
