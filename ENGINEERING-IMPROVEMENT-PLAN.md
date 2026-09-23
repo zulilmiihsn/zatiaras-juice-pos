@@ -794,6 +794,20 @@ BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
   `pengaturan_n: 1`, `new_tables: 4`.
 - Tanpa rollback, tanpa data hilang. Sisa: dispatch Deploy, smoke, printer.
 
+### Deploy aplikasi 23 Sep 2026 — LIVE (dieksekusi agen atas otorisasi pemilik)
+
+Workflow Deploy UI gagal mengambil artifact lintas-run; deploy dialihkan ke
+mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
+
+- SHA `f822202` (CI #87 hijau): `deploy:check` lulus, build fresh lokal,
+  `deploy:manifest` 164 file, `deploy:verify` valid.
+- Realtime: `zatiaraspos-realtime` versi `e8249ac2-14af-402f-b2eb-d112a6e3f663`
+  (`https://zatiaraspos-realtime.zulilmiihsn.workers.dev`), trigger cron aktif.
+- Pages: `https://1003a105.zatiaraspos.pages.dev` — `/` dan `/login` 200.
+- Tindak lanjut workflow: perbaiki `download-artifact` lintas-run
+  (`run-id` sudah ditambah, belum terverifikasi end-to-end).
+- Sisa operator: smoke login/PIN/transaksi per cabang + printer fisik.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
