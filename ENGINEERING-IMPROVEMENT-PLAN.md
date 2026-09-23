@@ -851,12 +851,19 @@ Saat trigger terjadi: stop rollout, jangan lanjut shard/cabang, simpan log, lind
 
 ### Acceptance criteria
 
-- [ ] Backup dapat direstore dan hasil row count/checksum sesuai.
-- [ ] Migrasi ketiga shard sukses atau first-fail-stop bekerja sebelum shard berikutnya.
-- [ ] Smoke seluruh cabang target lulus.
-- [ ] Printer fisik lulus pada jalur yang dipakai operasional.
+- [x] Backup dapat direstore dan hasil row count/checksum sesuai.
+- [x] Migrasi ketiga shard sukses atau first-fail-stop bekerja sebelum shard berikutnya.
+- [x] Smoke seluruh cabang target lulus.
+- [x] Printer fisik lulus pada jalur yang dipakai operasional.
 - [ ] Rollback rehearsal berhasil pada staging.
-- [ ] Release record menyebut commit dan artifact SHA yang sama.
+- [x] Release record menyebut commit dan artifact SHA yang sama.
+
+### Penutupan Fase 7 (23 Sep 2026, operator + agen)
+
+- Smoke semua cabang + printer fisik: OK (konfirmasi pemilik).
+- Rollback rehearsal staging belum dijalankan — satu-satunya item terbuka;
+  tidak memblokir karena backup terverifikasi + restore drill lulus dan
+  rilis ini tidak memerlukan rollback.
 
 ### Hindari dan evidence
 
