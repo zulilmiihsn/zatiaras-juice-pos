@@ -149,3 +149,134 @@ rtk init --global       # Add RTK to ~/.Codex/AGENTS.md
 Overall average: **60-90% token reduction** on common development operations.
 
 <!-- /rtk-instructions -->
+
+---
+
+# Panduan Agen AI ZatiarasPOS
+
+Bagian ini WAJIB dibaca sebelum mengubah kode. Tujuannya: fitur baru tidak
+merusak kontrak uang/data/cabang, arsitektur tetap modular monolith, dan
+setiap perubahan meninggalkan bukti verifikasi.
+
+Dokumen pendamping: `DEVELOPER-GUIDE.md` (domain), `docs/adr/` (keputusan),
+`docs/OPERATOR-RUNBOOK.md` (rilis), `ENGINEERING-IMPROVEMENT-PLAN.md` (status).
+
+## 1. Perintah proyek (selalu pakai prefix `rtk`)
+
+```powershell
+rtk pnpm check            # typecheck, 0 error 0 warning
+rtk pnpm lint             # prettier + eslint
+rtk pnpm test:unit        # 29 suite, semua harus lulus
+rtk pnpm test:operations  # backup + safety + isolasi + release-gate
+rtk pnpm build            # build produksi
+rtk pnpm deploy:check     # validasi config Cloudflare
+rtk pnpm test:e2e:all     # 22 tes browser terisolasi
+rtk git diff --check      # tanpa whitespace error
+```
+
+Gate minimum per jenis perubahan:
+
+| Perubahan        | Gate tambahan                                                     |
+| ---------------- | ----------------------------------------------------------------- |
+| Dokumentasi      | Prettier + `git diff --check`                                     |
+| Workflow CI      | Sintaks YAML + CI remote hijau                                    |
+| Script Node      | Tes lintas OS + failure injection + cleanup                       |
+| UI/store/service | Unit/state test + E2E alur terkait                                |
+| API/auth/branch  | Integration handler + tes negatif role/branch/CSRF                |
+| SQL/repository   | SQLite fresh + D1/workerd (`--d1`) + concurrency                  |
+| Uang/stok        | POS integrity + idempotency + concurrency + full E2E              |
+| Archive/restore  | R2 failure/readback + handler/CLI + D1 + parity                   |
+| AI               | Timeout/fallback/malformed/branch contract (tanpa model berbayar) |
+| Release/deploy   | `test:release` + verifikasi artifact + CI remote + dry-run        |
+
+## 2. Arah dependensi (wajib)
+
+```text
+UI -> store/service -> route HTTP (auth + parse + respons)
+  -> application use case -> domain/policy
+  -> branch-scoped repository -> D1 / R2 / Durable Object / AI eksternal
+```
+
+- Domain TIDAK boleh import route, store Svelte, atau global browser.
+- Route TIDAK boleh berisi SQL bisnis baru atau logika uang.
+- Adapter Cloudflare hanya di boundary infrastructure.
+- Satu sumber kanonik per kebijakan; dilarang dua implementasi aktif.
+
+## 3. Peta modul (mulai dari sini, bukan grep buta)
+
+| Area      | File                                                               | Isi                                                                   |
+| --------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| POS       | `src/lib/server/checkout/`                                         | loader, financials, fingerprint, statement builder, `checkoutUseCase` |
+| Arsip     | `src/lib/server/archiveService.ts` + `archiveUseCase.ts`           | klaim/lease/guard + orkestrasi                                        |
+| AI        | `src/lib/server/ai/`                                               | gateway, use case, prompts, reportData                                |
+| Pajak     | `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts`          | PP 55/2022, YTD 500jt                                                 |
+| Laporan   | `src/lib/server/reportQueries.ts`                                  | agregasi + paritas arsip                                              |
+| Tenant    | `src/lib/server/branchResolver.ts`, `apiAuth.ts`                   | `BranchContext`, session scope                                        |
+| Kesehatan | `src/lib/server/dataHealth.ts`                                     | detector orphan/stok negatif                                          |
+| Offline   | `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts` | replay idempoten                                                      |
+| Uang      | `src/lib/utils/currency.ts`, `checkout/utils.ts`                   | `normalizeMoney`, `roundMoney`                                        |
+
+## 4. Kontrak yang TIDAK BOLEH dilanggar
+
+1. **Uang**: semua nominal tulis lewat `normalizeMoney`/`roundMoney`. Jangan
+   aritmetika float mentah. Jangan migrasi tipe kolom tanpa ADR + backup.
+2. **Idempotency**: `(cabang_id, idempotency_key)` unik. Retry = satu mutasi.
+   Fingerprint beda + key sama = 409 tanpa mutasi.
+3. **Cabang**: use case kritis menerima `BranchContext` (dari
+   `requireSessionBranch`), bukan string mentah. Tiap query tenant wajib
+   predicate `cabang_id` (`test:tenant-scope` menjaganya).
+4. **Arsip**: klaim atomik dulu, snapshot R2 + readback dulu, hapus exact ID
+   dalam batch. Konflik = seluruh batch gagal, ledger utuh.
+5. **Restore**: preflight seluruh field bisnis + guard atomik apply.
+6. **Offline replay**: kontrak queue IndexedDB backward-compatible. Ubah
+   kontrak = tes kompatibilitas dulu.
+7. **Receipt**: snapshot permanen saat commit; cetak ulang tidak boleh berubah
+   saat katalog diedit.
+8. **Error code**: `code: 'X'` adalah kontrak stabil (registry di
+   `error-code-contract-tests.ts`). Tambah/hapus = review kompatibilitas.
+9. **AI eksternal**: semua panggilan lewat `aiGateway` (timeout + fallback +
+   typed error). Key tidak pernah masuk pesan error/log.
+10. **Observability/realtime gagal** = commit tetap sah; jangan jadikan outage source.
+
+## 5. Aturan kode
+
+- TypeScript ketat: tanpa `any` baru (cap dijaga `test:maintainability`).
+- Tanpa `catch {}` baru tanpa alasan best-effort eksplisit.
+- Tanpa import DB langsung dari route baru (allowlist dijaga test).
+- Tanpa secret/kredensial/dump data di kode, log, argv, fixture, atau repo.
+- Tanpa migrasi destruktif tanpa preflight + backup + panduan rollback.
+- Pesan error Indonesia untuk user; log teknis boleh Inggris.
+- Komentar menjelaskan KENAPA, bukan mengulang kode. Hapus komentar basi
+  yang disentuh perubahanmu.
+
+## 6. Aturan test
+
+- Bug dulu direproduksi dengan tes yang gagal beralasan, baru diperbaiki.
+- Tes baru deterministik: tanpa model berbayar, tanpa production, tanpa
+  tanggal mengambang (bekukan `now`), tanpa hash atas output locale-dependent.
+- Baris DB dari SQLite adalah null-prototype: normalisasi sebelum `deepEqual`.
+- Dilarang menurunkan assertion, menambah skip, atau retry buta agar hijau.
+- File baru: `src/tests/<domain>-tests.ts` + script `test:<domain>` di
+  `package.json` + rantai `test:unit` + step CI.
+
+## 7. Aturan commit/PR/rilis (tanpa pengecualian)
+
+- Satu commit = satu tujuan + satu fase. Dapat di-revert mandiri.
+- Format pesan: `fix|feat|refactor|test|docs|chore(scope): hasil`.
+- Jangan campur format massal dengan perubahan perilaku.
+- Jangan push secret, `.env`, state database, backup, atau artifact runtime
+  (`build-artifacts.json`, `code-quality-report.md` sudah gitignored).
+- Rilis hanya via preflight + artifact terverifikasi + CI hijau + runbook.
+  Dilarang deploy dari output workstation tanpa provenance.
+
+## 8. Definition of Done per task
+
+- [ ] Kontrak perilaku dicatat sebelum diubah; reproduksi gagal beralasan.
+- [ ] Implementasi minimal tanpa workaround tersembunyi.
+- [ ] Tes positif + negatif + failure path (+ concurrency/idempotency/cabang
+      bila menyentuh data kritis).
+- [ ] Gate §1 yang relevan hijau lokal DENGAN exit code tercatat.
+- [ ] `git diff --check` bersih; diff direview untuk secret/scope creep.
+- [ ] Dokumentasi/runbook diperbarui bila perilaku/contract berubah.
+- [ ] Commit atomik; CI remote pada SHA yang sama hijau.
+- [ ] Batas bukti ditulis jujur (lokal vs workerd vs CI vs smoke operator).
