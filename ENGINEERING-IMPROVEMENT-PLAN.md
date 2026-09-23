@@ -764,8 +764,9 @@ BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
   — 3/3 shard PASS + manifest verified + file COMPLETE.
 - Restore drill lokal (`d1:restore:drill`, baru): Berau 22 tabel/825 rows,
   Balikpapan 22 tabel/1655 rows, Samarinda 23 tabel/18671 rows — PASS semua.
-- Catatan data: `buku_kas`/`transaksi_kasir` 0 di semua shard (transaksi lama
-  kemungkinan sudah diarsip ke R2); `request_metrics` Samarinda 16.603 rows.
+- Catatan data: `buku_kas`/`transaksi_kasir` 0 di semua shard (dikonfirmasi
+  pemilik: transaksi lama memang sudah diarsip ke R2); `request_metrics`
+  Samarinda 16.603 rows.
 - Sisa operator: migrasi live, dispatch Deploy, smoke cabang, printer fisik.
 
 ### Prasyarat mutlak
