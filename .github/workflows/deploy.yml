@@ -10,12 +10,18 @@ on:
         description: 'true = hanya verifikasi manifest, false = deploy betulan'
         required: true
         default: 'true'
+      ci_run_id:
+        description: ID angka CI run hijau pemilik artifact (lihat URL run CI)
+        required: true
 
 jobs:
   verify:
     name: Verify Release Artifact
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
@@ -26,6 +32,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: release-${{ inputs.sha }}
+          run-id: ${{ inputs.ci_run_id }}
 
       - name: Verify Artifact Provenance
         env:
@@ -39,6 +46,9 @@ jobs:
     needs: [verify]
     if: inputs.dry_run == 'false'
     environment: production
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
@@ -63,6 +73,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: release-${{ inputs.sha }}
+          run-id: ${{ inputs.ci_run_id }}
 
       - name: Verify Artifact Provenance
         env:
