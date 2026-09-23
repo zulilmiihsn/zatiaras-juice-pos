@@ -738,6 +738,26 @@ Membuktikan sistem dapat dirilis dan dipulihkan, bukan hanya dibangun.
 - [ ] Verifikasi realtime antar dua browser untuk setiap group cabang.
 - [ ] Catat rollback point, artifact SHA, backup manifest, migration result, dan operator.
 
+### Evidence Fase 7-sebagian (siap dieksekusi, BLOCKED operator)
+
+Dilakukan tanpa menyentuh production (agen dilarang mutasi produksi):
+
+- `docs/OPERATOR-RUNBOOK.md` baru: prosedur 10 langkah (prasyarat go/no-go,
+  backup + verify, restore drill non-prod, schema diff, migrasi live
+  first-fail-stop, deploy via workflow, smoke OPS-T01–T14, printer,
+  monitoring, trigger, release record).
+- Dry-run migrasi lokal: 30/30 checksum manifest cocok (`migrate-production.mjs`
+  tanpa `--apply`).
+- Fail-closed terverifikasi: `d1-backup.mjs` menolak tanpa output-dir;
+  `rollback-migration.mjs` menampilkan usage aman tanpa eksekusi.
+- Seluruh P0 kode (Fase 1–6) completed; CI hijau; artifact immutable tersedia.
+
+BLOCKED — butuh operator manusia (kredensial + perangkat fisik):
+
+- Backup/restore/migrasi production, dispatch workflow Deploy, smoke cabang,
+  printer fisik, dan release record. Jangan klaim siap produksi sebelum ini
+  dieksekusi dan dicatat sesuai runbook.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
