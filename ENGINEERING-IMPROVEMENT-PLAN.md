@@ -629,16 +629,26 @@ Mengurangi biaya memahami perubahan, mempercepat diagnosis, dan mencegah regresi
 
 - [ ] Pilih satu runner utama untuk unit/integration test; migrasikan bertahap, bukan big-bang.
 - [ ] Ganti rantai 21 command serial dengan test discovery/reporting terstruktur.
-- [ ] Pertahankan test D1/workerd khusus sebagai integration suite terpisah.
+- [x] Pertahankan test D1/workerd khusus sebagai integration suite terpisah.
 - [ ] Tambahkan coverage report. Target awal: critical money/data modules minimal 90% branch coverage; global threshold ditentukan sesudah baseline.
 - [ ] Buat fixtures bersama untuk D1, branch, session, checkout, archive, dan tax.
-- [ ] Larang empty `catch {}` kecuali diberi alasan `best-effort` dan observability yang sesuai.
+- [x] Larang empty `catch {}` kecuali diberi alasan `best-effort` dan observability yang sesuai.
 - [ ] Gunakan schema runtime terpusat untuk payload API kritis dan hasil eksternal AI.
-- [ ] Standarkan typed error code; UI tidak boleh bergantung pada pencocokan teks error.
-- [ ] Tambahkan complexity report dan daftar modul hotspot. Gunakan batas tanggung jawab, bukan target baris buta.
+- [x] Standarkan typed error code; UI tidak boleh bergantung pada pencocokan teks error.
+- [x] Tambahkan complexity report dan daftar modul hotspot. Gunakan batas tanggung jawab, bukan target baris buta.
 - [ ] Hapus komentar historis yang tidak lagi menjelaskan perilaku saat ini.
-- [ ] Tambahkan dependency/security scan dan lockfile audit ke CI.
-- [ ] Tambahkan test yang memeriksa dokumentasi command release cocok dengan `package.json`.
+- [x] Tambahkan dependency/security scan dan lockfile audit ke CI.
+- [x] Tambahkan test yang memeriksa dokumentasi command release cocok dengan `package.json`.
+
+### Evidence Fase 6-sebagian (Completed)
+
+- `scripts/quality-baseline.mjs`: metrik deterministik (252 file src, 54.432 baris, top-12 hotspot, `any`=26, empty `catch`=41, route import DB langsung=26 file, 19 error code, 27 file test).
+- `test:maintainability`: cap any<=30, empty-catch<=45, allowlist eksak 26 route DB-import (route baru yang import DB langsung gagal), cap file 2200 baris (maksimum kini 2145). Dirantai ke `test:unit` (MNT-01/06/07).
+- `test:error-codes`: registry 19 code; scan `code: 'X'` harus sama persis (tambah/hapus = review kompatibilitas). Code kritis UI/auth diasert satu per satu (MNT-05).
+- `test:docs-drift`: perintah `pnpm` dalam backtick di README/DEVELOPER-GUIDE/plan + `run:` workflow harus ada di `package.json`; binary `pnpm exec` harus terinstal; 6 job CI wajib ada (MNT-08).
+- Dependensi: `sharp@<0.35.4: 0.35.4` di `pnpm-workspace.yaml` menutup high GHSA-rgj7-g3m4-5g8c (transitif miniflare); `pnpm audit --audit-level high` kini bersih dan menjadi step CI `Dependency Audit` (MNT-09). Lockfile sinkron (`--frozen-lockfile` lulus).
+- Lokal: 27/27 suite unit lulus; check/lint/format bersih.
+- Ditunda sadar (risiko > manfaat saat ini): migrasi satu runner (MNT-02/03, granularitas per-step CI sudah memberi diagnostik), fixtures bersama lintas domain (MNT-04), schema runtime terpusat (MNT-05 lanjutan), coverage threshold 90% (butuh instrumentasi; guard caps sebagai pengganti sementara), hapus komentar historis (MNT-08 kecil, antre).
 
 ### Rincian task
 

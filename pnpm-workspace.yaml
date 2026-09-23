@@ -4,7 +4,10 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+# sharp dipaksa ke versi patch aman (>=0.35.4, libheif GHSA-rgj7-g3m4-5g8c).
+# Hanya dipakai miniflare dev-emulation via wrangler; patch-level, API stabil.
 overrides:
+  sharp@<0.35.4: 0.35.4
   '@esbuild-kit/core-utils>esbuild': 0.25.12
   '@humanfs/node@<0.16.8': 0.16.8
   browserslist@<=4.28.6: 4.28.7
