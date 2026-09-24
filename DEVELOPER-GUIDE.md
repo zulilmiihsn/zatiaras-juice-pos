@@ -52,6 +52,8 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 2. **Pembayaran (`/pos/bayar`)**: `bayarState.svelte.ts` memilih metode bayar & mengisi nominal uang tunai.
 3. **Kirim Transaksi (`POST /api/pos/transaction`)**:
    - Validasi runtime `body.mode` (`'online'` atau `'offline_replay'`).
+   - Baca `stock_policy` cabang: mode `ignored` melewati seluruh mutasi inventaris tetapi HPP tetap dihitung.
+   - Replay offline membawa token epoch; replay basi dikarantina (HTTP 428) untuk review pemilik.
    - Cek `(cabang_id, idempotency_key)`: jika sudah ada, kembalikan `receipt_snapshot` lama tanpa mutasi ulang stok.
    - Deduksi stok bahan sesuai resep produk secara atomik.
    - Catat jurnal kas masuk di `buku_kas` & simpan `receipt_snapshot`.

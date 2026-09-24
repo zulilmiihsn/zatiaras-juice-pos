@@ -115,7 +115,21 @@ Checksum backup/artifact mismatch; schema drift; migrasi satu shard gagal;
 login/isolasi cabang gagal; selisih uang/pajak/stok/summary/receipt; replay
 duplikat; realtime lintas cabang; artifact SHA tak terbukti.
 
-## 10. Release record (wajib diisi tiap rilis)
+## 10. Toggle monitoring stok (operasi cabang)
+
+- Perubahan mode hanya oleh pemilik cabang lewat `/pengaturan/pemilik/stok`.
+  Rollout gate `STOCK_POLICY_ROLLOUT_BRANCHES` membatasi cabang yang tombolnya aktif.
+- Sebelum menonaktifkan: pastikan antrean offline semua perangkat cabang kosong
+  (perangkat online + replay selesai). Sistem tidak dapat membuktikan IndexedDB
+  kosong; antrean sisa akan dikarantina dan butuh persetujuan pemilik (HTTP 428).
+- Aktivasi ulang wajib rekonsiliasi fisik di halaman yang sama: mulai job, isi
+  seluruh item, simpan, selesaikan review antrean, lalu finalisasi. Tanpa ini
+  server menolak (409).
+- Rollback aplikasi ke versi lama DILARANG selama ada cabang `ignored`: aplikasi
+  lama tidak mengenal policy dan akan mengurangi stok lagi. Kembalikan semua
+  cabang ke `tracked` dulu (via versi baru + rekonsiliasi), baru rollback.
+
+## 11. Release record (wajib diisi tiap rilis)
 
 Commit SHA, artifact SHA + checksum manifest, link CI, manifest backup +
 hasil verify/restore drill, diff schema + hasil migrasi per shard, checklist

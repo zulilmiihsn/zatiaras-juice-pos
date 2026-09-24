@@ -11,6 +11,7 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 - Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
 - Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
 - PWA untuk instalasi perangkat. Mode offline terbatas pada alur POS yang memakai katalog tersimpan dan antrean transaksi di IndexedDB; antrean diputar ulang saat koneksi kembali.
+- Monitoring stok opsional per cabang. Pemilik dapat menonaktifkan monitoring lewat `/pengaturan/pemilik/stok`; POS tetap berjualan tanpa memeriksa atau mengurangi stok, sedangkan resep dan HPP tetap dihitung. Aktivasi ulang wajib rekonsiliasi fisik.
 - Notifikasi perubahan per cabang melalui WebSocket. Klien memuat ulang data terkait ketika menerima event; jalur ini bukan pengganti penyimpanan transaksi di D1.
 
 ## Arsitektur ringkas
