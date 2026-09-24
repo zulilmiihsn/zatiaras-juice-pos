@@ -239,6 +239,13 @@
 			"when": 1790467200000,
 			"tag": "0033_offline_stock_reviews",
 			"breakpoints": true
+		},
+		{
+			"idx": 34,
+			"version": "6",
+			"when": 1790553600000,
+			"tag": "0034_stock_feature_rollout",
+			"breakpoints": true
 		}
 	]
 }

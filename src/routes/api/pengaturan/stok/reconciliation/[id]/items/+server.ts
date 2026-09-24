@@ -15,7 +15,7 @@ export const PUT: RequestHandler = async ({ request, params, platform, locals })
 	if (!params.id?.trim()) throw kitError(400, 'ID job rekonsiliasi wajib diisi');
 	const body = parseCountReconciliationBody(await request.json().catch(() => null));
 	const branch = requireSessionBranch(locals, body.branch);
-	requireReconciliationRollout(platform, branch);
+	await requireReconciliationRollout(platform, branch);
 	try {
 		const job = await updateBranchStockReconciliationCounts(
 			platform,

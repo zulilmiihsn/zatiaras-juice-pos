@@ -290,6 +290,18 @@ export const offlineStockReviews = sqliteTable(
 	]
 );
 
+export const stockFeatureRollout = sqliteTable(
+	'stock_feature_rollout',
+	{
+		feature: text('feature').primaryKey(),
+		branches: text('branches').notNull().default(''),
+		updated_at: text('updated_at').notNull()
+	},
+	(table) => [
+		check('chk_stock_feature_rollout_updated_at', sql`length(trim(${table.updated_at})) > 0`)
+	]
+);
+
 export const resepProduk = sqliteTable(
 	'resep_produk',
 	{

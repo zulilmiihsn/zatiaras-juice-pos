@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	requireReconciliationOwner(session.role);
 	const body = parseCreateReconciliationBody(await request.json().catch(() => null));
 	const branch = requireSessionBranch(locals, body.branch);
-	requireReconciliationRollout(platform, branch);
+	await requireReconciliationRollout(platform, branch);
 	try {
 		const job = await createBranchStockReconciliation(
 			platform,

@@ -335,14 +335,15 @@ Tanggung jawab helper:
 
 ### 9.4 Rollout Gate
 
-`STOCK_POLICY_ROLLOUT_BRANCHES` hanya mengontrol ketersediaan tombol perubahan mode, bukan mode bisnis checkout.
+Allowlist pilot disimpan di D1 (`stock_feature_rollout`, feature `stock_monitoring`), bukan env var. Env dashboard terbukti tidak sampai ke runtime Pages sehingga gate wajib berbasis database. Fail-closed: row hilang atau error baca = tidak ada cabang diizinkan.
 
-- Format adalah daftar branch ID exact atau `*` setelah general availability.
+- Nilai adalah daftar branch ID exact dipisah koma, atau `*` setelah general availability. Default migrasi: string kosong (tertutup).
+- Operator mengubah langsung via SQL (`UPDATE stock_feature_rollout SET branches = '...' WHERE feature = 'stock_monitoring'`); tanpa redeploy.
 - GET mengembalikan `can_manage_policy`.
-- PUT dan endpoint rekonsiliasi menolak branch di luar allowlist dengan 403.
+- PUT dan endpoint rekonsiliasi/review menolak branch di luar allowlist dengan 403.
 - Checkout tetap membaca row policy yang sudah ada walau branch dikeluarkan dari allowlist.
 - Kasir tidak pernah menerima nilai allowlist mentah.
-- Deploy pilot hanya mengizinkan satu cabang.
+- Pilot hanya mengizinkan satu cabang.
 
 ## 10. Kontrak API
 
@@ -1199,7 +1200,7 @@ Daftar ini menjadi panduan awal. Implementasi boleh menemukan file tambahan, tet
 - Workflow CI jika script baru perlu step eksplisit.
 - `README.md` dan `DEVELOPER-GUIDE.md` setelah perilaku diimplementasikan.
 - `docs/OPERATOR-RUNBOOK.md` untuk rollout, rollback, dan rekonsiliasi.
-- Config dan type binding `STOCK_POLICY_ROLLOUT_BRANCHES` untuk pilot allowlist.
+- Migrasi `0034_stock_feature_rollout.sql` dan helper `loadStockRolloutBranches` untuk pilot allowlist D1.
 
 ## 19. Tahapan Implementasi
 
@@ -1636,7 +1637,7 @@ Urutan rollout:
 1. Backup seluruh shard D1 dan verifikasi manifest.
 2. Terapkan migrasi additive pada setiap binding secara manual.
 3. Verifikasi schema dan trigger setiap binding.
-4. Deploy kode dengan default virtual `tracked` dan `STOCK_POLICY_ROLLOUT_BRANCHES` hanya berisi cabang pilot.
+4. Deploy kode dengan default virtual `tracked`, lalu isi allowlist pilot via SQL per shard (tanpa redeploy): `UPDATE stock_feature_rollout SET branches = '<cabang-pilot>' WHERE feature = 'stock_monitoring'`.
 5. Jangan langsung menonaktifkan cabang mana pun.
 6. Warm-up perangkat POS agar catalog baru tersimpan.
 7. Minta acknowledgement perangkat terdaftar; antrean yang tidak dapat dibuktikan kosong diperlakukan sebagai potensi quarantine.

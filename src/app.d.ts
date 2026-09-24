@@ -34,7 +34,6 @@ declare global {
 				POS_PRICE_SIGNING_KEY_ID?: string;
 				POS_PRICE_SIGNING_KEY_PREVIOUS?: string;
 				POS_PRICE_SIGNING_KEY_PREVIOUS_ID?: string;
-				STOCK_POLICY_ROLLOUT_BRANCHES?: string;
 			};
 		}
 	}

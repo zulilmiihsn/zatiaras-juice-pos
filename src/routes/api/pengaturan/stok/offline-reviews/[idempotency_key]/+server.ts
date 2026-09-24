@@ -1,6 +1,6 @@
 import { error as kitError, json } from '@sveltejs/kit';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
-import { stockPolicyRolloutAllows } from '$lib/server/stockPolicy';
+import { branchStockRolloutAllows } from '$lib/server/stockPolicy';
 import { resolveBranchOfflineReview } from '$lib/server/stockOfflineReview';
 import type { RequestHandler } from './$types';
 
@@ -30,7 +30,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals, params })
 		throw kitError(400, 'Action harus approve_current atau withdraw');
 	}
 	const branch = requireSessionBranch(locals, body.branch as string);
-	if (!stockPolicyRolloutAllows(platform, branch)) {
+	if (!(await branchStockRolloutAllows(platform, branch))) {
 		throw kitError(403, 'Review replay offline belum tersedia untuk cabang ini');
 	}
 	const idempotencyKey = String(params.idempotency_key || '');

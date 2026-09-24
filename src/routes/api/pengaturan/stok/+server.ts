@@ -1,8 +1,8 @@
 import { error as kitError, json } from '@sveltejs/kit';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import {
+	branchStockRolloutAllows,
 	loadBranchStockPolicy,
-	stockPolicyRolloutAllows,
 	StockPolicyConflictError,
 	updateBranchStockPolicy,
 	type StockPolicyMode
@@ -63,10 +63,11 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	validateQuery(url);
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const policy = await loadBranchStockPolicy(platform, branch);
+	const rolloutOpen = await branchStockRolloutAllows(platform, branch);
 	return json({
 		ok: true,
 		data: {
-			can_manage_policy: session.role === 'pemilik' && stockPolicyRolloutAllows(platform, branch),
+			can_manage_policy: session.role === 'pemilik' && rolloutOpen,
 			...policy
 		}
 	});
@@ -77,7 +78,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	requireExactRole(session.role, ['pemilik']);
 	const parsed = parsePutBody(await request.json().catch(() => null));
 	const branch = requireSessionBranch(locals, parsed.branch);
-	if (!stockPolicyRolloutAllows(platform, branch)) {
+	if (!(await branchStockRolloutAllows(platform, branch))) {
 		throw kitError(403, 'Perubahan monitoring stok belum tersedia untuk cabang ini');
 	}
 

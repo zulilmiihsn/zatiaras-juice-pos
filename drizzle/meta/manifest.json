@@ -32,5 +32,6 @@
 	"0030_stock_policy.sql": "5d7929a2e501ab2439130d595af20809b2c3aa6e7d4727c56ff15f042ac79eb5",
 	"0031_stock_policy_checkout_ledger.sql": "a4408bf41015b4cc5ba7678ff82ce35ed274160d18ba3e9b8405888f2215f4f8",
 	"0032_stock_reconciliation.sql": "470d2898deaa9e47fe54c65b0cc24728a5ba4fd433140b41713ae7539d2b1803",
-	"0033_offline_stock_reviews.sql": "51594d2b1ed23825ad066ffe04b6988d8d9728217942c224ee12126bac30b590"
+	"0033_offline_stock_reviews.sql": "51594d2b1ed23825ad066ffe04b6988d8d9728217942c224ee12126bac30b590",
+	"0034_stock_feature_rollout.sql": "0bb3bea77f76aaa6829b9ad18466c98b644f7a207bc1e7de508e63c304c9ba7b"
 }

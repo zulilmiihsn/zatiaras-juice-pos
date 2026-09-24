@@ -1,5 +1,6 @@
 import { error as kitError } from '@sveltejs/kit';
-import { stockPolicyRolloutAllows } from '$lib/server/stockPolicy';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { branchStockRolloutAllows } from '$lib/server/stockPolicy';
 import {
 	StockReconciliationError,
 	type StockReconciliationCountInput
@@ -90,11 +91,11 @@ export function requireReconciliationOwner(role: string): void {
 	if (role !== 'pemilik') throw kitError(403, 'Role tidak memiliki akses');
 }
 
-export function requireReconciliationRollout(
+export async function requireReconciliationRollout(
 	platform: App.Platform | undefined,
-	branch: string
-): void {
-	if (!stockPolicyRolloutAllows(platform, branch)) {
+	branch: BranchContext
+): Promise<void> {
+	if (!(await branchStockRolloutAllows(platform, branch))) {
 		throw kitError(403, 'Rekonsiliasi stok belum tersedia untuk cabang ini');
 	}
 }

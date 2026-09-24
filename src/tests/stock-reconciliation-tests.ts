@@ -67,8 +67,7 @@ function routeEvent(
 		locals: { authSession: session(role, branch) },
 		platform: {
 			env: {
-				DB_SAMARINDA_GROUP: db,
-				STOCK_POLICY_ROLLOUT_BRANCHES: options.rollout ?? 'samarinda,samarinda2'
+				DB_SAMARINDA_GROUP: db
 			}
 		}
 	};
@@ -86,6 +85,13 @@ function countInputs(
 }
 
 try {
+	await db
+		.prepare(
+			`INSERT INTO stock_feature_rollout (feature, branches, updated_at)
+			 VALUES ('stock_monitoring', 'samarinda,samarinda2', '2026-09-24T00:00:00.000Z')
+			 ON CONFLICT(feature) DO UPDATE SET branches = excluded.branches`
+		)
+		.run();
 	await db.batch([
 		db.prepare(
 			`INSERT INTO produk (
@@ -396,18 +402,20 @@ try {
 		() => CREATE(routeEvent('POST', 'pemilik', { branch: 'samarinda2' }) as never),
 		403
 	);
+	await db
+		.prepare(
+			"UPDATE stock_feature_rollout SET branches = 'samarinda' WHERE feature = 'stock_monitoring'"
+		)
+		.run();
 	await expectHttpStatus(
-		() =>
-			CREATE(
-				routeEvent(
-					'POST',
-					'pemilik',
-					{ branch: 'samarinda2' },
-					{ branch: 'samarinda2', rollout: 'samarinda' }
-				) as never
-			),
+		() => CREATE(routeEvent('POST', 'pemilik', { branch: 'samarinda2' }) as never),
 		403
 	);
+	await db
+		.prepare(
+			"UPDATE stock_feature_rollout SET branches = 'samarinda,samarinda2' WHERE feature = 'stock_monitoring'"
+		)
+		.run();
 
 	const createResponse = await CREATE(
 		routeEvent('POST', 'pemilik', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never

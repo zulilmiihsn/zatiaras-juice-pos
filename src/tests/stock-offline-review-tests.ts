@@ -198,9 +198,16 @@ try {
 	assert.equal(catalogEpoch.revision, 0);
 
 	// Review API: owner list, kasir denied, approve via route, withdraw via route.
+	await db
+		.prepare(
+			`INSERT INTO stock_feature_rollout (feature, branches, updated_at)
+			 VALUES ('stock_monitoring', 'samarinda', '2026-09-24T00:00:00.000Z')
+			 ON CONFLICT(feature) DO UPDATE SET branches = excluded.branches`
+		)
+		.run();
 	const listResponse = (await REVIEWS_GET({
 		url: new URL('https://test.invalid/api/pengaturan/stok/offline-reviews'),
-		platform: { env: { DB_SAMARINDA_GROUP: db, STOCK_POLICY_ROLLOUT_BRANCHES: 'samarinda' } },
+		platform: { env: { DB_SAMARINDA_GROUP: db } },
 		locals: { authSession: session('pemilik') }
 	} as unknown as Parameters<typeof REVIEWS_GET>[0])) as Response;
 	assert.equal(listResponse.status, 200);
@@ -208,7 +215,7 @@ try {
 		(async () =>
 			REVIEWS_GET({
 				url: new URL('https://test.invalid/api/pengaturan/stok/offline-reviews'),
-				platform: { env: { DB_SAMARINDA_GROUP: db, STOCK_POLICY_ROLLOUT_BRANCHES: 'samarinda' } },
+				platform: { env: { DB_SAMARINDA_GROUP: db } },
 				locals: { authSession: session('kasir') }
 			} as unknown as Parameters<typeof REVIEWS_GET>[0]))()
 	);
@@ -219,7 +226,7 @@ try {
 			body: JSON.stringify({ branch: 'samarinda', expected_revision: 2, action: 'approve_current' })
 		}),
 		params: { idempotency_key: 'offline-key-1' },
-		platform: { env: { DB_SAMARINDA_GROUP: db, STOCK_POLICY_ROLLOUT_BRANCHES: 'samarinda' } },
+		platform: { env: { DB_SAMARINDA_GROUP: db } },
 		locals: { authSession: session('pemilik') }
 	} as unknown as Parameters<typeof REVIEW_PUT>[0])) as Response;
 	assert.equal(approveResponse.status, 200);
@@ -230,7 +237,7 @@ try {
 			body: JSON.stringify({ branch: 'samarinda', expected_revision: 3, action: 'withdraw' })
 		}),
 		params: { idempotency_key: 'offline-key-1' },
-		platform: { env: { DB_SAMARINDA_GROUP: db, STOCK_POLICY_ROLLOUT_BRANCHES: 'samarinda' } },
+		platform: { env: { DB_SAMARINDA_GROUP: db } },
 		locals: { authSession: session('pemilik') }
 	} as unknown as Parameters<typeof REVIEW_PUT>[0])) as Response;
 	assert.equal(withdrawResponse.status, 200);

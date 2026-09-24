@@ -118,7 +118,10 @@ duplikat; realtime lintas cabang; artifact SHA tak terbukti.
 ## 10. Toggle monitoring stok (operasi cabang)
 
 - Perubahan mode hanya oleh pemilik cabang lewat `/pengaturan/pemilik/stok`.
-  Rollout gate `STOCK_POLICY_ROLLOUT_BRANCHES` membatasi cabang yang tombolnya aktif.
+  Rollout gate berbasis D1 (`stock_feature_rollout`, feature `stock_monitoring`)
+  membatasi cabang yang tombolnya aktif. Jangan pakai env var: env dashboard
+  tidak sampai ke runtime Pages. Ubah via SQL per shard, tanpa redeploy:
+  `UPDATE stock_feature_rollout SET branches = '<cabang>' WHERE feature = 'stock_monitoring'`.
 - Sebelum menonaktifkan: pastikan antrean offline semua perangkat cabang kosong
   (perangkat online + replay selesai). Sistem tidak dapat membuktikan IndexedDB
   kosong; antrean sisa akan dikarantina dan butuh persetujuan pemilik (HTTP 428).
