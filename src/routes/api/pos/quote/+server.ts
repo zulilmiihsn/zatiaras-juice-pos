@@ -95,6 +95,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			recipesByProduct: new Map(),
 			stockTrackingAvailable: false,
 			ingredientTrackingAvailable: false,
+			inventoryApplication: 'skip_policy_ignored',
 			stockDeductions,
 			ingredientDeductions,
 			bukuKasId: 'quote',

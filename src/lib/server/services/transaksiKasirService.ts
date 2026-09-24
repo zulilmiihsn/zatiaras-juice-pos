@@ -93,7 +93,8 @@ export async function voidTransaksiKasir(
 	const headers = ((
 		await rawDb
 			.prepare(
-				`SELECT id, transaction_id, idempotency_key, request_fingerprint, revision
+				`SELECT id, transaction_id, idempotency_key, request_fingerprint, revision,
+					stock_policy_mode, restored_from_archive
 				 FROM buku_kas WHERE cabang_id = ? AND transaction_id = ? AND sumber = 'pos'`
 			)
 			.bind(branch, transactionId)
@@ -104,6 +105,8 @@ export async function voidTransaksiKasir(
 		idempotency_key?: string | null;
 		request_fingerprint?: string | null;
 		revision?: number | null;
+		stock_policy_mode?: 'tracked' | 'ignored' | null;
+		restored_from_archive?: number | boolean | null;
 	}>;
 	if (headers.length === 0) {
 		const marker = (await rawDb
@@ -118,6 +121,9 @@ export async function voidTransaksiKasir(
 	if (headers.length > 1) throw kitError(409, 'Transaksi legacy tidak konsisten');
 	const header = headers[0];
 	const expectedRevision = Number(header.revision ?? 0);
+	const restoredFromArchive =
+		header.restored_from_archive === 1 || header.restored_from_archive === true;
+	const usesLegacyProductFallback = header.stock_policy_mode == null && !restoredFromArchive;
 
 	const itemRows = ((
 		await rawDb
@@ -141,15 +147,28 @@ export async function voidTransaksiKasir(
 		throw kitError(409, 'Transaksi POS tidak konsisten dengan buku kas');
 	}
 
-	const mutasiRows = ((
-		await rawDb
-			.prepare(
-				`SELECT bahan_id, delta_jumlah FROM bahan_mutasi
-				 WHERE cabang_id = ? AND referensi_id = ? AND sumber IN ('pos', 'pos_transaction')`
-			)
-			.bind(branch, transactionId)
-			.all()
-	).results || []) as Array<{ bahan_id: string; delta_jumlah: number }>;
+	const productMutationRows = restoredFromArchive
+		? []
+		: (((
+				await rawDb
+					.prepare(
+						`SELECT produk_id, delta_jumlah FROM produk_mutasi
+						 WHERE cabang_id = ? AND referensi_id = ? AND sumber = 'pos'`
+					)
+					.bind(branch, transactionId)
+					.all()
+			).results || []) as Array<{ produk_id: string; delta_jumlah: number }>);
+	const mutasiRows = restoredFromArchive
+		? []
+		: (((
+				await rawDb
+					.prepare(
+						`SELECT bahan_id, delta_jumlah FROM bahan_mutasi
+						 WHERE cabang_id = ? AND referensi_id = ? AND sumber IN ('pos', 'pos_transaction')`
+					)
+					.bind(branch, transactionId)
+					.all()
+			).results || []) as Array<{ bahan_id: string; delta_jumlah: number }>);
 
 	const now = new Date().toISOString();
 	const actor = session?.username || session?.userId || 'system';
@@ -159,17 +178,51 @@ export async function voidTransaksiKasir(
 		...summaryReversal.statements
 	];
 
-	for (const it of itemRows) {
-		if (!it.produk_id) continue;
+	for (const mutation of productMutationRows) {
+		const restore = -mutation.delta_jumlah;
 		statements.push(
 			rawDb
 				.prepare(
-					`UPDATE produk SET stok = COALESCE(stok, 0) + ?, updated_at = ?
-					 WHERE cabang_id = ? AND id = ? AND lacak_stok = 1
-					 AND EXISTS (SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?)`
+					`INSERT INTO produk_mutasi (
+						id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber,
+						referensi_id, dibuat_oleh, created_at
+					) VALUES (?, ?, ?,
+						CASE WHEN EXISTS (
+							SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?
+						) THEN ? ELSE 0 END,
+						COALESCE((SELECT stok FROM produk WHERE cabang_id = ? AND id = ?), 0) + ?,
+						'void', ?, ?, ?)`
 				)
-				.bind(it.jumlah, now, branch, it.produk_id, ...guardArgs)
+				.bind(
+					crypto.randomUUID(),
+					branch,
+					mutation.produk_id,
+					...guardArgs,
+					restore,
+					branch,
+					mutation.produk_id,
+					restore,
+					transactionId,
+					actor,
+					now
+				)
 		);
+	}
+
+	if (usesLegacyProductFallback) {
+		// Data sebelum provenance tidak punya ledger produk; fallback persisten tetap terisolasi di sini.
+		for (const it of itemRows) {
+			if (!it.produk_id) continue;
+			statements.push(
+				rawDb
+					.prepare(
+						`UPDATE produk SET stok = COALESCE(stok, 0) + ?, updated_at = ?
+						 WHERE cabang_id = ? AND id = ? AND lacak_stok = 1
+						 AND EXISTS (SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?)`
+					)
+					.bind(it.jumlah, now, branch, it.produk_id, ...guardArgs)
+			);
+		}
 	}
 
 	for (const m of mutasiRows) {
@@ -245,7 +298,19 @@ export async function voidTransaksiKasir(
 			.bind(branch, header.id, mutationToken)
 	);
 
-	const batchResults = (await rawDb.batch(statements)) as unknown;
+	let batchResults: unknown;
+	try {
+		batchResults = (await rawDb.batch(statements)) as unknown;
+	} catch (error) {
+		const marker = (await rawDb
+			.prepare(
+				`SELECT transaction_id FROM pos_void_markers WHERE cabang_id = ? AND transaction_id = ? LIMIT 1`
+			)
+			.bind(branch, transactionId)
+			.first()) as { transaction_id?: string } | null;
+		if (marker) return { ok: true, duplicate: true };
+		throw error;
+	}
 	if (batchClaimChanges(batchResults) === 0) {
 		const marker = (await rawDb
 			.prepare(
@@ -261,8 +326,12 @@ export async function voidTransaksiKasir(
 	await publish(platform, branch, 'buku_kas', 'delete', { transaction_id: transactionId });
 	await auditDataChange(rawDb, branch, session, 'transaksi_kasir', 'void', null, {
 		transaction_id: transactionId,
-		restored_products: itemRows.length,
-		restored_bahan: mutasiRows.length
+		restored_products: usesLegacyProductFallback
+			? itemRows.filter((item) => item.produk_id).length
+			: productMutationRows.length,
+		restored_bahan: mutasiRows.length,
+		legacy_product_fallback: usesLegacyProductFallback,
+		restored_from_archive: restoredFromArchive
 	});
 
 	return { ok: true };

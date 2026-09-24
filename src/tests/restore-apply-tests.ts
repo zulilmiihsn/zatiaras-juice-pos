@@ -60,6 +60,10 @@ try {
 	await execute();
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 1);
 	assert.equal(
+		await db.prepare('SELECT restored_from_archive FROM buku_kas').first('restored_from_archive'),
+		1
+	);
+	assert.equal(
 		(await buildLaporanAggregate(db, 'samarinda', '2025-12-01', '2025-12-01')).summary.pendapatan,
 		40000
 	);
@@ -134,6 +138,14 @@ try {
 	assert.throws(
 		() => buildRestoreSql({ ...archive, buku_kas: [{ ...header, cabang_id: 'berau' }] }),
 		/Cabang/
+	);
+	assert.throws(
+		() =>
+			buildRestoreSql({
+				...archive,
+				buku_kas: [{ ...header, stock_policy_mode: 'ignored', stock_policy_revision: null }]
+			}),
+		/Pasangan policy/
 	);
 	console.log(
 		'restore-apply-tests: actual SQL normal/retry/full conflicts/preflight race/rollback/aggregates passed',

@@ -6,9 +6,7 @@ import {
 	recordErrorEvent,
 	recordRequestMetric
 } from '$lib/server/observability';
-
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const CSRF_EXEMPT_ROUTES = new Set(['/api/csrf', '/api/veriflogin', '/api/logout']);
+import { isCsrfProtectedRequest } from '$lib/server/csrfPolicy';
 
 function constantTimeEqual(left: string, right: string): boolean {
 	let mismatch = left.length ^ right.length;
@@ -36,10 +34,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.url.searchParams.get('branch')
 	);
 
-	const isCsrfProtected =
-		event.url.pathname.startsWith('/api/') &&
-		MUTATING_METHODS.has(event.request.method) &&
-		!CSRF_EXEMPT_ROUTES.has(event.url.pathname);
+	const isCsrfProtected = isCsrfProtectedRequest(event.url.pathname, event.request.method);
 
 	if (isCsrfProtected) {
 		const csrfCookie = event.cookies.get('zatiaras_csrf');

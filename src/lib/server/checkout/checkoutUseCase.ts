@@ -42,6 +42,14 @@ import { computeTransactionFingerprint } from './fingerprint';
 import type { StockDeductions, IngredientDeductions } from './types';
 import { PosPricingTokenError, verifyPosPricingToken } from '../posPricingToken';
 import { validateCheckoutPayload } from '$lib/utils/validation';
+import { loadStockPolicy } from '$lib/server/stockPolicy';
+import { verifyStockPolicyEpoch } from '$lib/server/stockPolicyEpoch';
+import {
+	ensurePendingReview,
+	getTransitionCount,
+	loadOfflineReview
+} from '$lib/server/stockOfflineReview';
+import type { InventoryApplication, StockReplayDisposition } from './types';
 
 export class CheckoutUseCaseError extends Error {
 	readonly status: number;
@@ -374,6 +382,83 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			}
 		};
 	}
+	const stockPolicy = await loadStockPolicy(db, branch);
+	let inventoryApplication: InventoryApplication =
+		stockPolicy.mode === 'tracked' ? 'apply' : 'skip_policy_ignored';
+	let replayDisposition: StockReplayDisposition = 'normal';
+
+	if (mode === 'offline_replay') {
+		const queuedAt = Number(body.queued_at);
+		let epochRevision: number | null = null;
+		if (typeof body.stock_policy_epoch_token === 'string' && body.stock_policy_epoch_token) {
+			try {
+				const epoch = await verifyStockPolicyEpoch(
+					platform?.env,
+					body.stock_policy_epoch_token,
+					branch
+				);
+				epochRevision = epoch.revision;
+			} catch {
+				epochRevision = null;
+			}
+		} else if (
+			typeof body.stock_policy_revision_at_queue === 'number' &&
+			Number.isInteger(body.stock_policy_revision_at_queue)
+		) {
+			epochRevision = body.stock_policy_revision_at_queue;
+		}
+		const transitions = await getTransitionCount(db, branch);
+		const tokenMatchesCurrent =
+			epochRevision !== null &&
+			epochRevision === stockPolicy.revision &&
+			(transitions > 0 || stockPolicy.revision === 0);
+		if (transitions === 0 && (epochRevision === null || epochRevision === 0)) {
+			replayDisposition = 'normal';
+		} else if (tokenMatchesCurrent) {
+			replayDisposition = 'normal';
+		} else if (stockPolicy.mode === 'ignored') {
+			replayDisposition = 'stale_to_ignored';
+			inventoryApplication = 'skip_policy_ignored';
+		} else {
+			const review = await loadOfflineReview(db, branch, idempotencyKey);
+			const fingerprintMatches = review?.request_fingerprint === requestFingerprint;
+			if (
+				review &&
+				fingerprintMatches &&
+				review.status === 'approved_current' &&
+				review.approved_policy_revision === stockPolicy.revision
+			) {
+				replayDisposition = 'owner_approved_current';
+				inventoryApplication = 'apply';
+			} else if (
+				review &&
+				fingerprintMatches &&
+				review.status === 'approved_after_recount' &&
+				review.approved_policy_revision === stockPolicy.revision
+			) {
+				replayDisposition = 'owner_approved_after_recount';
+				inventoryApplication = 'skip_reconciled_replay';
+			} else {
+				await ensurePendingReview(db, branch, {
+					idempotencyKey,
+					requestFingerprint,
+					queuedAt: Number.isFinite(queuedAt) ? queuedAt : Date.now(),
+					policyRevisionAtQueue: epochRevision,
+					currentPolicyRevision: stockPolicy.revision
+				});
+				throw new CheckoutUseCaseError(
+					428,
+					'Transaksi offline melewati perubahan kebijakan stok dan perlu ditinjau pemilik'
+				);
+			}
+		}
+		if (replayDisposition === 'stale_to_ignored') {
+			inventoryApplication = 'skip_policy_ignored';
+		}
+		if (replayDisposition === 'owner_approved_after_recount') {
+			inventoryApplication = 'skip_reconciled_replay';
+		}
+	}
 
 	const normalizedInputs = rawItems.map((item, index) => {
 		const jumlah = Number(item.jumlah);
@@ -469,6 +554,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			recipesByProduct,
 			stockTrackingAvailable,
 			ingredientTrackingAvailable,
+			inventoryApplication,
 			stockDeductions,
 			ingredientDeductions,
 			bukuKasId,
@@ -522,7 +608,10 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		requestFingerprint,
 		receiptSnapshot,
 		session,
-		capabilities
+		capabilities,
+		stockPolicy,
+		inventoryApplication,
+		replayDisposition
 	});
 
 	let d1Meta: string | null = null;
@@ -573,6 +662,12 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		const message = error instanceof Error ? error.message : String(error);
 		if (message.includes('TRANSACTION_VOIDED')) {
 			fail(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
+		}
+		if (message.includes('STOCK_POLICY_CONFLICT')) {
+			fail(412, 'Pengaturan stok berubah. Muat ulang lalu konfirmasi transaksi kembali.');
+		}
+		if (message.includes('STOCK_REVIEW_NOT_APPROVED')) {
+			fail(428, 'Transaksi offline melewati perubahan kebijakan stok dan perlu ditinjau pemilik');
 		}
 		if (message.includes('INSUFFICIENT_STOCK')) {
 			await recordErrorEvent(platform, branch, {
@@ -635,6 +730,10 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 				queuedAt: isOfflineReplay ? Number(body.queued_at) : null,
 				currentCatalogTotal,
 				priceVariance: totalAmount - currentCatalogTotal,
+				stockPolicyMode: stockPolicy.mode,
+				stockPolicyRevision: stockPolicy.revision,
+				inventoryApplication,
+				stockReplayDisposition: replayDisposition,
 				inventoryReconciliationRequired: isOfflineReplay,
 				stockDeductions: Object.fromEntries(stockDeductions),
 				ingredientDeductions: Object.fromEntries(ingredientDeductions)

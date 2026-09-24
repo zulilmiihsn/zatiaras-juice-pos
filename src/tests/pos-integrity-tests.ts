@@ -109,6 +109,7 @@ const pricedFromQuote = computeItemFinancials({
 	recipesByProduct: new Map(),
 	stockTrackingAvailable: false,
 	ingredientTrackingAvailable: false,
+	inventoryApplication: 'apply',
 	stockDeductions: new Map(),
 	ingredientDeductions: new Map(),
 	bukuKasId: 'kas-1',
@@ -138,6 +139,7 @@ const customPriced = computeItemFinancials({
 	recipesByProduct: new Map(),
 	stockTrackingAvailable: false,
 	ingredientTrackingAvailable: false,
+	inventoryApplication: 'apply',
 	stockDeductions: new Map(),
 	ingredientDeductions: new Map(),
 	bukuKasId: 'kas-2',
@@ -267,7 +269,7 @@ const statements = buildCheckoutStatements({
 	db: mockDb as any,
 	branch: 'samarinda',
 	items: [],
-	stockDeductions: new Map(),
+	stockDeductions: new Map([['p-1', { nama: 'Kerupuk', jumlah: 1 }]]),
 	ingredientDeductions: new Map([
 		['b-1', { nama: 'Jeruk', jumlah: 50, satuan: 'gram', products: ['Jus Jeruk'] }]
 	]),
@@ -289,7 +291,15 @@ const statements = buildCheckoutStatements({
 		idempotencyAvailable: true,
 		salesSummaryAvailable: false,
 		transactionSnapshotAvailable: true
-	}
+	},
+	stockPolicy: {
+		mode: 'tracked',
+		revision: 0,
+		disabled_at: null,
+		reconciled_at: null,
+		updated_at: null
+	},
+	inventoryApplication: 'apply'
 });
 
 const mutasiStmt = (statements as any[]).find((s) => s.sql.includes('INSERT INTO bahan_mutasi'));
@@ -307,5 +317,90 @@ assert.ok(
 );
 assert.ok(mutasiStmt.args.includes('tx-1'), 'binds must include transactionId as referensi_id');
 assert.ok(mutasiStmt.args.includes('Kasir 1'), 'binds must include dibuat_oleh');
+const productMutation = (statements as any[]).find((s) =>
+	s.sql.includes('INSERT INTO produk_mutasi')
+);
+assert.ok(productMutation, 'tracked checkout must insert product mutation');
+assert.ok(productMutation.sql.includes('VALUES'), 'product mutation must use VALUES');
+assert.equal(
+	(statements as any[]).some((s) => s.sql.includes('UPDATE produk SET stok')),
+	false,
+	'checkout must not update product stock directly'
+);
+assert.ok(
+	(statements as any[])[0].sql.includes('INSERT INTO buku_kas'),
+	'policy-guarded header must be first statement'
+);
+
+const recipeProduct: ProductRow = {
+	id: 'recipe-product',
+	nama: 'Jus Resep',
+	harga: 15_000,
+	stok: 0,
+	lacak_stok: false,
+	lacak_bahan: true,
+	is_active: true
+};
+const recipeAddOn: AddOnRow = {
+	id: 'recipe-addon',
+	nama: 'Jelly Resep',
+	harga: 2_000,
+	is_active: true,
+	bahan_id: 'b-addon',
+	jumlah_dasar_per_item: 5,
+	bahan_biaya_per_satuan: 100
+};
+const costingInput = {
+	input: {
+		source: {
+			product_id: recipeProduct.id,
+			jumlah: 2,
+			add_on_ids: [recipeAddOn.id]
+		},
+		productId: recipeProduct.id,
+		addOnIds: [recipeAddOn.id],
+		jumlah: 2
+	},
+	addOnsById: new Map([[recipeAddOn.id, recipeAddOn]]),
+	productsById: new Map([[recipeProduct.id, recipeProduct]]),
+	recipesByProduct: new Map([
+		[
+			recipeProduct.id,
+			[
+				{
+					produk_id: recipeProduct.id,
+					bahan_id: 'b-recipe',
+					bahan_name: 'Jeruk',
+					satuan: 'gram',
+					porsi: 'reguler',
+					jumlah_per_item: 10,
+					biaya_per_satuan: 200
+				}
+			]
+		]
+	]),
+	stockTrackingAvailable: true,
+	ingredientTrackingAvailable: true,
+	bukuKasId: 'bk-cost',
+	transactionId: 'tx-cost'
+};
+const trackedIngredients = new Map();
+const trackedCost = computeItemFinancials({
+	...costingInput,
+	inventoryApplication: 'apply',
+	stockDeductions: new Map(),
+	ingredientDeductions: trackedIngredients
+});
+const ignoredIngredients = new Map();
+const ignoredCost = computeItemFinancials({
+	...costingInput,
+	inventoryApplication: 'skip_policy_ignored',
+	stockDeductions: new Map(),
+	ingredientDeductions: ignoredIngredients
+});
+assert.equal(ignoredCost.nominal_hpp, trackedCost.nominal_hpp);
+assert.equal(ignoredCost.snapshot_hpp, trackedCost.snapshot_hpp);
+assert.ok(trackedIngredients.size > 0);
+assert.equal(ignoredIngredients.size, 0, 'ignored policy must retain costing without deductions');
 
 console.log('pos-integrity-tests: all assertions passed');

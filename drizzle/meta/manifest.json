@@ -28,5 +28,9 @@
 	"0026_buku_kas_cas_void.sql": "627bb9d71e64c881aebbcbedfcd323fc57dabc6096689b7fbbd22cacbdaf1df5",
 	"0027_archive_jobs.sql": "db173c9c5a1a008a7fa7d0ff403e3a8e4fb18896026de32650994cf48bfe181d",
 	"0028_archive_branch_claim.sql": "59b554caae7b7de9efcfb026c238e50f7703bae31cdf16e1bcd840f945fa48c8",
-	"0029_audit_quarantine.sql": "b2de3a495b1f2a38b661b3571b1132baedd7e982b9f70d5b9daae5211f11a772"
+	"0029_audit_quarantine.sql": "b2de3a495b1f2a38b661b3571b1132baedd7e982b9f70d5b9daae5211f11a772",
+	"0030_stock_policy.sql": "5d7929a2e501ab2439130d595af20809b2c3aa6e7d4727c56ff15f042ac79eb5",
+	"0031_stock_policy_checkout_ledger.sql": "a4408bf41015b4cc5ba7678ff82ce35ed274160d18ba3e9b8405888f2215f4f8",
+	"0032_stock_reconciliation.sql": "470d2898deaa9e47fe54c65b0cc24728a5ba4fd433140b41713ae7539d2b1803",
+	"0033_offline_stock_reviews.sql": "51594d2b1ed23825ad066ffe04b6988d8d9728217942c224ee12126bac30b590"
 }

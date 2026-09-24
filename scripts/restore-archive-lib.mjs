@@ -83,6 +83,27 @@ export function validateArchive(archive) {
 		}
 		ids.add(String(row.id));
 		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang row ${row.id} berbeda`);
+		const policyMode = row.stock_policy_mode ?? null;
+		const policyRevision = row.stock_policy_revision ?? null;
+		if (policyMode !== null && !['tracked', 'ignored'].includes(String(policyMode)))
+			errors.push(`Mode policy row ${row.id} tidak valid`);
+		if (
+			policyRevision !== null &&
+			(!Number.isInteger(Number(policyRevision)) || Number(policyRevision) < 0)
+		)
+			errors.push(`Revision policy row ${row.id} tidak valid`);
+		if ((policyMode === null) !== (policyRevision === null))
+			errors.push(`Pasangan policy row ${row.id} tidak lengkap`);
+		if (
+			row.stock_replay_disposition != null &&
+			![
+				'normal',
+				'stale_to_ignored',
+				'owner_approved_current',
+				'owner_approved_after_recount'
+			].includes(String(row.stock_replay_disposition))
+		)
+			errors.push(`Disposisi replay row ${row.id} tidak valid`);
 	}
 	const detailIds = new Set();
 	for (const row of transaksi_kasir) {
@@ -114,6 +135,9 @@ export const BK_FIELDS = [
 	'idempotency_key',
 	'request_fingerprint',
 	'receipt_snapshot',
+	'stock_policy_mode',
+	'stock_policy_revision',
+	'stock_replay_disposition',
 	'id_sesi_toko',
 	'created_at'
 ];
@@ -216,10 +240,12 @@ export function buildRestoreSql(archive, opts = {}) {
 	function insertRows(table, rows, fields) {
 		for (const row of rows) {
 			const normalized = { ...row, cabang_id: row.cabang_id || branch };
-			const columns = ['id', ...fields, 'updated_at'];
+			const restoredMarker = table === 'buku_kas' ? ['restored_from_archive'] : [];
+			const columns = ['id', ...fields, ...restoredMarker, 'updated_at'];
 			const values = [
 				row.id,
 				...fields.map((f) => fieldValue(normalized, f)),
+				...(table === 'buku_kas' ? [1] : []),
 				row.updated_at || now
 			];
 			lines.push(

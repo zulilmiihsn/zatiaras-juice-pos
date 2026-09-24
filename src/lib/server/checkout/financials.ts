@@ -6,7 +6,8 @@ import type {
 	ProductRow,
 	RecipeRow,
 	StockDeductions,
-	IngredientDeductions
+	IngredientDeductions,
+	InventoryApplication
 } from '$lib/server/checkout/types';
 import {
 	normalizeMoney,
@@ -22,6 +23,7 @@ interface ComputeItemParams {
 	recipesByProduct: Map<string, RecipeRow[]>;
 	stockTrackingAvailable: boolean;
 	ingredientTrackingAvailable: boolean;
+	inventoryApplication: InventoryApplication;
 	stockDeductions: StockDeductions;
 	ingredientDeductions: IngredientDeductions;
 	bukuKasId: string;
@@ -36,6 +38,7 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 		recipesByProduct,
 		stockTrackingAvailable,
 		ingredientTrackingAvailable,
+		inventoryApplication,
 		stockDeductions,
 		ingredientDeductions,
 		bukuKasId,
@@ -67,7 +70,11 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 		const cleanBaseName = rawName.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '').trim();
 		productName = isJumbo ? `${cleanBaseName} (Jumbo)` : cleanBaseName;
 		productPrice = normalizeMoney(input.pricingSnapshot?.product_price ?? defaultPrice);
-		if (stockTrackingAvailable && (product.lacak_stok === true || product.lacak_stok === 1)) {
+		if (
+			inventoryApplication === 'apply' &&
+			stockTrackingAvailable &&
+			(product.lacak_stok === true || product.lacak_stok === 1)
+		) {
 			const current = stockDeductions.get(productId) || { nama: productName, jumlah: 0 };
 			current.jumlah += jumlah;
 			stockDeductions.set(productId, current);
@@ -117,7 +124,7 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 				nominal_hpp: hppAmount,
 				ingredients: hppIngredients
 			}).slice(0, 4096);
-			for (const ingredient of recipe) {
+			for (const ingredient of inventoryApplication === 'apply' ? recipe : []) {
 				const current = ingredientDeductions.get(ingredient.bahan_id) || {
 					nama: ingredient.bahan_name,
 					satuan: ingredient.satuan,
@@ -148,16 +155,18 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 				const addOnHpp = roundMoney(deductionQty * unitCost * jumlah);
 				hppAmount += addOnHpp;
 
-				const current = ingredientDeductions.get(String(row.bahan_id)) || {
-					nama: row.bahan_nama || row.nama,
-					satuan: row.bahan_satuan || row.satuan_resep || 'gram',
-					jumlah: 0,
-					products: []
-				};
-				current.jumlah += deductionQty * jumlah;
-				const label = `+ ${row.nama}`;
-				if (!current.products.includes(label)) current.products.push(label);
-				ingredientDeductions.set(String(row.bahan_id), current);
+				if (inventoryApplication === 'apply') {
+					const current = ingredientDeductions.get(String(row.bahan_id)) || {
+						nama: row.bahan_nama || row.nama,
+						satuan: row.bahan_satuan || row.satuan_resep || 'gram',
+						jumlah: 0,
+						products: []
+					};
+					current.jumlah += deductionQty * jumlah;
+					const label = `+ ${row.nama}`;
+					if (!current.products.includes(label)) current.products.push(label);
+					ingredientDeductions.set(String(row.bahan_id), current);
+				}
 			}
 		}
 	}

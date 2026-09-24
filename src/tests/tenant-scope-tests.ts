@@ -19,6 +19,7 @@ const TENANT_TABLES = new Set([
 	'kategori',
 	'tambahan',
 	'bahan_mutasi',
+	'produk_mutasi',
 	'pengaturan',
 	'pengaturan_hpp',
 	'sesi_toko',
@@ -36,7 +37,12 @@ const TENANT_TABLES = new Set([
 	'pos_void_markers',
 	'error_events',
 	'request_metrics',
-	'profil'
+	'profil',
+	'stock_policy',
+	'stock_policy_transitions',
+	'stock_reconciliations',
+	'stock_reconciliation_items',
+	'offline_stock_reviews'
 ]);
 
 /** Pencarian id acak (UUID) tanpa cabang: aman karena tidak dapat ditebak/enumerasi. */

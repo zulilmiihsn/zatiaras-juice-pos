@@ -225,6 +225,7 @@ const computed = computeItemFinancials({
 	recipesByProduct: new Map(),
 	stockTrackingAvailable: true,
 	ingredientTrackingAvailable: false,
+	inventoryApplication: 'apply',
 	stockDeductions,
 	ingredientDeductions: new Map(),
 	bukuKasId: 'kas-1',
@@ -300,7 +301,15 @@ const builtCheckout = buildCheckoutStatements({
 		idempotencyAvailable: true,
 		salesSummaryAvailable: true,
 		transactionSnapshotAvailable: true
-	}
+	},
+	stockPolicy: {
+		mode: 'tracked',
+		revision: 0,
+		disabled_at: null,
+		reconciled_at: null,
+		updated_at: null
+	},
+	inventoryApplication: 'apply'
 });
 assert.equal(builtCheckout.length, 7);
 assert.equal(preparedStatements.length, 7);

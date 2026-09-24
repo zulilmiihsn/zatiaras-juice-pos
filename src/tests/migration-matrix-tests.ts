@@ -98,7 +98,13 @@ const expectedTables = [
 	'pengaturan',
 	'sesi_toko',
 	'ringkasan_penjualan_harian',
-	'ringkasan_kas_arsip_harian'
+	'ringkasan_kas_arsip_harian',
+	'stock_policy',
+	'stock_policy_transitions',
+	'produk_mutasi',
+	'stock_reconciliations',
+	'stock_reconciliation_items',
+	'offline_stock_reviews'
 ];
 for (const expected of expectedTables) {
 	assert.equal(
@@ -114,6 +120,149 @@ const pengaturanCols = (
 ).map((c) => c.name);
 assert.equal(pengaturanCols.includes('kunci'), true, 'pengaturan table must contain kunci column');
 assert.equal(pengaturanCols.includes('nilai'), true, 'pengaturan table must contain nilai column');
+
+const stockPolicyTriggers = (
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='stock_policy'")
+		.all() as Array<{ name: string }>
+).map((row) => row.name);
+assert.equal(stockPolicyTriggers.length, 5, 'stock policy must have guard and history triggers');
+
+const bukuKasColumns = (
+	db.prepare('PRAGMA table_info(buku_kas);').all() as Array<{ name: string }>
+).map((column) => column.name);
+for (const column of [
+	'stock_policy_mode',
+	'stock_policy_revision',
+	'stock_replay_disposition',
+	'restored_from_archive'
+]) {
+	assert.ok(bukuKasColumns.includes(column), `buku_kas must contain ${column}`);
+}
+
+db.exec(`
+	INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok) VALUES
+		('ledger-product', 'samarinda', 'Ledger Product', 10000, 1, 1),
+		('ledger-product-2', 'samarinda', 'Ledger Product 2', 10000, 3, 1),
+		('other-product', 'samarinda2', 'Other Product', 10000, 5, 1);
+	INSERT INTO buku_kas (
+		id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, transaction_id,
+		stock_policy_mode, stock_policy_revision, stock_replay_disposition
+	) VALUES (
+		'ledger-header', 'samarinda', '2026-09-24T00:00:00.000Z', 'pos', 'in',
+		'pendapatan_usaha', 10000, 1, 'ledger-transaction', 'tracked', 0, 'normal'
+	);
+`);
+
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO buku_kas (
+			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
+			stock_policy_mode, stock_policy_revision
+		) VALUES ('missing-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+			'pendapatan_usaha', 1, 'missing-policy', NULL, NULL)`),
+	/STOCK_POLICY_CONFLICT/
+);
+
+db.exec(`INSERT INTO stock_policy (
+	cabang_id, mode, revision, disabled_at, updated_at, updated_by, updated_by_role
+) VALUES ('samarinda2', 'ignored', 1, '2026-09-24', '2026-09-24', 'owner', 'pemilik')`);
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO buku_kas (
+			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
+			stock_policy_mode, stock_policy_revision
+		) VALUES ('stale-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+			'pendapatan_usaha', 1, 'stale-policy', 'tracked', 0)`),
+	/STOCK_POLICY_CONFLICT/
+);
+db.exec(`INSERT INTO buku_kas (
+	id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
+	stock_policy_mode, stock_policy_revision, restored_from_archive
+) VALUES ('restored-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+	'pendapatan_usaha', 1, 'restored-policy', NULL, NULL, 1)`);
+
+db.exec(`INSERT INTO produk_mutasi (
+	id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id, dibuat_oleh
+) VALUES ('pm-pos', 'samarinda', 'ledger-product', -1, 0, 'pos', 'ledger-transaction', 'kasir')`);
+assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get()?.stok, 0);
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO produk_mutasi (
+			id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id
+		) VALUES ('pm-cross-branch', 'samarinda', 'other-product', -1, 4, 'pos', 'cross')`),
+	/(?:PRODUCT_MUTATION_PRODUCT_MISMATCH|INVALID_PRODUCT_POS_MUTATION)/
+);
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO produk_mutasi (
+			id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id
+		) VALUES ('pm-partial', 'samarinda', 'ledger-product', 2, 2, 'void', 'ledger-transaction')`),
+	/PRODUCT_VOID_MISMATCH/
+);
+db.exec(`INSERT INTO produk_mutasi (
+	id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id, dibuat_oleh
+) VALUES ('pm-void', 'samarinda', 'ledger-product', 1, 1, 'void', 'ledger-transaction', 'owner')`);
+assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get()?.stok, 1);
+
+db.exec(`INSERT INTO produk_mutasi (
+	id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id
+) VALUES ('pm-pos-two', 'samarinda', 'ledger-product-2', -2, 1, 'pos', 'ledger-transaction-2')`);
+for (const [id, delta, stock] of [
+	['pm-void-partial', 1, 2],
+	['pm-void-excess', 3, 4]
+] as const) {
+	assert.throws(
+		() =>
+			db
+				.prepare(
+					`INSERT INTO produk_mutasi (
+						id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber, referensi_id
+					) VALUES (?, 'samarinda', 'ledger-product-2', ?, ?, 'void', 'ledger-transaction-2')`
+				)
+				.run(id, delta, stock),
+		/PRODUCT_VOID_MISMATCH/
+	);
+}
+
+const contenders = [
+	`INSERT INTO produk_mutasi (id,cabang_id,produk_id,delta_jumlah,stok_setelah,sumber,referensi_id)
+	 VALUES ('pm-last-a','samarinda','ledger-product',-1,0,'pos','last-a')`,
+	`INSERT INTO produk_mutasi (id,cabang_id,produk_id,delta_jumlah,stok_setelah,sumber,referensi_id)
+	 VALUES ('pm-last-b','samarinda','ledger-product',-1,0,'pos','last-b')`
+];
+let contenderSuccess = 0;
+for (const statement of contenders) {
+	try {
+		db.exec(statement);
+		contenderSuccess += 1;
+	} catch {}
+}
+assert.equal(contenderSuccess, 1, 'only one contender may consume last tracked stock');
+assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get()?.stok, 0);
+
+const reviewTriggers = (
+	db
+		.prepare(
+			"SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='offline_stock_reviews'"
+		)
+		.all() as Array<{ name: string }>
+).map((row) => row.name);
+assert.ok(
+	reviewTriggers.includes('trg_offline_stock_review_transition_guard'),
+	'offline reviews must have transition guard'
+);
+
+db.exec(`INSERT INTO offline_stock_reviews (
+	cabang_id, idempotency_key, request_fingerprint, queued_at,
+	policy_revision_at_queue, current_policy_revision, revision, status
+) VALUES ('samarinda', 'matrix-review', 'matrix-fp', 1, 0, 1, 0, 'pending')`);
+assert.throws(
+	() =>
+		db.exec(`UPDATE offline_stock_reviews SET status = 'consumed', revision = revision + 1, consumed_at = '2026-09-24'
+			WHERE cabang_id = 'samarinda' AND idempotency_key = 'matrix-review'`),
+	/INVALID_OFFLINE_STOCK_REVIEW_TRANSITION/
+);
 
 console.log(
 	`migration-matrix-tests: Verified ${files.length}/${files.length} migrations against journal & manifest + Real SQLite PRAGMA quick_check: ok (100% integrity)`

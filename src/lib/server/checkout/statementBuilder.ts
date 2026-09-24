@@ -4,8 +4,11 @@ import type {
 	ComputedTransactionItem,
 	StockDeductions,
 	IngredientDeductions,
-	CheckoutCapabilities
+	CheckoutCapabilities,
+	InventoryApplication,
+	StockReplayDisposition
 } from '$lib/server/checkout/types';
+import type { StockPolicy } from '$lib/server/stockPolicy';
 
 interface BuildStatementsParams {
 	db: D1Database;
@@ -28,6 +31,9 @@ interface BuildStatementsParams {
 	receiptSnapshot?: unknown;
 	session: { userId: string; username?: string };
 	capabilities: CheckoutCapabilities;
+	stockPolicy: StockPolicy;
+	inventoryApplication: InventoryApplication;
+	replayDisposition?: StockReplayDisposition;
 }
 
 export function buildCheckoutStatements(params: BuildStatementsParams): D1PreparedStatement[] {
@@ -51,6 +57,9 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 		requestFingerprint,
 		receiptSnapshot,
 		session,
+		stockPolicy,
+		inventoryApplication,
+		replayDisposition = 'normal',
 		capabilities: { idempotencyAvailable, salesSummaryAvailable, transactionSnapshotAvailable }
 	} = params;
 
@@ -77,59 +86,20 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 		productSummaries.set(summaryKey, current);
 	}
 
+	const applyInventory = inventoryApplication === 'apply';
+
 	return [
-		// [CATATAN]: ── Stock deductions ───────────────────────────────────────────────────
-		...Array.from(stockDeductions.entries()).map(([productId, deduction]) =>
-			db
-				.prepare(
-					`UPDATE produk
-					 SET stok = COALESCE(stok, 0) - ?, updated_at = ?
-					 WHERE cabang_id = ? AND id = ? AND lacak_stok = 1`
-				)
-				.bind(deduction.jumlah, createdAt, branch, productId)
-		),
-
-		// [CATATAN]: ── Ingredient deductions ──────────────────────────────────────────────
-		...Array.from(ingredientDeductions.entries()).flatMap(([bahanId, deduction]) => [
-			db
-				.prepare(
-					`UPDATE bahan
-					 SET stok_saat_ini = COALESCE(stok_saat_ini, 0) - ?, updated_at = ?
-					 WHERE cabang_id = ? AND id = ?`
-				)
-				.bind(deduction.jumlah, createdAt, branch, bahanId),
-			db
-				.prepare(
-					`INSERT INTO bahan_mutasi (
-						id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber,
-						referensi_id, catatan, dibuat_oleh, created_at
-					) VALUES (?, ?, ?, ?, COALESCE((SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?), 0),
-						'pos', ?, ?, ?, ?)`
-				)
-				.bind(
-					crypto.randomUUID(),
-					branch,
-					bahanId,
-					-deduction.jumlah,
-					branch,
-					bahanId,
-					transactionId,
-					`Pengurangan resep transaksi POS ${transactionId}`.slice(0, 160),
-					session.username || session.userId || 'Kasir',
-					createdAt
-				)
-		]),
-
-		// [CATATAN]: ── buku_kas insert ────────────────────────────────────────────────────
+		// Header harus lebih dahulu agar policy race membatalkan batch sebelum efek inventaris.
 		db
 			.prepare(
 				`INSERT INTO buku_kas (
 					id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi,
 					nama_pelanggan, metode_bayar, transaction_id,
 					${idempotencyAvailable ? 'idempotency_key, request_fingerprint, receipt_snapshot,' : ''}
-					id_sesi_toko, created_at, updated_at
+					stock_policy_mode, stock_policy_revision, stock_replay_disposition,
+					restored_from_archive, id_sesi_toko, created_at, updated_at
 				) VALUES (?, ?, ?, 'pos', 'in', 'pendapatan_usaha', ?, ?, ?, ?, ?, ?,
-					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?)`
+					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?, 0, ?, ?, ?)`
 			)
 			.bind(
 				bukuKasId,
@@ -148,10 +118,72 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 							receiptSnapshot ? JSON.stringify(receiptSnapshot) : null
 						]
 					: []),
+				stockPolicy.mode,
+				stockPolicy.revision,
+				replayDisposition,
 				idSesiToko,
 				createdAt,
 				createdAt
 			),
+
+		// VALUES wajib menghasilkan satu ledger row; trigger memvalidasi dan menerapkan delta.
+		...(applyInventory
+			? Array.from(stockDeductions.entries()).map(([productId, deduction]) =>
+					db
+						.prepare(
+							`INSERT INTO produk_mutasi (
+								id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber,
+								referensi_id, dibuat_oleh, created_at
+							) VALUES (?, ?, ?, ?,
+								COALESCE((SELECT stok FROM produk WHERE cabang_id = ? AND id = ?), 0) - ?,
+								'pos', ?, ?, ?)`
+						)
+						.bind(
+							crypto.randomUUID(),
+							branch,
+							productId,
+							-deduction.jumlah,
+							branch,
+							productId,
+							deduction.jumlah,
+							transactionId,
+							session.username || session.userId,
+							createdAt
+						)
+				)
+			: []),
+
+		...(applyInventory
+			? Array.from(ingredientDeductions.entries()).flatMap(([bahanId, deduction]) => [
+					db
+						.prepare(
+							`UPDATE bahan
+					 SET stok_saat_ini = COALESCE(stok_saat_ini, 0) - ?, updated_at = ?
+					 WHERE cabang_id = ? AND id = ?`
+						)
+						.bind(deduction.jumlah, createdAt, branch, bahanId),
+					db
+						.prepare(
+							`INSERT INTO bahan_mutasi (
+						id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber,
+						referensi_id, catatan, dibuat_oleh, created_at
+					) VALUES (?, ?, ?, ?, COALESCE((SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?), 0),
+						'pos', ?, ?, ?, ?)`
+						)
+						.bind(
+							crypto.randomUUID(),
+							branch,
+							bahanId,
+							-deduction.jumlah,
+							branch,
+							bahanId,
+							transactionId,
+							`Pengurangan resep transaksi POS ${transactionId}`.slice(0, 160),
+							session.username || session.userId || 'Kasir',
+							createdAt
+						)
+				])
+			: []),
 
 		// [CATATAN]: ── transaksi_kasir inserts ────────────────────────────────────────────
 		...items.map((item) => {

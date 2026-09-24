@@ -27,6 +27,9 @@ export interface PosTransactionInput {
 	mode?: 'online' | 'offline_replay';
 	queued_at?: number;
 	store_session_id?: string | null;
+	stock_policy_epoch_token?: string | null;
+	stock_policy_mode_at_queue?: 'tracked' | 'ignored' | null;
+	stock_policy_revision_at_queue?: number | null;
 }
 
 // [CATATAN]: ── DB row types ────────────────────────────────────────────────────────────
@@ -131,6 +134,10 @@ export type IngredientDeductions = Map<
 	string,
 	{ nama: string; satuan: string; jumlah: number; products: string[] }
 >;
+export type InventoryApplication = 'apply' | 'skip_policy_ignored' | 'skip_reconciled_replay';
+
+export type StockReplayDisposition =
+	'normal' | 'stale_to_ignored' | 'owner_approved_current' | 'owner_approved_after_recount';
 
 // [CATATAN]: ── Context passed through the checkout pipeline ────────────────────────────
 

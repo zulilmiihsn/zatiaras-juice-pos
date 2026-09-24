@@ -122,6 +122,174 @@ export const hppSettings = sqliteTable(
 	(table) => [index('idx_hpp_settings_branch').on(table.cabang_id)]
 );
 
+export const stockPolicy = sqliteTable(
+	'stock_policy',
+	{
+		cabang_id: text('cabang_id').primaryKey(),
+		mode: text('mode', { enum: ['tracked', 'ignored'] }).notNull(),
+		revision: integer('revision').notNull(),
+		disabled_at: text('disabled_at'),
+		reconciled_at: text('reconciled_at'),
+		updated_at: text('updated_at').notNull(),
+		updated_by: text('updated_by').notNull(),
+		updated_by_role: text('updated_by_role').notNull(),
+		reconciliation_job_id: text('reconciliation_job_id')
+	},
+	(table) => [
+		check('chk_stock_policy_mode', sql`${table.mode} IN ('tracked', 'ignored')`),
+		check('chk_stock_policy_revision', sql`${table.revision} >= 1`),
+		check('chk_stock_policy_updated_at', sql`length(trim(${table.updated_at})) > 0`),
+		check('chk_stock_policy_updated_by', sql`length(trim(${table.updated_by})) > 0`),
+		check('chk_stock_policy_updated_by_role', sql`length(trim(${table.updated_by_role})) > 0`),
+		check(
+			'chk_stock_policy_disabled_at',
+			sql`${table.mode} <> 'ignored' OR ${table.disabled_at} IS NOT NULL`
+		),
+		check(
+			'chk_stock_policy_reconciliation',
+			sql`${table.reconciliation_job_id} IS NULL OR ${table.reconciled_at} IS NOT NULL`
+		)
+	]
+);
+
+export const stockPolicyTransitions = sqliteTable(
+	'stock_policy_transitions',
+	{
+		cabang_id: text('cabang_id').notNull(),
+		revision: integer('revision').notNull(),
+		previous_revision: integer('previous_revision').notNull(),
+		previous_mode: text('previous_mode', { enum: ['tracked', 'ignored'] }).notNull(),
+		mode: text('mode', { enum: ['tracked', 'ignored'] }).notNull(),
+		effective_at: text('effective_at').notNull(),
+		disabled_at: text('disabled_at'),
+		reconciled_at: text('reconciled_at'),
+		actor_user_id: text('actor_user_id').notNull(),
+		actor_role: text('actor_role').notNull(),
+		reconciliation_job_id: text('reconciliation_job_id')
+	},
+	(table) => [
+		primaryKey({ columns: [table.cabang_id, table.revision] }),
+		check('chk_stock_policy_transition_revision', sql`${table.revision} >= 1`),
+		check('chk_stock_policy_transition_effective_at', sql`length(trim(${table.effective_at})) > 0`),
+		check('chk_stock_policy_transition_actor_user', sql`length(trim(${table.actor_user_id})) > 0`),
+		check('chk_stock_policy_transition_actor_role', sql`length(trim(${table.actor_role})) > 0`),
+		check(
+			'chk_stock_policy_transition_previous_revision',
+			sql`${table.previous_revision} >= 0 AND ${table.revision} = ${table.previous_revision} + 1`
+		),
+		check(
+			'chk_stock_policy_transition_previous_mode',
+			sql`${table.previous_mode} IN ('tracked', 'ignored')`
+		),
+		check('chk_stock_policy_transition_mode', sql`${table.mode} IN ('tracked', 'ignored')`),
+		check(
+			'chk_stock_policy_transition_disabled_at',
+			sql`${table.mode} <> 'ignored' OR ${table.disabled_at} IS NOT NULL`
+		),
+		check(
+			'chk_stock_policy_transition_reconciliation',
+			sql`${table.reconciliation_job_id} IS NULL OR ${table.reconciled_at} IS NOT NULL`
+		)
+	]
+);
+
+export const stockReconciliations = sqliteTable(
+	'stock_reconciliations',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		expected_policy_revision: integer('expected_policy_revision').notNull(),
+		status: text('status', { enum: ['draft', 'ready', 'applied', 'cancelled'] }).notNull(),
+		inventory_fingerprint: text('inventory_fingerprint').notNull(),
+		created_by: text('created_by').notNull(),
+		created_at: text('created_at').notNull(),
+		finalized_at: text('finalized_at')
+	},
+	(table) => [
+		uniqueIndex('idx_stock_reconciliations_one_active_branch')
+			.on(table.cabang_id)
+			.where(sql`${table.status} IN ('draft', 'ready')`),
+		index('idx_stock_reconciliations_branch_status').on(table.cabang_id, table.status),
+		index('idx_stock_reconciliations_branch_created').on(table.cabang_id, table.created_at),
+		check('chk_stock_reconciliations_revision', sql`${table.expected_policy_revision} >= 1`),
+		check(
+			'chk_stock_reconciliations_status',
+			sql`${table.status} IN ('draft', 'ready', 'applied', 'cancelled')`
+		),
+		check(
+			'chk_stock_reconciliations_finalized',
+			sql`(${table.status} = 'applied' AND ${table.finalized_at} IS NOT NULL) OR (${table.status} <> 'applied' AND ${table.finalized_at} IS NULL)`
+		)
+	]
+);
+
+export const stockReconciliationItems = sqliteTable(
+	'stock_reconciliation_items',
+	{
+		job_id: text('job_id').notNull(),
+		cabang_id: text('cabang_id').notNull(),
+		entity_type: text('entity_type', { enum: ['produk', 'bahan'] }).notNull(),
+		entity_id: text('entity_id').notNull(),
+		inventory_marker: text('inventory_marker').notNull(),
+		counted_quantity: real('counted_quantity')
+	},
+	(table) => [
+		primaryKey({ columns: [table.job_id, table.entity_type, table.entity_id] }),
+		index('idx_stock_reconciliation_items_branch_job').on(table.cabang_id, table.job_id),
+		index('idx_stock_reconciliation_items_branch_entity').on(
+			table.cabang_id,
+			table.entity_type,
+			table.entity_id
+		),
+		check('chk_stock_reconciliation_items_type', sql`${table.entity_type} IN ('produk', 'bahan')`),
+		check(
+			'chk_stock_reconciliation_items_quantity',
+			sql`${table.counted_quantity} IS NULL OR (${table.counted_quantity} >= 0 AND typeof(${table.counted_quantity}) IN ('integer', 'real'))`
+		)
+	]
+);
+
+export const offlineStockReviews = sqliteTable(
+	'offline_stock_reviews',
+	{
+		cabang_id: text('cabang_id').notNull(),
+		idempotency_key: text('idempotency_key').notNull(),
+		request_fingerprint: text('request_fingerprint').notNull(),
+		queued_at: integer('queued_at').notNull(),
+		policy_revision_at_queue: integer('policy_revision_at_queue'),
+		current_policy_revision: integer('current_policy_revision').notNull(),
+		revision: integer('revision').notNull().default(0),
+		status: text('status', {
+			enum: [
+				'pending',
+				'attached_to_reconciliation',
+				'approved_current',
+				'approved_after_recount',
+				'consumed'
+			]
+		}).notNull(),
+		resolution: text('resolution', { enum: ['apply_current', 'after_recount'] }),
+		reconciliation_job_id: text('reconciliation_job_id'),
+		approved_policy_revision: integer('approved_policy_revision'),
+		reviewed_by: text('reviewed_by'),
+		reviewed_at: text('reviewed_at'),
+		consumed_at: text('consumed_at')
+	},
+	(table) => [
+		primaryKey({ columns: [table.cabang_id, table.idempotency_key] }),
+		index('idx_offline_stock_reviews_branch_status').on(table.cabang_id, table.status),
+		index('idx_offline_stock_reviews_branch_job').on(table.cabang_id, table.reconciliation_job_id),
+		check(
+			'chk_offline_stock_reviews_status',
+			sql`${table.status} IN ('pending', 'attached_to_reconciliation', 'approved_current', 'approved_after_recount', 'consumed')`
+		),
+		check(
+			'chk_offline_stock_reviews_consumed',
+			sql`${table.status} <> 'consumed' OR ${table.consumed_at} IS NOT NULL`
+		)
+	]
+);
+
 export const resepProduk = sqliteTable(
 	'resep_produk',
 	{
@@ -168,6 +336,41 @@ export const bahanMutasi = sqliteTable(
 	(table) => [
 		index('idx_bahan_mutasi_branch_created').on(table.cabang_id, table.created_at),
 		index('idx_bahan_mutasi_branch_bahan').on(table.cabang_id, table.bahan_id)
+	]
+);
+
+export const produkMutasi = sqliteTable(
+	'produk_mutasi',
+	{
+		id: text('id').primaryKey(),
+		cabang_id: text('cabang_id').notNull(),
+		produk_id: text('produk_id').notNull(),
+		delta_jumlah: integer('delta_jumlah').notNull(),
+		stok_setelah: integer('stok_setelah').notNull(),
+		sumber: text('sumber', { enum: ['pos', 'void', 'manual', 'reconciliation'] }).notNull(),
+		referensi_id: text('referensi_id').notNull(),
+		dibuat_oleh: text('dibuat_oleh'),
+		created_at: text('created_at').notNull().default(now())
+	},
+	(table) => [
+		uniqueIndex('idx_produk_mutasi_unique_effect').on(
+			table.cabang_id,
+			table.referensi_id,
+			table.produk_id,
+			table.sumber
+		),
+		index('idx_produk_mutasi_branch_created').on(table.cabang_id, table.created_at),
+		index('idx_produk_mutasi_branch_produk').on(table.cabang_id, table.produk_id),
+		index('idx_produk_mutasi_branch_reference').on(table.cabang_id, table.referensi_id),
+		check(
+			'chk_produk_mutasi_delta',
+			sql`typeof(${table.delta_jumlah}) = 'integer' AND ${table.delta_jumlah} <> 0`
+		),
+		check('chk_produk_mutasi_balance', sql`typeof(${table.stok_setelah}) = 'integer'`),
+		check(
+			'chk_produk_mutasi_source',
+			sql`${table.sumber} IN ('pos', 'void', 'manual', 'reconciliation')`
+		)
 	]
 );
 
@@ -224,6 +427,14 @@ export const bukuKas = sqliteTable(
 		idempotency_key: text('idempotency_key'),
 		request_fingerprint: text('request_fingerprint'),
 		receipt_snapshot: text('receipt_snapshot'),
+		stock_policy_mode: text('stock_policy_mode', { enum: ['tracked', 'ignored'] }),
+		stock_policy_revision: integer('stock_policy_revision'),
+		stock_replay_disposition: text('stock_replay_disposition', {
+			enum: ['normal', 'stale_to_ignored', 'owner_approved_current', 'owner_approved_after_recount']
+		}),
+		restored_from_archive: integer('restored_from_archive', { mode: 'boolean' })
+			.notNull()
+			.default(false),
 		revision: integer('revision').notNull().default(0),
 		mutation_token: text('mutation_token'),
 		id_sesi_toko: text('id_sesi_toko'),
@@ -235,7 +446,24 @@ export const bukuKas = sqliteTable(
 		index('idx_buku_kas_branch_waktu_id').on(table.cabang_id, table.waktu, table.id),
 		index('idx_buku_kas_branch_transaction').on(table.cabang_id, table.transaction_id),
 		index('idx_buku_kas_branch_sesi').on(table.cabang_id, table.id_sesi_toko),
-		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key)
+		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key),
+		check(
+			'chk_buku_kas_stock_policy_mode',
+			sql`${table.stock_policy_mode} IS NULL OR ${table.stock_policy_mode} IN ('tracked', 'ignored')`
+		),
+		check(
+			'chk_buku_kas_stock_policy_revision',
+			sql`${table.stock_policy_revision} IS NULL OR ${table.stock_policy_revision} >= 0`
+		),
+		check(
+			'chk_buku_kas_stock_policy_pair',
+			sql`(${table.stock_policy_mode} IS NULL) = (${table.stock_policy_revision} IS NULL)`
+		),
+		check(
+			'chk_buku_kas_stock_replay_disposition',
+			sql`${table.stock_replay_disposition} IS NULL OR ${table.stock_replay_disposition} IN ('normal', 'stale_to_ignored', 'owner_approved_current', 'owner_approved_after_recount')`
+		),
+		check('chk_buku_kas_restored_from_archive', sql`${table.restored_from_archive} IN (0, 1)`)
 	]
 );
 

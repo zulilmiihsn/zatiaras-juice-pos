@@ -10,6 +10,8 @@ export type RealtimeTable =
 	| 'transaksi_kasir'
 	| 'sesi_toko'
 	| 'pengaturan'
+	| 'stock_policy'
+	| 'offline_stock_reviews'
 	| 'profil';
 
 export type RealtimeAction = 'insert' | 'update' | 'delete' | 'upsert' | 'sync';
