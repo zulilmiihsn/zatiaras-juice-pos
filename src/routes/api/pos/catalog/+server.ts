@@ -226,6 +226,9 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 		);
 	} catch (error) {
 		if (error instanceof PosPricingTokenError && error.code === 'SIGNING_KEY_UNAVAILABLE') {
+			console.error(
+				'[pos-catalog] POS_PRICE_SIGNING_KEY hilang: katalog dan checkout POS lumpuh. Isi secret di dashboard lalu redeploy.'
+			);
 			throw kitError(503, 'Layanan harga POS belum dikonfigurasi');
 		}
 		throw error;

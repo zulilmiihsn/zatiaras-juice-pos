@@ -33,9 +33,30 @@ async function loadFromServer(): Promise<PolicySnapshot> {
 	if (browser) {
 		try {
 			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
+			const key = `pos-stock-policy:${branch}`;
+			// Pertahankan epoch_token katalog bila mode+revision masih sama; token
+			// membuktikan epoch saat replay offline, jangan timpa dengan kosong.
+			let epochToken = '';
+			try {
+				const stored = JSON.parse(localStorage.getItem(key) || 'null') as {
+					mode?: unknown;
+					revision?: unknown;
+					epoch_token?: unknown;
+				} | null;
+				if (
+					stored &&
+					stored.mode === policy.mode &&
+					stored.revision === policy.revision &&
+					typeof stored.epoch_token === 'string'
+				) {
+					epochToken = stored.epoch_token;
+				}
+			} catch {
+				epochToken = '';
+			}
 			localStorage.setItem(
-				`pos-stock-policy:${branch}`,
-				JSON.stringify({ mode: policy.mode, revision: policy.revision, epoch_token: '' })
+				key,
+				JSON.stringify({ mode: policy.mode, revision: policy.revision, epoch_token: epochToken })
 			);
 		} catch {
 			// Best-effort; server tetap otoritatif.

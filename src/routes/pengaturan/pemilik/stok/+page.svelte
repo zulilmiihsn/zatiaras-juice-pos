@@ -51,6 +51,20 @@
 	let reconDraft = $state<Record<string, string>>({});
 	let reconPendingReviews = $state(0);
 
+	// Tinjauan antrean offline yang dikarantina (HTTP 428).
+	type OfflineReview = {
+		idempotency_key: string;
+		request_fingerprint: string;
+		queued_at: number;
+		policy_revision_at_queue: number | null;
+		current_policy_revision: number;
+		revision: number;
+		status: string;
+	};
+	let reconReviews = $state<OfflineReview[]>([]);
+	let reconReviewsError = $state('');
+	let reconReviewActing = $state('');
+
 	function toggleSound() {
 		soundEnabled = !soundEnabled;
 		setSoundEnabled(soundEnabled);
@@ -113,12 +127,61 @@
 			});
 			if (!response.ok) return;
 			const payload = (await response.json()) as {
-				data?: { items?: Array<{ status?: string }> };
+				data?: { items?: OfflineReview[] };
 			};
 			const items = payload?.data?.items || [];
+			reconReviews = items.filter((item) => item.status !== 'consumed');
 			reconPendingReviews = items.filter((item) => item.status === 'pending').length;
 		} catch {
 			// Best-effort.
+		}
+	}
+
+	async function resolveReview(
+		idempotencyKey: string,
+		expectedRevision: number,
+		action: 'approve_current' | 'withdraw'
+	) {
+		reconReviewActing = idempotencyKey;
+		reconError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const response = await fetchWithCsrfRetry(
+				`/api/pengaturan/stok/offline-reviews/${encodeURIComponent(idempotencyKey)}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						branch,
+						expected_revision: expectedRevision,
+						action
+					})
+				}
+			);
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as {
+					message?: string;
+				} | null;
+				throw new Error(payload?.message || `Gagal memproses review (HTTP ${response.status})`);
+			}
+			await loadPendingReviews();
+		} catch (error) {
+			reconError = error instanceof Error ? error.message : 'Gagal memproses review antrean';
+		} finally {
+			reconReviewActing = '';
+		}
+	}
+
+	function formatQueuedAt(value: number): string {
+		try {
+			return new Date(value).toLocaleString('id-ID', {
+				day: '2-digit',
+				month: 'short',
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		} catch {
+			return String(value);
 		}
 	}
 
@@ -232,6 +295,7 @@
 			notifPermission = Notification.permission;
 		}
 		void loadPolicy();
+		void loadPendingReviews();
 	});
 </script>
 
@@ -434,6 +498,78 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if reconReviews.length > 0}
+			<!-- Tinjauan antrean offline yang dikarantina -->
+			<div class="soft-float-card flex flex-col gap-3 p-5 md:p-6">
+				<div>
+					<h3 class="text-xs font-bold text-slate-800 md:text-sm">
+						Antrean Offline Perlu Tinjauan
+					</h3>
+					<p class="text-[11px] text-slate-400 md:text-xs">
+						Transaksi ini melewati perubahan kebijakan stok. Setujui untuk replay dengan kebijakan
+						saat ini, atau biarkan menunggu hitung fisik.
+					</p>
+				</div>
+				{#if reconError}
+					<p class="text-xs font-bold text-rose-600">{reconError}</p>
+				{/if}
+				<div class="flex max-h-72 flex-col gap-2 overflow-y-auto">
+					{#each reconReviews as review (review.idempotency_key)}
+						<div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+							<div class="flex items-center justify-between gap-2">
+								<span
+									class="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-slate-700"
+								>
+									{review.idempotency_key.slice(0, 18)}…
+								</span>
+								<span
+									class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black {review.status ===
+									'pending'
+										? 'bg-amber-100 text-amber-700'
+										: review.status === 'approved_current'
+											? 'bg-emerald-100 text-emerald-700'
+											: 'bg-slate-100 text-slate-600'}"
+								>
+									{review.status === 'pending'
+										? 'Menunggu'
+										: review.status === 'approved_current'
+											? 'Disetujui'
+											: review.status}
+								</span>
+							</div>
+							<div class="mt-0.5 text-[11px] text-slate-400">
+								Antre {formatQueuedAt(review.queued_at)} • Revisi saat antre: {review.policy_revision_at_queue ??
+									'-'} → saat ini {review.current_policy_revision}
+							</div>
+							<div class="mt-2 flex gap-2">
+								{#if review.status === 'pending'}
+									<button
+										type="button"
+										disabled={reconReviewActing === review.idempotency_key}
+										onclick={() =>
+											resolveReview(review.idempotency_key, review.revision, 'approve_current')}
+										class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-3.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+									>
+										{reconReviewActing === review.idempotency_key ? 'Memproses…' : 'Setujui replay'}
+									</button>
+								{:else if review.status === 'approved_current'}
+									<button
+										type="button"
+										disabled={reconReviewActing === review.idempotency_key}
+										onclick={() =>
+											resolveReview(review.idempotency_key, review.revision, 'withdraw')}
+										class="cursor-pointer rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[11px] font-bold text-slate-600 disabled:opacity-50"
+									>
+										Tarik persetujuan
+									</button>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<!-- 1. Kebijakan Checkout -->
