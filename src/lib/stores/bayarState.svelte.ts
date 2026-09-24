@@ -305,8 +305,20 @@ export function createBayarState() {
 		}
 	}
 
+	function isStockMonitoringIgnored(): boolean {
+		try {
+			if (typeof window === 'undefined' || typeof localStorage === 'undefined') return false;
+			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
+			const raw = localStorage.getItem(`pos-stock-policy:${branch}`);
+			if (!raw) return false;
+			return (JSON.parse(raw) as { mode?: string }).mode === 'ignored';
+		} catch {
+			return false;
+		}
+	}
+
 	async function handleBayar() {
-		if (isStrictStockEnforcement()) {
+		if (isStrictStockEnforcement() && !isStockMonitoringIgnored()) {
 			try {
 				const catalog = await productService.getPosCatalog();
 				for (const item of cart) {
@@ -569,13 +581,46 @@ export function createBayarState() {
 		};
 	}
 
+	function readQueuedStockPolicy(): {
+		epoch_token?: string;
+		mode?: 'tracked' | 'ignored';
+		revision?: number;
+	} {
+		try {
+			if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
+			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
+			const raw = localStorage.getItem(`pos-stock-policy:${branch}`);
+			if (!raw) return {};
+			const parsed = JSON.parse(raw) as {
+				mode?: unknown;
+				revision?: unknown;
+				epoch_token?: unknown;
+			};
+			if (parsed.mode !== 'tracked' && parsed.mode !== 'ignored') return {};
+			if (typeof parsed.revision !== 'number' || !Number.isInteger(parsed.revision)) return {};
+			return {
+				epoch_token: typeof parsed.epoch_token === 'string' ? parsed.epoch_token : undefined,
+				mode: parsed.mode,
+				revision: parsed.revision
+			};
+		} catch {
+			return {};
+		}
+	}
+
 	async function queueCurrentPosTransaction(request: Record<string, unknown>): Promise<void> {
 		if (!committedReceipt) {
 			committedReceipt = buildOfflineCommittedReceipt();
 		}
+		const queuedPolicy = readQueuedStockPolicy();
 		await addPendingTransaction({
 			type: 'pos_transaction',
-			request,
+			request: {
+				...request,
+				stock_policy_epoch_token: queuedPolicy.epoch_token ?? undefined,
+				stock_policy_mode_at_queue: queuedPolicy.mode ?? undefined,
+				stock_policy_revision_at_queue: queuedPolicy.revision ?? undefined
+			},
 			receipt: committedReceipt,
 			summary: {
 				transaction_code: transactionCode,

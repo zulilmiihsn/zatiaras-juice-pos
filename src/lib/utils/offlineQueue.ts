@@ -14,6 +14,9 @@ export interface PendingTransaction extends Record<string, unknown> {
 	failure_kind: PendingFailureKind;
 	requires_owner_review?: boolean;
 	receipt?: unknown;
+	stock_policy_epoch_token?: string | null;
+	stock_policy_mode_at_queue?: 'tracked' | 'ignored' | null;
+	stock_policy_revision_at_queue?: number | null;
 }
 
 export interface PendingTransactionExport {
@@ -150,7 +153,15 @@ export function selectSyncablePendings(
 
 export function classifySyncFailure(status?: number): Exclude<PendingFailureKind, null> {
 	if (status === 401 || status === 403) return 'auth';
-	if (status === 400 || status === 404 || status === 409 || status === 422) return 'conflict';
+	if (
+		status === 400 ||
+		status === 404 ||
+		status === 409 ||
+		status === 412 ||
+		status === 422 ||
+		status === 428
+	)
+		return 'conflict';
 	if (status === 429) return 'rate_limit';
 	if (status && status >= 500) return 'server';
 	return 'network';

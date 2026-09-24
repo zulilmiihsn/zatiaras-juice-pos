@@ -615,6 +615,26 @@ export async function prepareReportAnalysis(input: {
 		dataRequirements.periode.end
 	);
 
+	// Monitoring stok nonaktif: jawab deterministik tanpa memanggil gateway AI.
+	if (reportResult.serverReportData.stokBahan?.monitoringPaused && isInventoryQuestion(cleanQ)) {
+		return {
+			kind: 'empty',
+			payload: {
+				code: 'NO_DATA',
+				error:
+					'Monitoring stok sedang dijeda untuk cabang ini sehingga saldo sistem bukan kondisi terkini. Lakukan hitung fisik untuk mengetahui stok aktual.',
+				dateRange: `${dataRequirements.periode.start} hingga ${dataRequirements.periode.end}`,
+				dataRequirements: {
+					jenisData: dataRequirements.jenisData,
+					prioritas: dataRequirements.prioritas,
+					scope: dataRequirements.scope
+				},
+				suggestion:
+					'Aktifkan kembali monitoring stok lewat pengaturan pemilik setelah rekonsiliasi fisik bila ingin analisis stok otomatis.'
+			}
+		};
+	}
+
 	const shouldSearchWeb = Boolean(webSearchFlag) || isWebSearchRequested(cleanQ);
 	const isStrategyOrResearch =
 		dataRequirements.prioritas === 'market_analysis' ||

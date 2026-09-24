@@ -4,6 +4,7 @@ import { getDb, getRawDb, payloadRows } from '$lib/server/dataApiHelpers';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import { parseDataLimit } from '$lib/server/dataPagination';
 import { getBahanMutasiList, recordBahanMutasi } from '$lib/server/services/bahanService';
+import { loadStockPolicy } from '$lib/server/stockPolicy';
 import type { RequestHandler } from './$types';
 
 /**
@@ -29,6 +30,13 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');
 
 	const rawDb = getRawDb(platform, branch);
+	const policy = await loadStockPolicy(rawDb, branch);
+	if (policy.mode === 'ignored') {
+		throw kitError(
+			409,
+			'Mutasi stok manual dijeda. Gunakan alur rekonsiliasi untuk menyesuaikan stok.'
+		);
+	}
 	const rows = payloadRows(body.payload, branch);
 	if (rows.length !== 1) throw kitError(400, 'Mutasi bahan harus satu per request');
 

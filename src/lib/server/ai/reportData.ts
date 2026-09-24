@@ -1,5 +1,7 @@
 import { formatRupiah } from '$lib/utils/currency';
 import { calculateEngineTax, legacyToSettings, validateTaxSettings } from '$lib/tax/engine';
+import { branchContext, normalizeBranch } from '$lib/server/branchResolver';
+import { loadStockPolicy } from '$lib/server/stockPolicy';
 import type { D1Database } from '@cloudflare/workers-types';
 
 export interface FormattedMonth {
@@ -72,6 +74,7 @@ export interface ServerReportData {
 		totalItem: number;
 		totalAsetStok: number;
 		bahanKritis: { nama: string; stok: number; ambang: number; satuan: string }[];
+		monitoringPaused?: boolean;
 	};
 	marginProduk?: {
 		nama: string;
@@ -130,6 +133,14 @@ export async function fetchReportDataSql(
 	startYmd: string,
 	endYmd: string
 ): Promise<ReportSqlResult> {
+	// Monitoring stok nonaktif: jangan kirim saldo basi sebagai fakta terkini ke model.
+	let stockMonitoringPaused = false;
+	try {
+		const policy = await loadStockPolicy(rawDb, branchContext(normalizeBranch(requestedBranch)));
+		stockMonitoringPaused = policy.mode === 'ignored';
+	} catch {
+		stockMonitoringPaused = false;
+	}
 	// [CATATAN]: Eksekusi semua kueri agregasi secara paralel dalam 1 batch Promise
 	const [
 		summaryRes,
@@ -342,9 +353,11 @@ export async function fetchReportDataSql(
 			.catch(() => null) as Promise<{ nilai?: string } | null>,
 
 		// 10. Stok Bahan Kritis (stok <= ambang_stok)
-		rawDb
-			.prepare(
-				`SELECT
+		(stockMonitoringPaused
+			? Promise.resolve({ results: [] })
+			: rawDb
+					.prepare(
+						`SELECT
 					nama,
 					stok_saat_ini AS stok,
 					ambang_stok AS ambang,
@@ -353,10 +366,10 @@ export async function fetchReportDataSql(
 				WHERE cabang_id = ? AND is_active = 1 AND stok_saat_ini <= ambang_stok
 				ORDER BY (stok_saat_ini - ambang_stok) ASC
 				LIMIT 10`
-			)
-			.bind(requestedBranch)
-			.all()
-			.catch(() => ({ results: [] })) as Promise<{
+					)
+					.bind(requestedBranch)
+					.all()
+					.catch(() => ({ results: [] }))) as Promise<{
 			results?: Array<{
 				nama: string;
 				stok: number;
@@ -366,17 +379,19 @@ export async function fetchReportDataSql(
 		}>,
 
 		// 11. Total Persediaan Bahan Baku
-		rawDb
-			.prepare(
-				`SELECT
+		(stockMonitoringPaused
+			? Promise.resolve(null)
+			: rawDb
+					.prepare(
+						`SELECT
 					COUNT(*) AS totalItem,
 					COALESCE(SUM(stok_saat_ini * biaya_per_satuan), 0) AS totalAsetStok
 				FROM bahan
 				WHERE cabang_id = ? AND is_active = 1`
-			)
-			.bind(requestedBranch)
-			.first()
-			.catch(() => null) as Promise<{ totalItem?: number; totalAsetStok?: number } | null>,
+					)
+					.bind(requestedBranch)
+					.first()
+					.catch(() => null)) as Promise<{ totalItem?: number; totalAsetStok?: number } | null>,
 
 		// 12. HPP & Margin Laba Kotor per Menu
 		rawDb
@@ -507,14 +522,17 @@ export async function fetchReportDataSql(
 
 	// [CATATAN]: Format stok bahan & bahan kritis
 	const stokBahan = {
-		totalItem: totalBahanRes?.totalItem || 0,
-		totalAsetStok: Math.round(totalBahanRes?.totalAsetStok || 0),
-		bahanKritis: (stokKritisRes?.results || []).map((b) => ({
-			nama: b.nama,
-			stok: b.stok,
-			ambang: b.ambang,
-			satuan: b.satuan
-		}))
+		totalItem: stockMonitoringPaused ? 0 : totalBahanRes?.totalItem || 0,
+		totalAsetStok: stockMonitoringPaused ? 0 : Math.round(totalBahanRes?.totalAsetStok || 0),
+		bahanKritis: stockMonitoringPaused
+			? []
+			: (stokKritisRes?.results || []).map((b) => ({
+					nama: b.nama,
+					stok: b.stok,
+					ambang: b.ambang,
+					satuan: b.satuan
+				})),
+		monitoringPaused: stockMonitoringPaused
 	};
 
 	// [CATATAN]: Format HPP & margin produk
@@ -880,10 +898,14 @@ ${
 }
 
 === STOK & BAHAN BAKU ===
-Total Item Bahan Aktif: ${serverReportData.stokBahan?.totalItem || 0} bahan
+${
+	serverReportData.stokBahan?.monitoringPaused
+		? 'Monitoring stok sedang dijeda untuk cabang ini. Jangan klaim saldo stok atau status aman/kritis. Data stok sistem bukan kondisi terkini.'
+		: `Total Item Bahan Aktif: ${serverReportData.stokBahan?.totalItem || 0} bahan
 Total Nilai Aset Stok Bahan: Rp ${formatRupiah(serverReportData.stokBahan?.totalAsetStok || 0)}
 Bahan Kritis (Stok <= Ambang Batas / Butuh Restok Segera):
-${(serverReportData.stokBahan?.bahanKritis || []).map((b, i) => `- ${i + 1}. ${b.nama}: Sisa ${b.stok} ${b.satuan} (Ambang batas: ${b.ambang} ${b.satuan})`).join('\n') || '- (Semua stok bahan aman di atas ambang batas)'}
+${(serverReportData.stokBahan?.bahanKritis || []).map((b, i) => `- ${i + 1}. ${b.nama}: Sisa ${b.stok} ${b.satuan} (Ambang batas: ${b.ambang} ${b.satuan})`).join('\n') || '- (Semua stok bahan aman di atas ambang batas)'}`
+}
 
 === HPP & MARGIN KEUNTUNGAN MENU ===
 Top 10 Menu dengan Margin Laba Kotor Tertinggi:

@@ -57,11 +57,11 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 		Number.isFinite(Number(prod.harga_jumbo))
 			? Math.max(0, Number(prod.harga_jumbo))
 			: null;
-	const stok =
+	let stok =
 		prod.stok !== null && prod.stok !== undefined && Number.isFinite(Number(prod.stok))
 			? Number(prod.stok)
 			: null;
-	const lacakStok = Boolean(prod.lacak_stok);
+	let lacakStok = Boolean(prod.lacak_stok);
 	const lacakBahan = Boolean(prod.lacak_bahan);
 	const isActive = prod.is_active !== undefined ? Boolean(prod.is_active) : true;
 	const tipe = prod.tipe ? String(prod.tipe).trim().toLowerCase() : 'minuman';
@@ -73,6 +73,34 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 			: '[]';
 
 	const rawDb = getRawDb(platform, branch);
+
+	const { loadStockPolicy } = await import('$lib/server/stockPolicy');
+	const stockPolicy = await loadStockPolicy(rawDb, branch);
+	if (stockPolicy.mode === 'ignored') {
+		if (isEdit) {
+			const existing = (await rawDb
+				.prepare('SELECT stok, lacak_stok FROM produk WHERE cabang_id = ? AND id = ? LIMIT 1')
+				.bind(branch, productId)
+				.first()) as { stok?: number | null; lacak_stok?: number | null } | null;
+			if (existing) {
+				const existingStok = Number(existing.stok ?? 0);
+				if (
+					(stok !== null && stok !== existingStok) ||
+					lacakStok !== Boolean(existing.lacak_stok)
+				) {
+					throw kitError(
+						409,
+						'Stok produk dijeda. Ubah harga, resep, atau metadata lain; saldo hanya lewat rekonsiliasi.'
+					);
+				}
+			}
+		}
+	}
+
+	if (stockPolicy.mode === 'ignored' && !isEdit) {
+		stok = 0;
+		lacakStok = false;
+	}
 
 	// Validate recipes when lacak_bahan is enabled
 	const rawRecipes = Array.isArray(body.resep) ? body.resep : [];

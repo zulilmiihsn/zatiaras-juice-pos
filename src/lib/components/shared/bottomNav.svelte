@@ -7,14 +7,24 @@
 	import { page } from '$app/stores';
 	import { posCart } from '$lib/stores/posCart.svelte';
 	import { scale } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 
-	const navs = [
+	const baseNavs = [
 		{ label: 'Beranda', icon: Home, path: '/' },
 		{ label: 'Catat', icon: Book, path: '/catat' },
 		{ label: 'Kasir', icon: ShoppingBag, path: '/pos', isHero: true },
 		{ label: 'Stok', icon: Boxes, path: '/stok' },
 		{ label: 'Laporan', icon: FileText, path: '/laporan' }
 	];
+
+	const navs = $derived(
+		stockPolicyState.ignored ? baseNavs.filter((nav) => nav.path !== '/stok') : baseNavs
+	);
+
+	onMount(() => {
+		void stockPolicyState.refresh();
+	});
 
 	function isPathActive(path: string, currentPath: string): boolean {
 		if (path === '/') return currentPath === '/';

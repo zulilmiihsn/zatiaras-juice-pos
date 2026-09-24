@@ -6,6 +6,8 @@ import {
 	PosPricingTokenError,
 	signPosPricingToken
 } from '$lib/server/posPricingToken';
+import { loadStockPolicy } from '$lib/server/stockPolicy';
+import { signStockPolicyEpoch } from '$lib/server/stockPolicyEpoch';
 import type { RequestHandler } from './$types';
 
 const CATALOG_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -153,6 +155,18 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 				})
 			}))
 		);
+		const policy = await loadStockPolicy(db, branch);
+		let epochToken = '';
+		try {
+			epochToken = await signStockPolicyEpoch(platform?.env, {
+				branch,
+				mode: policy.mode,
+				revision: policy.revision,
+				now
+			});
+		} catch {
+			epochToken = '';
+		}
 		const addOns = await Promise.all(
 			(addOnResult.results || []).map(async (addOn) => ({
 				...addOn,
@@ -200,7 +214,13 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 				})),
 				fetched_at: fetchedAt,
 				expires_at: expiresAt,
-				signing_key_id: getPosPricingKeyId(platform?.env)
+				signing_key_id: getPosPricingKeyId(platform?.env),
+				stock_policy: {
+					mode: policy.mode,
+					revision: policy.revision,
+					updated_at: policy.updated_at,
+					epoch_token: epochToken
+				}
 			},
 			{ headers: { 'Cache-Control': 'no-store' } }
 		);

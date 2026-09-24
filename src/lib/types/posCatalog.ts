@@ -23,6 +23,12 @@ export interface PosCatalogSnapshot {
 	fetched_at: string;
 	expires_at: string;
 	signing_key_id: string;
+	stock_policy?: {
+		mode: 'tracked' | 'ignored';
+		revision: number;
+		updated_at?: string | null;
+		epoch_token: string;
+	};
 }
 
 export interface PosCatalogLoadResult extends PosCatalogSnapshot {

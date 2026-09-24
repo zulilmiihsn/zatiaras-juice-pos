@@ -17,10 +17,39 @@
 		playLowStockSound,
 		requestNotificationPermission
 	} from '$lib/services/stockAlertService';
+	import { fetchStockPolicy, updateStockPolicy } from '$lib/services/stockPolicyService';
+	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 
 	let soundEnabled = $state(true);
 	let strictStockEnabled = $state(false);
 	let notifPermission = $state<NotificationPermission>('default');
+
+	// Master toggle monitoring stok per cabang (sumber kebenaran: server).
+	let policyMode = $state<'tracked' | 'ignored'>('tracked');
+	let policyRevision = $state(0);
+	let policyCanManage = $state(false);
+	let policyLoading = $state(true);
+	let policyError = $state('');
+	let policyToggling = $state(false);
+	let showDisableConfirm = $state(false);
+
+	// Rekonsiliasi aktivasi ulang (pemilik, saat mode ignored).
+	type ReconItem = {
+		entity_type: 'produk' | 'bahan';
+		entity_id: string;
+		counted_quantity: number | null;
+	};
+	type ReconJob = {
+		id: string;
+		status: string;
+		expected_policy_revision: number;
+		items: ReconItem[];
+	};
+	let reconJob = $state<ReconJob | null>(null);
+	let reconLoading = $state(false);
+	let reconError = $state('');
+	let reconDraft = $state<Record<string, string>>({});
+	let reconPendingReviews = $state(0);
 
 	function toggleSound() {
 		soundEnabled = !soundEnabled;
@@ -41,6 +70,157 @@
 		playLowStockSound(true);
 	}
 
+	async function loadPolicy() {
+		policyLoading = true;
+		policyError = '';
+		try {
+			const policy = await fetchStockPolicy();
+			policyMode = policy.mode;
+			policyRevision = policy.revision;
+			policyCanManage = policy.can_manage_policy;
+		} catch (error) {
+			policyError = error instanceof Error ? error.message : 'Gagal memuat pengaturan stok';
+		} finally {
+			policyLoading = false;
+		}
+	}
+
+	async function confirmDisableStock() {
+		policyToggling = true;
+		policyError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const policy = await updateStockPolicy({
+				branch,
+				expected_revision: policyRevision,
+				mode: 'ignored'
+			});
+			policyMode = policy.mode;
+			policyRevision = policy.revision;
+			showDisableConfirm = false;
+		} catch (error) {
+			policyError = error instanceof Error ? error.message : 'Gagal menonaktifkan monitoring stok';
+		} finally {
+			policyToggling = false;
+		}
+	}
+
+	async function loadPendingReviews(): Promise<void> {
+		try {
+			const response = await fetch('/api/pengaturan/stok/offline-reviews', {
+				headers: { Accept: 'application/json' },
+				cache: 'no-store'
+			});
+			if (!response.ok) return;
+			const payload = (await response.json()) as {
+				data?: { items?: Array<{ status?: string }> };
+			};
+			const items = payload?.data?.items || [];
+			reconPendingReviews = items.filter((item) => item.status === 'pending').length;
+		} catch {
+			// Best-effort.
+		}
+	}
+
+	async function startReconciliation() {
+		reconLoading = true;
+		reconError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const response = await fetchWithCsrfRetry('/api/pengaturan/stok/reconciliation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ branch })
+			});
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as {
+					message?: string;
+				} | null;
+				throw new Error(payload?.message || `Gagal membuat rekonsiliasi (HTTP ${response.status})`);
+			}
+			const payload = (await response.json()) as { data: ReconJob };
+			reconJob = payload.data;
+			reconDraft = {};
+			await loadPendingReviews();
+		} catch (error) {
+			reconError = error instanceof Error ? error.message : 'Gagal membuat rekonsiliasi';
+		} finally {
+			reconLoading = false;
+		}
+	}
+
+	async function saveReconCounts() {
+		if (!reconJob) return;
+		reconLoading = true;
+		reconError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const items = reconJob.items.map((item) => {
+				const key = `${item.entity_type}:${item.entity_id}`;
+				const raw = (reconDraft[key] ?? '').trim().replace(',', '.');
+				return {
+					entity_type: item.entity_type,
+					entity_id: item.entity_id,
+					counted_quantity: raw === '' ? -1 : Number(raw)
+				};
+			});
+			const response = await fetchWithCsrfRetry(
+				`/api/pengaturan/stok/reconciliation/${reconJob.id}/items`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ branch, items })
+				}
+			);
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as {
+					message?: string;
+				} | null;
+				throw new Error(payload?.message || `Gagal menyimpan hitungan (HTTP ${response.status})`);
+			}
+			const payload = (await response.json()) as { data: ReconJob };
+			reconJob = payload.data;
+			reconDraft = {};
+		} catch (error) {
+			reconError = error instanceof Error ? error.message : 'Gagal menyimpan hitungan';
+		} finally {
+			reconLoading = false;
+		}
+	}
+
+	async function finalizeReconciliation() {
+		if (!reconJob) return;
+		reconLoading = true;
+		reconError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const response = await fetchWithCsrfRetry(
+				`/api/pengaturan/stok/reconciliation/${reconJob.id}/finalize`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						branch,
+						expected_policy_revision: reconJob.expected_policy_revision
+					})
+				}
+			);
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as {
+					message?: string;
+				} | null;
+				throw new Error(payload?.message || `Finalisasi ditolak (HTTP ${response.status})`);
+			}
+			reconJob = null;
+			reconDraft = {};
+			await loadPolicy();
+		} catch (error) {
+			reconError = error instanceof Error ? error.message : 'Finalisasi rekonsiliasi gagal';
+		} finally {
+			reconLoading = false;
+		}
+	}
+
 	onMount(() => {
 		if (userRole.value !== 'pemilik' && userRole.value !== 'admin') {
 			goto('/unauthorized');
@@ -51,6 +231,7 @@
 		if (browser && 'Notification' in window) {
 			notifPermission = Notification.permission;
 		}
+		void loadPolicy();
 	});
 </script>
 
@@ -81,6 +262,179 @@
 
 	<!-- Main Content -->
 	<div class="relative z-20 mx-auto -mt-6 flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 md:px-6">
+		<!-- 0. Master Toggle Monitoring Stok -->
+		<div class="soft-float-card flex flex-col gap-3 p-5 md:p-6">
+			<div class="flex items-start justify-between gap-3">
+				<div class="flex items-start gap-3">
+					<div
+						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600 md:h-11 md:w-11"
+					>
+						<Boxes class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+					</div>
+					<div>
+						<div class="flex items-center gap-2">
+							<span class="text-sm font-bold text-slate-900 md:text-base">Monitoring Stok</span>
+							{#if policyLoading}
+								<span
+									class="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600 md:text-[10px]"
+								>
+									Memuat…
+								</span>
+							{:else if policyMode === 'tracked'}
+								<span
+									class="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black text-emerald-700 md:text-[10px]"
+								>
+									Aktif
+								</span>
+							{:else}
+								<span
+									class="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-600 md:text-[10px]"
+								>
+									Nonaktif
+								</span>
+							{/if}
+						</div>
+						<p class="mt-1 text-xs text-slate-500 md:text-sm">
+							{policyMode === 'tracked'
+								? 'POS memantau dan mengurangi stok otomatis saat penjualan.'
+								: 'POS berjalan tanpa monitoring atau pengurangan stok. Data lama tetap tersimpan.'}
+						</p>
+						{#if policyError}
+							<p class="mt-1 text-xs font-bold text-rose-600">{policyError}</p>
+						{/if}
+						{#if !policyLoading && !policyCanManage && policyMode === 'tracked'}
+							<p class="mt-1 text-[11px] text-slate-400">
+								Perubahan monitoring belum tersedia untuk cabang ini.
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				<button
+					type="button"
+					role="switch"
+					aria-label={policyMode === 'tracked'
+						? 'Nonaktifkan monitoring stok'
+						: 'Aktifkan kembali monitoring stok'}
+					aria-checked={policyMode === 'tracked'}
+					disabled={policyLoading || policyToggling || !policyCanManage}
+					onclick={() => {
+						if (policyMode === 'tracked') showDisableConfirm = true;
+					}}
+					class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {policyMode ===
+					'tracked'
+						? 'bg-pink-600'
+						: 'bg-slate-200'}"
+				>
+					<span
+						class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {policyMode ===
+						'tracked'
+							? 'translate-x-5'
+							: 'translate-x-0'}"
+					></span>
+				</button>
+			</div>
+
+			{#if showDisableConfirm && policyMode === 'tracked'}
+				<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-xs text-slate-700">
+					<p class="font-bold text-slate-900">Nonaktifkan monitoring stok?</p>
+					<ul class="mt-1 list-disc space-y-0.5 pl-4">
+						<li>Penjualan tetap berjalan normal.</li>
+						<li>Stok tidak berkurang otomatis dan peringatan berhenti.</li>
+						<li>Data stok lama tidak dihapus.</li>
+						<li>Aktivasi ulang membutuhkan rekonsiliasi fisik.</li>
+						<li>Pastikan antrean offline semua perangkat sudah tersinkron.</li>
+					</ul>
+					<div class="mt-3 flex gap-2">
+						<button
+							type="button"
+							disabled={policyToggling}
+							onclick={() => (showDisableConfirm = false)}
+							class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-50"
+						>
+							Batal
+						</button>
+						<button
+							type="button"
+							disabled={policyToggling}
+							onclick={confirmDisableStock}
+							class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+						>
+							{policyToggling ? 'Menyimpan…' : 'Ya, nonaktifkan'}
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			{#if policyMode === 'ignored' && !policyLoading}
+				<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+					<p class="text-xs font-bold text-slate-900">Aktifkan kembali monitoring stok</p>
+					<p class="mt-0.5 text-[11px] text-slate-500">
+						Saldo lama dianggap basi. Lakukan hitung fisik, simpan, lalu finalisasi untuk
+						mengaktifkan kembali.
+					</p>
+					{#if reconError}
+						<p class="mt-1 text-xs font-bold text-rose-600">{reconError}</p>
+					{/if}
+					{#if !reconJob}
+						<button
+							type="button"
+							disabled={reconLoading || !policyCanManage}
+							onclick={startReconciliation}
+							class="mt-2 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+						>
+							{reconLoading ? 'Membuat…' : 'Mulai rekonsiliasi'}
+						</button>
+					{:else}
+						<p class="mt-2 text-[11px] text-slate-500">
+							Job {reconJob.id.slice(0, 8)}… • Status {reconJob.status} • Antrean perlu tinjauan: {reconPendingReviews}
+						</p>
+						<div class="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto">
+							{#each reconJob.items as item}
+								{@const key = `${item.entity_type}:${item.entity_id}`}
+								<label
+									class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
+								>
+									<span class="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">
+										{item.entity_type} · {item.entity_id}
+										{#if item.counted_quantity !== null}
+											<span class="text-emerald-600">({item.counted_quantity})</span>
+										{/if}
+									</span>
+									<input
+										type="number"
+										min="0"
+										step={item.entity_type === 'produk' ? '1' : 'any'}
+										placeholder="Hitung fisik"
+										bind:value={reconDraft[key]}
+										class="w-28 rounded-lg border border-slate-200 px-2 py-1 text-xs"
+									/>
+								</label>
+							{/each}
+						</div>
+						<div class="mt-2 flex flex-wrap gap-2">
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={saveReconCounts}
+								class="cursor-pointer rounded-full border border-pink-200 bg-pink-50 px-4 py-1.5 text-xs font-bold text-pink-700 disabled:opacity-50"
+							>
+								{reconLoading ? 'Menyimpan…' : 'Simpan hitungan'}
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={finalizeReconciliation}
+								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+							>
+								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<!-- 1. Kebijakan Checkout -->
 			<div class="soft-float-card flex flex-col justify-between p-5 md:p-6">
@@ -111,9 +465,11 @@
 								{/if}
 							</div>
 							<p class="mt-1 text-xs text-slate-500 md:text-sm">
-								{strictStockEnabled
-									? 'Item dengan bahan/stok 0 dilarang checkout di POS.'
-									: 'Kasir tetap dapat melakukan checkout meski stok di sistem habis.'}
+								{policyMode === 'ignored'
+									? 'Monitoring nonaktif: kunci checkout tidak berlaku dan checkout tidak memeriksa stok.'
+									: strictStockEnabled
+										? 'Item dengan bahan/stok 0 dilarang checkout di POS.'
+										: 'Kasir tetap dapat melakukan checkout meski stok di sistem habis.'}
 							</p>
 						</div>
 					</div>
@@ -125,6 +481,7 @@
 							? 'Matikan kunci checkout stok habis'
 							: 'Aktifkan kunci checkout stok habis'}
 						aria-checked={strictStockEnabled}
+						disabled={policyMode === 'ignored'}
 						onclick={toggleStrictStock}
 						class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {strictStockEnabled
 							? 'bg-pink-600'

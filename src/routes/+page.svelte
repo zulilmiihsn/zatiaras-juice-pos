@@ -55,6 +55,7 @@
 	let TrendingUp = $state<IconComponent | null>(null);
 
 	import { createDashboardState } from '$lib/stores/dashboardState.svelte';
+	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 
 	const dashboard = createDashboardState();
 
@@ -66,6 +67,7 @@
 	});
 
 	onMount(async () => {
+		void stockPolicyState.refresh();
 		// [CATATAN]: Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
 			// [CATATAN]: non-blocking
@@ -901,6 +903,30 @@
 				</div>
 			{/snippet}
 
+			{#snippet stockPausedModule()}
+				<!-- Monitoring stok dijeda: bukan angka metrik -->
+				<div>
+					<div class="mb-2.5 flex items-center justify-between px-1">
+						<div>
+							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+								Inventaris Harian
+							</div>
+							<div class="text-sm font-bold text-slate-900 sm:text-base">
+								Monitoring Stok Dijeda
+							</div>
+						</div>
+					</div>
+					<div class="rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-xs">
+						<Boxes class="mx-auto mb-2 h-8 w-8 stroke-[1.8] text-slate-300" />
+						<div class="text-xs font-bold text-slate-700">Monitoring stok nonaktif</div>
+						<div class="mt-0.5 text-[11px] text-slate-400">
+							Penjualan tetap berjalan. Aktifkan kembali lewat pengaturan pemilik setelah
+							rekonsiliasi fisik.
+						</div>
+					</div>
+				</div>
+			{/snippet}
+
 			{#snippet quickActionsModule()}
 				<!-- Quick Action Panel for Tablet POS (Aksi Cepat Kasir) -->
 				<div
@@ -927,13 +953,15 @@
 							<BookOpen size={16} class="stroke-[2.2] text-pink-600" />
 							<span>Catat Kas</span>
 						</a>
-						<a
-							href="/stok"
-							class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
-						>
-							<Boxes size={16} class="stroke-[2.2] text-emerald-600" />
-							<span>Kelola Stok</span>
-						</a>
+						{#if !stockPolicyState.ignored}
+							<a
+								href="/stok"
+								class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
+							>
+								<Boxes size={16} class="stroke-[2.2] text-emerald-600" />
+								<span>Kelola Stok</span>
+							</a>
+						{/if}
 					</div>
 				</div>
 			{/snippet}
@@ -944,7 +972,11 @@
 				{@render operationalStatsModule()}
 				{@render weeklyChartModule()}
 				{@render cashFlowModule()}
-				{@render ingredientUsageModule()}
+				{#if stockPolicyState.ignored}
+					{@render stockPausedModule()}
+				{:else}
+					{@render ingredientUsageModule()}
+				{/if}
 			</div>
 
 			<!-- TABLET / DESKTOP VIEW (>= md): 2-Column Bento Grid -->
@@ -960,7 +992,11 @@
 				<div class="flex flex-col gap-5 md:col-span-5">
 					{@render bestSellersModule()}
 					{@render cashFlowModule()}
-					{@render ingredientUsageModule()}
+					{#if stockPolicyState.ignored}
+						{@render stockPausedModule()}
+					{:else}
+						{@render ingredientUsageModule()}
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -50,6 +50,16 @@ export function createPosState() {
 			if (browser && catalog.expires_at) {
 				localStorage.setItem('pos_catalog_expires_at', catalog.expires_at);
 			}
+			if (browser && catalog.stock_policy && catalog.branch) {
+				try {
+					localStorage.setItem(
+						`pos-stock-policy:${catalog.branch}`,
+						JSON.stringify(catalog.stock_policy)
+					);
+				} catch {
+					// Penyimpanan policy best-effort; checkout server tetap otoritatif.
+				}
+			}
 			if (catalog.source === 'unavailable') {
 				posLoadError = catalog.error || 'Katalog POS belum tersedia. Coba muat ulang.';
 				return;

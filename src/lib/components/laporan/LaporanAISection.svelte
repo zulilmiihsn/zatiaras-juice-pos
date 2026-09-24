@@ -18,6 +18,8 @@
 	import Clock from '@lucide/svelte/icons/clock';
 	import Copy from '@lucide/svelte/icons/copy';
 	import Check from '@lucide/svelte/icons/check';
+	import { onMount } from 'svelte';
+	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 
 	interface ChatMessageItem {
 		id: string;
@@ -106,6 +108,19 @@
 		{ label: 'Jam Paling Sibuk', query: 'Jam berapa toko biasanya paling ramai?' },
 		{ label: 'Riset Tren Web', query: 'Cari di web tren minuman segar yang viral saat ini.' }
 	];
+
+	const visibleSuggestions = $derived(
+		stockPolicyState.ignored ? suggestions.filter((item) => item.id !== 'stok') : suggestions
+	);
+	const visibleFollowUps = $derived(
+		stockPolicyState.ignored
+			? quickFollowUps.filter((item) => item.label !== 'Cek Stok Kritis')
+			: quickFollowUps
+	);
+
+	onMount(() => {
+		void stockPolicyState.refresh();
+	});
 
 	// Renderer Markdown ramah tampilan dengan tabel terformat rapi
 	function renderMarkdown(md: string): string {
@@ -541,7 +556,7 @@
 								Rekomendasi Pertanyaan
 							</span>
 							<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-								{#each suggestions as item}
+								{#each visibleSuggestions as item}
 									{@const IconComponent = item.icon}
 									<button
 										type="button"
@@ -677,7 +692,7 @@
 					<!-- Saran Pertanyaan Lanjutan -->
 					{#if !isStreaming}
 						<div class="mt-1 flex flex-wrap gap-1.5 pt-1">
-							{#each quickFollowUps as item}
+							{#each visibleFollowUps as item}
 								<button
 									type="button"
 									onclick={() => handleAiAsk(item.query)}

@@ -38,6 +38,7 @@
 		getProductStockAvailability
 	} from '$lib/services/stockAlertService';
 	import { realtimeManager } from '$lib/realtime/realtimeManager';
+	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 
 	// [CATATAN]: Utils & Constants
 	import { debounce, fuzzySearch } from '$lib/utils/performance';
@@ -76,7 +77,7 @@
 	let strictStockMode = $state(false);
 
 	function syncStrictStockPreference(): void {
-		strictStockMode = isStrictStockEnforcement();
+		strictStockMode = isStrictStockEnforcement() && !stockPolicyState.ignored;
 	}
 
 	async function cekSesiTokoAktif(): Promise<void> {
@@ -84,6 +85,10 @@
 	}
 
 	async function checkLowStock(): Promise<void> {
+		if (stockPolicyState.ignored) {
+			lowStockIngredients = [];
+			return;
+		}
 		try {
 			const ingredients = (await productService.getIngredients()) as unknown as Ingredient[];
 			if (Array.isArray(ingredients)) {
@@ -98,14 +103,24 @@
 
 	onMount(() => {
 		cart.reloadFromStorage();
-		syncStrictStockPreference();
+		void stockPolicyState.refresh().finally(() => {
+			syncStrictStockPreference();
+			checkLowStock();
+		});
 		cekSesiTokoAktif();
-		checkLowStock();
 		if (browser) {
 			window.addEventListener('openTokoModal', cekSesiTokoAktif);
 			window.addEventListener('storage', syncStrictStockPreference);
 			realtimeDisposers.push(realtimeManager.subscribe('bahan', checkLowStock));
 			realtimeDisposers.push(realtimeManager.subscribe('produk', syncStrictStockPreference));
+			realtimeDisposers.push(
+				realtimeManager.subscribe('stock_policy', () => {
+					void stockPolicyState.refresh().finally(() => {
+						syncStrictStockPreference();
+						checkLowStock();
+					});
+				})
+			);
 		}
 	});
 
@@ -571,7 +586,9 @@
 				</div>
 
 				<!-- [CATATAN]: Low Stock Alert Banner -->
-				<LowStockAlertBanner lowStockItems={lowStockIngredients} />
+				{#if !stockPolicyState.ignored}
+					<LowStockAlertBanner lowStockItems={lowStockIngredients} />
+				{/if}
 
 				<!-- [CATATAN]: Category Filter Pills -->
 				<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">

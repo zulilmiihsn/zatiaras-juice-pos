@@ -14,6 +14,22 @@ import { REPORT_CACHE_VERSION } from '$lib/constants/cache';
 import type { TopUsedIngredient } from '$lib/types';
 import { calculateTaxes } from '$lib/services/taxService';
 
+// Monitoring stok nonaktif: lewati query inventaris agar saldo basi tidak diklaim current.
+// Fail-safe ke tracked bila policy tidak dapat dibaca.
+async function isStockMonitoringIgnored(): Promise<boolean> {
+	try {
+		const response = await fetch('/api/pengaturan/stok', {
+			headers: { Accept: 'application/json' },
+			cache: 'no-store'
+		});
+		if (!response.ok) return false;
+		const payload = (await response.json()) as { data?: { mode?: string } };
+		return payload?.data?.mode === 'ignored';
+	} catch {
+		return false;
+	}
+}
+
 async function getCachedPosKas7Hari() {
 	const todayStr = getTodayWita();
 	const branch = selectedBranch.value || 'default';
@@ -154,10 +170,13 @@ export class DashboardService {
 
 					const avgTransaksi = await getAvgTransaksiHarian();
 					const jamRamai = await getJamRamaiMingguan();
-					const [bahanRes, mutasiRes] = await Promise.all([
-						dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
-						dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
-					]);
+					const stockIgnored = await isStockMonitoringIgnored();
+					const [bahanRes, mutasiRes] = stockIgnored
+						? [[], []]
+						: await Promise.all([
+								dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
+								dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
+							]);
 
 					const lowStockBahan = Array.isArray(bahanRes)
 						? bahanRes.filter(
@@ -257,10 +276,13 @@ export class DashboardService {
 
 				const avgTransaksi = await getAvgTransaksiHarian();
 				const jamRamai = await getJamRamaiMingguan();
-				const [bahanRes, mutasiRes] = await Promise.all([
-					dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
-					dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
-				]);
+				const stockIgnoredFallback = await isStockMonitoringIgnored();
+				const [bahanRes, mutasiRes] = stockIgnoredFallback
+					? [[], []]
+					: await Promise.all([
+							dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
+							dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
+						]);
 
 				const lowStockBahan = Array.isArray(bahanRes)
 					? bahanRes.filter(
