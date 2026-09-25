@@ -6,6 +6,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { browser } from '$app/environment';
 import type { AddOn, Category, Product, Ingredient } from '$lib/types/product';
 import type { PosCatalogSource, PosRecipeItem } from '$lib/types/posCatalog';
+import { writeCachedStockPolicy } from '$lib/utils/stockPolicyCache';
 
 export type PosProduct = Product;
 export type PosCategory = Category;
@@ -51,14 +52,11 @@ export function createPosState() {
 				localStorage.setItem('pos_catalog_expires_at', catalog.expires_at);
 			}
 			if (browser && catalog.stock_policy && catalog.branch) {
-				try {
-					localStorage.setItem(
-						`pos-stock-policy:${catalog.branch}`,
-						JSON.stringify(catalog.stock_policy)
-					);
-				} catch {
-					// Penyimpanan policy best-effort; checkout server tetap otoritatif.
-				}
+				writeCachedStockPolicy(catalog.branch, {
+					mode: catalog.stock_policy.mode,
+					revision: catalog.stock_policy.revision,
+					epoch_token: catalog.stock_policy.epoch_token
+				});
 			}
 			if (catalog.source === 'unavailable') {
 				posLoadError = catalog.error || 'Katalog POS belum tersedia. Coba muat ulang.';

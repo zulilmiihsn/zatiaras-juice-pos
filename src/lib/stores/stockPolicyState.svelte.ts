@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { fetchStockPolicy, type StockPolicyMode } from '$lib/services/stockPolicyService';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
+import { writeCachedStockPolicy } from '$lib/utils/stockPolicyCache';
 
 type PolicySnapshot = {
 	mode: StockPolicyMode;
@@ -33,31 +34,7 @@ async function loadFromServer(): Promise<PolicySnapshot> {
 	if (browser) {
 		try {
 			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
-			const key = `pos-stock-policy:${branch}`;
-			// Pertahankan epoch_token katalog bila mode+revision masih sama; token
-			// membuktikan epoch saat replay offline, jangan timpa dengan kosong.
-			let epochToken = '';
-			try {
-				const stored = JSON.parse(localStorage.getItem(key) || 'null') as {
-					mode?: unknown;
-					revision?: unknown;
-					epoch_token?: unknown;
-				} | null;
-				if (
-					stored &&
-					stored.mode === policy.mode &&
-					stored.revision === policy.revision &&
-					typeof stored.epoch_token === 'string'
-				) {
-					epochToken = stored.epoch_token;
-				}
-			} catch {
-				epochToken = '';
-			}
-			localStorage.setItem(
-				key,
-				JSON.stringify({ mode: policy.mode, revision: policy.revision, epoch_token: epochToken })
-			);
+			writeCachedStockPolicy(branch, { mode: policy.mode, revision: policy.revision });
 		} catch {
 			// Best-effort; server tetap otoritatif.
 		}

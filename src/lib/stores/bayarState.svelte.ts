@@ -17,6 +17,7 @@ import { refreshBus } from '$lib/utils/refreshBus';
 import { getSesiAktif } from '$lib/services/sesiTokoService';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { productService } from '$lib/services/productService';
+import { readCachedStockPolicy } from '$lib/utils/stockPolicyCache';
 import {
 	isStrictStockEnforcement,
 	isProductOutOfStock,
@@ -589,19 +590,12 @@ export function createBayarState() {
 		try {
 			if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
 			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
-			const raw = localStorage.getItem(`pos-stock-policy:${branch}`);
-			if (!raw) return {};
-			const parsed = JSON.parse(raw) as {
-				mode?: unknown;
-				revision?: unknown;
-				epoch_token?: unknown;
-			};
-			if (parsed.mode !== 'tracked' && parsed.mode !== 'ignored') return {};
-			if (typeof parsed.revision !== 'number' || !Number.isInteger(parsed.revision)) return {};
+			const cached = readCachedStockPolicy(branch);
+			if (!cached) return {};
 			return {
-				epoch_token: typeof parsed.epoch_token === 'string' ? parsed.epoch_token : undefined,
-				mode: parsed.mode,
-				revision: parsed.revision
+				epoch_token: cached.epoch_token || undefined,
+				mode: cached.mode,
+				revision: cached.revision
 			};
 		} catch {
 			return {};
