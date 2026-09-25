@@ -240,15 +240,25 @@
 		reconError = '';
 		try {
 			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-			const items = reconJob.items.map((item) => {
+			const items = reconJob.items.flatMap((item) => {
 				const key = `${item.entity_type}:${item.entity_id}`;
 				const raw = (reconDraft[key] ?? '').trim().replace(',', '.');
-				return {
-					entity_type: item.entity_type,
-					entity_id: item.entity_id,
-					counted_quantity: raw === '' ? -1 : Number(raw)
-				};
+				if (raw === '') return [];
+				const counted = Number(raw);
+				if (!Number.isFinite(counted) || counted < 0) {
+					throw new Error(`Hitungan ${item.entity_id} harus angka nonnegatif`);
+				}
+				return [
+					{
+						entity_type: item.entity_type,
+						entity_id: item.entity_id,
+						counted_quantity: counted
+					}
+				];
 			});
+			if (items.length === 0) {
+				throw new Error('Isi dulu hasil hitung fisik minimal satu item sebelum menyimpan');
+			}
 			const response = await fetchWithCsrfRetry(
 				`/api/pengaturan/stok/reconciliation/${reconJob.id}/items`,
 				{
@@ -268,6 +278,35 @@
 			reconDraft = {};
 		} catch (error) {
 			reconError = error instanceof Error ? error.message : 'Gagal menyimpan hitungan';
+		} finally {
+			reconLoading = false;
+		}
+	}
+
+	async function cancelReconciliation() {
+		if (!reconJob) return;
+		reconLoading = true;
+		reconError = '';
+		try {
+			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
+			const response = await fetchWithCsrfRetry(
+				`/api/pengaturan/stok/reconciliation/${reconJob.id}`,
+				{
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ branch })
+				}
+			);
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as {
+					message?: string;
+				} | null;
+				throw new Error(payload?.message || `Gagal membatalkan (HTTP ${response.status})`);
+			}
+			reconJob = null;
+			reconDraft = {};
+		} catch (error) {
+			reconError = error instanceof Error ? error.message : 'Gagal membatalkan rekonsiliasi';
 		} finally {
 			reconLoading = false;
 		}
@@ -532,6 +571,14 @@
 								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
 							>
 								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={cancelReconciliation}
+								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-500 disabled:opacity-50"
+							>
+								Batalkan job
 							</button>
 						</div>
 					{/if}
