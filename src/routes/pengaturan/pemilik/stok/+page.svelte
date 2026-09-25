@@ -539,9 +539,10 @@
 						{#if policyError}
 							<p class="mt-1 text-xs font-bold text-rose-600">{policyError}</p>
 						{/if}
-						{#if !policyLoading && !policyCanManage && policyMode === 'tracked'}
+						{#if !policyLoading && !policyCanManage}
 							<p class="mt-1 text-[11px] text-slate-400">
-								Perubahan monitoring belum tersedia untuk cabang ini.
+								Perubahan monitoring belum tersedia untuk sesi ini (cabang di luar pilot
+								atau bukan pemilik).
 							</p>
 						{/if}
 					</div>
