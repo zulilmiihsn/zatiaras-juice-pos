@@ -65,20 +65,21 @@
 		}
 	});
 
-	function scrollToReconciliation() {
-		try {
-			document.getElementById('reconciliation-panel')?.scrollIntoView({ behavior: 'smooth' });
-		} catch {
-			// Best-effort.
-		}
-	}
+	let enableError = $state('');
 
 	async function confirmEnableStock() {
-		showEnableConfirm = false;
+		enableError = '';
 		if (!reconJob) {
 			await startReconciliation();
+			if (!reconJob) {
+				// startReconciliation gagal: reconError sudah diisi, biarkan modal
+				// konfirmasi tetap terbuka agar pemilik bisa baca lalu batalkan.
+				enableError = reconError;
+				return;
+			}
 		}
-		scrollToReconciliation();
+		showEnableConfirm = false;
+		showReconModal = true;
 	}
 
 	// Rekonsiliasi aktivasi ulang (pemilik, saat mode ignored).
@@ -567,7 +568,10 @@
 					disabled={policyLoading || policyToggling || !policyCanManage}
 					onclick={() => {
 						if (policyMode === 'tracked') showDisableConfirm = true;
-						else showEnableConfirm = true;
+						else {
+							enableError = '';
+							showEnableConfirm = true;
+						}
 					}}
 					class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {policyMode ===
 					'tracked'
@@ -656,6 +660,9 @@
 							<li>Kamu wajib hitung fisik, simpan, lalu finalisasi.</li>
 							<li>Monitoring aktif lagi hanya setelah finalisasi berhasil.</li>
 						</ul>
+						{#if enableError}
+							<p class="mt-2 text-xs font-bold text-rose-600">{enableError}</p>
+						{/if}
 						<div class="mt-4 flex justify-end gap-2">
 							<button
 								type="button"
@@ -680,52 +687,19 @@
 			{/if}
 
 			{#if policyMode === 'ignored' && !policyLoading}
-				<div id="reconciliation-panel" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+				<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
 					<p class="text-xs font-bold text-slate-900">Aktifkan kembali monitoring stok</p>
 					<p class="mt-0.5 text-[11px] text-slate-500">
-						Saldo lama dianggap basi. Lakukan hitung fisik, simpan, lalu finalisasi untuk
-						mengaktifkan kembali.
+						Saldo lama dianggap basi. Nyalakan toggle di atas, konfirmasi, lalu lakukan hitung fisik
+						di dalam dialog.
 					</p>
-					{#if reconError}
+					{#if reconError && !showReconModal}
 						<p class="mt-1 text-xs font-bold text-rose-600">{reconError}</p>
 					{/if}
-					{#if !reconJob}
-						<button
-							type="button"
-							disabled={reconLoading || !policyCanManage}
-							onclick={startReconciliation}
-							class="mt-2 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-						>
-							{reconLoading ? 'Membuat…' : 'Mulai rekonsiliasi'}
-						</button>
-					{:else}
-						<div
-							class="mt-3 flex items-center justify-between gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-3"
-						>
-							<div class="flex items-center gap-2">
-								<span class="text-xs font-bold text-slate-800">Hitung fisik</span>
-								{#if reconComplete}
-									<span
-										class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"
-									>
-										Siap difinalisasi
-									</span>
-								{:else}
-									<span
-										class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700"
-									>
-										{reconCounted}/{reconTotal}
-									</span>
-								{/if}
-							</div>
-							<button
-								type="button"
-								onclick={() => (showReconModal = true)}
-								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white"
-							>
-								Buka hitung fisik
-							</button>
-						</div>
+					{#if reconPendingReviews > 0}
+						<p class="mt-1 text-[11px] font-bold text-amber-600">
+							{reconPendingReviews} antrean offline menunggu tinjauan di dalam dialog hitung fisik.
+						</p>
 					{/if}
 				</div>
 			{/if}
@@ -771,6 +745,71 @@
 							<p class="px-5 pt-2 text-xs font-bold text-rose-600 md:px-6">{reconError}</p>
 						{/if}
 						<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 md:px-6">
+							{#if reconReviews.length > 0}
+								<div class="mb-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+									<p class="text-xs font-bold text-slate-900">Antrean offline perlu tinjauan</p>
+									<p class="mt-0.5 text-[11px] text-slate-500">
+										Setujui replay agar bisa finalisasi, atau biarkan menunggu.
+									</p>
+									<div class="mt-2 flex flex-col gap-2">
+										{#each reconReviews as review (review.idempotency_key)}
+											<div class="rounded-xl border border-amber-200/70 bg-white px-3 py-2">
+												<div class="flex items-center justify-between gap-2">
+													<span
+														class="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-slate-700"
+													>
+														{review.idempotency_key.slice(0, 18)}…
+													</span>
+													<span
+														class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black {review.status ===
+														'pending'
+															? 'bg-amber-100 text-amber-700'
+															: review.status === 'approved_current'
+																? 'bg-emerald-100 text-emerald-700'
+																: 'bg-slate-100 text-slate-600'}"
+													>
+														{review.status === 'pending'
+															? 'Menunggu'
+															: review.status === 'approved_current'
+																? 'Disetujui'
+																: review.status}
+													</span>
+												</div>
+												<div class="mt-0.5 text-[11px] text-slate-400">
+													Antre {formatQueuedAt(review.queued_at)}
+												</div>
+												{#if review.status === 'pending'}
+													<button
+														type="button"
+														disabled={reconReviewActing === review.idempotency_key}
+														onclick={() =>
+															resolveReview(
+																review.idempotency_key,
+																review.revision,
+																'approve_current'
+															)}
+														class="mt-1.5 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-3.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+													>
+														{reconReviewActing === review.idempotency_key
+															? 'Memproses…'
+															: 'Setujui replay'}
+													</button>
+												{:else if review.status === 'approved_current'}
+													<button
+														type="button"
+														disabled={reconReviewActing === review.idempotency_key}
+														onclick={() =>
+															resolveReview(review.idempotency_key, review.revision, 'withdraw')}
+														class="mt-1.5 cursor-pointer rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[11px] font-bold text-slate-600 disabled:opacity-50"
+													>
+														Tarik persetujuan
+													</button>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
 							<div class="rounded-2xl border border-pink-100 bg-white p-4">
 								<div class="flex items-center justify-between gap-2">
 									<div class="flex items-center gap-2">
@@ -915,78 +954,6 @@
 				</div>
 			{/if}
 		</div>
-
-		{#if reconReviews.length > 0}
-			<!-- Tinjauan antrean offline yang dikarantina -->
-			<div class="soft-float-card flex flex-col gap-3 p-5 md:p-6">
-				<div>
-					<h3 class="text-xs font-bold text-slate-800 md:text-sm">
-						Antrean Offline Perlu Tinjauan
-					</h3>
-					<p class="text-[11px] text-slate-400 md:text-xs">
-						Transaksi ini melewati perubahan kebijakan stok. Setujui untuk replay dengan kebijakan
-						saat ini, atau biarkan menunggu hitung fisik.
-					</p>
-				</div>
-				{#if reconError}
-					<p class="text-xs font-bold text-rose-600">{reconError}</p>
-				{/if}
-				<div class="flex max-h-72 flex-col gap-2 overflow-y-auto">
-					{#each reconReviews as review (review.idempotency_key)}
-						<div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
-							<div class="flex items-center justify-between gap-2">
-								<span
-									class="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-slate-700"
-								>
-									{review.idempotency_key.slice(0, 18)}…
-								</span>
-								<span
-									class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black {review.status ===
-									'pending'
-										? 'bg-amber-100 text-amber-700'
-										: review.status === 'approved_current'
-											? 'bg-emerald-100 text-emerald-700'
-											: 'bg-slate-100 text-slate-600'}"
-								>
-									{review.status === 'pending'
-										? 'Menunggu'
-										: review.status === 'approved_current'
-											? 'Disetujui'
-											: review.status}
-								</span>
-							</div>
-							<div class="mt-0.5 text-[11px] text-slate-400">
-								Antre {formatQueuedAt(review.queued_at)} • Revisi saat antre: {review.policy_revision_at_queue ??
-									'-'} → saat ini {review.current_policy_revision}
-							</div>
-							<div class="mt-2 flex gap-2">
-								{#if review.status === 'pending'}
-									<button
-										type="button"
-										disabled={reconReviewActing === review.idempotency_key}
-										onclick={() =>
-											resolveReview(review.idempotency_key, review.revision, 'approve_current')}
-										class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-3.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
-									>
-										{reconReviewActing === review.idempotency_key ? 'Memproses…' : 'Setujui replay'}
-									</button>
-								{:else if review.status === 'approved_current'}
-									<button
-										type="button"
-										disabled={reconReviewActing === review.idempotency_key}
-										onclick={() =>
-											resolveReview(review.idempotency_key, review.revision, 'withdraw')}
-										class="cursor-pointer rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[11px] font-bold text-slate-600 disabled:opacity-50"
-									>
-										Tarik persetujuan
-									</button>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<!-- 1. Kebijakan Checkout -->

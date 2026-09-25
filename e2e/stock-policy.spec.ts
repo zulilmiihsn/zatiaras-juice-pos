@@ -174,7 +174,8 @@ test.describe('Stock Monitoring Toggle', () => {
 			});
 		});
 		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
-		await page.getByRole('button', { name: 'Buka hitung fisik' }).click();
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi', exact: true }).click();
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible();
 		await expect(dialog.locator('#recon-title')).toBeVisible();
