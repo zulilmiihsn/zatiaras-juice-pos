@@ -33,28 +33,49 @@
 	let policyError = $state('');
 	let policyToggling = $state(false);
 	let showDisableConfirm = $state(false);
+	let showEnableConfirm = $state(false);
 	let cancelDisableButton = $state<HTMLButtonElement | null>(null);
+	let cancelEnableButton = $state<HTMLButtonElement | null>(null);
 
 	$effect(() => {
 		if (showDisableConfirm) {
 			cancelDisableButton?.focus();
 		}
+		if (showEnableConfirm) {
+			cancelEnableButton?.focus();
+		}
 	});
 
-	function handleDisableKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && showDisableConfirm && !policyToggling) {
-			showDisableConfirm = false;
-		}
+	function handleModalKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || policyToggling || reconLoading) return;
+		if (showDisableConfirm) showDisableConfirm = false;
+		if (showEnableConfirm) showEnableConfirm = false;
 	}
 
 	if (browser) {
-		window.addEventListener('keydown', handleDisableKeydown);
+		window.addEventListener('keydown', handleModalKeydown);
 	}
 	onDestroy(() => {
 		if (browser) {
-			window.removeEventListener('keydown', handleDisableKeydown);
+			window.removeEventListener('keydown', handleModalKeydown);
 		}
 	});
+
+	function scrollToReconciliation() {
+		try {
+			document.getElementById('reconciliation-panel')?.scrollIntoView({ behavior: 'smooth' });
+		} catch {
+			// Best-effort.
+		}
+	}
+
+	async function confirmEnableStock() {
+		showEnableConfirm = false;
+		if (!reconJob) {
+			await startReconciliation();
+		}
+		scrollToReconciliation();
+	}
 
 	// Rekonsiliasi aktivasi ulang (pemilik, saat mode ignored).
 	type ReconItem = {
@@ -536,6 +557,7 @@
 					disabled={policyLoading || policyToggling || !policyCanManage}
 					onclick={() => {
 						if (policyMode === 'tracked') showDisableConfirm = true;
+						else showEnableConfirm = true;
 					}}
 					class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {policyMode ===
 					'tracked'
@@ -600,8 +622,55 @@
 				</div>
 			{/if}
 
+			{#if showEnableConfirm && policyMode === 'ignored'}
+				<div
+					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
+					role="presentation"
+					onclick={(event) => {
+						if (!reconLoading && event.target === event.currentTarget) {
+							showEnableConfirm = false;
+						}
+					}}
+				>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="enable-stock-title"
+						class="w-full max-w-md rounded-3xl border border-pink-100 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
+					>
+						<p id="enable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
+							Aktifkan kembali monitoring stok?
+						</p>
+						<ul class="mt-2 list-disc space-y-1 pl-4">
+							<li>Saldo lama dianggap basi dan tidak lagi mencerminkan kondisi gudang.</li>
+							<li>Kamu wajib hitung fisik, simpan, lalu finalisasi.</li>
+							<li>Monitoring aktif lagi hanya setelah finalisasi berhasil.</li>
+						</ul>
+						<div class="mt-4 flex justify-end gap-2">
+							<button
+								type="button"
+								bind:this={cancelEnableButton}
+								disabled={reconLoading}
+								onclick={() => (showEnableConfirm = false)}
+								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
+							>
+								Batal
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={confirmEnableStock}
+								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+							>
+								{reconLoading ? 'Membuat…' : 'Ya, mulai rekonsiliasi'}
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			{#if policyMode === 'ignored' && !policyLoading}
-				<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+				<div id="reconciliation-panel" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
 					<p class="text-xs font-bold text-slate-900">Aktifkan kembali monitoring stok</p>
 					<p class="mt-0.5 text-[11px] text-slate-500">
 						Saldo lama dianggap basi. Lakukan hitung fisik, simpan, lalu finalisasi untuk

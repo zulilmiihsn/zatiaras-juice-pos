@@ -122,6 +122,19 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(page.getByText('Aktifkan kembali monitoring stok')).toBeVisible();
 	});
 
+	test('enable toggle opens a confirmation modal first', async ({ page }) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await expect(page.getByText('Nonaktif', { exact: true }).first()).toBeVisible();
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByText('Aktifkan kembali monitoring stok?')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeHidden();
+	});
+
 	test('ignored mode hides Stok from bottom navigation', async ({ page }) => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
