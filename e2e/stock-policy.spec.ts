@@ -135,6 +135,55 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog).toBeHidden();
 	});
 
+	test('reconciliation opens in a modal with counted progress', async ({ page }) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.route('**/api/pengaturan/stok/reconciliation/active', async (route) => {
+			await route.fulfill({
+				json: {
+					ok: true,
+					data: {
+						job: {
+							id: 'job-1',
+							cabang_id: 'samarinda',
+							expected_policy_revision: 1,
+							status: 'draft',
+							inventory_fingerprint: 'fp',
+							created_by: 'owner',
+							created_at: new Date().toISOString(),
+							finalized_at: null,
+							items: [
+								{
+									job_id: 'job-1',
+									cabang_id: 'samarinda',
+									entity_type: 'bahan',
+									entity_id: 'b-gula',
+									counted_quantity: null
+								},
+								{
+									job_id: 'job-1',
+									cabang_id: 'samarinda',
+									entity_type: 'produk',
+									entity_id: 'p-teh',
+									counted_quantity: null
+								}
+							]
+						}
+					}
+				}
+			});
+		});
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('button', { name: 'Buka hitung fisik' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog.locator('#recon-title')).toBeVisible();
+		await expect(dialog.getByText('0/2', { exact: true })).toBeVisible();
+		await expect(dialog.getByLabel('Cari item rekonsiliasi')).toBeVisible();
+		await expect(dialog.getByText('Bahan baku • 1')).toBeVisible();
+		await expect(dialog.getByText('Produk • 1')).toBeVisible();
+	});
+
 	test('ignored mode hides Stok from bottom navigation', async ({ page }) => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
