@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Boxes from '@lucide/svelte/icons/boxes';
@@ -32,6 +32,28 @@
 	let policyError = $state('');
 	let policyToggling = $state(false);
 	let showDisableConfirm = $state(false);
+	let cancelDisableButton = $state<HTMLButtonElement | null>(null);
+
+	$effect(() => {
+		if (showDisableConfirm) {
+			cancelDisableButton?.focus();
+		}
+	});
+
+	function handleDisableKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && showDisableConfirm && !policyToggling) {
+			showDisableConfirm = false;
+		}
+	}
+
+	if (browser) {
+		window.addEventListener('keydown', handleDisableKeydown);
+	}
+	onDestroy(() => {
+		if (browser) {
+			window.removeEventListener('keydown', handleDisableKeydown);
+		}
+	});
 
 	// Rekonsiliasi aktivasi ulang (pemilik, saat mode ignored).
 	type ReconItem = {
@@ -400,32 +422,50 @@
 			</div>
 
 			{#if showDisableConfirm && policyMode === 'tracked'}
-				<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-xs text-slate-700">
-					<p class="font-bold text-slate-900">Nonaktifkan monitoring stok?</p>
-					<ul class="mt-1 list-disc space-y-0.5 pl-4">
-						<li>Penjualan tetap berjalan normal.</li>
-						<li>Stok tidak berkurang otomatis dan peringatan berhenti.</li>
-						<li>Data stok lama tidak dihapus.</li>
-						<li>Aktivasi ulang membutuhkan rekonsiliasi fisik.</li>
-						<li>Pastikan antrean offline semua perangkat sudah tersinkron.</li>
-					</ul>
-					<div class="mt-3 flex gap-2">
-						<button
-							type="button"
-							disabled={policyToggling}
-							onclick={() => (showDisableConfirm = false)}
-							class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-50"
-						>
-							Batal
-						</button>
-						<button
-							type="button"
-							disabled={policyToggling}
-							onclick={confirmDisableStock}
-							class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-						>
-							{policyToggling ? 'Menyimpan…' : 'Ya, nonaktifkan'}
-						</button>
+				<div
+					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
+					role="presentation"
+					onclick={(event) => {
+						if (!policyToggling && event.target === event.currentTarget) {
+							showDisableConfirm = false;
+						}
+					}}
+				>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="disable-stock-title"
+						class="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
+					>
+						<p id="disable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
+							Nonaktifkan monitoring stok?
+						</p>
+						<ul class="mt-2 list-disc space-y-1 pl-4">
+							<li>Penjualan tetap berjalan normal.</li>
+							<li>Stok tidak berkurang otomatis dan peringatan berhenti.</li>
+							<li>Data stok lama tidak dihapus.</li>
+							<li>Aktivasi ulang membutuhkan rekonsiliasi fisik.</li>
+							<li>Pastikan antrean offline semua perangkat sudah tersinkron.</li>
+						</ul>
+						<div class="mt-4 flex justify-end gap-2">
+							<button
+								type="button"
+								bind:this={cancelDisableButton}
+								disabled={policyToggling}
+								onclick={() => (showDisableConfirm = false)}
+								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
+							>
+								Batal
+							</button>
+							<button
+								type="button"
+								disabled={policyToggling}
+								onclick={confirmDisableStock}
+								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+							>
+								{policyToggling ? 'Menyimpan…' : 'Ya, nonaktifkan'}
+							</button>
+						</div>
 					</div>
 				</div>
 			{/if}
