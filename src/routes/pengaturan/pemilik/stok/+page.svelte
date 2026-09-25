@@ -103,9 +103,10 @@
 	let reconMetaLoading = $state(false);
 	let showReconModal = $state(false);
 	let reconSearchInput = $state<HTMLInputElement | null>(null);
-	let entityMeta = $state<Record<string, { nama: string; satuan: string; sistem: number | null }>>(
-		{}
-	);
+	let reconFilter = $state('semua');
+	let entityMeta = $state<
+		Record<string, { nama: string; satuan: string; sistem: number | null; kategori: string }>
+	>({});
 
 	const reconCounted = $derived(
 		reconJob ? reconJob.items.filter((item) => item.counted_quantity !== null).length : 0
@@ -122,18 +123,52 @@
 				item.entity_id.toLowerCase().includes(q) || (meta?.nama || '').toLowerCase().includes(q)
 			);
 		};
+		const visibles = reconJob.items.filter(
+			(item) =>
+				match(item) &&
+				(reconFilter === 'semua' ||
+					(item.entity_type === 'produk' ? 'produk' : itemKategori(item)) === reconFilter)
+		);
 		const groups = [];
-		for (const entityType of ['produk', 'bahan'] as const) {
-			const items = reconJob.items.filter((item) => item.entity_type === entityType && match(item));
-			if (items.length > 0) {
-				groups.push({
-					type: entityType,
-					title: entityType === 'produk' ? 'Produk' : 'Bahan baku',
-					items
-				});
-			}
+		const products = visibles.filter((item) => item.entity_type === 'produk');
+		if (products.length > 0) {
+			groups.push({ type: 'produk', title: 'Produk', items: products });
+		}
+		const byKategori = new Map<string, ReconItem[]>();
+		for (const item of visibles) {
+			if (item.entity_type !== 'bahan') continue;
+			const kategori = itemKategori(item);
+			if (!byKategori.has(kategori)) byKategori.set(kategori, []);
+			byKategori.get(kategori)!.push(item);
+		}
+		for (const [kategori, items] of [...byKategori.entries()].sort((a, b) =>
+			a[0].localeCompare(b[0], 'id')
+		)) {
+			groups.push({ type: 'bahan', title: kategori, items });
 		}
 		return groups;
+	});
+
+	function itemKategori(item: ReconItem): string {
+		if (item.entity_type !== 'bahan') return 'produk';
+		const kategori = entityMeta[`${item.entity_type}:${item.entity_id}`]?.kategori?.trim();
+		return kategori || 'Bahan baku';
+	}
+
+	const reconFilterOptions = $derived.by(() => {
+		if (!reconJob) return [];
+		const options = [{ value: 'semua', label: 'Semua' }];
+		if (reconJob.items.some((item) => item.entity_type === 'produk')) {
+			options.push({ value: 'produk', label: 'Produk' });
+		}
+		const kategoris = new Set<string>();
+		for (const item of reconJob.items) {
+			if (item.entity_type === 'bahan') kategoris.add(itemKategori(item));
+		}
+		for (const kategori of [...kategoris].sort((a, b) => a.localeCompare(b, 'id'))) {
+			options.push({ value: kategori, label: kategori });
+		}
+		return options;
 	});
 
 	// Tinjauan antrean offline yang dikarantina (HTTP 428).
@@ -277,15 +312,23 @@
 				productService.getIngredients().catch(() => []),
 				productService.getProducts().catch(() => [])
 			]);
-			const meta: Record<string, { nama: string; satuan: string; sistem: number | null }> = {};
+			const meta: Record<
+				string,
+				{ nama: string; satuan: string; sistem: number | null; kategori: string }
+			> = {};
 			for (const bahan of (ingredients || []) as Array<Record<string, unknown>>) {
 				const id = String(bahan.id ?? '');
 				if (!id) continue;
 				const stok = Number(bahan.stok_saat_ini);
+				const kategori =
+					typeof bahan.kategori === 'string' && bahan.kategori.trim()
+						? bahan.kategori.trim()
+						: 'Bahan baku';
 				meta[`bahan:${id}`] = {
 					nama: typeof bahan.nama === 'string' && bahan.nama ? bahan.nama : id,
 					satuan: typeof bahan.satuan === 'string' ? bahan.satuan : '',
-					sistem: Number.isFinite(stok) ? stok : null
+					sistem: Number.isFinite(stok) ? stok : null,
+					kategori
 				};
 			}
 			for (const produk of (products || []) as Array<Record<string, unknown>>) {
@@ -295,7 +338,8 @@
 				meta[`produk:${id}`] = {
 					nama: typeof produk.nama === 'string' && produk.nama ? produk.nama : id,
 					satuan: 'pcs',
-					sistem: Number.isFinite(stok) ? stok : null
+					sistem: Number.isFinite(stok) ? stok : null,
+					kategori: 'produk'
 				};
 			}
 			entityMeta = meta;
@@ -848,15 +892,40 @@
 										sebelum finalisasi.
 									</p>
 								{/if}
-								<div class="relative mt-3">
+								<p class="mt-2 text-[11px] text-slate-500">
+									Isi angka sesuai <span class="font-bold text-slate-700">satuan tiap baris</span>
+									(mis. gram, ml, pcs). Boleh dicicil — progres tersimpan aman.
+								</p>
+								<div class="relative mt-2">
 									<input
 										type="search"
 										placeholder="Cari nama bahan atau produk…"
 										bind:value={reconSearch}
 										aria-label="Cari item rekonsiliasi"
-										class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-pink-300 focus:outline-none"
+										class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-pink-300 focus:outline-none"
 									/>
 								</div>
+								{#if reconFilterOptions.length > 2}
+									<div
+										class="mt-2 flex flex-wrap gap-1.5"
+										role="group"
+										aria-label="Filter kategori"
+									>
+										{#each reconFilterOptions as option (option.value)}
+											<button
+												type="button"
+												onclick={() => (reconFilter = option.value)}
+												aria-pressed={reconFilter === option.value}
+												class="cursor-pointer rounded-full border px-3 py-1 text-[11px] font-bold transition-colors {reconFilter ===
+												option.value
+													? 'border-pink-500 bg-pink-600 text-white'
+													: 'border-slate-200 bg-white text-slate-500 hover:border-pink-200 hover:text-pink-600'}"
+											>
+												{option.label}
+											</button>
+										{/each}
+									</div>
+								{/if}
 							</div>
 							{#if reconGroups.length === 0}
 								<p class="mt-2 text-center text-[11px] text-slate-400">
@@ -870,56 +939,88 @@
 									>
 										{group.title} • {group.items.length}
 									</p>
-									<div class="flex max-h-80 flex-col gap-2 overflow-y-auto pr-0.5">
+									<div class="flex flex-col gap-2">
 										{#each group.items as item (item.entity_type + ':' + item.entity_id)}
 											{@const key = `${item.entity_type}:${item.entity_id}`}
 											{@const meta = entityMeta[key]}
-											<label
-												class="flex items-center gap-3 rounded-2xl border bg-white px-3 py-2.5 transition-colors {item.counted_quantity !==
+											{@const satuan = meta?.satuan || (item.entity_type === 'produk' ? 'pcs' : '')}
+											<div
+												class="rounded-2xl border bg-white px-3 py-2.5 transition-colors {item.counted_quantity !==
 												null
 													? 'border-emerald-200 bg-emerald-50/40'
 													: 'border-slate-200'}"
 											>
-												<span
-													class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black {item.counted_quantity !==
-													null
-														? 'bg-emerald-100 text-emerald-700'
-														: 'bg-slate-100 text-slate-400'}"
-												>
-													{item.counted_quantity !== null
-														? '✓'
-														: group.type === 'produk'
-															? 'P'
-															: 'B'}
-												</span>
-												<span class="min-w-0 flex-1">
-													<span class="block truncate text-xs font-bold text-slate-800">
-														{meta?.nama || item.entity_id}
+												<div class="flex items-center gap-3">
+													<span
+														class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black {item.counted_quantity !==
+														null
+															? 'bg-emerald-100 text-emerald-700'
+															: 'bg-slate-100 text-slate-400'}"
+													>
+														{item.counted_quantity !== null
+															? '✓'
+															: group.type === 'produk'
+																? 'P'
+																: 'B'}
 													</span>
-													<span class="block truncate text-[11px] text-slate-400">
-														{#if meta?.satuan}{meta.satuan} •
-														{/if}{#if meta?.sistem !== null && meta?.sistem !== undefined}Sistem: {meta.sistem}{:else}{item.entity_id}{/if}
+													<span class="min-w-0 flex-1">
+														<span class="block truncate text-sm font-bold text-slate-800">
+															{meta?.nama || item.entity_id}
+														</span>
+														<span class="block truncate text-[11px] text-slate-400">
+															{#if meta?.sistem !== null && meta?.sistem !== undefined}
+																Stok sistem: {meta.sistem}{#if satuan}
+																	{satuan}{/if}
+															{:else}
+																{item.entity_id}
+															{/if}
+														</span>
 													</span>
-												</span>
-												<input
-													type="number"
-													min="0"
-													step={item.entity_type === 'produk' ? '1' : 'any'}
-													inputmode="decimal"
-													placeholder={item.counted_quantity !== null
-														? String(item.counted_quantity)
-														: 'Hitung'}
-													bind:value={reconDraft[key]}
-													aria-label="Hitung fisik {meta?.nama || item.entity_id}"
-													class="w-24 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-right text-xs font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:outline-none"
-												/>
-											</label>
+													{#if meta?.sistem !== null && meta?.sistem !== undefined && item.counted_quantity === null && !reconDraft[key]}
+														<button
+															type="button"
+															title="Isi sama dengan stok sistem"
+															onclick={() => (reconDraft[key] = String(meta.sistem))}
+															class="shrink-0 cursor-pointer rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:border-pink-200 hover:text-pink-600"
+														>
+															≈ sistem
+														</button>
+													{/if}
+												</div>
+												<div class="mt-2 flex items-center gap-2">
+													<label
+														for="recon-{item.entity_type}-{item.entity_id}"
+														class="shrink-0 text-[11px] font-bold text-slate-500"
+													>
+														Hitung{#if satuan}
+															({satuan}){/if}:
+													</label>
+													<input
+														id="recon-{item.entity_type}-{item.entity_id}"
+														type="number"
+														min="0"
+														step={item.entity_type === 'produk' ? '1' : 'any'}
+														inputmode="decimal"
+														placeholder={item.counted_quantity !== null
+															? String(item.counted_quantity)
+															: '0'}
+														bind:value={reconDraft[key]}
+														class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:outline-none"
+													/>
+												</div>
+											</div>
 										{/each}
 									</div>
 								</div>
 							{/each}
+							<p class="mt-2 text-[11px] text-slate-400">
+								<span class="font-bold text-slate-600">Simpan progres</span> mengunggah hitungan ke
+								server — boleh dicicil, aman ditutup dan dilanjut nanti.
+								<span class="font-bold text-slate-600">Finalisasi</span> mengunci angka dan mengaktifkan
+								monitoring.
+							</p>
 							<div
-								class="sticky bottom-0 mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/95 pt-3 pb-1 backdrop-blur"
+								class="sticky bottom-0 mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/95 pt-3 pb-1 backdrop-blur"
 							>
 								<button
 									type="button"
@@ -927,7 +1028,7 @@
 									onclick={saveReconCounts}
 									class="cursor-pointer rounded-full border border-pink-200 bg-white px-4 py-2 text-xs font-bold text-pink-700 disabled:opacity-50"
 								>
-									{reconLoading ? 'Menyimpan…' : 'Simpan hitungan'}
+									{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
 								</button>
 								<button
 									type="button"

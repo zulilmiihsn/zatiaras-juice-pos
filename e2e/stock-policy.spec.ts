@@ -183,6 +183,9 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog.getByLabel('Cari item rekonsiliasi')).toBeVisible();
 		await expect(dialog.getByText('Bahan baku • 1')).toBeVisible();
 		await expect(dialog.getByText('Produk • 1')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Semua' })).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Bahan baku' })).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Simpan progres' })).toBeVisible();
 	});
 
 	test('ignored mode hides Stok from bottom navigation', async ({ page }) => {
