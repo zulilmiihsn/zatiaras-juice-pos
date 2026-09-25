@@ -541,8 +541,8 @@
 						{/if}
 						{#if !policyLoading && !policyCanManage}
 							<p class="mt-1 text-[11px] text-slate-400">
-								Perubahan monitoring belum tersedia untuk sesi ini (cabang di luar pilot
-								atau bukan pemilik).
+								Perubahan monitoring belum tersedia untuk sesi ini (cabang di luar pilot atau bukan
+								pemilik).
 							</p>
 						{/if}
 					</div>
