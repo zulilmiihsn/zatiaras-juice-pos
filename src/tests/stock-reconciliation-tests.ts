@@ -12,6 +12,7 @@ import {
 } from '../lib/server/stockReconciliation';
 import { isCsrfProtectedRequest } from '../lib/server/csrfPolicy';
 import { POST as CREATE } from '../routes/api/pengaturan/stok/reconciliation/+server';
+import { GET as ACTIVE } from '../routes/api/pengaturan/stok/reconciliation/active/+server';
 import { DELETE as CANCEL } from '../routes/api/pengaturan/stok/reconciliation/[id]/+server';
 import { PUT as UPDATE_ITEMS } from '../routes/api/pengaturan/stok/reconciliation/[id]/items/+server';
 import { POST as FINALIZE } from '../routes/api/pengaturan/stok/reconciliation/[id]/finalize/+server';
@@ -501,6 +502,44 @@ try {
 			'cancelled'
 		);
 	}
+
+	function activeEvent(role: string, branch = 'samarinda2') {
+		return {
+			url: new URL('https://test.invalid/api/pengaturan/stok/reconciliation/active'),
+			params: {},
+			locals: { authSession: session(role, branch) },
+			platform: {
+				env: {
+					DB_SAMARINDA_GROUP: db
+				}
+			}
+		};
+	}
+
+	const emptyActive = (await ACTIVE(activeEvent('pemilik') as never)) as Response;
+	assert.equal(emptyActive.status, 200);
+	assert.equal(((await emptyActive.json()) as { data: { job: null } }).data.job, null);
+	await expectHttpStatus(() => ACTIVE(activeEvent('kasir') as never), 403);
+
+	const activeCreate = await CREATE(
+		routeEvent('POST', 'pemilik', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+	);
+	const activeJob = (await activeCreate.json()) as { data: { id: string } };
+	const foundActive = (await ACTIVE(activeEvent('pemilik') as never)) as Response;
+	assert.equal(
+		((await foundActive.json()) as { data: { job: { id: string } } }).data.job.id,
+		activeJob.data.id
+	);
+	await CANCEL(
+		routeEvent(
+			'DELETE',
+			'pemilik',
+			{ branch: 'samarinda2' },
+			{ branch: 'samarinda2', id: activeJob.data.id }
+		) as never
+	);
+	const goneActive = (await ACTIVE(activeEvent('pemilik') as never)) as Response;
+	assert.equal(((await goneActive.json()) as { data: { job: null } }).data.job, null);
 
 	console.log(
 		'stock-reconciliation-tests: snapshot, validation, atomic guards, ledgers, policy, routes passed'

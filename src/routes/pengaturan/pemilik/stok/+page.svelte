@@ -19,6 +19,7 @@
 	} from '$lib/services/stockAlertService';
 	import { fetchStockPolicy, updateStockPolicy } from '$lib/services/stockPolicyService';
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+	import { productService } from '$lib/services/productService';
 
 	let soundEnabled = $state(true);
 	let strictStockEnabled = $state(false);
@@ -72,6 +73,40 @@
 	let reconError = $state('');
 	let reconDraft = $state<Record<string, string>>({});
 	let reconPendingReviews = $state(0);
+	let reconSearch = $state('');
+	let reconMetaLoading = $state(false);
+	let entityMeta = $state<Record<string, { nama: string; satuan: string; sistem: number | null }>>(
+		{}
+	);
+
+	const reconCounted = $derived(
+		reconJob ? reconJob.items.filter((item) => item.counted_quantity !== null).length : 0
+	);
+	const reconTotal = $derived(reconJob ? reconJob.items.length : 0);
+	const reconComplete = $derived(reconTotal > 0 && reconCounted >= reconTotal);
+	const reconGroups = $derived.by(() => {
+		if (!reconJob) return [];
+		const q = reconSearch.trim().toLowerCase();
+		const match = (item: ReconItem) => {
+			if (!q) return true;
+			const meta = entityMeta[`${item.entity_type}:${item.entity_id}`];
+			return (
+				item.entity_id.toLowerCase().includes(q) || (meta?.nama || '').toLowerCase().includes(q)
+			);
+		};
+		const groups = [];
+		for (const entityType of ['produk', 'bahan'] as const) {
+			const items = reconJob.items.filter((item) => item.entity_type === entityType && match(item));
+			if (items.length > 0) {
+				groups.push({
+					type: entityType,
+					title: entityType === 'produk' ? 'Produk' : 'Bahan baku',
+					items
+				});
+			}
+		}
+		return groups;
+	});
 
 	// Tinjauan antrean offline yang dikarantina (HTTP 428).
 	type OfflineReview = {
@@ -207,6 +242,60 @@
 		}
 	}
 
+	async function loadEntityMeta(): Promise<void> {
+		reconMetaLoading = true;
+		try {
+			const [ingredients, products] = await Promise.all([
+				productService.getIngredients().catch(() => []),
+				productService.getProducts().catch(() => [])
+			]);
+			const meta: Record<string, { nama: string; satuan: string; sistem: number | null }> = {};
+			for (const bahan of (ingredients || []) as Array<Record<string, unknown>>) {
+				const id = String(bahan.id ?? '');
+				if (!id) continue;
+				const stok = Number(bahan.stok_saat_ini);
+				meta[`bahan:${id}`] = {
+					nama: typeof bahan.nama === 'string' && bahan.nama ? bahan.nama : id,
+					satuan: typeof bahan.satuan === 'string' ? bahan.satuan : '',
+					sistem: Number.isFinite(stok) ? stok : null
+				};
+			}
+			for (const produk of (products || []) as Array<Record<string, unknown>>) {
+				const id = String(produk.id ?? '');
+				if (!id) continue;
+				const stok = Number(produk.stok);
+				meta[`produk:${id}`] = {
+					nama: typeof produk.nama === 'string' && produk.nama ? produk.nama : id,
+					satuan: 'pcs',
+					sistem: Number.isFinite(stok) ? stok : null
+				};
+			}
+			entityMeta = meta;
+		} catch {
+			// Nama fallback ke ID; hitung fisik tetap bisa diisi.
+		} finally {
+			reconMetaLoading = false;
+		}
+	}
+
+	async function loadActiveReconciliation(): Promise<void> {
+		try {
+			const response = await fetch('/api/pengaturan/stok/reconciliation/active', {
+				headers: { Accept: 'application/json' },
+				cache: 'no-store'
+			});
+			if (!response.ok) return;
+			const payload = (await response.json()) as { data?: { job?: ReconJob | null } };
+			if (payload?.data?.job) {
+				reconJob = payload.data.job;
+				reconDraft = {};
+				await Promise.all([loadEntityMeta(), loadPendingReviews()]);
+			}
+		} catch {
+			// Best-effort.
+		}
+	}
+
 	async function startReconciliation() {
 		reconLoading = true;
 		reconError = '';
@@ -226,7 +315,8 @@
 			const payload = (await response.json()) as { data: ReconJob };
 			reconJob = payload.data;
 			reconDraft = {};
-			await loadPendingReviews();
+			reconSearch = '';
+			await Promise.all([loadEntityMeta(), loadPendingReviews()]);
 		} catch (error) {
 			reconError = error instanceof Error ? error.message : 'Gagal membuat rekonsiliasi';
 		} finally {
@@ -357,6 +447,7 @@
 		}
 		void loadPolicy();
 		void loadPendingReviews();
+		void loadActiveReconciliation();
 	});
 </script>
 
@@ -529,46 +620,127 @@
 							{reconLoading ? 'Membuat…' : 'Mulai rekonsiliasi'}
 						</button>
 					{:else}
-						<p class="mt-2 text-[11px] text-slate-500">
-							Job {reconJob.id.slice(0, 8)}… • Status {reconJob.status} • Antrean perlu tinjauan: {reconPendingReviews}
-						</p>
-						<div class="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto">
-							{#each reconJob.items as item}
-								{@const key = `${item.entity_type}:${item.entity_id}`}
-								<label
-									class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
-								>
-									<span class="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">
-										{item.entity_type} · {item.entity_id}
-										{#if item.counted_quantity !== null}
-											<span class="text-emerald-600">({item.counted_quantity})</span>
-										{/if}
-									</span>
-									<input
-										type="number"
-										min="0"
-										step={item.entity_type === 'produk' ? '1' : 'any'}
-										placeholder="Hitung fisik"
-										bind:value={reconDraft[key]}
-										class="w-28 rounded-lg border border-slate-200 px-2 py-1 text-xs"
-									/>
-								</label>
-							{/each}
+						<div class="mt-3 rounded-2xl border border-pink-100 bg-white p-4">
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-bold text-slate-900 md:text-sm">Hitung fisik stok</span>
+									{#if reconComplete}
+										<span
+											class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"
+										>
+											Siap difinalisasi
+										</span>
+									{:else}
+										<span
+											class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700"
+										>
+											Kurang {reconTotal - reconCounted} lagi
+										</span>
+									{/if}
+								</div>
+								<span class="shrink-0 text-[11px] font-bold text-slate-500">
+									{reconCounted}/{reconTotal}
+								</span>
+							</div>
+							<div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+								<div
+									class="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-400 transition-all"
+									style="width: {reconTotal === 0
+										? 100
+										: Math.round((reconCounted / reconTotal) * 100)}%"
+								></div>
+							</div>
+							{#if reconPendingReviews > 0}
+								<p class="mt-2 text-[11px] font-bold text-amber-600">
+									{reconPendingReviews} antrean offline menunggu tinjauan di bawah — selesaikan dulu sebelum
+									finalisasi.
+								</p>
+							{/if}
+							<div class="relative mt-3">
+								<input
+									type="search"
+									placeholder="Cari nama bahan atau produk…"
+									bind:value={reconSearch}
+									aria-label="Cari item rekonsiliasi"
+									class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-pink-300 focus:outline-none"
+								/>
+							</div>
 						</div>
-						<div class="mt-2 flex flex-wrap gap-2">
+						{#if reconGroups.length === 0}
+							<p class="mt-2 text-center text-[11px] text-slate-400">
+								{reconSearch ? 'Tidak ada item yang cocok.' : 'Tidak ada item untuk dihitung.'}
+							</p>
+						{/if}
+						{#each reconGroups as group (group.type)}
+							<div class="mt-3">
+								<p
+									class="mb-1.5 px-1 text-[11px] font-black tracking-wider text-slate-400 uppercase"
+								>
+									{group.title} • {group.items.length}
+								</p>
+								<div class="flex max-h-80 flex-col gap-2 overflow-y-auto pr-0.5">
+									{#each group.items as item (item.entity_type + ':' + item.entity_id)}
+										{@const key = `${item.entity_type}:${item.entity_id}`}
+										{@const meta = entityMeta[key]}
+										<label
+											class="flex items-center gap-3 rounded-2xl border bg-white px-3 py-2.5 transition-colors {item.counted_quantity !==
+											null
+												? 'border-emerald-200 bg-emerald-50/40'
+												: 'border-slate-200'}"
+										>
+											<span
+												class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black {item.counted_quantity !==
+												null
+													? 'bg-emerald-100 text-emerald-700'
+													: 'bg-slate-100 text-slate-400'}"
+											>
+												{item.counted_quantity !== null ? '✓' : group.type === 'produk' ? 'P' : 'B'}
+											</span>
+											<span class="min-w-0 flex-1">
+												<span class="block truncate text-xs font-bold text-slate-800">
+													{meta?.nama || item.entity_id}
+												</span>
+												<span class="block truncate text-[11px] text-slate-400">
+													{#if meta?.satuan}{meta.satuan} •
+													{/if}{#if meta?.sistem !== null && meta?.sistem !== undefined}Sistem: {meta.sistem}{:else}{item.entity_id}{/if}
+												</span>
+											</span>
+											<input
+												type="number"
+												min="0"
+												step={item.entity_type === 'produk' ? '1' : 'any'}
+												inputmode="decimal"
+												placeholder={item.counted_quantity !== null
+													? String(item.counted_quantity)
+													: 'Hitung'}
+												bind:value={reconDraft[key]}
+												aria-label="Hitung fisik {meta?.nama || item.entity_id}"
+												class="w-24 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-right text-xs font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:outline-none"
+											/>
+										</label>
+									{/each}
+								</div>
+							</div>
+						{/each}
+						<div
+							class="sticky bottom-0 mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/95 pt-3 pb-1 backdrop-blur"
+						>
 							<button
 								type="button"
 								disabled={reconLoading}
 								onclick={saveReconCounts}
-								class="cursor-pointer rounded-full border border-pink-200 bg-pink-50 px-4 py-1.5 text-xs font-bold text-pink-700 disabled:opacity-50"
+								class="cursor-pointer rounded-full border border-pink-200 bg-white px-4 py-2 text-xs font-bold text-pink-700 disabled:opacity-50"
 							>
 								{reconLoading ? 'Menyimpan…' : 'Simpan hitungan'}
 							</button>
 							<button
 								type="button"
-								disabled={reconLoading}
+								disabled={reconLoading || !reconComplete}
+								title={reconComplete
+									? 'Terapkan saldo dan aktifkan monitoring'
+									: 'Lengkapi semua hitungan dulu'}
 								onclick={finalizeReconciliation}
-								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
 							>
 								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
 							</button>
@@ -576,9 +748,9 @@
 								type="button"
 								disabled={reconLoading}
 								onclick={cancelReconciliation}
-								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-500 disabled:opacity-50"
+								class="ml-auto cursor-pointer rounded-full px-3 py-2 text-[11px] font-bold text-slate-400 underline-offset-2 hover:text-rose-600 hover:underline disabled:opacity-50"
 							>
-								Batalkan job
+								Batalkan
 							</button>
 						</div>
 					{/if}

@@ -597,6 +597,27 @@ export async function finalizeBranchStockReconciliation(
 	return job;
 }
 
+export async function loadBranchActiveReconciliation(
+	platform: App.Platform | undefined,
+	branch: BranchContext
+): Promise<StockReconciliationJob | null> {
+	const db = getRawDb(platform, branch);
+	const row = await db
+		.prepare(
+			`SELECT id, cabang_id, expected_policy_revision, status, inventory_fingerprint,
+				created_by, created_at, finalized_at
+			 FROM stock_reconciliations
+			 WHERE cabang_id = ? AND status IN ('draft', 'ready')
+			 ORDER BY created_at DESC
+			 LIMIT 1`
+		)
+		.bind(branch)
+		.first<JobRow>();
+	if (!row) return null;
+	const items = await loadItems(db, branch, row.id);
+	return { ...row, items };
+}
+
 export async function cancelBranchStockReconciliation(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
