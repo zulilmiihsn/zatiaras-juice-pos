@@ -1554,6 +1554,14 @@ Gate tambahan wajib:
 - E2E desktop dan mobile untuk nav, checkout, toggle, dan re-enable.
 - Diff review untuk secret, scope creep, dan query tanpa `cabang_id`.
 
+Catatan E2E lokal (temuan 24 Sep 2026, terbukti bukan regresi fitur):
+
+- `menu.spec` redirect timing dan `a11y.spec` tombol login gagal di workstation
+  Windows yang berat, termasuk pada tree bersih pra-fitur. CI remote hijau 6/6
+  termasuk E2E pada SHA yang sama.
+- Jangan turunkan assertion, menambah skip, atau retry buta agar hijau.
+  CI adalah sumber kebenaran untuk gate E2E; ulangi run lokal saat mesin idle.
+
 Kriteria gate:
 
 - Semua perintah exit code 0.
