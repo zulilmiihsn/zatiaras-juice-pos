@@ -84,6 +84,13 @@ atau restore dari backup langkah 1. Rollback Pages TIDAK mengembalikan schema D1
 
 ## 5. Deploy aplikasi (workflow Deploy, bukan dari laptop)
 
+> Insiden 26 Sep 2026: rantai `pnpm build; wrangler pages deploy` men-deploy
+> worker baru dengan aset basi saat build parsial — seluruh JS/CSS 404 di
+> production. Jangan pernah rantai build+deploy dengan `;`. Selalu: hapus
+> `.svelte-kit`, build penuh sampai `✔ done`, verifikasi isi
+> `.svelte-kit/cloudflare/_app/immutable`, baru deploy; lalu verifikasi tiap
+> aset rujukan HTML balas 200 dengan MIME benar.
+
 1. GitHub Actions → Deploy → `workflow_dispatch`, isi SHA + `dry_run=true` +
    `ci_run_id` (ID angka CI run hijau pemilik artifact, misal dari URL run CI).
 2. Verifikasi manifest lulus, lalu dispatch ulang `dry_run=false` (butuh
