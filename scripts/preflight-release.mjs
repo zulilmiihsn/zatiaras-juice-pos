@@ -19,8 +19,9 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { join, resolve } from 'node:path';
 
 export const ARTIFACT_ROOT = '.svelte-kit/cloudflare';
+export const RUNTIME_ROOTS = ['.svelte-kit/cloudflare-tmp', '.svelte-kit/output/server'];
 export const MANIFEST_PATH = 'build-artifacts.json';
-export const MANIFEST_SCHEMA = 1;
+export const MANIFEST_SCHEMA = 2;
 export const CONFIG_FILES = ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc'];
 export const MIGRATION_FILES = ['drizzle/meta/manifest.json', 'drizzle/meta/_journal.json'];
 export const ALLOWED_BRANCHES = ['main'];
@@ -149,6 +150,16 @@ export function buildManifest({ headSha, branch }) {
 	if (fileNames.some((name) => name.includes('.env'))) {
 		throw new Error('Artifact mengandung path .env. Hentikan release.');
 	}
+	const runtimeFiles = {};
+	for (const root of RUNTIME_ROOTS) {
+		if (!existsSync(resolve(root))) throw new Error(`Runtime root hilang: ${root}. Rebuild.`);
+		const hashed = hashFiles(resolve(root));
+		if (!Object.keys(hashed).length) throw new Error(`Runtime root kosong: ${root}. Rebuild.`);
+		if (Object.keys(hashed).some((name) => name.includes('.env'))) {
+			throw new Error('Runtime artifact mengandung path .env. Hentikan release.');
+		}
+		runtimeFiles[root] = hashed;
+	}
 	return {
 		schema: MANIFEST_SCHEMA,
 		commit_sha: headSha,
@@ -160,7 +171,8 @@ export function buildManifest({ headSha, branch }) {
 		config_checksums: checksumFiles(CONFIG_FILES),
 		migration_checksums: checksumFiles(MIGRATION_FILES),
 		file_count: fileNames.length,
-		files
+		files,
+		runtime_files: runtimeFiles
 	};
 }
 
@@ -200,6 +212,21 @@ export function verifyManifest(manifest, expectedSha) {
 	}
 	for (const rel of Object.keys(currentFiles)) {
 		if (!(rel in manifestFiles)) errors.push(`File artifact tak tercatat: ${rel}. Rebuild.`);
+	}
+	for (const root of RUNTIME_ROOTS) {
+		const recorded = manifest.runtime_files?.[root];
+		if (!recorded || !Object.keys(recorded).length) {
+			errors.push(`Runtime root tak tercatat: ${root}.`);
+			continue;
+		}
+		const current = existsSync(resolve(root)) ? hashFiles(resolve(root)) : {};
+		for (const [rel, expected] of Object.entries(recorded)) {
+			if (!(rel in current)) errors.push(`Runtime file hilang: ${root}/${rel}.`);
+			else if (current[rel] !== expected) errors.push(`Runtime file berubah: ${root}/${rel}.`);
+		}
+		for (const rel of Object.keys(current)) {
+			if (!(rel in recorded)) errors.push(`Runtime file tak tercatat: ${root}/${rel}.`);
+		}
 	}
 	const checkGroup = (label, recorded, current) => {
 		for (const [file, expected] of Object.entries(recorded || {})) {

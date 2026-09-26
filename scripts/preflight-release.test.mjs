@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
 	ARTIFACT_ROOT,
+	RUNTIME_ROOTS,
 	buildManifest,
 	hashFiles,
 	readManifest,
@@ -21,6 +22,10 @@ function fixture(fileCount = 3) {
 		writeFileSync(join(artifact, `file-${i}.txt`), `content-${i}\n`);
 	}
 	writeFileSync(join(artifact, 'nested', 'deep.txt'), 'deep\n');
+	for (const runtimeRoot of RUNTIME_ROOTS) {
+		mkdirSync(join(root, runtimeRoot), { recursive: true });
+		writeFileSync(join(root, runtimeRoot, 'index.js'), 'runtime\n');
+	}
 	for (const file of ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc']) {
 		writeFileSync(join(root, file), '{}\n');
 	}
@@ -89,6 +94,29 @@ test('file hilang dan file tambahan ditolak', () => {
 			errors.some((e) => e.includes('tak tercatat: extra.txt')),
 			errors.join('; ')
 		);
+	} finally {
+		fx.done();
+	}
+});
+
+test('runtime server dan manifest adapter hilang atau berubah ditolak', () => {
+	const fx = fixture();
+	try {
+		writeFileSync(join(RUNTIME_ROOTS[0], 'index.js'), 'tampered\n');
+		rmSync(join(RUNTIME_ROOTS[1], 'index.js'));
+		const errors = verifyManifest(fx.manifest, SHA);
+		assert.ok(errors.some((e) => e.includes(`berubah: ${RUNTIME_ROOTS[0]}/index.js`)));
+		assert.ok(errors.some((e) => e.includes(`hilang: ${RUNTIME_ROOTS[1]}/index.js`)));
+	} finally {
+		fx.done();
+	}
+});
+
+test('runtime tidak terpaket ditolak saat manifest dibuat', () => {
+	const fx = fixture();
+	try {
+		rmSync(RUNTIME_ROOTS[1], { recursive: true });
+		assert.throws(() => buildManifest({ headSha: SHA, branch: 'main' }), /Runtime root hilang/);
 	} finally {
 		fx.done();
 	}
