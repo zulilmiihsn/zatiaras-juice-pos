@@ -771,22 +771,13 @@
 				</div>
 			{/if}
 
-			{#if policyMode === 'ignored' && !policyLoading}
-				<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-					<p class="text-xs font-bold text-slate-900">Aktifkan kembali monitoring stok</p>
-					<p class="mt-0.5 text-[11px] text-slate-500">
-						Saldo lama dianggap basi. Nyalakan toggle di atas, konfirmasi, lalu lakukan hitung fisik
-						di dalam dialog.
-					</p>
-					{#if reconError && !showReconModal}
-						<p class="mt-1 text-xs font-bold text-rose-600">{reconError}</p>
-					{/if}
-					{#if reconPendingReviews > 0}
-						<p class="mt-1 text-[11px] font-bold text-amber-600">
-							{reconPendingReviews} antrean offline menunggu tinjauan di dalam dialog hitung fisik.
-						</p>
-					{/if}
-				</div>
+			{#if reconError && !showReconModal && !policyLoading}
+				<p class="mt-1 text-xs font-bold text-rose-600">{reconError}</p>
+			{/if}
+			{#if policyMode === 'ignored' && reconPendingReviews > 0 && !policyLoading}
+				<p class="mt-1 text-[11px] font-bold text-amber-600">
+					{reconPendingReviews} antrean offline menunggu tinjauan di dalam dialog hitung fisik.
+				</p>
 			{/if}
 
 			{#if showReconModal && reconJob}

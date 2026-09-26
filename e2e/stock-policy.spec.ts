@@ -126,7 +126,9 @@ test.describe('Stock Monitoring Toggle', () => {
 			timeout: 10000
 		});
 		expect(putBody).toMatchObject({ mode: 'ignored', expected_revision: 3 });
-		await expect(page.getByText('Aktifkan kembali monitoring stok')).toBeVisible();
+		await expect(
+			page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' })
+		).toBeVisible();
 	});
 
 	test('enable toggle opens a confirmation modal first', async ({ page }) => {
