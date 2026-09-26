@@ -1060,37 +1060,37 @@
 								<span class="font-bold text-slate-600">Finalisasi</span> mengunci angka dan mengaktifkan
 								monitoring.
 							</p>
-							<div
-								class="sticky bottom-0 mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/95 pt-3 pb-1 backdrop-blur"
+						</div>
+						<div
+							class="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 md:px-6"
+						>
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={saveReconCounts}
+								class="cursor-pointer rounded-full border border-pink-200 bg-white px-4 py-2 text-xs font-bold text-pink-700 disabled:opacity-50"
 							>
-								<button
-									type="button"
-									disabled={reconLoading}
-									onclick={saveReconCounts}
-									class="cursor-pointer rounded-full border border-pink-200 bg-white px-4 py-2 text-xs font-bold text-pink-700 disabled:opacity-50"
-								>
-									{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
-								</button>
-								<button
-									type="button"
-									disabled={reconLoading || !reconComplete}
-									title={reconComplete
-										? 'Terapkan saldo dan aktifkan monitoring'
-										: 'Lengkapi semua hitungan dulu'}
-									onclick={finalizeReconciliation}
-									class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-								>
-									{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
-								</button>
-								<button
-									type="button"
-									disabled={reconLoading}
-									onclick={cancelReconciliation}
-									class="ml-auto cursor-pointer rounded-full px-3 py-2 text-[11px] font-bold text-slate-400 underline-offset-2 hover:text-rose-600 hover:underline disabled:opacity-50"
-								>
-									Batalkan
-								</button>
-							</div>
+								{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading || !reconComplete}
+								title={reconComplete
+									? 'Terapkan saldo dan aktifkan monitoring'
+									: 'Lengkapi semua hitungan dulu'}
+								onclick={finalizeReconciliation}
+								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+							>
+								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading}
+								onclick={cancelReconciliation}
+								class="ml-auto cursor-pointer rounded-full px-3 py-2 text-[11px] font-bold text-slate-400 underline-offset-2 hover:text-rose-600 hover:underline disabled:opacity-50"
+							>
+								Batalkan
+							</button>
 						</div>
 					</div>
 				</div>

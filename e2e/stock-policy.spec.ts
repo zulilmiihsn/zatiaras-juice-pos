@@ -235,6 +235,51 @@ test.describe('Stock Monitoring Toggle', () => {
 		expect(pageErrors).toEqual([]);
 	});
 
+	test('reconciliation footer stays inside modal below scrolling items on mobile', async ({
+		page
+	}) => {
+		await page.setViewportSize({ width: 390, height: 640 });
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) =>
+			route.fulfill({
+				json: {
+					ok: true,
+					data: {
+						job: {
+							...draftJob,
+							items: Array.from({ length: 30 }, (_, index) => ({
+								entity_type: 'bahan',
+								entity_id: `b-${index}`,
+								counted_quantity: null
+							}))
+						}
+					}
+				}
+			})
+		);
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Hitung fisik stok' });
+		const scroll = dialog.locator('.overflow-y-auto');
+		const actions = dialog.getByRole('button', { name: 'Simpan progres' }).locator('..');
+		const [dialogBox, scrollBox, actionsBox] = await Promise.all([
+			dialog.boundingBox(),
+			scroll.boundingBox(),
+			actions.boundingBox()
+		]);
+		if (!dialogBox || !scrollBox || !actionsBox) throw new Error('Modal stok tidak terlihat');
+		expect(actionsBox.y).toBeGreaterThanOrEqual(scrollBox.y + scrollBox.height - 1);
+		expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(
+			dialogBox.y + dialogBox.height + 1
+		);
+		await scroll.evaluate((element) => (element.scrollTop = element.scrollHeight));
+		const lastInput = await dialog.locator('#recon-bahan-b-29').boundingBox();
+		if (!lastInput) throw new Error('Item terakhir tidak terlihat');
+		expect(lastInput.y + lastInput.height).toBeLessThanOrEqual(actionsBox.y + 1);
+	});
+
 	test('new reconciliation opens count modal without waiting for catalog metadata', async ({
 		page
 	}) => {
