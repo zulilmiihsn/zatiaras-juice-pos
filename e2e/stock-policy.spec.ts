@@ -144,6 +144,23 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog).toBeHidden();
 	});
 
+	test('enable confirmation dialog animates in instead of appearing instantly', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Aktifkan kembali monitoring stok?' });
+		await expect
+			.poll(
+				async () => dialog.evaluate((element) => parseFloat(getComputedStyle(element).opacity)),
+				{ timeout: 3000 }
+			)
+			.toBeLessThan(1);
+		await expect(dialog).toBeVisible();
+	});
+
 	test('reconciliation opens in a modal with counted progress', async ({ page }) => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
@@ -185,7 +202,7 @@ test.describe('Stock Monitoring Toggle', () => {
 		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
 		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
 		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi', exact: true }).click();
-		const dialog = page.getByRole('dialog');
+		const dialog = page.getByRole('dialog', { name: 'Hitung fisik stok' });
 		await expect(dialog).toBeVisible();
 		await expect(dialog.locator('#recon-title')).toBeVisible();
 		await expect(dialog.getByText('0/2', { exact: true })).toBeVisible();

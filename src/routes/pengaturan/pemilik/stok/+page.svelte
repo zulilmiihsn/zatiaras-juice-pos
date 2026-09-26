@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
+	import { fade, scale } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Boxes from '@lucide/svelte/icons/boxes';
@@ -676,6 +677,7 @@
 				<div
 					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
 					role="presentation"
+					transition:fade={{ duration: 150 }}
 					onclick={(event) => {
 						if (!policyToggling && event.target === event.currentTarget) {
 							showDisableConfirm = false;
@@ -687,6 +689,7 @@
 						aria-modal="true"
 						aria-labelledby="disable-stock-title"
 						class="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
+						transition:scale={{ duration: 200, start: 0.96 }}
 					>
 						<p id="disable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
 							Nonaktifkan monitoring stok?
@@ -725,6 +728,7 @@
 				<div
 					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
 					role="presentation"
+					transition:fade={{ duration: 150 }}
 					onclick={(event) => {
 						if (!reconLoading && event.target === event.currentTarget) {
 							showEnableConfirm = false;
@@ -736,6 +740,7 @@
 						aria-modal="true"
 						aria-labelledby="enable-stock-title"
 						class="w-full max-w-md rounded-3xl border border-pink-100 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
+						transition:scale={{ duration: 200, start: 0.96 }}
 					>
 						<p id="enable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
 							Aktifkan kembali monitoring stok?
@@ -784,6 +789,7 @@
 				<div
 					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
 					role="presentation"
+					transition:fade={{ duration: 150 }}
 					onclick={(event) => {
 						if (!reconLoading && event.target === event.currentTarget) {
 							showReconModal = false;
@@ -795,6 +801,7 @@
 						aria-modal="true"
 						aria-labelledby="recon-title"
 						class="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl"
+						transition:scale={{ duration: 220, start: 0.96 }}
 					>
 						<div
 							class="flex items-start justify-between gap-2 border-b border-slate-200 px-5 pt-4 pb-3 md:px-6"
