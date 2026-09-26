@@ -973,7 +973,7 @@
 									{reconSearch ? 'Tidak ada item yang cocok.' : 'Tidak ada item untuk dihitung.'}
 								</p>
 							{/if}
-							{#each reconGroups as group (group.type)}
+							{#each reconGroups as group (`${group.type}:${group.title}`)}
 								<div class="mt-3">
 									<p
 										class="mb-1.5 px-1 text-[11px] font-black tracking-wider text-slate-400 uppercase"

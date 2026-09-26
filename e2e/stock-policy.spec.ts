@@ -195,6 +195,46 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog.getByRole('button', { name: 'Simpan progres' })).toBeVisible();
 	});
 
+	test('reconciliation displays multiple ingredient categories without crashing', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		const pageErrors: string[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error.message));
+		await page.route('**/api/bahan?*', (route) =>
+			route.fulfill({
+				json: [
+					{ id: 'b-gula', nama: 'Gula', kategori: 'Bahan kering' },
+					{ id: 'b-susu', nama: 'Susu', kategori: 'Bahan cair' }
+				]
+			})
+		);
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) =>
+			route.fulfill({
+				json: {
+					ok: true,
+					data: {
+						job: {
+							...draftJob,
+							items: [
+								...draftJob.items,
+								{ entity_type: 'bahan', entity_id: 'b-susu', counted_quantity: null }
+							]
+						}
+					}
+				}
+			})
+		);
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Hitung fisik stok' });
+		await expect(dialog.getByText('Bahan cair • 1')).toBeVisible();
+		await expect(dialog.getByText('Bahan kering • 1')).toBeVisible();
+		expect(pageErrors).toEqual([]);
+	});
+
 	test('new reconciliation opens count modal without waiting for catalog metadata', async ({
 		page
 	}) => {
