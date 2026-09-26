@@ -352,7 +352,7 @@
 
 	async function loadActiveReconciliation(): Promise<void> {
 		try {
-			const response = await fetch('/api/pengaturan/stok/reconciliation/active', {
+			const response = await fetchReconTimeout('/api/pengaturan/stok/reconciliation/active', {
 				headers: { Accept: 'application/json' },
 				cache: 'no-store'
 			});
@@ -361,7 +361,7 @@
 			if (payload?.data?.job) {
 				reconJob = payload.data.job;
 				reconDraft = {};
-				await Promise.all([loadEntityMeta(), loadPendingReviews()]);
+				void Promise.all([loadEntityMeta(), loadPendingReviews()]);
 			}
 		} catch {
 			// Best-effort.
@@ -408,6 +408,10 @@
 				body: JSON.stringify({ branch })
 			});
 			if (!response.ok) {
+				if (response.status === 409) {
+					await loadActiveReconciliation();
+					if (reconJob) return;
+				}
 				const payload = (await response.json().catch(() => null)) as {
 					message?: string;
 				} | null;
@@ -417,14 +421,12 @@
 			reconJob = payload.data;
 			reconDraft = {};
 			reconSearch = '';
-			showReconModal = true;
-			await Promise.all([loadEntityMeta(), loadPendingReviews()]);
+			void Promise.all([loadEntityMeta(), loadPendingReviews()]);
 		} catch (error) {
 			if (isTimeoutError(error)) {
 				// Server mungkin sudah memproses: adopsi job aktif bila ada.
 				await loadActiveReconciliation();
 				if (reconJob) {
-					showReconModal = true;
 					return;
 				}
 				reconError = timeoutMessage();

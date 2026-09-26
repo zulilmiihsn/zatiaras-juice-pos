@@ -3,6 +3,13 @@ import { gotoHydrated } from './helpers';
 
 type PolicyMode = 'tracked' | 'ignored';
 
+const draftJob = {
+	id: 'job-1',
+	status: 'draft',
+	expected_policy_revision: 1,
+	items: [{ entity_type: 'bahan', entity_id: 'b-gula', counted_quantity: null }]
+};
+
 async function mockOwnerSession(page: Page) {
 	await page.addInitScript(() => {
 		localStorage.setItem('selectedBranch', 'samarinda');
@@ -186,6 +193,93 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog.getByRole('button', { name: 'Semua' })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Bahan baku' })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Simpan progres' })).toBeVisible();
+	});
+
+	test('new reconciliation opens count modal without waiting for catalog metadata', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) =>
+			route.fulfill({ json: { ok: true, data: { job: null } } })
+		);
+		let creates = 0;
+		await page.route('**/api/pengaturan/stok/reconciliation', (route) => {
+			creates++;
+			return route.fulfill({ json: { ok: true, data: draftJob } });
+		});
+		let releaseIngredients!: () => void;
+		const ingredientsPending = new Promise<void>((resolve) => {
+			releaseIngredients = resolve;
+		});
+		try {
+			await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+			let metadataRequests = 0;
+			await page.route('**/api/bahan?*', async (route) => {
+				metadataRequests++;
+				await ingredientsPending;
+				await route.fulfill({ json: [] });
+			});
+			await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+			await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+			await expect.poll(() => metadataRequests).toBeGreaterThan(0);
+			await expect(
+				page.getByRole('dialog', { name: 'Aktifkan kembali monitoring stok?' })
+			).toBeHidden();
+			await expect(page.getByRole('dialog', { name: 'Hitung fisik stok' })).toBeVisible();
+			expect(creates).toBe(1);
+		} finally {
+			releaseIngredients();
+		}
+	});
+
+	test('existing draft opens after create conflict when initial lookup misses it', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		let lookups = 0;
+		let creates = 0;
+		let lookupsAfterCreate = 0;
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) => {
+			lookups++;
+			if (creates > 0) lookupsAfterCreate++;
+			return route.fulfill({ json: { ok: true, data: { job: creates === 0 ? null : draftJob } } });
+		});
+		await page.route('**/api/pengaturan/stok/reconciliation', (route) => {
+			creates++;
+			return route.fulfill({ status: 409, json: { message: 'Rekonsiliasi sudah ada' } });
+		});
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+		await expect(
+			page.getByRole('dialog', { name: 'Aktifkan kembali monitoring stok?' })
+		).toBeHidden();
+		await expect(page.getByRole('dialog', { name: 'Hitung fisik stok' })).toBeVisible();
+		expect(creates).toBe(1);
+		expect(lookups).toBeGreaterThanOrEqual(2);
+		expect(lookupsAfterCreate).toBe(1);
+	});
+
+	test('create conflict without an active draft keeps confirmation and shows error', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) =>
+			route.fulfill({ json: { ok: true, data: { job: null } } })
+		);
+		await page.route('**/api/pengaturan/stok/reconciliation', (route) =>
+			route.fulfill({ status: 409, json: { message: 'Inventaris berubah; muat ulang' } })
+		);
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Aktifkan kembali monitoring stok?' });
+		await expect(dialog.getByText('Inventaris berubah; muat ulang')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Ya, mulai rekonsiliasi' })).toBeEnabled();
+		await expect(page.getByRole('dialog', { name: 'Hitung fisik stok' })).toHaveCount(0);
 	});
 
 	test('ignored mode hides Stok from bottom navigation', async ({ page }) => {
