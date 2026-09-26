@@ -1022,7 +1022,7 @@
 															type="button"
 															title="Isi sama dengan stok sistem"
 															onclick={() => (reconDraft[key] = String(meta.sistem))}
-															class="shrink-0 cursor-pointer rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:border-pink-200 hover:text-pink-600"
+															class="min-h-9 shrink-0 cursor-pointer rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-100 active:scale-95"
 														>
 															≈ sistem
 														</button>
@@ -1062,32 +1062,34 @@
 							</p>
 						</div>
 						<div
-							class="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 md:px-6"
+							class="flex shrink-0 flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 md:px-6"
 						>
-							<button
-								type="button"
-								disabled={reconLoading}
-								onclick={saveReconCounts}
-								class="cursor-pointer rounded-full border border-pink-200 bg-white px-4 py-2 text-xs font-bold text-pink-700 disabled:opacity-50"
-							>
-								{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
-							</button>
-							<button
-								type="button"
-								disabled={reconLoading || !reconComplete}
-								title={reconComplete
-									? 'Terapkan saldo dan aktifkan monitoring'
-									: 'Lengkapi semua hitungan dulu'}
-								onclick={finalizeReconciliation}
-								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-							>
-								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
-							</button>
+							<div class="flex flex-col gap-2 sm:flex-row">
+								<button
+									type="button"
+									disabled={reconLoading}
+									onclick={saveReconCounts}
+									class="min-h-12 flex-1 cursor-pointer rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-black text-pink-700 shadow-xs transition-all hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50"
+								>
+									{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
+								</button>
+								<button
+									type="button"
+									disabled={reconLoading || !reconComplete}
+									title={reconComplete
+										? 'Terapkan saldo dan aktifkan monitoring'
+										: 'Lengkapi semua hitungan dulu'}
+									onclick={finalizeReconciliation}
+									class="min-h-12 flex-1 cursor-pointer rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+								>
+									{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
+								</button>
+							</div>
 							<button
 								type="button"
 								disabled={reconLoading}
 								onclick={cancelReconciliation}
-								class="ml-auto cursor-pointer rounded-full px-3 py-2 text-[11px] font-bold text-slate-400 underline-offset-2 hover:text-rose-600 hover:underline disabled:opacity-50"
+								class="min-h-11 cursor-pointer rounded-2xl px-4 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:text-rose-600 hover:underline disabled:opacity-50"
 							>
 								Batalkan
 							</button>

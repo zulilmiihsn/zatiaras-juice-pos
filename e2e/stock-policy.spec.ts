@@ -274,6 +274,12 @@ test.describe('Stock Monitoring Toggle', () => {
 		expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(
 			dialogBox.y + dialogBox.height + 1
 		);
+		const saveBox = await dialog.getByRole('button', { name: 'Simpan progres' }).boundingBox();
+		const finalizeBox = await dialog
+			.getByRole('button', { name: 'Finalisasi & aktifkan' })
+			.boundingBox();
+		expect(saveBox?.height).toBeGreaterThanOrEqual(44);
+		expect(finalizeBox?.height).toBeGreaterThanOrEqual(44);
 		await scroll.evaluate((element) => (element.scrollTop = element.scrollHeight));
 		const lastInput = await dialog.locator('#recon-bahan-b-29').boundingBox();
 		if (!lastInput) throw new Error('Item terakhir tidak terlihat');
