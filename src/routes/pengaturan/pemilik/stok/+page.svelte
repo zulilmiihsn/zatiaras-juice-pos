@@ -266,7 +266,7 @@
 		reconError = '';
 		try {
 			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-			const response = await fetchWithCsrfRetry(
+			const response = await fetchReconTimeout(
 				`/api/pengaturan/stok/offline-reviews/${encodeURIComponent(idempotencyKey)}`,
 				{
 					method: 'PUT',
@@ -286,7 +286,7 @@
 			}
 			await loadPendingReviews();
 		} catch (error) {
-			reconError = error instanceof Error ? error.message : 'Gagal memproses review antrean';
+			reconError = reconErrorMessage(error, 'Gagal memproses review antrean');
 		} finally {
 			reconReviewActing = '';
 		}
@@ -368,12 +368,41 @@
 		}
 	}
 
+	const REQUEST_TIMEOUT_MS = 30000;
+
+	function isTimeoutError(error: unknown): boolean {
+		return error instanceof Error && error.message === 'REQUEST_TIMEOUT';
+	}
+
+	async function fetchReconTimeout(input: string, init: RequestInit): Promise<Response> {
+		let timer: ReturnType<typeof setTimeout> | null = null;
+		try {
+			return await Promise.race([
+				fetchWithCsrfRetry(input, init),
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), REQUEST_TIMEOUT_MS);
+				})
+			]);
+		} finally {
+			if (timer) clearTimeout(timer);
+		}
+	}
+
+	function timeoutMessage(): string {
+		return 'Jaringan lambat atau respons hilang. Periksa koneksi, muat ulang bila perlu, lalu coba lagi.';
+	}
+
+	function reconErrorMessage(error: unknown, fallback: string): string {
+		if (isTimeoutError(error)) return timeoutMessage();
+		return error instanceof Error ? error.message : fallback;
+	}
+
 	async function startReconciliation() {
 		reconLoading = true;
 		reconError = '';
 		try {
 			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-			const response = await fetchWithCsrfRetry('/api/pengaturan/stok/reconciliation', {
+			const response = await fetchReconTimeout('/api/pengaturan/stok/reconciliation', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ branch })
@@ -391,7 +420,17 @@
 			showReconModal = true;
 			await Promise.all([loadEntityMeta(), loadPendingReviews()]);
 		} catch (error) {
-			reconError = error instanceof Error ? error.message : 'Gagal membuat rekonsiliasi';
+			if (isTimeoutError(error)) {
+				// Server mungkin sudah memproses: adopsi job aktif bila ada.
+				await loadActiveReconciliation();
+				if (reconJob) {
+					showReconModal = true;
+					return;
+				}
+				reconError = timeoutMessage();
+			} else {
+				reconError = error instanceof Error ? error.message : 'Gagal membuat rekonsiliasi';
+			}
 		} finally {
 			reconLoading = false;
 		}
@@ -422,7 +461,7 @@
 			if (items.length === 0) {
 				throw new Error('Isi dulu hasil hitung fisik minimal satu item sebelum menyimpan');
 			}
-			const response = await fetchWithCsrfRetry(
+			const response = await fetchReconTimeout(
 				`/api/pengaturan/stok/reconciliation/${reconJob.id}/items`,
 				{
 					method: 'PUT',
@@ -440,7 +479,7 @@
 			reconJob = payload.data;
 			reconDraft = {};
 		} catch (error) {
-			reconError = error instanceof Error ? error.message : 'Gagal menyimpan hitungan';
+			reconError = reconErrorMessage(error, 'Gagal menyimpan hitungan');
 		} finally {
 			reconLoading = false;
 		}
@@ -452,7 +491,7 @@
 		reconError = '';
 		try {
 			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-			const response = await fetchWithCsrfRetry(
+			const response = await fetchReconTimeout(
 				`/api/pengaturan/stok/reconciliation/${reconJob.id}`,
 				{
 					method: 'DELETE',
@@ -470,7 +509,7 @@
 			reconDraft = {};
 			showReconModal = false;
 		} catch (error) {
-			reconError = error instanceof Error ? error.message : 'Gagal membatalkan rekonsiliasi';
+			reconError = reconErrorMessage(error, 'Gagal membatalkan rekonsiliasi');
 		} finally {
 			reconLoading = false;
 		}
@@ -482,7 +521,7 @@
 		reconError = '';
 		try {
 			const branch = localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda';
-			const response = await fetchWithCsrfRetry(
+			const response = await fetchReconTimeout(
 				`/api/pengaturan/stok/reconciliation/${reconJob.id}/finalize`,
 				{
 					method: 'POST',
@@ -504,7 +543,7 @@
 			showReconModal = false;
 			await loadPolicy();
 		} catch (error) {
-			reconError = error instanceof Error ? error.message : 'Finalisasi rekonsiliasi gagal';
+			reconError = reconErrorMessage(error, 'Finalisasi rekonsiliasi gagal');
 		} finally {
 			reconLoading = false;
 		}
