@@ -182,7 +182,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 		payload = await request.json();
 	} catch {
 		return json(
-			{ success: false, code: 'INVALID_JSON', message: 'Invalid JSON payload' },
+			{ success: false, code: 'INVALID_JSON', message: 'Format data tidak valid' },
 			{ status: 400 }
 		);
 	}
@@ -190,14 +190,14 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 	const eventType = sanitizeEventType(payload.eventType);
 	if (!eventType) {
 		return json(
-			{ success: false, code: 'VALIDATION_ERROR', message: 'Invalid eventType' },
+			{ success: false, code: 'VALIDATION_ERROR', message: 'Jenis event tidak valid' },
 			{ status: 400 }
 		);
 	}
 
 	if (!ALLOWED_EVENT_TYPES.has(eventType)) {
 		return json(
-			{ success: false, code: 'UNSUPPORTED_EVENT_TYPE', message: 'Unsupported eventType' },
+			{ success: false, code: 'UNSUPPORTED_EVENT_TYPE', message: 'Jenis event tidak didukung' },
 			{ status: 400 }
 		);
 	}
@@ -268,7 +268,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.authSession) {
-		return json({ success: false, code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+		return json(
+			{ success: false, code: 'UNAUTHORIZED', message: 'Sesi berakhir. Silakan login kembali' },
+			{ status: 401 }
+		);
 	}
 
 	if (locals.authSession.role !== 'admin' && locals.authSession.role !== 'pemilik') {

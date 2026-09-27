@@ -42,7 +42,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		if (!csrfCookie || !csrfHeader || !constantTimeEqual(csrfCookie, csrfHeader)) {
 			return new Response(
-				JSON.stringify({ success: false, code: 'CSRF_INVALID', message: 'CSRF token invalid' }),
+				JSON.stringify({
+					success: false,
+					code: 'CSRF_INVALID',
+					message: 'Token keamanan tidak valid'
+				}),
 				{
 					status: 403,
 					headers: {
@@ -58,7 +62,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (isProtectedApi && !event.locals.authSession) {
 		return new Response(
-			JSON.stringify({ success: false, code: 'UNAUTHORIZED', message: 'Unauthorized' }),
+			JSON.stringify({
+				success: false,
+				code: 'UNAUTHORIZED',
+				message: 'Sesi berakhir. Silakan login kembali'
+			}),
 			{
 				status: 401,
 				headers: {

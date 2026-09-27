@@ -178,7 +178,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 		payload = await request.json();
 	} catch {
 		return json(
-			{ success: false, code: 'INVALID_JSON', message: 'Invalid JSON payload' },
+			{ success: false, code: 'INVALID_JSON', message: 'Format data tidak valid' },
 			{ status: 400 }
 		);
 	}

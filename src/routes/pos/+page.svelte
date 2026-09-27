@@ -335,7 +335,7 @@
 		// [CATATAN]: Validate quantity
 		const qtyValidation = validateNumber(jumlah, { required: true, min: 1, max: 99 });
 		if (!qtyValidation.isValid) {
-			showErrorNotif(`Error: ${qtyValidation.errors.join(', ')}`);
+			showErrorNotif(qtyValidation.errors.join(', '));
 			return;
 		}
 
