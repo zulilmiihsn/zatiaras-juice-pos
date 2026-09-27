@@ -20,6 +20,7 @@
 	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 
 	let pengaturanStruk = $state<ReceiptSettings | null>(null);
 
@@ -452,31 +453,33 @@
 		{/if}
 	</div>
 
-	{#if showDeleteModal}
-		<div class="z-alert fixed inset-0 flex items-center justify-center bg-black/40">
-			<div
-				class="animate-slideUpModal relative flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-6 shadow-xl"
-			>
-				<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-red-100">
-					<Trash class="h-8 w-8 text-red-500" />
-				</div>
-				<h2 class="mb-2 text-center text-lg font-bold text-gray-800">Hapus Transaksi?</h2>
-				<p class="mb-6 text-center text-sm text-gray-500">
-					Transaksi yang dihapus tidak dapat dikembalikan. Yakin ingin menghapus transaksi ini?
-				</p>
-				<div class="flex w-full gap-3">
-					<button
-						class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
-						onclick={() => (showDeleteModal = false)}>Batal</button
-					>
-					<button
-						class="flex-1 rounded-xl bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
-						onclick={deleteTransaksi}>Hapus</button
-					>
-				</div>
-			</div>
+	<AppModal
+		open={showDeleteModal}
+		label="Hapus Transaksi?"
+		size="xs"
+		align="center"
+		zClass="z-alert"
+		backdropClose={false}
+		panelClass="relative items-center bg-white p-6"
+	>
+		<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-red-100">
+			<Trash class="h-8 w-8 text-red-500" />
 		</div>
-	{/if}
+		<h2 class="mb-2 text-center text-lg font-bold text-gray-800">Hapus Transaksi?</h2>
+		<p class="mb-6 text-center text-sm text-gray-500">
+			Transaksi yang dihapus tidak dapat dikembalikan. Yakin ingin menghapus transaksi ini?
+		</p>
+		<div class="flex w-full gap-3">
+			<button
+				class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				onclick={() => (showDeleteModal = false)}>Batal</button
+			>
+			<button
+				class="flex-1 rounded-xl bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
+				onclick={deleteTransaksi}>Hapus</button
+			>
+		</div>
+	</AppModal>
 
 	<DetailTransaksiModal
 		open={showDetailModal}
@@ -500,20 +503,6 @@
 </div>
 
 <style>
-	.animate-slideUpModal {
-		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	@keyframes slideUpModal {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-
 	@keyframes spin {
 		100% {
 			transform: rotate(360deg);

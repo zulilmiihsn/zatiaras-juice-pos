@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Boxes from '@lucide/svelte/icons/boxes';
@@ -22,6 +20,7 @@
 	import { fetchStockPolicy, updateStockPolicy } from '$lib/services/stockPolicyService';
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 	import { productService } from '$lib/services/productService';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 
 	let soundEnabled = $state(true);
 	let strictStockEnabled = $state(false);
@@ -674,108 +673,86 @@
 				</button>
 			</div>
 
-			{#if showDisableConfirm && policyMode === 'tracked'}
-				<div
-					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
-					role="presentation"
-					transition:fade={{ duration: 180 }}
-					onclick={(event) => {
-						if (!policyToggling && event.target === event.currentTarget) {
-							showDisableConfirm = false;
-						}
-					}}
-				>
-					<div
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="disable-stock-title"
-						class="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
-						transition:scale={{ duration: 200, start: 0.95, easing: cubicOut }}
+			<AppModal
+				open={showDisableConfirm && policyMode === 'tracked'}
+				labelledby="disable-stock-title"
+				size="sm"
+				panelClass="border border-rose-200 bg-white p-5 text-xs text-slate-700 md:p-6"
+				onClose={() => {
+					if (!policyToggling) showDisableConfirm = false;
+				}}
+			>
+				<p id="disable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
+					Nonaktifkan monitoring stok?
+				</p>
+				<ul class="mt-2 list-disc space-y-1 pl-4">
+					<li>Penjualan tetap berjalan normal.</li>
+					<li>Stok tidak berkurang otomatis dan peringatan berhenti.</li>
+					<li>Data stok lama tidak dihapus.</li>
+					<li>Aktivasi ulang membutuhkan rekonsiliasi fisik.</li>
+					<li>Pastikan antrean offline semua perangkat sudah tersinkron.</li>
+				</ul>
+				<div class="mt-4 flex justify-end gap-2">
+					<button
+						type="button"
+						bind:this={cancelDisableButton}
+						disabled={policyToggling}
+						onclick={() => (showDisableConfirm = false)}
+						class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
 					>
-						<p id="disable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
-							Nonaktifkan monitoring stok?
-						</p>
-						<ul class="mt-2 list-disc space-y-1 pl-4">
-							<li>Penjualan tetap berjalan normal.</li>
-							<li>Stok tidak berkurang otomatis dan peringatan berhenti.</li>
-							<li>Data stok lama tidak dihapus.</li>
-							<li>Aktivasi ulang membutuhkan rekonsiliasi fisik.</li>
-							<li>Pastikan antrean offline semua perangkat sudah tersinkron.</li>
-						</ul>
-						<div class="mt-4 flex justify-end gap-2">
-							<button
-								type="button"
-								bind:this={cancelDisableButton}
-								disabled={policyToggling}
-								onclick={() => (showDisableConfirm = false)}
-								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
-							>
-								Batal
-							</button>
-							<button
-								type="button"
-								disabled={policyToggling}
-								onclick={confirmDisableStock}
-								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-							>
-								{policyToggling ? 'Menyimpan…' : 'Ya, nonaktifkan'}
-							</button>
-						</div>
-					</div>
+						Batal
+					</button>
+					<button
+						type="button"
+						disabled={policyToggling}
+						onclick={confirmDisableStock}
+						class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+					>
+						{policyToggling ? 'Menyimpan…' : 'Ya, nonaktifkan'}
+					</button>
 				</div>
-			{/if}
+			</AppModal>
 
-			{#if showEnableConfirm && policyMode === 'ignored'}
-				<div
-					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
-					role="presentation"
-					transition:fade={{ duration: 180 }}
-					onclick={(event) => {
-						if (!reconLoading && event.target === event.currentTarget) {
-							showEnableConfirm = false;
-						}
-					}}
-				>
-					<div
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="enable-stock-title"
-						class="w-full max-w-md rounded-3xl border border-pink-100 bg-white p-5 text-xs text-slate-700 shadow-2xl md:p-6"
-						transition:scale={{ duration: 200, start: 0.95, easing: cubicOut }}
+			<AppModal
+				open={showEnableConfirm && policyMode === 'ignored'}
+				labelledby="enable-stock-title"
+				size="sm"
+				panelClass="border border-pink-100 bg-white p-5 text-xs text-slate-700 md:p-6"
+				onClose={() => {
+					if (!reconLoading) showEnableConfirm = false;
+				}}
+			>
+				<p id="enable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
+					Aktifkan kembali monitoring stok?
+				</p>
+				<ul class="mt-2 list-disc space-y-1 pl-4">
+					<li>Saldo lama dianggap basi dan tidak lagi mencerminkan kondisi gudang.</li>
+					<li>Kamu wajib hitung fisik, simpan, lalu finalisasi.</li>
+					<li>Monitoring aktif lagi hanya setelah finalisasi berhasil.</li>
+				</ul>
+				{#if enableError}
+					<p class="mt-2 text-xs font-bold text-rose-600">{enableError}</p>
+				{/if}
+				<div class="mt-4 flex justify-end gap-2">
+					<button
+						type="button"
+						bind:this={cancelEnableButton}
+						disabled={reconLoading}
+						onclick={() => (showEnableConfirm = false)}
+						class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
 					>
-						<p id="enable-stock-title" class="text-sm font-bold text-slate-900 md:text-base">
-							Aktifkan kembali monitoring stok?
-						</p>
-						<ul class="mt-2 list-disc space-y-1 pl-4">
-							<li>Saldo lama dianggap basi dan tidak lagi mencerminkan kondisi gudang.</li>
-							<li>Kamu wajib hitung fisik, simpan, lalu finalisasi.</li>
-							<li>Monitoring aktif lagi hanya setelah finalisasi berhasil.</li>
-						</ul>
-						{#if enableError}
-							<p class="mt-2 text-xs font-bold text-rose-600">{enableError}</p>
-						{/if}
-						<div class="mt-4 flex justify-end gap-2">
-							<button
-								type="button"
-								bind:this={cancelEnableButton}
-								disabled={reconLoading}
-								onclick={() => (showEnableConfirm = false)}
-								class="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
-							>
-								Batal
-							</button>
-							<button
-								type="button"
-								disabled={reconLoading}
-								onclick={confirmEnableStock}
-								class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-							>
-								{reconLoading ? 'Membuat…' : 'Ya, mulai rekonsiliasi'}
-							</button>
-						</div>
-					</div>
+						Batal
+					</button>
+					<button
+						type="button"
+						disabled={reconLoading}
+						onclick={confirmEnableStock}
+						class="cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+					>
+						{reconLoading ? 'Membuat…' : 'Ya, mulai rekonsiliasi'}
+					</button>
 				</div>
-			{/if}
+			</AppModal>
 
 			{#if reconError && !showReconModal && !policyLoading}
 				<p class="mt-1 text-xs font-bold text-rose-600">{reconError}</p>
@@ -786,316 +763,301 @@
 				</p>
 			{/if}
 
-			{#if showReconModal && reconJob}
-				<div
-					class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-[2px] sm:items-center"
-					role="presentation"
-					transition:fade={{ duration: 180 }}
-					onclick={(event) => {
-						if (!reconLoading && event.target === event.currentTarget) {
-							showReconModal = false;
-						}
-					}}
-				>
+			<AppModal
+				open={showReconModal && reconJob !== null}
+				labelledby="recon-title"
+				size="lg"
+				panelClass="bg-slate-50"
+				onClose={() => {
+					if (!reconLoading) showReconModal = false;
+				}}
+			>
+				{#if reconJob}
 					<div
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="recon-title"
-						class="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl"
-						transition:scale={{ duration: 220, start: 0.95, easing: cubicOut }}
+						class="flex items-start justify-between gap-2 border-b border-slate-200 px-5 pt-4 pb-3 md:px-6"
 					>
-						<div
-							class="flex items-start justify-between gap-2 border-b border-slate-200 px-5 pt-4 pb-3 md:px-6"
-						>
-							<div>
-								<p id="recon-title" class="text-sm font-bold text-slate-900 md:text-base">
-									Hitung fisik stok
-								</p>
-								<p class="text-[11px] text-slate-500">
-									{reconCounted}/{reconTotal} item • Saldo lama dianggap basi
-								</p>
-							</div>
-							<button
-								type="button"
-								aria-label="Tutup hitung fisik"
-								disabled={reconLoading}
-								onclick={() => (showReconModal = false)}
-								class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 disabled:opacity-50"
-							>
-								✕
-							</button>
+						<div>
+							<p id="recon-title" class="text-sm font-bold text-slate-900 md:text-base">
+								Hitung fisik stok
+							</p>
+							<p class="text-[11px] text-slate-500">
+								{reconCounted}/{reconTotal} item • Saldo lama dianggap basi
+							</p>
 						</div>
-						{#if reconError}
-							<p class="px-5 pt-2 text-xs font-bold text-rose-600 md:px-6">{reconError}</p>
+						<button
+							type="button"
+							aria-label="Tutup hitung fisik"
+							disabled={reconLoading}
+							onclick={() => (showReconModal = false)}
+							class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 disabled:opacity-50"
+						>
+							✕
+						</button>
+					</div>
+					{#if reconError}
+						<p class="px-5 pt-2 text-xs font-bold text-rose-600 md:px-6">{reconError}</p>
+					{/if}
+					<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 md:px-6">
+						{#if reconReviews.length > 0}
+							<div class="mb-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+								<p class="text-xs font-bold text-slate-900">Antrean offline perlu tinjauan</p>
+								<p class="mt-0.5 text-[11px] text-slate-500">
+									Setujui replay agar bisa finalisasi, atau biarkan menunggu.
+								</p>
+								<div class="mt-2 flex flex-col gap-2">
+									{#each reconReviews as review (review.idempotency_key)}
+										<div class="rounded-xl border border-amber-200/70 bg-white px-3 py-2">
+											<div class="flex items-center justify-between gap-2">
+												<span
+													class="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-slate-700"
+												>
+													{review.idempotency_key.slice(0, 18)}…
+												</span>
+												<span
+													class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black {review.status ===
+													'pending'
+														? 'bg-amber-100 text-amber-700'
+														: review.status === 'approved_current'
+															? 'bg-emerald-100 text-emerald-700'
+															: 'bg-slate-100 text-slate-600'}"
+												>
+													{review.status === 'pending'
+														? 'Menunggu'
+														: review.status === 'approved_current'
+															? 'Disetujui'
+															: review.status}
+												</span>
+											</div>
+											<div class="mt-0.5 text-[11px] text-slate-400">
+												Antre {formatQueuedAt(review.queued_at)}
+											</div>
+											{#if review.status === 'pending'}
+												<button
+													type="button"
+													disabled={reconReviewActing === review.idempotency_key}
+													onclick={() =>
+														resolveReview(
+															review.idempotency_key,
+															review.revision,
+															'approve_current'
+														)}
+													class="mt-1.5 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-3.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+												>
+													{reconReviewActing === review.idempotency_key
+														? 'Memproses…'
+														: 'Setujui replay'}
+												</button>
+											{:else if review.status === 'approved_current'}
+												<button
+													type="button"
+													disabled={reconReviewActing === review.idempotency_key}
+													onclick={() =>
+														resolveReview(review.idempotency_key, review.revision, 'withdraw')}
+													class="mt-1.5 cursor-pointer rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[11px] font-bold text-slate-600 disabled:opacity-50"
+												>
+													Tarik persetujuan
+												</button>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
 						{/if}
-						<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 md:px-6">
-							{#if reconReviews.length > 0}
-								<div class="mb-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-									<p class="text-xs font-bold text-slate-900">Antrean offline perlu tinjauan</p>
-									<p class="mt-0.5 text-[11px] text-slate-500">
-										Setujui replay agar bisa finalisasi, atau biarkan menunggu.
-									</p>
-									<div class="mt-2 flex flex-col gap-2">
-										{#each reconReviews as review (review.idempotency_key)}
-											<div class="rounded-xl border border-amber-200/70 bg-white px-3 py-2">
-												<div class="flex items-center justify-between gap-2">
-													<span
-														class="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-slate-700"
-													>
-														{review.idempotency_key.slice(0, 18)}…
+						<div class="rounded-2xl border border-pink-100 bg-white p-4">
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-bold text-slate-900 md:text-sm">Hitung fisik stok</span>
+									{#if reconComplete}
+										<span
+											class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"
+										>
+											Siap difinalisasi
+										</span>
+									{:else}
+										<span
+											class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700"
+										>
+											Kurang {reconTotal - reconCounted} lagi
+										</span>
+									{/if}
+								</div>
+								<span class="shrink-0 text-[11px] font-bold text-slate-500">
+									{reconCounted}/{reconTotal}
+								</span>
+							</div>
+							<div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+								<div
+									class="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-400 transition-all"
+									style="width: {reconTotal === 0
+										? 100
+										: Math.round((reconCounted / reconTotal) * 100)}%"
+								></div>
+							</div>
+							{#if reconPendingReviews > 0}
+								<p class="mt-2 text-[11px] font-bold text-amber-600">
+									{reconPendingReviews} antrean offline menunggu tinjauan di bawah — selesaikan dulu sebelum
+									finalisasi.
+								</p>
+							{/if}
+							<p class="mt-2 text-[11px] text-slate-500">
+								Isi angka sesuai <span class="font-bold text-slate-700">satuan tiap baris</span>
+								(mis. gram, ml, pcs). Boleh dicicil — progres tersimpan aman.
+							</p>
+							<div class="relative mt-2">
+								<input
+									type="search"
+									placeholder="Cari nama bahan atau produk…"
+									bind:value={reconSearch}
+									aria-label="Cari item rekonsiliasi"
+									class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-pink-300 focus:outline-none"
+								/>
+							</div>
+							{#if reconFilterOptions.length > 2}
+								<div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Filter kategori">
+									{#each reconFilterOptions as option (option.value)}
+										<button
+											type="button"
+											onclick={() => (reconFilter = option.value)}
+											aria-pressed={reconFilter === option.value}
+											class="cursor-pointer rounded-full border px-3 py-1 text-[11px] font-bold transition-colors {reconFilter ===
+											option.value
+												? 'border-pink-500 bg-pink-600 text-white'
+												: 'border-slate-200 bg-white text-slate-500 hover:border-pink-200 hover:text-pink-600'}"
+										>
+											{option.label}
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+						{#if reconGroups.length === 0}
+							<p class="mt-2 text-center text-[11px] text-slate-400">
+								{reconSearch ? 'Tidak ada item yang cocok.' : 'Tidak ada item untuk dihitung.'}
+							</p>
+						{/if}
+						{#each reconGroups as group (`${group.type}:${group.title}`)}
+							<div class="mt-3">
+								<p
+									class="mb-1.5 px-1 text-[11px] font-black tracking-wider text-slate-400 uppercase"
+								>
+									{group.title} • {group.items.length}
+								</p>
+								<div class="flex flex-col gap-2">
+									{#each group.items as item (item.entity_type + ':' + item.entity_id)}
+										{@const key = `${item.entity_type}:${item.entity_id}`}
+										{@const meta = entityMeta[key]}
+										{@const satuan = meta?.satuan || (item.entity_type === 'produk' ? 'pcs' : '')}
+										<div
+											class="rounded-2xl border bg-white px-3 py-2.5 transition-colors {item.counted_quantity !==
+											null
+												? 'border-emerald-200 bg-emerald-50/40'
+												: 'border-slate-200'}"
+										>
+											<div class="flex items-center gap-3">
+												<span
+													class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black {item.counted_quantity !==
+													null
+														? 'bg-emerald-100 text-emerald-700'
+														: 'bg-slate-100 text-slate-400'}"
+												>
+													{item.counted_quantity !== null
+														? '✓'
+														: group.type === 'produk'
+															? 'P'
+															: 'B'}
+												</span>
+												<span class="min-w-0 flex-1">
+													<span class="block truncate text-sm font-bold text-slate-800">
+														{meta?.nama || item.entity_id}
 													</span>
-													<span
-														class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black {review.status ===
-														'pending'
-															? 'bg-amber-100 text-amber-700'
-															: review.status === 'approved_current'
-																? 'bg-emerald-100 text-emerald-700'
-																: 'bg-slate-100 text-slate-600'}"
-													>
-														{review.status === 'pending'
-															? 'Menunggu'
-															: review.status === 'approved_current'
-																? 'Disetujui'
-																: review.status}
+													<span class="block truncate text-[11px] text-slate-400">
+														{#if meta?.sistem !== null && meta?.sistem !== undefined}
+															Stok sistem: {meta.sistem}{#if satuan}
+																{satuan}{/if}
+														{:else}
+															{item.entity_id}
+														{/if}
 													</span>
-												</div>
-												<div class="mt-0.5 text-[11px] text-slate-400">
-													Antre {formatQueuedAt(review.queued_at)}
-												</div>
-												{#if review.status === 'pending'}
+												</span>
+												{#if meta?.sistem !== null && meta?.sistem !== undefined && item.counted_quantity === null && !reconDraft[key]}
 													<button
 														type="button"
-														disabled={reconReviewActing === review.idempotency_key}
-														onclick={() =>
-															resolveReview(
-																review.idempotency_key,
-																review.revision,
-																'approve_current'
-															)}
-														class="mt-1.5 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-3.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+														title="Isi sama dengan stok sistem"
+														onclick={() => (reconDraft[key] = String(meta.sistem))}
+														class="min-h-9 shrink-0 cursor-pointer rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-100 active:scale-95"
 													>
-														{reconReviewActing === review.idempotency_key
-															? 'Memproses…'
-															: 'Setujui replay'}
-													</button>
-												{:else if review.status === 'approved_current'}
-													<button
-														type="button"
-														disabled={reconReviewActing === review.idempotency_key}
-														onclick={() =>
-															resolveReview(review.idempotency_key, review.revision, 'withdraw')}
-														class="mt-1.5 cursor-pointer rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[11px] font-bold text-slate-600 disabled:opacity-50"
-													>
-														Tarik persetujuan
+														≈ sistem
 													</button>
 												{/if}
 											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-							<div class="rounded-2xl border border-pink-100 bg-white p-4">
-								<div class="flex items-center justify-between gap-2">
-									<div class="flex items-center gap-2">
-										<span class="text-xs font-bold text-slate-900 md:text-sm"
-											>Hitung fisik stok</span
-										>
-										{#if reconComplete}
-											<span
-												class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700"
-											>
-												Siap difinalisasi
-											</span>
-										{:else}
-											<span
-												class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700"
-											>
-												Kurang {reconTotal - reconCounted} lagi
-											</span>
-										{/if}
-									</div>
-									<span class="shrink-0 text-[11px] font-bold text-slate-500">
-										{reconCounted}/{reconTotal}
-									</span>
-								</div>
-								<div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-									<div
-										class="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-400 transition-all"
-										style="width: {reconTotal === 0
-											? 100
-											: Math.round((reconCounted / reconTotal) * 100)}%"
-									></div>
-								</div>
-								{#if reconPendingReviews > 0}
-									<p class="mt-2 text-[11px] font-bold text-amber-600">
-										{reconPendingReviews} antrean offline menunggu tinjauan di bawah — selesaikan dulu
-										sebelum finalisasi.
-									</p>
-								{/if}
-								<p class="mt-2 text-[11px] text-slate-500">
-									Isi angka sesuai <span class="font-bold text-slate-700">satuan tiap baris</span>
-									(mis. gram, ml, pcs). Boleh dicicil — progres tersimpan aman.
-								</p>
-								<div class="relative mt-2">
-									<input
-										type="search"
-										placeholder="Cari nama bahan atau produk…"
-										bind:value={reconSearch}
-										aria-label="Cari item rekonsiliasi"
-										class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-pink-300 focus:outline-none"
-									/>
-								</div>
-								{#if reconFilterOptions.length > 2}
-									<div
-										class="mt-2 flex flex-wrap gap-1.5"
-										role="group"
-										aria-label="Filter kategori"
-									>
-										{#each reconFilterOptions as option (option.value)}
-											<button
-												type="button"
-												onclick={() => (reconFilter = option.value)}
-												aria-pressed={reconFilter === option.value}
-												class="cursor-pointer rounded-full border px-3 py-1 text-[11px] font-bold transition-colors {reconFilter ===
-												option.value
-													? 'border-pink-500 bg-pink-600 text-white'
-													: 'border-slate-200 bg-white text-slate-500 hover:border-pink-200 hover:text-pink-600'}"
-											>
-												{option.label}
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
-							{#if reconGroups.length === 0}
-								<p class="mt-2 text-center text-[11px] text-slate-400">
-									{reconSearch ? 'Tidak ada item yang cocok.' : 'Tidak ada item untuk dihitung.'}
-								</p>
-							{/if}
-							{#each reconGroups as group (`${group.type}:${group.title}`)}
-								<div class="mt-3">
-									<p
-										class="mb-1.5 px-1 text-[11px] font-black tracking-wider text-slate-400 uppercase"
-									>
-										{group.title} • {group.items.length}
-									</p>
-									<div class="flex flex-col gap-2">
-										{#each group.items as item (item.entity_type + ':' + item.entity_id)}
-											{@const key = `${item.entity_type}:${item.entity_id}`}
-											{@const meta = entityMeta[key]}
-											{@const satuan = meta?.satuan || (item.entity_type === 'produk' ? 'pcs' : '')}
-											<div
-												class="rounded-2xl border bg-white px-3 py-2.5 transition-colors {item.counted_quantity !==
-												null
-													? 'border-emerald-200 bg-emerald-50/40'
-													: 'border-slate-200'}"
-											>
-												<div class="flex items-center gap-3">
-													<span
-														class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black {item.counted_quantity !==
-														null
-															? 'bg-emerald-100 text-emerald-700'
-															: 'bg-slate-100 text-slate-400'}"
-													>
-														{item.counted_quantity !== null
-															? '✓'
-															: group.type === 'produk'
-																? 'P'
-																: 'B'}
-													</span>
-													<span class="min-w-0 flex-1">
-														<span class="block truncate text-sm font-bold text-slate-800">
-															{meta?.nama || item.entity_id}
-														</span>
-														<span class="block truncate text-[11px] text-slate-400">
-															{#if meta?.sistem !== null && meta?.sistem !== undefined}
-																Stok sistem: {meta.sistem}{#if satuan}
-																	{satuan}{/if}
-															{:else}
-																{item.entity_id}
-															{/if}
-														</span>
-													</span>
-													{#if meta?.sistem !== null && meta?.sistem !== undefined && item.counted_quantity === null && !reconDraft[key]}
-														<button
-															type="button"
-															title="Isi sama dengan stok sistem"
-															onclick={() => (reconDraft[key] = String(meta.sistem))}
-															class="min-h-9 shrink-0 cursor-pointer rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-100 active:scale-95"
-														>
-															≈ sistem
-														</button>
-													{/if}
-												</div>
-												<div class="mt-2 flex items-center gap-2">
-													<label
-														for="recon-{item.entity_type}-{item.entity_id}"
-														class="shrink-0 text-[11px] font-bold text-slate-500"
-													>
-														Hitung{#if satuan}
-															({satuan}){/if}:
-													</label>
-													<input
-														id="recon-{item.entity_type}-{item.entity_id}"
-														type="number"
-														min="0"
-														step={item.entity_type === 'produk' ? '1' : 'any'}
-														inputmode="decimal"
-														placeholder={item.counted_quantity !== null
-															? String(item.counted_quantity)
-															: '0'}
-														bind:value={reconDraft[key]}
-														class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:outline-none"
-													/>
-												</div>
+											<div class="mt-2 flex items-center gap-2">
+												<label
+													for="recon-{item.entity_type}-{item.entity_id}"
+													class="shrink-0 text-[11px] font-bold text-slate-500"
+												>
+													Hitung{#if satuan}
+														({satuan}){/if}:
+												</label>
+												<input
+													id="recon-{item.entity_type}-{item.entity_id}"
+													type="number"
+													min="0"
+													step={item.entity_type === 'produk' ? '1' : 'any'}
+													inputmode="decimal"
+													placeholder={item.counted_quantity !== null
+														? String(item.counted_quantity)
+														: '0'}
+													bind:value={reconDraft[key]}
+													class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm font-bold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-300 focus:bg-white focus:outline-none"
+												/>
 											</div>
-										{/each}
-									</div>
+										</div>
+									{/each}
 								</div>
-							{/each}
-							<p class="mt-2 text-[11px] text-slate-400">
-								<span class="font-bold text-slate-600">Simpan progres</span> mengunggah hitungan ke
-								server — boleh dicicil, aman ditutup dan dilanjut nanti.
-								<span class="font-bold text-slate-600">Finalisasi</span> mengunci angka dan mengaktifkan
-								monitoring.
-							</p>
-						</div>
-						<div
-							class="flex shrink-0 flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 md:px-6"
-						>
-							<div class="flex flex-col gap-2 sm:flex-row">
-								<button
-									type="button"
-									disabled={reconLoading}
-									onclick={saveReconCounts}
-									class="min-h-12 flex-1 cursor-pointer rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-black text-pink-700 shadow-xs transition-all hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50"
-								>
-									{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
-								</button>
-								<button
-									type="button"
-									disabled={reconLoading || !reconComplete}
-									title={reconComplete
-										? 'Terapkan saldo dan aktifkan monitoring'
-										: 'Lengkapi semua hitungan dulu'}
-									onclick={finalizeReconciliation}
-									class="min-h-12 flex-1 cursor-pointer rounded-2xl bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
-								>
-									{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
-								</button>
 							</div>
+						{/each}
+						<p class="mt-2 text-[11px] text-slate-400">
+							<span class="font-bold text-slate-600">Simpan progres</span> mengunggah hitungan ke
+							server — boleh dicicil, aman ditutup dan dilanjut nanti.
+							<span class="font-bold text-slate-600">Finalisasi</span> mengunci angka dan mengaktifkan
+							monitoring.
+						</p>
+					</div>
+					<div
+						class="flex shrink-0 flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 md:px-6"
+					>
+						<div class="flex flex-col gap-2 sm:flex-row">
 							<button
 								type="button"
 								disabled={reconLoading}
-								onclick={cancelReconciliation}
-								class="min-h-11 cursor-pointer rounded-2xl px-4 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:text-rose-600 hover:underline disabled:opacity-50"
+								onclick={saveReconCounts}
+								class="btn-brand-secondary flex-1"
 							>
-								Batalkan
+								{reconLoading ? 'Menyimpan…' : 'Simpan progres'}
+							</button>
+							<button
+								type="button"
+								disabled={reconLoading || !reconComplete}
+								title={reconComplete
+									? 'Terapkan saldo dan aktifkan monitoring'
+									: 'Lengkapi semua hitungan dulu'}
+								onclick={finalizeReconciliation}
+								class="btn-brand-primary flex-1"
+							>
+								{reconLoading ? 'Memproses…' : 'Finalisasi & aktifkan'}
 							</button>
 						</div>
+						<button
+							type="button"
+							disabled={reconLoading}
+							onclick={cancelReconciliation}
+							class="btn-brand-ghost"
+						>
+							Batalkan
+						</button>
 					</div>
-				</div>
-			{/if}
+				{/if}
+			</AppModal>
 		</div>
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">

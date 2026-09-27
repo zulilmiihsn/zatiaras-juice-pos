@@ -1,6 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { gotoHydrated } from './helpers';
 
+declare global {
+	interface Window {
+		__dialogOpacitySamples: number[];
+	}
+}
+
 type PolicyMode = 'tracked' | 'ignored';
 
 const draftJob = {
@@ -150,15 +156,21 @@ test.describe('Stock Monitoring Toggle', () => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
 		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.evaluate(() => {
+			window.__dialogOpacitySamples = [];
+			new MutationObserver(() => {
+				const dialog = document.querySelector('[role="dialog"]');
+				if (dialog) {
+					window.__dialogOpacitySamples.push(parseFloat(getComputedStyle(dialog).opacity));
+				}
+			}).observe(document.body, { childList: true, subtree: true });
+		});
 		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
 		const dialog = page.getByRole('dialog', { name: 'Aktifkan kembali monitoring stok?' });
-		await expect
-			.poll(
-				async () => dialog.evaluate((element) => parseFloat(getComputedStyle(element).opacity)),
-				{ timeout: 3000 }
-			)
-			.toBeLessThan(1);
 		await expect(dialog).toBeVisible();
+		const samples = await page.evaluate(() => window.__dialogOpacitySamples);
+		expect(samples.length).toBeGreaterThan(0);
+		expect(Math.min(...samples)).toBeLessThan(1);
 	});
 
 	test('reconciliation opens in a modal with counted progress', async ({ page }) => {

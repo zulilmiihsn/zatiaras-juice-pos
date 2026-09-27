@@ -9,6 +9,7 @@
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import User from '@lucide/svelte/icons/user';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 
 	const s = createPengaturanState();
 
@@ -206,44 +207,48 @@
 	</div>
 
 	<!-- Logout Confirmation Modal -->
-	{#if s.showLogoutModal}
-		<div class="z-alert fixed inset-0 flex items-center justify-center bg-black/50 p-4">
-			<div class="animate-slideUpModal w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-				<div class="mb-4 flex items-center gap-3">
-					<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-						{#if s.LogOut}
-							{@const LogOutIcon = s.LogOut}
-							<LogOutIcon class="h-5 w-5 text-red-600" />
-						{:else}
-							<div class="flex h-5 w-5 items-center justify-center">
-								<span
-									class="block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600"
-								></span>
-							</div>
-						{/if}
+	<AppModal
+		open={s.showLogoutModal}
+		label="Konfirmasi Logout"
+		size="sm"
+		align="center"
+		zClass="z-alert"
+		panelClass="bg-white p-6"
+		onClose={s.cancelLogout}
+	>
+		<div class="mb-4 flex items-center gap-3">
+			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+				{#if s.LogOut}
+					{@const LogOutIcon = s.LogOut}
+					<LogOutIcon class="h-5 w-5 text-red-600" />
+				{:else}
+					<div class="flex h-5 w-5 items-center justify-center">
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600"
+						></span>
 					</div>
-					<div>
-						<h3 class="font-semibold text-gray-800">Konfirmasi Logout</h3>
-						<p class="text-sm text-gray-600">Apakah Anda yakin ingin keluar?</p>
-					</div>
-				</div>
-				<div class="flex gap-3">
-					<button
-						onclick={s.cancelLogout}
-						class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
-					>
-						Batal
-					</button>
-					<button
-						onclick={s.confirmLogout}
-						class="flex-1 rounded-xl bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
-					>
-						Keluar
-					</button>
-				</div>
+				{/if}
+			</div>
+			<div>
+				<h3 class="font-semibold text-gray-800">Konfirmasi Logout</h3>
+				<p class="text-sm text-gray-600">Apakah Anda yakin ingin keluar?</p>
 			</div>
 		</div>
-	{/if}
+		<div class="flex gap-3">
+			<button
+				onclick={s.cancelLogout}
+				class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+			>
+				Batal
+			</button>
+			<button
+				onclick={s.confirmLogout}
+				class="flex-1 rounded-xl bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
+			>
+				Keluar
+			</button>
+		</div>
+	</AppModal>
 
 	<!-- PWA Installed Toast -->
 	{#if s.showPwaInstalledToast}
@@ -310,18 +315,5 @@
 	}
 	.animate-fadeIn {
 		animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	@keyframes slideUpModal {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-	.animate-slideUpModal {
-		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 </style>
