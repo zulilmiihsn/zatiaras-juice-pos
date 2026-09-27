@@ -550,14 +550,4 @@
 	main {
 		flex: 1 1 auto;
 	}
-	@keyframes slideUp {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
 </style>

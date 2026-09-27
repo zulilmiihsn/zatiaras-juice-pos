@@ -210,7 +210,6 @@
 {/if}
 
 <style>
-	/* Animasi slideUp telah dihapus */
 	@keyframes shake {
 		0% {
 			transform: translateX(0);
