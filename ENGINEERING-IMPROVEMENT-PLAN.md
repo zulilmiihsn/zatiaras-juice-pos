@@ -808,6 +808,26 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   (`run-id` sudah ditambah, belum terverifikasi end-to-end).
 - Sisa operator: smoke login/PIN/transaksi per cabang + printer fisik.
 
+### Deploy aplikasi 27 Sep 2026 — LIVE
+
+- Commit `797ad40898a54f92a51970e693c8c14812612cb8`; CI run
+  [#36323682647](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36323682647)
+  hijau, termasuk static, operations, unit, quality, E2E, dan build.
+- Artifact `release-797ad40898a54f92a51970e693c8c14812612cb8` provenance
+  terverifikasi; SHA-256 artifact ZIP
+  `9619f4688134594a998f1ae03d16720aafc21b77e720d13d5f3005aef588ead5`.
+- Backup tiga shard terverifikasi di luar workspace; restore drill lokal
+  in-memory lulus untuk Samarinda, Balikpapan, dan Berau. Manifest berada di
+  direktori backup operator, `manifest.sha256.json`.
+- Deploy dry-run #36325140250 dan production #36332179836 sukses pada SHA sama.
+  Realtime Worker versi `d5c74176-69aa-4a15-8aa3-69d33418d32f`;
+  Pages deployment `827670ac`.
+- Smoke read-only: `/` dan `/login` 200 pada deployment Pages dan alias proyek;
+  3 aset immutable yang dirujuk halaman utama merespons 200 dengan MIME sesuai.
+  Tidak ada mutasi data D1 saat smoke.
+- Monitoring OPS-T14: snapshot error-rate/latency/audit sebelum dan sesudah
+  deploy belum direkam; perlu dicatat operator dari dashboard Cloudflare.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
