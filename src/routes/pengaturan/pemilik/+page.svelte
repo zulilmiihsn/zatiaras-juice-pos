@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import Utensils from '@lucide/svelte/icons/utensils';
 	import Shield from '@lucide/svelte/icons/shield';
 	import History from '@lucide/svelte/icons/history';
@@ -19,9 +20,7 @@
 
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
 	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
-	<div
-		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
-	>
+	<div class="page-header relative w-full px-6 pt-5 pb-12">
 		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
@@ -31,13 +30,9 @@
 		></div>
 
 		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
-			<a
-				href="/pengaturan"
-				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
-				aria-label="Kembali ke Pengaturan"
-			>
+			<HeaderBackButton href="/pengaturan" label="Kembali ke Pengaturan">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
-			</a>
+			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Pengaturan Pemilik</h1>
 			<div class="h-10 w-10"></div>
 		</div>

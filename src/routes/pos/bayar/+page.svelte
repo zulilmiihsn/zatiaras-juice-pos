@@ -47,9 +47,7 @@
 
 <main class="page-content min-h-[100dvh] flex-1 overflow-y-auto bg-[#faf7f8] pb-28">
 	<!-- [CATATAN]: Fluid Wave Header for Payment -->
-	<div
-		class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-12 shadow-xl shadow-pink-500/15"
-	>
+	<div class="page-header relative px-5 pt-4 pb-12">
 		<!-- [CATATAN]: Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"

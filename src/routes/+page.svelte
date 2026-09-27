@@ -363,9 +363,7 @@
 
 <div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
 	<!-- Fluid Wave Header for Beranda (Identical to Laporan, Catat, Stok) -->
-	<div
-		class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-12 shadow-xl shadow-pink-500/15 md:pt-6 md:pb-14"
-	>
+	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"

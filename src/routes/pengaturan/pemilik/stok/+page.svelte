@@ -21,6 +21,12 @@
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 	import { productService } from '$lib/services/productService';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
+	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
+	import type {
+		StockReconciliationItem,
+		StockReconciliationJob
+	} from '$lib/server/stockReconciliation';
+	import type { OfflineReviewRow } from '$lib/server/stockOfflineReview';
 
 	let soundEnabled = $state(true);
 	let strictStockEnabled = $state(false);
@@ -84,17 +90,9 @@
 	}
 
 	// Rekonsiliasi aktivasi ulang (pemilik, saat mode ignored).
-	type ReconItem = {
-		entity_type: 'produk' | 'bahan';
-		entity_id: string;
-		counted_quantity: number | null;
-	};
-	type ReconJob = {
-		id: string;
-		status: string;
-		expected_policy_revision: number;
-		items: ReconItem[];
-	};
+	// Bentuk wire dipakai bersama server (import type, terhapus saat bundle).
+	type ReconItem = StockReconciliationItem;
+	type ReconJob = StockReconciliationJob;
 	let reconJob = $state<ReconJob | null>(null);
 	let reconLoading = $state(false);
 	let reconError = $state('');
@@ -173,15 +171,7 @@
 	});
 
 	// Tinjauan antrean offline yang dikarantina (HTTP 428).
-	type OfflineReview = {
-		idempotency_key: string;
-		request_fingerprint: string;
-		queued_at: number;
-		policy_revision_at_queue: number | null;
-		current_policy_revision: number;
-		revision: number;
-		status: string;
-	};
+	type OfflineReview = OfflineReviewRow;
 	let reconReviews = $state<OfflineReview[]>([]);
 	let reconReviewsError = $state('');
 	let reconReviewActing = $state('');
@@ -570,9 +560,7 @@
 
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
 	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
-	<div
-		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
-	>
+	<div class="page-header relative w-full px-6 pt-5 pb-12">
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
 		></div>
@@ -581,13 +569,9 @@
 		></div>
 
 		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
-			<a
-				href="/pengaturan/pemilik"
-				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
-				aria-label="Kembali"
-			>
+			<HeaderBackButton href="/pengaturan/pemilik">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
-			</a>
+			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Pengaturan Stok</h1>
 			<div class="h-10 w-10"></div>
 		</div>

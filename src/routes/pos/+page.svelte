@@ -542,7 +542,7 @@
 			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
 				<!-- [CATATAN]: Fluid Wave Header for POS -->
 				<div
-					class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 pt-4 pb-8 shadow-xl shadow-pink-500/15 md:pt-6 md:pb-10 lg:rounded-[32px] lg:pt-5 lg:pb-7"
+					class="page-header relative px-5 pt-4 pb-8 md:pt-6 md:pb-10 lg:rounded-[32px] lg:pt-5 lg:pb-7"
 				>
 					<!-- [CATATAN]: Ambient background blur shapes -->
 					<div

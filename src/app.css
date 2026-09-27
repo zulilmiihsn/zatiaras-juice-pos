@@ -237,6 +237,18 @@ input,
 		box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ── Page Header (satu sumber header gradient) ── */
+.page-header {
+	position: relative;
+	overflow: hidden;
+	border-bottom-right-radius: 40px;
+	border-bottom-left-radius: 40px;
+	background: linear-gradient(to bottom right, #db2777, #ec4899, #f43f5e);
+	box-shadow:
+		0 20px 25px -5px rgba(236, 72, 153, 0.15),
+		0 8px 10px -6px rgba(236, 72, 153, 0.15);
+}
+
 /* ── Brand Buttons (satu sumber gaya tombol) ── */
 .btn-brand-primary,
 .btn-brand-secondary,

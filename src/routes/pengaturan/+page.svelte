@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import Crown from '@lucide/svelte/icons/crown';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import User from '@lucide/svelte/icons/user';
@@ -20,9 +21,7 @@
 
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
 	<!-- Fluid Wave Header for Pengaturan (Full-width edge-to-edge) -->
-	<div
-		class="relative w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-12 shadow-xl shadow-pink-500/15"
-	>
+	<div class="page-header relative w-full px-6 pt-5 pb-12">
 		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
@@ -32,13 +31,9 @@
 		></div>
 
 		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
-			<a
-				href="/"
-				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
-				aria-label="Kembali"
-			>
+			<HeaderBackButton href="/">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
-			</a>
+			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Pengaturan Sistem</h1>
 			<div class="h-10 w-10"></div>
 		</div>
@@ -253,7 +248,7 @@
 	<!-- PWA Installed Toast -->
 	{#if s.showPwaInstalledToast}
 		<div
-			class="animate-fadeIn z-toast fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
+			class="animate-fade-in z-toast fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
 		>
 			Aplikasi berhasil terpasang di Home Screen!
 		</div>
@@ -301,19 +296,3 @@
 	<p class="text-xs text-gray-500">ZatiarasPOS v1.0</p>
 	<p class="mt-1 text-xs text-gray-400">© 2024 Zatiaras Juice.</p>
 </div>
-
-<style>
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-	.animate-fadeIn {
-		animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-</style>

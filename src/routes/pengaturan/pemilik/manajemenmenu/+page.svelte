@@ -36,6 +36,7 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import CropperDialog from '$lib/components/shared/cropperDialog.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
+	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 
 	const s = createManajemenmenuState();
 	onDestroy(() => s.dispose());
@@ -93,9 +94,7 @@
 
 <div class="page-content min-h-[100dvh] bg-[#faf7f8] pb-24">
 	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
-	<div
-		class="relative mb-3 w-full overflow-hidden rounded-b-[40px] bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] px-6 pt-5 pb-8 shadow-xl shadow-pink-500/15"
-	>
+	<div class="page-header relative mb-3 w-full px-6 pt-5 pb-8">
 		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
@@ -105,13 +104,9 @@
 		></div>
 
 		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
-			<a
-				href="/pengaturan/pemilik"
-				class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-sm backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
-				aria-label="Kembali ke Menu Pemilik"
-			>
+			<HeaderBackButton href="/pengaturan/pemilik" label="Kembali ke Menu Pemilik">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
-			</a>
+			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Manajemen Menu</h1>
 			<div class="h-10 w-10"></div>
 		</div>
