@@ -9,7 +9,9 @@ export function getWitaYear(ref: Date = new Date()): number {
 		}).formatToParts(ref);
 		const y = Number(parts.find((p) => p.type === 'year')?.value);
 		if (Number.isInteger(y)) return y;
-	} catch {}
+	} catch {
+		// Fallback to local calendar year if Intl timezone formatting is unavailable.
+	}
 	return ref.getFullYear();
 }
 

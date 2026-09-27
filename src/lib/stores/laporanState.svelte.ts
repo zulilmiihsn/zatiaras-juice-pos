@@ -274,7 +274,9 @@ export function createLaporanState() {
 					}
 					break;
 			}
-		} catch {}
+		} catch {
+			// Invalid filter state returns an empty range so callers can keep the current report.
+		}
 		return { startDate: '', endDate: '' };
 	}
 
@@ -319,7 +321,9 @@ export function createLaporanState() {
 					timeZone: 'Asia/Makassar'
 				});
 			}
-		} catch {}
+		} catch {
+			// Intl fallback below returns the original date when locale formatting is unavailable.
+		}
 		return dateString;
 	}
 
@@ -404,7 +408,9 @@ export function createLaporanState() {
 		const handleAiRecommendationsApplied = async () => {
 			try {
 				await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
-			} catch {}
+			} catch {
+				// Cache invalidation is best-effort; scheduled report refresh remains authoritative.
+			}
 			await scheduleLaporanRefresh(80, true);
 		};
 
@@ -413,7 +419,9 @@ export function createLaporanState() {
 			offLaporan = refreshBus.on('laporan', async () => {
 				try {
 					await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
-				} catch {}
+				} catch {
+					// Cache invalidation is best-effort; scheduled report refresh remains authoritative.
+				}
 				await scheduleLaporanRefresh(80, true);
 			});
 		}

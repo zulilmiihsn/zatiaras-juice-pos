@@ -270,7 +270,12 @@ export async function runArchive(
 			let count = 0;
 			try {
 				count = Number((JSON.parse(completed.counts || '{}') as { total?: number }).total || 0);
-			} catch {}
+			} catch {
+				throw new ArchiveUseCaseError(
+					500,
+					'Metadata jumlah arsip tersimpan rusak; resume dibatalkan.'
+				);
+			}
 			return {
 				kind: 'resumed',
 				count,
@@ -300,7 +305,12 @@ export async function runArchive(
 						message: `Arsip tahun ${year} telah selesai diproses sebelumnya (snapshot di-resume).`
 					};
 				}
-			} catch {}
+			} catch {
+				throw new ArchiveUseCaseError(
+					500,
+					'Metadata arsip lama rusak; status tidak dapat dipastikan.'
+				);
+			}
 		}
 		return {
 			kind: 'empty',

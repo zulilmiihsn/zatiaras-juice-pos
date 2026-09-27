@@ -589,20 +589,26 @@ export async function fetchReportDataSql(
 	// Pajak via adapter + mesin kanonik yang sama dengan laporan.
 	let persistedSettings = legacyToSettings(null);
 	if (taxConfigRes?.nilai) {
+		let parsed: {
+			schema_version?: number;
+			settings?: unknown;
+		} & Record<string, unknown>;
 		try {
-			const parsed = JSON.parse(taxConfigRes.nilai) as {
-				schema_version?: number;
-				settings?: unknown;
-			} & Record<string, unknown>;
-			if (parsed && typeof parsed === 'object' && parsed.schema_version === 2 && parsed.settings) {
-				const v = validateTaxSettings(parsed.settings);
-				if (v.ok) persistedSettings = parsed.settings as typeof persistedSettings;
-			} else if (parsed && typeof parsed === 'object') {
-				persistedSettings = legacyToSettings(
-					parsed as Partial<import('$lib/tax/engine').LegacyTaxConfig>
-				);
+			parsed = JSON.parse(taxConfigRes.nilai) as typeof parsed;
+		} catch (cause) {
+			throw new Error('Konfigurasi pajak tersimpan rusak; analisis laporan dihentikan.', { cause });
+		}
+		if (parsed.schema_version === 2 && parsed.settings) {
+			const validation = validateTaxSettings(parsed.settings);
+			if (!validation.ok) {
+				throw new Error('Konfigurasi pajak tersimpan tidak valid; analisis laporan dihentikan.');
 			}
-		} catch {}
+			persistedSettings = parsed.settings as typeof persistedSettings;
+		} else {
+			persistedSettings = legacyToSettings(
+				parsed as Partial<import('$lib/tax/engine').LegacyTaxConfig>
+			);
+		}
 	}
 
 	const taxEngineResult = calculateEngineTax({

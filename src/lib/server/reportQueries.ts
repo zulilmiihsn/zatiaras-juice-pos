@@ -276,7 +276,12 @@ export async function buildLaporanAggregate(
 				persistedSettings = legacyToSettings(parsed);
 			}
 		}
-	} catch {}
+	} catch (cause) {
+		throw new Error(
+			'Konfigurasi pajak tersimpan tidak valid. Laporan pajak ditahan agar tarif tidak keliru.',
+			{ cause }
+		);
+	}
 
 	const startYear = Number(startDate.slice(0, 4));
 	const endYear = Number(endDate.slice(0, 4));

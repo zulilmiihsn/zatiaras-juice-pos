@@ -25,6 +25,21 @@ const base = [
 	{ match: /pengaturan/, first: null }
 ];
 
+// Config pajak rusak harus fail-closed; jangan silently hitung memakai tarif default.
+{
+	const db = mockDb([
+		{ match: /ringkasan_penjualan_harian/, first: { gross: 40000 } },
+		{ match: /penjualan_produk_harian/, all: [] },
+		{ match: /FROM buku_kas/, first: { total: 10000 } },
+		{ match: /ringkasan_kas_arsip_harian/, first: { total: 0 } },
+		{ match: /pengaturan/, first: { nilai: '{malformed' } }
+	]);
+	await assert.rejects(
+		() => buildLaporanAggregate(db as never, 'samarinda', '2026-09-01', '2026-09-15'),
+		/konfigurasi pajak tersimpan tidak valid/i
+	);
+}
+
 // R06: query YTD wajib gagal -> laporan gagal, bukan pajak 0.
 {
 	const db = mockDb([

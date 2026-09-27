@@ -46,7 +46,9 @@ export function queueR2Cleanup(key: string): void {
 			outbox.push(key);
 			localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(outbox));
 		}
-	} catch {}
+	} catch {
+		// Browser storage quota may prevent queuing orphan cleanup; never block menu editing for cleanup.
+	}
 }
 
 export async function processR2CleanupOutbox(): Promise<void> {
@@ -70,7 +72,10 @@ export async function processR2CleanupOutbox(): Promise<void> {
 	}
 	try {
 		localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(remaining));
-	} catch {}
+	} catch {
+		// Best-effort cleanup queue persistence; failed items cannot block the menu mutation.
+		console.warn('[menu-image] Could not persist R2 cleanup queue');
+	}
 }
 
 export function extractProductImageKey(imageUrl: string): string | null {

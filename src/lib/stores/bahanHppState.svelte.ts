@@ -161,7 +161,9 @@ export function createBahanHppState(config: BahanHppConfig) {
 							];
 						});
 					}
-				} catch {}
+				} catch {
+					// Malformed legacy breakdown falls back to the canonical individual cost fields below.
+				}
 			}
 
 			if (rincian.length === 0) {

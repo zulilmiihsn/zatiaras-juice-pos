@@ -213,7 +213,9 @@ export function createCatatState() {
 			try {
 				await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
 				await cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir');
-			} catch {}
+			} catch {
+				// Cache invalidation is best-effort after the transaction has committed.
+			}
 			lastFailed = null;
 			return { status: 'saved', id: trx.id };
 		} else {
@@ -325,7 +327,9 @@ export function createCatatState() {
 			if (result.status === 'saved' || result.status === 'queued') {
 				try {
 					await loadRecentTransactions();
-				} catch {}
+				} catch {
+					// The save succeeded; recent-transaction refresh can be retried independently.
+				}
 				snackbarMsg =
 					result.status === 'queued'
 						? 'Transaksi antre, menunggu sinkronisasi.'

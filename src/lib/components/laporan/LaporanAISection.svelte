@@ -38,6 +38,7 @@
 	let chatContainer = $state<HTMLDivElement | null>(null);
 	let abortController: AbortController | null = null;
 	let copiedId = $state<string | null>(null);
+	let copyFailedId = $state<string | null>(null);
 
 	// Action portal agar modal menempel langsung ke document.body dan tidak tertutup BottomNav
 	function portal(node: HTMLElement) {
@@ -287,10 +288,16 @@
 		try {
 			await navigator.clipboard.writeText(text);
 			copiedId = id;
+			copyFailedId = null;
 			setTimeout(() => {
 				if (copiedId === id) copiedId = null;
 			}, 2000);
-		} catch {}
+		} catch {
+			copyFailedId = id;
+			setTimeout(() => {
+				if (copyFailedId === id) copyFailedId = null;
+			}, 2500);
+		}
 	}
 
 	function handleStopStreaming() {
@@ -636,12 +643,17 @@
 												<button
 													type="button"
 													onclick={() => handleCopy(msg.id, msg.content)}
-													class="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-50 active:scale-95"
+													class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold active:scale-95 {copyFailedId ===
+													msg.id
+														? 'border-rose-200 bg-rose-50 text-rose-600'
+														: 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 													title="Salin analisis"
 												>
 													{#if copiedId === msg.id}
 														<Check size={11} class="stroke-[2.5] text-emerald-600" />
 														<span class="text-emerald-600">Tersalin</span>
+													{:else if copyFailedId === msg.id}
+														<span>Gagal menyalin</span>
 													{:else}
 														<Copy size={11} class="stroke-[2.2]" />
 														<span>Salin</span>

@@ -28,7 +28,9 @@ export function createHppCalculator(sources: HppSources) {
 						return sum + (Number.isNaN(raw) ? 0 : raw);
 					}, 0);
 				}
-			} catch {}
+			} catch {
+				// Legacy breakdown is optional; fall back to the individual monthly cost fields below.
+			}
 		}
 		return (
 			Number(settings.sewa_bulanan || 0) +

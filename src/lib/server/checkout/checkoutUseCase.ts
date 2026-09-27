@@ -61,6 +61,32 @@ export class CheckoutUseCaseError extends Error {
 	}
 }
 
+async function parseStoredReceiptSnapshot(
+	snapshot: string,
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	transactionId: string
+): Promise<unknown> {
+	try {
+		const receipt: unknown = JSON.parse(snapshot);
+		if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
+			throw new Error('Snapshot struk bukan object');
+		}
+		return receipt;
+	} catch (cause) {
+		await recordErrorEvent(platform, branch, {
+			source: 'checkout.receipt_snapshot',
+			error: cause,
+			status: 500,
+			context: { transaction_id: transactionId }
+		});
+		throw new CheckoutUseCaseError(
+			500,
+			'Struk transaksi tersimpan tidak dapat dibaca. Hubungi pemilik.'
+		);
+	}
+}
+
 export interface CheckoutSession {
 	userId: string;
 	username?: string;
@@ -358,12 +384,14 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			fail(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
 		}
 
-		let receipt = null;
-		if (existing.receipt_snapshot) {
-			try {
-				receipt = JSON.parse(existing.receipt_snapshot);
-			} catch {}
-		}
+		const receipt = existing.receipt_snapshot
+			? await parseStoredReceiptSnapshot(
+					existing.receipt_snapshot,
+					platform,
+					branch,
+					existing.transaction_id
+				)
+			: null;
 		const existingCashReceived = normalizeMoney(body.cash_received);
 		return {
 			idempotent: true,
@@ -629,12 +657,14 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 				fail(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
 			}
 
-			let receipt = null;
-			if (duplicate.receipt_snapshot) {
-				try {
-					receipt = JSON.parse(duplicate.receipt_snapshot);
-				} catch {}
-			}
+			let receipt = duplicate.receipt_snapshot
+				? await parseStoredReceiptSnapshot(
+						duplicate.receipt_snapshot,
+						platform,
+						branch,
+						duplicate.transaction_id
+					)
+				: null;
 			if (!receipt && quoteData) {
 				receipt = buildReceiptFromQuote(quoteData, {
 					totalAmount: duplicate.nominal,

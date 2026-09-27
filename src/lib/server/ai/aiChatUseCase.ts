@@ -244,6 +244,25 @@ export function parseMemoryCommand(cleanQ: string): MemoryCommand {
 	return null;
 }
 
+function parseBusinessMemoryNotes(raw: string): string[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch (cause) {
+		throw new Error('Memori bisnis tersimpan rusak; simpan catatan baru dibatalkan.', { cause });
+	}
+	if (
+		!parsed ||
+		typeof parsed !== 'object' ||
+		!('catatan' in parsed) ||
+		!Array.isArray(parsed.catatan) ||
+		!parsed.catatan.every((note): note is string => typeof note === 'string')
+	) {
+		throw new Error('Format memori bisnis tersimpan tidak valid; simpan catatan baru dibatalkan.');
+	}
+	return parsed.catatan;
+}
+
 /** Ambil daftar memori & target bisnis cabang dari tabel pengaturan */
 export async function getBusinessMemory(rawDb: D1Database, branch: BranchContext): Promise<string> {
 	try {
@@ -254,12 +273,13 @@ export async function getBusinessMemory(rawDb: D1Database, branch: BranchContext
 			.bind(branch)
 			.first()) as { nilai?: string } | null;
 		if (row?.nilai) {
-			const parsed = JSON.parse(row.nilai);
-			if (Array.isArray(parsed.catatan) && parsed.catatan.length > 0) {
-				return parsed.catatan.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n');
-			}
+			const notes = parseBusinessMemoryNotes(row.nilai);
+			return notes.map((note, index) => `${index + 1}. ${note}`).join('\n');
 		}
-	} catch {}
+	} catch (error) {
+		// Best-effort context for AI: answering without memory is safer than blocking the chat.
+		console.warn('[AI] Business memory unavailable; continuing without it', error);
+	}
 	return '';
 }
 
@@ -270,20 +290,13 @@ export async function saveBusinessMemoryNote(
 	note: string
 ): Promise<string[]> {
 	const currentNotes: string[] = [];
-	try {
-		const row = (await rawDb
-			.prepare(
-				`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory' LIMIT 1`
-			)
-			.bind(branch)
-			.first()) as { nilai?: string } | null;
-		if (row?.nilai) {
-			const parsed = JSON.parse(row.nilai);
-			if (Array.isArray(parsed.catatan)) {
-				currentNotes.push(...parsed.catatan);
-			}
-		}
-	} catch {}
+	const row = (await rawDb
+		.prepare(
+			`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'ai_business_memory' LIMIT 1`
+		)
+		.bind(branch)
+		.first()) as { nilai?: string } | null;
+	if (row?.nilai) currentNotes.push(...parseBusinessMemoryNotes(row.nilai));
 
 	currentNotes.push(note.trim());
 	const trimmedNotes = currentNotes.slice(-10);
@@ -707,7 +720,9 @@ export async function prepareReportAnalysis(input: {
 				reportResult.serverReportData.specificProduct =
 					productsList.find((p) => p.nama.toLowerCase().includes(foundKeyword)) || null;
 			}
-		} catch {}
+		} catch {
+			// Product-name enrichment is optional; the aggregate report can answer without it.
+		}
 	}
 
 	reportResult.serverReportData.dataRequirements = dataRequirements;

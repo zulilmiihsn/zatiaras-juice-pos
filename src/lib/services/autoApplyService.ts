@@ -132,7 +132,9 @@ export class AutoApplyService {
 			const set = this.readApplied();
 			set.add(id);
 			localStorage.setItem(this.appliedKey(), JSON.stringify([...set].slice(-500)));
-		} catch {}
+		} catch {
+			// Local applied-ID cache is best-effort; stable server idempotency keys prevent duplicates.
+		}
 	}
 
 	private async applySingleRecommendation(
@@ -381,18 +383,16 @@ export class AutoApplyService {
 		const nama = String(data.nama || '').trim();
 		if (!nama) throw new Error('Nama kategori tidak valid');
 		// Idempoten: kategori nama sama dianggap sudah diterapkan.
-		try {
-			const existing = (await productService.getCategories()) as Array<{ nama?: string }>;
-			if (
-				existing.some(
-					(c) =>
-						String(c.nama || '')
-							.trim()
-							.toLowerCase() === nama.toLowerCase()
-				)
+		const existing = (await productService.getCategories()) as Array<{ nama?: string }>;
+		if (
+			existing.some(
+				(c) =>
+					String(c.nama || '')
+						.trim()
+						.toLowerCase() === nama.toLowerCase()
 			)
-				return;
-		} catch {}
+		)
+			return;
 		const res = await apiFetch('/api/kategori', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

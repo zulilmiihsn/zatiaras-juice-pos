@@ -46,7 +46,9 @@
 		currentDeltaY = 0;
 		try {
 			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-		} catch {}
+		} catch {
+			// Pointer capture is optional; swipe detection still works without browser capture support.
+		}
 	}
 
 	function handlePointerMove(e: PointerEvent) {
@@ -63,7 +65,9 @@
 		isDragging = false;
 		try {
 			(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-		} catch {}
+		} catch {
+			// Pointer may already be released when the gesture ends.
+		}
 
 		// Check dismiss thresholds (flick-friendly)
 		if (currentDeltaY < -25) {

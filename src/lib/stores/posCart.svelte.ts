@@ -43,7 +43,10 @@ function loadCartFromStorage(): CartItem[] {
 				return parsedLegacy;
 			}
 		}
-	} catch {}
+	} catch (error) {
+		// Local cart is best-effort when storage is blocked/corrupt; start empty and keep POS usable.
+		console.warn('[pos-cart] Could not restore local cart', error);
+	}
 	return [];
 }
 

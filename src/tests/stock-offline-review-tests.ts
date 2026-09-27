@@ -362,6 +362,26 @@ try {
 				.first<number>('stok'),
 			4
 		);
+		await replayDb
+			.prepare("UPDATE buku_kas SET receipt_snapshot = '{broken' WHERE idempotency_key = ?")
+			.bind('offline-replay-e2e-1')
+			.run();
+		await assert.rejects(
+			executeCheckout({
+				db: replayDb,
+				branch: replayBranch,
+				session: replaySession,
+				platform: replayPlatform,
+				rawBody: replayBody
+			}),
+			(error: unknown) => error instanceof CheckoutUseCaseError && error.status === 500
+		);
+		assert.equal(
+			await replayDb
+				.prepare("SELECT stok FROM produk WHERE id = 'p-offline'")
+				.first<number>('stok'),
+			4
+		);
 	} finally {
 		await replayHarness.close();
 	}

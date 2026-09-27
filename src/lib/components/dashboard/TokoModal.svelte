@@ -57,7 +57,9 @@
 				};
 				return;
 			}
-		} catch {}
+		} catch {
+			// Summary endpoint is an optimization; legacy ledger aggregation below remains the fallback.
+		}
 		const kasRaw = (await transactionService.getRows('buku_kas', {
 			id_sesi_toko: sesiAktif.id
 		})) as unknown as BukuKasRecord[];

@@ -298,7 +298,9 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 		if (LOGO_BASE64) {
 			doc.addImage(LOGO_BASE64, 'PNG', 14, y, 13, 13);
 		}
-	} catch {}
+	} catch {
+		// Logo is decorative; keep the financial report export available if image decoding fails.
+	}
 
 	const headerTextX = 30;
 

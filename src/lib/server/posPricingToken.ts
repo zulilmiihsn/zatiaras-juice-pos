@@ -90,7 +90,9 @@ function getSigningSecrets(env: App.Platform['env'] | undefined) {
 					}
 				}
 			}
-		} catch {}
+		} catch {
+			// Optional rotation list may be absent/malformed; retain the validated current key only.
+		}
 	}
 
 	return { current, keyMap };

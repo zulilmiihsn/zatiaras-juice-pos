@@ -73,6 +73,7 @@ function currentBranch(): string {
 	try {
 		return (localStorage.getItem('selectedBranch') || 'samarinda').toLowerCase();
 	} catch {
+		// Storage can be unavailable in private browsing; use the documented default branch.
 		return 'samarinda';
 	}
 }
@@ -89,6 +90,7 @@ function readPersistedCache(targetBranch: string): TaxSettings | null {
 			taxes: parsed.taxes.map(parseTaxItem)
 		};
 	} catch {
+		// Invalid/unavailable local data is a cache miss; server synchronization can refresh it.
 		return null;
 	}
 }
@@ -97,7 +99,9 @@ function writePersistedCache(targetBranch: string, settings: TaxSettings): void 
 	if (!browser) return;
 	try {
 		localStorage.setItem(branchKey(targetBranch), JSON.stringify(settings));
-	} catch {}
+	} catch {
+		// Best-effort device cache; server remains source of truth.
+	}
 }
 
 function readRevision(targetBranch: string): number {
@@ -105,6 +109,7 @@ function readRevision(targetBranch: string): number {
 	try {
 		return Number(localStorage.getItem(`${branchKey(targetBranch)}:revision`) || 0);
 	} catch {
+		// Revision cache is advisory only; failed reads safely use revision zero.
 		return 0;
 	}
 }
@@ -113,7 +118,9 @@ function writeRevision(targetBranch: string, revision: number): void {
 	if (!browser) return;
 	try {
 		localStorage.setItem(`${branchKey(targetBranch)}:revision`, String(revision));
-	} catch {}
+	} catch {
+		// Best-effort device revision cache; server CAS revision remains authoritative.
+	}
 }
 
 export function getCachedTaxRevision(branch?: string): number {
@@ -129,7 +136,9 @@ function notifyUpdated(settings: TaxSettings, targetBranch: string, revision: nu
 				detail: { settings, branch: targetBranch, revision }
 			})
 		);
-	} catch {}
+	} catch {
+		// Best-effort same-tab notification; saved server state is already committed.
+	}
 }
 
 /**
@@ -154,7 +163,9 @@ export function getTaxSettings(branch?: string): TaxSettings {
 				};
 			}
 		}
-	} catch {}
+	} catch {
+		// Legacy device cache is untrusted; fall back to canonical defaults.
+	}
 	return DEFAULT_TAX_SETTINGS;
 }
 
@@ -188,7 +199,10 @@ export async function syncTaxSettingsWithServer(branch?: string): Promise<TaxSet
 					return settings;
 				}
 			}
-		} catch {}
+		} catch (error) {
+			// Network/CSRF failure uses the existing branch-scoped cache without blocking the UI.
+			console.warn('[tax] Server sync failed; using local tax settings', error);
+		}
 		return getTaxSettings(targetBranch);
 	})();
 	inFlightSync.set(targetBranch, run);

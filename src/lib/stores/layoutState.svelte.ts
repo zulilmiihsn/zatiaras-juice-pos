@@ -86,7 +86,9 @@ export function createLayoutState() {
 				productService.getCategories(),
 				productService.getAddOns()
 			]);
-		} catch {}
+		} catch {
+			// Prefetch is opportunistic; route rendering loads required data on demand.
+		}
 	}
 
 	async function prefetchOwnerInsights() {
@@ -100,7 +102,9 @@ export function createLayoutState() {
 				dashboardService.getWeeklyIncome(),
 				dashboardService.getReportData(currentMonth, 'monthly')
 			]);
-		} catch {}
+		} catch {
+			// Prefetch is opportunistic; route rendering loads required data on demand.
+		}
 	}
 
 	async function setupPwa() {

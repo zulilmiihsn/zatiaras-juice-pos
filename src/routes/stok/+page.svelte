@@ -404,7 +404,9 @@
 			const map = getMutationClickFrequencyMap();
 			map[key] = (map[key] || 0) + 1;
 			localStorage.setItem('mutasi_click_freq', JSON.stringify(map));
-		} catch {}
+		} catch {
+			// Best-effort usage ranking; unavailable browser storage must not block stock updates.
+		}
 	}
 
 	interface GroupedMutationPreset {

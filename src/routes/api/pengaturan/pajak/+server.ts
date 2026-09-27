@@ -33,6 +33,13 @@ type StoredEnvelope =
 	| { schema_version: 2; revision: number; settings: TaxSettings; updated_at?: string }
 	| (Partial<BranchTaxConfig> & { revision?: number });
 
+function invalidStoredTaxConfig(cause?: unknown): Error {
+	return new Error(
+		'Konfigurasi pajak tersimpan tidak valid. Laporan ditahan agar tarif pajak tidak keliru.',
+		{ cause }
+	);
+}
+
 async function loadEnvelope(
 	rawDb: ReturnType<typeof getRawDb>,
 	branch: string
@@ -43,50 +50,50 @@ async function loadEnvelope(
 	updated_at?: string;
 	rawNilai: string | null;
 }> {
+	const row = (await rawDb
+		.prepare(
+			`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
+		)
+		.bind(branch)
+		.first()) as { nilai?: string; updated_at?: string } | null;
+	if (!row?.nilai) {
+		return {
+			revision: 0,
+			settings: legacyToSettings(DEFAULT_TAX_CONFIG),
+			legacy: DEFAULT_TAX_CONFIG,
+			rawNilai: null
+		};
+	}
+
+	let parsed: StoredEnvelope;
 	try {
-		const row = (await rawDb
-			.prepare(
-				`SELECT nilai, updated_at FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
-			)
-			.bind(branch)
-			.first()) as { nilai?: string; updated_at?: string } | null;
-		if (row?.nilai) {
-			const parsed = JSON.parse(row.nilai) as StoredEnvelope;
-			if (
-				parsed &&
-				typeof parsed === 'object' &&
-				(parsed as { schema_version?: number }).schema_version === 2
-			) {
-				const v2 = parsed as { revision?: number; settings?: unknown };
-				const v = validateTaxSettings(v2.settings);
-				if (v.ok) {
-					const settings = v2.settings as TaxSettings;
-					return {
-						revision: Number(v2.revision || 0),
-						settings,
-						legacy: { ...settingsToLegacy(settings), updated_at: row.updated_at },
-						updated_at: row.updated_at,
-						rawNilai: row.nilai
-					};
-				}
-			} else if (parsed && typeof parsed === 'object') {
-				// Legacy: rate=0 tetap 0, threshold non-default terjaga via adapter.
-				const legacy = { ...DEFAULT_TAX_CONFIG, ...(parsed as Partial<BranchTaxConfig>) };
-				return {
-					revision: 0,
-					settings: legacyToSettings(legacy),
-					legacy,
-					updated_at: row.updated_at,
-					rawNilai: row.nilai
-				};
-			}
-		}
-	} catch {}
+		parsed = JSON.parse(row.nilai) as StoredEnvelope;
+	} catch (cause) {
+		throw invalidStoredTaxConfig(cause);
+	}
+	if (!parsed || typeof parsed !== 'object') throw invalidStoredTaxConfig();
+	if ((parsed as { schema_version?: number }).schema_version === 2) {
+		const v2 = parsed as { revision?: number; settings?: unknown };
+		const v = validateTaxSettings(v2.settings);
+		if (!v.ok) throw invalidStoredTaxConfig();
+		const settings = v2.settings as TaxSettings;
+		return {
+			revision: Number(v2.revision || 0),
+			settings,
+			legacy: { ...settingsToLegacy(settings), updated_at: row.updated_at },
+			updated_at: row.updated_at,
+			rawNilai: row.nilai
+		};
+	}
+
+	// Legacy format: rate=0 tetap 0, threshold non-default terjaga via adapter.
+	const legacy = { ...DEFAULT_TAX_CONFIG, ...(parsed as Partial<BranchTaxConfig>) };
 	return {
 		revision: 0,
-		settings: legacyToSettings(DEFAULT_TAX_CONFIG),
-		legacy: DEFAULT_TAX_CONFIG,
-		rawNilai: null
+		settings: legacyToSettings(legacy),
+		legacy,
+		updated_at: row.updated_at,
+		rawNilai: row.nilai
 	};
 }
 
