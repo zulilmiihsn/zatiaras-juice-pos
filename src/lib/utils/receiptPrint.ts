@@ -4,8 +4,6 @@
  *
  * Sumber kebenaran: lihat CONVENTIONS.md §2.
  */
-import * as pako from 'pako';
-import { Base64 } from 'js-base64';
 import { LOGO_BASE64 } from './logoBase64.js';
 import { formatRupiah } from './currency.js';
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
@@ -223,14 +221,23 @@ export function buildSaleReceiptHtml(input: SaleReceiptInput): string {
 	return buildReceiptShell({ settings, marginBottom: 16, renderText: escapeHtml }, body, footer);
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+	let binary = '';
+	const chunk = 0x8000;
+	for (let i = 0; i < bytes.length; i += chunk) {
+		binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+	}
+	return btoa(binary);
+}
+
 /** Bangun URL intent cetak (gzip + base64) tanpa navigasi; dipakai ulang jalur server. */
-export function buildPrintIntentUrl(html: string): string {
-	const gzip = pako.gzip(JSON.stringify([html]));
-	const base64 = Base64.fromUint8Array(gzip);
-	return `intent://#Intent;scheme=print-intent;S.content=${base64};end`;
+export async function buildPrintIntentUrl(html: string): Promise<string> {
+	const { gzip } = await import('pako');
+	const gzipped = gzip(JSON.stringify([html]));
+	return `intent://#Intent;scheme=print-intent;S.content=${uint8ToBase64(gzipped)};end`;
 }
 
 /** Kirim HTML struk ke printer via Android print-intent (gzip + base64). */
-export function printViaIntent(html: string): void {
-	window.location.href = buildPrintIntentUrl(html);
+export async function printViaIntent(html: string): Promise<void> {
+	window.location.href = await buildPrintIntentUrl(html);
 }

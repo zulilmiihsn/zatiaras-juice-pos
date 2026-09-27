@@ -14,7 +14,7 @@
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
-	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
+	import { buildReceiptHtml, loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';

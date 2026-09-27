@@ -7,7 +7,6 @@ import {
 	productImageExtension,
 	extractBranchFromProductImageKey
 } from '$lib/server/r2ObjectPolicy';
-import { v4 as uuidv4 } from 'uuid';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -101,7 +100,7 @@ export async function POST({ request, platform, locals }) {
 		}
 
 		const ext = productImageExtension(file.type);
-		const key = `produk/${branch}/${uuidv4()}.${ext}`;
+		const key = `produk/${branch}/${crypto.randomUUID()}.${ext}`;
 
 		const publicUrl = await uploadToR2(key, buffer, file.type, bucket, {
 			branch,

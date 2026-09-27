@@ -202,7 +202,7 @@ export default defineConfig({
 		// Tree shaking is enabled by default in Vite
 	},
 	optimizeDeps: {
-		include: ['idb-keyval', 'js-base64', 'pako', 'uuid', 'workbox-window'],
+		include: ['idb-keyval', 'pako', 'workbox-window'],
 		exclude: ['svelte', 'bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', '@lucide/svelte']
 	},
 	server: {

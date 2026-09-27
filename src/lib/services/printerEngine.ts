@@ -384,7 +384,7 @@ export async function printReceiptUnified(payload: UnifiedPrintPayload): Promise
 				return;
 			}
 			// Fallback ke intent bila binary builder tidak tersedia
-			printViaIntent(payload.html);
+			await printViaIntent(payload.html);
 			break;
 		}
 
@@ -397,18 +397,18 @@ export async function printReceiptUnified(payload: UnifiedPrintPayload): Promise
 				await sendUsbData(activeUsbDevice, activeUsbEndpointNumber, bytes);
 				return;
 			}
-			printViaIntent(payload.html);
+			await printViaIntent(payload.html);
 			break;
 		}
 
 		case 'intent':
 		default: {
-			printViaIntent(payload.html);
+			await printViaIntent(payload.html);
 			break;
 		}
 
 		case 'server': {
-			await sendToLocalServer(buildPrintIntentUrl(payload.html));
+			await sendToLocalServer(await buildPrintIntentUrl(payload.html));
 			break;
 		}
 	}
@@ -467,8 +467,8 @@ export async function testPrintUnified(method: PrinterMethod, paperSize: PaperSi
 			throw new Error('Koneksi USB printer gagal dibentuk');
 		}
 	} else if (method === 'server') {
-		await sendToLocalServer(buildPrintIntentUrl(dummyHtml));
+		await sendToLocalServer(await buildPrintIntentUrl(dummyHtml));
 	} else {
-		printViaIntent(dummyHtml);
+		await printViaIntent(dummyHtml);
 	}
 }

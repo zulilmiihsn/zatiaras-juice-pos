@@ -1,5 +1,4 @@
 import { goto } from '$app/navigation';
-import { v4 as uuidv4 } from 'uuid';
 import { validateNumber, sanitizeInput } from '$lib/utils/validation';
 import { buildCartItemKey } from '$lib/utils/cartKey';
 import { securityUtils } from '$lib/utils/security';
@@ -190,7 +189,7 @@ export function createBayarState() {
 
 	function init() {
 		cart = [...posCart.items];
-		transactionId = uuidv4();
+		transactionId = crypto.randomUUID();
 		transactionCode = generateTransactionCode();
 		cekSesiTokoAktif();
 		fetchPengaturanStruk();
@@ -462,7 +461,7 @@ export function createBayarState() {
 			return false;
 		}
 		const requestPayload = {
-			idempotency_key: transactionId || uuidv4(),
+			idempotency_key: transactionId || crypto.randomUUID(),
 			nama_pelanggan: customerName || null,
 			metode_bayar: payment,
 			cash_received: cashReceived ? Number(cashReceived) : null,

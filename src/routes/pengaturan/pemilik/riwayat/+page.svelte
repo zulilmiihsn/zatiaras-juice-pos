@@ -16,7 +16,7 @@
 	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 	type IconComponent = typeof import('@lucide/svelte/icons/trash').default;
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
-	import { buildReceiptHtml, printViaIntent, loadReceiptSettings } from '$lib/utils/receiptPrint';
+	import { buildReceiptHtml, loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';

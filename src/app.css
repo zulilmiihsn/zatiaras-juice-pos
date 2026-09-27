@@ -41,18 +41,6 @@
 }
 
 /* ── Guaranteed Z-Index Layer Utility Classes ── */
-.z-base {
-	z-index: 0 !important;
-}
-.z-card {
-	z-index: 10 !important;
-}
-.z-surface {
-	z-index: 20 !important;
-}
-.z-nav {
-	z-index: 40 !important;
-}
 .z-fab {
 	z-index: 50 !important;
 }
@@ -70,9 +58,6 @@
 }
 .z-toast {
 	z-index: 100 !important;
-}
-.z-max {
-	z-index: 999 !important;
 }
 
 html,
@@ -178,17 +163,6 @@ body,
 	animation: fadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes fadeInUp {
-	from {
-		opacity: 0;
-		transform: translateY(12px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 @keyframes fadeIn {
 	from {
 		opacity: 0;
@@ -223,80 +197,11 @@ body,
 	animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.animate-scale-in {
-	animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-float {
-	animation: floatSlow 3.5s ease-in-out infinite;
-}
-
-/* ── Card Entrance & Tactile Interactions ── */
-@keyframes cardEnter {
-	from {
-		opacity: 0;
-		transform: translateY(8px) scale(0.985);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-	}
-}
-
-.animate-card-enter {
-	animation: cardEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Smooth modal transitions */
-.modal-enter {
-	animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.modal-exit {
-	animation: fadeIn 0.15s cubic-bezier(0.4, 0, 1, 1) reverse both;
-}
-
-/* Card hover & tactile touch effects */
-.card-hover {
-	transition:
-		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-		box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.card-hover:hover {
-	transform: translateY(-2px);
-	box-shadow:
-		0 12px 28px -6px rgba(219, 39, 119, 0.12),
-		0 2px 8px 0 rgba(0, 0, 0, 0.02);
-}
-
 /* Button press tactile bounce with spring curve */
-.btn-press,
 button:not(:disabled):active,
 [role='button']:not(:disabled):active {
 	transform: scale(0.97);
 	transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Navigation indicator smooth spring movement */
-.nav-indicator {
-	transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Loading skeleton animation */
-@keyframes shimmer {
-	0% {
-		background-position: -200px 0;
-	}
-	100% {
-		background-position: calc(200px + 100%) 0;
-	}
-}
-
-.skeleton {
-	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-	background-size: 200px 100%;
-	animation: shimmer 1.5s infinite;
 }
 
 button,
@@ -310,16 +215,6 @@ input,
 }
 
 /* ── Modern Fluid Wave & Glassmorphism Aesthetic (24px Frosted Glass) ── */
-.glass-panel {
-	background: rgba(255, 255, 255, 0.75);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1.5px solid rgba(255, 255, 255, 0.85);
-	box-shadow:
-		0 10px 30px -6px rgba(219, 39, 119, 0.1),
-		0 2px 8px 0 rgba(0, 0, 0, 0.02);
-}
-
 .glass-card {
 	background: rgba(255, 255, 255, 0.8);
 	backdrop-filter: blur(24px);
@@ -328,14 +223,6 @@ input,
 	box-shadow:
 		0 10px 28px -6px rgba(219, 39, 119, 0.08),
 		0 2px 8px 0 rgba(0, 0, 0, 0.02);
-}
-
-.glass-action-pill {
-	background: rgba(255, 255, 255, 0.28);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1.5px solid rgba(255, 255, 255, 0.6);
-	box-shadow: 0 8px 20px -4px rgba(219, 39, 119, 0.12);
 }
 
 .soft-float-card {
@@ -348,18 +235,6 @@ input,
 	transition:
 		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
 		box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.pill-input {
-	background: #ffffff;
-	border-radius: 9999px;
-	border: 1.5px solid rgba(226, 232, 240, 0.9);
-	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-}
-
-.pill-input:focus {
-	border-color: #ec4899;
-	box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
 }
 
 /* ── Brand Buttons (satu sumber gaya tombol) ── */
