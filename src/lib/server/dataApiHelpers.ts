@@ -20,7 +20,7 @@ export function newId() {
 export function payloadRows(
 	payload: Record<string, unknown> | Record<string, unknown>[],
 	branch: string
-) {
+): Array<Record<string, unknown> & { id: string; cabang_id: string }> {
 	const rows = Array.isArray(payload) ? payload : [payload];
 	return rows.map((row) => {
 		const rawId = row.id != null && String(row.id).trim() !== '' ? String(row.id) : newId();
@@ -29,7 +29,7 @@ export function payloadRows(
 			id: rawId,
 			cabang_id: branch
 		};
-	}) as Array<Record<string, any>>;
+	});
 }
 
 export async function publish(

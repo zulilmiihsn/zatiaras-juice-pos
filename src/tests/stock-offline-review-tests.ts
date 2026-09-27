@@ -16,6 +16,7 @@ import {
 	withdrawReview
 } from '../lib/server/stockOfflineReview';
 import { classifySyncFailure } from '../lib/utils/offlineQueue';
+import { MS_PER_DAY } from '../lib/constants/time';
 import { GET as CATALOG_GET } from '../routes/api/pos/catalog/+server';
 import { GET as REVIEWS_GET } from '../routes/api/pengaturan/stok/offline-reviews/+server';
 import { PUT as REVIEW_PUT } from '../routes/api/pengaturan/stok/offline-reviews/[idempotency_key]/+server';
@@ -294,7 +295,7 @@ try {
 			kind: 'catalog_product',
 			branch: 'samarinda',
 			data: { id: 'p-offline', nama: 'Produk Offline', harga: 10000 },
-			ttlMs: 24 * 60 * 60 * 1000,
+			ttlMs: MS_PER_DAY,
 			now: queuedAt
 		});
 		const staleEpoch = await signStockPolicyEpoch(replayEnv, {

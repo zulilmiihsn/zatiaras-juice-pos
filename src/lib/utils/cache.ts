@@ -2,17 +2,18 @@ import { browser } from '$app/environment';
 import { clear as clearCache, get as getCache, set as setCache, del as delCache } from 'idb-keyval';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { cacheStore } from '$lib/utils/idbStores';
+import { CACHE_TTL_MS } from '$lib/constants/cache';
 
 // [CATATAN]: Cache configuration
 const CACHE_CONFIG = {
 	// [CATATAN]: Memory cache TTL (in milliseconds)
-	MEMORY_TTL: 30000, // 30 seconds
+	MEMORY_TTL: CACHE_TTL_MS.SHORT,
 	// [CATATAN]: IndexedDB cache TTL (in milliseconds)
-	INDEXEDDB_TTL: 300000, // 5 minutes
+	INDEXEDDB_TTL: CACHE_TTL_MS.STANDARD,
 	// [CATATAN]: Background refresh interval (in milliseconds)
-	BACKGROUND_REFRESH: 10000, // 10 seconds
+	BACKGROUND_REFRESH: CACHE_TTL_MS.BACKGROUND_REFRESH,
 	// [CATATAN]: Stale-while-revalidate window (in milliseconds)
-	STALE_WHILE_REVALIDATE: 60000, // 1 minute
+	STALE_WHILE_REVALIDATE: CACHE_TTL_MS.STALE_WHILE_REVALIDATE,
 	// [CATATAN]: Cache size limits
 	MAX_MEMORY_ENTRIES: 100,
 	MAX_INDEXEDDB_ENTRIES: 1000
@@ -29,7 +30,7 @@ interface CacheEntry<T> {
 
 // [CATATAN]: Memory cache (fastest access)
 class MemoryCache {
-	private cache = new Map<string, CacheEntry<any>>();
+	private cache = new Map<string, CacheEntry<unknown>>();
 	private cleanupTimeout: number | null = null;
 
 	constructor() {
@@ -66,7 +67,7 @@ class MemoryCache {
 			return null;
 		}
 
-		return entry.data;
+		return entry.data as T;
 	}
 
 	has(key: string): boolean {
@@ -108,7 +109,7 @@ class MemoryCache {
 				if (this.cache.size > 0) {
 					this.scheduleCleanup();
 				}
-			}, 30000)
+			}, CACHE_TTL_MS.SHORT)
 		);
 	}
 
@@ -470,17 +471,17 @@ function branchCacheKey(key: string): string {
 // [CATATAN]: Cache utilities for specific data types
 export class CacheUtils {
 	// [CATATAN]: Dashboard data caching
-	static async getDashboardStats(fetcher: () => Promise<any>) {
+	static async getDashboardStats<T>(fetcher: () => Promise<T>): Promise<T> {
 		return smartCache.get(branchCacheKey(CACHE_KEYS.DASHBOARD_STATS), fetcher, {
-			ttl: 30000, // 30 seconds
+			ttl: CACHE_TTL_MS.SHORT,
 			backgroundRefresh: true
 		});
 	}
 
 	// [CATATAN]: POS data caching
-	static async getProducts(fetcher: () => Promise<any[]>) {
+	static async getProducts<T>(fetcher: () => Promise<T[]>) {
 		return smartCache.get(branchCacheKey(CACHE_KEYS.PRODUCTS), fetcher, {
-			ttl: 300000, // 5 minutes
+			ttl: CACHE_TTL_MS.STANDARD,
 			backgroundRefresh: true
 		});
 	}
@@ -493,7 +494,7 @@ export class CacheUtils {
 	) {
 		const cacheKey = branchCacheKey(`${key}_${dateRange}`);
 		return smartCache.getWithETag(cacheKey, fetcher, {
-			ttl: 300000, // 5 menit
+			ttl: CACHE_TTL_MS.STANDARD,
 			backgroundRefresh: true
 		});
 	}

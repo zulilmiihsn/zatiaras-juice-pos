@@ -1,4 +1,5 @@
 import { getD1Database, normalizeBranch, type BranchId } from '$lib/server/branchResolver';
+import { MS_PER_DAY } from '$lib/constants/time';
 
 export interface AuthSession {
 	id: string;
@@ -12,7 +13,7 @@ export interface AuthSession {
 	unlockExpiresAt: number;
 }
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = MS_PER_DAY;
 
 function buildSessionId(branch: BranchId): string {
 	return `${branch}.${crypto.randomUUID()}`;

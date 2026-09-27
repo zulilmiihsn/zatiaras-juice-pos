@@ -1,4 +1,5 @@
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import { CACHE_TTL_MS } from '$lib/constants/cache';
 import type { Product, Category, AddOn } from '$lib/types/product';
 import { smartCache, CACHE_KEYS } from '$lib/utils/cache';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
@@ -128,7 +129,7 @@ export class ProductService {
 			await smartCache.invalidate(`ingredients_${branch}`);
 		}
 		return smartCache.get(`ingredients_${branch}`, async () => dbGet('bahan'), {
-			ttl: 30000,
+			ttl: CACHE_TTL_MS.SHORT,
 			backgroundRefresh: true
 		});
 	}

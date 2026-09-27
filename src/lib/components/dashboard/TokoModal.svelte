@@ -103,8 +103,8 @@
 			await bukaToko(modalAwal, waktuBuka);
 			show = false;
 			onTokoStatusChanged();
-		} catch (err: any) {
-			pinErrorToko = err?.message || 'Gagal membuka toko';
+		} catch (err: unknown) {
+			pinErrorToko = err instanceof Error ? err.message : 'Gagal membuka toko';
 		}
 	}
 
@@ -119,8 +119,8 @@
 			await tutupToko(sesiAktif.id, waktuTutup);
 			show = false;
 			onTokoStatusChanged();
-		} catch (err: any) {
-			pinErrorToko = err?.message || 'Gagal menutup toko';
+		} catch (err: unknown) {
+			pinErrorToko = err instanceof Error ? err.message : 'Gagal menutup toko';
 		}
 	}
 

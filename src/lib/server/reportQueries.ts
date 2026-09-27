@@ -26,11 +26,11 @@ export type LaporanAggregate = {
 		pajak: number;
 		labaBersih: number;
 	};
-	pemasukanUsaha: Array<Record<string, any>>;
-	pemasukanLain: Array<Record<string, any>>;
-	bebanUsaha: Array<Record<string, any>>;
-	bebanLain: Array<Record<string, any>>;
-	transactions: Array<Record<string, any>>;
+	pemasukanUsaha: Array<Record<string, unknown>>;
+	pemasukanLain: Array<Record<string, unknown>>;
+	bebanUsaha: Array<Record<string, unknown>>;
+	bebanLain: Array<Record<string, unknown>>;
+	transactions: Array<Record<string, unknown>>;
 	taxContext?: {
 		contract: number;
 		revision: number;
@@ -101,7 +101,7 @@ export async function buildLaporanAggregate(
 				)
 				.bind(branch, startDate, endDate)
 				.all()) as {
-				results?: Array<Record<string, any>>;
+				results?: Array<Record<string, unknown>>;
 			}
 		).results || [];
 
@@ -120,11 +120,11 @@ export async function buildLaporanAggregate(
 				.bind(branch, startDate, endDate)
 				.all()
 				.catch(() => ({ results: [] }))) as {
-				results?: Array<Record<string, any>>;
+				results?: Array<Record<string, unknown>>;
 			}
 		).results || [];
 
-	const transactions: Array<Record<string, any>> = [];
+	const transactions: Array<Record<string, unknown>> = [];
 	const groupedProducts = new Map<string, { cash: number; nonCash: number }>();
 	for (const p of productRows) {
 		const name = String(p.nama_produk || 'Item')

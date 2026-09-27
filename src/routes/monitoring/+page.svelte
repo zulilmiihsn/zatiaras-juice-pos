@@ -9,7 +9,30 @@
 	import Wifi from '@lucide/svelte/icons/wifi';
 	import { getRealtimeHealth } from '$lib/realtime/durableObjectClient';
 
-	let monitoringSummary = $state<any>(null);
+	type MonitoringSummary = {
+		degraded?: boolean;
+		sources?: {
+			requestMetrics?: { available?: boolean };
+			errorEvents?: { available?: boolean };
+			backupRuns?: { available?: boolean };
+		};
+		requests?: {
+			avgLatencyMs?: number;
+			p95LatencyMs?: number;
+			slowest?: Array<{ method: string; path: string; duration_ms: number }>;
+		};
+		errors?: { total?: number };
+		backups?: {
+			recent?: Array<{
+				status: string;
+				database_name: string;
+				finished_at: string | null;
+				started_at: string;
+			}>;
+		};
+	};
+
+	let monitoringSummary = $state<MonitoringSummary | null>(null);
 	let realtimeHealth = $state(getRealtimeHealth());
 	let isLoading = $state(true);
 	let errorMessage = $state('');
@@ -26,7 +49,7 @@
 				errorMessage = 'Monitoring tidak dapat dimuat';
 				return;
 			}
-			monitoringSummary = await response.json();
+			monitoringSummary = (await response.json()) as MonitoringSummary;
 		} catch {
 			errorMessage = 'Gagal membaca monitoring';
 		} finally {

@@ -24,7 +24,7 @@ export class ErrorHandler {
 	/**
 	 * Create a standardized error object
 	 */
-	static createError(message: string, code?: string, details?: Record<string, any>): AppError {
+	static createError(message: string, code?: string, details?: Record<string, unknown>): AppError {
 		return {
 			message,
 			code: code || 'UNKNOWN_ERROR',
@@ -58,19 +58,13 @@ export class ErrorHandler {
 		}
 
 		if (error && typeof error === 'object') {
-			// [CATATAN]: Handle PostgrestError
+			// [CATATAN]: API errors may be plain objects with a message field.
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
 
-			// [CATATAN]: Handle error_description
 			if ('error_description' in error && typeof error.error_description === 'string') {
 				return error.error_description;
-			}
-
-			// [CATATAN]: Handle any other object with message property
-			if ('message' in error && typeof error.message === 'string') {
-				return error.message;
 			}
 		}
 

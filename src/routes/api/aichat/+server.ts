@@ -22,14 +22,14 @@ const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat
 const DEFAULT_MODEL = 'openrouter/free';
 const MODEL = env.AI_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL;
 
-function getOpenRouterApiKey(platform: any): string | undefined {
+function getOpenRouterApiKey(platform: App.Platform | undefined): string | undefined {
 	return (
 		((platform?.env as Record<string, unknown> | undefined)?.OPENROUTER_API_KEY as string) ||
 		env.OPENROUTER_API_KEY
 	);
 }
 
-function getOpenRouterModel(platform: any): string {
+function getOpenRouterModel(platform: App.Platform | undefined): string {
 	const platformEnv = platform?.env as Record<string, unknown> | undefined;
 	return (
 		(platformEnv?.AI_MODEL as string) ||
@@ -339,12 +339,12 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 						}
 						controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
 						controller.close();
-					} catch (err: any) {
+					} catch (err: unknown) {
 						controller.enqueue(
 							encoder.encode(
 								`data: ${JSON.stringify({
 									type: 'error',
-									error: err?.message || 'Koneksi stream terputus.'
+									error: err instanceof Error ? err.message : 'Koneksi stream terputus.'
 								})}\n\n`
 							)
 						);

@@ -153,8 +153,11 @@
 			printerMethod = 'bluetooth';
 			simpanKoneksiPrinter();
 			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
-		} catch (err: any) {
-			toastManager.showToastNotification(err?.message || 'Gagal pairing Bluetooth.', 'error');
+		} catch (err: unknown) {
+			toastManager.showToastNotification(
+				err instanceof Error ? err.message : 'Gagal pairing Bluetooth.',
+				'error'
+			);
 		} finally {
 			isConnectingHardware = false;
 		}
@@ -168,8 +171,11 @@
 			printerMethod = 'usb';
 			simpanKoneksiPrinter();
 			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
-		} catch (err: any) {
-			toastManager.showToastNotification(err?.message || 'Gagal menghubungkan USB.', 'error');
+		} catch (err: unknown) {
+			toastManager.showToastNotification(
+				err instanceof Error ? err.message : 'Gagal menghubungkan USB.',
+				'error'
+			);
 		} finally {
 			isConnectingHardware = false;
 		}
@@ -180,8 +186,11 @@
 		try {
 			await testPrintUnified(printerMethod, paperSize);
 			toastManager.showToastNotification('Perintah tes cetak terkirim!', 'success');
-		} catch (err: any) {
-			toastManager.showToastNotification(err?.message || 'Gagal tes cetak.', 'error');
+		} catch (err: unknown) {
+			toastManager.showToastNotification(
+				err instanceof Error ? err.message : 'Gagal tes cetak.',
+				'error'
+			);
 		} finally {
 			isTestingPrint = false;
 		}

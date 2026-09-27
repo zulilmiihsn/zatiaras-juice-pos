@@ -146,11 +146,20 @@ export function createBahanHppState(config: BahanHppConfig) {
 							? JSON.parse(settings.rincian_biaya)
 							: settings.rincian_biaya;
 					if (Array.isArray(parsed) && parsed.length > 0) {
-						rincian = parsed.map((item: any) => ({
-							id: String(item.id || crypto.randomUUID()),
-							nama: String(item.nama || 'Biaya'),
-							nominal: formatRupiah(item.nominal) || ''
-						}));
+						rincian = parsed.flatMap((item: unknown) => {
+							if (typeof item !== 'object' || item === null) return [];
+							const detail = item as Record<string, unknown>;
+							return [
+								{
+									id: typeof detail.id === 'string' && detail.id ? detail.id : crypto.randomUUID(),
+									nama: typeof detail.nama === 'string' ? detail.nama : 'Biaya',
+									nominal:
+										typeof detail.nominal === 'number' || typeof detail.nominal === 'string'
+											? formatRupiah(detail.nominal)
+											: ''
+								}
+							];
+						});
 					}
 				} catch {}
 			}

@@ -1,5 +1,5 @@
 // [CATATAN]: Performance utilities
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => unknown>(
 	func: T,
 	wait: number
 ): (...args: Parameters<T>) => void {
@@ -10,7 +10,7 @@ export function debounce<T extends (...args: any[]) => any>(
 	};
 }
 
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
 	func: T,
 	limit: number
 ): (...args: Parameters<T>) => void {

@@ -4,6 +4,8 @@
  * Tak dikenali/ambigu -> null agar analyzer lanjutan dipakai.
  */
 
+import { MS_PER_DAY } from '$lib/constants/time';
+
 export interface AiPeriod {
 	start: string;
 	end: string;
@@ -23,7 +25,7 @@ function shiftDays(ymd: string, days: number): string {
 function prevMonthRange(todayWita: string): AiPeriod {
 	const cur = new Date(`${todayWita}T00:00:00.000Z`);
 	const firstThis = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth(), 1));
-	const lastPrev = new Date(firstThis.getTime() - 86400000);
+	const lastPrev = new Date(firstThis.getTime() - MS_PER_DAY);
 	const firstPrev = new Date(Date.UTC(lastPrev.getUTCFullYear(), lastPrev.getUTCMonth(), 1));
 	return {
 		start: firstPrev.toISOString().slice(0, 10),

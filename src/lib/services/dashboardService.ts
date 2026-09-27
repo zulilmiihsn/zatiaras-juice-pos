@@ -10,9 +10,25 @@ import {
 } from '$lib/utils/dateTime';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { dbGet } from '$lib/services/dataApiClient';
-import { REPORT_CACHE_VERSION } from '$lib/constants/cache';
+import { CACHE_TTL_MS, REPORT_CACHE_VERSION } from '$lib/constants/cache';
 import type { TopUsedIngredient } from '$lib/types';
 import { calculateTaxes } from '$lib/services/taxService';
+import { MS_PER_DAY } from '$lib/constants/time';
+
+type DashboardRow = Record<string, unknown>;
+
+function numberField(row: DashboardRow, key: string, fallback = 0): number {
+	const value = row[key];
+	if (!value) return fallback;
+	const number =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	return Number.isFinite(number) ? number : fallback;
+}
+
+function stringField(row: DashboardRow, key: string, fallback = ''): string {
+	const value = row[key];
+	return typeof value === 'string' && value ? value : fallback;
+}
 
 // Monitoring stok nonaktif: lewati query inventaris agar saldo basi tidak diklaim current.
 // Fail-safe ke tracked bila policy tidak dapat dibaca.
@@ -35,7 +51,11 @@ async function getCachedPosKas7Hari() {
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `pos_kas_7hari_${branch}_${todayStr}`;
 	const cached = await idbGet(cacheKey);
-	if (cached && Array.isArray(cached.data) && Date.now() - cached.timestamp < 300000) {
+	if (
+		cached &&
+		Array.isArray(cached.data) &&
+		Date.now() - cached.timestamp < CACHE_TTL_MS.STANDARD
+	) {
 		return cached.data;
 	}
 
@@ -53,7 +73,7 @@ async function getAvgTransaksiHarian(): Promise<number> {
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `avg_transaksi_${branch}_${todayStr}`;
 	const cached = await idbGet(cacheKey);
-	if (cached && typeof cached.value === 'number' && Date.now() - cached.timestamp < 86400000) {
+	if (cached && typeof cached.value === 'number' && Date.now() - cached.timestamp < MS_PER_DAY) {
 		return cached.value;
 	}
 
@@ -76,7 +96,7 @@ async function getJamRamaiMingguan(): Promise<string> {
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `jam_ramai_mingguan_${branch}_${todayStr}`;
 	const cached = await idbGet(cacheKey);
-	if (cached && typeof cached.value === 'string' && Date.now() - cached.timestamp < 86400000) {
+	if (cached && typeof cached.value === 'string' && Date.now() - cached.timestamp < MS_PER_DAY) {
 		return cached.value;
 	}
 
@@ -144,27 +164,27 @@ export class DashboardService {
 
 				if (Array.isArray(summary) && summary.length) {
 					const itemTerjual = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.jumlah_item || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'jumlah_item'),
 						0
 					);
 					const jumlahTransaksi = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.jumlah_transaksi || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'jumlah_transaksi'),
 						0
 					);
 					const omzet = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.penjualan_kotor || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'penjualan_kotor'),
 						0
 					);
 					const hppTotal = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.total_hpp || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'total_hpp'),
 						0
 					);
 					const penjualanTunai = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.penjualan_tunai || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'penjualan_tunai'),
 						0
 					);
 					const penjualanNonTunai = summary.reduce(
-						(s: number, row: Record<string, any>) => s + (row.penjualan_nontunai || 0),
+						(s: number, row: DashboardRow) => s + numberField(row, 'penjualan_nontunai'),
 						0
 					);
 
@@ -174,30 +194,33 @@ export class DashboardService {
 					const [bahanRes, mutasiRes] = stockIgnored
 						? [[], []]
 						: await Promise.all([
-								dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
-								dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
+								dbGet<DashboardRow>('bahan', { limit: '500' }).catch(() => []),
+								dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }).catch(() => [])
 							]);
 
 					const lowStockBahan = Array.isArray(bahanRes)
 						? bahanRes.filter(
-								(b) => Number(b.stok_saat_ini ?? 0) <= Number(b.ambang_stok ?? b.stok_minimum ?? 5)
+								(b) =>
+									numberField(b, 'stok_saat_ini') <=
+									numberField(b, 'ambang_stok', numberField(b, 'stok_minimum', 5))
 							)
 						: [];
 					const lowStockCount = lowStockBahan.length;
 					const lowStockNames = lowStockBahan
 						.slice(0, 3)
-						.map((b) => String(b.nama || b.nama_bahan || 'Bahan'));
+						.map((b) => stringField(b, 'nama', stringField(b, 'nama_bahan', 'Bahan')));
 
 					const todayYmd = getTodayWita();
 					const usageByBahan: Record<string, number> = {};
 					if (Array.isArray(mutasiRes)) {
 						for (const m of mutasiRes) {
 							if (m.created_at && m.delta_jumlah) {
-								const mDate = formatDateYmdWita(m.created_at);
+								const mDate = formatDateYmdWita(String(m.created_at));
 								if (mDate === todayYmd && Number(m.delta_jumlah) < 0) {
-									const bId = String(m.bahan_id || '');
+									const bId = stringField(m, 'bahan_id');
 									if (bId) {
-										usageByBahan[bId] = (usageByBahan[bId] || 0) + Math.abs(Number(m.delta_jumlah));
+										usageByBahan[bId] =
+											(usageByBahan[bId] || 0) + Math.abs(numberField(m, 'delta_jumlah'));
 									}
 								}
 							}
@@ -208,14 +231,14 @@ export class DashboardService {
 					if (Array.isArray(bahanRes) && bahanRes.length > 0) {
 						topIngredients = bahanRes
 							.map((b) => {
-								const bId = String(b.id || '');
+								const bId = stringField(b, 'id');
 								const terpakai = usageByBahan[bId] || 0;
-								const stok = Number(b.stok_saat_ini ?? 0);
-								const ambang = Number(b.ambang_stok ?? b.stok_minimum ?? 5);
+								const stok = numberField(b, 'stok_saat_ini');
+								const ambang = numberField(b, 'ambang_stok', numberField(b, 'stok_minimum', 5));
 								return {
 									id: bId,
-									nama: String(b.nama || 'Bahan'),
-									satuan: String(b.satuan || 'item'),
+									nama: stringField(b, 'nama', 'Bahan'),
+									satuan: stringField(b, 'satuan', 'item'),
 									terpakai,
 									stok_saat_ini: stok,
 									ambang_stok: ambang,
@@ -250,29 +273,30 @@ export class DashboardService {
 				}
 
 				const itemTerjual = kasir.reduce(
-					(s: number, t: Record<string, any>) => s + (t.jumlah || 1),
+					(s: number, t: DashboardRow) => s + numberField(t, 'jumlah', 1),
 					0
 				);
 				const txIds = new Set(
-					kas.map((t: Record<string, any>) => t.transaction_id).filter(Boolean)
+					kas
+						.map((t: DashboardRow) => t.transaction_id)
+						.filter(Boolean)
+						.map(String)
 				);
 				const jumlahTransaksi = txIds.size || kas.length;
-				const omzet = kas.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+				const omzet = kas.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 				const pemasukan = kas
-					.filter((t: Record<string, any>) => t.tipe === 'in')
-					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+					.filter((t: DashboardRow) => t.tipe === 'in')
+					.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 				const pengeluaran = kas
-					.filter((t: Record<string, any>) => t.tipe === 'out')
-					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+					.filter((t: DashboardRow) => t.tipe === 'out')
+					.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 
 				const penjualanTunai = kas
-					.filter((t: Record<string, any>) => t.metode_bayar === 'tunai')
-					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+					.filter((t: DashboardRow) => t.metode_bayar === 'tunai')
+					.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 				const penjualanNonTunai = kas
-					.filter(
-						(t: Record<string, any>) => t.metode_bayar === 'non-tunai' || t.metode_bayar === 'qris'
-					)
-					.reduce((s: number, t: Record<string, any>) => s + (t.nominal || 0), 0);
+					.filter((t: DashboardRow) => t.metode_bayar === 'non-tunai' || t.metode_bayar === 'qris')
+					.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 
 				const avgTransaksi = await getAvgTransaksiHarian();
 				const jamRamai = await getJamRamaiMingguan();
@@ -280,26 +304,28 @@ export class DashboardService {
 				const [bahanRes, mutasiRes] = stockIgnoredFallback
 					? [[], []]
 					: await Promise.all([
-							dbGet<Record<string, any>>('bahan', { limit: '500' }).catch(() => []),
-							dbGet<Record<string, any>>('bahan_mutasi', { limit: '500' }).catch(() => [])
+							dbGet<DashboardRow>('bahan', { limit: '500' }).catch(() => []),
+							dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }).catch(() => [])
 						]);
 
 				const lowStockBahan = Array.isArray(bahanRes)
 					? bahanRes.filter(
-							(b) => Number(b.stok_saat_ini ?? 0) <= Number(b.ambang_stok ?? b.stok_minimum ?? 5)
+							(b) =>
+								numberField(b, 'stok_saat_ini') <=
+								numberField(b, 'ambang_stok', numberField(b, 'stok_minimum', 5))
 						)
 					: [];
 				const lowStockCount = lowStockBahan.length;
 				const lowStockNames = lowStockBahan
 					.slice(0, 3)
-					.map((b) => String(b.nama || b.nama_bahan || 'Bahan'));
+					.map((b) => stringField(b, 'nama', stringField(b, 'nama_bahan', 'Bahan')));
 
 				const todayYmdFallback = getTodayWita();
 				const usageByBahanFallback: Record<string, number> = {};
 				if (Array.isArray(mutasiRes)) {
 					for (const m of mutasiRes) {
 						if (m.created_at && m.delta_jumlah) {
-							const mDate = formatDateYmdWita(m.created_at);
+							const mDate = formatDateYmdWita(String(m.created_at));
 							if (mDate === todayYmdFallback && Number(m.delta_jumlah) < 0) {
 								const bId = String(m.bahan_id || '');
 								if (bId) {
@@ -355,7 +381,7 @@ export class DashboardService {
 					bestSellers: []
 				};
 			},
-			{ ttl: 45000, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.DASHBOARD_OVERVIEW, backgroundRefresh: true }
 		);
 	}
 
@@ -389,14 +415,15 @@ export class DashboardService {
 						.slice(0, 3);
 				}
 
-				const items = await dbGet<Record<string, any>>('transaksi_kasir', {
+				const items = await dbGet<DashboardRow>('transaksi_kasir', {
 					start: startUtc,
 					end: endUtc
 				});
 				const grouped: Record<string, number> = {};
 				for (const item of items) {
-					if (!item.produk_id) continue;
-					grouped[item.produk_id] = (grouped[item.produk_id] || 0) + (item.jumlah || 1);
+					const productId = stringField(item, 'produk_id');
+					if (!productId) continue;
+					grouped[productId] = (grouped[productId] || 0) + numberField(item, 'jumlah', 1);
 				}
 
 				const topIds = Object.entries(grouped)
@@ -405,16 +432,20 @@ export class DashboardService {
 					.map(([id]) => id);
 				if (!topIds.length) return [];
 
-				const allProducts = await dbGet<Record<string, any>>('produk', {});
+				const allProducts = await dbGet<DashboardRow>('produk', {});
 				return topIds.map((id) => {
 					const prod = allProducts.find((p) => p.id === id);
-					const cleanName = String(prod?.nama || '-')
+					const cleanName = stringField(prod ?? {}, 'nama', '-')
 						.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
 						.trim();
-					return { nama: cleanName, image: prod?.gambar || '', total_qty: grouped[id] };
+					return {
+						nama: cleanName,
+						image: stringField(prod ?? {}, 'gambar'),
+						total_qty: grouped[id]
+					};
 				});
 			},
-			{ ttl: 300000, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true }
 		);
 	}
 
@@ -445,7 +476,7 @@ export class DashboardService {
 					return { weeklyIncome, weeklyMax: Math.max(1, ...weeklyIncome) };
 				}
 
-				const rows = await dbGet<Record<string, any>>('buku_kas', {
+				const rows = await dbGet<DashboardRow>('buku_kas', {
 					start: startUtc,
 					end: endUtc,
 					sumber: 'pos',
@@ -453,16 +484,16 @@ export class DashboardService {
 				});
 				const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Makassar' });
 				for (const t of rows) {
-					const d = new Date(t.waktu);
+					const d = new Date(String(t.waktu ?? ''));
 					if (isNaN(d.getTime())) continue;
 					const tanggal = fmt.format(d);
-					if (tanggal in perHari) perHari[tanggal] += Number(t.nominal || 0);
+					if (tanggal in perHari) perHari[tanggal] += numberField(t, 'nominal');
 				}
 
 				const weeklyIncome = labels.map((l) => perHari[l] || 0);
 				return { weeklyIncome, weeklyMax: Math.max(1, ...weeklyIncome) };
 			},
-			{ ttl: 300000, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true }
 		);
 	}
 
@@ -588,12 +619,12 @@ export class DashboardService {
 	private getCacheOptionsForType(type: string): Record<string, unknown> {
 		const base = { backgroundRefresh: true, staleWhileRevalidate: true };
 		const ttlMap: Record<string, number> = {
-			daily: 300000,
-			weekly: 900000,
-			monthly: 1800000,
-			yearly: 3600000
+			daily: CACHE_TTL_MS.STANDARD,
+			weekly: 15 * 60_000,
+			monthly: 30 * 60_000,
+			yearly: 60 * 60_000
 		};
-		return { ...base, ttl: ttlMap[type] || 300000 };
+		return { ...base, ttl: ttlMap[type] || CACHE_TTL_MS.STANDARD };
 	}
 }
 

@@ -3,11 +3,10 @@
  * Reduces initial bundle size by loading icons on-demand
  */
 
-interface IconCache {
-	[key: string]: Promise<any>;
-}
+type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
+type IconCache = Record<string, Promise<IconComponent>>;
 
-const ICON_MODULES: Record<string, () => Promise<{ default: unknown }>> = {
+const ICON_MODULES: Record<string, () => Promise<{ default: IconComponent }>> = {
 	wallet: () => import('@lucide/svelte/icons/wallet'),
 	'shopping-bag': () => import('@lucide/svelte/icons/shopping-bag'),
 	coins: () => import('@lucide/svelte/icons/coins'),
@@ -57,17 +56,9 @@ class IconLoader {
 	/**
 	 * Load icon dynamically with caching
 	 */
-	async loadIcon(iconName: string): Promise<any> {
-		// [CATATAN]: Check if already loaded
-		if (this.loadedIcons.has(iconName)) {
-			return this.cache[iconName];
-		}
-
-		// [CATATAN]: Check cache first
+	async loadIcon(iconName: string): Promise<IconComponent> {
 		const cachedIcon = this.cache[iconName];
-		if (cachedIcon && this.loadedIcons.has(iconName) && !(cachedIcon instanceof Promise)) {
-			return cachedIcon;
-		}
+		if (cachedIcon) return cachedIcon;
 
 		const iconLoader = ICON_MODULES[iconName];
 		if (!iconLoader) {

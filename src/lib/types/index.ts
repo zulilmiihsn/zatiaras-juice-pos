@@ -42,7 +42,7 @@ export interface AppError {
 	stack?: string;
 	timestamp: number;
 	user_id?: string;
-	context?: Record<string, any>;
+	context?: Record<string, unknown>;
 }
 
 export interface ValidationError {

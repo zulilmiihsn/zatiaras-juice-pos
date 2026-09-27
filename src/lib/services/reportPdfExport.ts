@@ -4,7 +4,7 @@
  */
 
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable, { type CellInput } from 'jspdf-autotable';
 import { formatRupiah } from '$lib/utils/currency';
 import { LOGO_BASE64 } from '$lib/utils/logoBase64';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
@@ -19,17 +19,8 @@ export interface GeneratePdfOptions {
 	transactions: BukuKasRecord[];
 }
 
-export type TableCell =
-	| string
-	| number
-	| {
-			content: string;
-			colSpan?: number;
-			rowSpan?: number;
-			styles?: Record<string, unknown>;
-	  };
-
-export type TableRow = TableCell[];
+export type TableCell = CellInput;
+export type TableRow = CellInput[];
 
 interface JsPdfWithAutoTable {
 	lastAutoTable?: { finalY: number };
@@ -430,7 +421,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				'Porsi'
 			]
 		],
-		body: pemasukanRows as any,
+		body: pemasukanRows,
 		headStyles: baseHeadStyles,
 		bodyStyles: baseBodyStyles,
 		columnStyles: {
@@ -501,7 +492,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				'Porsi'
 			]
 		],
-		body: pengeluaranRows as any,
+		body: pengeluaranRows,
 		headStyles: baseHeadStyles,
 		bodyStyles: baseBodyStyles,
 		columnStyles: {
@@ -604,7 +595,7 @@ export function generateLaporanPdf(options: GeneratePdfOptions): void {
 				'Total Nominal (Rp)'
 			]
 		],
-		body: summaryRows as any,
+		body: summaryRows,
 		headStyles: baseHeadStyles,
 		bodyStyles: {
 			...baseBodyStyles,

@@ -34,8 +34,11 @@
 				transactions: s.laporan
 			});
 			s.toastManager.showToastNotification('Laporan PDF berhasil diunduh!', 'success');
-		} catch (err: any) {
-			s.toastManager.showToastNotification(err?.message || 'Gagal membuat file PDF.', 'error');
+		} catch (err: unknown) {
+			s.toastManager.showToastNotification(
+				err instanceof Error ? err.message : 'Gagal membuat file PDF.',
+				'error'
+			);
 		} finally {
 			isExporting = false;
 		}

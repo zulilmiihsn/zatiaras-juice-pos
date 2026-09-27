@@ -9,8 +9,9 @@ import {
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import { signStockPolicyEpoch } from '$lib/server/stockPolicyEpoch';
 import type { RequestHandler } from './$types';
+import { MS_PER_DAY } from '$lib/constants/time';
 
-const CATALOG_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const CATALOG_TOKEN_TTL_MS = MS_PER_DAY;
 
 interface CatalogProductRow {
 	id: string;

@@ -430,8 +430,8 @@
 					);
 				}
 			}
-		} catch (err: any) {
-			if (err?.name === 'AbortError') {
+		} catch (err: unknown) {
+			if (err instanceof Error && err.name === 'AbortError') {
 				const current = getCurrentAssistantMessage(aiMsgId);
 				updateAssistantMessage(
 					aiMsgId,

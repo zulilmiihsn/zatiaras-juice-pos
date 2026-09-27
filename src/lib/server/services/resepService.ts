@@ -40,13 +40,14 @@ export async function insertResepRows(
 ) {
 	const rows = payload.map((row) => ({
 		...row,
+		id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
 		produk_id: String(row.produk_id || ''),
 		bahan_id: String(row.bahan_id || ''),
 		porsi: row.porsi ? String(row.porsi).trim().toLowerCase() : 'reguler',
 		jumlah_per_item: Number(row.jumlah_per_item || 0),
 		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
 		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
-	})) as Array<Record<string, any>>;
+	}));
 
 	if (rows.some((row) => !row.produk_id || !row.bahan_id || row.jumlah_per_item <= 0)) {
 		throw kitError(400, 'Resep bahan tidak valid');
@@ -78,13 +79,14 @@ export async function replaceResepForProduct(
 ) {
 	const rows = payload.map((row) => ({
 		...row,
+		id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
 		produk_id: String(row.produk_id || productId),
 		bahan_id: String(row.bahan_id || ''),
 		porsi: row.porsi ? String(row.porsi).trim().toLowerCase() : 'reguler',
 		jumlah_per_item: Number(row.jumlah_per_item || 0),
 		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
 		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
-	})) as Array<Record<string, any>>;
+	}));
 
 	if (
 		rows.some((row) => row.produk_id !== productId || !row.bahan_id || row.jumlah_per_item <= 0)

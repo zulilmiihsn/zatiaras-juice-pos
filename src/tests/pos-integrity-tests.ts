@@ -256,6 +256,7 @@ const fpDiffPayment = computeTransactionFingerprint({
 assert.notEqual(fpA1, fpDiffPayment);
 
 import { buildCheckoutStatements } from '../lib/server/checkout/statementBuilder';
+import type { D1Database } from '@cloudflare/workers-types';
 
 // 4. Statement Builder bahan_mutasi schema compliance
 const mockDb = {
@@ -266,7 +267,7 @@ const mockDb = {
 };
 
 const statements = buildCheckoutStatements({
-	db: mockDb as any,
+	db: mockDb as unknown as D1Database,
 	branch: 'samarinda',
 	items: [],
 	stockDeductions: new Map([['p-1', { nama: 'Kerupuk', jumlah: 1 }]]),
@@ -302,7 +303,8 @@ const statements = buildCheckoutStatements({
 	inventoryApplication: 'apply'
 });
 
-const mutasiStmt = (statements as any[]).find((s) => s.sql.includes('INSERT INTO bahan_mutasi'));
+const statementRows = statements as unknown as Array<{ sql: string; args: unknown[] }>;
+const mutasiStmt = statementRows.find((s) => s.sql.includes('INSERT INTO bahan_mutasi'));
 assert.ok(mutasiStmt, 'bahan_mutasi insert statement must be generated');
 assert.ok(mutasiStmt.sql.includes('referensi_id'), 'sql must include referensi_id column');
 assert.ok(mutasiStmt.sql.includes('catatan'), 'sql must include catatan column');
@@ -317,18 +319,16 @@ assert.ok(
 );
 assert.ok(mutasiStmt.args.includes('tx-1'), 'binds must include transactionId as referensi_id');
 assert.ok(mutasiStmt.args.includes('Kasir 1'), 'binds must include dibuat_oleh');
-const productMutation = (statements as any[]).find((s) =>
-	s.sql.includes('INSERT INTO produk_mutasi')
-);
+const productMutation = statementRows.find((s) => s.sql.includes('INSERT INTO produk_mutasi'));
 assert.ok(productMutation, 'tracked checkout must insert product mutation');
 assert.ok(productMutation.sql.includes('VALUES'), 'product mutation must use VALUES');
 assert.equal(
-	(statements as any[]).some((s) => s.sql.includes('UPDATE produk SET stok')),
+	statementRows.some((s) => s.sql.includes('UPDATE produk SET stok')),
 	false,
 	'checkout must not update product stock directly'
 );
 assert.ok(
-	(statements as any[])[0].sql.includes('INSERT INTO buku_kas'),
+	statementRows[0].sql.includes('INSERT INTO buku_kas'),
 	'policy-guarded header must be first statement'
 );
 
