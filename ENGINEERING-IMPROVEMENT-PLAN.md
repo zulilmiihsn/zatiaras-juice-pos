@@ -825,8 +825,16 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
 - Smoke read-only: `/` dan `/login` 200 pada deployment Pages dan alias proyek;
   3 aset immutable yang dirujuk halaman utama merespons 200 dengan MIME sesuai.
   Tidak ada mutasi data D1 saat smoke.
-- Monitoring OPS-T14: snapshot error-rate/latency/audit sebelum dan sesudah
-  deploy belum direkam; perlu dicatat operator dari dashboard Cloudflare.
+- OPS-T14 diperiksa read-only dari snapshot D1 terverifikasi pukul
+  `2026-09-27T22:15Z`, untuk jendela 1 jam sebelum (`15:10–16:10Z`) dan
+  sesudah (`16:11–17:11Z`) deploy. Ketiga cabang mencatat 0 request metrics,
+  0 error events, dan 0 audit events pada kedua jendela; tidak ada sampel untuk
+  menghitung error-rate/latency atau membandingkan baseline.
+- Request metrics terakhir: Samarinda `10:11Z` pada 27 Sep; Balikpapan dan
+  Berau `23:01Z` pada 12 Agu. Jadi tidak ada error yang tercatat di jendela,
+  tetapi ini bukan bukti bahwa seluruh request bebas error. Cloudflare Workers
+  Analytics juga tidak menampilkan request aplikasi di jendela tersebut;
+  hanya satu cron realtime sukses `03:01Z` sebelum deploy.
 
 ### Prasyarat mutlak
 
