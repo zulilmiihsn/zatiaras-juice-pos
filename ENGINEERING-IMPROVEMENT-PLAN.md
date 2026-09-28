@@ -836,6 +836,36 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   Analytics juga tidak menampilkan request aplikasi di jendela tersebut;
   hanya satu cron realtime sukses `03:01Z` sebelum deploy.
 
+### Perbaikan monitoring stok 28 Sep 2026 — LIVE
+
+- SHA aplikasi `03627c16f12e0c5808396463fdcad50ecc3ca9ba`; CI
+  [#36376536813](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36376536813)
+  hijau (static, operations, unit termasuk suite stok, quality, 36 E2E, build).
+  Preflight lokal `test:release` dan `deploy:verify` lulus untuk SHA sama.
+- Artifact `release-03627c16f12e0c5808396463fdcad50ecc3ca9ba`, digest ZIP
+  `sha256:37c3ae1631cd3b0571ca953105bfa7101a56c2b56c0e699f48206efa0cd366c3`.
+  Dry-run [#36376913449](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36376913449)
+  dan deploy [#36377012039](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36377012039)
+  sukses setelah manifest artifact dari CI yang sama diverifikasi ulang.
+- Sebelum deploy, backup tiga shard verified (`COMPLETE`) di luar workspace:
+  `C:\Users\ASUS\AppData\Local\Temp\opencode\zatiaraspos-release-backup\backup-2026-09-28T04-10-42-395Z-6aa0cceb-34a1-457a-a5ae-daaf78c8db39\manifest.sha256.json`.
+  Restore drill lokal ketiga shard lulus. Migrasi 35/35 checksum cocok; tidak ada
+  migrasi yang diterapkan pada rilis ini. Backup perlu disalin operator ke media
+  retensi karena lokasi sementara.
+- Worker realtime versi `ebe9dfea-311b-4f0b-a3fb-38d851a04c59`;
+  Pages deployment `aa1db80a-7830-4fc2-bebd-aabcc363c089`
+  (`https://aa1db80a.zatiaraspos.pages.dev`). Alias utama merujuk aset
+  `entry/start.CVDXMMU0.js` dari deployment baru.
+- Smoke read-only: `/` dan `/login` HTTP 200 pada deployment dan alias;
+  lima aset CSS/JS HTTP 200 dengan MIME sesuai; API stok tanpa sesi HTTP 401;
+  Worker `/health` HTTP 200. OPS-T14 sejak deploy: Samarinda 1 request metric,
+  0 HTTP 5xx, 0 error event, 0 audit event; Balikpapan/Berau 0 sampel.
+  Sepuluh menit sebelum deploy ketiganya 0 sampel. Belum cukup trafik untuk
+  membandingkan error-rate atau latensi.
+- Smoke autentikasi, transaksi nyata, dan printer fisik per cabang belum
+  dijalankan pada produksi. Hasil di atas membuktikan provenance dan smoke
+  read-only, bukan seluruh OPS-T01–T13; verifikasi operator masih diperlukan.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
