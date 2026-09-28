@@ -866,6 +866,37 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   dijalankan pada produksi. Hasil di atas membuktikan provenance dan smoke
   read-only, bukan seluruh OPS-T01–T13; verifikasi operator masih diperlukan.
 
+### Navbar seimbang saat stok nonaktif 28 Sep 2026 — LIVE
+
+- SHA aplikasi `f19d44dbcfbf44115e6303423e1a5f149bacc236`; CI
+  [#36387454180](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36387454180)
+  hijau (static, operations, unit termasuk suite stok, quality, 37 E2E, build).
+  Preflight lokal `test:release` sempat gagal sekali pada E2E POS karena
+  dev-server gagal memuat modul ikon dinamis (`trending-up.js`); spec POS lulus
+  saat dijalankan sendiri dan preflight ulang lulus 37/37, jadi dinilai flake
+  infrastruktur lokal, bukan regresi perubahan.
+- Artifact `release-f19d44dbcfbf44115e6303423e1a5f149bacc236`, digest ZIP
+  `sha256:6840562b53666a263f9b3edd81ea2299d12f7591faed2e856cc7e1856217e2d2`.
+  Dry-run [#36387809893](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36387809893)
+  dan deploy [#36387876302](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36387876302)
+  sukses setelah manifest artifact dari CI yang sama diverifikasi ulang.
+- Sebelum deploy, backup tiga shard verified (`COMPLETE`) di luar workspace:
+  `C:\Users\ASUS\AppData\Local\Temp\opencode\zatiaraspos-navbar-backup\backup-2026-09-28T06-38-36-178Z-f28e5595-1b66-4968-805f-f30093177f79\manifest.sha256.json`.
+  Restore drill lokal ketiga shard lulus. Tidak ada migrasi yang diterapkan
+  pada rilis ini. Backup perlu disalin operator ke media retensi karena lokasi
+  sementara.
+- Worker realtime versi `ebb9940e-8d53-4880-bc10-6d87ea45210b`;
+  Pages deployment `3188c36d-5375-4ed4-8f82-3f612d24ad16f`
+  (`https://3188c36d.zatiaraspos.pages.dev`). Alias utama dan deployment
+  merujuk aset `entry/start.BUD2usYc.js` yang sama.
+- Smoke read-only: `/` dan `/login` HTTP 200 pada deployment dan alias;
+  API stok tanpa sesi HTTP 401; Worker `/health` HTTP 200. OPS-T14 sejak
+  deploy: Samarinda 1 request metric, 0 HTTP 5xx, 0 error event, 0 audit
+  event; Balikpapan/Berau 0 sampel. Sepuluh menit sebelum deploy ketiganya
+  0 sampel. Belum cukup trafik untuk membandingkan error-rate atau latensi.
+- Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
+  pada produksi; verifikasi operator masih diperlukan.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
