@@ -930,6 +930,36 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
 - Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
   pada produksi; verifikasi operator masih diperlukan.
 
+### Refactor navbar 28 Sep 2026 — LIVE
+
+- SHA aplikasi `6b0ade75276ef0240dfb340b417d81ce025ecc00`; CI
+  [#36424814275](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36424814275)
+  hijau (static, operations, unit termasuk suite stok, quality, 37 E2E, build).
+  Preflight lokal `test:release` lulus 37/37 dan `deploy:verify` lulus untuk
+  SHA sama. Perubahan nol-perilaku: tipe `NavItem` eksplisit di bottom nav dan
+  komentar toleransi 2px pada tes posisi Kasir.
+- Artifact `release-6b0ade75276ef0240dfb340b417d81ce025ecc00`, digest ZIP
+  `sha256:4f78e2156c580ae6f3a52a69f7b0cfaa7d1c5f34c6f57a4e1125d5a02374ca5a`.
+  Dry-run [#36425362812](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36425362812)
+  dan deploy [#36425414009](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36425414009)
+  sukses setelah manifest artifact dari CI yang sama diverifikasi ulang.
+- Sebelum deploy, backup tiga shard verified (`COMPLETE`) di luar workspace:
+  `C:\Users\ASUS\AppData\Local\Temp\opencode\zatiaraspos-refactor-backup\backup-2026-09-28T12-54-12-239Z-59318a05-6206-4b82-95f9-202f62dba769\manifest.sha256.json`.
+  Restore drill lokal ketiga shard lulus. Tidak ada migrasi yang diterapkan
+  pada rilis ini. Backup perlu disalin operator ke media retensi karena lokasi
+  sementara.
+- Worker realtime versi `b067b270-20c1-423b-8b9e-56faf252f199`;
+  Pages deployment `6de5c2d8-ef0a-448b-af19-57369e107b1a`
+  (`https://6de5c2d8.zatiaraspos.pages.dev`). Alias utama dan deployment
+  merujuk aset `entry/start.DxNvKIET.js` yang sama.
+- Smoke read-only: `/` dan `/login` HTTP 200 pada deployment dan alias;
+  API stok tanpa sesi HTTP 401; Worker `/health` HTTP 200. OPS-T14 sejak
+  deploy: Samarinda 1 request metric, 0 HTTP 5xx, 0 error event, 0 audit
+  event; Balikpapan/Berau 0 sampel. Sepuluh menit sebelum deploy ketiganya
+  0 sampel. Belum cukup trafik untuk membandingkan error-rate atau latensi.
+- Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
+  pada produksi; verifikasi operator masih diperlukan.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
