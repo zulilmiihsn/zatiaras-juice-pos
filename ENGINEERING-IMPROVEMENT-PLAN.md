@@ -960,6 +960,12 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
 - Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
   pada produksi; verifikasi operator masih diperlukan.
 
+### Penerimaan pemilik 28 Sep 2026 — OK
+
+- Pemilik memverifikasi langsung di produksi: toggle Monitoring Stok ON/OFF
+  dan urutan navbar (Pengaturan di paling kanan saat stok nonaktif) sudah OK.
+- Status rilis: diterima tanpa temuan baru.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
