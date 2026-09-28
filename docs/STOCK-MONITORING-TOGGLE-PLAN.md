@@ -1001,6 +1001,7 @@ Teks konfirmasi wajib menyatakan:
 ### 14.4 Permukaan Yang Disembunyikan Saat `ignored`
 
 - Item Stok pada bottom navigation.
+- Slot tersebut menampilkan Pengaturan saat `ignored`, menjaga lima tujuan dan tombol Kasir tetap di tengah.
 - Shortcut stok pada dashboard.
 - Widget stok menipis.
 - Grafik atau daftar pemakaian bahan berbasis mutasi POS.

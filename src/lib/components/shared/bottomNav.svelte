@@ -4,6 +4,7 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Book from '@lucide/svelte/icons/book';
 	import Boxes from '@lucide/svelte/icons/boxes';
+	import Settings from '@lucide/svelte/icons/settings';
 	import { page } from '$app/stores';
 	import { posCart } from '$lib/stores/posCart.svelte';
 	import { scale } from 'svelte/transition';
@@ -17,9 +18,13 @@
 		{ label: 'Stok', icon: Boxes, path: '/stok' },
 		{ label: 'Laporan', icon: FileText, path: '/laporan' }
 	];
+	const settingsNav = { label: 'Pengaturan', icon: Settings, path: '/pengaturan', isHero: false };
 
+	// Lima tujuan tetap berguna agar tombol Kasir selalu tepat di tengah.
 	const navs = $derived(
-		stockPolicyState.ignored ? baseNavs.filter((nav) => nav.path !== '/stok') : baseNavs
+		stockPolicyState.ignored
+			? baseNavs.map((nav) => (nav.path === '/stok' ? settingsNav : nav))
+			: baseNavs
 	);
 
 	onMount(() => {

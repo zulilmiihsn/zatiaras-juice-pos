@@ -459,12 +459,36 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(page.getByRole('dialog', { name: 'Hitung fisik stok' })).toHaveCount(0);
 	});
 
-	test('ignored mode hides Stok from bottom navigation', async ({ page }) => {
+	test('ignored mode keeps Kasir centered while replacing Stok in bottom navigation', async ({
+		page
+	}) => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.setViewportSize({ width: 390, height: 844 });
+		await gotoHydrated(page, '/', 'text=Monitoring Stok Dijeda');
+		const nav = page.locator('nav').last();
+		await expect(nav.getByRole('link', { name: 'Stok' })).toHaveCount(0);
+		for (const width of [390, 837]) {
+			await page.setViewportSize({ width, height: 844 });
+			const navBox = await nav.boundingBox();
+			const kasirBox = await nav.getByRole('link', { name: 'Kasir' }).boundingBox();
+			expect(navBox).not.toBeNull();
+			expect(kasirBox).not.toBeNull();
+			expect(
+				Math.abs(kasirBox!.x + kasirBox!.width / 2 - (navBox!.x + navBox!.width / 2))
+			).toBeLessThanOrEqual(2);
+		}
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeVisible();
+		await expect(nav.getByRole('link')).toHaveCount(5);
+	});
+
+	test('tracked mode keeps Stok in the navigation', async ({ page }) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'tracked', revision: 0 });
 		await gotoHydrated(page, '/', 'text=Buka Kasir');
-		const stokNav = page.getByRole('link', { name: 'Stok' });
-		await expect(stokNav).toHaveCount(0);
-		await expect(page.getByRole('link', { name: 'Kasir', exact: true })).toBeVisible();
+		const nav = page.locator('nav').last();
+		await expect(nav.getByRole('link', { name: 'Stok' })).toBeVisible();
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toHaveCount(0);
+		await expect(nav.getByRole('link')).toHaveCount(5);
 	});
 });
