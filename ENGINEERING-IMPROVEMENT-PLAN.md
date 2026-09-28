@@ -897,6 +897,39 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
 - Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
   pada produksi; verifikasi operator masih diperlukan.
 
+### Urutan navbar saat stok nonaktif 28 Sep 2026 — LIVE
+
+- SHA aplikasi `32ba5da862cc53317d338ec8a57b40f7f2a48a18`; CI
+  [#36391896249](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36391896249)
+  hijau (static, operations, unit termasuk suite stok, quality, 37 E2E, build).
+  Preflight lokal `test:release` lulus 37/37 dan `deploy:verify` lulus untuk
+  SHA sama. Saat stok nonaktif, navbar beranda berurutan Beranda – Catat –
+  Kasir – Laporan – Pengaturan; Pengaturan di paling kanan, Kasir tetap di
+  tengah.
+- Artifact `release-32ba5da862cc53317d338ec8a57b40f7f2a48a18`, digest ZIP
+  `sha256:3f784b1cff906d7cade271cc4ff44e792a89c1efc6b98b4bc3368886bd326ac3`.
+  Dry-run [#36392378773](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36392378773)
+  dan deploy [#36392441464](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36392441464)
+  sukses setelah manifest artifact dari CI yang sama diverifikasi ulang.
+- Sebelum deploy, backup tiga shard verified (`COMPLETE`) di luar workspace:
+  `C:\Users\ASUS\AppData\Local\Temp\opencode\zatiaraspos-navorder-backup\backup-2026-09-28T07-29-31-390Z-c98548b1-d22d-43da-8199-66ed881609e2\manifest.sha256.json`.
+  Restore drill lokal ketiga shard lulus. Tidak ada migrasi yang diterapkan
+  pada rilis ini. Backup perlu disalin operator ke media retensi karena lokasi
+  sementara.
+- Worker realtime versi `5613d61e-5a55-400b-bb9c-49d1f16e61d5`;
+  Pages deployment `0d11a988-c4b6-4cb3-a89f-2c9b69ed4292`
+  (`https://0d11a988.zatiaraspos.pages.dev`). Alias utama dan deployment
+  merujuk aset `entry/start.Bq3Um5Qs.js` yang sama.
+- Smoke read-only: `/` dan `/login` HTTP 200 pada deployment dan alias
+  (percobaan pertama `/login` deployment sempat 404 lalu 200 pada retry —
+  transient propagasi edge); API stok tanpa sesi HTTP 401; Worker `/health`
+  HTTP 200. OPS-T14 sejak deploy: Samarinda 1 request metric, 0 HTTP 5xx,
+  0 error event, 0 audit event; Balikpapan/Berau 0 sampel. Sepuluh menit
+  sebelum deploy ketiganya 0 sampel. Belum cukup trafik untuk membandingkan
+  error-rate atau latensi.
+- Smoke login, transaksi nyata, dan printer fisik per cabang belum dijalankan
+  pada produksi; verifikasi operator masih diperlukan.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
