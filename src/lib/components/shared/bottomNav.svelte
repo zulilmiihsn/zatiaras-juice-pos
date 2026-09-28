@@ -20,10 +20,11 @@
 	];
 	const settingsNav = { label: 'Pengaturan', icon: Settings, path: '/pengaturan', isHero: false };
 
-	// Lima tujuan tetap berguna agar tombol Kasir selalu tepat di tengah.
+	// Lima tujuan tetap ada agar tombol Kasir selalu tepat di tengah.
+	// Saat stok nonaktif, Pengaturan menggantikan slot paling kanan.
 	const navs = $derived(
 		stockPolicyState.ignored
-			? baseNavs.map((nav) => (nav.path === '/stok' ? settingsNav : nav))
+			? [...baseNavs.filter((nav) => nav.path !== '/stok'), settingsNav]
 			: baseNavs
 	);
 

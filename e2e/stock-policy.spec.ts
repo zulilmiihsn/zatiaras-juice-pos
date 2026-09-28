@@ -480,6 +480,8 @@ test.describe('Stock Monitoring Toggle', () => {
 		}
 		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeVisible();
 		await expect(nav.getByRole('link')).toHaveCount(5);
+		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Laporan');
+		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Pengaturan');
 	});
 
 	test('tracked mode keeps Stok in the navigation', async ({ page }) => {
@@ -490,5 +492,7 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(nav.getByRole('link', { name: 'Stok' })).toBeVisible();
 		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toHaveCount(0);
 		await expect(nav.getByRole('link')).toHaveCount(5);
+		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Stok');
+		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Laporan');
 	});
 });
