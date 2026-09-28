@@ -9,16 +9,24 @@
 	import { posCart } from '$lib/stores/posCart.svelte';
 	import { scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import type { Component } from 'svelte';
 	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 
-	const baseNavs = [
+	type NavItem = {
+		label: string;
+		icon: Component;
+		path: string;
+		isHero?: boolean;
+	};
+
+	const baseNavs: NavItem[] = [
 		{ label: 'Beranda', icon: Home, path: '/' },
 		{ label: 'Catat', icon: Book, path: '/catat' },
 		{ label: 'Kasir', icon: ShoppingBag, path: '/pos', isHero: true },
 		{ label: 'Stok', icon: Boxes, path: '/stok' },
 		{ label: 'Laporan', icon: FileText, path: '/laporan' }
 	];
-	const settingsNav = { label: 'Pengaturan', icon: Settings, path: '/pengaturan', isHero: false };
+	const settingsNav: NavItem = { label: 'Pengaturan', icon: Settings, path: '/pengaturan' };
 
 	// Lima tujuan tetap ada agar tombol Kasir selalu tepat di tengah.
 	// Saat stok nonaktif, Pengaturan menggantikan slot paling kanan.

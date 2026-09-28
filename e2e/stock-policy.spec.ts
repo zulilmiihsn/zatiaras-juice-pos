@@ -474,6 +474,7 @@ test.describe('Stock Monitoring Toggle', () => {
 			const kasirBox = await nav.getByRole('link', { name: 'Kasir' }).boundingBox();
 			expect(navBox).not.toBeNull();
 			expect(kasirBox).not.toBeNull();
+			// Toleransi 2px untuk pembulatan subpixel antar viewport/browser.
 			expect(
 				Math.abs(kasirBox!.x + kasirBox!.width / 2 - (navBox!.x + navBox!.width / 2))
 			).toBeLessThanOrEqual(2);
