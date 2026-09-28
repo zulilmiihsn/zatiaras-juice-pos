@@ -1057,7 +1057,12 @@ async function main() {
 
 	try {
 		unlinkSync(tempSqlFile);
-	} catch {}
+	} catch (error) {
+		console.warn(
+			'WARNING: proses D1 selesai, tetapi file SQL sementara gagal dihapus.',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
 
 	if (proc.status !== 0) {
 		console.error('Error executing seed:');

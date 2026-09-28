@@ -277,7 +277,12 @@ const result = spawnSync('npx', wranglerArgs, {
 
 try {
 	unlinkSync(tempSqlFile);
-} catch {}
+} catch (error) {
+	console.warn(
+		'WARNING: proses restore selesai, tetapi file SQL sementara gagal dihapus.',
+		error instanceof Error ? error.message : String(error)
+	);
+}
 
 if (result.status !== 0) {
 	console.error(`RESTORE EXECUTION FAILED (exit code ${result.status}):`);

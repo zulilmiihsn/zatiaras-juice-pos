@@ -39,7 +39,10 @@ function safeSend(socket, payload) {
 	} catch {
 		try {
 			socket.close(1011, 'send failed');
-		} catch {}
+		} catch {
+			// Socket may already be disconnected; no further close recovery is possible.
+			return false;
+		}
 		return false;
 	}
 }
@@ -194,6 +197,9 @@ export class RealtimeDurableObject {
 	async webSocketError(socket) {
 		try {
 			socket.close(1011, 'websocket error');
-		} catch {}
+		} catch {
+			// Error callbacks may run after peer closure; cleanup must not throw again.
+			return;
+		}
 	}
 }

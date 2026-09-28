@@ -31,7 +31,10 @@ class RealtimeChannelManager {
 		for (const cb of branchSet) {
 			try {
 				cb(data);
-			} catch {}
+			} catch {
+				// Isolate subscriber failures so remaining subscribers still receive the event.
+				continue;
+			}
 		}
 		return branchSet.size;
 	}
@@ -90,4 +93,16 @@ assert.deepEqual(receivedC, [event3]);
 unsubC();
 assert.equal(manager.getSubscriberCount('balikpapan'), 0);
 
-console.log('realtime-fanout-tests: 12 assertions passed (100% isolation and fanout verified)');
+// Test 6: One failed subscriber must not interrupt delivery to peers.
+const isolatedManager = new RealtimeChannelManager();
+let healthySubscriberCalls = 0;
+isolatedManager.subscribe('samarinda', () => {
+	throw new Error('subscriber failed');
+});
+isolatedManager.subscribe('samarinda', () => {
+	healthySubscriberCalls += 1;
+});
+assert.equal(isolatedManager.publish('samarinda', event1), 2);
+assert.equal(healthySubscriberCalls, 1);
+
+console.log('realtime-fanout-tests: 14 assertions passed (100% isolation and fanout verified)');

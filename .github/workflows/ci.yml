@@ -167,6 +167,9 @@ jobs:
       - name: Run Menu Atomic Suite
         run: pnpm test:menu-atomic
 
+      - name: Run External Branch Seed Validation Suite
+        run: pnpm test:seed-external-branches
+
       - name: Run Tenant Scope Suite
         run: pnpm test:tenant-scope
 

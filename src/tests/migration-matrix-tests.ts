@@ -226,20 +226,19 @@ for (const [id, delta, stock] of [
 	);
 }
 
-const contenders = [
+db.exec(
 	`INSERT INTO produk_mutasi (id,cabang_id,produk_id,delta_jumlah,stok_setelah,sumber,referensi_id)
-	 VALUES ('pm-last-a','samarinda','ledger-product',-1,0,'pos','last-a')`,
-	`INSERT INTO produk_mutasi (id,cabang_id,produk_id,delta_jumlah,stok_setelah,sumber,referensi_id)
-	 VALUES ('pm-last-b','samarinda','ledger-product',-1,0,'pos','last-b')`
-];
-let contenderSuccess = 0;
-for (const statement of contenders) {
-	try {
-		db.exec(statement);
-		contenderSuccess += 1;
-	} catch {}
-}
-assert.equal(contenderSuccess, 1, 'only one contender may consume last tracked stock');
+	 VALUES ('pm-last-a','samarinda','ledger-product',-1,0,'pos','last-a')`
+);
+assert.throws(
+	() =>
+		db.exec(
+			`INSERT INTO produk_mutasi (id,cabang_id,produk_id,delta_jumlah,stok_setelah,sumber,referensi_id)
+			 VALUES ('pm-last-b','samarinda','ledger-product',-1,0,'pos','last-b')`
+		),
+	/PRODUCT_STOCK_MISMATCH/,
+	'next contender must fail specifically on stock balance guard'
+);
 assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get()?.stok, 0);
 
 const reviewTriggers = (

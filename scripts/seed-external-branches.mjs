@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
+import { parseExtraIds } from './seed-external-branches-utils.mjs';
 
 const rawProducts = JSON.parse(
 	readFileSync(new URL('./data/external-products.json', import.meta.url), 'utf8')
@@ -1294,15 +1295,10 @@ VALUES (${escapeSql(newCatId)}, '${branchId}', ${escapeSql(cat.nama)}, ${escapeS
 
 		// Clean and map ekstra_ids
 		let mappedEkstraIds = [];
-		if (!isFood && p.ekstra_ids) {
-			try {
-				const arr = typeof p.ekstra_ids === 'string' ? JSON.parse(p.ekstra_ids) : p.ekstra_ids;
-				if (Array.isArray(arr)) {
-					mappedEkstraIds = arr
-						.filter((eid) => eid !== JUMBO_EXTRA_ID)
-						.map((eid) => tambahanIdMap.get(eid) || eid);
-				}
-			} catch {}
+		if (!isFood) {
+			mappedEkstraIds = parseExtraIds(p.ekstra_ids, String(p.nama ?? 'tanpa nama'))
+				.filter((eid) => eid !== JUMBO_EXTRA_ID)
+				.map((eid) => tambahanIdMap.get(eid) || eid);
 		}
 
 		lines.push(`INSERT INTO produk (
@@ -1386,7 +1382,12 @@ function executeD1(dbTarget, sqlContent, isRemoteTarget) {
 
 	try {
 		unlinkSync(tempFile);
-	} catch {}
+	} catch (error) {
+		console.warn(
+			'WARNING: proses D1 selesai, tetapi file SQL sementara gagal dihapus.',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
 
 	if (proc.status !== 0) {
 		console.error(`Failed executing SQL on ${dbTarget}:`);
@@ -1410,14 +1411,15 @@ async function main() {
 	console.log('\n[2/3] Generating catalog for Balikpapan 2 (balikpapan2)...');
 	const sqlBpp2 = generateBranchSql('balikpapan2', 'bpp2', (id) => deterministicUuid(`bpp2:${id}`));
 
+	// 3. Generate Berau before any D1 write so bad catalog input cannot leave a partial seed.
+	console.log('\n[3/3] Generating catalog for Berau (berau)...');
+	const sqlBerau = generateBranchSql('berau', 'bru', (id) => id);
+
 	// Combine Balikpapan 1 and 2 for DB_BALIKPAPAN_GROUP
 	const combinedBppSql = `${sqlBpp1}\n\n${sqlBpp2}`;
 	const bppDbTarget = isRemote ? 'zatiaras-balikpapan-group' : 'DB_BALIKPAPAN_GROUP';
 	executeD1(bppDbTarget, combinedBppSql, isRemote);
 
-	// 3. Generate SQL for Berau
-	console.log('\n[3/3] Generating catalog for Berau (berau)...');
-	const sqlBerau = generateBranchSql('berau', 'bru', (id) => id);
 	const berauDbTarget = isRemote ? 'zatiaras-berau-group' : 'DB_BERAU_GROUP';
 	executeD1(berauDbTarget, sqlBerau, isRemote);
 
