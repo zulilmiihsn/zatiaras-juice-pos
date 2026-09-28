@@ -796,6 +796,8 @@ Aturan:
 - `zatiaras_strict_stock_checkout` tidak dimigrasikan ke server.
 - Nilai lama tidak menentukan policy cabang.
 - Kontrol "Kunci Saat Stok Habis" lama dihapus atau diganti dengan penjelasan policy server.
+- Kontrol lokal yang dipertahankan berlabel "Cek Stok Sebelum Bayar": hanya pemeriksaan
+  dini di POS saat `tracked`. UI menjelaskan server tetap memvalidasi stok saat checkout.
 - Preferensi suara boleh tetap lokal, tetapi hanya efektif saat policy `tracked`.
 - Data localStorage lama boleh diabaikan tanpa cleanup paksa.
 
@@ -1050,9 +1052,14 @@ Label yang mencampur costing dan stok harus diperjelas. Contoh:
 - Product update yang membawa perubahan `stok` atau `lacak_stok` ditolak 409; field tidak boleh diabaikan diam-diam.
 - Product update tanpa field tersebut mempertahankan nilai existing.
 - Product create saat `ignored` memakai `stok = 0` dan `lacak_stok = false` dari server.
+- Route CRUD `/api/produk` hanya menerima metadata; payload `stok`/`lacak_stok`
+  ditolak 409 pada kedua mode. Penulisan stok produk memakai `save-atomic`
+  agar tidak melewati ledger maupun kebijakan cabang.
 - `lacak_bahan` tetap dapat diubah melalui kontrol "Gunakan Resep untuk HPP" karena field tersebut diperlukan costing.
 - CRUD resep, harga bahan, yield, konversi, dan biaya tetap tersedia untuk HPP.
 - Penyesuaian jumlah saat `ignored` hanya lewat item job rekonsiliasi.
+- Snapshot rekonsiliasi tanpa produk tracked maupun bahan aktif langsung `ready`;
+  UI tetap mengizinkan finalisasi tanpa mengirim hitungan kosong.
 - Endpoint reconciliation tidak memakai API mutation harian.
 - Seluruh mutation dan job tetap branch-scoped dan owner-only.
 

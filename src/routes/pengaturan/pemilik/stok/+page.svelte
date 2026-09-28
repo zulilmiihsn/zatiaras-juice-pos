@@ -111,7 +111,7 @@
 		reconJob ? reconJob.items.filter((item) => item.counted_quantity !== null).length : 0
 	);
 	const reconTotal = $derived(reconJob ? reconJob.items.length : 0);
-	const reconComplete = $derived(reconTotal > 0 && reconCounted >= reconTotal);
+	const reconComplete = $derived(reconJob?.status === 'ready' && reconCounted === reconTotal);
 	const reconGroups = $derived.by(() => {
 		if (!reconJob) return [];
 		const q = reconSearch.trim().toLowerCase();
@@ -916,7 +916,11 @@
 						</div>
 						{#if reconGroups.length === 0}
 							<p class="mt-2 text-center text-[11px] text-slate-400">
-								{reconSearch ? 'Tidak ada item yang cocok.' : 'Tidak ada item untuk dihitung.'}
+								{reconSearch
+									? 'Tidak ada item yang cocok.'
+									: reconTotal === 0
+										? 'Tidak ada stok untuk dihitung. Finalisasi untuk mengaktifkan monitoring.'
+										: 'Tidak ada item untuk dihitung.'}
 							</p>
 						{/if}
 						{#each reconGroups as group (`${group.type}:${group.title}`)}
@@ -1057,28 +1061,28 @@
 						<div>
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-bold text-slate-900 md:text-base"
-									>Kunci Saat Stok Habis</span
+									>Cek Stok Sebelum Bayar</span
 								>
 								{#if strictStockEnabled}
 									<span
 										class="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-black text-rose-700 md:text-[10px]"
 									>
-										Ketat
+										Cek awal aktif
 									</span>
 								{:else}
 									<span
 										class="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600 md:text-[10px]"
 									>
-										Bebas
+										Cek awal mati
 									</span>
 								{/if}
 							</div>
 							<p class="mt-1 text-xs text-slate-500 md:text-sm">
 								{policyMode === 'ignored'
-									? 'Monitoring nonaktif: kunci checkout tidak berlaku dan checkout tidak memeriksa stok.'
+									? 'Monitoring nonaktif: pemeriksaan stok tidak berlaku saat checkout.'
 									: strictStockEnabled
-										? 'Item dengan bahan/stok 0 dilarang checkout di POS.'
-										: 'Kasir tetap dapat melakukan checkout meski stok di sistem habis.'}
+										? 'POS memeriksa stok sebelum bayar; server tetap menolak transaksi bila stok tidak cukup.'
+										: 'Pemeriksaan awal POS dimatikan; server tetap menolak transaksi bila stok tidak cukup.'}
 							</p>
 						</div>
 					</div>
@@ -1087,8 +1091,8 @@
 						type="button"
 						role="switch"
 						aria-label={strictStockEnabled
-							? 'Matikan kunci checkout stok habis'
-							: 'Aktifkan kunci checkout stok habis'}
+							? 'Matikan cek stok sebelum bayar'
+							: 'Aktifkan cek stok sebelum bayar'}
 						aria-checked={strictStockEnabled}
 						disabled={policyMode === 'ignored'}
 						onclick={toggleStrictStock}

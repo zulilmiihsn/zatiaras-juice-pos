@@ -3,8 +3,14 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { produk } from '$lib/database/schema';
 import { makeResourceRoute } from '$lib/server/resourceRouteHelpers';
 
+function rejectDirectStockWrite(row: Record<string, unknown>): void {
+	if (Object.hasOwn(row, 'stok') || Object.hasOwn(row, 'lacak_stok')) {
+		throw kitError(409, 'Stok produk hanya dapat diubah lewat penyimpanan produk terpadu');
+	}
+}
+
 /**
- * /api/produk — CRUD menu tenant-scoped.
+ * /api/produk — CRUD metadata menu tenant-scoped; stok memakai save-atomic dan ledger.
  * PATCH menerima update satu id atau bulk berdasarkan kategori_id.
  */
 export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
@@ -18,6 +24,7 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 			.orderBy(desc(produk.created_at))
 			.limit(limit),
 	insert: async ({ db }, rows) => {
+		rows.forEach(rejectDirectStockWrite);
 		await db.insert(produk).values(rows as (typeof produk.$inferInsert)[]);
 	},
 	update: async ({ db, branch }, body) => {
@@ -30,6 +37,7 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 			throw kitError(400, 'id, ids, atau kategori_id diperlukan');
 		}
 		const payload = body.payload as Partial<typeof produk.$inferInsert>;
+		rejectDirectStockWrite(payload);
 
 		if (productIds?.length && id == null) {
 			await db

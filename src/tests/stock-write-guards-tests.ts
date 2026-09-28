@@ -4,6 +4,7 @@ import { writeStockPolicy } from '../lib/server/stockPolicy';
 import { POST as BahanMutasiPost } from '../routes/api/bahan-mutasi/+server';
 import { PATCH as BahanPatch, POST as BahanPost } from '../routes/api/bahan/+server';
 import { POST as ProductSave } from '../routes/api/produk/save-atomic/+server';
+import { PATCH as ProductPatch, POST as ProductPost } from '../routes/api/produk/+server';
 import { createTestD1 } from './helpers/testD1';
 
 const { db, close } = await createTestD1();
@@ -24,10 +25,10 @@ function session() {
 	};
 }
 
-function event(body: unknown) {
+function event(body: unknown, method: 'POST' | 'PATCH' = 'POST') {
 	return {
 		request: new Request('https://test.invalid/api/x', {
-			method: 'POST',
+			method,
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
 		}),
@@ -61,6 +62,20 @@ try {
 		event({ payload: { bahan_id: 'guard-bahan', delta_jumlah: 1 } }) as unknown as Parameters<
 			typeof BahanMutasiPost
 		>[0]
+	);
+	await expectStatus(
+		() =>
+			ProductPost(
+				event({ payload: { id: 'direct-tracked', nama: 'Direct', harga: 1000, stok: 5 } }) as never
+			),
+		409
+	);
+	await expectStatus(
+		() =>
+			ProductPatch(
+				event({ payload: { stok: 20 }, where: { id: 'guard-product' } }, 'PATCH') as never
+			),
+		409
 	);
 
 	await writeStockPolicy(db, samarinda, {
@@ -110,6 +125,55 @@ try {
 			),
 		409
 	);
+	await expectStatus(
+		() =>
+			ProductPost(
+				event({ payload: { id: 'direct-ignored', nama: 'Direct', harga: 1000, stok: 5 } }) as never
+			),
+		409
+	);
+	await expectStatus(
+		() =>
+			ProductPost(
+				event({
+					payload: [
+						{ id: 'direct-first', nama: 'First', harga: 1000 },
+						{ id: 'direct-second', nama: 'Second', harga: 1000, lacak_stok: true }
+					]
+				}) as never
+			),
+		409
+	);
+	await expectStatus(
+		() =>
+			ProductPatch(
+				event({ payload: { stok: 20 }, where: { id: 'guard-product' } }, 'PATCH') as never
+			),
+		409
+	);
+	await expectStatus(
+		() =>
+			ProductPatch(
+				event({ payload: { lacak_stok: false }, where: { ids: 'guard-product' } }, 'PATCH') as never
+			),
+		409
+	);
+	assert.equal(
+		await db.prepare("SELECT stok FROM produk WHERE id = 'guard-product'").first<number>('stok'),
+		3
+	);
+	assert.equal(
+		await db
+			.prepare("SELECT lacak_stok FROM produk WHERE id = 'guard-product'")
+			.first<number>('lacak_stok'),
+		1
+	);
+	assert.equal(
+		await db
+			.prepare("SELECT COUNT(*) AS n FROM produk WHERE id LIKE 'direct-%'")
+			.first<number>('n'),
+		0
+	);
 
 	// Ignored: metadata-only product update and costing-only bahan update pass.
 	const metadataOk = (await ProductSave(
@@ -130,6 +194,29 @@ try {
 		})
 	} as unknown as Parameters<typeof BahanPatch>[0])) as Response;
 	assert.equal(costingOk.status, 200);
+	const genericMetadataOk = (await ProductPatch(
+		event(
+			{ payload: { nama: 'Guard via metadata' }, where: { id: 'guard-product' } },
+			'PATCH'
+		) as never
+	)) as Response;
+	assert.equal(genericMetadataOk.status, 200);
+	const genericCreateOk = (await ProductPost(
+		event({ payload: { id: 'metadata-only', nama: 'Tanpa stok', harga: 1000 } }) as never
+	)) as Response;
+	assert.equal(genericCreateOk.status, 200);
+	assert.deepEqual(
+		{
+			...(await db
+				.prepare("SELECT stok, lacak_stok FROM produk WHERE id = 'metadata-only'")
+				.first())
+		},
+		{ stok: 0, lacak_stok: 0 }
+	);
+	assert.equal(
+		await db.prepare("SELECT nama FROM produk WHERE id = 'guard-product'").first<string>('nama'),
+		'Guard via metadata'
+	);
 
 	console.log('stock-write-guards-tests: ignored-mode mutation boundaries passed');
 } finally {

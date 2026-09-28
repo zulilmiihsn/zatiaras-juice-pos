@@ -150,6 +150,61 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog).toBeHidden();
 	});
 
+	test('empty inventory can finalize and enable monitoring', async ({ page }) => {
+		await mockOwnerSession(page);
+		const policy = { mode: 'ignored' as PolicyMode, revision: 1 };
+		await mockStockPolicy(page, policy);
+		await page.route('**/api/pengaturan/stok/reconciliation/active', (route) =>
+			route.fulfill({ json: { ok: true, data: { job: null } } })
+		);
+		await page.route('**/api/pengaturan/stok/reconciliation', (route) =>
+			route.fulfill({
+				json: {
+					ok: true,
+					data: { ...draftJob, status: 'ready', items: [] }
+				}
+			})
+		);
+		let finalizations = 0;
+		await page.route('**/api/pengaturan/stok/reconciliation/job-1/finalize', (route) => {
+			finalizations++;
+			policy.mode = 'tracked';
+			policy.revision++;
+			return route.fulfill({
+				json: { ok: true, data: { ...draftJob, status: 'applied', items: [] } }
+			});
+		});
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
+		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Hitung fisik stok' });
+		await expect(dialog.getByText('0/0', { exact: true })).toBeVisible();
+		await expect(
+			dialog.getByText('Tidak ada stok untuk dihitung. Finalisasi untuk mengaktifkan monitoring.')
+		).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Finalisasi & aktifkan' })).toBeEnabled();
+		await dialog.getByRole('button', { name: 'Finalisasi & aktifkan' }).click();
+		await expect(page.getByText('Aktif', { exact: true }).first()).toBeVisible();
+		expect(finalizations).toBe(1);
+	});
+
+	test('checkout setting warns that server still checks stock', async ({ page }) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'tracked', revision: 0 });
+		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
+		await expect(
+			page.getByText(/server tetap menolak transaksi bila stok tidak cukup/i)
+		).toBeVisible();
+		await expect(page.getByRole('switch', { name: 'Nonaktifkan monitoring stok' })).toBeEnabled();
+		await page.getByRole('switch', { name: 'Aktifkan cek stok sebelum bayar' }).click();
+		await expect(
+			page.getByRole('switch', { name: 'Matikan cek stok sebelum bayar' })
+		).toHaveAttribute('aria-checked', 'true');
+		await expect(
+			page.getByText(/POS memeriksa stok sebelum bayar; server tetap menolak/i)
+		).toBeVisible();
+	});
+
 	test('enable confirmation dialog animates in instead of appearing instantly', async ({
 		page
 	}) => {

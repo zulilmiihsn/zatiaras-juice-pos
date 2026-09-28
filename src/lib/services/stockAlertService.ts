@@ -52,9 +52,8 @@ export function setSoundEnabled(enabled: boolean): void {
 }
 
 /**
- * Memeriksa apakah mode pembatasan checkout stok aktif (Strict Stock Mode).
- * Jika true: Produk yang stoknya habis (<= 0) dilarang untuk di-checkout.
- * Jika false (default): Kasir tetap bisa checkout meskipun stok sistem 0.
+ * Preferensi pemeriksaan stok dini di POS, berlaku hanya saat policy tracked.
+ * Backend tetap memvalidasi stok ketika menerapkan mutasi, tanpa memandang preferensi ini.
  */
 export function isStrictStockEnforcement(): boolean {
 	if (!browser) return false;
@@ -63,7 +62,7 @@ export function isStrictStockEnforcement(): boolean {
 }
 
 /**
- * Menyimpan preferensi pembatasan checkout stok ke localStorage.
+ * Menyimpan preferensi pemeriksaan stok dini di POS ke localStorage.
  */
 export function setStrictStockEnforcement(enabled: boolean): void {
 	if (!browser) return;

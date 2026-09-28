@@ -179,6 +179,13 @@ jobs:
       - name: Run Realtime Suite
         run: pnpm test:realtime
 
+      - name: Run Stock Policy Suites
+        run: |
+          pnpm test:stock-policy
+          pnpm test:stock-reconciliation
+          pnpm test:stock-offline-review
+          pnpm test:stock-write-guards
+
       - name: Run Migration Matrix Suite
         run: pnpm test:migration-matrix
 
