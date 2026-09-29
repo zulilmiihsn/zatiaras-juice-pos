@@ -1045,6 +1045,25 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Kasir sticky betulan 29 Sep 2026 — LIVE (root cause layout)
+
+- Keluhan benar: `sticky` kemarin tidak nempel di browser nyata. Akarnya di
+  `+layout.svelte`: container `min-h-0 flex-1 overflow-y-auto` tidak pernah
+  overflow (induk `min-h` tak terbatas) tetapi tetap menjadi scroll container
+  mati — `position:sticky` mengacu padanya, bukan viewport, sehingga bar
+  ikut tergulir. Perbaikan: hapus `overflow-y-auto` (tak ada kode yang
+  bergantung padanya; satu-satunya pemakai scroll adalah modal chat AI
+  dengan container sendiri). Efek samping: `md:sticky top-6` halaman bayar
+  yang selama ini mati kini aktif sesuai niat awal.
+- Tes E2E lama terbukti vakum (`toBeLessThan(220)` lolos untuk nilai
+  negatif); ditulis ulang jujur: scroll dokumen `instant`, tunggu
+  `scrollTop > 50`, lalu asersi `0 <= y < 220/320`.
+- Preflight + verify lulus SHA `fdb6fa1`; Pages deployment
+  `https://55386673.zatiaraspos.pages.dev` (realtime dan schema tak berubah).
+  Aset produksi: `entry/app.99TPVntk.js` 200 `application/javascript`,
+  `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
+- Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
