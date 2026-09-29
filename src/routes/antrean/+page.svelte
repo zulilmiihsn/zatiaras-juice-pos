@@ -48,63 +48,62 @@
 		<div
 			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
 		></div>
-		<div class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
-			<div class="flex items-center gap-3">
-				<div
-					class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/25 text-white backdrop-blur-xl"
-					aria-hidden="true"
-				>
-					<ClipboardList class="h-5 w-5" />
-				</div>
-				<div>
-					<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
-						Antrean Pesanan
-					</h1>
-					<p class="text-xs font-medium text-white/85">
-						{s.pendingCount > 0 ? `${s.pendingCount} belum selesai` : 'Semua pesanan beres'}
-					</p>
-				</div>
+		<div class="mx-auto w-full max-w-5xl">
+			<div class="relative z-10 mb-3 text-center md:mb-4">
+				<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
+					Antrean Pesanan
+				</h1>
+				<p class="text-xs font-medium text-white/85 md:text-sm">
+					{s.pendingCount > 0 ? `${s.pendingCount} pesanan belum selesai` : 'Semua pesanan beres'}
+				</p>
 			</div>
-			<button
-				type="button"
-				class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-2 rounded-full border border-white/40 bg-white/25 px-4 text-sm font-bold text-white backdrop-blur-xl transition-all active:scale-95"
-				onclick={() => s.load(s.activeTab)}
-				aria-label="Muat ulang Antrean"
-			>
-				<RefreshCw class="h-4 w-4" />
-				<span class="hidden sm:inline">Muat ulang</span>
-			</button>
-		</div>
-		<div class="relative z-10 mx-auto mt-4 w-full max-w-5xl">
-			<div
-				class="flex rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl"
-				role="tablist"
-				aria-label="Status pesanan"
-			>
+
+			<div class="relative z-10 flex w-full items-center gap-2">
 				<button
 					type="button"
-					role="tab"
-					aria-selected={s.activeTab === 'pending'}
-					class="min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-bold transition-all {s.activeTab ===
-					'pending'
-						? 'bg-white text-pink-700 shadow'
-						: 'text-white'}"
-					onclick={() => s.setTab('pending')}
+					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+					onclick={() => s.load(s.activeTab)}
+					aria-label="Muat ulang Antrean"
 				>
-					Belum selesai{s.pendingCount > 0 ? ` (${s.pendingCount})` : ''}
+					<RefreshCw class="h-4.5 w-4.5 stroke-[2.2]" />
 				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={s.activeTab === 'done'}
-					class="min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-bold transition-all {s.activeTab ===
-					'done'
-						? 'bg-white text-pink-700 shadow'
-						: 'text-white'}"
-					onclick={() => s.setTab('done')}
+
+				<div
+					class="relative flex min-w-0 flex-1 rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl"
+					role="tablist"
+					aria-label="Status pesanan"
 				>
-					Selesai
-				</button>
+					<div
+						class="absolute top-1 bottom-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-white shadow-md transition-transform duration-200 ease-out"
+						style="transform: translateX({s.activeTab === 'done' ? '100%' : '0'});"
+					></div>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={s.activeTab === 'pending'}
+						aria-current={s.activeTab === 'pending' ? 'page' : undefined}
+						class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+						'pending'
+							? 'text-pink-700'
+							: 'text-white'}"
+						onclick={() => s.setTab('pending')}
+					>
+						Belum selesai
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={s.activeTab === 'done'}
+						aria-current={s.activeTab === 'done' ? 'page' : undefined}
+						class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+						'done'
+							? 'text-pink-700'
+							: 'text-white'}"
+						onclick={() => s.setTab('done')}
+					>
+						Selesai
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
