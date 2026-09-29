@@ -38,6 +38,7 @@ export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise
 		id: t.id,
 		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
+		idempotency_key: t.idempotency_key,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',
 		nominal: t.nominal || 0,
@@ -77,6 +78,7 @@ function toHistoryItem(t: BukuKasRecord): HistoryItem {
 		id: t.id,
 		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
+		idempotency_key: t.idempotency_key,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',
 		nominal: t.nominal || 0,

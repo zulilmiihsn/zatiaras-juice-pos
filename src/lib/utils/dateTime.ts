@@ -70,6 +70,15 @@ export function formatDateYmdWita(date: string | Date): string {
 	);
 }
 
+export function isTodayWita(iso: string, now: Date = new Date()): boolean {
+	const date = new Date(iso);
+	return (
+		Number.isFinite(date.getTime()) &&
+		Number.isFinite(now.getTime()) &&
+		formatDateYmdWita(date) === formatDateYmdWita(now)
+	);
+}
+
 // [CATATAN]: STANDAR: Dapatkan waktu sekarang dalam WITA (YYYY-MM-DDTHH:mm:ss)
 export function getNowWita(): string {
 	const now = new Date();

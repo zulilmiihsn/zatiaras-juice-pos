@@ -9,6 +9,7 @@ import { formatRupiah } from './currency.js';
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
 import { formatOrderDetails } from './orderDetails.js';
 import { toReceiptLines } from './receiptLines.js';
+import { formatOrderNumber } from './orderNumber.js';
 
 type SaleReceiptItem = {
 	product: { nama: string; harga?: number | null; harga_jumbo?: number | null };
@@ -22,6 +23,7 @@ type SaleReceiptItem = {
 
 type SaleReceiptInput = {
 	settings: ReceiptSettings | null;
+	idempotencyKey?: string | null;
 	items: SaleReceiptItem[];
 	customerName: string;
 	total: number;
@@ -126,6 +128,9 @@ export function buildReceiptHtml(
 	const p = pengaturan ?? DEFAULT_RECEIPT_SETTINGS;
 
 	let body = `<div style='text-align:center;font-weight:bold;font-size:14px;margin-bottom:8px;'>*** CETAK ULANG ***</div>`;
+	const orderNumber = formatOrderNumber(trx.idempotency_key);
+	if (orderNumber)
+		body += `<div style='text-align:center;font-weight:bold;margin-bottom:8px;'>No. Pesanan: ${orderNumber}</div>`;
 	body += `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
 	body += `<div>${escapeHtml(trx.nama_pelanggan || '')}</div>`;
 	body += `<div>${new Date(trx.waktu).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
@@ -182,7 +187,11 @@ export function buildReceiptHtml(
 export function buildSaleReceiptHtml(input: SaleReceiptInput): string {
 	const settings = input.settings ?? DEFAULT_RECEIPT_SETTINGS;
 	const printedAt = input.printedAt ?? new Date();
-	let body = `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
+	const orderNumber = formatOrderNumber(input.idempotencyKey);
+	let body = orderNumber
+		? `<div style='text-align:center;font-weight:bold;margin-bottom:8px;'>No. Pesanan: ${orderNumber}</div>`
+		: '';
+	body += `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
 	body += `<div>${escapeHtml(input.customerName)}</div>`;
 	body += `<div>${printedAt.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
 	body += `</div>`;

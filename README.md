@@ -8,6 +8,8 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 
 - POS tunai dan non-tunai dengan sesi buka/tutup toko, struk, item tambahan, dan item kustom khusus pemilik.
 - Antrean pesanan per cabang: satu transaksi menjadi satu kartu dengan status Belum selesai/Selesai plus Buka lagi bila salah tekan; tersedia di navbar dan tetap bisa dibuka offline di device kios.
+- Nomor pesanan pada modal sukses, kartu Antrean, dan struk (termasuk cetak ulang) memakai 12 digit heksadesimal terakhir dari UUID idempotency checkout, misalnya `ABCDEF-123456`. Nomor tetap sama setelah sinkronisasi offline; `transaction_id` UUID tetap menjadi identitas internal. Transaksi lama tanpa UUID idempotency tidak diberi nomor turunan.
+- Di Antrean, tab Belum selesai menampilkan rincian item langsung agar mudah disiapkan, dengan tanggal "Hari ini" untuk pesanan pada hari WITA yang sama atau tanggal lengkap untuk pesanan lebih lama. Tab Selesai menampilkan nama, nomor, tanggal/jam WITA, jumlah gelas, total, dan status sinkronisasi; tombol Lihat detail membuka rincian item dalam dialog.
 - Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
 - Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
 - Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.

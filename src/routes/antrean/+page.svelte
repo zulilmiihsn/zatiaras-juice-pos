@@ -1,17 +1,27 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { createOrderQueueState } from '$lib/stores/orderQueueState.svelte';
+	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import { formatRupiah } from '$lib/utils/currency';
+	import { isTodayWita } from '$lib/utils/dateTime';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Check from '@lucide/svelte/icons/check';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import type { UiOrder } from '$lib/utils/orderQueueLocal';
+	import { formatOrderNumber } from '$lib/utils/orderNumber';
 
 	const s = createOrderQueueState();
+	let selectedKey = $state<string | null>(null);
+	let now = $state<Date | null>(null);
+	const selectedCard = $derived(s.items.find((card) => card.idempotency_key === selectedKey));
 
 	onMount(() => {
 		s.start();
+		now = new Date();
+		const clock = window.setInterval(() => (now = new Date()), 60_000);
+		return () => window.clearInterval(clock);
 	});
 	onDestroy(() => {
 		s.dispose();
@@ -29,6 +39,17 @@
 		} catch {
 			return '--:--';
 		}
+	}
+
+	function formatTanggal(iso: string): string {
+		const date = new Date(iso);
+		if (!Number.isFinite(date.getTime())) return '--';
+		return new Intl.DateTimeFormat('id-ID', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric',
+			timeZone: 'Asia/Makassar'
+		}).format(date);
 	}
 
 	function isSyncing(card: UiOrder): boolean {
@@ -153,10 +174,21 @@
 					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
+								{#if formatOrderNumber(card.idempotency_key)}
+									<div class="text-xs font-bold tracking-wide text-pink-700">
+										No. Pesanan: {formatOrderNumber(card.idempotency_key)}
+									</div>
+								{/if}
 								<div class="truncate text-base font-extrabold text-slate-900">
 									{card.nama_pelanggan || 'Tanpa nama'}
 								</div>
 								<div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+									<span
+										>{s.activeTab === 'pending' && now && isTodayWita(card.waktu, now)
+											? 'Hari ini'
+											: formatTanggal(card.waktu)}</span
+									>
+									<span aria-hidden="true">·</span>
 									<span>{formatWaktu(card.waktu)} WITA</span>
 									<span aria-hidden="true">·</span>
 									<span>{card.items.reduce((n, i) => n + i.jumlah, 0)} gelas</span>
@@ -194,49 +226,69 @@
 								</button>
 							{/if}
 						</div>
-						<ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100">
-							{#each card.items as item}
-								<li class="py-2.5">
-									<div class="flex items-start justify-between gap-3">
-										<span class="text-sm font-bold text-slate-800">
-											{item.jumlah}× {item.nama}
-										</span>
-									</div>
-									{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.tambahan && item.tambahan.length > 0) || item.catatan}
-										<div class="mt-1 flex flex-wrap gap-1 text-[11px]">
-											{#if item.gula && item.gula !== 'normal'}
-												<span
-													class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
-												>
-													{item.gula}
-												</span>
-											{/if}
-											{#if item.es && item.es !== 'normal'}
-												<span
-													class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
-												>
-													{item.es}
-												</span>
-											{/if}
-											{#if item.tambahan}
-												{#each item.tambahan as extra}
-													<span
-														class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700"
-													>
-														+{extra.nama}
-													</span>
-												{/each}
-											{/if}
-											{#if item.catatan}
-												<span class="w-full text-[11px] text-slate-400 italic">
-													“{item.catatan}”
-												</span>
-											{/if}
+						{#if s.activeTab === 'done'}
+							<div
+								class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"
+							>
+								<span class="text-sm font-bold text-slate-800">
+									{card.nominal !== null
+										? `Total Rp${formatRupiah(card.nominal)}`
+										: 'Total belum tersedia'}
+								</span>
+								<button
+									type="button"
+									class="min-h-[44px] cursor-pointer rounded-full px-4 text-sm font-bold text-pink-700 hover:bg-pink-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+									onclick={() => (selectedKey = card.idempotency_key)}
+									aria-label={`Lihat detail pesanan ${card.nama_pelanggan || formatOrderNumber(card.idempotency_key) || 'tanpa nama'}`}
+								>
+									Lihat detail
+								</button>
+							</div>
+						{:else}
+							<ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100">
+								{#each card.items as item}
+									<li class="py-2.5">
+										<div class="flex items-start justify-between gap-3">
+											<span class="text-sm font-bold text-slate-800">
+												{item.jumlah}× {item.nama}
+											</span>
 										</div>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+										{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.tambahan && item.tambahan.length > 0) || item.catatan}
+											<div class="mt-1 flex flex-wrap gap-1 text-[11px]">
+												{#if item.gula && item.gula !== 'normal'}
+													<span
+														class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+													>
+														{item.gula}
+													</span>
+												{/if}
+												{#if item.es && item.es !== 'normal'}
+													<span
+														class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+													>
+														{item.es}
+													</span>
+												{/if}
+												{#if item.tambahan}
+													{#each item.tambahan as extra}
+														<span
+															class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700"
+														>
+															+{extra.nama}
+														</span>
+													{/each}
+												{/if}
+												{#if item.catatan}
+													<span class="w-full text-[11px] text-slate-400 italic">
+														“{item.catatan}”
+													</span>
+												{/if}
+											</div>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
 					</article>
 				{/each}
 			</div>
@@ -252,3 +304,55 @@
 		{/if}
 	</main>
 </div>
+
+<ModalSheet
+	open={Boolean(selectedCard) && s.activeTab === 'done'}
+	title={`Detail pesanan ${selectedCard?.nama_pelanggan || 'Tanpa nama'}`}
+	showCloseButton
+	onClose={() => (selectedKey = null)}
+>
+	{#if selectedCard}
+		<div class="py-4">
+			{#if formatOrderNumber(selectedCard.idempotency_key)}
+				<p class="text-sm font-bold text-pink-700">
+					No. Pesanan: {formatOrderNumber(selectedCard.idempotency_key)}
+				</p>
+			{/if}
+			<p class="mt-1 text-xs text-slate-500">
+				{formatTanggal(selectedCard.waktu)} · {formatWaktu(selectedCard.waktu)} WITA · {selectedCard.items.reduce(
+					(n, i) => n + i.jumlah,
+					0
+				)} gelas
+			</p>
+			{#if selectedCard.unsynced}
+				<p class="mt-2 text-xs font-bold text-amber-800">Belum tersinkron</p>
+			{/if}
+			<ul class="mt-4 divide-y divide-slate-100 border-t border-slate-100">
+				{#each selectedCard.items as item}
+					<li class="py-3">
+						<div class="text-sm font-bold text-slate-800">{item.jumlah}× {item.nama}</div>
+						{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || item.tambahan.length || item.catatan}
+							<div class="mt-1 flex flex-wrap gap-1 text-xs text-slate-600">
+								{#if item.gula && item.gula !== 'normal'}<span
+										class="rounded-md bg-slate-100 px-2 py-1">{item.gula}</span
+									>{/if}
+								{#if item.es && item.es !== 'normal'}<span class="rounded-md bg-slate-100 px-2 py-1"
+										>{item.es}</span
+									>{/if}
+								{#each item.tambahan as extra}<span
+										class="rounded-md bg-pink-50 px-2 py-1 text-pink-700">+{extra.nama}</span
+									>{/each}
+								{#if item.catatan}<span class="w-full italic">“{item.catatan}”</span>{/if}
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+			<p class="border-t border-slate-100 pt-3 text-right text-sm font-extrabold text-slate-900">
+				{selectedCard.nominal !== null
+					? `Total Rp${formatRupiah(selectedCard.nominal)}`
+					: 'Total belum tersedia'}
+			</p>
+		</div>
+	{/if}
+</ModalSheet>

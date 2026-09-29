@@ -16,6 +16,7 @@ export interface UiOrderItem {
 export interface UiOrder {
 	idempotency_key: string;
 	transaction_id: string;
+	nominal: number | null;
 	nama_pelanggan: string | null;
 	waktu: string;
 	preparation_state: OrderTarget;
@@ -105,6 +106,8 @@ export function buildLocalCardFromPending(
 	}
 	if (!items.length) return null;
 	const summary = isRecord(pending.summary) ? pending.summary : null;
+	const rawAmount = receipt.total_amount ?? summary?.total_amount;
+	const amount = rawAmount == null ? NaN : Number(rawAmount);
 	const createdAt =
 		typeof summary?.created_at === 'string' && summary.created_at
 			? String(summary.created_at)
@@ -114,6 +117,7 @@ export function buildLocalCardFromPending(
 	return {
 		idempotency_key: key,
 		transaction_id: key,
+		nominal: Number.isFinite(amount) && amount >= 0 ? amount : null,
 		nama_pelanggan:
 			request && typeof request.nama_pelanggan === 'string' && request.nama_pelanggan
 				? String(request.nama_pelanggan).slice(0, 60)
@@ -143,6 +147,8 @@ export function mergeQueueWithLocal(
 		byKey.set(key, {
 			idempotency_key: key,
 			transaction_id: String(item.transaction_id || key),
+			nominal:
+				item.nominal != null && Number.isFinite(Number(item.nominal)) ? Number(item.nominal) : null,
 			nama_pelanggan: item.nama_pelanggan ? String(item.nama_pelanggan).slice(0, 60) : null,
 			waktu: String(item.waktu),
 			preparation_state: item.preparation_state === 'done' ? 'done' : 'pending',

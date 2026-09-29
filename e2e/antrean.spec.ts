@@ -84,12 +84,19 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		transactionId = payload.data?.transaction_id || '';
 		expect(transactionId).not.toBe('');
 		await expect(page.getByText('Transaksi Berhasil!', { exact: true })).toBeVisible();
+		const orderLabel = await page
+			.getByText(/^No\. Pesanan: [A-F0-9]{6}-[A-F0-9]{6}$/)
+			.textContent();
+		expect(orderLabel).toBeTruthy();
 
 		// Masuk Antrean dari modal sukses.
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
 		await expect(page).toHaveURL(/\/antrean/);
 		const card = page.locator('article', { hasText: customer });
 		await expect(card).toBeVisible({ timeout: 30_000 });
+		await expect(card.getByText(orderLabel!)).toBeVisible();
+		await expect(card.getByText('Hari ini', { exact: true })).toBeVisible();
+		await expect(card.getByText('Es Teh UAT', { exact: false })).toBeVisible();
 
 		// Tandai selesai lalu pastikan pindah ke tab Selesai.
 		await card.getByRole('button', { name: /tandai selesai/i }).click();
@@ -97,6 +104,17 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await page.getByRole('tab', { name: 'Selesai', exact: true }).click();
 		const doneCard = page.locator('article', { hasText: customer });
 		await expect(doneCard).toBeVisible({ timeout: 30_000 });
+		await expect(doneCard.getByText(orderLabel!)).toBeVisible();
+		await expect(doneCard.getByText('Total Rp10.000')).toBeVisible();
+		await expect(doneCard.getByText('Es Teh UAT', { exact: false })).toHaveCount(0);
+		await doneCard.getByRole('button', { name: /lihat detail pesanan/i }).click();
+		const detail = page.getByRole('dialog');
+		await expect(detail).toBeVisible();
+		await expect(detail.getByText('Es Teh UAT', { exact: false })).toBeVisible();
+		await expect(detail.getByText(orderLabel!)).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(detail).toHaveCount(0);
+		await expect(doneCard.getByRole('button', { name: /lihat detail pesanan/i })).toBeFocused();
 
 		// Buka lagi lalu pastikan kembali ke tab Belum selesai, tahan reload.
 		await doneCard.getByRole('button', { name: /buka lagi/i }).click();

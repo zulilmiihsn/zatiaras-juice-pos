@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
+import { formatOrderNumber } from '../lib/utils/orderNumber.js';
+import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
+import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
+import { isTodayWita } from '../lib/utils/dateTime.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 
 const settings: ReceiptSettings = {
@@ -14,6 +18,7 @@ const settings: ReceiptSettings = {
 const history: HistoryItem = {
 	id: 'history-1',
 	transaction_id: 'transaction-1',
+	idempotency_key: '12345678-1234-4234-8234-abcdef123456',
 	waktu: '2026-06-29T08:30:00.000Z',
 	nama: 'Transaksi UAT',
 	nominal: 25_000,
@@ -33,6 +38,7 @@ const reprint = buildReceiptHtml(history, settings, [
 
 const sale = buildSaleReceiptHtml({
 	settings,
+	idempotencyKey: history.idempotency_key,
 	items: [
 		{
 			product: { nama: 'Jus UAT', harga: 10_000 },
@@ -53,6 +59,73 @@ const sale = buildSaleReceiptHtml({
 });
 
 const count = (s: string, sub: string) => s.split(sub).length - 1;
+
+const nowAtWitaMidnight = new Date('2026-09-29T16:00:00.000Z');
+assert.equal(isTodayWita('2026-09-29T16:00:00.000Z', nowAtWitaMidnight), true);
+assert.equal(isTodayWita('2026-09-29T15:59:59.999Z', nowAtWitaMidnight), false);
+assert.equal(isTodayWita('invalid', nowAtWitaMidnight), false);
+
+assert.equal(formatOrderNumber(history.idempotency_key), 'ABCDEF-123456');
+assert.equal(formatOrderNumber('not-a-uuid'), null, 'kunci lama tidak ditebak menjadi nomor');
+assert.ok(reprint.includes('No. Pesanan: ABCDEF-123456'), 'cetak ulang cocok dengan antrean');
+assert.ok(sale.includes('No. Pesanan: ABCDEF-123456'), 'struk awal cocok dengan antrean offline');
+const pending = {
+	type: 'pos_transaction',
+	branch: 'samarinda',
+	request: { idempotency_key: history.idempotency_key },
+	receipt: { total_amount: 25000, items: [{ nama: 'Jus UAT', jumlah: 1 }] },
+	summary: { created_at: history.waktu }
+};
+const localCard = buildLocalCardFromPending(pending, 'samarinda');
+assert.equal(formatOrderNumber(localCard?.idempotency_key), 'ABCDEF-123456');
+assert.equal(localCard?.nominal, 25000, 'ringkasan offline memakai total struk tersimpan');
+assert.equal(
+	buildLocalCardFromPending(
+		{ ...pending, receipt: { items: [{ nama: 'Jus UAT', jumlah: 1 }] } },
+		'samarinda'
+	)?.nominal,
+	null,
+	'total yang hilang tidak ditampilkan sebagai Rp0'
+);
+const synced = mergeQueueWithLocal(
+	[
+		{
+			buku_kas_id: 'bk-1',
+			transaction_id: history.transaction_id!,
+			idempotency_key: history.idempotency_key!,
+			nama_pelanggan: 'Pelanggan UAT',
+			waktu: history.waktu,
+			metode_bayar: 'tunai',
+			nominal: 25000,
+			jumlah: 1,
+			preparation_state: 'pending',
+			preparation_revision: 0,
+			preparation_completed_at: null,
+			preparation_completed_by: null,
+			items: []
+		}
+	],
+	[pending],
+	[],
+	'samarinda'
+);
+assert.equal(synced.length, 1, 'sinkronisasi tidak membuat pesanan kedua');
+assert.equal(synced[0].nominal, 25000, 'ringkasan server memakai total transaksi');
+assert.equal(formatOrderNumber(synced[0].idempotency_key), 'ABCDEF-123456');
+assert.ok(
+	new TextDecoder()
+		.decode(
+			buildReceiptEscPos({
+				storeName: 'Toko UAT',
+				idempotencyKey: history.idempotency_key,
+				items: [],
+				total: 25000,
+				paymentMethod: 'tunai'
+			})
+		)
+		.includes('No. Pesanan: ABCDEF-123456'),
+	'printer ESC/POS memuat nomor yang sama'
+);
 
 // F17/F18: base 10.000 + topping 3.000 x2 -> baris 20.000 + 6.000 = 26.000
 {

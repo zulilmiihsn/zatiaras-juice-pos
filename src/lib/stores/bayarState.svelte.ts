@@ -651,6 +651,7 @@ export function createBayarState() {
 
 		const receiptInput = {
 			settings: pengaturanStruk,
+			idempotencyKey: transactionId,
 			items: receiptItems,
 			customerName,
 			total: committedReceipt?.total_amount ?? totalHarga,
@@ -666,6 +667,7 @@ export function createBayarState() {
 		const html = buildSaleReceiptHtml(receiptInput);
 		const escposData = {
 			storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
+			idempotencyKey: transactionId,
 			address: pengaturanStruk?.alamat,
 			phone: pengaturanStruk?.telepon,
 			instagram: pengaturanStruk?.instagram,
