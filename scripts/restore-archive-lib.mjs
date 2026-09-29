@@ -104,6 +104,22 @@ export function validateArchive(archive) {
 			].includes(String(row.stock_replay_disposition))
 		)
 			errors.push(`Disposisi replay row ${row.id} tidak valid`);
+		const prepState = row.preparation_state ?? null;
+		const prepRevision = row.preparation_revision ?? null;
+		const prepAt = row.preparation_completed_at ?? null;
+		const prepBy = row.preparation_completed_by ?? null;
+		if (prepState !== null && !['pending', 'done'].includes(String(prepState)))
+			errors.push(`Status persiapan row ${row.id} tidak valid`);
+		if (
+			prepRevision !== null &&
+			(!Number.isInteger(Number(prepRevision)) || Number(prepRevision) < 0)
+		)
+			errors.push(`Revision persiapan row ${row.id} tidak valid`);
+		const isLegacyPrep = prepState === null && prepAt === null && prepBy === null;
+		const isPendingPrep = prepState === 'pending' && prepAt === null && prepBy === null;
+		const isDonePrep = prepState === 'done' && prepAt !== null && prepBy !== null;
+		if (!(isLegacyPrep || isPendingPrep || isDonePrep))
+			errors.push(`Pasangan persiapan row ${row.id} tidak lengkap`);
 	}
 	const detailIds = new Set();
 	for (const row of transaksi_kasir) {
@@ -138,6 +154,10 @@ export const BK_FIELDS = [
 	'stock_policy_mode',
 	'stock_policy_revision',
 	'stock_replay_disposition',
+	'preparation_state',
+	'preparation_revision',
+	'preparation_completed_at',
+	'preparation_completed_by',
 	'id_sesi_toko',
 	'created_at'
 ];
@@ -167,13 +187,19 @@ const NUMERIC_FIELDS = new Set([
 	'harga',
 	'harga_dasar',
 	'total_tambahan',
-	'nominal_hpp'
+	'nominal_hpp',
+	'preparation_revision'
 ]);
 
 /** @param {Row} row @param {string} field */
 function fieldValue(row, field) {
-	const value = row[field] ?? (['total_tambahan', 'nominal_hpp'].includes(field) ? 0 : null);
-	return value !== null && NUMERIC_FIELDS.has(field) ? Number(value) : value;
+	let value = row[field];
+	if (value === undefined || value === null) {
+		if (field === 'preparation_revision') return 0;
+		if (['total_tambahan', 'nominal_hpp'].includes(field)) return 0;
+		return null;
+	}
+	return NUMERIC_FIELDS.has(field) ? Number(value) : value;
 }
 
 /** @param {Row[]} snapshotRows @param {Map<string, Row>} existingById @param {string[]} fields */

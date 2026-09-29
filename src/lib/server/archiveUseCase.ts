@@ -91,6 +91,7 @@ export interface ArchivePreview {
 	cutoff_wita: string;
 	counts: { buku_kas: number; pos: number; manual: number; transaksi_kasir: number };
 	financials: { total_in: number; total_out: number };
+	pending_orders: number;
 }
 
 export function validateArchiveYear(year: number): void {
@@ -198,7 +199,7 @@ export async function previewArchive(
 	validateArchiveYear(year);
 	const { cutoff } = cutoffForYear(year);
 
-	const [bukuKasStats, transaksiCount] = await Promise.all([
+	const [bukuKasStats, transaksiCount, pendingOrders] = await Promise.all([
 		rawDb
 			.prepare(
 				`SELECT
@@ -226,7 +227,15 @@ export async function previewArchive(
 				 WHERE tk.cabang_id = ? AND bk.waktu < ?`
 			)
 			.bind(branch, cutoff)
-			.first() as Promise<{ count?: number } | null>
+			.first() as Promise<{ count?: number } | null>,
+		rawDb
+			.prepare(
+				`SELECT COUNT(*) as count FROM buku_kas
+				 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?`
+			)
+			.bind(branch, cutoff)
+			.first()
+			.catch(() => null) as Promise<{ count?: number } | null>
 	]);
 
 	return {
@@ -242,7 +251,8 @@ export async function previewArchive(
 		financials: {
 			total_in: bukuKasStats?.total_in || 0,
 			total_out: bukuKasStats?.total_out || 0
-		}
+		},
+		pending_orders: Number(pendingOrders?.count ?? 0)
 	};
 }
 
@@ -341,6 +351,20 @@ export async function runArchive(
 		throw new ArchiveUseCaseError(
 			409,
 			`Konflik arsip: Ada ${pendingPre.cnt} transaksi offline yang belum tersinkronisasi. Selesaikan sinkronisasi terlebih dahulu.`
+		);
+	}
+	const pendingOrdersPre = (await rawDb
+		.prepare(
+			`SELECT count(*) as cnt FROM buku_kas
+			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?`
+		)
+		.bind(branch, cutoff)
+		.first()
+		.catch(() => null)) as { cnt?: number } | null;
+	if (pendingOrdersPre && Number(pendingOrdersPre.cnt) > 0) {
+		throw new ArchiveUseCaseError(
+			409,
+			`Konflik arsip: Ada ${pendingOrdersPre.cnt} pesanan Antrean belum selesai. Selesaikan dulu sebelum mengarsipkan.`
 		);
 	}
 
@@ -450,6 +474,8 @@ export async function runArchive(
 					 WHERE id = ? AND owner_token = ? AND status IN ('claimed','uploading')
 					 AND lease_expires_at > ?
 					 AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)
+					 AND NOT EXISTS (SELECT 1 FROM buku_kas
+						WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?)
 					 AND ${manifestOk}
 					 AND (SELECT COUNT(*) FROM archive_job_items WHERE job_id = ? AND cabang_id = ?) = ?
 					 AND (SELECT COUNT(*) FROM transaksi_kasir tk
@@ -465,6 +491,8 @@ export async function runArchive(
 					jobOwner,
 					nowMs,
 					branch,
+					branch,
+					cutoff,
 					branch,
 					archiveJobId,
 					archiveJobId,
