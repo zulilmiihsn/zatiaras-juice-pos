@@ -142,6 +142,18 @@ duplikat; realtime lintas cabang; artifact SHA tak terbukti.
   lama tidak mengenal policy dan akan mengurangi stok lagi. Kembalikan semua
   cabang ke `tracked` dulu (via versi baru + rekonsiliasi), baru rollback.
 
+## 10a. Antrean pesanan (operasi cabang)
+
+- Migrasi status Antrean bersifat aditif pada `buku_kas` dan wajib schema-first:
+  backup dan verifikasi tiga shard, terapkan file migrasi baru per binding,
+  verifikasi kolom, baru deploy aplikasi. Rollback aplikasi tidak mengembalikan
+  schema; kolom boleh tetap ada dan transaksi versi lama berstatus legacy.
+- Arsip menolak cutoff yang masih memuat pesanan `pending` (409) baik sebelum
+  upload maupun pada klaim finalisasi. Selesaikan atau tunggu pesanan beres
+  sebelum mengarsipkan; pesanan `done` tetap bisa diarsipkan seperti biasa.
+- Smoke kios: checkout kasir, Lihat Antrean dari modal sukses, Selesai, reload,
+  Buka lagi, badge navbar konsisten, lalu void cleanup oleh pemilik.
+
 ## 11. Release record (wajib diisi tiap rilis)
 
 Commit SHA, artifact SHA + checksum manifest, link CI, manifest backup +

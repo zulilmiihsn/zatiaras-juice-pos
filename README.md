@@ -7,6 +7,7 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 ## Fitur saat ini
 
 - POS tunai dan non-tunai dengan sesi buka/tutup toko, struk, item tambahan, dan item kustom khusus pemilik.
+- Antrean pesanan per cabang: satu transaksi menjadi satu kartu dengan status Belum selesai/Selesai plus Buka lagi bila salah tekan; tersedia di navbar dan tetap bisa dibuka offline di device kios.
 - Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
 - Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
 - Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
