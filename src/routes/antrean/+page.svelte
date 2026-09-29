@@ -57,6 +57,13 @@
 	}
 </script>
 
+<svelte:window
+	onkeydown={(event) => {
+		// Fokus sheet dipasang setelah animasi; Escape tetap harus bekerja sebelum fokus berpindah.
+		if (event.key === 'Escape' && selectedCard && s.activeTab === 'done') selectedKey = null;
+	}}
+/>
+
 <svelte:head>
 	<title>Antrean Pesanan - Zatiaras POS</title>
 </svelte:head>
