@@ -185,20 +185,29 @@ test('pending queue detail stays synchronized and owner can export then remove',
 
 test('search and category bar stay pinned while scrolling the catalog', async ({ page }) => {
 	await loginAsOwner(page);
+	await page.setViewportSize({ width: 1280, height: 500 });
 	await page.goto('/pos');
 	const search = page.getByPlaceholder('Cari menu jus buah, topping...');
 	await expect(search).toBeVisible({ timeout: 60_000 });
 	const semua = page.getByRole('button', { name: 'Semua', exact: true });
 	await expect(semua).toBeVisible();
+	await expect(page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible({
+		timeout: 60_000
+	});
 
 	await page.evaluate(() => {
-		const anchor = document.querySelector('main[aria-label="Kasir POS"]');
-		let node: HTMLElement | null = anchor?.parentElement ?? null;
-		while (node && node.scrollHeight <= node.clientHeight + 1) {
-			node = node.parentElement;
-		}
-		node?.scrollTo(0, node.scrollHeight);
+		// Instant: abaikan scroll-behavior smooth agar posisi sinkron terbaca.
+		document.documentElement.scrollTo({
+			top: document.documentElement.scrollHeight,
+			behavior: 'instant' as ScrollBehavior
+		});
 	});
+	await page.waitForFunction(() => document.documentElement.scrollTop > 50, null, {
+		timeout: 10_000
+	});
+	const scrolled = await page.evaluate(() => document.documentElement.scrollTop);
+	// Dokumen benar-benar tergulir; bar sticky harus nempel di viewport.
+	expect(scrolled).toBeGreaterThan(50);
 
 	await expect(search).toBeVisible({ timeout: 15_000 });
 	await expect(semua).toBeVisible({ timeout: 15_000 });
@@ -206,6 +215,8 @@ test('search and category bar stay pinned while scrolling the catalog', async ({
 	const semuaBox = await semua.boundingBox();
 	expect(searchBox).not.toBeNull();
 	expect(semuaBox).not.toBeNull();
+	expect(searchBox!.y).toBeGreaterThanOrEqual(0);
 	expect(searchBox!.y).toBeLessThan(220);
+	expect(semuaBox!.y).toBeGreaterThanOrEqual(0);
 	expect(semuaBox!.y).toBeLessThan(320);
 });

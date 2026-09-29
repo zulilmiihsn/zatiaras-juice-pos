@@ -278,7 +278,10 @@
 
 {#if showNav}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		<!-- [CATATAN]: Tanpa overflow-y-auto: container ini tidak pernah overflow
+			(min-h induk tak terbatas) sehingga ia menjadi scroll container mati yang
+			mematahkan position:sticky turunan (sticky mengacu padanya, bukan viewport). -->
+		<div class="min-h-0 flex-1">
 			{@render children()}
 		</div>
 		{#if showPinModal}
@@ -300,7 +303,7 @@
 	</div>
 {:else}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		<div class="min-h-0 flex-1">
 			{@render children()}
 		</div>
 		{#if showPinModal}
