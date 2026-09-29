@@ -1,11 +1,11 @@
-/** Nomor tampilan dari kunci permintaan POS, stabil sebelum dan sesudah sinkronisasi. */
-export function formatOrderNumber(idempotencyKey: string | null | undefined): string | null {
-	if (
-		!idempotencyKey ||
-		!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(idempotencyKey)
-	) {
-		return null;
-	}
-	const suffix = idempotencyKey.slice(-12).toUpperCase();
-	return `${suffix.slice(0, 6)}-${suffix.slice(6)}`;
+/**
+ * Nomor antrean harian POS: 001-999 per cabang per tanggal WITA, reset tiap
+ * tanggal baru. Di atas 999 lanjut 1000+ (tidak memblokir penjualan).
+ * Alokasi atomik di server (pos_nomor_harian); fungsi ini hanya format tampil.
+ */
+export function formatNomorHarian(nomor: number | null | undefined): string | null {
+	if (nomor == null) return null;
+	const n = Number(nomor);
+	if (!Number.isInteger(n) || n < 1) return null;
+	return String(n).padStart(3, '0');
 }

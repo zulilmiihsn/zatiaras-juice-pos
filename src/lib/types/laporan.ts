@@ -32,6 +32,8 @@ export interface BukuKasRecord {
 	nama_produk?: string;
 	produk_detail?: string;
 	transaction_id?: string;
+	nomor_harian?: number | null;
+	tanggal_nomor?: string | null;
 	idempotency_key?: string | null;
 	nama?: string;
 	nama_pelanggan?: string;
@@ -44,6 +46,8 @@ export interface BukuKasRecord {
 export interface HistoryItem {
 	id: string;
 	transaction_id?: string;
+	nomor_harian?: number | null;
+	tanggal_nomor?: string | null;
 	idempotency_key?: string | null;
 	waktu: string;
 	nama: string;

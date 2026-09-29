@@ -38,6 +38,8 @@ export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise
 		id: t.id,
 		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
+		nomor_harian: t.nomor_harian ?? null,
+		tanggal_nomor: t.tanggal_nomor ?? null,
 		idempotency_key: t.idempotency_key,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',
@@ -54,10 +56,15 @@ export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise
 	// [CATATAN]: Hanya nominal > 0
 	result = result.filter((t) => t.nominal > 0);
 
-	// [CATATAN]: Filter pencarian (nama)
+	// [CATATAN]: Filter pencarian (nama atau nomor antrean harian, mis. "42")
 	const keyword = searchKeyword.trim().toLowerCase();
 	if (keyword) {
-		result = result.filter((t) => t.nama?.toLowerCase().includes(keyword));
+		const nomorKeyword = /^\d{1,4}$/.test(keyword) ? Number(keyword) : null;
+		result = result.filter(
+			(t) =>
+				t.nama?.toLowerCase().includes(keyword) ||
+				(nomorKeyword !== null && t.nomor_harian === nomorKeyword)
+		);
 	}
 
 	// [CATATAN]: Filter metode bayar
@@ -78,6 +85,8 @@ function toHistoryItem(t: BukuKasRecord): HistoryItem {
 		id: t.id,
 		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
+		nomor_harian: t.nomor_harian ?? null,
+		tanggal_nomor: t.tanggal_nomor ?? null,
 		idempotency_key: t.idempotency_key,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',

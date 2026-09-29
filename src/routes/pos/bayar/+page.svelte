@@ -8,7 +8,7 @@
 	import { formatRupiah } from '$lib/utils/currency';
 	import { PAYMENT } from '$lib/constants/ui';
 	import { formatOrderDetails } from '$lib/utils/orderDetails';
-	import { formatOrderNumber } from '$lib/utils/orderNumber';
+	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import Banknote from '@lucide/svelte/icons/banknote';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ReceiptText from '@lucide/svelte/icons/receipt-text';
@@ -433,9 +433,13 @@
 			<div class="text-center text-xl font-black text-slate-900">
 				{s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!'}
 			</div>
-			{#if formatOrderNumber(s.transactionId)}
+			{#if formatNomorHarian(s.nomorPesanan)}
 				<div class="text-center text-sm font-extrabold tracking-wide text-pink-700">
-					No. Pesanan: {formatOrderNumber(s.transactionId)}
+					No. Pesanan: {formatNomorHarian(s.nomorPesanan)}
+				</div>
+			{:else if s.transactionQueuedOffline}
+				<div class="text-center text-sm font-extrabold tracking-wide text-amber-700">
+					No. Pesanan: menunggu sinkronisasi
 				</div>
 			{/if}
 			<div class="text-center text-xs leading-relaxed text-slate-600">

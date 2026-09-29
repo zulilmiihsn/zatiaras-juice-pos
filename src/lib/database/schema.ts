@@ -436,6 +436,8 @@ export const bukuKas = sqliteTable(
 		nama_pelanggan: text('nama_pelanggan'),
 		metode_bayar: text('metode_bayar'),
 		transaction_id: text('transaction_id'),
+		nomor_harian: integer('nomor_harian'),
+		tanggal_nomor: text('tanggal_nomor'),
 		idempotency_key: text('idempotency_key'),
 		request_fingerprint: text('request_fingerprint'),
 		receipt_snapshot: text('receipt_snapshot'),
@@ -469,6 +471,19 @@ export const bukuKas = sqliteTable(
 			table.id
 		),
 		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key),
+		uniqueIndex('idx_buku_kas_cabang_tanggal_nomor').on(
+			table.cabang_id,
+			table.tanggal_nomor,
+			table.nomor_harian
+		),
+		check(
+			'chk_buku_kas_nomor_harian',
+			sql`${table.nomor_harian} IS NULL OR ${table.nomor_harian} >= 1`
+		),
+		check(
+			'chk_buku_kas_nomor_pair',
+			sql`(${table.nomor_harian} IS NULL) = (${table.tanggal_nomor} IS NULL)`
+		),
 		check(
 			'chk_buku_kas_stock_policy_mode',
 			sql`${table.stock_policy_mode} IS NULL OR ${table.stock_policy_mode} IN ('tracked', 'ignored')`
@@ -492,6 +507,17 @@ export const bukuKas = sqliteTable(
 		check('chk_buku_kas_preparation_revision', sql`${table.preparation_revision} >= 0`),
 		check('chk_buku_kas_restored_from_archive', sql`${table.restored_from_archive} IN (0, 1)`)
 	]
+);
+
+/** Counter nomor antrean harian POS per cabang + tanggal WITA. Satu sumber alokasi. */
+export const posNomorHarian = sqliteTable(
+	'pos_nomor_harian',
+	{
+		cabang_id: text('cabang_id').notNull(),
+		tanggal: text('tanggal').notNull(),
+		terakhir: integer('terakhir').notNull().default(0)
+	},
+	(table) => [primaryKey({ columns: [table.cabang_id, table.tanggal] })]
 );
 
 export const posVoidMarkers = sqliteTable(

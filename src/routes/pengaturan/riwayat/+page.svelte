@@ -10,6 +10,7 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import { formatRupiah } from '$lib/utils/currency';
+	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import { buildReceiptHtml, loadReceiptSettings } from '$lib/utils/receiptPrint';
@@ -182,7 +183,7 @@
 			<input
 				type="text"
 				class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-				placeholder="Cari transaksi berdasarkan nama, nominal, atau catatan..."
+				placeholder="Cari transaksi berdasarkan nama, nomor, nominal, atau catatan..."
 				bind:value={searchKeyword}
 				oninput={fetchTransaksiHariIni}
 			/>
@@ -281,6 +282,11 @@
 					>
 						<!-- Info kiri -->
 						<div class="min-w-0 flex-1">
+							{#if trx.nomor_harian != null}
+								<div class="text-[11px] font-extrabold tracking-wide text-pink-600">
+									No. {formatNomorHarian(trx.nomor_harian)}
+								</div>
+							{/if}
 							<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
 								{trx.nama}
 							</div>

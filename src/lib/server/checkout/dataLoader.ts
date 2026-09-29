@@ -70,7 +70,8 @@ export async function getExistingByIdempotency(
 
 	return (await db
 		.prepare(
-			`SELECT id, transaction_id, nominal, jumlah, metode_bayar, request_fingerprint, receipt_snapshot, waktu
+			`SELECT id, transaction_id, nominal, jumlah, metode_bayar, request_fingerprint, receipt_snapshot, waktu,
+				nomor_harian, tanggal_nomor
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND idempotency_key = ?
 			 LIMIT 1`
@@ -85,6 +86,8 @@ export async function getExistingByIdempotency(
 		request_fingerprint?: string | null;
 		receipt_snapshot?: string | null;
 		waktu?: string | null;
+		nomor_harian?: number | null;
+		tanggal_nomor?: string | null;
 	} | null;
 }
 

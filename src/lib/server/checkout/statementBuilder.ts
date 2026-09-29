@@ -27,6 +27,9 @@ interface BuildStatementsParams {
 	createdAt: string;
 	idSesiToko: string | null;
 	idempotencyKey: string;
+	/** Nomor antrean harian (opsional = NULL untuk pemanggil legacy/test). */
+	nomorHarian?: number | null;
+	tanggalNomor?: string | null;
 	requestFingerprint?: string | null;
 	receiptSnapshot?: unknown;
 	session: { userId: string; username?: string };
@@ -54,6 +57,8 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 		createdAt,
 		idSesiToko,
 		idempotencyKey,
+		nomorHarian = null,
+		tanggalNomor = null,
 		requestFingerprint,
 		receiptSnapshot,
 		session,
@@ -94,13 +99,13 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 			.prepare(
 				`INSERT INTO buku_kas (
 					id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi,
-					nama_pelanggan, metode_bayar, transaction_id,
+					nama_pelanggan, metode_bayar, transaction_id, nomor_harian, tanggal_nomor,
 					${idempotencyAvailable ? 'idempotency_key, request_fingerprint, receipt_snapshot,' : ''}
 					stock_policy_mode, stock_policy_revision, stock_replay_disposition,
 					preparation_state, preparation_revision,
 					preparation_completed_at, preparation_completed_by,
 					restored_from_archive, id_sesi_toko, created_at, updated_at
-				) VALUES (?, ?, ?, 'pos', 'in', 'pendapatan_usaha', ?, ?, ?, ?, ?, ?,
+				) VALUES (?, ?, ?, 'pos', 'in', 'pendapatan_usaha', ?, ?, ?, ?, ?, ?, ?, ?,
 					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?, 'pending', 0, NULL, NULL, 0, ?, ?, ?)`
 			)
 			.bind(
@@ -113,6 +118,8 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				customerName,
 				paymentMethod,
 				transactionId,
+				nomorHarian,
+				tanggalNomor,
 				...(idempotencyAvailable
 					? [
 							idempotencyKey,

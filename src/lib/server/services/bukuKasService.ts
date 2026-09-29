@@ -72,8 +72,12 @@ async function getBukuKasQuery(
 			filters.push(or(eq(bukuKas.metode_bayar, 'qris'), eq(bukuKas.metode_bayar, 'non-tunai'))!);
 	}
 	if (filter.search) {
-		const q = `%${filter.search}%`;
-		filters.push(or(like(bukuKas.deskripsi, q), like(bukuKas.nama_pelanggan, q))!);
+		const keyword = filter.search.trim();
+		const q = `%${keyword}%`;
+		const clauses = [like(bukuKas.deskripsi, q), like(bukuKas.nama_pelanggan, q)];
+		// Kata kunci angka murni (mis. "42") juga cocok dengan nomor antrean harian.
+		if (/^\d{1,4}$/.test(keyword)) clauses.push(eq(bukuKas.nomor_harian, Number(keyword)));
+		filters.push(or(...clauses)!);
 	}
 	if (cursor) {
 		filters.push(

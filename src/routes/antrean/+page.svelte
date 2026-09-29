@@ -10,7 +10,7 @@
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import type { UiOrder } from '$lib/utils/orderQueueLocal';
-	import { formatOrderNumber } from '$lib/utils/orderNumber';
+	import { formatNomorHarian } from '$lib/utils/orderNumber';
 
 	const s = createOrderQueueState();
 	let selectedKey = $state<string | null>(null);
@@ -54,6 +54,14 @@
 
 	function isSyncing(card: UiOrder): boolean {
 		return Boolean(s.syncing[card.idempotency_key]);
+	}
+
+	/** Label nomor kartu: nomor resmi, atau penanda menunggu sinkron. */
+	function nomorLabel(card: UiOrder): string | null {
+		const nomor = formatNomorHarian(card.nomor_harian);
+		if (nomor) return `No. Pesanan: ${nomor}`;
+		if (card.unsynced) return 'No. Pesanan: menunggu sinkronisasi';
+		return null;
 	}
 </script>
 
@@ -181,9 +189,9 @@
 					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
-								{#if formatOrderNumber(card.idempotency_key)}
+								{#if nomorLabel(card)}
 									<div class="text-xs font-bold tracking-wide text-pink-700">
-										No. Pesanan: {formatOrderNumber(card.idempotency_key)}
+										{nomorLabel(card)}
 									</div>
 								{/if}
 								<div class="truncate text-base font-extrabold text-slate-900">
@@ -246,7 +254,7 @@
 									type="button"
 									class="min-h-[44px] cursor-pointer rounded-full px-4 text-sm font-bold text-pink-700 hover:bg-pink-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
 									onclick={() => (selectedKey = card.idempotency_key)}
-									aria-label={`Lihat detail pesanan ${card.nama_pelanggan || formatOrderNumber(card.idempotency_key) || 'tanpa nama'}`}
+									aria-label={`Lihat detail pesanan ${card.nama_pelanggan || formatNomorHarian(card.nomor_harian) || 'tanpa nama'}`}
 								>
 									Lihat detail
 								</button>
@@ -320,9 +328,9 @@
 >
 	{#if selectedCard}
 		<div class="py-4">
-			{#if formatOrderNumber(selectedCard.idempotency_key)}
+			{#if nomorLabel(selectedCard)}
 				<p class="text-sm font-bold text-pink-700">
-					No. Pesanan: {formatOrderNumber(selectedCard.idempotency_key)}
+					{nomorLabel(selectedCard)}
 				</p>
 			{/if}
 			<p class="mt-1 text-xs text-slate-500">

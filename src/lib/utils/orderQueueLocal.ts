@@ -17,6 +17,8 @@ export interface UiOrder {
 	idempotency_key: string;
 	transaction_id: string;
 	nominal: number | null;
+	/** Nomor antrean harian resmi. Null = antrean lokal belum sinkron. */
+	nomor_harian: number | null;
 	nama_pelanggan: string | null;
 	waktu: string;
 	preparation_state: OrderTarget;
@@ -118,6 +120,8 @@ export function buildLocalCardFromPending(
 		idempotency_key: key,
 		transaction_id: key,
 		nominal: Number.isFinite(amount) && amount >= 0 ? amount : null,
+		// Nomor resmi hanya ada sesudah server commit (saat replay sinkron).
+		nomor_harian: null,
 		nama_pelanggan:
 			request && typeof request.nama_pelanggan === 'string' && request.nama_pelanggan
 				? String(request.nama_pelanggan).slice(0, 60)
@@ -149,6 +153,10 @@ export function mergeQueueWithLocal(
 			transaction_id: String(item.transaction_id || key),
 			nominal:
 				item.nominal != null && Number.isFinite(Number(item.nominal)) ? Number(item.nominal) : null,
+			nomor_harian:
+				item.nomor_harian != null && Number.isInteger(Number(item.nomor_harian))
+					? Number(item.nomor_harian)
+					: null,
 			nama_pelanggan: item.nama_pelanggan ? String(item.nama_pelanggan).slice(0, 60) : null,
 			waktu: String(item.waktu),
 			preparation_state: item.preparation_state === 'done' ? 'done' : 'pending',

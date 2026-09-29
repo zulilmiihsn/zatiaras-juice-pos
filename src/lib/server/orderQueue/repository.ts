@@ -11,6 +11,8 @@ export interface OrderHeaderRow {
 	metode_bayar: string | null;
 	nominal: number;
 	jumlah: number;
+	nomor_harian: number | null;
+	tanggal_nomor: string | null;
 	preparation_state: PreparationState | null;
 	preparation_revision: number;
 	preparation_completed_at: string | null;
@@ -56,7 +58,7 @@ export async function getHeaderByIdempotency(
 	return (await db
 		.prepare(
 			`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-				nominal, jumlah, preparation_state, preparation_revision,
+				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
 				preparation_completed_at, preparation_completed_by, revision
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND sumber = 'pos' AND idempotency_key = ?
@@ -103,7 +105,7 @@ export async function listHeaders(
 		const { results = [] } = (await db
 			.prepare(
 				`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-					nominal, jumlah, preparation_state, preparation_revision,
+					nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
 					preparation_completed_at, preparation_completed_by, revision
 				 FROM buku_kas
 				 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending'
@@ -118,7 +120,7 @@ export async function listHeaders(
 	const { results = [] } = (await db
 		.prepare(
 			`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-				nominal, jumlah, preparation_state, preparation_revision,
+				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
 				preparation_completed_at, preparation_completed_by, revision
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'done'

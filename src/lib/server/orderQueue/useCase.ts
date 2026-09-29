@@ -56,6 +56,11 @@ function toItem(header: OrderHeaderRow, details: OrderQueueItem['items']): Order
 		metode_bayar: header.metode_bayar ? String(header.metode_bayar) : null,
 		nominal: Number(header.nominal || 0),
 		jumlah: Number(header.jumlah || 0),
+		nomor_harian:
+			header.nomor_harian != null && Number.isInteger(Number(header.nomor_harian))
+				? Number(header.nomor_harian)
+				: null,
+		tanggal_nomor: header.tanggal_nomor ? String(header.tanggal_nomor) : null,
 		preparation_state: header.preparation_state as PreparationState,
 		preparation_revision: Number(header.preparation_revision ?? 0),
 		preparation_completed_at: header.preparation_completed_at

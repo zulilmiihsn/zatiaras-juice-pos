@@ -116,13 +116,14 @@ export class EscPosBuilder {
 	}
 }
 
-import { formatOrderNumber } from './orderNumber';
+import { formatNomorHarian } from './orderNumber';
 
 /** Helper untuk menyusun data struk transaksi kasir menjadi ESC/POS bytes */
 export function buildReceiptEscPos(
 	data: {
 		storeName: string;
-		idempotencyKey?: string | null;
+		/** Nomor antrean harian resmi. Null = transaksi offline menunggu sinkron. */
+		nomorHarian?: number | null;
 		address?: string;
 		phone?: string;
 		instagram?: string;
@@ -159,8 +160,9 @@ export function buildReceiptEscPos(
 
 	// Info Pelanggan & Waktu
 	builder.align('left');
-	const orderNumber = formatOrderNumber(data.idempotencyKey);
-	if (orderNumber) builder.bold(true).line(`No. Pesanan: ${orderNumber}`).bold(false);
+	const nomor =
+		formatNomorHarian(data.nomorHarian) ?? (data.queuedOffline ? 'menunggu sinkronisasi' : null);
+	if (nomor) builder.bold(true).line(`No. Pesanan: ${nomor}`).bold(false);
 	const customer = data.customerName || 'Pelanggan';
 	const dateStr = data.dateTime || new Date().toLocaleString('id-ID');
 	builder.twoColumn(customer, dateStr);

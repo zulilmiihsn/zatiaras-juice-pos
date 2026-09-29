@@ -35,6 +35,7 @@ const TENANT_TABLES = new Set([
 	'audit_log_quarantine',
 	'rate_limits',
 	'pos_void_markers',
+	'pos_nomor_harian',
 	'error_events',
 	'request_metrics',
 	'profil',

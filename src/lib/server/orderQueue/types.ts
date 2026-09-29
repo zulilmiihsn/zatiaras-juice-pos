@@ -22,6 +22,9 @@ export interface OrderQueueItem {
 	metode_bayar: string | null;
 	nominal: number;
 	jumlah: number;
+	/** Nomor antrean harian. Null untuk baris legacy atau antrean lokal belum sinkron. */
+	nomor_harian: number | null;
+	tanggal_nomor: string | null;
 	preparation_state: PreparationState;
 	preparation_revision: number;
 	preparation_completed_at: string | null;

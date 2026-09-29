@@ -84,9 +84,7 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		transactionId = payload.data?.transaction_id || '';
 		expect(transactionId).not.toBe('');
 		await expect(page.getByText('Transaksi Berhasil!', { exact: true })).toBeVisible();
-		const orderLabel = await page
-			.getByText(/^No\. Pesanan: [A-F0-9]{6}-[A-F0-9]{6}$/)
-			.textContent();
+		const orderLabel = await page.getByText(/^No\. Pesanan: \d{3,}$/).textContent();
 		expect(orderLabel).toBeTruthy();
 
 		// Masuk Antrean dari modal sukses.

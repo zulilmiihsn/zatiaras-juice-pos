@@ -3,6 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { formatRupiah } from '$lib/utils/currency';
+	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import DropdownSheet from '$lib/components/shared/dropdownSheet.svelte';
 	import X from '@lucide/svelte/icons/x';
 	import Printer from '@lucide/svelte/icons/printer';
@@ -193,6 +194,21 @@
 						{formatDateTime(transaksi.waktu)}
 					</div>
 				</div>
+
+				{#if transaksi.nomor_harian != null}
+					<!-- Nomor Pesanan Harian -->
+					<div class="rounded-2xl border border-pink-100/90 bg-[#fdf8fa] p-3 transition-colors">
+						<div class="mb-1 flex items-center gap-1.5 text-pink-500">
+							<Receipt class="h-3.5 w-3.5 stroke-[2.2]" />
+							<span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase"
+								>Nomor Pesanan</span
+							>
+						</div>
+						<div class="text-xs font-bold text-slate-800 sm:text-sm">
+							No. {formatNomorHarian(transaksi.nomor_harian)}
+						</div>
+					</div>
+				{/if}
 
 				<!-- Metode Pembayaran (Readonly vs Editable) -->
 				<div class="rounded-2xl border border-pink-100/90 bg-[#fdf8fa] p-3 transition-colors">

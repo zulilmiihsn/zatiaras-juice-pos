@@ -71,6 +71,8 @@ interface CheckoutResponse {
 	data?: {
 		buku_kas_id: string;
 		transaction_id: string;
+		nomor_harian?: number | null;
+		tanggal_nomor?: string | null;
 		total_amount: number;
 		total_qty: number;
 		change: number;
@@ -90,6 +92,8 @@ export function createBayarState() {
 	let showQrisWarning = $state(false);
 	let transactionId = $state('');
 	let transactionCode = $state('');
+	/** Nomor antrean harian resmi; null = offline menunggu sinkron. */
+	let nomorPesanan = $state<number | null>(null);
 	let transactionQueuedOffline = $state(false);
 	let showErrorNotification = $state(false);
 	let errorNotificationMessage = $state('');
@@ -191,6 +195,7 @@ export function createBayarState() {
 		cart = [...posCart.items];
 		transactionId = crypto.randomUUID();
 		transactionCode = generateTransactionCode();
+		nomorPesanan = null;
 		cekSesiTokoAktif();
 		fetchPengaturanStruk();
 	}
@@ -491,6 +496,7 @@ export function createBayarState() {
 				}
 				committedReceipt = result.data.receipt;
 				quotedTotal = result.data.total_amount;
+				nomorPesanan = result.data.nomor_harian ?? null;
 			} catch (error) {
 				if (error instanceof TypeError || !navigator.onLine) {
 					try {
@@ -651,7 +657,7 @@ export function createBayarState() {
 
 		const receiptInput = {
 			settings: pengaturanStruk,
-			idempotencyKey: transactionId,
+			nomorHarian: nomorPesanan,
 			items: receiptItems,
 			customerName,
 			total: committedReceipt?.total_amount ?? totalHarga,
@@ -667,7 +673,7 @@ export function createBayarState() {
 		const html = buildSaleReceiptHtml(receiptInput);
 		const escposData = {
 			storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
-			idempotencyKey: transactionId,
+			nomorHarian: nomorPesanan,
 			address: pengaturanStruk?.alamat,
 			phone: pengaturanStruk?.telepon,
 			instagram: pengaturanStruk?.instagram,
@@ -792,6 +798,9 @@ export function createBayarState() {
 		},
 		set transactionCode(v) {
 			transactionCode = v;
+		},
+		get nomorPesanan() {
+			return nomorPesanan;
 		},
 		get transactionQueuedOffline() {
 			return transactionQueuedOffline;

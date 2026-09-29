@@ -38,6 +38,7 @@ import {
 } from './dataLoader';
 import { computeItemFinancials } from './financials';
 import { buildCheckoutStatements } from './statementBuilder';
+import { allocateNomorHarian } from './nomorHarian';
 import { computeTransactionFingerprint } from './fingerprint';
 import type { StockDeductions, IngredientDeductions } from './types';
 import { PosPricingTokenError, verifyPosPricingToken } from '../posPricingToken';
@@ -100,6 +101,9 @@ export interface CheckoutResultData {
 	total_amount: number;
 	total_qty: number;
 	change: number;
+	/** Nomor antrean harian (001+). Null hanya untuk baris legacy pra-migrasi. */
+	nomor_harian: number | null;
+	tanggal_nomor: string | null;
 	receipt: unknown;
 }
 
@@ -406,6 +410,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 					paymentMethod === 'tunai' && existingCashReceived > 0
 						? existingCashReceived - existing.nominal
 						: 0,
+				nomor_harian: existing.nomor_harian ?? null,
+				tanggal_nomor: existing.tanggal_nomor ?? null,
 				receipt
 			}
 		};
@@ -616,6 +622,11 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			})
 		: null;
 
+	// Nomor antrean harian dialokasi paling akhir sebelum commit: request yang
+	// gagal validasi di atas tidak menghabiskan nomor.
+	const salesDate = getWitaSalesDate(createdAt);
+	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
+
 	const statements = buildCheckoutStatements({
 		db,
 		branch,
@@ -627,12 +638,14 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		totalHpp,
 		paymentMethod,
 		customerName,
-		salesDate: getWitaSalesDate(createdAt),
+		salesDate,
 		bukuKasId,
 		transactionId,
 		createdAt,
 		idSesiToko,
 		idempotencyKey,
+		nomorHarian,
+		tanggalNomor: salesDate,
 		requestFingerprint,
 		receiptSnapshot,
 		session,
@@ -684,6 +697,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 					total_qty: duplicate.jumlah,
 					change:
 						paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - duplicate.nominal : 0,
+					nomor_harian: duplicate.nomor_harian ?? null,
+					tanggal_nomor: duplicate.tanggal_nomor ?? null,
 					receipt,
 					committed_at: duplicate.waktu || new Date().toISOString()
 				}
@@ -756,6 +771,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 				paymentMethod,
 				totalQty,
 				itemCount: items.length,
+				nomorHarian,
+				tanggalNomor: salesDate,
 				pricingSource: isOfflineReplay ? 'offline_signed_catalog' : 'online_quote',
 				queuedAt: isOfflineReplay ? Number(body.queued_at) : null,
 				currentCatalogTotal,
@@ -804,6 +821,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			total_amount: totalAmount,
 			total_qty: totalQty,
 			change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,
+			nomor_harian: nomorHarian,
+			tanggal_nomor: salesDate,
 			receipt: {
 				items: items.map((item) => {
 					let tambahan: unknown = [];

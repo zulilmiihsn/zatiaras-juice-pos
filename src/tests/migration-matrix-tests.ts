@@ -105,7 +105,8 @@ const expectedTables = [
 	'stock_reconciliations',
 	'stock_reconciliation_items',
 	'offline_stock_reviews',
-	'stock_feature_rollout'
+	'stock_feature_rollout',
+	'pos_nomor_harian'
 ];
 for (const expected of expectedTables) {
 	assert.equal(
@@ -140,10 +141,46 @@ for (const column of [
 	'preparation_revision',
 	'preparation_completed_at',
 	'preparation_completed_by',
-	'restored_from_archive'
+	'restored_from_archive',
+	'nomor_harian',
+	'tanggal_nomor'
 ]) {
 	assert.ok(bukuKasColumns.includes(column), `buku_kas must contain ${column}`);
 }
+// 0036: counter harian atomik + guard pasangan nomor/tanggal.
+const first = db
+	.prepare(
+		`INSERT INTO pos_nomor_harian (cabang_id, tanggal, terakhir) VALUES ('samarinda', '2026-09-29', 1)
+		 ON CONFLICT(cabang_id, tanggal) DO UPDATE SET terakhir = terakhir + 1
+		 RETURNING terakhir`
+	)
+	.get() as { terakhir?: number };
+assert.equal(first?.terakhir, 1);
+const second = db
+	.prepare(
+		`INSERT INTO pos_nomor_harian (cabang_id, tanggal, terakhir) VALUES ('samarinda', '2026-09-29', 1)
+		 ON CONFLICT(cabang_id, tanggal) DO UPDATE SET terakhir = terakhir + 1
+		 RETURNING terakhir`
+	)
+	.get() as { terakhir?: number };
+assert.equal(second?.terakhir, 2);
+const otherDay = db
+	.prepare(
+		`INSERT INTO pos_nomor_harian (cabang_id, tanggal, terakhir) VALUES ('samarinda', '2026-09-30', 1)
+		 ON CONFLICT(cabang_id, tanggal) DO UPDATE SET terakhir = terakhir + 1
+		 RETURNING terakhir`
+	)
+	.get() as { terakhir?: number };
+assert.equal(otherDay?.terakhir, 1, 'tanggal baru reset ke 1');
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO buku_kas (
+			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
+			nomor_harian, tanggal_nomor
+		) VALUES ('bad-nomor', 'samarinda', '2026-09-29', 'pos', 'in',
+			'pendapatan_usaha', 1, 'bad-nomor', 1, NULL)`),
+	/INVALID_NOMOR_HARIAN/
+);
 assert.throws(
 	() =>
 		db.exec(`INSERT INTO buku_kas (

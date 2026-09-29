@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
-import { formatOrderNumber } from '../lib/utils/orderNumber.js';
+import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
 import { isTodayWita } from '../lib/utils/dateTime.js';
@@ -18,6 +18,8 @@ const settings: ReceiptSettings = {
 const history: HistoryItem = {
 	id: 'history-1',
 	transaction_id: 'transaction-1',
+	nomor_harian: 7,
+	tanggal_nomor: '2026-06-29',
 	idempotency_key: '12345678-1234-4234-8234-abcdef123456',
 	waktu: '2026-06-29T08:30:00.000Z',
 	nama: 'Transaksi UAT',
@@ -38,7 +40,7 @@ const reprint = buildReceiptHtml(history, settings, [
 
 const sale = buildSaleReceiptHtml({
 	settings,
-	idempotencyKey: history.idempotency_key,
+	nomorHarian: history.nomor_harian,
 	items: [
 		{
 			product: { nama: 'Jus UAT', harga: 10_000 },
@@ -65,10 +67,28 @@ assert.equal(isTodayWita('2026-09-29T16:00:00.000Z', nowAtWitaMidnight), true);
 assert.equal(isTodayWita('2026-09-29T15:59:59.999Z', nowAtWitaMidnight), false);
 assert.equal(isTodayWita('invalid', nowAtWitaMidnight), false);
 
-assert.equal(formatOrderNumber(history.idempotency_key), 'ABCDEF-123456');
-assert.equal(formatOrderNumber('not-a-uuid'), null, 'kunci lama tidak ditebak menjadi nomor');
-assert.ok(reprint.includes('No. Pesanan: ABCDEF-123456'), 'cetak ulang cocok dengan antrean');
-assert.ok(sale.includes('No. Pesanan: ABCDEF-123456'), 'struk awal cocok dengan antrean offline');
+assert.equal(formatNomorHarian(history.nomor_harian), '007');
+assert.equal(formatNomorHarian(1000), '1000', 'lewat 999 lanjut tanpa blokir');
+assert.equal(formatNomorHarian(0), null);
+assert.equal(formatNomorHarian(null), null);
+assert.ok(reprint.includes('No. Pesanan: 007'), 'cetak ulang memuat nomor harian');
+assert.ok(sale.includes('No. Pesanan: 007'), 'struk awal memuat nomor harian');
+const offlineSale = buildSaleReceiptHtml({
+	settings,
+	nomorHarian: null,
+	items: [],
+	customerName: 'Pelanggan UAT',
+	total: 25_000,
+	paymentMethod: 'tunai',
+	cashReceived: 25_000,
+	change: 0,
+	queuedOffline: true,
+	printedAt: new Date('2026-06-29T08:30:00.000Z')
+});
+assert.ok(
+	offlineSale.includes('No. Pesanan: menunggu sinkronisasi'),
+	'struk offline tanpa nomor resmi menandai menunggu sinkron'
+);
 const pending = {
 	type: 'pos_transaction',
 	branch: 'samarinda',
@@ -77,7 +97,7 @@ const pending = {
 	summary: { created_at: history.waktu }
 };
 const localCard = buildLocalCardFromPending(pending, 'samarinda');
-assert.equal(formatOrderNumber(localCard?.idempotency_key), 'ABCDEF-123456');
+assert.equal(localCard?.nomor_harian, null, 'kartu lokal belum punya nomor resmi');
 assert.equal(localCard?.nominal, 25000, 'ringkasan offline memakai total struk tersimpan');
 assert.equal(
 	buildLocalCardFromPending(
@@ -98,6 +118,8 @@ const synced = mergeQueueWithLocal(
 			metode_bayar: 'tunai',
 			nominal: 25000,
 			jumlah: 1,
+			nomor_harian: 7,
+			tanggal_nomor: '2026-06-29',
 			preparation_state: 'pending',
 			preparation_revision: 0,
 			preparation_completed_at: null,
@@ -111,19 +133,19 @@ const synced = mergeQueueWithLocal(
 );
 assert.equal(synced.length, 1, 'sinkronisasi tidak membuat pesanan kedua');
 assert.equal(synced[0].nominal, 25000, 'ringkasan server memakai total transaksi');
-assert.equal(formatOrderNumber(synced[0].idempotency_key), 'ABCDEF-123456');
+assert.equal(synced[0].nomor_harian, 7, 'kartu sinkron memakai nomor resmi server');
 assert.ok(
 	new TextDecoder()
 		.decode(
 			buildReceiptEscPos({
 				storeName: 'Toko UAT',
-				idempotencyKey: history.idempotency_key,
+				nomorHarian: history.nomor_harian,
 				items: [],
 				total: 25000,
 				paymentMethod: 'tunai'
 			})
 		)
-		.includes('No. Pesanan: ABCDEF-123456'),
+		.includes('No. Pesanan: 007'),
 	'printer ESC/POS memuat nomor yang sama'
 );
 

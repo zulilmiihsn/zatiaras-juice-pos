@@ -292,6 +292,84 @@ try {
 		1
 	);
 
+	// Q04b: nomor antrean harian: transaksi pertama = 1, retry memakai nomor sama.
+	assert.equal(checkoutResult.data.nomor_harian, 1);
+	assert.equal(retryResult.data.nomor_harian, 1);
+	assert.equal(retryResult.data.tanggal_nomor, checkoutResult.data.tanggal_nomor);
+	const storedNomor = (await db
+		.prepare(
+			'SELECT nomor_harian, tanggal_nomor FROM buku_kas WHERE idempotency_key = ? AND cabang_id = ?'
+		)
+		.bind('antrean-checkout-e2e-0001', 'samarinda')
+		.first()) as { nomor_harian?: number; tanggal_nomor?: string } | null;
+	assert.equal(storedNomor?.nomor_harian, 1);
+	assert.equal(storedNomor?.tanggal_nomor, checkoutResult.data.tanggal_nomor);
+
+	// Q04c: 10 checkout paralel mendapat nomor unik berurutan (alokasi atomik).
+	const parallelResults = await Promise.all(
+		Array.from({ length: 10 }, (_, index) =>
+			executeCheckout({
+				db,
+				branch: samarinda,
+				session: { userId: 'owner-antrean', username: 'owner', role: 'pemilik' },
+				platform: { env: checkoutEnv } as App.Platform,
+				rawBody: {
+					idempotency_key: `antrean-paralel-${index}`,
+					metode_bayar: 'tunai',
+					cash_received: 15000,
+					items: [checkoutSource],
+					quote_token: checkoutQuote
+				}
+			})
+		)
+	);
+	assert.deepEqual(
+		parallelResults.map((r) => r.data.nomor_harian).sort((a, b) => Number(a) - Number(b)),
+		[2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+	);
+
+	// Q04d: counter terisolasi per cabang: cabang lain mulai dari 1 di tanggal sama.
+	await db.batch([
+		db.prepare(
+			`INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok, lacak_bahan, is_active)
+			 VALUES ('antrean-produk-bpp', 'balikpapan', 'Jus Antrean', 15000, 0, 0, 0, 1)`
+		)
+	]);
+	const balikpapanSource = { product_id: 'antrean-produk-bpp', jumlah: 1 };
+	const balikpapanQuote = await signPosPricingToken(checkoutEnv, {
+		kind: 'checkout_quote',
+		branch: 'balikpapan',
+		data: {
+			items: [
+				{
+					source: balikpapanSource,
+					product_name: 'Jus Antrean',
+					product_price: 15000,
+					add_ons: [],
+					line_total: 15000
+				}
+			],
+			total_amount: 15000,
+			total_qty: 1
+		},
+		ttlMs: 60_000
+	});
+	const balikpapanResult = await executeCheckout({
+		db,
+		branch: branchContext('balikpapan'),
+		session: { userId: 'owner-antrean', username: 'owner', role: 'pemilik' },
+		platform: { env: checkoutEnv } as App.Platform,
+		rawBody: {
+			idempotency_key: 'antrean-cabang-0001',
+			metode_bayar: 'tunai',
+			cash_received: 15000,
+			items: [balikpapanSource],
+			quote_token: balikpapanQuote
+		}
+	});
+	assert.equal(balikpapanResult.data.nomor_harian, 1);
+	assert.equal(balikpapanResult.data.tanggal_nomor, checkoutResult.data.tanggal_nomor);
+
 	// Q05: daftar, urutan, snapshot, pagination, dan isolasi cabang.
 	await seedQueueRow({
 		bukuKasId: 'bk-old',
@@ -362,6 +440,12 @@ try {
 	assert.equal(oldCard?.items[0]?.nama, 'Jus Mangga (Jumbo)');
 	assert.equal(oldCard?.items[0]?.gula, 'kurang');
 	assert.equal(oldCard?.items[0]?.catatan, 'tanpa es batu');
+	// Nomor resmi terbawa ke daftar; baris seed lama (NULL) tetap tampil tanpa nomor.
+	const checkoutCard = pendingPage.items.find(
+		(i) => i.idempotency_key === 'antrean-checkout-e2e-0001'
+	);
+	assert.equal(checkoutCard?.nomor_harian, 1);
+	assert.equal(oldCard?.nomor_harian, null);
 	await db
 		.prepare(
 			"UPDATE produk SET nama = 'Berubah' WHERE id = 'antrean-produk' AND cabang_id = 'samarinda'"
