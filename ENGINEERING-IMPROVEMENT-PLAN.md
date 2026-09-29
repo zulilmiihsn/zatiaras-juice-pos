@@ -1064,7 +1064,33 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
-### Nomor pesanan dan ringkasan Antrean 29 Sep 2026 — LIVE
+### Nomor antrean harian 29 Sep 2026 — LIVE (001-999 per cabang, reset WITA)
+
+- SHA aplikasi `b623bc67b16d9aa7ca45abcf79e4c9814b24f105`. Nomor `001`–`999`
+  per `(cabang, tanggal WITA)`, reset tiap tanggal baru, lanjut `1000+` tanpa
+  blokir. Alokasi atomik satu statement (`pos_nomor_harian` upsert+RETURNING)
+  - UNIQUE jaring pengaman; retry idempoten memakai nomor sama; gap hanya dari
+    transaksi gagal/void (tidak dipakai ulang). Offline tampil "menunggu
+    sinkronisasi" sampai replay commit; cetak ulang selalu memuat nomor resmi.
+    Nomor tampil di modal bayar, Antrean (belum+selesai+dialog), struk HTML/ESC-POS,
+    kartu + detail + pencarian riwayat ("42" cocok nomor 42).
+- Migrasi `0036_pos_nomor_harian` (aditif: 2 kolom nullable + tabel counter +
+  unique index + pair guard). Backup 3 shard + manifest verified sebelum apply;
+  terapan per shard berurutan dan terverifikasi (2 kolom, tabel, index,
+  2 trigger; jumlah `pengaturan` tak berubah). Tanpa migrasi destruktif.
+- `test:release` lokal lulus; CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36568497585
+  (E2E 39/39). Artifact `release-b623bc6…` lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36569559451
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36569675216.
+- Realtime Worker version `6dbf2df1-3f26-4869-9106-0232dc4732e0`; Pages
+  `https://75cde86f.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+- Smoke kasir nyata (checkout tunai/non-tunai, antrean offline, printer fisik
+  per cabang) tetap tugas operator; verifikasi ini sebatas CI + HTTP publik.
+
+### Nomor pesanan dan ringkasan Antrean 29 Sep 2026 — LIVE (superseded: UUID pendek)
 
 - SHA aplikasi `2c0d524161927e9684be2f93f87018240660021d` (fitur
   `abcbee3` + perbaikan Escape `2c0d524`). Nomor pesanan dari UUID idempotency
