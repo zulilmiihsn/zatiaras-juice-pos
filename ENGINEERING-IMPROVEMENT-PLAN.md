@@ -1064,6 +1064,27 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Nomor pesanan dan ringkasan Antrean 29 Sep 2026 — LIVE
+
+- SHA aplikasi `2c0d524161927e9684be2f93f87018240660021d` (fitur
+  `abcbee3` + perbaikan Escape `2c0d524`). Nomor pesanan dari UUID idempotency
+  sama pada modal bayar, Antrean, struk awal dan cetak ulang, termasuk replay
+  offline. Kartu Belum selesai tetap menampilkan item dan tanggal kontekstual
+  WITA; kartu Selesai menampilkan ringkasan, detail lewat dialog.
+- `test:release` lokal lulus (39/39 browser); CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36558501193.
+  Artifact `release-2c0d524161927e9684be2f93f87018240660021d` diverifikasi
+  dalam dry-run https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36559111647
+  dan deploy https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36559233509.
+- Backup ketiga D1 tersimpan di luar workspace, manifest verified dan restore
+  drill in-memory per shard PASS. Tidak ada perubahan schema/migrasi.
+  Realtime Worker version `6245bcb8-c52e-4160-ab7b-fa4496b11350`;
+  Pages `https://11f77227.zatiaraspos.pages.dev`. Alias
+  `https://zatiaraspos.pages.dev/login` dan deployment sama-sama 200; lima
+  aset rujukan HTML masing-masing 200 dengan MIME JS/CSS yang benar.
+- Smoke login, pembayaran, antrean offline, dan printer fisik di kios tiap
+  cabang belum dibuktikan operator; verifikasi ini sebatas CI dan HTTP publik.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
