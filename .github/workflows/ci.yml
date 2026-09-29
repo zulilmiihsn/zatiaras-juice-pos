@@ -186,6 +186,9 @@ jobs:
           pnpm test:stock-offline-review
           pnpm test:stock-write-guards
 
+      - name: Run Antrean Suite
+        run: pnpm test:antrean
+
       - name: Run Migration Matrix Suite
         run: pnpm test:migration-matrix
 

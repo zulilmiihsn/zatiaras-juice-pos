@@ -479,10 +479,14 @@ test.describe('Stock Monitoring Toggle', () => {
 				Math.abs(kasirBox!.x + kasirBox!.width / 2 - (navBox!.x + navBox!.width / 2))
 			).toBeLessThanOrEqual(2);
 		}
-		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeVisible();
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toHaveCount(0);
+		await expect(nav.getByRole('link', { name: 'Antrean' })).toBeVisible();
 		await expect(nav.getByRole('link')).toHaveCount(5);
-		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Laporan');
-		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Pengaturan');
+		await expect(nav.getByRole('link').nth(0)).toHaveAttribute('aria-label', 'Beranda');
+		await expect(nav.getByRole('link').nth(1)).toHaveAttribute('aria-label', 'Catat');
+		await expect(nav.getByRole('link').nth(2)).toHaveAttribute('aria-label', 'Kasir');
+		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Antrean');
+		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Laporan');
 	});
 
 	test('tracked mode keeps Stok in the navigation', async ({ page }) => {
@@ -491,9 +495,15 @@ test.describe('Stock Monitoring Toggle', () => {
 		await gotoHydrated(page, '/', 'text=Buka Kasir');
 		const nav = page.locator('nav').last();
 		await expect(nav.getByRole('link', { name: 'Stok' })).toBeVisible();
-		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toHaveCount(0);
-		await expect(nav.getByRole('link')).toHaveCount(5);
-		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Stok');
-		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Laporan');
+		await expect(nav.getByRole('link', { name: 'Antrean' })).toBeVisible();
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeVisible();
+		await expect(nav.getByRole('link')).toHaveCount(7);
+		await expect(nav.getByRole('link').nth(0)).toHaveAttribute('aria-label', 'Beranda');
+		await expect(nav.getByRole('link').nth(1)).toHaveAttribute('aria-label', 'Catat');
+		await expect(nav.getByRole('link').nth(2)).toHaveAttribute('aria-label', 'Antrean');
+		await expect(nav.getByRole('link').nth(3)).toHaveAttribute('aria-label', 'Kasir');
+		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Stok');
+		await expect(nav.getByRole('link').nth(5)).toHaveAttribute('aria-label', 'Laporan');
+		await expect(nav.getByRole('link').nth(6)).toHaveAttribute('aria-label', 'Pengaturan');
 	});
 });

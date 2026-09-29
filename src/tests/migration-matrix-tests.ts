@@ -136,10 +136,23 @@ for (const column of [
 	'stock_policy_mode',
 	'stock_policy_revision',
 	'stock_replay_disposition',
+	'preparation_state',
+	'preparation_revision',
+	'preparation_completed_at',
+	'preparation_completed_by',
 	'restored_from_archive'
 ]) {
 	assert.ok(bukuKasColumns.includes(column), `buku_kas must contain ${column}`);
 }
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO buku_kas (
+			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
+			stock_policy_mode, stock_policy_revision, preparation_state
+		) VALUES ('bad-prep', 'samarinda', '2026-09-24', 'pos', 'in',
+			'pendapatan_usaha', 1, 'bad-prep', 'tracked', 0, 'cooking')`),
+	/(?:INVALID_PREPARATION_STATE|CHECK constraint failed)/
+);
 
 db.exec(`
 	INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok) VALUES
