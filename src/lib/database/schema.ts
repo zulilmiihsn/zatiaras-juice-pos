@@ -444,6 +444,10 @@ export const bukuKas = sqliteTable(
 		stock_replay_disposition: text('stock_replay_disposition', {
 			enum: ['normal', 'stale_to_ignored', 'owner_approved_current', 'owner_approved_after_recount']
 		}),
+		preparation_state: text('preparation_state', { enum: ['pending', 'done'] }),
+		preparation_revision: integer('preparation_revision').notNull().default(0),
+		preparation_completed_at: text('preparation_completed_at'),
+		preparation_completed_by: text('preparation_completed_by'),
 		restored_from_archive: integer('restored_from_archive', { mode: 'boolean' })
 			.notNull()
 			.default(false),
@@ -458,6 +462,12 @@ export const bukuKas = sqliteTable(
 		index('idx_buku_kas_branch_waktu_id').on(table.cabang_id, table.waktu, table.id),
 		index('idx_buku_kas_branch_transaction').on(table.cabang_id, table.transaction_id),
 		index('idx_buku_kas_branch_sesi').on(table.cabang_id, table.id_sesi_toko),
+		index('idx_buku_kas_branch_preparation').on(
+			table.cabang_id,
+			table.preparation_state,
+			table.waktu,
+			table.id
+		),
 		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key),
 		check(
 			'chk_buku_kas_stock_policy_mode',
@@ -475,6 +485,11 @@ export const bukuKas = sqliteTable(
 			'chk_buku_kas_stock_replay_disposition',
 			sql`${table.stock_replay_disposition} IS NULL OR ${table.stock_replay_disposition} IN ('normal', 'stale_to_ignored', 'owner_approved_current', 'owner_approved_after_recount')`
 		),
+		check(
+			'chk_buku_kas_preparation_state',
+			sql`${table.preparation_state} IS NULL OR ${table.preparation_state} IN ('pending', 'done')`
+		),
+		check('chk_buku_kas_preparation_revision', sql`${table.preparation_revision} >= 0`),
 		check('chk_buku_kas_restored_from_archive', sql`${table.restored_from_archive} IN (0, 1)`)
 	]
 );

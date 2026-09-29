@@ -246,6 +246,13 @@
 			"when": 1790553600000,
 			"tag": "0034_stock_feature_rollout",
 			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "6",
+			"when": 1790640000000,
+			"tag": "0035_order_preparation",
+			"breakpoints": true
 		}
 	]
 }
