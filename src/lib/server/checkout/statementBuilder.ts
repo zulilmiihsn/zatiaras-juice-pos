@@ -97,9 +97,11 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 					nama_pelanggan, metode_bayar, transaction_id,
 					${idempotencyAvailable ? 'idempotency_key, request_fingerprint, receipt_snapshot,' : ''}
 					stock_policy_mode, stock_policy_revision, stock_replay_disposition,
+					preparation_state, preparation_revision,
+					preparation_completed_at, preparation_completed_by,
 					restored_from_archive, id_sesi_toko, created_at, updated_at
 				) VALUES (?, ?, ?, 'pos', 'in', 'pendapatan_usaha', ?, ?, ?, ?, ?, ?,
-					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?, 0, ?, ?, ?)`
+					${idempotencyAvailable ? '?, ?, ?,' : ''} ?, ?, ?, 'pending', 0, NULL, NULL, 0, ?, ?, ?)`
 			)
 			.bind(
 				bukuKasId,
