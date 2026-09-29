@@ -14,5 +14,7 @@ overrides:
   cookie@<0.7.0: 0.7.2
   # fast-uri dinaikkan ke 3.1.8 (GHSA-qw65-cvwx-89v3 + GHSA-58mr-gqgx-xq4g, gate audit CI).
   fast-uri@<3.1.8: 3.1.8
+  # undici dinaikkan ke 7.29.1 (GHSA-rfgv-xxqx-mfg5 + GHSA-w293-vg96-wgc3, gate audit CI).
+  undici@<7.29.1: 7.29.1
   postcss-selector-parser@<7.1.3: 7.1.3
   serialize-javascript@<7.0.5: 7.0.5
