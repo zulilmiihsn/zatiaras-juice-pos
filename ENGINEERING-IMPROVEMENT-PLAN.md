@@ -1064,6 +1064,29 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Search antrean + fix audit undici 30 Sep 2026 — LIVE (app-only)
+
+- Kolom pencarian di Antrean (nama pelanggan atau nomor harian, mis. "42")
+  menyaring daftar yang sudah dimuat — tetap berfungsi offline. Fungsi murni
+  `filterQueueOrders` teruji unit; E2E mencakup cari nama, nomor, hasil kosong,
+  dan hapus pencarian. SHA `c4d4b8f2` (fitur) + `cd22110` (deps).
+- CI sempat merah BUKAN karena kode: audit menemukan advisory high baru
+  `undici<7.29.1` via wrangler>miniflare (GHSA-rfgv-xxqx-mfg5 +
+  GHSA-w293-vg96-wgc3). Perbaikan mengikuti preseden fast-uri: override
+  `undici@<7.29.1: 7.29.1` di pnpm-workspace.yaml; audit high bersih,
+  unit hijau pasca-bump.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36639367146
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36640265943
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36640466495.
+- Realtime Worker version `bf59630d-ba09-4d22-8865-e1d4e0783d2c`; Pages
+  `https://1d8d8d7a.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+- Catatan lokal: E2E antrean gagal 1× di workstation (redirect login lambat,
+  mesin terbebani); E2E lokal bukan gate, CI runner bersih yang mengadili.
+
 ### Label Indonesia gula/es 30 Sep 2026 — LIVE (app-only)
 
 - Satu mapper kanonik `formatLevelLabel` (`no`→Tanpa, `less`→Sedikit, `normal`
