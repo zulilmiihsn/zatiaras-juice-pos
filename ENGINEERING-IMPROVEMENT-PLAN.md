@@ -969,8 +969,16 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
 ### Antrean pesanan 29 Sep 2026 — LIVE (dieksekusi agen atas otorisasi pemilik)
 
 - SHA aplikasi `9ed47e10cf9396a78894a2e45e8fa667e274a5c3` (7 commit atomik
-  di atas `827cf49`); push `main` sukses. CI remote dipicu untuk SHA ini
-  tetapi belum dapat diverifikasi dari workstation (`gh` tidak tersedia).
+  di atas `827cf49`); push `main` sukses. CI remote terverifikasi via API
+  publik: run
+  [#36511737871](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36511737871)
+  **failure** — satu-satunya step gagal adalah Dependency Audit (high+):
+  `fast-uri@3.1.6` transitif via `workbox-build` (2 advisory high, upstream,
+  lockfile tidak diubah rilis ini; CI 28 Sep masih hijau). TypeScript,
+  ESLint, Format, dan Operations hijau; Unit/Quality/E2E/Build ter-skip
+  karena `needs`. Advisory hanya menyentuh tooling build (service worker),
+  tidak terekspos ke runtime POS browser; tidak ada hot-fix dependency
+  dalam rilis ini (perlu update terkontrol + gate penuh sebagai follow-up).
 - Preflight lokal `test:release` lulus penuh untuk SHA sama: `test:all`,
   build produksi, dan 38/38 E2E terisolasi (termasuk `e2e/antrean.spec.ts`
   dan navbar 7/5). `deploy:verify` lulus; manifest 167 file.
