@@ -58,7 +58,7 @@
 				</p>
 			</div>
 
-			<div class="relative z-10 flex w-full items-center gap-2">
+			<div class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-center gap-2">
 				<button
 					type="button"
 					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
@@ -69,7 +69,7 @@
 				</button>
 
 				<div
-					class="relative flex min-w-0 flex-1 rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl"
+					class="relative flex min-w-0 flex-1 rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl sm:max-w-sm sm:flex-none sm:basis-96"
 					role="tablist"
 					aria-label="Status pesanan"
 				>
@@ -104,6 +104,8 @@
 						Selesai
 					</button>
 				</div>
+				<!-- Penyeimbang tombol refresh agar pil tetap di tengah pada layar lebar -->
+				<span aria-hidden="true" class="hidden h-10 w-10 shrink-0 sm:block"></span>
 			</div>
 		</div>
 	</div>
