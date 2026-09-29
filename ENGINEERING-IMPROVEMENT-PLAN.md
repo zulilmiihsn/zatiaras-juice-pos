@@ -1032,6 +1032,19 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `fast-uri` sebelum fix.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Kasir sticky 29 Sep 2026 — LIVE (search + kategori)
+
+- Search dan pil kategori di `/pos` dibungkus `sticky top-0 z-30` sehingga
+  tetap terlihat saat katalog digulir (desktop maupun mobile); banner stok
+  ikut menempel, tidak ada perubahan perilaku checkout.
+- Bukti: `e2e/pos.spec.ts` bertambah 1 tes (search y<220, `Semua` y<320
+  setelah scroll penuh); check, E2E terkait, dan preflight penuh 39/39 lolos.
+- Preflight + verify lulus SHA `7024f9f`; Pages deployment
+  `https://d849f31f.zatiaraspos.pages.dev` (realtime dan schema tak berubah).
+  Aset produksi: `entry/app.B_MmM0z5.js` 200 `application/javascript`,
+  `/pos` 200.
+- Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
