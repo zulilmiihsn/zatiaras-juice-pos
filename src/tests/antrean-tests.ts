@@ -9,7 +9,8 @@ import {
 } from '../lib/server/orderQueue/useCase';
 import { GET as AntreanGet } from '../routes/api/antrean/+server';
 import { POST as AntreanStatusPost } from '../routes/api/antrean/status/+server';
-import { executeCheckout } from '../lib/server/checkout/checkoutUseCase';
+import { executeCheckout, CheckoutUseCaseError } from '../lib/server/checkout/checkoutUseCase';
+import { getCheckoutCapabilities } from '../lib/server/checkout/dataLoader';
 import { signPosPricingToken } from '../lib/server/posPricingToken';
 import { voidTransaksiKasir } from '../lib/server/services/transaksiKasirService';
 import { previewArchive, runArchive } from '../lib/server/archiveUseCase';
@@ -206,7 +207,8 @@ try {
 			ingredientTrackingAvailable: false,
 			idempotencyAvailable: true,
 			salesSummaryAvailable: false,
-			transactionSnapshotAvailable: true
+			transactionSnapshotAvailable: true,
+			nomorHarianAvailable: true
 		},
 		stockPolicy: {
 			mode: 'tracked',
@@ -648,6 +650,31 @@ try {
 			.bind('bk-arsip-pending', 'samarinda')
 			.first<number>('n'),
 		1
+	);
+
+	// Q11: tanpa skema 0036, checkout gagal tertutup 503 dengan pesan jelas.
+	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, true);
+	await db.batch([
+		db.prepare('DROP TRIGGER IF EXISTS trg_buku_kas_nomor_pair_guard'),
+		db.prepare('DROP TRIGGER IF EXISTS trg_buku_kas_nomor_pair_update_guard'),
+		db.prepare('DROP TABLE pos_nomor_harian')
+	]);
+	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, false);
+	await assert.rejects(
+		executeCheckout({
+			db,
+			branch: samarinda,
+			session: { userId: 'owner-antrean', username: 'owner', role: 'pemilik' },
+			platform: { env: checkoutEnv } as App.Platform,
+			rawBody: {
+				idempotency_key: 'antrean-tanpa-skema-0001',
+				metode_bayar: 'tunai',
+				cash_received: 15000,
+				items: [checkoutSource],
+				quote_token: checkoutQuote
+			}
+		}),
+		(error: unknown) => error instanceof CheckoutUseCaseError && error.status === 503
 	);
 
 	console.log('antrean-tests: kontrak Antrean lulus');

@@ -79,6 +79,8 @@ export interface CheckoutCapabilities {
 	idempotencyAvailable: boolean;
 	salesSummaryAvailable: boolean;
 	transactionSnapshotAvailable: boolean;
+	/** True bila migrasi 0036 sudah diterapkan (tabel counter + kolom nomor). */
+	nomorHarianAvailable: boolean;
 }
 
 // [CATATAN]: ── Intermediate computation types ──────────────────────────────────────────

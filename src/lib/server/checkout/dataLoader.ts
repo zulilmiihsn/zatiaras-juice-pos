@@ -12,15 +12,31 @@ import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/
 // [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
 
 export async function getCheckoutCapabilities(
-	_db: D1Database,
+	db: D1Database,
 	_branch: BranchId
 ): Promise<CheckoutCapabilities> {
+	let nomorHarianAvailable = false;
+	try {
+		const table = (await db
+			.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pos_nomor_harian'`)
+			.first()) as { name?: string } | null;
+		if (table?.name) {
+			const columns = (await db
+				.prepare(`SELECT name FROM pragma_table_info('buku_kas')`)
+				.all()) as { results?: Array<{ name?: string }> };
+			const names = new Set((columns.results ?? []).map((c) => String(c?.name)));
+			nomorHarianAvailable = names.has('nomor_harian') && names.has('tanggal_nomor');
+		}
+	} catch {
+		nomorHarianAvailable = false;
+	}
 	return {
 		stockTrackingAvailable: true,
 		ingredientTrackingAvailable: true,
 		idempotencyAvailable: true,
 		salesSummaryAvailable: true,
-		transactionSnapshotAvailable: true
+		transactionSnapshotAvailable: true,
+		nomorHarianAvailable
 	};
 }
 

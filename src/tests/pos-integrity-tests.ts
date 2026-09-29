@@ -291,7 +291,8 @@ const statements = buildCheckoutStatements({
 		ingredientTrackingAvailable: true,
 		idempotencyAvailable: true,
 		salesSummaryAvailable: false,
-		transactionSnapshotAvailable: true
+		transactionSnapshotAvailable: true,
+		nomorHarianAvailable: true
 	},
 	stockPolicy: {
 		mode: 'tracked',

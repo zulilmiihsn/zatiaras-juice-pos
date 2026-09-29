@@ -187,8 +187,18 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	};
 
 	const capabilities = await getCheckoutCapabilities(db, branch);
-	const { stockTrackingAvailable, ingredientTrackingAvailable, idempotencyAvailable } =
-		capabilities;
+	const {
+		stockTrackingAvailable,
+		ingredientTrackingAvailable,
+		idempotencyAvailable,
+		nomorHarianAvailable
+	} = capabilities;
+	if (!nomorHarianAvailable) {
+		fail(
+			503,
+			'Skema nomor antrean belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0036.'
+		);
+	}
 
 	const checkoutLimit = await consumeRateLimit(
 		db,

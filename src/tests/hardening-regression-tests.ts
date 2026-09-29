@@ -300,7 +300,8 @@ const builtCheckout = buildCheckoutStatements({
 		ingredientTrackingAvailable: true,
 		idempotencyAvailable: true,
 		salesSummaryAvailable: true,
-		transactionSnapshotAvailable: true
+		transactionSnapshotAvailable: true,
+		nomorHarianAvailable: true
 	},
 	stockPolicy: {
 		mode: 'tracked',
