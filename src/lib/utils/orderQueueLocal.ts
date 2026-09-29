@@ -194,6 +194,26 @@ export function mergeQueueWithLocal(
 	});
 }
 
+/**
+ * Saring kartu antrean berdasarkan nama pelanggan atau nomor harian.
+ * Murni, tanpa IO: dipakai daftar online, snapshot offline, dan kartu lokal
+ * yang belum sinkron. Kata kunci angka mencocokkan sebagian nomor
+ * ("42" cocok 42/142; "042" dinormalisasi dulu); nama dicocokkan sebagian
+ * tanpa peduli kapital. Hanya mencari pada kartu yang sudah dimuat.
+ */
+export function filterQueueOrders(items: UiOrder[], keyword: string): UiOrder[] {
+	const q = keyword.trim().toLowerCase();
+	if (!q) return items;
+	const nomorQuery = q.replace(/^0+/, '') || '0';
+	return items.filter((card) => {
+		if (card.nama_pelanggan && card.nama_pelanggan.toLowerCase().includes(q)) return true;
+		if (card.nomor_harian != null && String(card.nomor_harian).includes(nomorQuery)) {
+			return true;
+		}
+		return false;
+	});
+}
+
 function normalizeSnapshot(raw: unknown, branch: string, userId: string): QueueSnapshot | null {
 	if (!isRecord(raw)) return null;
 	if (!Array.isArray(raw.items)) return null;

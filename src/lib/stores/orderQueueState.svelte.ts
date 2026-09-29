@@ -6,6 +6,7 @@ import { getPendingTransactions } from '$lib/utils/offline';
 import {
 	buildLocalCardFromPending,
 	clearOtherQueueSnapshots,
+	filterQueueOrders,
 	loadQueueSnapshot,
 	loadStatusIntents,
 	mergeQueueWithLocal,
@@ -144,6 +145,8 @@ export function createOrderQueueState() {
 	let hasMore = $state(false);
 	let nextCursor = $state<string | null>(null);
 	let syncing = $state<Record<string, boolean>>({});
+	let searchKeyword = $state('');
+	const filteredItems = $derived(filterQueueOrders(items, searchKeyword));
 	let disposers: Array<() => void> = [];
 	let started = false;
 	let loadGen = 0;
@@ -308,6 +311,15 @@ export function createOrderQueueState() {
 	return {
 		get items() {
 			return items;
+		},
+		get filteredItems() {
+			return filteredItems;
+		},
+		get searchKeyword() {
+			return searchKeyword;
+		},
+		set searchKeyword(v) {
+			searchKeyword = v;
 		},
 		get loading() {
 			return loading;

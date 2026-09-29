@@ -9,6 +9,8 @@
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import Search from '@lucide/svelte/icons/search';
+	import X from '@lucide/svelte/icons/x';
 	import type { UiOrder } from '$lib/utils/orderQueueLocal';
 	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
@@ -144,6 +146,29 @@
 		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
 		aria-live="polite"
 	>
+		<div class="relative mb-3">
+			<Search
+				class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400"
+			/>
+			<input
+				type="search"
+				placeholder="Cari nama atau nomor pesanan..."
+				aria-label="Cari pesanan berdasarkan nama atau nomor"
+				value={s.searchKeyword}
+				oninput={(e) => (s.searchKeyword = e.currentTarget.value)}
+				class="w-full rounded-2xl border border-white/60 bg-white/90 py-3 pr-11 pl-11 text-sm font-medium text-slate-800 shadow-xl backdrop-blur-lg outline-none placeholder:text-slate-400 focus:border-pink-300"
+			/>
+			{#if s.searchKeyword}
+				<button
+					type="button"
+					aria-label="Bersihkan pencarian"
+					onclick={() => (s.searchKeyword = '')}
+					class="absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+				>
+					<X class="h-4 w-4" />
+				</button>
+			{/if}
+		</div>
 		{#if s.error}
 			<div
 				class="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
@@ -161,23 +186,43 @@
 					</div>
 				{/each}
 			</div>
-		{:else if s.items.length === 0}
-			<div
-				class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
-			>
-				<ClipboardList class="mb-3 h-10 w-10 text-pink-300" />
-				<div class="text-base font-extrabold text-slate-800">
-					{s.activeTab === 'pending' ? 'Antrean kosong' : 'Belum ada yang selesai'}
+		{:else if s.filteredItems.length === 0}
+			{#if s.searchKeyword.trim() && s.items.length > 0}
+				<div
+					class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
+				>
+					<Search class="mb-3 h-10 w-10 text-pink-300" />
+					<div class="text-base font-extrabold text-slate-800">Tidak ada yang cocok</div>
+					<div class="mt-1 max-w-xs text-xs text-slate-500">
+						Tidak ada pesanan dengan nama atau nomor “{s.searchKeyword.trim()}” di daftar yang
+						dimuat.
+					</div>
+					<button
+						type="button"
+						onclick={() => (s.searchKeyword = '')}
+						class="mt-4 min-h-[44px] cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-6 text-sm font-bold text-white shadow-md transition-all active:scale-95"
+					>
+						Hapus pencarian
+					</button>
 				</div>
-				<div class="mt-1 max-w-xs text-xs text-slate-500">
-					{s.activeTab === 'pending'
-						? 'Pesanan baru dari Kasir akan muncul di sini.'
-						: 'Pesanan yang ditandai selesai akan tampil di sini.'}
+			{:else}
+				<div
+					class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
+				>
+					<ClipboardList class="mb-3 h-10 w-10 text-pink-300" />
+					<div class="text-base font-extrabold text-slate-800">
+						{s.activeTab === 'pending' ? 'Antrean kosong' : 'Belum ada yang selesai'}
+					</div>
+					<div class="mt-1 max-w-xs text-xs text-slate-500">
+						{s.activeTab === 'pending'
+							? 'Pesanan baru dari Kasir akan muncul di sini.'
+							: 'Pesanan yang ditandai selesai akan tampil di sini.'}
+					</div>
 				</div>
-			</div>
+			{/if}
 		{:else}
 			<div class="space-y-3">
-				{#each s.items as card (card.idempotency_key)}
+				{#each s.filteredItems as card (card.idempotency_key)}
 					<article
 						class="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur-lg md:p-5"
 					>

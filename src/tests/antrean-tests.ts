@@ -11,6 +11,7 @@ import { GET as AntreanGet } from '../routes/api/antrean/+server';
 import { POST as AntreanStatusPost } from '../routes/api/antrean/status/+server';
 import { executeCheckout, CheckoutUseCaseError } from '../lib/server/checkout/checkoutUseCase';
 import { getCheckoutCapabilities } from '../lib/server/checkout/dataLoader';
+import { filterQueueOrders } from '../lib/utils/orderQueueLocal';
 import { signPosPricingToken } from '../lib/server/posPricingToken';
 import { voidTransaksiKasir } from '../lib/server/services/transaksiKasirService';
 import { previewArchive, runArchive } from '../lib/server/archiveUseCase';
@@ -651,6 +652,68 @@ try {
 			.first<number>('n'),
 		1
 	);
+
+	// Q10b: saring antrean berdasarkan nama atau nomor (murni, tanpa IO).
+	const sampleCards = [
+		{
+			idempotency_key: 'k-1',
+			transaction_id: 't-1',
+			nominal: 10000,
+			nomor_harian: 7,
+			nama_pelanggan: 'Ilham',
+			waktu: '2026-09-29T04:00:00.000Z',
+			preparation_state: 'pending' as const,
+			preparation_revision: 0,
+			items: [],
+			unsynced: false
+		},
+		{
+			idempotency_key: 'k-2',
+			transaction_id: 't-2',
+			nominal: 20000,
+			nomor_harian: 142,
+			nama_pelanggan: 'Haura',
+			waktu: '2026-09-29T05:00:00.000Z',
+			preparation_state: 'pending' as const,
+			preparation_revision: 0,
+			items: [],
+			unsynced: false
+		},
+		{
+			idempotency_key: 'k-3',
+			transaction_id: 'k-3',
+			nominal: null,
+			nomor_harian: null,
+			nama_pelanggan: 'Budi',
+			waktu: '2026-09-29T06:00:00.000Z',
+			preparation_state: 'pending' as const,
+			preparation_revision: 0,
+			items: [],
+			unsynced: true
+		}
+	];
+	assert.equal(filterQueueOrders(sampleCards, '').length, 3);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, 'ilha').map((c) => c.idempotency_key),
+		['k-1']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, 'HAU').map((c) => c.idempotency_key),
+		['k-2']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, '42').map((c) => c.idempotency_key),
+		['k-2']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, '007').map((c) => c.idempotency_key),
+		['k-1']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, 'budi').map((c) => c.idempotency_key),
+		['k-3']
+	);
+	assert.deepEqual(filterQueueOrders(sampleCards, 'zzz-tidak-ada'), []);
 
 	// Q11: tanpa skema 0036, checkout gagal tertutup 503 dengan pesan jelas.
 	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, true);
