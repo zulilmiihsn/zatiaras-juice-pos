@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { UiOrderItem } from '$lib/utils/orderQueueLocal';
+	import { formatLevelLabel } from '$lib/utils/orderDetails';
 
 	interface Props {
 		items: UiOrderItem[];
@@ -12,8 +13,8 @@
 
 	function punyaMeta(item: UiOrderItem): boolean {
 		return Boolean(
-			(item.gula && item.gula !== 'normal') ||
-			(item.es && item.es !== 'normal') ||
+			formatLevelLabel('gula', item.gula) ||
+			formatLevelLabel('es', item.es) ||
 			item.tambahan.length > 0 ||
 			item.catatan
 		);
@@ -30,22 +31,22 @@
 			</div>
 			{#if punyaMeta(item)}
 				<div class="mt-1 flex flex-wrap gap-1 {padat ? 'text-[11px]' : 'text-xs text-slate-600'}">
-					{#if item.gula && item.gula !== 'normal'}
+					{#if formatLevelLabel('gula', item.gula)}
 						<span
 							class={padat
 								? 'rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600'
 								: 'rounded-md bg-slate-100 px-2 py-1'}
 						>
-							{item.gula}
+							{formatLevelLabel('gula', item.gula)}
 						</span>
 					{/if}
-					{#if item.es && item.es !== 'normal'}
+					{#if formatLevelLabel('es', item.es)}
 						<span
 							class={padat
 								? 'rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600'
 								: 'rounded-md bg-slate-100 px-2 py-1'}
 						>
-							{item.es}
+							{formatLevelLabel('es', item.es)}
 						</span>
 					{/if}
 					{#each item.tambahan as extra}

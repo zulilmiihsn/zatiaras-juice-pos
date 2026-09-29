@@ -9,6 +9,7 @@ import { printReceiptUnified } from '$lib/services/printerEngine';
 import { addPendingTransaction } from '$lib/utils/offline';
 import { ErrorHandler, parseApiError } from '$lib/utils/errorHandling';
 import { formatRupiah } from '$lib/utils/currency';
+import { formatOrderDetails } from '$lib/utils/orderDetails';
 import { NOTIF } from '$lib/constants/ui';
 import { transactionService } from '$lib/services/transactionService';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
@@ -693,7 +694,7 @@ export function createBayarState() {
 						name: a.nama,
 						price: (a.harga ?? 0) * item.jumlah
 					})),
-					details: [item.gula, item.es, item.catatan].filter(Boolean).join(', ')
+					details: formatOrderDetails(item) || undefined
 				};
 			}),
 			total: receiptInput.total,

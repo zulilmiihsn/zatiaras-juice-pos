@@ -7,7 +7,7 @@
 import { LOGO_BASE64 } from './logoBase64.js';
 import { formatRupiah } from './currency.js';
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
-import { formatOrderDetails } from './orderDetails.js';
+import { formatOrderDetails, formatLevelLabel } from './orderDetails.js';
 import { toReceiptLines } from './receiptLines.js';
 import { formatNomorHarian } from './orderNumber.js';
 
@@ -157,7 +157,13 @@ export function buildReceiptHtml(
 					body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(a.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span></td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah(a.total)}</td></tr>`;
 				}
 			}
-			const detail = [line.gula, line.es, line.catatan].filter(Boolean).join(', ');
+			const detail = [
+				formatLevelLabel('gula', line.gula),
+				formatLevelLabel('es', line.es),
+				line.catatan
+			]
+				.filter(Boolean)
+				.join(', ');
 			if (detail) {
 				body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
 			}

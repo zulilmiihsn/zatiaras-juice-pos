@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import { formatNomorHarian } from '../lib/utils/orderNumber.js';
+import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
 import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
 import { isTodayWita } from '../lib/utils/dateTime.js';
@@ -71,6 +72,21 @@ assert.equal(formatNomorHarian(history.nomor_harian), '007');
 assert.equal(formatNomorHarian(1000), '1000', 'lewat 999 lanjut tanpa blokir');
 assert.equal(formatNomorHarian(0), null);
 assert.equal(formatNomorHarian(null), null);
+// Label level gula/es Indonesia; alias legacy ikut terpetakan, normal disembunyikan.
+assert.equal(formatLevelLabel('gula', 'less'), 'Sedikit Gula');
+assert.equal(formatLevelLabel('gula', 'no'), 'Tanpa Gula');
+assert.equal(formatLevelLabel('es', 'less'), 'Sedikit Es');
+assert.equal(formatLevelLabel('es', 'no'), 'Tanpa Es');
+assert.equal(formatLevelLabel('gula', 'kurang'), 'Sedikit Gula');
+assert.equal(formatLevelLabel('es', 'tanpa'), 'Tanpa Es');
+assert.equal(formatLevelLabel('gula', 'normal'), null);
+assert.equal(formatLevelLabel('es', null), null);
+assert.equal(formatLevelLabel('gula', '  LESS  '), 'Sedikit Gula');
+assert.equal(formatLevelLabel('gula', 'manis banget'), 'manis banget', 'tak dikenal lolos utuh');
+assert.equal(
+	formatOrderDetails({ gula: 'less', es: 'no', catatan: 'UAT' }),
+	'Sedikit Gula, Tanpa Es, UAT'
+);
 assert.ok(reprint.includes('No. Pesanan: 007'), 'cetak ulang memuat nomor harian');
 assert.ok(sale.includes('No. Pesanan: 007'), 'struk awal memuat nomor harian');
 const offlineSale = buildSaleReceiptHtml({
@@ -140,13 +156,41 @@ assert.ok(
 			buildReceiptEscPos({
 				storeName: 'Toko UAT',
 				nomorHarian: history.nomor_harian,
-				items: [],
+				items: [
+					{
+						name: 'Jus UAT',
+						qty: 1,
+						price: 25000,
+						details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
+					}
+				],
 				total: 25000,
 				paymentMethod: 'tunai'
 			})
 		)
 		.includes('No. Pesanan: 007'),
 	'printer ESC/POS memuat nomor yang sama'
+);
+assert.ok(
+	new TextDecoder()
+		.decode(
+			buildReceiptEscPos({
+				storeName: 'Toko UAT',
+				nomorHarian: history.nomor_harian,
+				items: [
+					{
+						name: 'Jus UAT',
+						qty: 1,
+						price: 25000,
+						details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
+					}
+				],
+				total: 25000,
+				paymentMethod: 'tunai'
+			})
+		)
+		.includes('Sedikit Gula, Tanpa Es'),
+	'printer ESC/POS memuat label level Indonesia'
 );
 
 // F17/F18: base 10.000 + topping 3.000 x2 -> baris 20.000 + 6.000 = 26.000
@@ -205,7 +249,10 @@ assert.ok(
 			harga: 13_000,
 			harga_dasar: 10_000,
 			total_tambahan: 3_000,
-			snapshot_tambahan: JSON.stringify([{ nama: 'Nata', harga: 3_000 }])
+			snapshot_tambahan: JSON.stringify([{ nama: 'Nata', harga: 3_000 }]),
+			gula: 'less',
+			es: 'no',
+			catatan: 'Dingin ya'
 		}
 	]);
 	assert.ok(toppingHtml.includes('Jus Beku'), 'nama snapshot tampil');
@@ -213,6 +260,9 @@ assert.ok(
 	assert.ok(toppingHtml.includes('Rp6.000'), 'baris topping 3.000x2');
 	assert.equal(count(toppingHtml, 'Rp26.000'), 0, 'subtotal inklusif tak tampil ganda');
 	assert.ok(toppingHtml.includes('Rp25.000'), 'total header ikut nominal transaksi');
+	assert.ok(toppingHtml.includes('Sedikit Gula'), 'cetak ulang memetakan level gula');
+	assert.ok(toppingHtml.includes('Tanpa Es'), 'cetak ulang memetakan level es');
+	assert.ok(!toppingHtml.includes('>less<'), 'nilai mentah less tak tampil');
 }
 
 // F17/F18 structural contract (portabel lintas OS/Node/ICU):

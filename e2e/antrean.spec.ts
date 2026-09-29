@@ -55,6 +55,8 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(product).toBeVisible({ timeout: 60_000 });
 		await product.click();
 		await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
+		await page.getByRole('button', { name: 'Sedikit Gula', exact: true }).click();
+		await page.getByRole('button', { name: 'Tanpa Es', exact: true }).click();
 		await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
 
 		const openCart = page.getByRole('button', { name: /^Buka keranjang/ });
@@ -95,6 +97,10 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(card.getByText(orderLabel!)).toBeVisible();
 		await expect(card.getByText('Hari ini', { exact: true })).toBeVisible();
 		await expect(card.getByText('Es Teh UAT', { exact: false })).toBeVisible();
+		await expect(card.getByText('Sedikit Gula', { exact: true })).toBeVisible();
+		await expect(card.getByText('Tanpa Es', { exact: true })).toBeVisible();
+		await expect(card.getByText('less', { exact: true })).toHaveCount(0);
+		await expect(card.getByText('no', { exact: true })).toHaveCount(0);
 
 		// Tandai selesai lalu pastikan pindah ke tab Selesai.
 		await card.getByRole('button', { name: /tandai selesai/i }).click();
@@ -110,6 +116,8 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(detail).toBeVisible();
 		await expect(detail.getByText('Es Teh UAT', { exact: false })).toBeVisible();
 		await expect(detail.getByText(orderLabel!)).toBeVisible();
+		await expect(detail.getByText('Sedikit Gula', { exact: true })).toBeVisible();
+		await expect(detail.getByText('Tanpa Es', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(detail).toHaveCount(0);
 		await expect(doneCard.getByRole('button', { name: /lihat detail pesanan/i })).toBeFocused();
