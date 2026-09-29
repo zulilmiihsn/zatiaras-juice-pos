@@ -1064,6 +1064,26 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Pengaman skema + dedup komponen antrean 29 Sep 2026 — LIVE (app-only)
+
+- Dua commit atomik: `98daaa8` pengaman skema (capability
+  `nomorHarianAvailable`, checkout 503 berpesan jelas bila migrasi 0036 belum
+  ada, plus tes jalur gagal) dan `2e91785` dedup komponen
+  (`NomorPesananLabel` + `OrderItemsList`, net −15 baris, visual identik).
+- Tanpa perubahan skema: backup/migrasi tidak diperlukan. CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36596960689
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36597828365
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36597999536.
+- Realtime Worker version `d8481445-07ce-4262-bfc6-d8fa2c43ed21`; Pages
+  `https://279addcb.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+- Catatan lokal: E2E antrean sempat gagal 2× di workstation (navigasi abort +
+  timeout daftar, mesin terbebani ~50 proses MCP milik pengguna — BUKAN milik
+  repo, tidak dibunuh), lolos pada percobaan ketiga tanpa ubahan kode; build
+  - check + unit + --d1 hijau sepanjang jalan.
+
 ### Nomor antrean harian 29 Sep 2026 — LIVE (001-999 per cabang, reset WITA)
 
 - SHA aplikasi `b623bc67b16d9aa7ca45abcf79e4c9814b24f105`. Nomor `001`–`999`
