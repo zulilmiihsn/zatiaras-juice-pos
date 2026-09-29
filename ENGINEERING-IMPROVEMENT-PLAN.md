@@ -1001,6 +1001,23 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   (agen tidak memegang kredensial produksi); verifikasi operator masih
   diperlukan sebelum penerimaan.
 
+### Antrean susulan 29 Sep 2026 — LIVE (header + audit hijau)
+
+- Header Antrean diselaraskan pola Catat/Laporan (judul tengah + pil geser +
+  tombol lingkaran); `e2e/antrean.spec.ts` lolos untuk header baru.
+- `fast-uri` 3.1.6 → 3.1.8 via override `pnpm-workspace.yaml` (preseden
+  sharp): audit high hijau (tersisa 2 moderate). Gate lokal: check, unit
+  38 suite, build, E2E 38/38, ops, quality.
+- CI remote run
+  [#140](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36518264407)
+  untuk SHA `cff454a` **success** (static, operations, unit, quality, E2E,
+  build). Run #137–139 merah murni pada audit `fast-uri` sebelum fix.
+- Preflight + verify lulus SHA `cff454a`; Pages deployment
+  `https://85a5f58d.zatiaraspos.pages.dev` (realtime tak berubah, tetap
+  `5d4e6fc0`). Aset produksi: home 200, `entry/app.X0C6YbaJ.js` 200
+  `application/javascript`, `/antrean` 200, API anon 401.
+- Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
