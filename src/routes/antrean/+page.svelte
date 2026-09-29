@@ -11,6 +11,8 @@
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import type { UiOrder } from '$lib/utils/orderQueueLocal';
 	import { formatNomorHarian } from '$lib/utils/orderNumber';
+	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
+	import OrderItemsList from '$lib/components/antrean/OrderItemsList.svelte';
 
 	const s = createOrderQueueState();
 	let selectedKey = $state<string | null>(null);
@@ -54,14 +56,6 @@
 
 	function isSyncing(card: UiOrder): boolean {
 		return Boolean(s.syncing[card.idempotency_key]);
-	}
-
-	/** Label nomor kartu: nomor resmi, atau penanda menunggu sinkron. */
-	function nomorLabel(card: UiOrder): string | null {
-		const nomor = formatNomorHarian(card.nomor_harian);
-		if (nomor) return `No. Pesanan: ${nomor}`;
-		if (card.unsynced) return 'No. Pesanan: menunggu sinkronisasi';
-		return null;
 	}
 </script>
 
@@ -189,11 +183,12 @@
 					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
-								{#if nomorLabel(card)}
-									<div class="text-xs font-bold tracking-wide text-pink-700">
-										{nomorLabel(card)}
-									</div>
-								{/if}
+								<NomorPesananLabel
+									nomor={card.nomor_harian}
+									menunggu={card.unsynced}
+									kelas="text-xs font-bold tracking-wide text-pink-700"
+									kelasMenunggu="text-xs font-bold tracking-wide text-amber-700"
+								/>
 								<div class="truncate text-base font-extrabold text-slate-900">
 									{card.nama_pelanggan || 'Tanpa nama'}
 								</div>
@@ -260,49 +255,7 @@
 								</button>
 							</div>
 						{:else}
-							<ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100">
-								{#each card.items as item}
-									<li class="py-2.5">
-										<div class="flex items-start justify-between gap-3">
-											<span class="text-sm font-bold text-slate-800">
-												{item.jumlah}× {item.nama}
-											</span>
-										</div>
-										{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.tambahan && item.tambahan.length > 0) || item.catatan}
-											<div class="mt-1 flex flex-wrap gap-1 text-[11px]">
-												{#if item.gula && item.gula !== 'normal'}
-													<span
-														class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
-													>
-														{item.gula}
-													</span>
-												{/if}
-												{#if item.es && item.es !== 'normal'}
-													<span
-														class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
-													>
-														{item.es}
-													</span>
-												{/if}
-												{#if item.tambahan}
-													{#each item.tambahan as extra}
-														<span
-															class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700"
-														>
-															+{extra.nama}
-														</span>
-													{/each}
-												{/if}
-												{#if item.catatan}
-													<span class="w-full text-[11px] text-slate-400 italic">
-														“{item.catatan}”
-													</span>
-												{/if}
-											</div>
-										{/if}
-									</li>
-								{/each}
-							</ul>
+							<OrderItemsList items={card.items} />
 						{/if}
 					</article>
 				{/each}
@@ -328,11 +281,12 @@
 >
 	{#if selectedCard}
 		<div class="py-4">
-			{#if nomorLabel(selectedCard)}
-				<p class="text-sm font-bold text-pink-700">
-					{nomorLabel(selectedCard)}
-				</p>
-			{/if}
+			<NomorPesananLabel
+				nomor={selectedCard.nomor_harian}
+				menunggu={selectedCard.unsynced}
+				kelas="text-sm font-bold text-pink-700"
+				kelasMenunggu="text-sm font-bold text-amber-700"
+			/>
 			<p class="mt-1 text-xs text-slate-500">
 				{formatTanggal(selectedCard.waktu)} · {formatWaktu(selectedCard.waktu)} WITA · {selectedCard.items.reduce(
 					(n, i) => n + i.jumlah,
@@ -342,27 +296,7 @@
 			{#if selectedCard.unsynced}
 				<p class="mt-2 text-xs font-bold text-amber-800">Belum tersinkron</p>
 			{/if}
-			<ul class="mt-4 divide-y divide-slate-100 border-t border-slate-100">
-				{#each selectedCard.items as item}
-					<li class="py-3">
-						<div class="text-sm font-bold text-slate-800">{item.jumlah}× {item.nama}</div>
-						{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || item.tambahan.length || item.catatan}
-							<div class="mt-1 flex flex-wrap gap-1 text-xs text-slate-600">
-								{#if item.gula && item.gula !== 'normal'}<span
-										class="rounded-md bg-slate-100 px-2 py-1">{item.gula}</span
-									>{/if}
-								{#if item.es && item.es !== 'normal'}<span class="rounded-md bg-slate-100 px-2 py-1"
-										>{item.es}</span
-									>{/if}
-								{#each item.tambahan as extra}<span
-										class="rounded-md bg-pink-50 px-2 py-1 text-pink-700">+{extra.nama}</span
-									>{/each}
-								{#if item.catatan}<span class="w-full italic">“{item.catatan}”</span>{/if}
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
+			<OrderItemsList items={selectedCard.items} varian="dialog" />
 			<p class="border-t border-slate-100 pt-3 text-right text-sm font-extrabold text-slate-900">
 				{selectedCard.nominal !== null
 					? `Total Rp${formatRupiah(selectedCard.nominal)}`

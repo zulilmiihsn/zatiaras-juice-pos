@@ -8,7 +8,6 @@
 	import { formatRupiah } from '$lib/utils/currency';
 	import { PAYMENT } from '$lib/constants/ui';
 	import { formatOrderDetails } from '$lib/utils/orderDetails';
-	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import Banknote from '@lucide/svelte/icons/banknote';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ReceiptText from '@lucide/svelte/icons/receipt-text';
@@ -16,6 +15,7 @@
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import { createBayarState } from '$lib/stores/bayarState.svelte';
+	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
 
 	const s = createBayarState();
 
@@ -433,15 +433,12 @@
 			<div class="text-center text-xl font-black text-slate-900">
 				{s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!'}
 			</div>
-			{#if formatNomorHarian(s.nomorPesanan)}
-				<div class="text-center text-sm font-extrabold tracking-wide text-pink-700">
-					No. Pesanan: {formatNomorHarian(s.nomorPesanan)}
-				</div>
-			{:else if s.transactionQueuedOffline}
-				<div class="text-center text-sm font-extrabold tracking-wide text-amber-700">
-					No. Pesanan: menunggu sinkronisasi
-				</div>
-			{/if}
+			<NomorPesananLabel
+				nomor={s.nomorPesanan}
+				menunggu={s.transactionQueuedOffline}
+				kelas="text-center text-sm font-extrabold tracking-wide text-pink-700"
+				kelasMenunggu="text-center text-sm font-extrabold tracking-wide text-amber-700"
+			/>
 			<div class="text-center text-xs leading-relaxed text-slate-600">
 				{#if s.transactionQueuedOffline}
 					Tersimpan di perangkat dan menunggu sinkronisasi.<br />

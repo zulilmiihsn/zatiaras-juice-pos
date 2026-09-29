@@ -205,7 +205,7 @@
 							>
 						</div>
 						<div class="text-xs font-bold text-slate-800 sm:text-sm">
-							No. {formatNomorHarian(transaksi.nomor_harian)}
+							{formatNomorHarian(transaksi.nomor_harian) ?? '-'}
 						</div>
 					</div>
 				{/if}

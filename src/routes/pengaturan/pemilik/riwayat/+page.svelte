@@ -12,7 +12,6 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import { formatRupiah } from '$lib/utils/currency';
-	import { formatNomorHarian } from '$lib/utils/orderNumber';
 
 	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 	type IconComponent = typeof import('@lucide/svelte/icons/trash').default;
@@ -21,6 +20,7 @@
 	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
+	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 
@@ -389,11 +389,10 @@
 						tabindex="0"
 					>
 						<div class="min-w-0 flex-1">
-							{#if trx.nomor_harian != null}
-								<div class="text-[11px] font-extrabold tracking-wide text-pink-600">
-									No. {formatNomorHarian(trx.nomor_harian)}
-								</div>
-							{/if}
+							<NomorPesananLabel
+								nomor={trx.nomor_harian}
+								kelas="text-[11px] font-extrabold tracking-wide text-pink-600"
+							/>
 							<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
 								{trx.nama}
 							</div>
