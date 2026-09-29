@@ -721,6 +721,11 @@ export function createBayarState() {
 		clearCartStorage();
 		goto('/pos');
 	}
+	function handleGoToAntrean() {
+		showSuccessModal = false;
+		clearCartStorage();
+		goto('/antrean');
+	}
 	function setOffline(value: boolean) {
 		isOffline = value;
 		if (isOffline) {
@@ -848,6 +853,7 @@ export function createBayarState() {
 		handleKeypadButton,
 		handleSetPaymentMethod,
 		handleBackToKasir,
+		handleGoToAntrean,
 		clearCartStorage
 	};
 }

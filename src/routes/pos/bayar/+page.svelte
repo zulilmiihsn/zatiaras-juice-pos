@@ -470,6 +470,10 @@
 					onclick={s.printStrukViaEscPosService}>Cetak Struk</button
 				>
 				<button
+					class="min-h-[46px] w-full cursor-pointer rounded-full border-2 border-pink-600 bg-white py-3 text-sm font-bold text-pink-700 transition-all hover:bg-pink-50 active:scale-[0.98]"
+					onclick={s.handleGoToAntrean}>Lihat Antrean</button
+				>
+				<button
 					class="min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
 					onclick={s.handleBackToKasir}>Kembali ke Kasir</button
 				>

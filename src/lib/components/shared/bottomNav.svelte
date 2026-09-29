@@ -5,12 +5,14 @@
 	import Book from '@lucide/svelte/icons/book';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import Settings from '@lucide/svelte/icons/settings';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import { page } from '$app/stores';
 	import { posCart } from '$lib/stores/posCart.svelte';
 	import { scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import type { Component } from 'svelte';
 	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
+	import { orderQueueBadge } from '$lib/stores/orderQueueState.svelte';
 
 	type NavItem = {
 		label: string;
@@ -19,25 +21,25 @@
 		isHero?: boolean;
 	};
 
-	const baseNavs: NavItem[] = [
-		{ label: 'Beranda', icon: Home, path: '/' },
-		{ label: 'Catat', icon: Book, path: '/catat' },
-		{ label: 'Kasir', icon: ShoppingBag, path: '/pos', isHero: true },
-		{ label: 'Stok', icon: Boxes, path: '/stok' },
-		{ label: 'Laporan', icon: FileText, path: '/laporan' }
-	];
+	const berandaNav: NavItem = { label: 'Beranda', icon: Home, path: '/' };
+	const catatNav: NavItem = { label: 'Catat', icon: Book, path: '/catat' };
+	const antreanNav: NavItem = { label: 'Antrean', icon: ClipboardList, path: '/antrean' };
+	const kasirNav: NavItem = { label: 'Kasir', icon: ShoppingBag, path: '/pos', isHero: true };
+	const stokNav: NavItem = { label: 'Stok', icon: Boxes, path: '/stok' };
+	const laporanNav: NavItem = { label: 'Laporan', icon: FileText, path: '/laporan' };
 	const settingsNav: NavItem = { label: 'Pengaturan', icon: Settings, path: '/pengaturan' };
 
-	// Lima tujuan tetap ada agar tombol Kasir selalu tepat di tengah.
-	// Saat stok nonaktif, Pengaturan menggantikan slot paling kanan.
+	// Kasir hero selalu tepat di tengah: 7 tujuan saat stok aktif, 5 saat nonaktif.
+	// Saat stok nonaktif, Pengaturan lewat Beranda (tidak memakan slot navbar).
 	const navs = $derived(
 		stockPolicyState.ignored
-			? [...baseNavs.filter((nav) => nav.path !== '/stok'), settingsNav]
-			: baseNavs
+			? [berandaNav, catatNav, kasirNav, antreanNav, laporanNav]
+			: [berandaNav, catatNav, antreanNav, kasirNav, stokNav, laporanNav, settingsNav]
 	);
 
 	onMount(() => {
 		void stockPolicyState.refresh();
+		void orderQueueBadge.refresh();
 	});
 
 	function isPathActive(path: string, currentPath: string): boolean {
@@ -105,13 +107,26 @@
 							? 'scale-105 stroke-[2.2] text-pink-600'
 							: 'text-slate-400'}"
 					/>
+					{#if nav.path === '/antrean' && orderQueueBadge.count > 0}
+						<span
+							class="absolute -top-1.5 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white shadow ring-2 ring-white"
+						>
+							{orderQueueBadge.count > 99 ? '99+' : orderQueueBadge.count}
+						</span>
+					{/if}
 				</div>
 				<span
 					class="text-[11px] leading-tight transition-colors duration-150 md:text-xs {isActive
 						? 'font-bold text-pink-600'
 						: 'font-medium text-slate-500'}"
 				>
-					{nav.label}
+					{#if nav.path === '/pengaturan'}
+						<span class="hidden min-[380px]:inline">Pengaturan</span><span
+							class="min-[380px]:hidden">Atur</span
+						>
+					{:else}
+						{nav.label}
+					{/if}
 				</span>
 				{#if isActive}
 					<span

@@ -1,0 +1,253 @@
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { createOrderQueueState } from '$lib/stores/orderQueueState.svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Check from '@lucide/svelte/icons/check';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import type { UiOrder } from '$lib/utils/orderQueueLocal';
+
+	const s = createOrderQueueState();
+
+	onMount(() => {
+		s.start();
+	});
+	onDestroy(() => {
+		s.dispose();
+	});
+
+	function formatWaktu(iso: string): string {
+		const date = new Date(iso);
+		if (!Number.isFinite(date.getTime())) return '--:--';
+		try {
+			return new Intl.DateTimeFormat('id-ID', {
+				hour: '2-digit',
+				minute: '2-digit',
+				timeZone: 'Asia/Makassar'
+			}).format(date);
+		} catch {
+			return '--:--';
+		}
+	}
+
+	function isSyncing(card: UiOrder): boolean {
+		return Boolean(s.syncing[card.idempotency_key]);
+	}
+</script>
+
+<svelte:head>
+	<title>Antrean Pesanan - Zatiaras POS</title>
+</svelte:head>
+
+<div class="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#faf7f8]">
+	<div class="page-header relative px-5 pt-4 pb-8 md:pt-6 md:pb-10">
+		<div
+			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+		></div>
+		<div
+			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+		></div>
+		<div class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+			<div class="flex items-center gap-3">
+				<div
+					class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/25 text-white backdrop-blur-xl"
+					aria-hidden="true"
+				>
+					<ClipboardList class="h-5 w-5" />
+				</div>
+				<div>
+					<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
+						Antrean Pesanan
+					</h1>
+					<p class="text-xs font-medium text-white/85">
+						{s.pendingCount > 0 ? `${s.pendingCount} belum selesai` : 'Semua pesanan beres'}
+					</p>
+				</div>
+			</div>
+			<button
+				type="button"
+				class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-2 rounded-full border border-white/40 bg-white/25 px-4 text-sm font-bold text-white backdrop-blur-xl transition-all active:scale-95"
+				onclick={() => s.load(s.activeTab)}
+				aria-label="Muat ulang Antrean"
+			>
+				<RefreshCw class="h-4 w-4" />
+				<span class="hidden sm:inline">Muat ulang</span>
+			</button>
+		</div>
+		<div class="relative z-10 mx-auto mt-4 w-full max-w-5xl">
+			<div
+				class="flex rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl"
+				role="tablist"
+				aria-label="Status pesanan"
+			>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={s.activeTab === 'pending'}
+					class="min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-bold transition-all {s.activeTab ===
+					'pending'
+						? 'bg-white text-pink-700 shadow'
+						: 'text-white'}"
+					onclick={() => s.setTab('pending')}
+				>
+					Belum selesai{s.pendingCount > 0 ? ` (${s.pendingCount})` : ''}
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={s.activeTab === 'done'}
+					class="min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-bold transition-all {s.activeTab ===
+					'done'
+						? 'bg-white text-pink-700 shadow'
+						: 'text-white'}"
+					onclick={() => s.setTab('done')}
+				>
+					Selesai
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<main
+		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
+		aria-live="polite"
+	>
+		{#if s.error}
+			<div
+				class="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+			>
+				{s.error}
+			</div>
+		{/if}
+		{#if s.loading && s.items.length === 0}
+			<div class="space-y-3">
+				{#each [1, 2, 3] as i}
+					<div class="animate-pulse rounded-[24px] border border-white/60 bg-white/80 p-5">
+						<div class="h-4 w-1/3 rounded-full bg-slate-200"></div>
+						<div class="mt-3 h-3 w-2/3 rounded-full bg-slate-100"></div>
+						<div class="mt-2 h-3 w-1/2 rounded-full bg-slate-100"></div>
+					</div>
+				{/each}
+			</div>
+		{:else if s.items.length === 0}
+			<div
+				class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
+			>
+				<ClipboardList class="mb-3 h-10 w-10 text-pink-300" />
+				<div class="text-base font-extrabold text-slate-800">
+					{s.activeTab === 'pending' ? 'Antrean kosong' : 'Belum ada yang selesai'}
+				</div>
+				<div class="mt-1 max-w-xs text-xs text-slate-500">
+					{s.activeTab === 'pending'
+						? 'Pesanan baru dari Kasir akan muncul di sini.'
+						: 'Pesanan yang ditandai selesai akan tampil di sini.'}
+				</div>
+			</div>
+		{:else}
+			<div class="space-y-3">
+				{#each s.items as card (card.idempotency_key)}
+					<article
+						class="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur-lg md:p-5"
+					>
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<div class="truncate text-base font-extrabold text-slate-900">
+									{card.nama_pelanggan || 'Tanpa nama'}
+								</div>
+								<div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+									<span>{formatWaktu(card.waktu)} WITA</span>
+									<span aria-hidden="true">·</span>
+									<span>{card.items.reduce((n, i) => n + i.jumlah, 0)} gelas</span>
+									{#if card.unsynced}
+										<span
+											class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800"
+										>
+											<WifiOff class="h-3 w-3" />
+											Belum tersinkron
+										</span>
+									{/if}
+								</div>
+							</div>
+							{#if s.activeTab === 'pending'}
+								<button
+									type="button"
+									disabled={isSyncing(card)}
+									class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 text-sm font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-wait disabled:opacity-60"
+									onclick={() => s.setStatus(card, 'done')}
+									aria-label={`Tandai selesai pesanan ${card.nama_pelanggan || card.idempotency_key}`}
+								>
+									<Check class="h-4 w-4 stroke-[2.5]" />
+									{isSyncing(card) ? 'Menyimpan' : 'Selesai'}
+								</button>
+							{:else}
+								<button
+									type="button"
+									disabled={isSyncing(card)}
+									class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-2xs transition-all active:scale-95 disabled:cursor-wait disabled:opacity-60"
+									onclick={() => s.setStatus(card, 'pending')}
+									aria-label={`Buka lagi pesanan ${card.nama_pelanggan || card.idempotency_key}`}
+								>
+									<Undo2 class="h-4 w-4" />
+									{isSyncing(card) ? 'Menyimpan' : 'Buka lagi'}
+								</button>
+							{/if}
+						</div>
+						<ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100">
+							{#each card.items as item}
+								<li class="py-2.5">
+									<div class="flex items-start justify-between gap-3">
+										<span class="text-sm font-bold text-slate-800">
+											{item.jumlah}× {item.nama}
+										</span>
+									</div>
+									{#if (item.gula && item.gula !== 'normal') || (item.es && item.es !== 'normal') || (item.tambahan && item.tambahan.length > 0) || item.catatan}
+										<div class="mt-1 flex flex-wrap gap-1 text-[11px]">
+											{#if item.gula && item.gula !== 'normal'}
+												<span
+													class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+												>
+													{item.gula}
+												</span>
+											{/if}
+											{#if item.es && item.es !== 'normal'}
+												<span
+													class="rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+												>
+													{item.es}
+												</span>
+											{/if}
+											{#if item.tambahan}
+												{#each item.tambahan as extra}
+													<span
+														class="rounded-md bg-pink-50 px-1.5 py-0.5 font-medium text-pink-700"
+													>
+														+{extra.nama}
+													</span>
+												{/each}
+											{/if}
+											{#if item.catatan}
+												<span class="w-full text-[11px] text-slate-400 italic">
+													“{item.catatan}”
+												</span>
+											{/if}
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</article>
+				{/each}
+			</div>
+			{#if s.hasMore}
+				<button
+					type="button"
+					class="mx-auto mt-4 flex min-h-[44px] cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-2xs transition-all active:scale-95"
+					onclick={() => s.loadMore()}
+				>
+					Muat lebih banyak
+				</button>
+			{/if}
+		{/if}
+	</main>
+</div>
