@@ -96,6 +96,18 @@ export default defineConfig({
 						}
 					},
 					{
+						urlPattern: ({ request, url }) =>
+							request.mode === 'navigate' && /^\/antrean(?:\/|$)/.test(url.pathname),
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'antrean-navigation-v1',
+							networkTimeoutSeconds: 3,
+							cacheableResponse: { statuses: [0, 200] },
+							expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 },
+							precacheFallback: { fallbackURL: '/offline' }
+						}
+					},
+					{
 						urlPattern: /\.(?:png|jpg|jpeg|svg|webp|avif)$/,
 						handler: 'StaleWhileRevalidate',
 						options: {

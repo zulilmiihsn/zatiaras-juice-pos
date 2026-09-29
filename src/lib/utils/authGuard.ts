@@ -3,6 +3,8 @@ import { LoginSecurity, RateLimiter } from './security';
 import { setUserRole } from '$lib/stores/userRole.svelte';
 import {
 	clearOfflineSessionSnapshot,
+	getOfflineSessionBranch,
+	isOfflineAntreanPath,
 	isOfflinePosPath,
 	persistOfflineSessionSnapshot,
 	readOfflineSessionSnapshot
@@ -62,13 +64,21 @@ export class AuthGuard {
 	}
 
 	private allowOfflinePosAccess(): boolean {
-		if (!isOfflinePosPath(window.location.pathname)) {
+		const path = window.location.pathname;
+		const isPos = isOfflinePosPath(path);
+		const isAntrean = isOfflineAntreanPath(path);
+		if (!isPos && !isAntrean) {
 			goto('/offline');
 			return false;
 		}
 		const snapshot = readOfflineSessionSnapshot();
 		if (!snapshot) {
 			clearOfflineSessionSnapshot();
+			goto('/login?reason=offline_session_expired');
+			return false;
+		}
+		// Antrean offline wajib cabang tervalidasi (fail closed); POS lama tetap kompatibel.
+		if (isAntrean && !getOfflineSessionBranch(snapshot)) {
 			goto('/login?reason=offline_session_expired');
 			return false;
 		}

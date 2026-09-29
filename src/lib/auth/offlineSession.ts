@@ -69,3 +69,23 @@ export function clearOfflineSessionSnapshot(storage: StorageLike = localStorage)
 export function isOfflinePosPath(pathname: string): boolean {
 	return pathname === '/pos' || pathname.startsWith('/pos/');
 }
+
+export function isOfflineAntreanPath(pathname: string): boolean {
+	return pathname === '/antrean' || pathname.startsWith('/antrean/');
+}
+
+const VALID_OFFLINE_BRANCHES = new Set([
+	'samarinda',
+	'samarinda2',
+	'balikpapan',
+	'balikpapan2',
+	'berau'
+]);
+
+/** Cabang tervalidasi dari snapshot sesi offline; null bila tak ada/kedaluwarsa/invalid. */
+export function getOfflineSessionBranch(snapshot: OfflineSessionSnapshot | null): string | null {
+	if (!snapshot) return null;
+	const raw = snapshot.user?.branch;
+	const branch = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+	return branch && VALID_OFFLINE_BRANCHES.has(branch) ? branch : null;
+}

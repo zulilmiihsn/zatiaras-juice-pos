@@ -17,7 +17,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 		user: {
 			id: locals.authSession.userId,
 			username: locals.authSession.username,
-			role: locals.authSession.role
+			role: locals.authSession.role,
+			branch: locals.authSession.branch ?? null
 		},
 		expiresAt: locals.authSession.expiresAt
 	});
