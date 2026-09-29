@@ -1064,6 +1064,26 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Label Indonesia gula/es 30 Sep 2026 — LIVE (app-only)
+
+- Satu mapper kanonik `formatLevelLabel` (`no`→Tanpa, `less`→Sedikit, `normal`
+  disembunyikan; alias legacy `kurang`/`sedikit`/`tanpa` ikut terpetakan,
+  tak dikenal lolos utuh). Dipakai chip Antrean, detail cetak-ulang, dan
+  detail ESC/POS; pemilih POS tak berubah. SHA `a1e3b77`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36604233241
+  (E2E 39/39, termasuk klik Sedikit Gula + Tanpa Es dan asersi chip antrean).
+  Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36605178556
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36605385746.
+- Realtime Worker version `765979b1-670f-4d0f-9673-4daf5295b728`; Pages
+  `https://597eb4f9.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+- Catatan lokal: E2E workstation gagal 3× sebelum CI (navigasi abort +
+  timeout hidrasi, mesin terbebani proses MCP milik pengguna); E2E lokal
+  bukan gate pada rilis ini, CI runner bersih yang mengadili.
+
 ### Pengaman skema + dedup komponen antrean 29 Sep 2026 — LIVE (app-only)
 
 - Dua commit atomik: `98daaa8` pengaman skema (capability
