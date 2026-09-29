@@ -966,6 +966,33 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   dan urutan navbar (Pengaturan di paling kanan saat stok nonaktif) sudah OK.
 - Status rilis: diterima tanpa temuan baru.
 
+### Antrean pesanan 29 Sep 2026 — LIVE (dieksekusi agen atas otorisasi pemilik)
+
+- SHA aplikasi `9ed47e10cf9396a78894a2e45e8fa667e274a5c3` (7 commit atomik
+  di atas `827cf49`); push `main` sukses. CI remote dipicu untuk SHA ini
+  tetapi belum dapat diverifikasi dari workstation (`gh` tidak tersedia).
+- Preflight lokal `test:release` lulus penuh untuk SHA sama: `test:all`,
+  build produksi, dan 38/38 E2E terisolasi (termasuk `e2e/antrean.spec.ts`
+  dan navbar 7/5). `deploy:verify` lulus; manifest 167 file.
+- Backup tiga shard verified (`COMPLETE`) di luar workspace:
+  `D:\ZatiarasPOS-Backups\backup-2026-09-29T02-22-17-481Z-cfa5f0f9-0315-4332-90a6-cac61a009be8\manifest.sha256.json`.
+  Restore drill lokal ketiga shard lulus (Samarinda 20660, Balikpapan 1656,
+  Berau 826 rows; `buku_kas` 0 di semua shard).
+- Migrasi aditif `0035_order_preparation.sql` diterapkan per shard berurutan
+  (7 query each) dan terverifikasi: 4 kolom `preparation_*` + index +
+  2 trigger pair-guard ada di ketiga binding; tidak ada baris data tersentuh.
+- Worker realtime versi `5d4e6fc0-4ca2-478d-b533-260148a46e09`;
+  Pages deployment `https://7176a3a0.zatiaraspos.pages.dev` (branch `main`).
+  Rilis ini memakai jalur workstation (`deploy:all`) karena tidak ada token
+  GitHub untuk dispatch workflow Deploy; provenance dijamin manifest
+  preflight pada SHA yang sama.
+- Verifikasi aset produksi: `/` 200, `entry/start.*.js` dan `entry/app.*.js`
+  200 `application/javascript` (sesuai build preflight), `/antrean` 200,
+  `/api/antrean` anonim 401.
+- Smoke login/transaksi nyata/printer fisik per cabang belum dijalankan
+  (agen tidak memegang kredensial produksi); verifikasi operator masih
+  diperlukan sebelum penerimaan.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
