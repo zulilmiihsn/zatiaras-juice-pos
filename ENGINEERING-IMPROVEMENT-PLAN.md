@@ -1018,6 +1018,20 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `application/javascript`, `/antrean` 200, API anon 401.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Antrean ramping 29 Sep 2026 — LIVE (pil tab + CI)
+
+- Pil tab Antrean dirampingkan ala Catat (`max-w-sm`, tengah, spacer
+  penyeimbang tombol refresh); check + E2E antrean lolos.
+- Preflight + verify lulus SHA `1cd7f15`; Pages deployment
+  `https://d40ec342.zatiaraspos.pages.dev` (realtime dan schema tak berubah).
+  Aset produksi: `entry/app.DrO6AhzM.js` 200 `application/javascript`,
+  `/antrean` 200.
+- CI remote run
+  [#140](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36518264407)
+  untuk SHA `cff454a` **success** penuh; run #137–139 merah murni audit
+  `fast-uri` sebelum fix.
+- Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
+
 ### Prasyarat mutlak
 
 - [ ] Seluruh P0 sebelumnya completed.
