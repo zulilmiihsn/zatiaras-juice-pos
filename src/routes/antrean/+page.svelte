@@ -22,10 +22,15 @@
 	let searchOpen = $state(false);
 	let searchInput: HTMLInputElement | undefined = $state();
 	const selectedCard = $derived(s.items.find((card) => card.idempotency_key === selectedKey));
-	const searchActive = $derived(s.searchKeyword.trim().length > 0);
 
+	/**
+	 * Buka/tutup panel cari. Menutup = selesai mencari: kata kunci ikut
+	 * dihapus agar panel overlay tak pernah menutupi tombol kartu.
+	 */
 	function toggleSearch(force?: boolean) {
-		searchOpen = force ?? !searchOpen;
+		const next = force ?? !searchOpen;
+		searchOpen = next;
+		if (!next) s.searchKeyword = '';
 	}
 
 	$effect(() => {
@@ -161,12 +166,6 @@
 					aria-expanded={searchOpen}
 				>
 					<Search class="h-4.5 w-4.5 stroke-[2.2]" />
-					{#if searchActive}
-						<span
-							aria-hidden="true"
-							class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-300 ring-2 ring-white/40"
-						></span>
-					{/if}
 				</button>
 			</div>
 		</div>
@@ -246,7 +245,7 @@
 					</div>
 					<button
 						type="button"
-						onclick={() => (s.searchKeyword = '')}
+						onclick={() => toggleSearch(false)}
 						class="mt-4 min-h-[44px] cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-6 text-sm font-bold text-white shadow-md transition-all active:scale-95"
 					>
 						Hapus pencarian

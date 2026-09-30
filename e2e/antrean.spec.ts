@@ -128,14 +128,20 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(searchBox).toBeVisible();
 		await searchBox.fill(customer);
 		await expect(doneCard).toBeVisible();
+		await page.getByRole('button', { name: 'Bersihkan pencarian', exact: true }).click();
+		await expect(doneCard).toBeVisible();
 		await searchBox.fill('zzz-tidak-ada');
 		await expect(page.getByText('Tidak ada yang cocok')).toBeVisible();
 		await expect(doneCard).toHaveCount(0);
 		await page.getByRole('button', { name: 'Hapus pencarian', exact: true }).click();
+		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
+		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
+		await expect(searchBox).toBeVisible();
 		await searchBox.fill(orderLabel!.replace(/\D/g, ''));
 		await expect(doneCard).toBeVisible();
-		await page.getByRole('button', { name: 'Bersihkan pencarian', exact: true }).click();
+		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
+		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
 
 		// Buka lagi lalu pastikan kembali ke tab Belum selesai, tahan reload.
