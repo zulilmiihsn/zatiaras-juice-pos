@@ -247,6 +247,17 @@ input,
 	box-shadow:
 		0 20px 25px -5px rgba(236, 72, 153, 0.15),
 		0 8px 10px -6px rgba(236, 72, 153, 0.15);
+	/* Samakan tinggi semua header (keputusan pemilik, opsi B1). Nilai menutupi
+	konten tertinggi non-kondisional (Kasir ±180px, Beranda ±178px); konten
+	kondisional (mis. banner stok) tetap boleh tumbuh. Halaman sepi mendapat
+	ruang pink lebih lega — konsekuensi yang disetujui. */
+	min-height: 208px;
+}
+
+@media (min-width: 768px) {
+	.page-header {
+		min-height: 232px;
+	}
 }
 
 /* ── Brand Buttons (satu sumber gaya tombol) ── */
