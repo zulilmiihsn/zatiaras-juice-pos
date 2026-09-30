@@ -1064,6 +1064,23 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Saran hasil di panel cari 30 Sep 2026 — LIVE (app-only)
+
+- Riset (NN/g + Baymard): dropdown saran di bawah kolom cari, maksimal 4–8 di
+  mobile, ketuk saran langsung menuju hasil, tanpa elemen ganda. Diterapkan:
+  tombol clear bawaan browser disembunyikan (satu X kustom); panel floating
+  menampilkan saran (maks 6: nomor + nama + total); ketuk saran menutup panel
+  dan scroll + sorot kartu 1,8 detik. SHA `9241f60`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36652721890
+  (E2E 39/39, termasuk alur ketuk-saran). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36653513824
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36653640077.
+- Realtime Worker version `4b2e8282-73be-457a-ad4b-48bc78899469`; Pages
+  `https://1353115e.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Panel cari floating + fix overlap 30 Sep 2026 — LIVE (app-only)
 
 - Search bar inline diganti tombol kaca pembesar di kanan pil tab + panel
