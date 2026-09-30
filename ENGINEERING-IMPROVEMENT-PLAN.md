@@ -1064,6 +1064,21 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Selesai 7 hari terakhir 30 Sep 2026 — LIVE (app-only)
+
+- Tab Selesai Antrean dibatasi 7 hari WITA terakhir (cutoff di query, ikut
+  paginasi cursor) + caption penjelas; tab Belum selesai tanpa batas tanggal;
+  data lama tetap utuh di database. SHA `7b89ebb`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36672632099
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36673407916
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36673523374.
+- Realtime Worker version `ef43e489-d99c-4883-be71-5c6aeff0e245`; Pages
+  `https://004e1df6.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Detail antrean jadi modal tengah 30 Sep 2026 — LIVE (app-only)
 
 - Bottom sheet diganti `AppModal align="center"` (pola baku dialog tengah
