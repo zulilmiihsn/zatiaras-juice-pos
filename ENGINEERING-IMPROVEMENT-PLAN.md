@@ -1064,6 +1064,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Hapus kode mati 30 Sep 2026 — LIVE (app-only)
+
+- `fetchTransaksiHariIni` non-page (nol pemanggil) dan accessor tak terpakai
+  (`transactionId`, `transactionCode`, ekspor `generateTransactionCode`) di
+  bayarState dihapus; −74 baris. Koreksi audit: kode JUSxxxxx BUKAN mati —
+  masih jadi label antrean offline, jadi mesinnya dipertahankan. SHA `a6d071b`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36743398250
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36744503890
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36744688017.
+- Realtime Worker version `30497ce2-b666-40e6-be9f-406da1fc838b`; Pages
+  `https://705a9214.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Dedup 3 halaman Riwayat 30 Sep 2026 — LIVE (app-only)
 
 - Riset: kasir↔umum 89% identik; ketiganya ~85–90% sama. Ekstrak
