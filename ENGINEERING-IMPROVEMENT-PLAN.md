@@ -1131,6 +1131,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://01116b4d.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Revert min-height header 30 Sep 2026 — LIVE (app-only)
+
+- `min-height` B1 dicabut total: di produksi nyata konten terpendek jauh di
+  bawah angka estimasi (gurun pink kosong, terbukti di screenshot). Kembali ke
+  padding seragam + tinggi ikut isi; komentar penjelas ditinggal di `app.css`
+  agar tidak dicoba lagi. SHA `a872b17`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36788522864
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36789368065
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36789683108.
+- Realtime Worker version `f3e03967-87ff-46b1-92d5-b08233b33246`; Pages
+  `https://6db1ec61.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Header min-height seragam 30 Sep 2026 — LIVE (app-only)
 
 - Satu aturan di `app.css`: `.page-header` min-height 208px (md: 232px),
