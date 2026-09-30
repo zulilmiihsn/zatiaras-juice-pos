@@ -788,18 +788,6 @@ export function createBayarState() {
 		get showQrisWarning() {
 			return showQrisWarning;
 		},
-		get transactionId() {
-			return transactionId;
-		},
-		set transactionId(v) {
-			transactionId = v;
-		},
-		get transactionCode() {
-			return transactionCode;
-		},
-		set transactionCode(v) {
-			transactionCode = v;
-		},
 		get nomorPesanan() {
 			return nomorPesanan;
 		},
@@ -847,7 +835,6 @@ export function createBayarState() {
 		setOffline,
 		cekSesiTokoAktif,
 		fetchPengaturanStruk,
-		generateTransactionCode,
 		handleCancel,
 		confirmCancel,
 		closeModal,
