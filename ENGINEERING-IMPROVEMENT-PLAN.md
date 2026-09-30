@@ -1082,6 +1082,20 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://41766a8f.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Cabut caption 7 hari 30 Sep 2026 — LIVE (app-only)
+
+- Caption penjelas dihapus atas masukan pemilik (pembuat yang tahu aturannya);
+  cutoff 7 hari di query tak berubah. SHA `c13a244`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36715732568
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36716760895
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36716935478.
+- Realtime Worker version `79e35997-f7e4-4ee7-9774-2d8bb8fb3372`; Pages
+  `https://d37d7d88.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Caption 7 hari keluar dari header 30 Sep 2026 — LIVE (app-only)
 
 - Caption "Menampilkan yang selesai 7 hari terakhir" tersangkut di area pink
