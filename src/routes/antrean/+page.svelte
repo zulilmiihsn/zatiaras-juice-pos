@@ -196,15 +196,23 @@
 		</div>
 	</div>
 
-	{#if searchOpen}
-		<!-- Panel cari floating: overlay tanpa menggeser daftar di bawahnya -->
-		<div class="relative z-30 mx-auto w-full max-w-5xl">
-			<div class="absolute inset-x-4 top-2 md:inset-x-6" role="search" aria-label="Cari pesanan">
-				<div
-					class="relative w-full rounded-[20px] border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
-				>
+	<style>
+		/* Satu tombol hapus kustom; sembunyikan bawaan browser agar tak ganda. */
+		.cari-antrean::-webkit-search-cancel-button {
+			display: none;
+		}
+	</style>
+
+	<main
+		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
+		aria-live="polite"
+	>
+		{#if searchOpen}
+			<!-- Kartu cari inline: ikut alur layout, tak pernah menutupi daftar -->
+			<div class="mb-3 rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-xl">
+				<div class="relative">
 					<Search
-						class="pointer-events-none absolute top-1/2 left-5 h-4 w-4 -translate-y-1/2 text-pink-400"
+						class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-pink-400"
 					/>
 					<input
 						type="search"
@@ -216,7 +224,7 @@
 							if (e.key === 'Escape') toggleSearch(false);
 						}}
 						bind:this={searchInput}
-						class="cari-antrean w-full rounded-2xl bg-transparent py-3 pr-11 pl-11 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
+						class="cari-antrean w-full rounded-2xl bg-slate-50/70 py-3 pr-11 pl-11 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-pink-200"
 					/>
 					{#if s.searchKeyword}
 						<button
@@ -226,7 +234,7 @@
 								s.searchKeyword = '';
 								searchInput?.focus();
 							}}
-							class="absolute top-1/2 right-4 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-pink-50 hover:text-pink-700"
+							class="absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-pink-50 hover:text-pink-700"
 						>
 							<X class="h-4 w-4" />
 						</button>
@@ -234,7 +242,7 @@
 				</div>
 				{#if s.searchKeyword.trim()}
 					{#if saran.length > 0}
-						<ul class="mt-1 max-h-72 overflow-y-auto border-t border-slate-100 pt-1">
+						<ul class="mt-2 border-t border-slate-100 pt-1">
 							{#each saran as found (found.idempotency_key)}
 								<li>
 									<button
@@ -272,20 +280,7 @@
 					<p class="px-3 py-2 text-xs text-slate-400">Ketik nama pelanggan atau nomor pesanan</p>
 				{/if}
 			</div>
-		</div>
-	{/if}
-
-	<style>
-		/* Satu tombol hapus kustom; sembunyikan bawaan browser agar tak ganda. */
-		.cari-antrean::-webkit-search-cancel-button {
-			display: none;
-		}
-	</style>
-
-	<main
-		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
-		aria-live="polite"
-	>
+		{/if}
 		{#if s.error}
 			<div
 				class="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
