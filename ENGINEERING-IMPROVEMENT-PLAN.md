@@ -1064,6 +1064,26 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Panel cari floating + fix overlap 30 Sep 2026 — LIVE (app-only)
+
+- Search bar inline diganti tombol kaca pembesar di kanan pil tab + panel
+  floating overlay (di luar `.page-header` yang `overflow:hidden`, z-30 di atas
+  daftar, tanpa menggeser DOM). Menutup panel ikut menghapus kata kunci.
+- Temuan jujur: rilis search pertama (`c4d4b8f2`/`cd22110`) lolos semua gate
+  lokal KECUALI E2E lokal yang flaky, lalu CI merah 1 tes — trace CI
+  membuktikan panel overlay menutupi tombol "Buka lagi" kartu teratas
+  (Playwright retry klik 18 detik × N sampai timeout). Bukan flaky: bug UX
+  nyata. Perbaikan + E2E (tutup panel sebelum aksi kartu) pada `cf84f6c`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36649925552
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36650673623
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36650801553.
+- Realtime Worker version `28dee1d5-7fa2-4aa9-8878-6cc1540e9f7b`; Pages
+  `https://8c3c3c76.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Search antrean + fix audit undici 30 Sep 2026 — LIVE (app-only)
 
 - Kolom pencarian di Antrean (nama pelanggan atau nomor harian, mis. "42")
