@@ -1064,6 +1064,25 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Kartu cari inline Antrean 30 Sep 2026 — LIVE (app-only)
+
+- Panel floating diganti kartu pencarian inline (ikut alur layout, pola sama
+  seperti halaman Riwayat): mustahil menutupi hasil, tanpa z-index/blur.
+  Saran maks 6 + pesan kosong + tombol X tunggal (bawaan browser
+  disembunyikan) dipertahankan; tutup pencarian tetap menghapus kata kunci.
+- CI sempat merah 1 tes karena konversi floating→inline menghilangkan
+  `role="search"` yang dipakai locator E2E (aplikasi benar, tes basi);
+  dikembalikan + fix dalam `b46da0e`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36657360658
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36658056906
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36658190950.
+- Realtime Worker version `5dcf6c3f-646a-41e9-9ec4-0f01809fdd2b`; Pages
+  `https://14867c55.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Saran hasil di panel cari 30 Sep 2026 — LIVE (app-only)
 
 - Riset (NN/g + Baymard): dropdown saran di bawah kolom cari, maksimal 4–8 di
