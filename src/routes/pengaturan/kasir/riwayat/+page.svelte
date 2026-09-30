@@ -15,6 +15,8 @@
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
+	import type { RentangRiwayat } from '$lib/services/riwayatService';
+	import { formatOrderDetails } from '$lib/utils/orderDetails';
 	import { buildReceiptHtml, loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import { toReceiptLines } from '$lib/utils/receiptLines';
 	import { printReceiptUnified } from '$lib/services/printerEngine';
@@ -30,6 +32,7 @@
 	let hasMore = $state(false);
 	let searchKeyword = $state('');
 	let filterPayment = $state('all'); // 'all' | 'qris' | 'tunai'
+	let filterRentang: RentangRiwayat = $state('hari-ini');
 
 	let showDetailModal = $state(false);
 	let selectedTransaksi = $state<HistoryItem | null>(null);
@@ -48,7 +51,11 @@
 		nextCursor = null;
 		hasMore = false;
 		try {
-			const page = await fetchTransaksiHariIniPage({ searchKeyword, filterPayment });
+			const page = await fetchTransaksiHariIniPage({
+				searchKeyword,
+				filterPayment,
+				rentang: filterRentang
+			});
 			transaksiHariIni = page.items;
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
@@ -64,7 +71,10 @@
 		if (loadingMore || !hasMore || !nextCursor) return;
 		loadingMore = true;
 		try {
-			const page = await fetchTransaksiHariIniPage({ searchKeyword, filterPayment }, nextCursor);
+			const page = await fetchTransaksiHariIniPage(
+				{ searchKeyword, filterPayment, rentang: filterRentang },
+				nextCursor
+			);
 			transaksiHariIni = [...transaksiHariIni, ...page.items];
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
@@ -128,7 +138,7 @@
 								addOns: line.inklusifSaja
 									? []
 									: line.addOns.map((a) => ({ name: a.nama, price: a.total })),
-								details: [line.gula, line.es, line.catatan].filter(Boolean).join(', ')
+								details: formatOrderDetails(line) || undefined
 							}))
 						: [
 								{
@@ -196,7 +206,7 @@
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
-				Riwayat Transaksi Hari Ini
+				{filterRentang === '7-hari' ? 'Riwayat Transaksi 7 Hari' : 'Riwayat Transaksi Hari Ini'}
 			</h1>
 			<HeaderBackButton label="Refresh" onclick={refreshManual}>
 				<RefreshCw class="h-5 w-5 {loading ? 'animate-spin' : ''}" />
@@ -215,6 +225,28 @@
 				bind:value={searchKeyword}
 				oninput={fetchTransaksiHariIni}
 			/>
+			<div class="flex gap-2" role="group" aria-label="Rentang tanggal">
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterRentang ===
+					'hari-ini'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterRentang = 'hari-ini';
+						fetchTransaksiHariIni();
+					}}>Hari ini</button
+				>
+				<button
+					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterRentang ===
+					'7-hari'
+						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
+						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
+					onclick={() => {
+						filterRentang = '7-hari';
+						fetchTransaksiHariIni();
+					}}>7 hari</button
+				>
+			</div>
 			<div class="flex gap-2">
 				<button
 					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
@@ -276,7 +308,9 @@
 					</svg>
 				</div>
 				<div class="text-sm font-bold text-slate-800 md:text-base">
-					Belum Ada Transaksi Hari Ini
+					{filterRentang === '7-hari'
+						? 'Belum Ada Transaksi 7 Hari Terakhir'
+						: 'Belum Ada Transaksi Hari Ini'}
 				</div>
 				<p class="mt-1 text-xs text-slate-400 md:text-sm">Transaksi kasir akan muncul di sini.</p>
 			</div>

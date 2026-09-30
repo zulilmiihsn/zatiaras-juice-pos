@@ -79,6 +79,21 @@ export function isTodayWita(iso: string, now: Date = new Date()): boolean {
 	);
 }
 
+/**
+ * Rentang UTC untuk N hari WITA terakhir (hari ini + N-1 ke belakang).
+ * Murni bila todayYmd diisi. Satu sumber definisi "N hari terakhir" untuk
+ * tab Selesai Antrean dan preset Riwayat.
+ */
+export function rentangHariWitaUtc(
+	jumlahHari: number,
+	todayYmd: string = getTodayWita()
+): { startUtc: string; endUtc: string } {
+	const n = Math.max(1, Math.floor(jumlahHari));
+	const { startUtc } = witaToUtcRange(addDaysYmd(todayYmd, -(n - 1)));
+	const { endUtc } = witaToUtcRange(todayYmd);
+	return { startUtc, endUtc };
+}
+
 // [CATATAN]: STANDAR: Dapatkan waktu sekarang dalam WITA (YYYY-MM-DDTHH:mm:ss)
 export function getNowWita(): string {
 	const now = new Date();

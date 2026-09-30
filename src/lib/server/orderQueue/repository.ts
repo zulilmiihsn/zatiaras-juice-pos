@@ -1,6 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from '$lib/server/branchResolver';
-import { addDaysYmd, formatDateYmdWita, witaToUtcRange } from '$lib/utils/dateTime';
+import { formatDateYmdWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import type { OrderQueueCursor, OrderQueueItemDetail, PreparationState } from './types';
 
 /**
@@ -11,8 +11,7 @@ import type { OrderQueueCursor, OrderQueueItemDetail, PreparationState } from '.
 export const DONE_WINDOW_DAYS = 7;
 
 export function doneWindowCutoff(now: Date = new Date()): string {
-	const startDay = addDaysYmd(formatDateYmdWita(now), -(DONE_WINDOW_DAYS - 1));
-	return witaToUtcRange(startDay).startUtc;
+	return rentangHariWitaUtc(DONE_WINDOW_DAYS, formatDateYmdWita(now)).startUtc;
 }
 
 export interface OrderHeaderRow {

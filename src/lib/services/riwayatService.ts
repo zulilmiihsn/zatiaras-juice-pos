@@ -5,19 +5,30 @@
  * Murni data: tidak menyentuh state komponen (loading/toast). Caller yang bungkus
  * loading + try/catch + notifikasi. Lihat CONVENTIONS.md §3.
  */
-import { witaToUtcRange, getTodayWita } from '$lib/utils/dateTime';
+import { getTodayWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import { transactionService } from '$lib/services/transactionService';
 import type { BukuKasRecord, HistoryItem } from '$lib/types/laporan';
-/** Rentang UTC untuk "hari ini" dalam zona WITA. */
-function todayRange() {
-	const todayWita = getTodayWita(); // format YYYY-MM-DD
-	return witaToUtcRange(todayWita);
+
+/** Preset rentang Riwayat. Default 'hari-ini' = perilaku lama. */
+export type RentangRiwayat = 'hari-ini' | '7-hari';
+
+/**
+ * Rentang UTC untuk preset, dalam zona WITA. Murni bila todayYmd diisi
+ * (untuk tes deterministik); default tanggal WITA saat ini.
+ * Definisi "7 hari" sama dengan tab Selesai Antrean: hari ini + 6 hari ke belakang.
+ */
+export function rentangRiwayatUtc(
+	rentang: RentangRiwayat = 'hari-ini',
+	todayYmd: string = getTodayWita()
+): { startUtc: string; endUtc: string } {
+	return rentangHariWitaUtc(rentang === '7-hari' ? 7 : 1, todayYmd);
 }
 
 export interface RiwayatFilter {
 	searchKeyword?: string;
 	/** 'all' | 'qris' | 'tunai' — string longgar karena state komponen bertipe string. */
 	filterPayment?: string;
+	rentang?: RentangRiwayat;
 }
 
 /**
@@ -26,8 +37,8 @@ export interface RiwayatFilter {
  * Throw bila fetch gagal (caller yang menangani).
  */
 export async function fetchTransaksiHariIni(filter: RiwayatFilter = {}): Promise<HistoryItem[]> {
-	const { searchKeyword = '', filterPayment = 'all' } = filter;
-	const { startUtc: start, endUtc: end } = todayRange();
+	const { searchKeyword = '', filterPayment = 'all', rentang = 'hari-ini' } = filter;
+	const { startUtc: start, endUtc: end } = rentangRiwayatUtc(rentang);
 
 	const data = (await transactionService.getRows('buku_kas', {
 		start,
@@ -114,8 +125,8 @@ export async function fetchTransaksiHariIniPage(
 	cursor: string | null = null,
 	limit = 50
 ): Promise<RiwayatPage> {
-	const { searchKeyword = '', filterPayment = 'all' } = filter;
-	const { startUtc: start, endUtc: end } = todayRange();
+	const { searchKeyword = '', filterPayment = 'all', rentang = 'hari-ini' } = filter;
+	const { startUtc: start, endUtc: end } = rentangRiwayatUtc(rentang);
 	const params: Record<string, string> = {
 		start,
 		end,

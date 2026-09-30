@@ -5,7 +5,7 @@ import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
 import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
-import { isTodayWita } from '../lib/utils/dateTime.js';
+import { isTodayWita, rentangHariWitaUtc } from '../lib/utils/dateTime.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
 
 const settings: ReceiptSettings = {
@@ -67,6 +67,19 @@ const nowAtWitaMidnight = new Date('2026-09-29T16:00:00.000Z');
 assert.equal(isTodayWita('2026-09-29T16:00:00.000Z', nowAtWitaMidnight), true);
 assert.equal(isTodayWita('2026-09-29T15:59:59.999Z', nowAtWitaMidnight), false);
 assert.equal(isTodayWita('invalid', nowAtWitaMidnight), false);
+// Satu sumber definisi "N hari terakhir" untuk Selesai Antrean dan Riwayat.
+assert.deepEqual(rentangHariWitaUtc(1, '2026-09-30'), {
+	startUtc: '2026-09-29T16:00:00.000Z',
+	endUtc: '2026-09-30T15:59:59.999Z'
+});
+assert.deepEqual(rentangHariWitaUtc(7, '2026-09-30'), {
+	startUtc: '2026-09-23T16:00:00.000Z',
+	endUtc: '2026-09-30T15:59:59.999Z'
+});
+assert.deepEqual(rentangHariWitaUtc(0, '2026-09-30'), {
+	startUtc: '2026-09-29T16:00:00.000Z',
+	endUtc: '2026-09-30T15:59:59.999Z'
+});
 
 assert.equal(formatNomorHarian(history.nomor_harian), '007');
 assert.equal(formatNomorHarian(1000), '1000', 'lewat 999 lanjut tanpa blokir');
