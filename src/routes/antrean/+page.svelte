@@ -19,7 +19,21 @@
 	const s = createOrderQueueState();
 	let selectedKey = $state<string | null>(null);
 	let now = $state<Date | null>(null);
+	let searchOpen = $state(false);
+	let searchInput: HTMLInputElement | undefined = $state();
 	const selectedCard = $derived(s.items.find((card) => card.idempotency_key === selectedKey));
+	const searchActive = $derived(s.searchKeyword.trim().length > 0);
+
+	function toggleSearch(force?: boolean) {
+		searchOpen = force ?? !searchOpen;
+	}
+
+	$effect(() => {
+		if (searchOpen) {
+			const timer = window.setTimeout(() => searchInput?.focus(), 60);
+			return () => window.clearTimeout(timer);
+		}
+	});
 
 	onMount(() => {
 		s.start();
@@ -65,6 +79,8 @@
 	onkeydown={(event) => {
 		// Fokus sheet dipasang setelah animasi; Escape tetap harus bekerja sebelum fokus berpindah.
 		if (event.key === 'Escape' && selectedCard && s.activeTab === 'done') selectedKey = null;
+		// Tutup panel cari bila dialog detail tidak terbuka.
+		if (event.key === 'Escape' && searchOpen && !selectedCard) toggleSearch(false);
 	}}
 />
 
@@ -136,39 +152,70 @@
 						Selesai
 					</button>
 				</div>
-				<!-- Penyeimbang tombol refresh agar pil tetap di tengah pada layar lebar -->
-				<span aria-hidden="true" class="hidden h-10 w-10 shrink-0 sm:block"></span>
+				<!-- Tombol cari: ganti spacer penyeimbang agar pil tetap tengah -->
+				<button
+					type="button"
+					class="relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+					onclick={() => toggleSearch()}
+					aria-label="Cari pesanan"
+					aria-expanded={searchOpen}
+				>
+					<Search class="h-4.5 w-4.5 stroke-[2.2]" />
+					{#if searchActive}
+						<span
+							aria-hidden="true"
+							class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-300 ring-2 ring-white/40"
+						></span>
+					{/if}
+				</button>
 			</div>
 		</div>
 	</div>
+
+	{#if searchOpen}
+		<!-- Panel cari floating: overlay tanpa menggeser daftar di bawahnya -->
+		<div class="relative z-30 mx-auto w-full max-w-5xl">
+			<div class="absolute inset-x-4 top-2 md:inset-x-6" role="search" aria-label="Cari pesanan">
+				<div
+					class="relative w-full rounded-[20px] border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
+				>
+					<Search
+						class="pointer-events-none absolute top-1/2 left-5 h-4 w-4 -translate-y-1/2 text-pink-400"
+					/>
+					<input
+						type="search"
+						placeholder="Cari nama atau nomor pesanan..."
+						aria-label="Cari pesanan berdasarkan nama atau nomor"
+						value={s.searchKeyword}
+						oninput={(e) => (s.searchKeyword = e.currentTarget.value)}
+						onkeydown={(e) => {
+							if (e.key === 'Escape') toggleSearch(false);
+						}}
+						bind:this={searchInput}
+						class="w-full rounded-2xl bg-transparent py-3 pr-11 pl-11 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
+					/>
+					{#if s.searchKeyword}
+						<button
+							type="button"
+							aria-label="Bersihkan pencarian"
+							onclick={() => {
+								s.searchKeyword = '';
+								searchInput?.focus();
+							}}
+							class="absolute top-1/2 right-4 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-pink-50 hover:text-pink-700"
+						>
+							<X class="h-4 w-4" />
+						</button>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<main
 		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
 		aria-live="polite"
 	>
-		<div class="relative mb-3">
-			<Search
-				class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400"
-			/>
-			<input
-				type="search"
-				placeholder="Cari nama atau nomor pesanan..."
-				aria-label="Cari pesanan berdasarkan nama atau nomor"
-				value={s.searchKeyword}
-				oninput={(e) => (s.searchKeyword = e.currentTarget.value)}
-				class="w-full rounded-2xl border border-white/60 bg-white/90 py-3 pr-11 pl-11 text-sm font-medium text-slate-800 shadow-xl backdrop-blur-lg outline-none placeholder:text-slate-400 focus:border-pink-300"
-			/>
-			{#if s.searchKeyword}
-				<button
-					type="button"
-					aria-label="Bersihkan pencarian"
-					onclick={() => (s.searchKeyword = '')}
-					class="absolute top-1/2 right-3 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-				>
-					<X class="h-4 w-4" />
-				</button>
-			{/if}
-		</div>
 		{#if s.error}
 			<div
 				class="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"

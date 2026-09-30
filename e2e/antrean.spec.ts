@@ -123,7 +123,9 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(doneCard.getByRole('button', { name: /lihat detail pesanan/i })).toBeFocused();
 
 		// Cari berdasarkan nama, nomor, lalu hapus pencarian.
+		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
 		const searchBox = page.getByPlaceholder('Cari nama atau nomor pesanan...');
+		await expect(searchBox).toBeVisible();
 		await searchBox.fill(customer);
 		await expect(doneCard).toBeVisible();
 		await searchBox.fill('zzz-tidak-ada');
