@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { createOrderQueueState } from '$lib/stores/orderQueueState.svelte';
 	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
@@ -183,11 +185,12 @@
 		aria-live="polite"
 	>
 		{#if searchOpen}
-			<!-- Kartu cari inline: ikut alur layout, tak pernah menutupi daftar -->
+			<!-- Kartu cari inline: meluncur turun dari balik header, naik saat ditutup -->
 			<div
 				class="mb-3 rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-xl"
 				role="search"
 				aria-label="Cari pesanan"
+				transition:fly={{ y: -28, duration: 260, easing: cubicOut }}
 			>
 				<div class="relative">
 					<Search
