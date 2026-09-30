@@ -1064,6 +1064,23 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Detail antrean jadi modal tengah 30 Sep 2026 — LIVE (app-only)
+
+- Bottom sheet diganti `AppModal align="center"` (pola baku dialog tengah
+  seperti riwayat): header + tombol X, konten scroll, isi sama (nomor, meta,
+  rincian, total). Escape global tetap menutup. Asersi pengembalian fokus
+  khas bottom-sheet dihapus dari E2E (modal riwayat acuan pun tak punya).
+  SHA `1e364b7`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36670228031
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36670932908
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36671054823.
+- Realtime Worker version `f9cc3a4c-3992-4bfa-bd18-fd43206cf868`; Pages
+  `https://157d5f37.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Tutup-otomatis kartu cari + fix audit brace-expansion 30 Sep 2026 — LIVE
 
 - Kartu pencarian menutup sendiri (geser naik) saat fokus pindah keluar
