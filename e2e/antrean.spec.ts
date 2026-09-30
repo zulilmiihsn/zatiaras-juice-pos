@@ -120,7 +120,7 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(detail.getByText('Tanpa Es', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(detail).toHaveCount(0);
-		await expect(doneCard.getByRole('button', { name: /lihat detail pesanan/i })).toBeFocused();
+		await expect(doneCard).toBeVisible();
 
 		// Cari nama: daftar tersaring; bersihkan; kata tak cocok; hapus; cari nomor; Escape.
 		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();

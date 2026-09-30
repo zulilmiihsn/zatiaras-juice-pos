@@ -3,7 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { createOrderQueueState } from '$lib/stores/orderQueueState.svelte';
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import { isTodayWita } from '$lib/utils/dateTime';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -389,14 +389,29 @@
 	</main>
 </div>
 
-<ModalSheet
+<AppModal
 	open={Boolean(selectedCard) && s.activeTab === 'done'}
-	title={`Detail pesanan ${selectedCard?.nama_pelanggan || 'Tanpa nama'}`}
-	showCloseButton
+	label="Detail pesanan"
+	size="sm"
+	align="center"
+	panelClass="bg-white"
 	onClose={() => (selectedKey = null)}
 >
 	{#if selectedCard}
-		<div class="py-4">
+		<div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+			<h2 class="truncate text-base font-extrabold text-slate-900" id="antrean-detail-title">
+				Detail pesanan {selectedCard.nama_pelanggan || 'Tanpa nama'}
+			</h2>
+			<button
+				type="button"
+				onclick={() => (selectedKey = null)}
+				aria-label="Tutup detail pesanan"
+				class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-800 active:scale-90"
+			>
+				<X class="h-4 w-4 stroke-[2.2]" />
+			</button>
+		</div>
+		<div class="max-h-[70dvh] min-h-0 overflow-y-auto px-5 py-4">
 			<NomorPesananLabel
 				nomor={selectedCard.nomor_harian}
 				menunggu={selectedCard.unsynced}
@@ -420,4 +435,4 @@
 			</p>
 		</div>
 	{/if}
-</ModalSheet>
+</AppModal>
