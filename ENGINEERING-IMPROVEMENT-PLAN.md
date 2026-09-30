@@ -1064,6 +1064,24 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Rentang Riwayat Hari ini + 7 hari 30 Sep 2026 — LIVE (app-only)
+
+- Tiga halaman Riwayat (umum/kasir/pemilik) dapat pil "Hari ini" (default,
+  perilaku lama) dan "7 hari"; judul + teks kosong dinamis. Satu helper
+  tanggal kanonik `rentangHariWitaUtc` dipakai Riwayat dan cutoff Selesai
+  Antrean; backend tak berubah (rentang arbitrer memang sudah didukung).
+  Bonus: detail ESC/POS cetak-ulang Riwayat kini memakai label Indonesia.
+  SHA `daa87d4`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36704300892
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36705209377
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36705360633.
+- Realtime Worker version `ec16f807-a7d8-4bb9-a6f5-050f8c38dc76`; Pages
+  `https://41766a8f.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Selesai 7 hari terakhir 30 Sep 2026 — LIVE (app-only)
 
 - Tab Selesai Antrean dibatasi 7 hari WITA terakhir (cutoff di query, ikut
