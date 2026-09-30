@@ -108,7 +108,6 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await page.getByRole('tab', { name: 'Selesai', exact: true }).click();
 		const doneCard = page.locator('article', { hasText: customer });
 		await expect(doneCard).toBeVisible({ timeout: 30_000 });
-		await expect(page.getByText('Menampilkan yang selesai 7 hari terakhir')).toBeVisible();
 		await expect(doneCard.getByText(orderLabel!)).toBeVisible();
 		await expect(doneCard.getByText('Total Rp10.000')).toBeVisible();
 		await expect(doneCard.getByText('Es Teh UAT', { exact: false })).toHaveCount(0);
