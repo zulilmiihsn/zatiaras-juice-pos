@@ -1082,6 +1082,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://41766a8f.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Caption 7 hari keluar dari header 30 Sep 2026 — LIVE (app-only)
+
+- Caption "Menampilkan yang selesai 7 hari terakhir" tersangkut di area pink
+  header (main -mt-4 menariknya ke atas); diberi `mt-6` agar jatuh di area
+  putih bawah lengkung. Fitur cutoff-nya sendiri tak berubah. SHA `45f0481`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36712759337
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36713723775
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36713827467
+  (dispatch pertama 500 transient, retry 204).
+- Realtime Worker version `d65b6797-8f83-434a-932d-4dca34aab091`; Pages
+  `https://997957d3.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Selesai 7 hari terakhir 30 Sep 2026 — LIVE (app-only)
 
 - Tab Selesai Antrean dibatasi 7 hari WITA terakhir (cutoff di query, ikut
