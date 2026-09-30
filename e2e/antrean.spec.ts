@@ -122,25 +122,32 @@ test('owner checkout appears in Antrean and can be completed then reopened', asy
 		await expect(detail).toHaveCount(0);
 		await expect(doneCard.getByRole('button', { name: /lihat detail pesanan/i })).toBeFocused();
 
-		// Cari berdasarkan nama, nomor, lalu hapus pencarian.
+		// Cari: ketik nama lalu ketuk saran untuk menuju pesanan.
 		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
 		const searchBox = page.getByPlaceholder('Cari nama atau nomor pesanan...');
 		await expect(searchBox).toBeVisible();
 		await searchBox.fill(customer);
-		await expect(doneCard).toBeVisible();
+		const saran = page.getByRole('button', { name: new RegExp(`Tuju pesanan ${customer}`, 'i') });
+		await expect(saran).toBeVisible();
 		await page.getByRole('button', { name: 'Bersihkan pencarian', exact: true }).click();
+		await expect(searchBox).toHaveValue('');
+		await searchBox.fill(customer);
+		await saran.click();
+		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
+		// Kata kunci tak cocok: saran dan daftar sama-sama menyatakan kosong.
+		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
 		await searchBox.fill('zzz-tidak-ada');
-		await expect(page.getByText('Tidak ada yang cocok')).toBeVisible();
+		await expect(page.getByRole('search').getByText('Tidak ada yang cocok')).toBeVisible();
 		await expect(doneCard).toHaveCount(0);
 		await page.getByRole('button', { name: 'Hapus pencarian', exact: true }).click();
 		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
+		// Cari by nomor lalu tutup dengan Escape.
 		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
-		await expect(searchBox).toBeVisible();
 		await searchBox.fill(orderLabel!.replace(/\D/g, ''));
-		await expect(doneCard).toBeVisible();
-		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
+		await expect(page.getByRole('button', { name: /tuju pesanan/i })).toBeVisible();
+		await page.keyboard.press('Escape');
 		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
 
