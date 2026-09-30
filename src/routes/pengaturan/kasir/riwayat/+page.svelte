@@ -11,17 +11,14 @@
 	import { createToastManager } from '$lib/utils/ui';
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import { transactionService } from '$lib/services/transactionService';
-	import { formatRupiah } from '$lib/utils/currency';
+	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
-	import { formatOrderDetails } from '$lib/utils/orderDetails';
-	import { buildReceiptHtml, loadReceiptSettings } from '$lib/utils/receiptPrint';
-	import { toReceiptLines } from '$lib/utils/receiptLines';
-	import { printReceiptUnified } from '$lib/services/printerEngine';
+	import { loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
-	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
+	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
+	import RiwayatTransactionCard from '$lib/components/riwayat/RiwayatTransactionCard.svelte';
 
 	let pengaturanStruk = $state<import('$lib/types/laporan').ReceiptSettings | null>(null);
 
@@ -111,47 +108,7 @@
 
 		loading = true;
 		try {
-			let items: Record<string, unknown>[] = [];
-			if (selectedTransaksi.sumber === 'pos') {
-				items = await transactionService.getRows('transaksi_kasir', {
-					transaction_id: selectedTransaksi.transaction_id || selectedTransaksi.id
-				});
-			}
-
-			const html = buildReceiptHtml(selectedTransaksi, pengaturanStruk, items);
-			const lines = toReceiptLines(items);
-			const escposData = {
-				storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
-				address: pengaturanStruk?.alamat,
-				phone: pengaturanStruk?.telepon,
-				instagram: pengaturanStruk?.instagram,
-				customerName: selectedTransaksi.nama_pelanggan || '',
-				dateTime: new Date(selectedTransaksi.waktu).toLocaleString('id-ID'),
-				items:
-					lines.length > 0
-						? lines.map((line) => ({
-								name: line.nama,
-								qty: line.jumlah,
-								price: line.inklusifSaja
-									? line.subtotal
-									: Math.round((line.baseUnit ?? 0) * line.jumlah * 100) / 100,
-								addOns: line.inklusifSaja
-									? []
-									: line.addOns.map((a) => ({ name: a.nama, price: a.total })),
-								details: formatOrderDetails(line) || undefined
-							}))
-						: [
-								{
-									name: selectedTransaksi.nama || 'Transaksi Kasir',
-									qty: 1,
-									price: Number(selectedTransaksi.nominal || 0)
-								}
-							],
-				total: Number(selectedTransaksi.nominal || 0),
-				paymentMethod: selectedTransaksi.metode_bayar || 'tunai',
-				footerMessage: pengaturanStruk?.ucapan
-			};
-			await printReceiptUnified({ html, receiptData: escposData });
+			await printRiwayatStruk(selectedTransaksi, pengaturanStruk);
 		} catch (error) {
 			ErrorHandler.logError(error as Error, 'printStrukDariRiwayat');
 			toastManager.showToastNotification('Gagal mencetak struk', 'error');
@@ -216,70 +173,12 @@
 
 	<!-- Main Container -->
 	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
-		<!-- Search & Filter Card -->
-		<div class="soft-float-card mb-4 space-y-3 p-4 md:p-5">
-			<input
-				type="text"
-				class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
-				placeholder="Cari transaksi berdasarkan nama, nomor, nominal, atau catatan..."
-				bind:value={searchKeyword}
-				oninput={fetchTransaksiHariIni}
-			/>
-			<div class="flex gap-2" role="group" aria-label="Rentang tanggal">
-				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterRentang ===
-					'hari-ini'
-						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
-					onclick={() => {
-						filterRentang = 'hari-ini';
-						fetchTransaksiHariIni();
-					}}>Hari ini</button
-				>
-				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterRentang ===
-					'7-hari'
-						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
-					onclick={() => {
-						filterRentang = '7-hari';
-						fetchTransaksiHariIni();
-					}}>7 hari</button
-				>
-			</div>
-			<div class="flex gap-2">
-				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
-					'all'
-						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
-					onclick={() => {
-						filterPayment = 'all';
-						fetchTransaksiHariIni();
-					}}>Semua</button
-				>
-				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
-					'qris'
-						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
-					onclick={() => {
-						filterPayment = 'qris';
-						fetchTransaksiHariIni();
-					}}>QRIS</button
-				>
-				<button
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-95 md:px-5 md:py-2.5 md:text-sm {filterPayment ===
-					'tunai'
-						? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-xs shadow-pink-500/20'
-						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200'}"
-					onclick={() => {
-						filterPayment = 'tunai';
-						fetchTransaksiHariIni();
-					}}>Tunai</button
-				>
-			</div>
-		</div>
+		<RiwayatFilterCard
+			bind:searchKeyword
+			bind:filterPayment
+			bind:filterRentang
+			onchange={fetchTransaksiHariIni}
+		/>
 
 		{#if loading}
 			<div class="soft-float-card p-10 text-center text-xs font-semibold text-slate-400 md:text-sm">
@@ -317,53 +216,7 @@
 		{:else}
 			<div class="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
 				{#each transaksiHariIni as trx (trx.id)}
-					<div
-						class="soft-float-card flex cursor-pointer items-start justify-between gap-3 p-4 transition-all hover:border-pink-200 hover:shadow-md md:p-4.5"
-						onclick={() => openDetail(trx)}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								openDetail(trx);
-							}
-						}}
-						role="button"
-						tabindex="0"
-					>
-						<div class="min-w-0 flex-1">
-							<NomorPesananLabel
-								nomor={trx.nomor_harian}
-								kelas="text-[11px] font-extrabold tracking-wide text-pink-600"
-							/>
-							<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
-								{trx.nama}
-							</div>
-							<div class="mb-1 flex items-center gap-2 text-xs text-gray-500 md:text-sm">
-								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
-									{trx.sumber === 'pos' ? 'POS' : 'Manual'}
-								</span>
-								<span class="capitalize">
-									{trx.tipe === 'in' ? 'Pemasukan' : 'Pengeluaran'}
-								</span>
-								<span class="font-bold text-pink-500 uppercase">
-									{trx.metode_bayar === 'qris' || trx.metode_bayar === 'non-tunai'
-										? 'QRIS'
-										: 'Tunai'}
-								</span>
-							</div>
-							<div class="text-xs text-gray-400">
-								{new Date(trx.waktu).toLocaleTimeString('id-ID', {
-									hour: '2-digit',
-									minute: '2-digit'
-								})}
-							</div>
-						</div>
-						<div class="flex flex-col items-end gap-1">
-							<div class="text-base font-black text-pink-600 md:text-lg">
-								Rp {formatRupiah(trx.nominal)}
-							</div>
-							<div class="text-xs text-gray-400">Tap untuk detail</div>
-						</div>
-					</div>
+					<RiwayatTransactionCard {trx} onOpen={openDetail} />
 				{/each}
 			</div>
 			{#if hasMore}
