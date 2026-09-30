@@ -1131,6 +1131,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://01116b4d.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Header min-height seragam 30 Sep 2026 — LIVE (app-only)
+
+- Satu aturan di `app.css`: `.page-header` min-height 208px (md: 232px),
+  menutupi konten tertinggi non-kondisional. Banner stok kondisional tetap
+  boleh tumbuh. Konsekuensi disetujui: halaman sepi beruang pink lega.
+  SHA `c6565be`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36785818740
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36786804140
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36786946577.
+- Realtime Worker version `0319eced-9852-425a-8229-0d636296866f`; Pages
+  `https://5429629c.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Cabut caption 7 hari 30 Sep 2026 — LIVE (app-only)
 
 - Caption penjelas dihapus atas masukan pemilik (pembuat yang tahu aturannya);
