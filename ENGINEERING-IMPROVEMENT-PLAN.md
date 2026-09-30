@@ -1064,6 +1064,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Skala radius + modal 28px 30 Sep 2026 — LIVE (app-only)
+
+- Skala radius didokumentasikan di `app.css` (kartu 24, modal/sheet 28,
+  input 16, pil full). Ronde 1: `AppModal`, `aiChatModal`, `pinModal`
+  24→28px (satu baris tiap file, ~13 pemakaian ikut seragam). Halaman
+  Antrean diaudit patuh skala. Migrasi halaman lain bertahap. SHA `97199a1`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36791759763
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36792545884
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36792684100.
+- Realtime Worker version `e18303f8-8a85-4a74-95a1-18b5d97f7612`; Pages
+  `https://8a16ab49.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Hapus kode mati 30 Sep 2026 — LIVE (app-only)
 
 - `fetchTransaksiHariIni` non-page (nol pemanggil) dan accessor tak terpakai
