@@ -293,7 +293,7 @@
 			{/if}
 		{:else}
 			{#if s.activeTab === 'done'}
-				<p class="mb-2 text-center text-[11px] font-medium text-slate-400">
+				<p class="mt-6 mb-2 text-center text-[11px] font-medium text-slate-400">
 					Menampilkan yang selesai 7 hari terakhir
 				</p>
 			{/if}
