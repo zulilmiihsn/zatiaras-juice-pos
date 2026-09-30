@@ -21,40 +21,16 @@
 	let now = $state<Date | null>(null);
 	let searchOpen = $state(false);
 	let searchInput: HTMLInputElement | undefined = $state();
-	let highlightedKey = $state<string | null>(null);
-	let highlightTimer: number | null = null;
 	const selectedCard = $derived(s.items.find((card) => card.idempotency_key === selectedKey));
-	/** Saran panel: maksimal 6 agar mudah dipindai di HP ( Baymard: 4-8 mobile ). */
-	const saran = $derived(s.filteredItems.slice(0, 6));
-	const sisaSaran = $derived(s.filteredItems.length - saran.length);
 
 	/**
-	 * Buka/tutup panel cari. Menutup = selesai mencari: kata kunci ikut
-	 * dihapus agar panel overlay tak pernah menutupi tombol kartu.
+	 * Buka/tutup pencarian. Menutup = selesai mencari: kata kunci ikut
+	 * dihapus agar daftar kembali penuh.
 	 */
 	function toggleSearch(force?: boolean) {
 		const next = force ?? !searchOpen;
 		searchOpen = next;
 		if (!next) s.searchKeyword = '';
-	}
-
-	/** Tuju pesanan dari saran: tutup panel, kembali ke daftar penuh, sorot kartu. */
-	function pilihPesanan(card: UiOrder) {
-		const key = card.idempotency_key;
-		searchOpen = false;
-		s.searchKeyword = '';
-		highlightedKey = key;
-		if (highlightTimer !== null) window.clearTimeout(highlightTimer);
-		highlightTimer = window.setTimeout(() => {
-			highlightedKey = null;
-			highlightTimer = null;
-		}, 1800);
-		window.requestAnimationFrame(() => {
-			document.getElementById(`order-${key}`)?.scrollIntoView({
-				behavior: 'smooth',
-				block: 'center'
-			});
-		});
 	}
 
 	$effect(() => {
@@ -72,7 +48,6 @@
 	});
 	onDestroy(() => {
 		s.dispose();
-		if (highlightTimer !== null) window.clearTimeout(highlightTimer);
 	});
 
 	function formatWaktu(iso: string): string {
@@ -245,41 +220,11 @@
 					{/if}
 				</div>
 				{#if s.searchKeyword.trim()}
-					{#if saran.length > 0}
-						<ul class="mt-2 border-t border-slate-100 pt-1">
-							{#each saran as found (found.idempotency_key)}
-								<li>
-									<button
-										type="button"
-										onclick={() => pilihPesanan(found)}
-										aria-label={`Tuju pesanan ${found.nama_pelanggan || 'tanpa nama'}`}
-										class="flex min-h-[48px] w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-pink-50 active:bg-pink-100"
-									>
-										<span class="shrink-0 text-xs font-extrabold text-pink-700">
-											{formatNomorHarian(found.nomor_harian) ?? '…'}
-										</span>
-										<span class="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">
-											{found.nama_pelanggan || 'Tanpa nama'}
-										</span>
-										{#if found.nominal !== null}
-											<span class="shrink-0 text-xs font-bold text-slate-500">
-												Rp{formatRupiah(found.nominal)}
-											</span>
-										{/if}
-									</button>
-								</li>
-							{/each}
-						</ul>
-						{#if sisaSaran > 0}
-							<p class="px-3 py-1.5 text-[11px] text-slate-400">
-								+{sisaSaran} lainnya — persempit kata kunci
-							</p>
-						{/if}
-					{:else}
-						<p class="px-3 py-2 text-xs text-slate-500">
-							Tidak ada yang cocok dengan “{s.searchKeyword.trim()}”.
-						</p>
-					{/if}
+					<p class="px-3 py-2 text-xs text-slate-500">
+						{s.filteredItems.length > 0
+							? `${s.filteredItems.length} pesanan cocok dengan “${s.searchKeyword.trim()}”.`
+							: `Tidak ada yang cocok dengan “${s.searchKeyword.trim()}”.`}
+					</p>
 				{:else}
 					<p class="px-3 py-2 text-xs text-slate-400">Ketik nama pelanggan atau nomor pesanan</p>
 				{/if}
@@ -340,11 +285,7 @@
 			<div class="space-y-3">
 				{#each s.filteredItems as card (card.idempotency_key)}
 					<article
-						id={`order-${card.idempotency_key}`}
-						class="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur-lg transition-shadow md:p-5 {highlightedKey ===
-						card.idempotency_key
-							? 'ring-2 ring-pink-500'
-							: ''}"
+						class="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur-lg md:p-5"
 					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
