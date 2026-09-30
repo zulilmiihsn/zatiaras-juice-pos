@@ -96,7 +96,7 @@
 </svelte:head>
 
 <div class="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#faf7f8]">
-	<div class="page-header relative px-5 pt-4 pb-8 md:pt-6 md:pb-10">
+	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
 		></div>

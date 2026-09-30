@@ -94,7 +94,7 @@
 
 <div class="page-content min-h-[100dvh] bg-[#faf7f8] pb-24">
 	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
-	<div class="page-header relative mb-3 w-full px-6 pt-5 pb-8">
+	<div class="page-header relative mb-3 w-full px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
