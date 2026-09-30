@@ -1064,6 +1064,26 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Tutup-otomatis kartu cari + fix audit brace-expansion 30 Sep 2026 — LIVE
+
+- Kartu pencarian menutup sendiri (geser naik) saat fokus pindah keluar
+  kartu; tombol toggle memakai `preventDefault` pada mousedown agar tak
+  berkedip buka-tutup. SHA `fef96c5` (fitur).
+- CI sempat merah lagi BUKAN karena kode: advisory high baru
+  `brace-expansion` 2.x/4.x via workbox-build+eslint (GHSA-qhr7-859c-m2p7 +
+  GHSA-6j4f-fj2g-mc7p). Override presisi per rentang di pnpm-workspace.yaml
+  (`>=2.0.0 <2.1.6 → 2.1.6`, `>=4.0.0 <5.0.11 → 5.0.11`); audit high bersih,
+  unit hijau. SHA `b766d47` (deps).
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36666372918
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36667027016
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36667136637.
+- Realtime Worker version `78dcf0a8-38f9-4676-a692-821c9e025307`; Pages
+  `https://01f6c20f.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Animasi kartu cari Antrean 30 Sep 2026 — LIVE (app-only)
 
 - Kartu pencarian meluncur turun 28px + fade 260ms (`fly`/`cubicOut` bawaan
