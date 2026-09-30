@@ -106,7 +106,7 @@
 	>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<div
-				class="relative w-full max-w-sm rounded-3xl border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
+				class="relative w-full max-w-sm rounded-[28px] border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
 				transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 			>
 				{#if onClose}

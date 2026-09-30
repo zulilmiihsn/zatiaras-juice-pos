@@ -187,7 +187,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-3xl bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
+			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-[28px] bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
 			transition:scale={{ start: 0.95, duration: 220, easing: cubicOut }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.key === 'Escape' && closeModal()}

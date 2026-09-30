@@ -63,7 +63,7 @@
 			aria-label={labelledby ? undefined : label}
 			class="flex max-h-[92dvh] w-full {PANEL_SIZES[
 				size
-			]} flex-col overflow-hidden rounded-3xl shadow-2xl {panelClass}"
+			]} flex-col overflow-hidden rounded-[28px] shadow-2xl {panelClass}"
 			transition:scale={{ duration: 220, start: 0.95, easing: cubicOut }}
 		>
 			{@render children?.()}
