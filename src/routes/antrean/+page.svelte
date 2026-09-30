@@ -163,6 +163,7 @@
 				<button
 					type="button"
 					class="relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+					onmousedown={(e) => e.preventDefault()}
 					onclick={() => toggleSearch()}
 					aria-label="Cari pesanan"
 					aria-expanded={searchOpen}
@@ -185,12 +186,18 @@
 		aria-live="polite"
 	>
 		{#if searchOpen}
-			<!-- Kartu cari inline: meluncur turun dari balik header, naik saat ditutup -->
+			<!-- Kartu cari inline: ikut alur layout, tak pernah menutupi daftar -->
 			<div
 				class="mb-3 rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-xl"
 				role="search"
 				aria-label="Cari pesanan"
 				transition:fly={{ y: -28, duration: 260, easing: cubicOut }}
+				onfocusout={(e) => {
+					// Fokus pindah ke luar kartu (ketuk daftar/luar) = selesai mencari.
+					const next = e.relatedTarget as Node | null;
+					if (next && e.currentTarget.contains(next)) return;
+					toggleSearch(false);
+				}}
 			>
 				<div class="relative">
 					<Search
