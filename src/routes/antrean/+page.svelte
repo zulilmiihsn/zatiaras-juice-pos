@@ -209,7 +209,11 @@
 	>
 		{#if searchOpen}
 			<!-- Kartu cari inline: ikut alur layout, tak pernah menutupi daftar -->
-			<div class="mb-3 rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-xl">
+			<div
+				class="mb-3 rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-xl"
+				role="search"
+				aria-label="Cari pesanan"
+			>
 				<div class="relative">
 					<Search
 						class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-pink-400"
