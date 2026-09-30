@@ -76,6 +76,7 @@ async function seedQueueRow(input: {
 	waktu: string;
 	nama?: string | null;
 	state?: 'pending' | 'done' | null;
+	completedAt?: string;
 	revision?: number;
 	sumber?: string;
 	withItems?: boolean;
@@ -108,7 +109,7 @@ async function seedQueueRow(input: {
 			input.idempotencyKey,
 			state,
 			input.revision ?? 0,
-			state === 'done' ? '2026-09-28T02:00:00.000Z' : null,
+			state === 'done' ? (input.completedAt ?? '2026-09-28T02:00:00.000Z') : null,
 			state === 'done' ? 'owner-antrean' : null,
 			input.waktu,
 			input.waktu
@@ -714,6 +715,48 @@ try {
 		['k-3']
 	);
 	assert.deepEqual(filterQueueOrders(sampleCards, 'zzz-tidak-ada'), []);
+
+	// Q05b: Selesai dibatasi 7 hari; Belum selesai tanpa batas tanggal.
+	const dayMs = 24 * 60 * 60 * 1000;
+	await seedQueueRow({
+		bukuKasId: 'bk-done-sepekan',
+		transactionId: 'trx-done-sepekan',
+		idempotencyKey: 'antrean-done-sepekan',
+		waktu: new Date(Date.now() - dayMs).toISOString(),
+		state: 'done',
+		completedAt: new Date(Date.now() - dayMs).toISOString(),
+		withItems: false
+	});
+	await seedQueueRow({
+		bukuKasId: 'bk-done-lawas',
+		transactionId: 'trx-done-lawas',
+		idempotencyKey: 'antrean-done-lawas',
+		waktu: new Date(Date.now() - 10 * dayMs).toISOString(),
+		state: 'done',
+		completedAt: new Date(Date.now() - 10 * dayMs).toISOString(),
+		withItems: false
+	});
+	await seedQueueRow({
+		bukuKasId: 'bk-pending-lawas',
+		transactionId: 'trx-pending-lawas',
+		idempotencyKey: 'antrean-pending-lawas',
+		waktu: new Date(Date.now() - 10 * dayMs).toISOString(),
+		withItems: false
+	});
+	const donePage = await listOrderQueue(db, samarinda, { state: 'done', limit: 50 });
+	assert.ok(
+		donePage.items.some((i) => i.idempotency_key === 'antrean-done-sepekan'),
+		'selesai kemarin tetap tampil'
+	);
+	assert.ok(
+		!donePage.items.some((i) => i.idempotency_key === 'antrean-done-lawas'),
+		'selesai 10 hari lalu disembunyikan'
+	);
+	const pendingLawas = await listOrderQueue(db, samarinda, { state: 'pending', limit: 100 });
+	assert.ok(
+		pendingLawas.items.some((i) => i.idempotency_key === 'antrean-pending-lawas'),
+		'pending lawas wajib tetap tampil'
+	);
 
 	// Q11: tanpa skema 0036, checkout gagal tertutup 503 dengan pesan jelas.
 	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, true);

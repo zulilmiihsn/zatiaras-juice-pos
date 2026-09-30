@@ -292,6 +292,11 @@
 				</div>
 			{/if}
 		{:else}
+			{#if s.activeTab === 'done'}
+				<p class="mb-2 text-center text-[11px] font-medium text-slate-400">
+					Menampilkan yang selesai 7 hari terakhir
+				</p>
+			{/if}
 			<div class="space-y-3">
 				{#each s.filteredItems as card (card.idempotency_key)}
 					<article

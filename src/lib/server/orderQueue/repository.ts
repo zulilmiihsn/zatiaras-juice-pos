@@ -1,6 +1,19 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from '$lib/server/branchResolver';
+import { addDaysYmd, formatDateYmdWita, witaToUtcRange } from '$lib/utils/dateTime';
 import type { OrderQueueCursor, OrderQueueItemDetail, PreparationState } from './types';
+
+/**
+ * Tab Selesai hanya menampilkan 7 hari WITA terakhir agar daftar tak
+ * menumpuk. Tab Belum selesai TANPA batas tanggal: pesanan menginap wajib
+ * tetap terlihat sampai diselesaikan. Data lama tetap utuh di database.
+ */
+export const DONE_WINDOW_DAYS = 7;
+
+export function doneWindowCutoff(now: Date = new Date()): string {
+	const startDay = addDaysYmd(formatDateYmdWita(now), -(DONE_WINDOW_DAYS - 1));
+	return witaToUtcRange(startDay).startUtc;
+}
 
 export interface OrderHeaderRow {
 	id: string;
@@ -117,6 +130,7 @@ export async function listHeaders(
 			.all()) as { results?: OrderHeaderRow[] };
 		return results;
 	}
+	const cutoff = doneWindowCutoff();
 	const { results = [] } = (await db
 		.prepare(
 			`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
@@ -124,11 +138,12 @@ export async function listHeaders(
 				preparation_completed_at, preparation_completed_by, revision
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'done'
+			 AND preparation_completed_at >= ?
 			 ${cursor ? 'AND (preparation_completed_at < ? OR (preparation_completed_at = ? AND id < ?))' : ''}
 			 ORDER BY preparation_completed_at DESC, id DESC
 			 LIMIT ?`
 		)
-		.bind(branch, ...(cursor ? [cursor.sortValue, cursor.sortValue, cursor.id] : []), limit)
+		.bind(branch, cutoff, ...(cursor ? [cursor.sortValue, cursor.sortValue, cursor.id] : []), limit)
 		.all()) as { results?: OrderHeaderRow[] };
 	return results;
 }
