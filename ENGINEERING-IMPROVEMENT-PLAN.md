@@ -1095,6 +1095,21 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://d6f14893.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Radius ronde 3 stok + kotak laporan 1 Okt 2026 — LIVE (app-only)
+
+- 2 kartu stok 28→24, 13 input/select stok 12→16, 2 kotak laporan 16→24.
+  Tombol/badge/alert/segmented di luar skala — sengaja tak disentuh.
+  SHA `d9e7a2d`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36833757590
+  (E2E 41 tes). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36834650518
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36834800317.
+- Realtime Worker version `f1abb925-c781-41cb-8b70-83756d9fc03f`; Pages
+  `https://3ee54f2d.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Radius ronde 2: modal 28 kartu 24 ikon 16 — LIVE (app-only)
 
 - LaporanFilter + 3 modal stok + 2 modal laporan + chat AI → 28; kartu
