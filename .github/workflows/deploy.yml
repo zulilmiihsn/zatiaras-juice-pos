@@ -26,7 +26,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.sha }}
+          # Jangan ref langsung ke SHA: perilaku fetch-SHA actions/checkout
+          # rapuh (pernah gagal sebagai branch). Checkout main lalu
+          # buktikan HEAD = SHA rilis; manifest verify mengunci sisanya.
+          ref: main
+
+      - name: Assert Release SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}" || (echo "SHA mismatch" && exit 1)
 
       - name: Download Release Artifact
         uses: actions/download-artifact@v5
@@ -54,7 +61,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.sha }}
+          ref: main
+
+      - name: Assert Release SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}" || (echo "SHA mismatch" && exit 1)
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
