@@ -17,7 +17,13 @@
 </script>
 
 {#if tampil}
-	<div class={kelas}>No. Pesanan: {tampil}</div>
+	<div class={kelas} aria-label={`Nomor pesanan ${tampil}`}>{tampil}</div>
 {:else if menunggu}
-	<div class={kelasMenunggu || kelas}>No. Pesanan: menunggu sinkronisasi</div>
+	<div
+		class={kelasMenunggu || kelas}
+		title="menunggu sinkronisasi"
+		aria-label="Nomor pesanan menunggu sinkronisasi"
+	>
+		···
+	</div>
 {/if}

@@ -302,10 +302,10 @@
 								<NomorPesananLabel
 									nomor={card.nomor_harian}
 									menunggu={card.unsynced}
-									kelas="text-xs font-bold tracking-wide text-pink-700"
-									kelasMenunggu="text-xs font-bold tracking-wide text-amber-700"
+									kelas="text-3xl font-extrabold tabular-nums leading-none tracking-tight text-pink-700"
+									kelasMenunggu="text-3xl font-extrabold tabular-nums leading-none tracking-tight text-amber-600"
 								/>
-								<div class="truncate text-base font-extrabold text-slate-900">
+								<div class="mt-1 truncate text-base font-extrabold text-slate-900">
 									{card.nama_pelanggan || 'Tanpa nama'}
 								</div>
 								<div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -415,8 +415,8 @@
 			<NomorPesananLabel
 				nomor={selectedCard.nomor_harian}
 				menunggu={selectedCard.unsynced}
-				kelas="text-sm font-bold text-pink-700"
-				kelasMenunggu="text-sm font-bold text-amber-700"
+				kelas="text-3xl font-extrabold tabular-nums leading-none tracking-tight text-pink-700"
+				kelasMenunggu="text-3xl font-extrabold tabular-nums leading-none tracking-tight text-amber-600"
 			/>
 			<p class="mt-1 text-xs text-slate-500">
 				{formatTanggal(selectedCard.waktu)} · {formatWaktu(selectedCard.waktu)} WITA · {selectedCard.items.reduce(

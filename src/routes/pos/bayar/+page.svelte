@@ -436,8 +436,8 @@
 			<NomorPesananLabel
 				nomor={s.nomorPesanan}
 				menunggu={s.transactionQueuedOffline}
-				kelas="text-center text-sm font-extrabold tracking-wide text-pink-700"
-				kelasMenunggu="text-center text-sm font-extrabold tracking-wide text-amber-700"
+				kelas="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-pink-700"
+				kelasMenunggu="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-amber-600"
 			/>
 			<div class="text-center text-xs leading-relaxed text-slate-600">
 				{#if s.transactionQueuedOffline}

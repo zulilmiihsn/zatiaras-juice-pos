@@ -89,9 +89,11 @@ async function checkoutUatOrder(page: Page, customer: string): Promise<UatOrder>
 	const transactionId = payload.data?.transaction_id || '';
 	expect(transactionId).not.toBe('');
 	await expect(page.getByText('Transaksi Berhasil!', { exact: true })).toBeVisible();
-	const orderLabel = await page.getByText(/^No\. Pesanan: \d{3,}$/).textContent();
-	expect(orderLabel).toBeTruthy();
-	return { transactionId, orderLabel: orderLabel!, customer };
+	const orderChip = page.getByLabel(/^Nomor pesanan \d+$/);
+	await expect(orderChip).toBeVisible();
+	const orderLabel = (await orderChip.textContent())?.trim() ?? '';
+	expect(orderLabel).toMatch(/^\d{3,}$/);
+	return { transactionId, orderLabel, customer };
 }
 
 test('owner checkout appears in Antrean with Indonesian labels', async ({ page }) => {
@@ -107,7 +109,10 @@ test('owner checkout appears in Antrean with Indonesian labels', async ({ page }
 		await expect(page).toHaveURL(/\/antrean/);
 		const card = page.locator('article', { hasText: customer });
 		await expect(card).toBeVisible({ timeout: 30_000 });
-		await expect(card.getByText(order.orderLabel)).toBeVisible();
+		await expect(
+			card.getByLabel(`Nomor pesanan ${order.orderLabel}`, { exact: true })
+		).toBeVisible();
+		await expect(card.getByText(order.orderLabel, { exact: true })).toBeVisible();
 		await expect(card.getByText('Hari ini', { exact: true })).toBeVisible();
 		await expect(card.getByText('Es Teh UAT', { exact: false })).toBeVisible();
 		await expect(card.getByText('Sedikit Gula', { exact: true })).toBeVisible();
@@ -138,14 +143,20 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 		await page.getByRole('tab', { name: 'Selesai', exact: true }).click();
 		const doneCard = page.locator('article', { hasText: customer });
 		await expect(doneCard).toBeVisible({ timeout: 30_000 });
-		await expect(doneCard.getByText(order.orderLabel)).toBeVisible();
+		await expect(
+			doneCard.getByLabel(`Nomor pesanan ${order.orderLabel}`, { exact: true })
+		).toBeVisible();
+		await expect(doneCard.getByText(order.orderLabel, { exact: true })).toBeVisible();
 		await expect(doneCard.getByText('Total Rp10.000')).toBeVisible();
 		await expect(doneCard.getByText('Es Teh UAT', { exact: false })).toHaveCount(0);
 		await doneCard.getByRole('button', { name: /lihat detail pesanan/i }).click();
 		const detail = page.getByRole('dialog');
 		await expect(detail).toBeVisible();
 		await expect(detail.getByText('Es Teh UAT', { exact: false })).toBeVisible();
-		await expect(detail.getByText(order.orderLabel)).toBeVisible();
+		await expect(
+			detail.getByLabel(`Nomor pesanan ${order.orderLabel}`, { exact: true })
+		).toBeVisible();
+		await expect(detail.getByText(order.orderLabel, { exact: true })).toBeVisible();
 		await expect(detail.getByText('Sedikit Gula', { exact: true })).toBeVisible();
 		await expect(detail.getByText('Tanpa Es', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
