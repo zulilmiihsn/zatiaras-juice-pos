@@ -1064,6 +1064,23 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Fix deploy checkout-SHA + caption 30 Sep — 1 Okt 2026 LIVE (infra+app)
+
+- `actions/checkout ref: <SHA>` gagal 2× berturut (fetch sebagai branch,
+  versi action sama → perilaku sisi GitHub berubah). Perbaikan permanen:
+  checkout `main` + step assert `HEAD == inputs.sha` (gagal tertutup bila
+  beda); provenance tetap dikunci manifest verify. SHA `a0d8cc2`
+  (termasuk caption skeleton).
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36821239471
+  (E2E 41 tes). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36822032508
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36822158795.
+- Realtime Worker version `fd1d6306-528c-4496-8a08-13461263c85b`; Pages
+  `https://d8cab9d9.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Padding skeleton Antrean 1 Okt 2026 — LIVE (app-only)
 
 - Skeleton `p-5` vs kartu `p-4 md:p-5`: beda 8px di mobile. Disamakan.
