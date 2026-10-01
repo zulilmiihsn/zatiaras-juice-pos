@@ -1126,6 +1126,18 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://ebc51e91.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
+### Prosedur wipe pra-operasional 1 Okt 2026 — TANPA DEPLOY
+
+- `pnpm d1:wipe-history` per cabang: dry-run default, `--apply` wajib
+  `--confirm` + manifest backup yang memuat cabang; berhenti total bila arsip
+  berisi; verifikasi nol per tabel. Katalog/pengaturan/policy/audit
+  dipertahankan; wajib hitung fisik + rekonsiliasi stok sesudahnya.
+  Tes 6 kasus masuk rantai `test:operations`; prosedur di runbook §10b.
+  SHA `a3a38bf`; CI hijau
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36842987922.
+  Tanpa deploy: skrip + docs + komentar CSS tak mengubah output build.
+- Skala radius diformalkan untuk tombol/badge (dokumentasi saja).
+
 ### Pecah spec E2E Antrean 1 Okt 2026 — LIVE (app-only)
 
 - Satu tes ±2 menit dipecah 3 tes fokus (checkout→muncul, selesai/buka-lagi,
