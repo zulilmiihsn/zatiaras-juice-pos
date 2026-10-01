@@ -715,6 +715,20 @@ try {
 		['k-3']
 	);
 	assert.deepEqual(filterQueueOrders(sampleCards, 'zzz-tidak-ada'), []);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, '142 haura').map((c) => c.idempotency_key),
+		['k-2']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, 'haura 142').map((c) => c.idempotency_key),
+		['k-2']
+	);
+	assert.deepEqual(
+		filterQueueOrders(sampleCards, '007 ilham').map((c) => c.idempotency_key),
+		['k-1']
+	);
+	assert.deepEqual(filterQueueOrders(sampleCards, '142 ilham'), []);
+	assert.deepEqual(filterQueueOrders(sampleCards, '007 budi'), []);
 
 	// Q05b: Selesai dibatasi 7 hari; Belum selesai tanpa batas tanggal.
 	const dayMs = 24 * 60 * 60 * 1000;

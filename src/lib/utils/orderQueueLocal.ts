@@ -199,18 +199,22 @@ export function mergeQueueWithLocal(
  * Murni, tanpa IO: dipakai daftar online, snapshot offline, dan kartu lokal
  * yang belum sinkron. Kata kunci angka mencocokkan sebagian nomor
  * ("42" cocok 42/142; "042" dinormalisasi dulu); nama dicocokkan sebagian
- * tanpa peduli kapital. Hanya mencari pada kartu yang sudah dimuat.
+ * tanpa peduli kapital. Beberapa kata digabung AND ("142 haura" wajib cocok
+ * nomor sekaligus nama, urutan bebas). Hanya mencari pada kartu yang sudah
+ * dimuat.
  */
 export function filterQueueOrders(items: UiOrder[], keyword: string): UiOrder[] {
-	const q = keyword.trim().toLowerCase();
-	if (!q) return items;
-	const nomorQuery = q.replace(/^0+/, '') || '0';
+	const tokens = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
+	if (!tokens.length) return items;
 	return items.filter((card) => {
-		if (card.nama_pelanggan && card.nama_pelanggan.toLowerCase().includes(q)) return true;
-		if (card.nomor_harian != null && String(card.nomor_harian).includes(nomorQuery)) {
-			return true;
-		}
-		return false;
+		const nama = card.nama_pelanggan ? card.nama_pelanggan.toLowerCase() : '';
+		const nomor = card.nomor_harian != null ? String(card.nomor_harian) : null;
+		return tokens.every((token) => {
+			if (nama && nama.includes(token)) return true;
+			const nomorQuery = token.replace(/^0+/, '') || '0';
+			if (nomor != null && nomor.includes(nomorQuery)) return true;
+			return false;
+		});
 	});
 }
 
