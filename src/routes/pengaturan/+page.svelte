@@ -55,7 +55,7 @@
 				class="glass-card flex w-full flex-col items-center gap-1.5 rounded-[28px] p-5 text-center shadow-lg transition-all md:mx-auto md:max-w-md"
 			>
 				<div
-					class="mb-1 flex h-12 w-12 items-center justify-center rounded-[18px] bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
+					class="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
 				>
 					{#if s.roleIcon}
 						{@const RoleIcon = s.roleIcon}
@@ -94,7 +94,7 @@
 				disabled={s.currentUserRole !== 'admin' && s.currentUserRole !== 'pemilik'}
 			>
 				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-purple-100 bg-purple-50 text-purple-600 md:h-12 md:w-12"
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-100 bg-purple-50 text-purple-600 md:h-12 md:w-12"
 				>
 					<Crown class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
 				</div>
@@ -111,7 +111,7 @@
 				onclick={s.handleInstallPWA}
 			>
 				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
 				>
 					{#if s.Download}
 						{@const DownloadIcon = s.Download}
@@ -135,7 +135,7 @@
 				onclick={() => goto('/pengaturan/printer')}
 			>
 				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-emerald-100 bg-emerald-50 text-emerald-600 md:h-12 md:w-12"
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-600 md:h-12 md:w-12"
 				>
 					{#if s.Printer}
 						{@const PrinterIcon = s.Printer}
@@ -159,7 +159,7 @@
 				onclick={() => goto('/pengaturan/riwayat')}
 			>
 				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-[18px] border border-amber-100 bg-amber-50 text-amber-600 md:h-12 md:w-12"
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-600 md:h-12 md:w-12"
 				>
 					{#if s.History}
 						{@const HistoryIcon = s.History}

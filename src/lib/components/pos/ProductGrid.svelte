@@ -197,7 +197,7 @@
 					>
 						<!-- Product Thumbnail Box -->
 						<div
-							class="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-[18px] border border-pink-100/70 bg-gradient-to-br from-pink-50/90 via-rose-50/50 to-pink-100/60 {isOut
+							class="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-pink-100/70 bg-gradient-to-br from-pink-50/90 via-rose-50/50 to-pink-100/60 {isOut
 								? 'grayscale'
 								: ''}"
 						>

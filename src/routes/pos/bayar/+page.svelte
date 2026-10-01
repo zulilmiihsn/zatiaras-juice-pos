@@ -82,7 +82,7 @@
 	>
 		{#if s.cart.length === 0}
 			<div
-				class="glass-card flex min-h-[50vh] flex-col items-center justify-center rounded-[32px] p-8 text-center shadow-lg"
+				class="glass-card flex min-h-[50vh] flex-col items-center justify-center rounded-[24px] p-8 text-center shadow-lg"
 			>
 				<ShoppingBag class="mb-4 h-12 w-12 text-slate-400" />
 				<div class="mb-2 text-xl font-bold text-slate-900">Keranjang Masih Kosong</div>

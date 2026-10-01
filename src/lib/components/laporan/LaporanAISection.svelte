@@ -489,7 +489,7 @@
 		transition:fade={{ duration: 180 }}
 	>
 		<div
-			class="flex h-[78dvh] max-h-[78dvh] w-full max-w-lg flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl transition-all duration-200 sm:h-[620px] sm:max-h-[85dvh] sm:rounded-[32px]"
+			class="flex h-[78dvh] max-h-[78dvh] w-full max-w-lg flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl transition-all duration-200 sm:h-[620px] sm:max-h-[85dvh]"
 			transition:scale={{ duration: 220, start: 0.95, easing: cubicOut }}
 		>
 			<!-- Header Modal Gradien Pink Khas Zatiaras -->

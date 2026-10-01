@@ -33,7 +33,7 @@
 <div class="relative z-20 grid grid-cols-2 gap-3.5 md:grid-cols-12 md:gap-4">
 	<!-- Hero Pendapatan Hari Ini (Large Frosted Glassmorphic Card) -->
 	<div
-		class="glass-card relative col-span-2 flex flex-col justify-between overflow-hidden rounded-[32px] p-5.5 transition-all duration-200 active:scale-[0.99] md:col-span-6 md:p-6"
+		class="glass-card relative col-span-2 flex flex-col justify-between overflow-hidden rounded-[24px] p-5.5 transition-all duration-200 active:scale-[0.99] md:col-span-6 md:p-6"
 	>
 		<!-- Internal ambient fluid reflection -->
 		<div
@@ -52,7 +52,7 @@
 				</div>
 			</div>
 			<div
-				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 md:h-13 md:w-13"
+				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 md:h-13 md:w-13"
 			>
 				{#if Wallet}
 					<Wallet class="h-6 w-6 stroke-[2.2]" />

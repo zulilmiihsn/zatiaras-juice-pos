@@ -1123,7 +1123,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10 transition-all"
+			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10 transition-all"
 			in:fly={{ y: 24, duration: 220, easing: cubicOut }}
 		>
 			<div
@@ -1565,7 +1565,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10"
+			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10"
 			in:fly={{ y: 24, duration: 220, easing: cubicOut }}
 		>
 			<!-- Header -->
@@ -2107,7 +2107,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[32px] border border-rose-100/90 bg-white p-6 shadow-2xl ring-1 ring-rose-500/10"
+			class="relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[28px] border border-rose-100/90 bg-white p-6 shadow-2xl ring-1 ring-rose-500/10"
 			in:fly={{ y: 20, duration: 200, easing: cubicOut }}
 		>
 			<div

@@ -39,7 +39,7 @@
 		transition:fade={{ duration: 180 }}
 	>
 		<div
-			class="relative mx-auto w-full max-w-sm rounded-[32px] border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
+			class="relative mx-auto w-full max-w-sm rounded-[28px] border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
 			transition:scale={{ duration: 200, start: 0.95, easing: cubicOut }}
 		>
 			<!-- Header Modal Bertema Zatiaras -->

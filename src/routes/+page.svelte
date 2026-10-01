@@ -489,7 +489,7 @@
 								<div
 									class="flex animate-pulse items-center gap-3.5 rounded-[24px] bg-white p-3.5 shadow-xs"
 								>
-									<div class="h-12 w-12 rounded-[18px] bg-slate-100"></div>
+									<div class="h-12 w-12 rounded-2xl bg-slate-100"></div>
 									<div class="min-w-0 flex-1">
 										<div class="mb-2 h-4 w-32 rounded bg-slate-100"></div>
 										<div class="h-3 w-20 rounded bg-slate-100"></div>
@@ -531,7 +531,7 @@
 
 										<!-- Product Image / Icon -->
 										<div
-											class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-pink-100/60 bg-pink-50/70 text-2xl"
+											class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-pink-100/60 bg-pink-50/70 text-2xl"
 										>
 											{#if m.image && !imageError[i]}
 												<img
@@ -855,7 +855,7 @@
 
 										<!-- Ingredient Icon Box -->
 										<div
-											class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] {ing.is_low
+											class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {ing.is_low
 												? 'border border-rose-200/70 bg-rose-50 text-rose-600'
 												: 'border border-pink-100/60 bg-pink-50/70 text-pink-600'}"
 										>

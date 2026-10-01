@@ -141,7 +141,7 @@
 				<!-- Left Column: Form (md:col-span-7) -->
 				<div class="md:col-span-7">
 					<div
-						class="glass-card rounded-[32px] border border-white/50 bg-white/80 p-5 shadow-xl backdrop-blur-lg md:p-7"
+						class="glass-card rounded-[24px] border border-white/50 bg-white/80 p-5 shadow-xl backdrop-blur-lg md:p-7"
 					>
 						<div
 							class="mb-4 hidden items-center justify-between border-b border-slate-100 pb-3.5 md:flex"

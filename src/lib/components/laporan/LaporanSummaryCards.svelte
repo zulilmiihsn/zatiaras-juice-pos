@@ -22,7 +22,7 @@
 <div class="mb-4 flex flex-col gap-3">
 	<!-- Hero Laba Bersih (Frosted Glass Card) -->
 	<div
-		class="glass-card relative overflow-hidden rounded-[32px] p-5.5 transition-all duration-200 active:scale-[0.99]"
+		class="glass-card relative overflow-hidden rounded-[24px] p-5.5 transition-all duration-200 active:scale-[0.99]"
 	>
 		<!-- Ambient gradient glow -->
 		<div
@@ -50,7 +50,7 @@
 				</div>
 			</div>
 			<div
-				class="flex h-12 w-12 items-center justify-center rounded-[20px] bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
+				class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
 			>
 				<Wallet class="h-6 w-6 stroke-[2.2]" />
 			</div>
