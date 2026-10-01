@@ -137,7 +137,7 @@
 <div class="flex flex-col gap-3 md:grid md:grid-cols-2 md:items-start md:gap-4">
 	<!-- Pemasukan Accordion -->
 	<div
-		class="overflow-hidden rounded-2xl border-2 border-emerald-100 bg-white p-3.5 shadow-sm transition-all sm:p-4"
+		class="overflow-hidden rounded-[24px] border-2 border-emerald-100 bg-white p-3.5 shadow-sm transition-all sm:p-4"
 	>
 		<button
 			class="flex w-full items-center justify-between rounded-xl py-0.5 text-sm font-black text-emerald-900 sm:text-base"

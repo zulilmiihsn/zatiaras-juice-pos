@@ -792,7 +792,7 @@
 			<!-- Summary Cards (Glassmorphic Cards) -->
 			<div class="mb-4 grid grid-cols-2 gap-3">
 				<div
-					class="glass-card flex flex-col justify-between rounded-[28px] bg-white/90 p-4 shadow-lg backdrop-blur-sm"
+					class="glass-card flex flex-col justify-between rounded-[24px] bg-white/90 p-4 shadow-lg backdrop-blur-sm"
 				>
 					<div class="mb-1 flex items-center justify-between text-slate-400">
 						<span class="text-[11px] font-bold tracking-wider text-pink-700 uppercase"
@@ -811,7 +811,7 @@
 				</div>
 
 				<div
-					class="glass-card flex flex-col justify-between rounded-[28px] bg-white/90 p-4 shadow-lg backdrop-blur-sm"
+					class="glass-card flex flex-col justify-between rounded-[24px] bg-white/90 p-4 shadow-lg backdrop-blur-sm"
 				>
 					<div class="mb-1 flex items-center justify-between">
 						<span
@@ -1172,7 +1172,7 @@
 					<input
 						id="modal-bahan-nama"
 						type="text"
-						class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+						class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 						bind:value={bahanForm.nama}
 						required
 						placeholder="Contoh: Alpukat Mentega, Gula Pasir, Cup 16oz"
@@ -1220,7 +1220,7 @@
 						<div class="relative">
 							<select
 								id="modal-bahan-kategori"
-								class="w-full cursor-pointer appearance-none rounded-xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm font-medium text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm font-medium text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 								bind:value={bahanForm.kategoriSelect}
 							>
 								{#each availableCategoryOptions as cat}
@@ -1236,7 +1236,7 @@
 						{#if bahanForm.kategoriSelect === '__new__'}
 							<input
 								type="text"
-								class="w-full rounded-xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+								class="w-full rounded-2xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 								bind:value={bahanForm.customKategori}
 								placeholder="Ketik nama kategori baru (contoh: Kemasan, Buah Segar)"
 								required
@@ -1257,7 +1257,7 @@
 						<div class="relative">
 							<select
 								id="modal-bahan-satuan"
-								class="w-full cursor-pointer appearance-none rounded-xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 								bind:value={bahanForm.satuan}
 							>
 								{#if bahanForm.tipe_satuan === 'cairan'}
@@ -1294,7 +1294,7 @@
 						<input
 							id="modal-bahan-stok"
 							type="text"
-							class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={bahanForm.stok_saat_ini}
 							oninput={(e) => handleRupiahFormat(e, 'stok_saat_ini')}
 							onblur={() => handleQuantityBlur('stok_saat_ini')}
@@ -1314,7 +1314,7 @@
 						<input
 							id="modal-bahan-isi-kemasan"
 							type="text"
-							class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={bahanForm.isi_per_kemasan}
 							oninput={(e) => handleRupiahFormat(e, 'isi_per_kemasan')}
 							onblur={() => handleQuantityBlur('isi_per_kemasan')}
@@ -1333,7 +1333,7 @@
 					<input
 						id="modal-bahan-ambang"
 						type="text"
-						class="w-full rounded-xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+						class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 						bind:value={bahanForm.ambang_stok}
 						oninput={(e) => handleRupiahFormat(e, 'ambang_stok')}
 						onblur={() => handleQuantityBlur('ambang_stok')}
@@ -1358,7 +1358,7 @@
 								<input
 									id="modal-bahan-beli-qty"
 									type="text"
-									class="w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+									class="w-full rounded-2xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 									bind:value={bahanForm.jumlah_beli_terakhir}
 									oninput={(e) => handleRupiahFormat(e, 'jumlah_beli_terakhir')}
 									onblur={() => handleQuantityBlur('jumlah_beli_terakhir')}
@@ -1366,7 +1366,7 @@
 								/>
 								<div class="relative w-28">
 									<select
-										class="w-full cursor-pointer appearance-none rounded-xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
+										class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
 										bind:value={bahanForm.satuan_beli}
 									>
 										{#if bahanForm.tipe_satuan === 'berat'}
@@ -1406,7 +1406,7 @@
 								<input
 									id="modal-bahan-beli-cost"
 									type="text"
-									class="w-full rounded-xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+									class="w-full rounded-2xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 									bind:value={bahanForm.biaya_beli_terakhir}
 									oninput={(e) => handleRupiahFormat(e, 'biaya_beli_terakhir')}
 									placeholder="35.000"
@@ -1447,7 +1447,7 @@
 											type="number"
 											min="1"
 											max="100"
-											class="w-full rounded-xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+											class="w-full rounded-2xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 											bind:value={bahanForm.yield_persen}
 											placeholder="70"
 										/>
@@ -1640,7 +1640,7 @@
 						<div class="relative shrink-0 pr-1">
 							<select
 								bind:value={mutasiUnit}
-								class="cursor-pointer appearance-none rounded-xl border border-pink-200/90 bg-white py-2.5 pr-8 pl-3.5 text-xs font-black text-pink-700 shadow-2xs transition-all hover:bg-pink-50/50 focus:border-pink-500 focus:outline-none sm:text-sm"
+								class="cursor-pointer appearance-none rounded-2xl border border-pink-200/90 bg-white py-2.5 pr-8 pl-3.5 text-xs font-black text-pink-700 shadow-2xs transition-all hover:bg-pink-50/50 focus:border-pink-500 focus:outline-none sm:text-sm"
 							>
 								{#each mutasiCompatibleUnits as unit}
 									<option value={unit.value}>{unit.label}</option>
@@ -1903,7 +1903,7 @@
 											kasNominal = formatRupiah(parseRupiah(val));
 										}}
 										placeholder="0"
-										class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-4 pl-11 text-base font-black text-slate-900 shadow-2xs transition-all focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
+										class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pr-4 pl-11 text-base font-black text-slate-900 shadow-2xs transition-all focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
 									/>
 								</div>
 							</div>

@@ -31,7 +31,7 @@
 	</div>
 
 	<!-- Pajak Penghasilan / Pajak Aktif -->
-	<div class="flex flex-col rounded-2xl border border-zinc-200/80 bg-white shadow-sm">
+	<div class="flex flex-col rounded-[24px] border border-zinc-200/80 bg-white shadow-sm">
 		{#if hasMultiTax}
 			<button
 				type="button"
