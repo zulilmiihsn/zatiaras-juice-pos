@@ -1126,7 +1126,27 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `https://ebc51e91.zatiaraspos.pages.dev`. Alias utama + deployment
   `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
 
-### Prosedur wipe pra-operasional 1 Okt 2026 — TANPA DEPLOY
+### Deteksi capability checkout jujur 1 Okt 2026 — LIVE (app-only)
+
+- `getCheckoutCapabilities` tak lagi hardcode `true`: 6 flag dideteksi dari
+  artefak skema (`lacak_stok`, `lacak_bahan`+`resep_produk`,
+  `idempotency_key`, 2 tabel ringkasan, `nama_produk`, tabel+kolom nomor).
+  Metadata gagal = throw (gagal tertutup, tanpa commit), bukan degradasi
+  diam-diam. Tes Q10c: 6 flag true di skema penuh + 7 kasus satu artefak
+  hilang. Skema produksi lengkap → semua true = perilaku identik. SHA `9170da8`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36851965739
+  (E2E 41 tes). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36860003656
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36860092307.
+- Realtime Worker version `c54293dc-628e-48f3-8f92-51fe428a1175`; Pages
+  `https://3ba5487f.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; aset JS/CSS rujukan HTML masing-masing 200 MIME benar.
+- Operasi: backup 3 shard + manifest verified + restore drill PASS 3/3
+  (tanpa migrasi skema). Pelajaran: dispatch API wajib ke nama repo baru
+  (`zatiaras-juice-pos`); POST ke nama lama redirect tanpa auth → 401
+  walau token valid.
 
 - `pnpm d1:wipe-history` per cabang: dry-run default, `--apply` wajib
   `--confirm` + manifest backup yang memuat cabang; berhenti total bila arsip
