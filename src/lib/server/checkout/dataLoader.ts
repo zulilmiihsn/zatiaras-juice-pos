@@ -11,32 +11,48 @@ import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/
 
 // [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
 
+async function tableNames(db: D1Database, names: string[]): Promise<Set<string>> {
+	const placeholders = names.map(() => '?').join(',');
+	const rows = (await db
+		.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${placeholders})`)
+		.bind(...names)
+		.all()) as { results?: Array<{ name?: string }> };
+	return new Set((rows.results ?? []).map((r) => String(r?.name)));
+}
+
+async function columnNames(db: D1Database, table: string): Promise<Set<string>> {
+	const rows = (await db.prepare(`SELECT name FROM pragma_table_info('${table}')`).all()) as {
+		results?: Array<{ name?: string }>;
+	};
+	return new Set((rows.results ?? []).map((r) => String(r?.name)));
+}
+
 export async function getCheckoutCapabilities(
 	db: D1Database,
 	_branch: BranchId
 ): Promise<CheckoutCapabilities> {
-	let nomorHarianAvailable = false;
-	try {
-		const table = (await db
-			.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pos_nomor_harian'`)
-			.first()) as { name?: string } | null;
-		if (table?.name) {
-			const columns = (await db
-				.prepare(`SELECT name FROM pragma_table_info('buku_kas')`)
-				.all()) as { results?: Array<{ name?: string }> };
-			const names = new Set((columns.results ?? []).map((c) => String(c?.name)));
-			nomorHarianAvailable = names.has('nomor_harian') && names.has('tanggal_nomor');
-		}
-	} catch {
-		nomorHarianAvailable = false;
-	}
+	// Sengaja tanpa fallback: metadata gagal = DB tidak sehat = gagal tertutup
+	// di route (tanpa commit), bukan degradasi diam-diam atas data uang.
+	const [tables, bukuKas, produk, transaksiKasir] = await Promise.all([
+		tableNames(db, [
+			'pos_nomor_harian',
+			'resep_produk',
+			'ringkasan_penjualan_harian',
+			'penjualan_produk_harian'
+		]),
+		columnNames(db, 'buku_kas'),
+		columnNames(db, 'produk'),
+		columnNames(db, 'transaksi_kasir')
+	]);
 	return {
-		stockTrackingAvailable: true,
-		ingredientTrackingAvailable: true,
-		idempotencyAvailable: true,
-		salesSummaryAvailable: true,
-		transactionSnapshotAvailable: true,
-		nomorHarianAvailable
+		stockTrackingAvailable: produk.has('lacak_stok'),
+		ingredientTrackingAvailable: produk.has('lacak_bahan') && tables.has('resep_produk'),
+		idempotencyAvailable: bukuKas.has('idempotency_key'),
+		salesSummaryAvailable:
+			tables.has('ringkasan_penjualan_harian') && tables.has('penjualan_produk_harian'),
+		transactionSnapshotAvailable: transaksiKasir.has('nama_produk'),
+		nomorHarianAvailable:
+			tables.has('pos_nomor_harian') && bukuKas.has('nomor_harian') && bukuKas.has('tanggal_nomor')
 	};
 }
 

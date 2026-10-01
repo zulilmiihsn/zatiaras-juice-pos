@@ -758,6 +758,119 @@ try {
 		'pending lawas wajib tetap tampil'
 	);
 
+	// Q10c: deteksi capability jujur — semua true di skema penuh, false per artefak hilang.
+	const capsPenuh = await getCheckoutCapabilities(db, samarinda);
+	assert.deepEqual(capsPenuh, {
+		stockTrackingAvailable: true,
+		ingredientTrackingAvailable: true,
+		idempotencyAvailable: true,
+		salesSummaryAvailable: true,
+		transactionSnapshotAvailable: true,
+		nomorHarianAvailable: true
+	});
+	type CapsDb = Parameters<typeof getCheckoutCapabilities>[0];
+	function fakeCapsDb(opts: {
+		tables: string[];
+		bukuKas: string[];
+		produk: string[];
+		transaksiKasir: string[];
+	}): CapsDb {
+		const pick = (sql: string): Array<{ name: string }> => {
+			const rows = sql.includes('sqlite_master')
+				? opts.tables
+				: sql.includes('buku_kas')
+					? opts.bukuKas
+					: sql.includes('produk')
+						? opts.produk
+						: opts.transaksiKasir;
+			return rows.map((name) => ({ name }));
+		};
+		return {
+			prepare: (sql: string) => ({
+				bind: (..._args: unknown[]) => ({ all: async () => ({ results: pick(sql) }) }),
+				all: async () => ({ results: pick(sql) })
+			})
+		} as unknown as CapsDb;
+	}
+	const skemaPenuh = {
+		tables: [
+			'pos_nomor_harian',
+			'resep_produk',
+			'ringkasan_penjualan_harian',
+			'penjualan_produk_harian'
+		],
+		bukuKas: ['idempotency_key', 'nomor_harian', 'tanggal_nomor'],
+		produk: ['lacak_stok', 'lacak_bahan'],
+		transaksiKasir: ['nama_produk']
+	};
+	assert.deepEqual(await getCheckoutCapabilities(fakeCapsDb(skemaPenuh), samarinda), {
+		stockTrackingAvailable: true,
+		ingredientTrackingAvailable: true,
+		idempotencyAvailable: true,
+		salesSummaryAvailable: true,
+		transactionSnapshotAvailable: true,
+		nomorHarianAvailable: true
+	});
+	const tanpaSatu: Array<{ nama: string; ubah: () => typeof skemaPenuh; mati: string }> = [
+		{
+			nama: 'tanpa lacak_stok',
+			ubah: () => ({ ...skemaPenuh, produk: ['lacak_bahan'] }),
+			mati: 'stockTrackingAvailable'
+		},
+		{
+			nama: 'tanpa lacak_bahan',
+			ubah: () => ({ ...skemaPenuh, produk: ['lacak_stok'] }),
+			mati: 'ingredientTrackingAvailable'
+		},
+		{
+			nama: 'tanpa tabel resep',
+			ubah: () => ({
+				...skemaPenuh,
+				tables: skemaPenuh.tables.filter((t) => t !== 'resep_produk')
+			}),
+			mati: 'ingredientTrackingAvailable'
+		},
+		{
+			nama: 'tanpa idempotency_key',
+			ubah: () => ({ ...skemaPenuh, bukuKas: ['nomor_harian', 'tanggal_nomor'] }),
+			mati: 'idempotencyAvailable'
+		},
+		{
+			nama: 'tanpa tabel ringkasan',
+			ubah: () => ({
+				...skemaPenuh,
+				tables: skemaPenuh.tables.filter((t) => t !== 'ringkasan_penjualan_harian')
+			}),
+			mati: 'salesSummaryAvailable'
+		},
+		{
+			nama: 'tanpa snapshot nama_produk',
+			ubah: () => ({ ...skemaPenuh, transaksiKasir: [] }),
+			mati: 'transactionSnapshotAvailable'
+		},
+		{
+			nama: 'tanpa tabel nomor harian',
+			ubah: () => ({
+				...skemaPenuh,
+				tables: skemaPenuh.tables.filter((t) => t !== 'pos_nomor_harian')
+			}),
+			mati: 'nomorHarianAvailable'
+		}
+	];
+	for (const kasus of tanpaSatu) {
+		const caps = await getCheckoutCapabilities(fakeCapsDb(kasus.ubah()), samarinda);
+		assert.equal(
+			(caps as unknown as Record<string, boolean>)[kasus.mati],
+			false,
+			`capability mati ${kasus.nama}`
+		);
+		const hidup = Object.entries(caps).filter(([k]) => k !== kasus.mati);
+		assert.ok(
+			hidup.every(([, v]) => v === true),
+			`hanya satu capability mati ${kasus.nama}`
+		);
+	}
+
 	// Q11: tanpa skema 0036, checkout gagal tertutup 503 dengan pesan jelas.
 	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, true);
 	await db.batch([
