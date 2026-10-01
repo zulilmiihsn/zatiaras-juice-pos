@@ -260,7 +260,7 @@
 		{:else if s.filteredItems.length === 0}
 			{#if s.searchKeyword.trim() && s.items.length > 0}
 				<div
-					class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
+					class="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
 				>
 					<Search class="mb-3 h-10 w-10 text-pink-300" />
 					<div class="text-base font-extrabold text-slate-800">Tidak ada yang cocok</div>
@@ -278,7 +278,7 @@
 				</div>
 			{:else}
 				<div
-					class="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
+					class="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-pink-200/80 bg-white/80 px-6 py-14 text-center"
 				>
 					<ClipboardList class="mb-3 h-10 w-10 text-pink-300" />
 					<div class="text-base font-extrabold text-slate-800">
