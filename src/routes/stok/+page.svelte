@@ -939,7 +939,7 @@
 						{#each filteredBahan as bahan (bahan.id)}
 							{@const health = getStockHealth(bahan)}
 							<div
-								class="soft-float-card group relative flex flex-col justify-between gap-3 rounded-[26px] border bg-white/95 p-4.5 shadow-[0_2px_14px_rgba(0,0,0,0.03)] backdrop-blur-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] md:rounded-2xl {health.cardBg}"
+								class="soft-float-card group relative flex flex-col justify-between gap-3 border bg-white/95 p-4.5 shadow-[0_2px_14px_rgba(0,0,0,0.03)] backdrop-blur-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] {health.cardBg}"
 							>
 								<!-- Top Row: Name + Health Badge -->
 								<div class="flex items-start justify-between gap-2">

@@ -170,7 +170,7 @@
 				<div class="flex flex-col gap-3">
 					{#each taxState.settings.taxes as tax}
 						<div
-							class="soft-float-card flex flex-col rounded-3xl p-4.5 transition-all duration-200 md:p-5 {tax.isEnabled
+							class="soft-float-card flex flex-col p-4.5 transition-all duration-200 md:p-5 {tax.isEnabled
 								? 'border-pink-200/90 bg-white ring-1 ring-pink-500/10'
 								: 'bg-slate-50/70 opacity-85'}"
 						>
@@ -306,7 +306,7 @@
 			</div>
 
 			<!-- 3. Widget Simulasi Laba Rugi & Dampak Pajak (High Contrast & Big Inputs) -->
-			<div class="soft-float-card flex flex-col gap-4 rounded-3xl p-5 sm:p-6">
+			<div class="soft-float-card flex flex-col gap-4 p-5 sm:p-6">
 				<div class="flex items-center gap-3">
 					<div
 						class="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 shadow-2xs"
