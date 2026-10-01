@@ -154,6 +154,24 @@ duplikat; realtime lintas cabang; artifact SHA tak terbukti.
 - Smoke kios: checkout kasir, Lihat Antrean dari modal sukses, Selesai, reload,
   Buka lagi, badge navbar konsisten, lalu void cleanup oleh pemilik.
 
+## 10b. Wipe riwayat pra-operasional (satu cabang sekali jalan)
+
+Mengosongkan data transaksi uji agar operasional mulai dari nol. Destruktif:
+rollback satu-satunya adalah restore dari backup langkah 1.
+
+```powershell
+pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
+pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
+pnpm d1:wipe-history -- --branch <samarinda|balikpapan|berau> --backup-manifest <output-dir>\<run-id>\manifest.sha256.json
+pnpm d1:wipe-history -- --branch <cabang> --backup-manifest <manifest> --apply --confirm <cabang>
+```
+
+Syarat lulus per cabang: tiap tabel `before -> 0`, tanpa error; script berhenti
+total bila arsip berisi atau verifikasi nol gagal. Setelah wipe: hitung fisik
+stok + rekonsiliasi finalisasi per cabang (level stok tak bisa direkonstruksi
+dari mutasi yang dihapus), verifikasi katalog/pengaturan utuh, smoke checkout
+satu kali. Katalog, pengaturan, policy aktif, dan audit log dipertahankan.
+
 ## 11. Release record (wajib diisi tiap rilis)
 
 Commit SHA, artifact SHA + checksum manifest, link CI, manifest backup +

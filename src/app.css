@@ -216,7 +216,9 @@ input,
 
 /* ── Modern Fluid Wave & Glassmorphism Aesthetic (24px Frosted Glass) ── */
 /* ── Skala radius (satu sumber; migrasi bertahap per halaman yang disentuh) ──
- * Kartu konten 24px · Modal/sheet 28px · Input/field/ikon kecil 16px · Pil/chip full.
+ * Kartu konten 24px · Modal/sheet 28px · Input/field/ikon kecil 16px.
+ * Pil full · Tombol besar 16px, tombol kecil 12px · Badge/alert/segmented
+ * mengikuti konteksnya (tak diseragamkan).
  * Jangan tambah varian baru. Pengecualian tercatat: bottomNav desktop 32px. */
 
 .glass-card {
