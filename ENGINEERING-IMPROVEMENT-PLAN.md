@@ -1064,6 +1064,22 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Soft-float-card ke 24px 1 Okt 2026 — LIVE (app-only)
+
+- Temuan: `.soft-float-card` (CSS tak ber-layer) menang atas utilitas
+  `rounded-*` Tailwind, jadi 52 pemakaian selama ini selalu 28px apa pun
+  kelasnya. Satu baris CSS → 24px sesuai skala; 3 override mati
+  (`rounded-3xl` pajak ×2, `rounded-[26px]` stok) dibuang. SHA `a3fdf73`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36799839824
+  (E2E 39/39). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36800572023
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36800698028.
+- Realtime Worker version `06aeadc5-3314-47d0-84c8-1a613c4a1c3e`; Pages
+  `https://baa52ddf.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Skala radius + modal 28px 30 Sep 2026 — LIVE (app-only)
 
 - Skala radius didokumentasikan di `app.css` (kartu 24, modal/sheet 28,
