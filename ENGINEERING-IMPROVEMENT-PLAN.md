@@ -1064,6 +1064,21 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Pecah spec E2E Antrean 1 Okt 2026 — LIVE (app-only)
+
+- Satu tes ±2 menit dipecah 3 tes fokus (checkout→muncul, selesai/buka-lagi,
+  cari) via helper `checkoutUatOrder` bersama; tiap tes jauh di bawah timeout
+  120 detik dan gagalnya langsung menunjuk area. Cakupan sama. SHA `170a733`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36810186628
+  (E2E 41 tes). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36811041491
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36811177238.
+- Realtime Worker version `f6eece0a-18da-4c74-a7f7-2a7a150a91e9`; Pages
+  `https://8069837a.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Soft-float-card ke 24px 1 Okt 2026 — LIVE (app-only)
 
 - Temuan: `.soft-float-card` (CSS tak ber-layer) menang atas utilitas
