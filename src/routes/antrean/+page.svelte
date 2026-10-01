@@ -250,7 +250,7 @@
 		{#if s.loading && s.items.length === 0}
 			<div class="space-y-3">
 				{#each [1, 2, 3] as i}
-					<div class="animate-pulse rounded-[24px] border border-white/60 bg-white/80 p-5">
+					<div class="animate-pulse rounded-[24px] border border-white/60 bg-white/80 p-4 md:p-5">
 						<div class="h-4 w-1/3 rounded-full bg-slate-200"></div>
 						<div class="mt-3 h-3 w-2/3 rounded-full bg-slate-100"></div>
 						<div class="mt-2 h-3 w-1/2 rounded-full bg-slate-100"></div>
