@@ -1064,6 +1064,20 @@ mesin operator dengan rantai provenance sama (tanpa secret tampil di log):
   `/pos` 200, HTML produksi memuat wrapper sticky tanpa `overflow-y-auto`.
 - Smoke login/transaksi nyata/printer fisik per cabang tetap tugas operator.
 
+### Padding skeleton Antrean 1 Okt 2026 — LIVE (app-only)
+
+- Skeleton `p-5` vs kartu `p-4 md:p-5`: beda 8px di mobile. Disamakan.
+  SHA `fb6b973`.
+- CI SHA akhir hijau:
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36817930674
+  (E2E 41 tes). Artifact lolos dry-run
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36818667525
+  dan deploy
+  https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/36818802501.
+- Realtime Worker version `36594116-95cb-477c-a30b-d3262eeef4f8`; Pages
+  `https://d6f14893.zatiaraspos.pages.dev`. Alias utama + deployment
+  `/login` 200; lima aset rujukan HTML masing-masing 200 MIME JS/CSS benar.
+
 ### Radius ronde 2: modal 28 kartu 24 ikon 16 — LIVE (app-only)
 
 - LaporanFilter + 3 modal stok + 2 modal laporan + chat AI → 28; kartu
