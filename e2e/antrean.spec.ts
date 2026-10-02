@@ -196,9 +196,10 @@ test('queue search filters by name and number', async ({ page }) => {
 		const doneCard = page.locator('article', { hasText: customer });
 		await expect(doneCard).toBeVisible({ timeout: 30_000 });
 
-		// Cari nama: daftar tersaring; bersihkan; kata tak cocok; hapus; cari nomor; Escape.
+		// Cari nama: daftar tersaring; bersihkan; kata tak cocok; hapus; cari nomor;
+		// gabung nomor + nama; gabung salah; Escape.
 		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
-		const searchBox = page.getByPlaceholder('Cari nama atau nomor pesanan...');
+		const searchBox = page.getByPlaceholder('Cari nama / nomor, misal 001 haura...');
 		await expect(searchBox).toBeVisible();
 		await searchBox.fill(customer);
 		await expect(page.getByText('1 pesanan cocok')).toBeVisible();
@@ -216,6 +217,13 @@ test('queue search filters by name and number', async ({ page }) => {
 		await page.getByRole('button', { name: 'Cari pesanan', exact: true }).click();
 		await searchBox.fill(order.orderLabel.replace(/\D/g, ''));
 		await expect(doneCard).toBeVisible();
+		const digits = order.orderLabel.replace(/\D/g, '') || order.orderLabel;
+		await searchBox.fill(`${digits} ${customer}`);
+		await expect(page.getByText('1 pesanan cocok')).toBeVisible();
+		await expect(doneCard).toBeVisible();
+		await searchBox.fill(`${digits} zzz-salah`);
+		await expect(page.getByRole('search').getByText('Tidak ada yang cocok')).toBeVisible();
+		await expect(doneCard).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(searchBox).toHaveCount(0);
 		await expect(doneCard).toBeVisible();

@@ -205,8 +205,8 @@
 					/>
 					<input
 						type="search"
-						placeholder="Cari nama atau nomor pesanan..."
-						aria-label="Cari pesanan berdasarkan nama atau nomor"
+						placeholder="Cari nama / nomor, misal 001 haura..."
+						aria-label="Cari pesanan berdasarkan nama, nomor, atau gabungan keduanya"
 						value={s.searchKeyword}
 						oninput={(e) => (s.searchKeyword = e.currentTarget.value)}
 						onkeydown={(e) => {
@@ -236,7 +236,9 @@
 							: `Tidak ada yang cocok dengan “${s.searchKeyword.trim()}”.`}
 					</p>
 				{:else}
-					<p class="px-3 py-2 text-xs text-slate-400">Ketik nama pelanggan atau nomor pesanan</p>
+					<p class="px-3 py-2 text-xs text-slate-400">
+						Ketik nama, nomor, atau gabung misal 001 haura
+					</p>
 				{/if}
 			</div>
 		{/if}
