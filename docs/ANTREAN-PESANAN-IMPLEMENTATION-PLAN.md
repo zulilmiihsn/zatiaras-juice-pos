@@ -2,11 +2,11 @@
 
 ## 0. Status, sumber, dan batas rencana
 
-- Status: implementasi Antrean dan hardening reliabilitas F1–F9 selesai secara lokal, termasuk klasifikasi 404 saat row hilang di antara pembacaan/CAS. Bukti di bawah adalah checkpoint persiapan rilis, bukan klaim bahwa smoke perangkat operator sudah lulus.
+- Status: implementasi dan hardening reliabilitas F1–F9 selesai dan dirilis pada SHA `47781c903814cece3fff867a0097b2586872bdbf`, termasuk klasifikasi 404 saat row hilang di antara pembacaan/CAS. CI, dry-run artifact, dan deploy production lulus. Operator Samarinda menyatakan kios/PWA offline–online serta printer/reprint lulus; ini bukti operator, bukan inspeksi fisik oleh agen. Release record lengkap ada di `docs/OPERATOR-RUNBOOK.md` §11.1.
 - Gate persiapan rilis exit 0: `check`, `test:release` (operations, quality, seluruh unit, build, dan E2E 64/64), `lint`, `deploy:check`, `git diff --check`; Antrean dan restore apply juga lulus pada workerd D1 melalui `--d1`. `check` mencatat 0 error/0 warning. Warning Svelte atas baseline pajak dan Workbox atas glob manifest tidak muncul lagi; manifest tetap revisioned dan hanya satu entri dalam precache aktif.
 - Smoke Chromium dengan D1 terisolasi: checkout UAT → kartu → Selesai → Buka lagi; injeksi POST status 503 mempertahankan kartu berlabel **Belum tersinkron**, satu intent, dan server `pending` revision 0. Retry menghasilkan server `done` revision 1 dan intent kosong, tetap benar setelah reload. Pencarian fixture halaman ke-51 mempertahankan pagination saat hasil kosong. Regresi recovery kosong direproduksi gagal sebelum fix: halaman/cache 51 terpotong menjadi 50; cold scope juga gagal pulih. Recovery kini membedakan view server siap dari scope baru/cache offline. Smoke hasil build terbaru mempertahankan 51 kartu dan snapshot setelah focus tanpa pekerjaan. Tampilan 1440×900, 390×844, dan 320×740 tidak overflow; tujuh target navigasi minimal 44×63 px pada lebar 320 px, Kasir di tengah.
 - Pages PWA hasil build terbukti memakai worker dan aset nyata di workerd lokal: login, manifest, dan service worker HTTP 200; reload offline dokumen HTTP 200 berasal dari service worker, badge berlabel data perangkat, intent IndexedDB bertahan setelah tab ditutup, mount online menyelesaikan status, lalu Buka lagi menghasilkan revision 2. Readback D1: satu sale/satu detail, nomor 001, nominal Rp10.000, dan snapshot struk tetap ada. Cache aktif memuat satu manifest dan tidak menyimpan API privat. Chromium mengembalikan `navigator.onLine` saat navigasi dalam emulasi; harness menerapkan kembali native CDP network-state override, tanpa mengganti getter JavaScript atau kode aplikasi. Ini bukan bukti perangkat kios fisik.
-- Backup tiga shard `backup-2026-10-03T08-57-56-390Z-8eff3846-978e-4d74-9db0-60848477b49c` mempunyai `COMPLETE`, manifest terverifikasi, dan tiga restore drill in-memory exit 0. Kolom/status/nomor/counter yang dibutuhkan sudah ada di tiga shard produksi; tidak perlu migrasi untuk cutover ini. Hasil CI/deploy dan smoke operator harus dicatat terpisah melalui gerbang/runbook rilis.
+- Backup tiga shard `backup-2026-10-03T08-57-56-390Z-8eff3846-978e-4d74-9db0-60848477b49c` mempunyai `COMPLETE`, manifest terverifikasi, dan tiga restore drill in-memory exit 0. Kolom/status/nomor/counter yang dibutuhkan sudah ada di tiga shard produksi; tidak ada migrasi saat cutover. Smoke production memverifikasi 61 asset identik dengan artifact CI, MIME 59 JS/CSS rujukan benar, API anonim 401/cabang lain 403, satu manifest precache, dan nol API privat dalam cache. Monitoring 10 menit mencatat Samarinda 53 request, nol HTTP 5xx/error; dua shard lain tanpa trafik. Tidak ada transaksi uang/stok/pesanan uji yang ditulis di production.
 - Keputusan produk: satu transaksi POS = satu pesanan; status hanya **Belum selesai** dan **Selesai**; staf boleh **Buka lagi** jika salah menandai selesai. Kasir dan pemilik cabang sama-sama boleh mengerjakannya. Kios memakai satu device bersama, tetapi kontrak data tetap aman terhadap dua tab/perangkat.
 - Dokumen utama: `AGENTS.md`, `README.md`, `DEVELOPER-GUIDE.md`, `docs/adr/`, `docs/OPERATOR-RUNBOOK.md`. Ketika isi dokumen historis bertentangan dengan kode sekarang, verifikasi kode dan tes terkini; jangan menganggap angka suite/status dari audit lama masih berlaku.
 - Tujuan: daftar kerja produksi jus per **pesanan**, tidak mengubah nominal, stok, HPP, struk, laporan, atau status sinkronisasi transaksi offline.
@@ -179,17 +179,17 @@ rtk pnpm test:e2e:all
 rtk git diff --check
 ```
 
-`rtk pnpm test:antrean` dan suite `--d1` baru tersedia **setelah** fase tes dibuat. Pastikan runner D1 non-production terisolasi dan cleanup aman; jangan menjalankan `d1:setup:local --fresh` terhadap state dev. Jika perubahan menyentuh batas rilis, `test:release`, artifact manifest, dan CI remote pada SHA yang sama mengikuti runbook.
+`rtk pnpm test:antrean` tersedia dalam rantai `test:unit` dan CI. Verifikasi workerd D1 memakai `rtk pnpm exec tsx src/tests/antrean-tests.ts --d1` dan runner non-production terisolasi dengan cleanup aman; jangan menjalankan `d1:setup:local --fresh` terhadap state dev. Jika perubahan menyentuh batas rilis, `test:release`, artifact manifest, dan CI remote pada SHA yang sama mengikuti runbook.
 
 **Definition of Done — semua wajib:**
 
-- [ ] Kontrak §1–2 disetujui dan ditautkan ke tes merah beralasan; tidak ada backfill tanpa keputusan.
-- [ ] Query, badge, status, offline intent, dan cache hanya untuk cabang/sesi berwenang; GET/POST negatif, CSRF, dan payload error teruji.
-- [ ] Checkout online/offline idempoten dan atomik; snapshot item stabil; **tidak** ada selisih uang/stok/HPP/summary/receipt setelah Selesai/Buka lagi.
-- [ ] Dua status, undo, transaksi di-void, arsip/restore, retry/crash/realtime down, dan concurrency memenuhi Q01–Q16, termasuk workerd D1 dan browser offline.
-- [ ] Antrean tetap operasional di satu device saat jaringan putus, termasuk reload setelah warm-up dan intent status yang gagal disinkron; pesan membedakan lokal vs server.
-- [ ] Navbar 7/5 dan Pengaturan/back memenuhi keputusan pengguna; target sentuh/aksesibilitas dan viewport diuji.
-- [ ] Tes baru terdaftar di `package.json`, `test:unit`, CI; semua gate §6 relevan exit 0, tanpa assertion diturunkan, skip, atau retry buta.
-- [ ] Migrasi forward-only diverifikasi fresh+workerd dan diperiksa terhadap schema target; backup dan prosedur apply/rollback dicatat sebelum remote.
-- [ ] `README.md`, runbook, dan kontrak error/API yang berubah tersinkron; diff direview untuk secret, scope creep, dan whitespace.
-- [ ] Batas bukti ditulis jujur: lokal ≠ CI remote ≠ smoke perangkat kios/production. Commit terpisah per tujuan hanya jika diminta; rilis hanya setelah CI/artifact/smoke operator sesuai runbook.
+- [x] Kontrak §1–2 disetujui dan ditautkan ke tes merah beralasan; tidak ada backfill tanpa keputusan.
+- [x] Query, badge, status, offline intent, dan cache hanya untuk cabang/sesi berwenang; GET/POST negatif, CSRF, dan payload error teruji.
+- [x] Checkout online/offline idempoten dan atomik; snapshot item stabil; **tidak** ada selisih uang/stok/HPP/summary/receipt setelah Selesai/Buka lagi.
+- [x] Dua status, undo, transaksi di-void, arsip/restore, retry/crash/realtime down, dan concurrency memenuhi Q01–Q16, termasuk workerd D1 dan browser offline.
+- [x] Antrean tetap operasional di satu device saat jaringan putus, termasuk reload setelah warm-up dan intent status yang gagal disinkron; pesan membedakan lokal vs server.
+- [x] Navbar 7/5 dan Pengaturan/back memenuhi keputusan pengguna; target sentuh/aksesibilitas dan viewport diuji.
+- [x] Tes baru terdaftar di `package.json`, `test:unit`, CI; semua gate §6 relevan exit 0, tanpa assertion diturunkan, skip, atau retry buta.
+- [x] Schema target diperiksa pada tiga shard; fresh/workerd D1 dan backup/restore drill lulus. Rilis ini tidak menambah atau menerapkan migrasi production.
+- [x] `README.md`, runbook, dan kontrak error/API yang berubah tersinkron; diff direview untuk secret, scope creep, dan whitespace.
+- [x] Bukti lokal, CI remote, production, dan pernyataan operator dibedakan. Commit terpisah per tujuan; artifact terverifikasi dan smoke Samarinda lulus sebelum penerimaan rilis.
