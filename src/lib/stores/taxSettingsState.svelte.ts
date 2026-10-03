@@ -11,7 +11,8 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 
 export function createTaxSettingsState() {
 	let draft = $state<TaxSettings>(getTaxSettings());
-	let persisted = $state<TaxSettings>(getTaxSettings());
+	const initialPersisted = getTaxSettings();
+	let persisted = $state<TaxSettings>(initialPersisted);
 	let revision = $state<number>(0);
 	let pendingSaves = $state(0);
 	let saveError = $state<string | null>(null);
@@ -22,7 +23,7 @@ export function createTaxSettingsState() {
 	let editGeneration = 0;
 	let saveGeneration = 0;
 	// JSON terakhir yang diketahui tersimpan di server; pembanding konflik mandiri.
-	let persistedSnapshot = JSON.stringify(persisted);
+	let persistedSnapshot = JSON.stringify(initialPersisted);
 
 	async function syncWithServer(branch?: string) {
 		const gen = ++syncGen;
