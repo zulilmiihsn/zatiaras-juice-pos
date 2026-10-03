@@ -76,6 +76,7 @@ export function validateArchive(archive) {
 	)
 		errors.push('Counts arsip tidak cocok');
 	const ids = new Set();
+	const dailyNumbers = new Set();
 	for (const row of buku_kas) {
 		if (!row || !row.id || ids.has(String(row.id))) {
 			errors.push('ID buku kas invalid/duplikat');
@@ -83,6 +84,33 @@ export function validateArchive(archive) {
 		}
 		ids.add(String(row.id));
 		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang row ${row.id} berbeda`);
+		const dailyNumber = row.nomor_harian ?? null;
+		const dailyDate = row.tanggal_nomor ?? null;
+		if ((dailyNumber === null) !== (dailyDate === null))
+			errors.push(`Pasangan nomor harian row ${row.id} tidak lengkap`);
+		const parsedNumber =
+			typeof dailyNumber === 'number' ||
+			(typeof dailyNumber === 'string' && dailyNumber.trim() !== '')
+				? Number(dailyNumber)
+				: NaN;
+		const validNumber = Number.isSafeInteger(parsedNumber) && parsedNumber > 0;
+		if (dailyNumber !== null && !validNumber) errors.push(`Nomor harian row ${row.id} tidak valid`);
+		const parsedDate =
+			typeof dailyDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dailyDate)
+				? new Date(`${dailyDate}T00:00:00.000Z`)
+				: null;
+		const validDate =
+			parsedDate !== null &&
+			Number.isFinite(parsedDate.getTime()) &&
+			parsedDate.toISOString().slice(0, 10) === dailyDate;
+		if (dailyDate !== null && !validDate) errors.push(`Tanggal nomor row ${row.id} tidak valid`);
+		if (dailyNumber !== null && row.sumber !== 'pos')
+			errors.push(`Nomor harian row ${row.id} hanya untuk POS`);
+		if (validNumber && validDate) {
+			const tuple = `${branch}/${dailyDate}/${parsedNumber}`;
+			if (dailyNumbers.has(tuple)) errors.push(`Nomor harian duplikat dalam arsip: ${tuple}`);
+			dailyNumbers.add(tuple);
+		}
 		const policyMode = row.stock_policy_mode ?? null;
 		const policyRevision = row.stock_policy_revision ?? null;
 		if (policyMode !== null && !['tracked', 'ignored'].includes(String(policyMode)))
@@ -151,6 +179,8 @@ export const BK_FIELDS = [
 	'idempotency_key',
 	'request_fingerprint',
 	'receipt_snapshot',
+	'nomor_harian',
+	'tanggal_nomor',
 	'stock_policy_mode',
 	'stock_policy_revision',
 	'stock_replay_disposition',
@@ -181,15 +211,17 @@ export const TK_FIELDS = [
 	'transaction_id',
 	'created_at'
 ];
-const NUMERIC_FIELDS = new Set([
-	'nominal',
-	'jumlah',
-	'harga',
-	'harga_dasar',
-	'total_tambahan',
-	'nominal_hpp',
-	'preparation_revision'
-]);
+/** @type {Record<string, true>} */
+const NUMERIC_FIELDS = {
+	nominal: true,
+	jumlah: true,
+	harga: true,
+	harga_dasar: true,
+	total_tambahan: true,
+	nominal_hpp: true,
+	preparation_revision: true,
+	nomor_harian: true
+};
 
 /** @param {Row} row @param {string} field */
 function fieldValue(row, field) {
@@ -199,7 +231,7 @@ function fieldValue(row, field) {
 		if (['total_tambahan', 'nominal_hpp'].includes(field)) return 0;
 		return null;
 	}
-	return NUMERIC_FIELDS.has(field) ? Number(value) : value;
+	return NUMERIC_FIELDS[field] ? Number(value) : value;
 }
 
 /** @param {Row[]} snapshotRows @param {Map<string, Row>} existingById @param {string[]} fields */
@@ -281,6 +313,20 @@ export function buildRestoreSql(archive, opts = {}) {
 	}
 	insertRows('buku_kas', buku_kas, BK_FIELDS);
 	insertRows('transaksi_kasir', transaksi_kasir, TK_FIELDS);
+	// Restore preserves official numbers and only advances their allocator high-water mark.
+	/** @type {Map<string, number>} */
+	const dailyMaxima = new Map();
+	for (const row of buku_kas) {
+		if (row.sumber !== 'pos' || row.nomor_harian == null) continue;
+		const date = String(row.tanggal_nomor);
+		const number = Number(fieldValue(row, 'nomor_harian'));
+		dailyMaxima.set(date, Math.max(dailyMaxima.get(date) ?? 0, number));
+	}
+	for (const [date, number] of dailyMaxima) {
+		lines.push(
+			`INSERT INTO pos_nomor_harian(cabang_id,tanggal,terakhir) VALUES(${sqlVal(branch)},${sqlVal(date)},${sqlVal(number)}) ON CONFLICT(cabang_id,tanggal) DO UPDATE SET terakhir=MAX(pos_nomor_harian.terakhir,excluded.terakhir);`
+		);
+	}
 	lines.push(
 		`INSERT INTO pengaturan(id,cabang_id,kunci,nilai,updated_at) VALUES(${sqlVal(randomUUID())},${sqlVal(branch)},${sqlVal('archive_restore_' + archiveId)},${sqlVal(JSON.stringify({ restored_at: now, archive_id: archiveId, sha256: opts.sha256 || null }))},${sqlVal(now)}) ON CONFLICT(cabang_id,kunci) DO UPDATE SET nilai=excluded.nilai,updated_at=excluded.updated_at;`
 	);
