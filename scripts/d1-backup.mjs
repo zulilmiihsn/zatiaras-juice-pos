@@ -13,6 +13,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 export const CONFIG_FILE = 'wrangler.pages.jsonc';
 export const EXPECTED_BINDINGS = Object.freeze([
@@ -37,6 +38,8 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const MODULE_FILE = fileURLToPath(import.meta.url);
 export const REPO_ROOT = resolve(dirname(MODULE_FILE), '..');
 export const WORKSPACE_ROOT = resolve(REPO_ROOT, '..');
+const require = createRequire(import.meta.url);
+const WRANGLER_CLI = join(dirname(require.resolve('wrangler/package.json')), 'bin', 'wrangler.js');
 
 function normalizeForCompare(value) {
 	const normalized = resolve(value).replace(/[\\/]+$/, '');
@@ -238,7 +241,8 @@ export function createRtkRunner({ spawn = spawnSync } = {}) {
 		) {
 			throw new Error('Operasi D1 ditolak oleh allowlist backup');
 		}
-		const result = spawn('rtk', args, {
+		// Machine-readable identity must not pass through pnpm lifecycle logs or RTK filters.
+		const result = spawn('rtk', ['proxy', process.execPath, WRANGLER_CLI, ...args.slice(3)], {
 			cwd,
 			env,
 			shell: false,
