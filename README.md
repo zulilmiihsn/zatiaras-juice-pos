@@ -10,10 +10,12 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 - Antrean pesanan per cabang: satu transaksi menjadi satu kartu dengan status Belum selesai/Selesai plus Buka lagi bila salah tekan; tersedia di navbar dan tetap bisa dibuka offline di device kios.
 - Nomor pesanan harian pada modal sukses, kartu Antrean, struk, dan riwayat: `001`–`999` per cabang per tanggal WITA, reset tiap tanggal baru (di atas 999 lanjut `1000+` tanpa memblokir penjualan). Nomor dialokasi atomik di server sehingga dua kasir yang membayar bersamaan tidak pernah kembar; retry memakai nomor yang sama. Transaksi offline menampilkan "menunggu sinkronisasi" sampai replay commit menerbitkan nomor resmi; cetak ulang selalu memuat nomor resmi. `transaction_id` UUID tetap menjadi identitas internal. Transaksi lama sebelum fitur ini tidak punya nomor.
 - Di Antrean, tab Belum selesai menampilkan rincian item langsung agar mudah disiapkan, dengan tanggal "Hari ini" untuk pesanan pada hari WITA yang sama atau tanggal lengkap untuk pesanan lebih lama. Tab Selesai menampilkan nama, nomor, tanggal/jam WITA, jumlah gelas, total, dan status sinkronisasi; tombol Lihat detail membuka rincian item dalam dialog. Kolom pencarian menyaring nama pelanggan atau nomor pesanan pada daftar yang sudah dimuat (tetap berfungsi offline); dibuka lewat tombol kaca pembesar di header. Menutup pencarian ikut menghapus kata kunci.
+- Status Antrean yang belum dikonfirmasi server tetap terlihat dengan label **Belum tersinkron**. Saat online, pemulihan berjalan pada halaman dibuka, koneksi pulih, sesi diperbarui, checkout selesai, atau fokus kembali; operator juga dapat menekan **Sinkronkan status**. Tidak ada polling status otomatis. Hitungan cache/offline diberi label belum terkonfirmasi dan bukan klaim jumlah server.
+- Endpoint Antrean hanya menerima role `kasir` dan `pemilik`; izin `admin` pada modul lain tidak diperluas atau diubah.
 - Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
 - Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
 - Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
-- PWA untuk instalasi perangkat. Mode offline terbatas pada alur POS yang memakai katalog tersimpan dan antrean transaksi di IndexedDB; antrean diputar ulang saat koneksi kembali.
+- PWA menyimpan navigasi `/pos` dan `/antrean` untuk pemulihan offline; respons API privat tidak dicache. Mode transaksi POS tetap terbatas pada katalog tersimpan dan antrean IndexedDB, sedangkan Antrean offline hanya menampilkan proyeksi lokal perangkat dan cache yang diberi label belum terkonfirmasi.
 - Monitoring stok opsional per cabang. Pemilik dapat menonaktifkan monitoring lewat `/pengaturan/pemilik/stok`; POS tetap berjualan tanpa memeriksa atau mengurangi stok, sedangkan resep dan HPP tetap dihitung. Aktivasi ulang wajib rekonsiliasi fisik.
 - Notifikasi perubahan per cabang melalui WebSocket. Klien memuat ulang data terkait ketika menerima event; jalur ini bukan pengganti penyimpanan transaksi di D1.
 
@@ -115,14 +117,14 @@ Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil t
 
 ## Pengujian
 
-| Perintah            | Cakupan                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `pnpm check`        | Sinkronisasi SvelteKit dan pemeriksaan TypeScript/Svelte                                               |
-| `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                        |
-| `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan |
-| `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                          |
-| `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                          |
-| `pnpm test:e2e:all` | 22 tes browser terisolasi (D1/config/port/password unik per run, tanpa menyentuh `.wrangler/state`)    |
+| Perintah            | Cakupan                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `pnpm check`        | Sinkronisasi SvelteKit dan pemeriksaan TypeScript/Svelte                                                 |
+| `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                          |
+| `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan   |
+| `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                            |
+| `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                            |
+| `pnpm test:e2e:all` | Seluruh tes browser terisolasi (D1/config/port/password unik per run, tanpa menyentuh `.wrangler/state`) |
 
 Suite lokal khusus juga tersedia untuk checkout, CSP, CSRF, workflow akhir, rate limit, dan load test. Lihat seluruh script `test:*` di `package.json`; beberapa suite menyiapkan D1 lokal dan dapat membuat serta membersihkan data UAT.
 
@@ -136,6 +138,6 @@ pnpm deploy:all
 
 `deploy:preflight` adalah gerbang rilis: menolak working tree kotor, mewajibkan `RELEASE_COMMIT_SHA` sama dengan HEAD pada branch `main`/`release/*`, menjalankan `deploy:check` + full `test:release` (`test:all`, build, seluruh E2E), lalu menulis `build-artifacts.json` berisi SHA commit, versi Node/pnpm, checksum tiga config Wrangler, checksum manifest migrasi, dan SHA-256 **seluruh** file `.svelte-kit/cloudflare`. `deploy:verify` memeriksa ulang manifest tanpa membangun ulang; gagal bila satu file berubah, ada file tak tercatat, config/migrasi berubah, atau SHA tidak cocok.
 
-`deploy:all` = preflight + deploy Worker realtime + deploy Pages. Perintah ini tidak menerapkan migrasi D1 dan tidak boleh dipakai tanpa `RELEASE_COMMIT_SHA`. Deploy produksi resmi lewat workflow **Deploy** (`workflow_dispatch`, environment `production`): unduh artifact CI `release-<sha>`, verifikasi manifest, lalu deploy realtime + Pages dari artifact yang sama tanpa rebuild. Rollback = dispatch ulang SHA sebelumnya; rollback Pages tidak mengembalikan schema D1 (ikuti runbook migrasi/restore).
+`deploy:all` = preflight + deploy Worker realtime + deploy Pages. Perintah ini tidak menerapkan migrasi D1 dan tidak boleh dipakai tanpa `RELEASE_COMMIT_SHA`. Deploy produksi resmi lewat workflow **Deploy** (`workflow_dispatch`, environment `production`): unduh artifact CI `release-<sha>`, verifikasi manifest, lalu deploy realtime + Pages dari artifact yang sama tanpa rebuild. Workflow mewajibkan SHA input sama dengan HEAD `main`; rollback kode melalui revert commit rilis, CI/artifact baru, dan workflow yang sama, bukan dispatch SHA historis. Rollback aplikasi tidak mengembalikan schema D1 (ikuti runbook migrasi/restore).
 
 Panduan arsitektur, konvensi teknis, dan runbook operasional tersedia di [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).

@@ -24,6 +24,10 @@ Syarat lulus: file `COMPLETE` terbit, ketiga binding
 (`DB_SAMARINDA_GROUP`, `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`) verified.
 Simpan backup di media berbeda dari source. Jangan hapus sebelum retention berakhir.
 
+Adapter backup menjalankan Wrangler terpasang melalui `rtk proxy` agar output
+identitas `--json` tidak tercampur filter RTK atau lifecycle pnpm. Validasi tiga
+identitas shard, hash/readback, dan penolakan operasi di luar allowlist tetap wajib.
+
 ## 2. Restore drill (tanpa DB non-production: drill lokal)
 
 Tanpa database non-production, buktikan dump dapat direstore secara lokal
@@ -100,6 +104,14 @@ atau restore dari backup langkah 1. Rollback Pages TIDAK mengembalikan schema D1
    approval environment `production`).
 3. Catat deployment ID Worker realtime + Pages; keduanya wajib memakai SHA sama.
 
+Workflow saat ini menolak SHA historis bila HEAD `main` sudah bergerak. Rollback
+kode normal: revert commit rilis yang relevan, tunggu CI/artifact SHA baru hijau,
+lalu ulangi dry-run dan deploy di atas. Ini membutuhkan CI, bukan rollback instan.
+Untuk pemulihan darurat, operator/approver boleh memilih deployment Pages dan
+versi Worker sebelumnya yang telah terverifikasi di Cloudflare; catat kedua ID
+sebelum rollout. Jangan rebuild/deploy artifact workstation atau restore D1 untuk
+sekadar rollback aplikasi. Mengamati ID deployment bukan bukti uji rollback.
+
 ## 6. Smoke per cabang target (OPS-T01–T11)
 
 Login valid/invalid, role/PIN + elevasi, buka/tutup sesi, checkout tunai dan
@@ -151,8 +163,9 @@ duplikat; realtime lintas cabang; artifact SHA tak terbukti.
 - Arsip menolak cutoff yang masih memuat pesanan `pending` (409) baik sebelum
   upload maupun pada klaim finalisasi. Selesaikan atau tunggu pesanan beres
   sebelum mengarsipkan; pesanan `done` tetap bisa diarsipkan seperti biasa.
-- Smoke kios: checkout kasir, Lihat Antrean dari modal sukses, Selesai, reload,
-  Buka lagi, badge navbar konsisten, lalu void cleanup oleh pemilik.
+- Smoke kios memakai transaksi disposable: checkout kasir, Lihat Antrean dari modal sukses, Selesai, reload, Buka lagi, badge/navbar menunjukkan sumber hitung yang benar, lalu void cleanup oleh pemilik.
+- Smoke offline/failure hanya pada UAT atau D1 terisolasi: muat dua halaman Antrean, putuskan jaringan, reload; kartu dan badge harus menunjukkan cache perangkat, bukan jumlah server. Tandai status saat offline, tutup tab, pulihkan koneksi, lalu buka Antrean lagi; status harus pulih dari intent tersimpan.
+- Simulasikan status gagal di UAT dan koneksi pulih: kartu lokal harus tetap berlabel **Belum tersinkron** sampai tombol **Sinkronkan status** berhasil; jangan menyimpulkan antrean kosong dari cache atau jumlah yang belum diketahui.
 
 ## 10b. Wipe riwayat pra-operasional (satu cabang sekali jalan)
 
