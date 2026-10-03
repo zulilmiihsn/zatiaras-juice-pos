@@ -1,7 +1,10 @@
 import { browser } from '$app/environment';
+import { getOfflineSessionBranch, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
 import { fetchOrderQueue } from '$lib/services/orderQueueService';
 import { syncOrderStatusIntents } from '$lib/services/orderQueueSync';
+import { syncPendingTransactions } from '$lib/services/offlineSync';
+import { userProfile } from '$lib/stores/userRole.svelte';
 import { getPendingTransactions } from '$lib/utils/offline';
 import {
 	buildLocalCardFromPending,
@@ -12,110 +15,180 @@ import {
 	mergeQueueWithLocal,
 	saveQueueSnapshot,
 	saveStatusIntent,
+	STATUS_STORAGE_MESSAGE,
 	type StatusIntent,
 	type UiOrder
 } from '$lib/utils/orderQueueLocal';
-import { getOfflineSessionBranch, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
-import { userProfile } from '$lib/stores/userRole.svelte';
-import type { PreparationState } from '$lib/server/orderQueue/types';
+import type { OrderQueueItem, PreparationState } from '$lib/server/orderQueue/types';
 
-function currentBranch(): string {
-	if (!browser) return 'samarinda';
-	try {
-		const fromSnapshot = getOfflineSessionBranch(readOfflineSessionSnapshot());
-		if (fromSnapshot) return fromSnapshot;
-		return (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
-	} catch {
-		return 'samarinda';
-	}
+function currentBranch(): string | null {
+	if (!browser) return null;
+	return getOfflineSessionBranch(readOfflineSessionSnapshot());
 }
 
-function currentUserId(): string {
+function currentUserId(): string | null {
 	try {
 		const profile = userProfile.value as { id?: unknown; username?: unknown } | null;
 		if (profile && typeof profile.id === 'string' && profile.id) return profile.id;
-		if (profile && typeof profile.username === 'string' && profile.username) {
+		if (profile && typeof profile.username === 'string' && profile.username)
 			return profile.username;
-		}
 		const snapshot = readOfflineSessionSnapshot();
-		const user = snapshot?.user as { id?: unknown; username?: unknown } | undefined;
+		const user = snapshot?.user;
 		if (user && typeof user.id === 'string' && user.id) return user.id;
 		if (user && typeof user.username === 'string' && user.username) return user.username;
 	} catch {
-		// abaikan; pakai anon
+		return null;
 	}
-	return 'anon';
+	return null;
 }
 
+const OFFLINE_STATUS_MESSAGE =
+	'Status tersimpan di perangkat ini. Sinkronkan saat koneksi kembali.';
+const FAILED_STATUS_MESSAGE =
+	'Sebagian status belum tersinkron. Tekan Sinkronkan status untuk mencoba lagi.';
+const CONFLICT_STATUS_MESSAGE =
+	'Pesanan berubah di perangkat lain atau sudah tidak tersedia. Daftar telah dimuat ulang; periksa statusnya.';
+const SESSION_STATUS_MESSAGE = 'Masuk kembali saat online untuk menyinkronkan status pesanan.';
+
+type CountSource = 'server' | 'cached' | 'unknown';
 let pendingCount = $state(0);
+let countSource = $state<CountSource>('unknown');
 let countFailed = $state(false);
 let badgeStarted = false;
 let badgeDisposers: Array<() => void> = [];
-let badgeInFlight: Promise<void> | null = null;
+let badgeRequested = 0;
+let badgePromise: Promise<void> | null = null;
 
-async function refreshBadge(): Promise<void> {
-	if (!browser) return;
-	if (badgeInFlight) return badgeInFlight;
-	badgeInFlight = (async () => {
-		try {
-			if (!navigator.onLine) {
-				const branch = currentBranch();
-				const pendings = (await getPendingTransactions().catch(() => [])) as Array<
-					Record<string, unknown>
-				>;
-				const intents = await loadStatusIntents(branch);
-				const localOnly = pendings
-					.map((p) => buildLocalCardFromPending(p, branch))
-					.filter((c): c is UiOrder => c !== null);
-				const intentDone = new Set(
-					intents.filter((i) => i.target === 'done').map((i) => i.idempotency_key)
-				);
-				pendingCount = localOnly.filter((c) => !intentDone.has(c.idempotency_key)).length;
-				countFailed = false;
+function setUnknownCount(): void {
+	pendingCount = 0;
+	countSource = 'unknown';
+	countFailed = true;
+}
+
+async function recomputeBadge(): Promise<void> {
+	const branch = currentBranch();
+	const userId = currentUserId();
+	if (!branch || !userId) {
+		setUnknownCount();
+		return;
+	}
+	const [snapshot, intents, pendingTransactions] = await Promise.all([
+		loadQueueSnapshot(branch, userId),
+		loadStatusIntents(branch),
+		getPendingTransactions()
+	]);
+	if (currentBranch() !== branch || currentUserId() !== userId) {
+		setUnknownCount();
+		void refreshOrderQueueBadge();
+		return;
+	}
+	const pendings = pendingTransactions as Array<Record<string, unknown>>;
+	const localCards = pendings
+		.map((item) => buildLocalCardFromPending(item, branch))
+		.filter((card): card is UiOrder => card !== null);
+	const activeIntents = intents.filter((intent) => intent.userId === userId);
+	const hasOverlay = localCards.length > 0 || activeIntents.length > 0;
+	if (!navigator.onLine) {
+		const cachedCards = mergeQueueWithLocal(
+			snapshot?.items ?? [],
+			pendings,
+			activeIntents,
+			branch,
+			userId
+		);
+		const hasData =
+			snapshot !== null ||
+			localCards.length > 0 ||
+			activeIntents.some((intent) => intent.card !== undefined);
+		if (!hasData) {
+			setUnknownCount();
+			return;
+		}
+		pendingCount = cachedCards.filter((card) => card.preparation_state === 'pending').length;
+		countSource = 'cached';
+		countFailed = false;
+		return;
+	}
+	if (!hasOverlay) {
+		const response = await fetchOrderQueue('pending', { limit: 1 });
+		if (currentBranch() !== branch || currentUserId() !== userId) {
+			setUnknownCount();
+			void refreshOrderQueueBadge();
+			return;
+		}
+		pendingCount = response.pending_count;
+		countSource = 'server';
+		countFailed = false;
+		return;
+	}
+	const cachedCards = mergeQueueWithLocal(
+		snapshot?.items ?? [],
+		pendings,
+		activeIntents,
+		branch,
+		userId
+	);
+	const hasData =
+		snapshot !== null ||
+		localCards.length > 0 ||
+		activeIntents.some((intent) => intent.card !== undefined);
+	if (!hasData) {
+		setUnknownCount();
+		return;
+	}
+	pendingCount = cachedCards.filter((card) => card.preparation_state === 'pending').length;
+	countSource = 'cached';
+	countFailed = false;
+}
+
+export function refreshOrderQueueBadge(): Promise<void> {
+	if (!browser) return Promise.resolve();
+	badgeRequested++;
+	if (badgePromise) return badgePromise;
+	const refresh = async (): Promise<void> => {
+		for (;;) {
+			const generation = badgeRequested;
+			try {
+				await recomputeBadge();
+			} catch {
+				setUnknownCount();
+			}
+			await Promise.resolve();
+			if (generation === badgeRequested) {
+				badgePromise = null;
 				return;
 			}
-			const page = await fetchOrderQueue('pending', { limit: 1 });
-			const branch = currentBranch();
-			const intents = await loadStatusIntents(branch).catch(() => [] as StatusIntent[]);
-			const localPending = (await getPendingTransactions().catch(() => [])) as Array<
-				Record<string, unknown>
-			>;
-			const localKeys = new Set(
-				localPending
-					.map((p) => buildLocalCardFromPending(p, branch))
-					.filter((c): c is UiOrder => c !== null)
-					.map((c) => c.idempotency_key)
-			);
-			const serverKeys = new Set(page.items.map((i) => String(i.idempotency_key)));
-			const extraLocal = [...localKeys].filter((k) => !serverKeys.has(k)).length;
-			const doneIntents = new Set(
-				intents.filter((i) => i.target === 'done').map((i) => i.idempotency_key)
-			);
-			const hiddenByIntent = page.items.filter(
-				(i) => doneIntents.has(String(i.idempotency_key)) && i.preparation_state === 'pending'
-			).length;
-			pendingCount = Math.max(0, page.pending_count - hiddenByIntent + extraLocal);
-			countFailed = false;
-		} catch {
-			countFailed = true;
-		} finally {
-			badgeInFlight = null;
 		}
-	})();
-	return badgeInFlight;
+	};
+	badgePromise = Promise.resolve().then(refresh);
+	return badgePromise;
 }
 
 function startBadge(): void {
 	if (!browser || badgeStarted) return;
 	badgeStarted = true;
-	void refreshBadge();
-	badgeDisposers.push(realtimeManager.subscribe('buku_kas', () => void refreshBadge()));
-	badgeDisposers.push(realtimeManager.subscribe('transaksi_kasir', () => void refreshBadge()));
-	window.addEventListener('online', () => void refreshBadge());
-	window.addEventListener('pending-synced', () => void refreshBadge());
-	window.addEventListener('antrean-synced', () => void refreshBadge());
-	window.addEventListener('antrean-conflict', () => void refreshBadge());
-	window.addEventListener('pending-changed', () => void refreshBadge());
+	const refresh = () => void refreshOrderQueueBadge();
+	badgeDisposers.push(
+		realtimeManager.subscribe('buku_kas', refresh),
+		realtimeManager.subscribe('transaksi_kasir', refresh)
+	);
+	window.addEventListener('online', refresh);
+	window.addEventListener('offline', refresh);
+	window.addEventListener('pending-synced', refresh);
+	window.addEventListener('antrean-synced', refresh);
+	window.addEventListener('antrean-conflict', refresh);
+	window.addEventListener('pending-changed', refresh);
+	window.addEventListener('auth-session-refreshed', refresh);
+	badgeDisposers.push(() => {
+		window.removeEventListener('offline', refresh);
+		window.removeEventListener('online', refresh);
+		window.removeEventListener('pending-synced', refresh);
+		window.removeEventListener('antrean-synced', refresh);
+		window.removeEventListener('antrean-conflict', refresh);
+		window.removeEventListener('auth-session-refreshed', refresh);
+		window.removeEventListener('pending-changed', refresh);
+	});
+	void refreshOrderQueueBadge();
 }
 
 export const orderQueueBadge = {
@@ -123,13 +196,13 @@ export const orderQueueBadge = {
 		startBadge();
 		return pendingCount;
 	},
+	get countSource(): CountSource {
+		return countSource;
+	},
 	get failed(): boolean {
 		return countFailed;
 	},
-	refresh(): Promise<void> {
-		startBadge();
-		return refreshBadge();
-	},
+	refresh: refreshOrderQueueBadge,
 	dispose(): void {
 		for (const dispose of badgeDisposers) dispose();
 		badgeDisposers = [];
@@ -137,10 +210,28 @@ export const orderQueueBadge = {
 	}
 };
 
+function sortPending(items: OrderQueueItem[]): OrderQueueItem[] {
+	return [...items].sort((a, b) => {
+		if (a.waktu !== b.waktu) return a.waktu < b.waktu ? -1 : 1;
+		const aId = a.buku_kas_id || a.idempotency_key;
+		const bId = b.buku_kas_id || b.idempotency_key;
+		return aId < bId ? -1 : aId > bId ? 1 : 0;
+	});
+}
+
+function mergePages(existing: OrderQueueItem[], next: OrderQueueItem[]): OrderQueueItem[] {
+	const byKey = new Map(existing.map((item) => [item.idempotency_key, item]));
+	for (const item of next) byKey.set(item.idempotency_key, item);
+	return [...byKey.values()];
+}
+
 export function createOrderQueueState() {
 	let items = $state<UiOrder[]>([]);
 	let loading = $state(false);
-	let error = $state('');
+	let loadError = $state('');
+	let statusSyncMessage = $state('');
+	let statusSyncing = $state(false);
+	let pendingStatusCount = $state(0);
 	let activeTab = $state<PreparationState>('pending');
 	let hasMore = $state(false);
 	let nextCursor = $state<string | null>(null);
@@ -150,71 +241,186 @@ export function createOrderQueueState() {
 	let disposers: Array<() => void> = [];
 	let started = false;
 	let loadGen = 0;
+	let loadedScope = '';
+	let serverViewReady = false;
+	let statusRetryRequested = false;
+	let statusRetryInFlight: Promise<void> | null = null;
+	const loadedDtos = new Map<PreparationState, OrderQueueItem[]>();
+
+	function scopeKey(branch: string, userId: string): string {
+		return `${branch}\u0000${userId}`;
+	}
+
+	function viewIsCurrent(
+		gen: number,
+		tab: PreparationState,
+		branch: string,
+		userId: string
+	): boolean {
+		return (
+			gen === loadGen &&
+			activeTab === tab &&
+			currentBranch() === branch &&
+			currentUserId() === userId
+		);
+	}
+
+	function loadedServerItems(): OrderQueueItem[] {
+		return loadedDtos.get(activeTab) ?? [];
+	}
+	async function includeLegacyIntentCards(
+		serverItems: OrderQueueItem[],
+		intents: StatusIntent[],
+		branch: string,
+		userId: string
+	): Promise<OrderQueueItem[]> {
+		const legacyKeys = new Set(
+			intents
+				.filter((intent) => intent.userId === userId && !intent.card)
+				.map((intent) => intent.idempotency_key)
+		);
+		if (!legacyKeys.size) return serverItems;
+		const existingKeys = new Set(serverItems.map((item) => item.idempotency_key));
+		const snapshot = await loadQueueSnapshot(branch, userId);
+		const fallbackItems = (snapshot?.items ?? []).filter(
+			(item) => legacyKeys.has(item.idempotency_key) && !existingKeys.has(item.idempotency_key)
+		);
+		return [...serverItems, ...fallbackItems];
+	}
+	async function rebuildVisible(): Promise<void> {
+		const branch = currentBranch();
+		const userId = currentUserId();
+		if (!branch || !userId) {
+			items = [];
+			return;
+		}
+		const [intents, pendingTransactions] = await Promise.all([
+			loadStatusIntents(branch),
+			getPendingTransactions()
+		]);
+		const projection = await includeLegacyIntentCards(loadedServerItems(), intents, branch, userId);
+		const merged = mergeQueueWithLocal(
+			projection,
+			pendingTransactions as Array<Record<string, unknown>>,
+			intents,
+			branch,
+			userId
+		);
+		if (currentBranch() === branch && currentUserId() === userId) {
+			items = merged.filter((card) => card.preparation_state === activeTab);
+			pendingStatusCount = intents.length;
+		}
+	}
 
 	async function loadFromServer(
 		tab: PreparationState,
 		cursor: string | null,
 		append: boolean,
-		gen: number
+		gen: number,
+		branch: string,
+		userId: string
 	): Promise<void> {
 		const page = await fetchOrderQueue(tab, { cursor, limit: 50 });
-		const branch = currentBranch();
-		const userId = currentUserId();
+		if (!viewIsCurrent(gen, tab, branch, userId)) return;
+		const previous = append ? (loadedDtos.get(tab) ?? []) : [];
+		const loaded = append ? mergePages(previous, page.items) : page.items;
+		const pendings = (await getPendingTransactions()) as Array<Record<string, unknown>>;
+		const intents = await loadStatusIntents(branch);
+		if (!viewIsCurrent(gen, tab, branch, userId)) return;
 		if (tab === 'pending') {
-			await saveQueueSnapshot(branch, userId, page.items, page.pending_count).catch(() => {});
+			const snapshotItems = sortPending(
+				loaded.filter((item) => item.preparation_state === 'pending')
+			);
+			// Keep the authoritative online response visible if this offline-only cache write fails.
+			await saveQueueSnapshot(branch, userId, snapshotItems, page.pending_count, {
+				isCurrent: () => viewIsCurrent(gen, tab, branch, userId)
+			}).catch(() => {});
+			if (!viewIsCurrent(gen, tab, branch, userId)) return;
 		}
-		const pendings = (await getPendingTransactions().catch(() => [])) as Array<
-			Record<string, unknown>
-		>;
-		const intents = await loadStatusIntents(branch).catch(() => [] as StatusIntent[]);
-		const merged = mergeQueueWithLocal(page.items, pendings, intents, branch).filter(
+		const projection = await includeLegacyIntentCards(loaded, intents, branch, userId);
+		if (!viewIsCurrent(gen, tab, branch, userId)) return;
+		const merged = mergeQueueWithLocal(projection, pendings, intents, branch, userId).filter(
 			(card) => card.preparation_state === tab
 		);
-		// Load basi tidak boleh menimpa tab yang sudah berganti.
-		if (gen !== loadGen) return;
-		if (append) {
-			const known = new Set(items.map((i) => i.idempotency_key));
-			items = [...items, ...merged.filter((m) => !known.has(m.idempotency_key))];
-		} else {
-			items = merged;
-		}
+		if (!viewIsCurrent(gen, tab, branch, userId)) return;
+		loadedDtos.set(tab, loaded);
+		serverViewReady = true;
+		items = merged;
+		pendingStatusCount = intents.length;
 		hasMore = page.hasMore;
 		nextCursor = page.nextCursor;
-		await refreshBadge();
+		void refreshOrderQueueBadge();
 	}
-
-	async function loadFromLocal(tab: PreparationState, gen: number): Promise<void> {
-		const branch = currentBranch();
-		const userId = currentUserId();
+	async function loadFromLocal(
+		tab: PreparationState,
+		gen: number,
+		branch: string,
+		userId: string
+	): Promise<void> {
 		const snapshot = await loadQueueSnapshot(branch, userId);
-		const pendings = (await getPendingTransactions().catch(() => [])) as Array<
-			Record<string, unknown>
-		>;
-		const intents = await loadStatusIntents(branch).catch(() => [] as StatusIntent[]);
-		const merged = mergeQueueWithLocal(snapshot?.items ?? [], pendings, intents, branch).filter(
-			(card) => card.preparation_state === tab
-		);
-		if (gen !== loadGen) return;
+		const pendingTransactions = await getPendingTransactions();
+		const intents = await loadStatusIntents(branch);
+		if (!viewIsCurrent(gen, tab, branch, userId)) return;
+		const merged = mergeQueueWithLocal(
+			snapshot?.items ?? [],
+			pendingTransactions as Array<Record<string, unknown>>,
+			intents,
+			branch,
+			userId
+		).filter((card) => card.preparation_state === tab);
 		items = merged;
+		serverViewReady = false;
+		pendingStatusCount = intents.length;
 		hasMore = false;
 		nextCursor = null;
-		await refreshBadge();
+		void refreshOrderQueueBadge();
 	}
 
 	async function load(tab: PreparationState = activeTab, append = false): Promise<void> {
 		const gen = ++loadGen;
-		loading = !append;
-		error = '';
+		loading = true;
+		loadError = '';
+		const branch = currentBranch();
+		const userId = currentUserId();
+		if (!branch || !userId) {
+			items = [];
+			serverViewReady = false;
+			loadError = SESSION_STATUS_MESSAGE;
+			loading = false;
+			return;
+		}
+		const key = scopeKey(branch, userId);
+		if (loadedScope && loadedScope !== key) {
+			loadedDtos.clear();
+			serverViewReady = false;
+			items = [];
+			nextCursor = null;
+			hasMore = false;
+		}
+		loadedScope = key;
+		const previousPagination = { hasMore, nextCursor };
 		try {
 			if (!browser || navigator.onLine) {
-				await loadFromServer(tab, append ? nextCursor : null, append, gen);
+				await loadFromServer(tab, append ? nextCursor : null, append, gen, branch, userId);
 			} else {
-				await loadFromLocal(tab, gen);
+				await loadFromLocal(tab, gen, branch, userId);
 			}
 		} catch (err) {
 			if (gen !== loadGen) return;
-			error = err instanceof Error ? err.message : 'Gagal memuat Antrean';
-			if (browser) await loadFromLocal(tab, gen).catch(() => {});
+			loadError = err instanceof Error ? err.message : 'Gagal memuat Antrean';
+			if (browser) {
+				try {
+					await loadFromLocal(tab, gen, branch, userId);
+					if (viewIsCurrent(gen, tab, branch, userId)) {
+						hasMore = previousPagination.hasMore;
+						nextCursor = previousPagination.nextCursor;
+					}
+				} catch (localError) {
+					loadError = localError instanceof Error ? localError.message : STATUS_STORAGE_MESSAGE;
+					statusSyncMessage = STATUS_STORAGE_MESSAGE;
+					pendingStatusCount = -1;
+				}
+			}
 		} finally {
 			if (gen === loadGen) loading = false;
 		}
@@ -226,83 +432,181 @@ export function createOrderQueueState() {
 			return;
 		}
 		activeTab = tab;
+		serverViewReady = false;
 		items = [];
 		nextCursor = null;
 		hasMore = false;
 		await load(tab);
 	}
 
+	async function runStatusRetry(): Promise<void> {
+		statusSyncing = true;
+		statusSyncMessage = '';
+		try {
+			const branch = currentBranch();
+			if (!branch || !navigator.onLine) {
+				statusSyncMessage = branch ? OFFLINE_STATUS_MESSAGE : SESSION_STATUS_MESSAGE;
+				return;
+			}
+			await syncPendingTransactions({ activeBranch: branch });
+			if (currentBranch() !== branch) {
+				statusSyncMessage = SESSION_STATUS_MESSAGE;
+				return;
+			}
+			const result = await syncOrderStatusIntents(branch);
+			const intents = await loadStatusIntents(branch);
+			pendingStatusCount = intents.length;
+			if (!statusSyncMessage) {
+				if (result.conflicts > 0) statusSyncMessage = CONFLICT_STATUS_MESSAGE;
+				else if (result.failed > 0 || intents.length > 0) statusSyncMessage = FAILED_STATUS_MESSAGE;
+			}
+			// Skip empty recovery only after this scope has a server view; cold/cache recovery still loads.
+			if (
+				!serverViewReady ||
+				loadedScope !== scopeKey(branch, currentUserId() ?? '') ||
+				loadError !== '' ||
+				result.synced > 0 ||
+				result.conflicts > 0 ||
+				result.failed > 0 ||
+				intents.length > 0
+			) {
+				await load(activeTab);
+			}
+			await refreshOrderQueueBadge();
+		} catch (error) {
+			statusSyncMessage =
+				error instanceof Error && error.message === SESSION_STATUS_MESSAGE
+					? SESSION_STATUS_MESSAGE
+					: STATUS_STORAGE_MESSAGE;
+			pendingStatusCount = -1;
+			await refreshOrderQueueBadge();
+		} finally {
+			statusSyncing = false;
+		}
+	}
+
+	function retryStatusSync(): Promise<void> {
+		if (!browser) return Promise.resolve();
+		statusRetryRequested = true;
+		if (statusRetryInFlight) return statusRetryInFlight;
+		statusRetryInFlight = Promise.resolve()
+			.then(async () => {
+				while (statusRetryRequested) {
+					statusRetryRequested = false;
+					await runStatusRetry();
+				}
+			})
+			.finally(() => {
+				statusRetryInFlight = null;
+			});
+		return statusRetryInFlight;
+	}
+
 	async function setStatus(card: UiOrder, target: PreparationState): Promise<void> {
 		if (syncing[card.idempotency_key]) return;
-		syncing = { ...syncing, [card.idempotency_key]: true };
-		error = '';
 		const branch = currentBranch();
 		const userId = currentUserId();
-		const previous = card.preparation_state;
-		card.preparation_state = target;
-		card.unsynced = true;
-		items = [...items];
+		if (!branch || !userId) {
+			statusSyncMessage = SESSION_STATUS_MESSAGE;
+			return;
+		}
+		syncing = { ...syncing, [card.idempotency_key]: true };
 		try {
-			const intent = await saveStatusIntent({
+			await saveStatusIntent({
 				branch,
 				idempotency_key: card.idempotency_key,
 				target,
 				expected_revision: card.preparation_revision,
-				userId
+				userId,
+				card: {
+					...card,
+					items: card.items.map((item) => ({
+						...item,
+						tambahan: item.tambahan.map((extra) => ({ ...extra }))
+					}))
+				}
 			});
+			await rebuildVisible();
+			await refreshOrderQueueBadge();
 			if (!navigator.onLine) {
-				await refreshBadge();
+				statusSyncMessage = OFFLINE_STATUS_MESSAGE;
 				return;
 			}
-			const { failed } = await syncOrderStatusIntents(branch);
-			if (failed > 0) {
-				error = 'Sebagian status belum tersinkron. Coba lagi.';
+			await retryStatusSync();
+		} catch (error) {
+			statusSyncMessage = error instanceof Error ? error.message : STATUS_STORAGE_MESSAGE;
+			if (
+				statusSyncMessage !==
+				'Terlalu banyak perubahan status belum tersinkron. Sinkronkan dulu lalu coba lagi.'
+			) {
+				statusSyncMessage = STATUS_STORAGE_MESSAGE;
 			}
-			// Hapus kartu dari tab aktif bila target pindah tab dan sudah sinkron.
-			const remaining = await loadStatusIntents(branch).catch(() => [] as StatusIntent[]);
-			const stillPending = remaining.some((i) => i.idempotency_key === intent.idempotency_key);
-			if (!stillPending) {
-				items = items.filter(
-					(i) => i.idempotency_key !== card.idempotency_key || i.preparation_state === activeTab
-				);
-			}
-			await load(activeTab);
-		} catch (err) {
-			card.preparation_state = previous;
-			items = [...items];
-			error = err instanceof Error ? err.message : 'Gagal memperbarui pesanan';
 		} finally {
 			const next = { ...syncing };
 			delete next[card.idempotency_key];
 			syncing = next;
-			await refreshBadge();
 		}
+	}
+
+	function handleRecovery(): void {
+		void retryStatusSync();
+	}
+
+	function handleReload(): void {
+		void load(activeTab);
+		void refreshOrderQueueBadge();
 	}
 
 	function start(): void {
 		if (!browser || started) return;
 		started = true;
-		void clearOtherQueueSnapshots(currentBranch(), currentUserId());
-		disposers.push(
-			realtimeManager.subscribe('buku_kas', () => void load(activeTab)),
-			realtimeManager.subscribe('transaksi_kasir', () => void load(activeTab))
-		);
-		const onSync = () => {
-			void syncOrderStatusIntents(currentBranch()).then(() => load(activeTab));
+		const branch = currentBranch();
+		const userId = currentUserId();
+		if (branch && userId) void clearOtherQueueSnapshots(branch, userId);
+		const reload = () => handleReload();
+		const recover = () => handleRecovery();
+		const checkoutRecovered = () => {
+			reload();
+			recover();
 		};
-		window.addEventListener('online', onSync);
-		window.addEventListener('pending-synced', onSync);
-		window.addEventListener('antrean-synced', () => void load(activeTab));
-		window.addEventListener('antrean-conflict', () => void load(activeTab));
+		const onSyncMessage = (event: Event) => {
+			const kind = (event as CustomEvent<{ kind?: string }>).detail?.kind;
+			if (kind === 'session') statusSyncMessage = SESSION_STATUS_MESSAGE;
+			else if (kind === 'storage') statusSyncMessage = STATUS_STORAGE_MESSAGE;
+			else if (kind === 'conflict') statusSyncMessage = CONFLICT_STATUS_MESSAGE;
+			else if (kind === 'failed') statusSyncMessage = FAILED_STATUS_MESSAGE;
+		};
+		disposers.push(
+			realtimeManager.subscribe('buku_kas', reload),
+			realtimeManager.subscribe('transaksi_kasir', reload)
+		);
+		window.addEventListener('online', recover);
+		window.addEventListener('pending-synced', checkoutRecovered);
+		window.addEventListener('auth-session-refreshed', recover);
+		window.addEventListener('antrean-synced', reload);
+		window.addEventListener('antrean-conflict', reload);
+		window.addEventListener('antrean-sync-message', onSyncMessage);
 		disposers.push(() => {
-			window.removeEventListener('online', onSync);
-			window.removeEventListener('pending-synced', onSync);
+			window.removeEventListener('online', recover);
+			window.removeEventListener('pending-synced', checkoutRecovered);
+			window.removeEventListener('auth-session-refreshed', recover);
+			window.removeEventListener('antrean-synced', reload);
+			window.removeEventListener('antrean-conflict', reload);
+			window.removeEventListener('antrean-sync-message', onSyncMessage);
 		});
-		void load(activeTab);
-		void refreshBadge();
+		const onFocus = () => {
+			if (navigator.onLine) recover();
+		};
+		window.addEventListener('focus', onFocus);
+		disposers.push(() => window.removeEventListener('focus', onFocus));
+		if (navigator.onLine) void retryStatusSync();
+		else void load(activeTab);
+		void refreshOrderQueueBadge();
 	}
 
 	function dispose(): void {
+		loadGen++;
+		serverViewReady = false;
 		for (const dispose of disposers) dispose();
 		disposers = [];
 		started = false;
@@ -318,14 +622,29 @@ export function createOrderQueueState() {
 		get searchKeyword() {
 			return searchKeyword;
 		},
-		set searchKeyword(v) {
-			searchKeyword = v;
+		set searchKeyword(value: string) {
+			searchKeyword = value;
 		},
 		get loading() {
 			return loading;
 		},
 		get error() {
-			return error;
+			return loadError;
+		},
+		get statusSyncMessage() {
+			return statusSyncMessage;
+		},
+		get statusSyncing() {
+			return statusSyncing;
+		},
+		get pendingStatusCount() {
+			return pendingStatusCount;
+		},
+		get countSource() {
+			return countSource;
+		},
+		get countFailed() {
+			return countFailed;
 		},
 		get activeTab() {
 			return activeTab;
@@ -339,6 +658,9 @@ export function createOrderQueueState() {
 		get pendingCount() {
 			return pendingCount;
 		},
+		get isOnline() {
+			return browser && navigator.onLine;
+		},
 		load,
 		loadMore(): Promise<void> {
 			if (!hasMore || loading) return Promise.resolve();
@@ -346,6 +668,7 @@ export function createOrderQueueState() {
 		},
 		setTab,
 		setStatus,
+		retryStatusSync,
 		start,
 		dispose
 	};

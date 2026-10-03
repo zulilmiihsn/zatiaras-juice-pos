@@ -49,7 +49,7 @@
 </script>
 
 <nav
-	class="relative mx-auto flex h-[64px] w-full items-center justify-around overflow-visible border-t border-slate-100/90 bg-white/95 px-2 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl md:mb-4 md:h-[76px] md:max-w-2xl md:rounded-[32px] md:border md:border-slate-200/80 md:px-6 md:shadow-[0_16px_40px_-8px_rgba(219,39,119,0.14),0_6px_20px_rgba(0,0,0,0.06)]"
+	class="relative mx-auto flex h-[64px] w-full items-center justify-around overflow-visible border-t border-slate-100/90 bg-white/95 px-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl md:mb-4 md:h-[76px] md:max-w-2xl md:rounded-[32px] md:border md:border-slate-200/80 md:px-6 md:shadow-[0_16px_40px_-8px_rgba(219,39,119,0.14),0_6px_20px_rgba(0,0,0,0.06)]"
 >
 	{#each navs as nav}
 		{@const Icon = nav.icon}
@@ -58,13 +58,13 @@
 		{#if nav.isHero}
 			<!-- Center Hero Button (Kasir) -->
 			<a
-				class="group relative -mt-6 flex cursor-pointer flex-col items-center justify-center focus:outline-none md:-mt-8"
+				class="group relative -mt-6 flex min-h-[44px] w-14 min-w-[44px] flex-none cursor-pointer flex-col items-center justify-center focus:outline-none md:-mt-8 md:w-16"
 				aria-label={nav.label}
 				href={nav.path}
 				data-sveltekit-preload-data="hover"
 			>
 				<div
-					class="relative flex h-13 w-13 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90 md:h-16 md:w-16 {isActive
+					class="relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90 min-[330px]:h-13 min-[330px]:w-13 md:h-16 md:w-16 {isActive
 						? 'scale-105 bg-gradient-to-tr from-pink-500 via-rose-500 to-pink-600 text-white shadow-xl ring-4 shadow-pink-500/40 ring-white md:scale-110 md:ring-6'
 						: 'bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-lg ring-4 shadow-pink-500/25 ring-white hover:scale-105 md:ring-6'} {posCart.totalItems >
 						0 && !isActive
@@ -107,11 +107,21 @@
 							? 'scale-105 stroke-[2.2] text-pink-600'
 							: 'text-slate-400'}"
 					/>
-					{#if nav.path === '/antrean' && orderQueueBadge.count > 0}
+					{#if nav.path === '/antrean' && (orderQueueBadge.countSource !== 'server' || orderQueueBadge.count > 0)}
 						<span
+							role="status"
+							aria-label={orderQueueBadge.countSource === 'unknown'
+								? 'Jumlah antrean belum diketahui'
+								: orderQueueBadge.countSource === 'cached'
+									? `${orderQueueBadge.count} pesanan belum selesai dari data perangkat`
+									: `${orderQueueBadge.count} pesanan belum selesai`}
 							class="absolute -top-1.5 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white shadow ring-2 ring-white"
 						>
-							{orderQueueBadge.count > 99 ? '99+' : orderQueueBadge.count}
+							{orderQueueBadge.countSource === 'unknown'
+								? '?'
+								: orderQueueBadge.count > 99
+									? '99+'
+									: orderQueueBadge.count}
 						</span>
 					{/if}
 				</div>
@@ -121,8 +131,8 @@
 						: 'font-medium text-slate-500'}"
 				>
 					{#if nav.path === '/pengaturan'}
-						<span class="hidden min-[380px]:inline">Pengaturan</span><span
-							class="min-[380px]:hidden">Atur</span
+						<span class="hidden min-[420px]:inline">Pengaturan</span><span
+							class="min-[420px]:hidden">Atur</span
 						>
 					{:else}
 						{nav.label}

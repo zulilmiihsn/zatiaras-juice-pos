@@ -158,7 +158,8 @@ const synced = mergeQueueWithLocal(
 	],
 	[pending],
 	[],
-	'samarinda'
+	'samarinda',
+	'fixture-user'
 );
 assert.equal(synced.length, 1, 'sinkronisasi tidak membuat pesanan kedua');
 assert.equal(synced[0].nominal, 25000, 'ringkasan server memakai total transaksi');

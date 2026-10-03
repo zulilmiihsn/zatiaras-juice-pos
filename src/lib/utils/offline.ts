@@ -8,6 +8,7 @@ import {
 	type PendingTransaction
 } from './offlineQueue';
 
+import { getOfflineSessionBranch, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 export type { PendingFailureKind, PendingStatus, PendingTransaction } from './offlineQueue';
 
 const PENDING_KEY = 'pending_transactions';
@@ -129,14 +130,20 @@ export async function markPendingTransactionFailed(
 export async function retryFailedPendingTransactions(
 	failureKinds?: Array<Exclude<PendingFailureKind, null>>
 ): Promise<void> {
+	const branch = getOfflineSessionBranch(readOfflineSessionSnapshot());
+	if (!branch) return;
 	const now = Date.now();
 	await idbUpdate(
 		PENDING_KEY,
 		(existing: PendingTransaction[] | undefined) =>
 			(Array.isArray(existing) ? existing : []).map((value) => {
+				if (typeof value.branch !== 'string' || value.branch.trim().toLowerCase() !== branch) {
+					return value;
+				}
 				const item = normalizePendingTransaction(value, { now });
 				if (
 					item.status !== 'failed' ||
+					item.branch.toLowerCase() !== branch ||
 					(failureKinds && item.failure_kind && !failureKinds.includes(item.failure_kind))
 				) {
 					return item;
@@ -156,11 +163,16 @@ export async function retryFailedPendingTransactions(
 }
 
 export async function retryPendingTransaction(queueId: string): Promise<void> {
+	const branch = getOfflineSessionBranch(readOfflineSessionSnapshot());
+	if (!branch) return;
 	const now = Date.now();
 	await idbUpdate(
 		PENDING_KEY,
 		(existing: PendingTransaction[] | undefined) =>
 			(Array.isArray(existing) ? existing : []).map((value) => {
+				if (typeof value.branch !== 'string' || value.branch.trim().toLowerCase() !== branch) {
+					return value;
+				}
 				const item = normalizePendingTransaction(value, { now });
 				if (item.queue_id !== queueId || item.status !== 'failed') return item;
 				return {

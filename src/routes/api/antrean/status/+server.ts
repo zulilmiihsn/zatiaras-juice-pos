@@ -1,5 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
-import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
+import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	resolveOrderQueueDb,
 	transitionOrderPreparation,
@@ -13,9 +13,9 @@ import type { RequestHandler } from './$types';
  * Cabang selalu dari session; isi branch di body diabaikan.
  */
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
+	const session = requireAuthSession(locals);
+	requireExactRole(session.role, ['kasir', 'pemilik']);
 	const branch = requireSessionBranch(locals);
-	const session = locals.authSession!;
-	requireAnyRole(session.role, ['kasir', 'pemilik']);
 	const body = (await request.json().catch(() => null)) as {
 		idempotency_key?: unknown;
 		target?: unknown;

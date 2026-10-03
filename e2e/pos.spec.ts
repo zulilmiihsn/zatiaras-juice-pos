@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
+import { ownerUsernameForTest } from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -17,7 +18,7 @@ async function loginAsOwner(page: Page) {
 	await page.goto('/login');
 	await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 60_000 });
 	await page.getByLabel('Pilih Cabang').selectOption('samarinda');
-	await page.getByPlaceholder('Masukkan username').fill('pemilik');
+	await page.getByPlaceholder('Masukkan username').fill(ownerUsernameForTest(test.info().title));
 	await page.getByPlaceholder('Masukkan password').fill(readUatPassword());
 	const loginResponse = page.waitForResponse(
 		(response) =>

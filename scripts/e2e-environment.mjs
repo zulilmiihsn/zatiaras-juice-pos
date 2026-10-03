@@ -73,12 +73,29 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 					.map((q) => q.trim())
 					.filter(Boolean);
 				await db.batch(seed.map((q) => db.prepare(q)));
+				const passwordHash = await bcrypt.hash(password, 10);
 				await db
 					.prepare(
 						"UPDATE profil SET password = ? WHERE cabang_id = 'samarinda' AND id IN ('uat-pemilik-samarinda','uat-kasir-samarinda')"
 					)
-					.bind(await bcrypt.hash(password, 10))
+					.bind(passwordHash)
 					.run();
+				await db.batch(
+					[1, 2, 3].map((slot) =>
+						db
+							.prepare(
+								'INSERT INTO profil (id, cabang_id, role, username, password, nama_lengkap) VALUES (?, ?, ?, ?, ?, ?)'
+							)
+							.bind(
+								`uat-pemilik-samarinda-e2e-${slot}`,
+								'samarinda',
+								'pemilik',
+								`pemilik-e2e-${slot}`,
+								passwordHash,
+								`Pemilik UAT E2E ${slot}`
+							)
+					)
+				);
 				return { migrations: migrations.length, databases: bindings.length };
 			} finally {
 				await proxy.dispose();

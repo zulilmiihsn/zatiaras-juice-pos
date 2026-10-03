@@ -96,7 +96,7 @@
 </svelte:head>
 
 <div class="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#faf7f8]">
-	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
+	<div class="page-header relative px-2 pt-4 pb-12 min-[380px]:px-5 md:pt-6 md:pb-14">
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
 		></div>
@@ -109,8 +109,21 @@
 					Antrean Pesanan
 				</h1>
 				<p class="text-xs font-medium text-white/85 md:text-sm">
-					{s.pendingCount > 0 ? `${s.pendingCount} pesanan belum selesai` : 'Semua pesanan beres'}
+					{#if s.countSource === 'unknown'}
+						Jumlah antrean belum diketahui
+					{:else if s.countSource === 'cached'}
+						{s.pendingCount} pesanan belum selesai tersimpan di perangkat ini
+					{:else if s.pendingCount > 0}
+						{s.pendingCount} pesanan belum selesai
+					{:else}
+						Semua pesanan beres
+					{/if}
 				</p>
+				{#if s.countSource === 'cached'}
+					<p class="text-[11px] font-medium text-white/75">
+						Data offline atau belum terkonfirmasi server
+					</p>
+				{/if}
 			</div>
 
 			<div class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-center gap-2">
@@ -194,8 +207,11 @@
 				transition:fly={{ y: -28, duration: 260, easing: cubicOut }}
 				onfocusout={(e) => {
 					// Fokus pindah ke luar kartu (ketuk daftar/luar) = selesai mencari.
-					const next = e.relatedTarget as Node | null;
+					const next = e.relatedTarget as
+						(Node & { closest?: (selector: string) => Element | null }) | null;
 					if (next && e.currentTarget.contains(next)) return;
+					if (next && typeof next.closest === 'function' && next.closest('[data-preserve-search]'))
+						return;
 					toggleSearch(false);
 				}}
 			>
@@ -242,6 +258,31 @@
 				{/if}
 			</div>
 		{/if}
+		{#if s.pendingStatusCount > 0 || s.pendingStatusCount < 0 || s.statusSyncMessage}
+			<section
+				class="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+				aria-label="Pemulihan status pesanan"
+			>
+				{#if s.pendingStatusCount > 0}
+					<p class="font-bold">Ada {s.pendingStatusCount} perubahan status belum tersinkron.</p>
+				{/if}
+				{#if s.pendingStatusCount < 0 || s.countSource === 'unknown'}
+					<p>Jumlah antrean belum diketahui</p>
+				{/if}
+				{#if s.statusSyncMessage}
+					<p class="mt-1">{s.statusSyncMessage}</p>
+				{/if}
+				<button
+					type="button"
+					aria-label="Sinkronkan ulang status pesanan"
+					disabled={!s.isOnline || s.statusSyncing}
+					onclick={() => s.retryStatusSync()}
+					class="mt-2 min-h-[44px] rounded-full bg-amber-800 px-4 font-bold text-white disabled:opacity-50"
+				>
+					{s.statusSyncing ? 'Menyinkronkan status' : 'Sinkronkan status'}
+				</button>
+			</section>
+		{/if}
 		{#if s.error}
 			<div
 				class="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
@@ -270,6 +311,11 @@
 						Tidak ada pesanan dengan nama atau nomor “{s.searchKeyword.trim()}” di daftar yang
 						dimuat.
 					</div>
+					{#if s.hasMore}
+						<div class="mt-2 text-xs font-semibold text-slate-500">
+							Muat lebih banyak untuk mencari pada pesanan berikutnya.
+						</div>
+					{/if}
 					<button
 						type="button"
 						onclick={() => toggleSearch(false)}
@@ -378,15 +424,17 @@
 					</article>
 				{/each}
 			</div>
-			{#if s.hasMore}
-				<button
-					type="button"
-					class="mx-auto mt-4 flex min-h-[44px] cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-2xs transition-all active:scale-95"
-					onclick={() => s.loadMore()}
-				>
-					Muat lebih banyak
-				</button>
-			{/if}
+		{/if}
+		{#if s.hasMore}
+			<button
+				type="button"
+				data-preserve-search
+				disabled={s.loading}
+				class="mx-auto mt-4 flex min-h-[44px] cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+				onclick={() => s.loadMore()}
+			>
+				{s.loading ? 'Memuat...' : 'Muat lebih banyak'}
+			</button>
 		{/if}
 	</main>
 </div>

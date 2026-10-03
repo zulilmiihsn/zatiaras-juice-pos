@@ -27,3 +27,7 @@ export function requireAnyRole(role: string, allowed: string[]) {
 	if (role === 'admin' || allowed.includes(role)) return;
 	throw kitError(403, 'Role tidak memiliki akses');
 }
+
+export function requireExactRole(role: string, allowed: readonly string[]): void {
+	if (!allowed.includes(role)) throw kitError(403, 'Role tidak memiliki akses');
+}

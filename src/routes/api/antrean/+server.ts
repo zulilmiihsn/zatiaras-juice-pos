@@ -1,5 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
-import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
+import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	listOrderQueue,
 	OrderQueueError,
@@ -13,9 +13,9 @@ import type { RequestHandler } from './$types';
  * Route tipis: auth + parse + delegasi ke orderQueue use case.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
+	const session = requireAuthSession(locals);
+	requireExactRole(session.role, ['kasir', 'pemilik']);
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
-	const session = locals.authSession!;
-	requireAnyRole(session.role, ['kasir', 'pemilik']);
 	const db = resolveOrderQueueDb(platform, branch);
 	try {
 		const data = await listOrderQueue(db, branch, {

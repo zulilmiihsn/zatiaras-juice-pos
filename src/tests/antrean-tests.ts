@@ -541,7 +541,99 @@ try {
 		404
 	);
 
+	// A void between the initial read and CAS must remain a not-found response.
+	await seedQueueRow({
+		bukuKasId: 'bk-antrean-disappears',
+		transactionId: 'trx-antrean-disappears',
+		idempotencyKey: 'antrean-disappears-0001',
+		waktu: '2026-09-28T03:00:00.000Z'
+	});
+	await db
+		.prepare(
+			`CREATE TRIGGER delete_queue_row_during_transition
+			 BEFORE UPDATE OF preparation_state ON buku_kas
+			 WHEN OLD.id = 'bk-antrean-disappears'
+			 BEGIN
+				DELETE FROM transaksi_kasir WHERE buku_kas_id = OLD.id AND cabang_id = OLD.cabang_id;
+				DELETE FROM buku_kas WHERE id = OLD.id AND cabang_id = OLD.cabang_id;
+				SELECT RAISE(IGNORE);
+			 END`
+		)
+		.run();
+	try {
+		await expectStatus(
+			() =>
+				transitionOrderPreparation(
+					db,
+					samarinda,
+					{ userId: 'owner-antrean', role: 'pemilik' },
+					{
+						idempotency_key: 'antrean-disappears-0001',
+						target: 'done',
+						expected_revision: 0
+					}
+				),
+			404
+		);
+	} finally {
+		await db.prepare('DROP TRIGGER IF EXISTS delete_queue_row_during_transition').run();
+	}
+
 	// Q07: route auth/role/cabang/body.
+	for (const role of ['admin', 'tamu']) {
+		for (const requestedBranch of ['samarinda', 'balikpapan']) {
+			const denied = apiEvent(
+				'GET',
+				`https://test.invalid/api/antrean?branch=${requestedBranch}`,
+				role,
+				'samarinda'
+			);
+			await expectStatus(() => AntreanGet({ ...denied, platform: undefined } as never), 403);
+		}
+		const deniedPost = apiEvent(
+			'POST',
+			'https://test.invalid/api/antrean/status',
+			role,
+			'samarinda'
+		);
+		await expectStatus(
+			() => AntreanStatusPost({ ...deniedPost, platform: undefined } as never),
+			403
+		);
+	}
+	for (const role of ['admin', 'tamu']) {
+		let bodyRead = false;
+		const deniedBody = apiEvent(
+			'POST',
+			'https://test.invalid/api/antrean/status',
+			role,
+			'samarinda'
+		);
+		await expectStatus(
+			() =>
+				AntreanStatusPost({
+					...deniedBody,
+					request: {
+						json: async () => {
+							bodyRead = true;
+							throw new Error('denied role must not read request body');
+						}
+					},
+					platform: undefined
+				} as never),
+			403
+		);
+		assert.equal(bodyRead, false, `${role} denial must precede JSON body parsing`);
+	}
+	const anonymous = apiEvent('GET', 'https://test.invalid/api/antrean', 'kasir', 'samarinda');
+	await expectStatus(
+		() => AntreanGet({ ...anonymous, locals: {}, platform: undefined } as never),
+		401
+	);
+	await expectStatus(
+		() => AntreanStatusPost({ ...anonymous, locals: {}, platform: undefined } as never),
+		401
+	);
 	await expectStatus(
 		() =>
 			AntreanGet(
@@ -594,6 +686,38 @@ try {
 		}) as never
 	)) as Response;
 	assert.equal(statusOk.status, 200);
+	const ownerGet = await AntreanGet(
+		apiEvent('GET', 'https://test.invalid/api/antrean', 'pemilik', 'samarinda') as never
+	);
+	assert.equal(ownerGet.status, 200);
+	await seedQueueRow({
+		bukuKasId: 'bk-antrean-cross-route',
+		transactionId: 'trx-antrean-cross-route',
+		idempotencyKey: 'antrean-new-0002',
+		branch: 'balikpapan',
+		waktu: '2026-09-28T04:00:00.000Z'
+	});
+	const ownerPost = await AntreanStatusPost(
+		apiEvent(
+			'POST',
+			'https://test.invalid/api/antrean/status?branch=balikpapan',
+			'pemilik',
+			'samarinda',
+			{
+				branch: 'balikpapan',
+				idempotency_key: 'antrean-new-0002',
+				target: 'done',
+				expected_revision: 1
+			}
+		) as never
+	);
+	assert.equal(ownerPost.status, 200);
+	const crossBranch = await listOrderQueue(db, branchContext('balikpapan'), { state: 'pending' });
+	const unmodifiedCrossTenant = crossBranch.items.find(
+		(item) => item.idempotency_key === 'antrean-new-0002'
+	);
+	assert.equal(unmodifiedCrossTenant?.preparation_state, 'pending');
+	assert.equal(unmodifiedCrossTenant?.preparation_revision, 0);
 
 	// Q09: void menghapus kartu pending/done.
 	await seedQueueRow({
@@ -659,6 +783,8 @@ try {
 		{
 			idempotency_key: 'k-1',
 			transaction_id: 't-1',
+			buku_kas_id: 'bk-1',
+			preparation_completed_at: null,
 			nominal: 10000,
 			nomor_harian: 7,
 			nama_pelanggan: 'Ilham',
@@ -671,6 +797,8 @@ try {
 		{
 			idempotency_key: 'k-2',
 			transaction_id: 't-2',
+			buku_kas_id: 'bk-2',
+			preparation_completed_at: null,
 			nominal: 20000,
 			nomor_harian: 142,
 			nama_pelanggan: 'Haura',
@@ -683,6 +811,8 @@ try {
 		{
 			idempotency_key: 'k-3',
 			transaction_id: 'k-3',
+			buku_kas_id: null,
+			preparation_completed_at: null,
 			nominal: null,
 			nomor_harian: null,
 			nama_pelanggan: 'Budi',

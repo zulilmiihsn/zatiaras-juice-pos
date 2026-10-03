@@ -1,6 +1,6 @@
-import { del, get, keys, set } from 'idb-keyval';
+import { del, get, keys, update } from 'idb-keyval';
 import { orderQueueStore } from '$lib/utils/idbStores';
-import type { OrderQueueItem } from '$lib/server/orderQueue/types';
+import type { OrderQueueItem, TransitionOrderResult } from '$lib/server/orderQueue/types';
 
 export type OrderTarget = 'pending' | 'done';
 
@@ -15,6 +15,7 @@ export interface UiOrderItem {
 
 export interface UiOrder {
 	idempotency_key: string;
+	buku_kas_id: string | null;
 	transaction_id: string;
 	nominal: number | null;
 	/** Nomor antrean harian resmi. Null = antrean lokal belum sinkron. */
@@ -23,6 +24,7 @@ export interface UiOrder {
 	waktu: string;
 	preparation_state: OrderTarget;
 	preparation_revision: number;
+	preparation_completed_at: string | null;
 	items: UiOrderItem[];
 	unsynced: boolean;
 }
@@ -35,6 +37,14 @@ interface QueueSnapshot {
 	pending_count: number;
 }
 
+export interface StatusIntentOperation {
+	idempotency_key: string;
+	intent_id: string;
+	target: OrderTarget;
+	expected_revision: number;
+	updated_at: number;
+}
+
 export interface StatusIntent {
 	branch: string;
 	idempotency_key: string;
@@ -42,6 +52,9 @@ export interface StatusIntent {
 	expected_revision: number;
 	userId: string;
 	updated_at: number;
+	intent_id?: string;
+	card?: UiOrder;
+	in_flight?: StatusIntentOperation;
 }
 
 const MAX_SNAPSHOT_ITEMS = 200;
@@ -118,6 +131,7 @@ export function buildLocalCardFromPending(
 				: new Date().toISOString();
 	return {
 		idempotency_key: key,
+		buku_kas_id: null,
 		transaction_id: key,
 		nominal: Number.isFinite(amount) && amount >= 0 ? amount : null,
 		// Nomor resmi hanya ada sesudah server commit (saat replay sinkron).
@@ -129,6 +143,7 @@ export function buildLocalCardFromPending(
 		waktu: createdAt,
 		preparation_state: 'pending',
 		preparation_revision: 0,
+		preparation_completed_at: null,
 		items,
 		unsynced: true
 	};
@@ -142,14 +157,16 @@ export function mergeQueueWithLocal(
 	serverItems: OrderQueueItem[],
 	pendings: Array<Record<string, unknown>>,
 	intents: StatusIntent[],
-	branch: string
+	branch: string,
+	userId: string
 ): UiOrder[] {
 	const byKey = new Map<string, UiOrder>();
-	for (const item of serverItems.slice(0, MAX_SNAPSHOT_ITEMS)) {
+	for (const item of serverItems) {
 		const key = String(item.idempotency_key || '');
 		if (!key || byKey.has(key)) continue;
 		byKey.set(key, {
 			idempotency_key: key,
+			buku_kas_id: item.buku_kas_id ?? null,
 			transaction_id: String(item.transaction_id || key),
 			nominal:
 				item.nominal != null && Number.isFinite(Number(item.nominal)) ? Number(item.nominal) : null,
@@ -161,6 +178,7 @@ export function mergeQueueWithLocal(
 			waktu: String(item.waktu),
 			preparation_state: item.preparation_state === 'done' ? 'done' : 'pending',
 			preparation_revision: Number(item.preparation_revision ?? 0),
+			preparation_completed_at: item.preparation_completed_at ?? null,
 			items: Array.isArray(item.items)
 				? item.items
 						.slice(0, 100)
@@ -170,27 +188,46 @@ export function mergeQueueWithLocal(
 			unsynced: false
 		});
 	}
+	for (const intent of intents) {
+		if (
+			intent.branch.toLowerCase() !== branch.toLowerCase() ||
+			intent.userId !== userId ||
+			byKey.has(intent.idempotency_key)
+		)
+			continue;
+		const card = normalizeCard(intent.card, intent.idempotency_key);
+		if (card) byKey.set(intent.idempotency_key, card);
+	}
 	for (const pending of pendings) {
 		const card = buildLocalCardFromPending(pending, branch);
 		if (!card || byKey.has(card.idempotency_key)) continue;
 		byKey.set(card.idempotency_key, card);
 	}
-	for (const intent of intents.slice(0, MAX_INTENTS_PER_BRANCH)) {
-		if (intent.branch.toLowerCase() !== branch.toLowerCase()) continue;
+	for (const intent of intents) {
+		if (intent.branch.toLowerCase() !== branch.toLowerCase() || intent.userId !== userId) continue;
 		const card = byKey.get(intent.idempotency_key);
 		if (!card) continue;
-		if (card.preparation_state !== intent.target) {
-			card.preparation_state = intent.target;
-			card.unsynced = true;
-		} else if (card.unsynced) {
-			card.unsynced = true;
-		}
+		card.preparation_state = intent.target;
+		card.unsynced = true;
+		card.preparation_completed_at =
+			intent.target === 'done' ? new Date(intent.updated_at).toISOString() : null;
 	}
+	const compare = (left: string, right: string): number =>
+		left < right ? -1 : left > right ? 1 : 0;
 	return [...byKey.values()].sort((a, b) => {
 		if (a.preparation_state !== b.preparation_state) {
 			return a.preparation_state === 'pending' ? -1 : 1;
 		}
-		return a.waktu < b.waktu ? -1 : a.waktu > b.waktu ? 1 : 0;
+		if (a.preparation_state === 'pending') {
+			return (
+				compare(a.waktu, b.waktu) ||
+				compare(a.buku_kas_id ?? a.idempotency_key, b.buku_kas_id ?? b.idempotency_key)
+			);
+		}
+		return (
+			compare(b.preparation_completed_at ?? b.waktu, a.preparation_completed_at ?? a.waktu) ||
+			compare(b.buku_kas_id ?? b.idempotency_key, a.buku_kas_id ?? a.idempotency_key)
+		);
 	});
 }
 
@@ -235,7 +272,8 @@ export async function saveQueueSnapshot(
 	branch: string,
 	userId: string,
 	items: OrderQueueItem[],
-	pending_count: number
+	pending_count: number,
+	options: { isCurrent?: () => boolean } = {}
 ): Promise<void> {
 	const snapshot: QueueSnapshot = {
 		branch: branch.toLowerCase(),
@@ -244,7 +282,14 @@ export async function saveQueueSnapshot(
 		items: items.slice(0, MAX_SNAPSHOT_ITEMS),
 		pending_count
 	};
-	await set(snapshotKey(branch, userId), snapshot, orderQueueStore);
+	await update<unknown>(
+		snapshotKey(branch, userId),
+		(previous) => {
+			if (options.isCurrent && !options.isCurrent()) return previous;
+			return snapshot;
+		},
+		orderQueueStore
+	);
 }
 
 export async function loadQueueSnapshot(
@@ -293,23 +338,142 @@ export async function clearOtherQueueSnapshots(
 	}
 }
 
-function normalizeIntent(raw: unknown, branch: string): StatusIntent | null {
-	if (!isRecord(raw)) return null;
-	const key = typeof raw.idempotency_key === 'string' ? raw.idempotency_key : '';
-	const target = raw.target === 'done' || raw.target === 'pending' ? raw.target : null;
-	const expected = Number(raw.expected_revision);
-	const updated = Number(raw.updated_at);
-	if (!key || key.length < 8 || key.length > 120 || !target) return null;
-	if (!Number.isInteger(expected) || expected < 0) return null;
-	if (!Number.isFinite(updated) || updated <= 0) return null;
+export const STATUS_STORAGE_MESSAGE =
+	'Penyimpanan perubahan status tidak dapat dibaca. Coba lagi tanpa menghapus data perangkat.';
+
+function normalizeCard(raw: unknown, key: string): UiOrder | undefined {
+	if (
+		!isRecord(raw) ||
+		raw.idempotency_key !== key ||
+		typeof raw.transaction_id !== 'string' ||
+		!raw.transaction_id ||
+		typeof raw.waktu !== 'string' ||
+		!Number.isFinite(Date.parse(raw.waktu)) ||
+		(raw.preparation_state !== 'pending' && raw.preparation_state !== 'done') ||
+		!Number.isInteger(raw.preparation_revision) ||
+		Number(raw.preparation_revision) < 0 ||
+		!Array.isArray(raw.items)
+	)
+		return undefined;
+	const items = raw.items
+		.slice(0, 100)
+		.map(toUiItem)
+		.filter((item): item is UiOrderItem => item !== null);
+	if (!items.length) return undefined;
 	return {
-		branch: typeof raw.branch === 'string' ? raw.branch.toLowerCase() : branch.toLowerCase(),
 		idempotency_key: key,
-		target,
-		expected_revision: expected,
-		userId: typeof raw.userId === 'string' ? raw.userId : '',
-		updated_at: updated
+		buku_kas_id: typeof raw.buku_kas_id === 'string' ? raw.buku_kas_id.slice(0, 120) : null,
+		transaction_id: raw.transaction_id.slice(0, 120),
+		nominal:
+			typeof raw.nominal === 'number' && Number.isFinite(raw.nominal) && raw.nominal >= 0
+				? raw.nominal
+				: null,
+		nomor_harian:
+			typeof raw.nomor_harian === 'number' &&
+			Number.isSafeInteger(raw.nomor_harian) &&
+			raw.nomor_harian > 0
+				? raw.nomor_harian
+				: null,
+		nama_pelanggan: typeof raw.nama_pelanggan === 'string' ? raw.nama_pelanggan.slice(0, 60) : null,
+		waktu: raw.waktu,
+		preparation_state: raw.preparation_state,
+		preparation_revision: Number(raw.preparation_revision),
+		preparation_completed_at:
+			typeof raw.preparation_completed_at === 'string' &&
+			Number.isFinite(Date.parse(raw.preparation_completed_at))
+				? raw.preparation_completed_at
+				: null,
+		items,
+		unsynced: raw.unsynced === true
 	};
+}
+
+function normalizeOperation(raw: unknown, key: string): StatusIntentOperation | null {
+	if (
+		!isRecord(raw) ||
+		raw.idempotency_key !== key ||
+		typeof raw.intent_id !== 'string' ||
+		!raw.intent_id ||
+		(raw.target !== 'pending' && raw.target !== 'done') ||
+		typeof raw.expected_revision !== 'number' ||
+		!Number.isSafeInteger(raw.expected_revision) ||
+		raw.expected_revision < 0 ||
+		typeof raw.updated_at !== 'number' ||
+		!Number.isFinite(raw.updated_at) ||
+		raw.updated_at <= 0
+	)
+		return null;
+	return {
+		idempotency_key: key,
+		intent_id: raw.intent_id,
+		target: raw.target,
+		expected_revision: raw.expected_revision,
+		updated_at: raw.updated_at
+	};
+}
+
+function normalizeIntents(raw: unknown, branch: string): StatusIntent[] {
+	if (raw === undefined) return [];
+	if (!Array.isArray(raw)) throw new Error(STATUS_STORAGE_MESSAGE);
+	return raw.map((value: unknown) => {
+		if (!isRecord(value)) throw new Error(STATUS_STORAGE_MESSAGE);
+		const key = value.idempotency_key;
+		if (
+			typeof key !== 'string' ||
+			key.length < 8 ||
+			key.length > 120 ||
+			typeof value.branch !== 'string' ||
+			value.branch.toLowerCase() !== branch.toLowerCase() ||
+			typeof value.userId !== 'string' ||
+			(value.target !== 'pending' && value.target !== 'done') ||
+			typeof value.expected_revision !== 'number' ||
+			!Number.isSafeInteger(value.expected_revision) ||
+			value.expected_revision < 0 ||
+			typeof value.updated_at !== 'number' ||
+			!Number.isFinite(value.updated_at) ||
+			value.updated_at <= 0 ||
+			(value.intent_id !== undefined && (typeof value.intent_id !== 'string' || !value.intent_id))
+		) {
+			throw new Error(STATUS_STORAGE_MESSAGE);
+		}
+		const flight =
+			value.in_flight === undefined ? undefined : normalizeOperation(value.in_flight, key);
+		if (flight === null) throw new Error(STATUS_STORAGE_MESSAGE);
+		return {
+			branch: branch.toLowerCase(),
+			idempotency_key: key,
+			target: value.target,
+			expected_revision: value.expected_revision,
+			userId: value.userId,
+			updated_at: value.updated_at,
+			intent_id: value.intent_id as string | undefined,
+			card: normalizeCard(value.card, key),
+			in_flight: flight
+		};
+	});
+}
+
+function matchesOperation(
+	current: StatusIntentOperation | undefined,
+	sent: StatusIntentOperation
+): boolean {
+	return (
+		!!current &&
+		current.idempotency_key === sent.idempotency_key &&
+		current.intent_id === sent.intent_id &&
+		current.target === sent.target &&
+		current.expected_revision === sent.expected_revision &&
+		current.updated_at === sent.updated_at
+	);
+}
+
+function desiredIsSent(current: StatusIntent, sent: StatusIntentOperation): boolean {
+	return (
+		current.intent_id === sent.intent_id &&
+		current.target === sent.target &&
+		current.expected_revision === sent.expected_revision &&
+		current.updated_at === sent.updated_at
+	);
 }
 
 export async function saveStatusIntent(intent: {
@@ -318,63 +482,166 @@ export async function saveStatusIntent(intent: {
 	target: OrderTarget;
 	expected_revision: number;
 	userId: string;
+	card?: UiOrder;
 }): Promise<StatusIntent> {
-	const record: StatusIntent = {
-		branch: intent.branch.toLowerCase(),
-		idempotency_key: intent.idempotency_key,
-		target: intent.target,
-		expected_revision: intent.expected_revision,
-		userId: intent.userId,
-		updated_at: Date.now()
-	};
-	const key = intentsKey(intent.branch);
-	const existing = await get<unknown>(key, orderQueueStore).catch(() => null);
-	const list: StatusIntent[] = Array.isArray(existing)
-		? (existing as unknown[])
-				.map((raw) => normalizeIntent(raw, intent.branch))
-				.filter((v): v is StatusIntent => v !== null)
-		: [];
-	const next = [
-		...list.filter((item) => item.idempotency_key !== record.idempotency_key),
-		record
-	].slice(-MAX_INTENTS_PER_BRANCH);
-	await set(key, next, orderQueueStore);
+	const record = normalizeIntents(
+		[{ ...intent, intent_id: crypto.randomUUID(), updated_at: Date.now() }],
+		intent.branch
+	)[0];
+	await update<unknown>(
+		intentsKey(intent.branch),
+		(raw) => {
+			const list = normalizeIntents(raw, intent.branch);
+			const index = list.findIndex((item) => item.idempotency_key === record.idempotency_key);
+			if (index < 0) {
+				if (list.length >= MAX_INTENTS_PER_BRANCH)
+					throw new Error(
+						'Terlalu banyak perubahan status belum tersinkron. Sinkronkan dulu lalu coba lagi.'
+					);
+				list.push(record);
+			} else {
+				record.in_flight = list[index].in_flight;
+				list[index] = record;
+			}
+			return list;
+		},
+		orderQueueStore
+	);
 	return record;
 }
 
 export async function loadStatusIntents(branch: string): Promise<StatusIntent[]> {
-	try {
-		const raw = await get<unknown>(intentsKey(branch), orderQueueStore);
-		if (!Array.isArray(raw)) return [];
-		return (raw as unknown[])
-			.map((item) => normalizeIntent(item, branch))
-			.filter((v): v is StatusIntent => v !== null)
-			.filter((item) => item.branch === branch.toLowerCase());
-	} catch {
-		return [];
-	}
+	return normalizeIntents(await get<unknown>(intentsKey(branch), orderQueueStore), branch);
+}
+
+export async function stageStatusIntent(
+	branch: string,
+	idempotencyKey: string
+): Promise<StatusIntentOperation | null> {
+	let staged: StatusIntentOperation | null = null;
+	await update<unknown>(
+		intentsKey(branch),
+		(raw) => {
+			const list = normalizeIntents(raw, branch);
+			const current = list.find((item) => item.idempotency_key === idempotencyKey);
+			if (!current) return list;
+			if (!current.in_flight) {
+				current.intent_id ??= crypto.randomUUID();
+				current.in_flight = {
+					idempotency_key: current.idempotency_key,
+					intent_id: current.intent_id,
+					target: current.target,
+					expected_revision: current.expected_revision,
+					updated_at: current.updated_at
+				};
+			}
+			staged = current.in_flight;
+			return list;
+		},
+		orderQueueStore
+	);
+	return staged;
+}
+
+export async function acknowledgeStatusIntent(
+	branch: string,
+	sent: StatusIntentOperation,
+	result: TransitionOrderResult
+): Promise<void> {
+	await update<unknown>(
+		intentsKey(branch),
+		(raw) => {
+			const list = normalizeIntents(raw, branch);
+			return list.filter((current) => {
+				if (
+					current.idempotency_key !== sent.idempotency_key ||
+					!matchesOperation(current.in_flight, sent)
+				)
+					return true;
+				if (desiredIsSent(current, sent)) return false;
+				delete current.in_flight;
+				const revision = result.preparation_revision;
+				if (
+					current.expected_revision === sent.expected_revision &&
+					(revision === sent.expected_revision + 1 ||
+						(result.idempotent && revision === sent.expected_revision))
+				) {
+					current.expected_revision = revision;
+					if (current.card) {
+						current.card.preparation_state = result.preparation_state;
+						current.card.preparation_revision = revision;
+						current.card.preparation_completed_at = result.preparation_completed_at;
+					}
+				}
+				return true;
+			});
+		},
+		orderQueueStore
+	);
+}
+
+export async function rejectStagedStatusIntent(
+	branch: string,
+	sent: StatusIntentOperation
+): Promise<boolean> {
+	let resolved = false;
+	await update<unknown>(
+		intentsKey(branch),
+		(raw) =>
+			normalizeIntents(raw, branch).filter((current) => {
+				if (
+					current.idempotency_key !== sent.idempotency_key ||
+					!matchesOperation(current.in_flight, sent)
+				)
+					return true;
+				resolved = true;
+				if (desiredIsSent(current, sent)) return false;
+				delete current.in_flight;
+				return true;
+			}),
+		orderQueueStore
+	);
+	return resolved;
 }
 
 export async function removeStatusIntent(
 	branch: string,
 	idempotency_key: string,
-	onlyIf?: { target?: OrderTarget; updated_at?: number }
-): Promise<void> {
-	try {
-		const key = intentsKey(branch);
-		const raw = await get<unknown>(key, orderQueueStore);
-		if (!Array.isArray(raw)) return;
-		const next = (raw as unknown[])
-			.map((item) => normalizeIntent(item, branch))
-			.filter((v): v is StatusIntent => v !== null)
-			.filter((item) => {
-				if (item.idempotency_key !== idempotency_key) return true;
-				if (onlyIf?.target && item.target !== onlyIf.target) return true;
-				if (onlyIf?.updated_at && item.updated_at !== onlyIf.updated_at) return true;
-				return false;
-			});
-		await set(key, next, orderQueueStore);
-	} catch {
-		// best-effort
+	onlyIf?: {
+		target?: OrderTarget;
+		updated_at?: number;
+		intent_id?: string;
+		expected_revision?: number;
 	}
+): Promise<boolean> {
+	let removed = false;
+	await update<unknown>(
+		intentsKey(branch),
+		(raw) =>
+			normalizeIntents(raw, branch).filter((current) => {
+				if (current.idempotency_key !== idempotency_key || current.in_flight) return true;
+				if (onlyIf) {
+					if (
+						(onlyIf.intent_id && current.intent_id !== onlyIf.intent_id) ||
+						(!onlyIf.intent_id && current.intent_id !== undefined) ||
+						(onlyIf.target !== undefined && current.target !== onlyIf.target) ||
+						(onlyIf.updated_at !== undefined && current.updated_at !== onlyIf.updated_at) ||
+						(onlyIf.expected_revision !== undefined &&
+							current.expected_revision !== onlyIf.expected_revision)
+					)
+						return true;
+					if (
+						!onlyIf.intent_id &&
+						(onlyIf.target === undefined ||
+							onlyIf.updated_at === undefined ||
+							onlyIf.expected_revision === undefined)
+					)
+						return true;
+				}
+				removed = true;
+				return false;
+			}),
+		orderQueueStore
+	);
+	return removed;
 }

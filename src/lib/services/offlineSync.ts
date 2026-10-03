@@ -20,6 +20,7 @@ import {
 import { dbPost } from '$lib/services/dataApiClient';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { getOfflineSessionBranch, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 
 class PendingSyncError extends Error {
 	constructor(
@@ -32,7 +33,7 @@ class PendingSyncError extends Error {
 	}
 }
 
-let pendingSync: Promise<void> | null = null;
+let pendingSync: { branch: string; promise: Promise<void> } | null = null;
 let pendingSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function assertSyncResponse(response: Response, label: string): Promise<void> {
@@ -88,14 +89,13 @@ async function scheduleNextPendingSync(): Promise<void> {
  * murni di $lib/utils/offlineQueue (tanpa IO, teruji unit).
  */
 async function runPendingTransactionSync(
+	activeBranch: string,
 	force = false,
 	queueIds?: ReadonlySet<string>
 ): Promise<void> {
-	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-	const activeBranch =
-		typeof window !== 'undefined'
-			? localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda'
-			: 'samarinda';
+	if (typeof window === 'undefined' || !navigator.onLine) return;
+	const sessionBranch = getOfflineSessionBranch(readOfflineSessionSnapshot());
+	if (sessionBranch !== activeBranch) return;
 
 	const pendings = selectSyncablePendings(await getPendingTransactions(), {
 		activeBranch,
@@ -106,13 +106,14 @@ async function runPendingTransactionSync(
 	let synced = 0;
 	let failed = 0;
 
-	if (typeof window !== 'undefined') {
-		window.dispatchEvent(new CustomEvent('pending-sync-start'));
-	}
-
+	window.dispatchEvent(new CustomEvent('pending-sync-start'));
 	for (const trx of pendings) {
+		if (!navigator.onLine || getOfflineSessionBranch(readOfflineSessionSnapshot()) !== activeBranch)
+			break;
 		const { queue_id: queueId, ...payload } = trx;
 		await markPendingTransactionSyncing(queueId);
+		if (!navigator.onLine || getOfflineSessionBranch(readOfflineSessionSnapshot()) !== activeBranch)
+			break;
 		try {
 			await replayPendingTransaction(payload);
 			await removePendingTransaction(queueId);
@@ -134,22 +135,38 @@ async function runPendingTransactionSync(
 		}
 	}
 
-	if (typeof window !== 'undefined') {
-		window.dispatchEvent(new CustomEvent('pending-sync-result', { detail: { synced, failed } }));
-		if (synced > 0) window.dispatchEvent(new CustomEvent('pending-synced'));
-	}
+	window.dispatchEvent(new CustomEvent('pending-sync-result', { detail: { synced, failed } }));
+	if (synced > 0) window.dispatchEvent(new CustomEvent('pending-synced'));
 	await scheduleNextPendingSync();
 }
 
-export function syncPendingTransactions(
-	options: { force?: boolean; queueIds?: string[] } = {}
+export async function syncPendingTransactions(
+	options: { force?: boolean; queueIds?: string[]; activeBranch?: string } = {}
 ): Promise<void> {
-	if (pendingSync) return pendingSync;
+	if (typeof window === 'undefined' || !navigator.onLine) return;
+	const activeBranch = getOfflineSessionBranch(readOfflineSessionSnapshot());
+	if (
+		!activeBranch ||
+		(options.activeBranch && options.activeBranch.toLowerCase() !== activeBranch)
+	) {
+		return;
+	}
+	if (pendingSync) {
+		const current = pendingSync;
+		if (current.branch === activeBranch) return current.promise;
+		await current.promise;
+		if (getOfflineSessionBranch(readOfflineSessionSnapshot()) !== activeBranch) return;
+		return syncPendingTransactions(options);
+	}
 	const queueIds = options.queueIds?.length ? new Set(options.queueIds) : undefined;
-	pendingSync = runPendingTransactionSync(Boolean(options.force), queueIds).finally(() => {
-		pendingSync = null;
-	});
-	return pendingSync;
+	const flight = { branch: activeBranch, promise: Promise.resolve() };
+	flight.promise = Promise.resolve()
+		.then(() => runPendingTransactionSync(activeBranch, Boolean(options.force), queueIds))
+		.finally(() => {
+			if (pendingSync === flight) pendingSync = null;
+		});
+	pendingSync = flight;
+	return flight.promise;
 }
 
 if (typeof window !== 'undefined') {

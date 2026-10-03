@@ -505,5 +505,54 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Stok');
 		await expect(nav.getByRole('link').nth(5)).toHaveAttribute('aria-label', 'Laporan');
 		await expect(nav.getByRole('link').nth(6)).toHaveAttribute('aria-label', 'Pengaturan');
+		for (const width of [320, 360, 390, 768]) {
+			await page.setViewportSize({ width, height: 844 });
+			await page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+					)
+			);
+			const metrics = await page.evaluate(() => {
+				const nav = document.querySelector('nav');
+				if (!nav) throw new Error('Bottom navigation is missing');
+				const items = Array.from(nav.querySelectorAll('a')).map((link) => {
+					const rect = link.getBoundingClientRect();
+					return {
+						label: link.getAttribute('aria-label'),
+						left: rect.left,
+						right: rect.right,
+						width: rect.width,
+						height: rect.height
+					};
+				});
+				const hero = items.find((item) => item.label === 'Kasir');
+				return {
+					documentWidth: document.documentElement.scrollWidth,
+					centerOffset: hero
+						? Math.abs(hero.left + hero.width / 2 - window.innerWidth / 2)
+						: Number.POSITIVE_INFINITY,
+					minimumTargetWidth: Math.min(...items.map((item) => item.width)),
+					minimumTargetHeight: Math.min(...items.map((item) => item.height)),
+					items,
+					overlaps: items.some(
+						(item, index) => index > 0 && item.left < items[index - 1].right - 0.1
+					),
+					settingsLabel: nav
+						.querySelector('a[aria-label="Pengaturan"]')
+						?.querySelector('span')
+						?.innerText.trim()
+				};
+			});
+			expect(metrics.documentWidth).toBe(width);
+			expect(metrics.centerOffset).toBeLessThanOrEqual(2);
+			expect(
+				metrics.minimumTargetWidth,
+				`${width}px nav links: ${JSON.stringify(metrics.items)}`
+			).toBeGreaterThanOrEqual(44);
+			expect(metrics.minimumTargetHeight).toBeGreaterThanOrEqual(44);
+			expect(metrics.overlaps).toBe(false);
+			expect(metrics.settingsLabel).toBe(width < 420 ? 'Atur' : 'Pengaturan');
+		}
 	});
 });

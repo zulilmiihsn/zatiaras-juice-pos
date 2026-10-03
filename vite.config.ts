@@ -42,9 +42,11 @@ export default defineConfig({
 				navigateFallback: null,
 				// navigateFallbackDenylist removed since fallback is null
 				globPatterns: [
-					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff}',
+					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff,webmanifest}',
 					'prerendered/**/*.{html,json}'
 				],
+				// Declare webmanifest above so SvelteKitPWA does not add a separate excluded glob.
+				// The generated manifest is precached via the plugin's revisioned additional entry.
 				globIgnores: ['**/offline.html', '**/manifest.webmanifest', '**/manifest.json'],
 				manifestTransforms: [
 					async (entries) => {
@@ -218,6 +220,9 @@ export default defineConfig({
 		exclude: ['svelte', 'bcryptjs', 'bcrypt', 'crypto', 'fs', 'path', 'os', '@lucide/svelte']
 	},
 	server: {
+		watch: {
+			ignored: ['**/node_modules/**', '**/.git/**', '**/playwright-report/**', '**/test-results/**']
+		},
 		fs: {
 			allow: ['..']
 		}

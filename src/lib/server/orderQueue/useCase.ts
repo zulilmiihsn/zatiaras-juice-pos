@@ -222,7 +222,8 @@ export async function transitionOrderPreparation(
 		.run()) as unknown;
 	if (singleChange(updated) !== 1) {
 		const reread = await getHeaderByIdempotency(resolvedDb, branch, idempotencyKey);
-		if (reread?.preparation_state === target) {
+		if (!reread) throw new OrderQueueError(404, 'Pesanan tidak ditemukan');
+		if (reread.preparation_state === target) {
 			return {
 				idempotency_key: idempotencyKey,
 				transaction_id: String(reread.transaction_id),
