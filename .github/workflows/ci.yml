@@ -189,6 +189,12 @@ jobs:
       - name: Run Antrean Suite
         run: pnpm test:antrean
 
+      - name: Run Antrean Notification Suite
+        run: pnpm test:antrean-notifications
+
+      - name: Run Antrean Notification Workerd Suite
+        run: pnpm test:antrean-notifications --d1
+
       - name: Run Migration Matrix Suite
         run: pnpm test:migration-matrix
 

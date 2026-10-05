@@ -34,7 +34,11 @@ declare global {
 				POS_PRICE_SIGNING_KEY_ID?: string;
 				POS_PRICE_SIGNING_KEY_PREVIOUS?: string;
 				POS_PRICE_SIGNING_KEY_PREVIOUS_ID?: string;
+				VAPID_PUBLIC_KEY?: string;
+				VAPID_PRIVATE_KEY?: string;
+				VAPID_SUBJECT?: string;
 			};
+			context?: { waitUntil(promise: Promise<unknown>): void };
 		}
 	}
 

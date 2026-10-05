@@ -105,6 +105,15 @@
 				>
 			</button>
 
+			<button
+				class="soft-float-card flex aspect-square min-h-11 flex-col items-center justify-center p-4 text-center md:aspect-auto md:py-6"
+				onclick={() => goto('/pengaturan/antrean')}
+				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
+			>
+				<div class="text-sm font-black text-slate-900 md:text-base">Antrean</div>
+				<span class="mt-1 text-xs text-slate-600">Suara & notifikasi perangkat</span>
+			</button>
+
 			<!-- Box Install PWA -->
 			<button
 				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"

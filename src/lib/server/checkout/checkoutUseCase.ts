@@ -15,6 +15,9 @@ import { publishBranchEvent } from '../realtimePublisher';
 import { appendAuditLog } from '../auditLog';
 import { consumeRateLimit } from '../rateLimit';
 import { recordErrorEvent } from '../observability';
+import { buildOrderCreatedStatement } from '../orderNotifications/repository';
+import { resolveCheckoutNotificationOrigin } from '../orderNotifications/useCase';
+import { kickOrderNotifications } from '../orderNotifications/delivery';
 import type { AddOnRow, PosQuoteTokenData, PosTransactionInput, ProductRow } from './types';
 import {
 	normalizePaymentMethod,
@@ -664,6 +667,21 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		inventoryApplication,
 		replayDisposition
 	});
+	const notificationOrigin = await resolveCheckoutNotificationOrigin(
+		platform?.env as Record<string, unknown> | undefined,
+		branch,
+		session,
+		body.origin_device_id,
+		body.origin_device_token
+	);
+	statements.push(
+		buildOrderCreatedStatement(db, branch, {
+			bukuKasId,
+			idempotencyKey,
+			...notificationOrigin,
+			createdAt
+		})
+	);
 
 	let d1Meta: string | null = null;
 	try {
@@ -715,6 +733,12 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			};
 		}
 		const message = error instanceof Error ? error.message : String(error);
+		if (/no such table:\s*(?:main\.)?antrean_notification_events/i.test(message)) {
+			fail(
+				503,
+				'Skema notifikasi Antrean belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0037.'
+			);
+		}
 		if (message.includes('TRANSACTION_VOIDED')) {
 			fail(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
 		}
@@ -820,6 +844,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			)
 		)
 	]);
+	// Pengiriman berjalan setelah commit; kegagalan provider tidak mengubah hasil checkout.
+	void kickOrderNotifications(platform, branch);
 
 	return {
 		idempotent: false,

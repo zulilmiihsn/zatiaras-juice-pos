@@ -10,6 +10,7 @@ import {
 	persistOfflineSessionSnapshot,
 	readOfflineSessionSnapshot
 } from './offlineSession';
+import { clearOrderNotificationRegistration } from '$lib/services/orderNotificationService';
 
 // [CATATAN]: Session store
 export const session = writable<{
@@ -55,13 +56,20 @@ export const auth = {
 	// [CATATAN]: Logout function
 	async logout() {
 		if (browser) {
+			clearOfflineSessionSnapshot();
+			window.dispatchEvent(new CustomEvent('auth-session-refreshed'));
+			try {
+				await clearOrderNotificationRegistration();
+			} catch {
+				// Storage can be unavailable; deleting the server session still revokes push delivery.
+			}
 			try {
 				await fetchWithCsrfRetry('/api/logout', {
 					method: 'POST',
 					headers: {}
 				});
 			} catch {
-				// [CATATAN]: no-op
+				// Offline logout still clears local credentials; the server session expires independently.
 			}
 		}
 
@@ -74,7 +82,6 @@ export const auth = {
 
 		// [CATATAN]: Clear localStorage
 		if (typeof window !== 'undefined') {
-			clearOfflineSessionSnapshot();
 			localStorage.removeItem('selectedBranch');
 		}
 
@@ -136,6 +143,8 @@ export async function loginWithUsername(username: string, password: string, bran
 
 	// [CATATAN]: Simpan ke localStorage untuk persistensi setelah refresh
 	if (typeof window !== 'undefined') {
+		// Only an explicit session transition invalidates concurrent validators, not a routine refresh.
+		clearOfflineSessionSnapshot();
 		persistOfflineSessionSnapshot(result.user, sessionData.expiresAt);
 		localStorage.setItem('selectedBranch', branch);
 		window.dispatchEvent(new CustomEvent('auth-session-refreshed'));

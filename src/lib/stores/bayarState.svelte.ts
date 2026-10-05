@@ -17,6 +17,7 @@ import { refreshBus } from '$lib/utils/refreshBus';
 import { getSesiAktif } from '$lib/services/sesiTokoService';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { productService } from '$lib/services/productService';
+import { prepareCheckoutNotificationOrigin } from '$lib/services/orderNotificationService';
 import { readCachedStockPolicy } from '$lib/utils/stockPolicyCache';
 import {
 	isStrictStockEnforcement,
@@ -467,6 +468,7 @@ export function createBayarState() {
 			return false;
 		}
 		const requestPayload = {
+			...(await prepareCheckoutNotificationOrigin()),
 			idempotency_key: transactionId || crypto.randomUUID(),
 			nama_pelanggan: customerName || null,
 			metode_bayar: payment,
@@ -613,22 +615,25 @@ export function createBayarState() {
 			committedReceipt = buildOfflineCommittedReceipt();
 		}
 		const queuedPolicy = readQueuedStockPolicy();
-		await addPendingTransaction({
-			type: 'pos_transaction',
-			request: {
-				...request,
-				stock_policy_epoch_token: queuedPolicy.epoch_token ?? undefined,
-				stock_policy_mode_at_queue: queuedPolicy.mode ?? undefined,
-				stock_policy_revision_at_queue: queuedPolicy.revision ?? undefined
-			},
-			receipt: committedReceipt,
-			summary: {
-				transaction_code: transactionCode,
-				total_amount: totalHarga,
-				jumlah_item: totalQty,
-				created_at: new Date().toISOString()
-			}
-		});
+		// IndexedDB structured cloning cannot persist Svelte's reactive receipt proxies.
+		await addPendingTransaction(
+			$state.snapshot({
+				type: 'pos_transaction',
+				request: {
+					...request,
+					stock_policy_epoch_token: queuedPolicy.epoch_token ?? undefined,
+					stock_policy_mode_at_queue: queuedPolicy.mode ?? undefined,
+					stock_policy_revision_at_queue: queuedPolicy.revision ?? undefined
+				},
+				receipt: committedReceipt,
+				summary: {
+					transaction_code: transactionCode,
+					total_amount: totalHarga,
+					jumlah_item: totalQty,
+					created_at: new Date().toISOString()
+				}
+			})
+		);
 	}
 
 	function closeNotifModal() {

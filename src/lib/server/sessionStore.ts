@@ -1,5 +1,11 @@
-import { getD1Database, normalizeBranch, type BranchId } from '$lib/server/branchResolver';
+import {
+	branchContext,
+	getD1Database,
+	normalizeBranch,
+	type BranchId
+} from '$lib/server/branchResolver';
 import { MS_PER_DAY } from '$lib/constants/time';
+import { revokeNotificationSession } from '$lib/server/orderNotifications/useCase';
 
 export interface AuthSession {
 	id: string;
@@ -207,4 +213,5 @@ export async function deleteAuthSession(
 		.prepare('DELETE FROM auth_sessions WHERE id = ?')
 		.bind(sessionId)
 		.run();
+	await revokeNotificationSession(platform, branchContext(branch), sessionId);
 }

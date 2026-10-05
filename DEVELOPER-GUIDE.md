@@ -58,6 +58,7 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
    - Deduksi stok bahan sesuai resep produk secara atomik.
    - Catat jurnal kas masuk di `buku_kas` & simpan `receipt_snapshot`.
    - Update agregat harian di `ringkasan_kas_harian`.
+   - Simpan event `order_created` dalam batch D1 yang sama; idempotency tidak menciptakan event kedua. Metadata perangkat berada di luar fingerprint uang/struk.
 4. **Cetak & Tampilan Struk**: Menggunakan `committedReceipt` yang diarsip permanen.
 
 ### B. Alur Transaksi Offline & Replay
@@ -65,6 +66,7 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 1. **Deteksi Offline**: Saat offline, transaksi disimpan ke IndexedDB `pending-transactions`.
 2. **Snapshot Struk Offline**: `bayarState.svelte.ts` membuat `committedReceipt` lokal sebelum cart dibersihkan.
 3. **Replay Sinkronisasi**: Saat koneksi kembali, `offlineSync.ts` memutar ulang request dengan `mode: 'offline_replay'` dan `idempotency_key` asli.
+   - Metadata asal disimpan bersama request; queue legacy memperoleh identitas profil saat replay. Snapshot receipt memakai `$state.snapshot` sebelum structured cloning IndexedDB.
 
 ### C. Alur Manajemen Menu & Resep
 
@@ -117,6 +119,17 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 3. **Agregasi Paritas Finansial**:
    - Laporan laba rugi menggabungkan data aktif dari `buku_kas` dengan ringkasan arsip `ringkasan_kas_arsip_harian` sehingga hasil laporan sebelum dan sesudah pengarsipan identik (100% parity).
 
+### H. Notifikasi Pesanan Antrean
+
+1. `orderNotifications/repository.ts` mencatat event cabang dalam checkout batch. Realtime hanya membangunkan pembaca feed cursor; monitor menghabiskan semua halaman, bukan menghitung kenaikan pending atau mempercayai payload WebSocket terakhir.
+2. Registry perangkat global berada di `DB_SAMARINDA_GROUP`; event dan delivery berada di shard cabang masing-masing. UUID bukan kredensial: token perangkat di-hash, registrasi/rebind atomik, endpoint push hanya memiliki satu identitas aktif. Route tetap mewajibkan session, exact role kasir/pemilik, cabang, dan CSRF mutasi.
+3. `orderNotificationLocal.ts` adalah state IndexedDB bersama page/SW: identitas, setting, feed cursor, push dedup, dan acknowledgement per perangkat. Push out-of-order tidak memajukan cursor feed. ACK pengguna melihat Antrean berbeda dari delivery ACK dan status persiapan pesanan.
+4. `orderNotificationState.svelte.ts` memasang banner/audio pada root berizin. Mount/realtime/focus/online/session/SW memulihkan feed; timer lokal 5 detik bukan polling HTTP. Web Locks/lease membatasi pemilik audio antartab. Antrean tersembunyi atau tertutup PIN bukan acknowledgement.
+5. `delivery.ts` berjalan best-effort setelah commit dan melalui cron satu menit, dengan lease CAS 60 detik, maksimal 8 percobaan, backoff 30 detik–1 jam, dan timeout provider 15 detik. Status 404/410 melepas subscription; role/session/source/ACK diperiksa kembali sebelum send. Event/delivery belum dipangkas otomatis; pekerjaan pending tidak dihapus diam-diam.
+6. `src/sw.ts` menggantikan generateSW, tetap satu `/sw.js` dengan update prompt, cache navigasi POS/Antrean dan NetworkOnly untuk API. Push asli memiliki jalur notifikasi user-visible generik; duplicate/foreground meminta silent. Klik menuju Antrean melalui auth/PIN normal. Provider 201 bukan bukti operator melihat/mendengar; pesan in-flight tidak dapat ditarik kembali.
+
+Keputusan dan batas: [ADR 0004](docs/adr/0004-antrean-notifications.md). Realtime umum tetap mengikuti ADR 0002.
+
 ---
 
 ## 4. Lokasi Aturan Kanonikal (Canonical Rule Locations)
@@ -129,7 +142,7 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 | **Isolasi R2 per Cabang**      | `src/lib/server/r2ObjectPolicy.ts`          | `isPublicProductImageKey`, `extractBranchFromProductKey`    |
 | **Fanout Realtime Multi-Sub**  | `src/tests/realtime-fanout-tests.ts`        | `RealtimeChannelManager`, individual disposer pattern       |
 | **Kalkulasi Pajak PP 55/2022** | `src/lib/services/taxService.ts`            | `calculateTaxes`, `calculateReportTaxMetrics`               |
-| **Konsistensi Migrasi D1**     | `drizzle/meta/manifest.json`                | Checksum SHA-256 seluruh 24 migrasi SQL kanonikal           |
+| **Konsistensi Migrasi D1**     | `drizzle/meta/manifest.json`                | Checksum SHA-256 seluruh migrasi SQL kanonikal              |
 
 ---
 
@@ -143,20 +156,22 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 
 ## 6. Entry Point & Lokasi Uji (Test Entry Points)
 
-| Kategori Pengujian                 | Perintah                     | File Skrip Utama                                 |
-| :--------------------------------- | :--------------------------- | :----------------------------------------------- |
-| **Tipe Data & Diagnostik Svelte**  | `pnpm check`                 | `svelte-check`                                   |
-| **Formatting & Linting**           | `pnpm lint`                  | `.prettierrc`, `eslint.config.js`                |
-| **Unit & Hardening Test**          | `pnpm test:unit`             | `src/tests/*-tests.ts`                           |
-| **Kalkulasi Yield & HPP**          | `pnpm test:yield`            | `src/tests/ingredient-yield-tests.ts`            |
-| **Kalkulasi Pajak PP 55/2022**     | `pnpm test:tax`              | `src/tests/tax-calculation-tests.ts`             |
-| **Aksesibilitas & Focus Trap**     | `pnpm test:a11y`             | `src/tests/a11y-focus-tests.ts`                  |
-| **Realtime Fanout Multi-Sub**      | `pnpm test:realtime`         | `src/tests/realtime-fanout-tests.ts`             |
-| **Matriks Integritas Migrasi**     | `pnpm test:migration-matrix` | `src/tests/migration-matrix-tests.ts`            |
-| **Operasi D1 Backup & UAT Safety** | `pnpm test:operations`       | `scripts/d1-backup.test.mjs`                     |
-| **Playwright Browser E2E**         | `pnpm test:e2e:pos`          | `e2e/pos.spec.ts`                                |
-| **Verifikasi Menyeluruh Kualitas** | `pnpm test:quality`          | `src/tests/code-quality-tests.ts`                |
-| **Production Build**               | `pnpm build`                 | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
+| Kategori Pengujian                 | Perintah                                                                                | File Skrip Utama                                 |
+| :--------------------------------- | :-------------------------------------------------------------------------------------- | :----------------------------------------------- |
+| **Tipe Data & Diagnostik Svelte**  | `pnpm check`                                                                            | `svelte-check`                                   |
+| **Formatting & Linting**           | `pnpm lint`                                                                             | `.prettierrc`, `eslint.config.js`                |
+| **Unit & Hardening Test**          | `pnpm test:unit`                                                                        | `src/tests/*-tests.ts`                           |
+| **Kalkulasi Yield & HPP**          | `pnpm test:yield`                                                                       | `src/tests/ingredient-yield-tests.ts`            |
+| **Kalkulasi Pajak PP 55/2022**     | `pnpm test:tax`                                                                         | `src/tests/tax-calculation-tests.ts`             |
+| **Aksesibilitas & Focus Trap**     | `pnpm test:a11y`                                                                        | `src/tests/a11y-focus-tests.ts`                  |
+| **Realtime Fanout Multi-Sub**      | `pnpm test:realtime`                                                                    | `src/tests/realtime-fanout-tests.ts`             |
+| **Matriks Integritas Migrasi**     | `pnpm test:migration-matrix`                                                            | `src/tests/migration-matrix-tests.ts`            |
+| **Operasi D1 Backup & UAT Safety** | `pnpm test:operations`                                                                  | `scripts/d1-backup.test.mjs`                     |
+| **Playwright Browser E2E**         | `pnpm test:e2e:pos`                                                                     | `e2e/pos.spec.ts`                                |
+| **Notifikasi Antrean SQLite/D1**   | `rtk pnpm test:antrean-notifications` / `rtk pnpm test:antrean-notifications -- --d1`   | `src/tests/antrean-notification-tests.ts`        |
+| **Notifikasi Antrean Browser**     | `rtk pnpm exec node scripts/run-playwright-local.mjs e2e/antrean-notifications.spec.ts` | `e2e/antrean-notifications.spec.ts`              |
+| **Verifikasi Menyeluruh Kualitas** | `pnpm test:quality`                                                                     | `src/tests/code-quality-tests.ts`                |
+| **Production Build**               | `pnpm build`                                                                            | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
 
 ---
 

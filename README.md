@@ -12,6 +12,8 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 - Di Antrean, tab Belum selesai menampilkan rincian item langsung agar mudah disiapkan, dengan tanggal "Hari ini" untuk pesanan pada hari WITA yang sama atau tanggal lengkap untuk pesanan lebih lama. Tab Selesai menampilkan nama, nomor, tanggal/jam WITA, jumlah gelas, total, dan status sinkronisasi; tombol Lihat detail membuka rincian item dalam dialog. Kolom pencarian menyaring nama pelanggan atau nomor pesanan pada daftar yang sudah dimuat (tetap berfungsi offline); dibuka lewat tombol kaca pembesar di header. Menutup pencarian ikut menghapus kata kunci.
 - Status Antrean yang belum dikonfirmasi server tetap terlihat dengan label **Belum tersinkron**. Saat online, pemulihan berjalan pada halaman dibuka, koneksi pulih, sesi diperbarui, checkout selesai, atau fokus kembali; operator juga dapat menekan **Sinkronkan status**. Tidak ada polling status otomatis. Hitungan cache/offline diberi label belum terkonfirmasi dan bukan klaim jumlah server.
 - Endpoint Antrean hanya menerima role `kasir` dan `pemilik`; izin `admin` pada modul lain tidak diperluas atau diubah.
+- Notifikasi pesanan baru pada perangkat lain di cabang yang sama: banner persisten dan tiga chime sekitar setiap 5 detik setelah audio browser diizinkan. Membuka Antrean yang terlihat menghentikannya pada seluruh tab profil itu, bukan perangkat lain; checkout dari profil asal tidak membunyikan alarm sendiri.
+- `/pengaturan/antrean` menyediakan sakelar suara perangkat, Tes suara, dan aktivasi Web Push melalui izin pengguna. Push memakai pesan generik saat aplikasi tertutup; suara, Focus/DND, dan pengiriman di latar dikendalikan OS/browser, bukan jaminan alarm berulang. iOS/iPadOS memerlukan PWA Home Screen pada versi yang mendukung.
 - Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
 - Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
 - Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
@@ -33,6 +35,8 @@ ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pem
 Checkout menghitung ulang nilai transaksi di server, memakai token harga bertanda tangan, dan menyimpan transaksi secara idempoten. Pada skema terkini, checkout juga memperbarui `ringkasan_penjualan_harian` dan `penjualan_produk_harian`; nilai buku kas disimpan pada `buku_kas.nominal`.
 
 Autentikasi memakai cookie sesi `httpOnly`, pemeriksaan peran di endpoint, perlindungan CSRF untuk mutasi API, dan rate limit untuk jalur sensitif. Daftar ini mencatat kontrol yang ada di kode, bukan sertifikasi atau jaminan keamanan menyeluruh.
+
+Notifikasi Antrean pada source ini memerlukan migrasi `0037_antrean_notifications.sql` pada tiga shard, pasangan VAPID yang sama pada Pages/Worker realtime, dan cron relay. Daftar fitur bukan catatan deployment. Ikuti [runbook aktivasi notifikasi](docs/OPERATOR-RUNBOOK.md#10a1-notifikasi-pesanan-baru) sebelum mengaktifkan perangkat.
 
 ## Prasyarat
 

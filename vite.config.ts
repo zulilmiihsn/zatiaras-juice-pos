@@ -34,20 +34,21 @@ export default defineConfig({
 		SvelteKitPWA({
 			registerType: 'prompt',
 			injectRegister: 'auto',
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'sw.ts',
 			integration: {
 				closeBundleOrder: 'post'
 			},
-			workbox: {
+			injectManifest: {
 				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-				navigateFallback: null,
-				// navigateFallbackDenylist removed since fallback is null
 				globPatterns: [
 					'client/**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff,webmanifest}',
 					'prerendered/**/*.{html,json}'
 				],
 				// Declare webmanifest above so SvelteKitPWA does not add a separate excluded glob.
 				// The generated manifest is precached via the plugin's revisioned additional entry.
-				globIgnores: ['**/offline.html', '**/manifest.webmanifest', '**/manifest.json'],
+				globIgnores: ['client/**/offline.html', '**/manifest.webmanifest', '**/manifest.json'],
 				manifestTransforms: [
 					async (entries) => {
 						const seen = new Set<string>();
@@ -82,48 +83,6 @@ export default defineConfig({
 							});
 
 						return { manifest, warnings: [] };
-					}
-				],
-				runtimeCaching: [
-					{
-						urlPattern: ({ request, url }) =>
-							request.mode === 'navigate' && /^\/pos(?:\/|$)/.test(url.pathname),
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'pos-navigation-v1',
-							networkTimeoutSeconds: 3,
-							cacheableResponse: { statuses: [0, 200] },
-							expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 },
-							precacheFallback: { fallbackURL: '/offline' }
-						}
-					},
-					{
-						urlPattern: ({ request, url }) =>
-							request.mode === 'navigate' && /^\/antrean(?:\/|$)/.test(url.pathname),
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'antrean-navigation-v1',
-							networkTimeoutSeconds: 3,
-							cacheableResponse: { statuses: [0, 200] },
-							expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 },
-							precacheFallback: { fallbackURL: '/offline' }
-						}
-					},
-					{
-						urlPattern: /\.(?:png|jpg|jpeg|svg|webp|avif)$/,
-						handler: 'StaleWhileRevalidate',
-						options: {
-							cacheName: 'images-cache',
-							expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 14 }
-						}
-					},
-					{
-						urlPattern: /\.(?:woff2?|ttf|otf)$/,
-						handler: 'StaleWhileRevalidate',
-						options: {
-							cacheName: 'fonts-cache',
-							expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 30 }
-						}
 					}
 				]
 			},

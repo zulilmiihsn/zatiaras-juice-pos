@@ -19,6 +19,9 @@ export interface PosTransactionItemInput {
 
 export interface PosTransactionInput {
 	idempotency_key?: string;
+	/** Metadata notifikasi; tidak menjadi bagian fingerprint atau struk. */
+	origin_device_id?: string;
+	origin_device_token?: string;
 	nama_pelanggan?: string | null;
 	metode_bayar?: string;
 	cash_received?: number | string | null;

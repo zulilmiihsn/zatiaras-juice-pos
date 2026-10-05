@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const REQUIRED_ENV = ['CLOUDFLARE_API_TOKEN', 'POS_PRICE_SIGNING_KEY'];
+const PUSH_ENV = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'];
 const PLACEHOLDER_PATTERN = /REPLACE_WITH_|your_/i;
 const CONFIG_FILES = ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc'];
 
@@ -107,6 +108,19 @@ for (const name of REQUIRED_ENV) {
 	if (!process.env[name] || PLACEHOLDER_PATTERN.test(process.env[name])) {
 		fail(`Missing required environment variable: ${name}`);
 	}
+}
+
+// Config presence is a release prerequisite, not proof of browser/provider delivery.
+if (process.argv.includes('--require-antrean-push') || PUSH_ENV.some((name) => process.env[name])) {
+	for (const name of PUSH_ENV) {
+		if (!process.env[name] || PLACEHOLDER_PATTERN.test(process.env[name])) {
+			fail(`Missing required Antrean push variable: ${name}`);
+		}
+	}
+} else {
+	console.log(
+		'[cloudflare-config] Web Push belum dikonfigurasi; aktivasi perangkat belum tersedia.'
+	);
 }
 
 for (const file of CONFIG_FILES) {

@@ -55,8 +55,8 @@ export function createPengaturanState() {
 		showLogoutModal = true;
 	}
 
-	function confirmLogout() {
-		auth.logout();
+	async function confirmLogout() {
+		await auth.logout();
 		goto('/login');
 	}
 

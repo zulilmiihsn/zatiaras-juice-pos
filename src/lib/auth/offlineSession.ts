@@ -1,4 +1,10 @@
 const SESSION_STORAGE_KEY = 'zatiaras_session';
+const SESSION_REVISION_KEY = 'zatiaras_session_revision';
+
+/** Shared across tabs; late validation/IndexedDB work must not resurrect a cleared session. */
+export function getOfflineSessionRevision(storage: StorageLike = localStorage): string | null {
+	return storage.getItem(SESSION_REVISION_KEY);
+}
 
 interface StorageLike {
 	getItem(key: string): string | null;
@@ -63,6 +69,7 @@ export function persistOfflineSessionSnapshot(
 }
 
 export function clearOfflineSessionSnapshot(storage: StorageLike = localStorage): void {
+	storage.setItem(SESSION_REVISION_KEY, crypto.randomUUID());
 	storage.removeItem(SESSION_STORAGE_KEY);
 }
 

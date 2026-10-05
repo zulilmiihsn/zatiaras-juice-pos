@@ -23,3 +23,7 @@ Pertahankan best-effort. Adopsi outbox hanya bila salah satu terjadi dan
 tercatat sebagai insiden: event hilang menyebabkan keputusan kasir salah,
 atau DO downtime berulang. Saat itu, rancang relay + tabel outbox dengan
 kontrak dedup per `(cabang_id, table, id)` sebelum implementasi.
+
+## Pengecualian spesifik: notifikasi kedatangan Antrean
+
+Notifikasi pesanan baru mempunyai kebutuhan replay dan Web Push saat aplikasi tertutup yang tidak dipenuhi invalidasi realtime umum. [ADR 0004](0004-antrean-notifications.md) menambahkan event/delivery khusus pada checkout; tidak memigrasikan fanout katalog, stok, atau laporan ke outbox umum. Kegagalan publish/relay/provider setelah commit tetap tidak membatalkan transaksi.

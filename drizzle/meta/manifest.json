@@ -35,5 +35,6 @@
 	"0033_offline_stock_reviews.sql": "51594d2b1ed23825ad066ffe04b6988d8d9728217942c224ee12126bac30b590",
 	"0034_stock_feature_rollout.sql": "0bb3bea77f76aaa6829b9ad18466c98b644f7a207bc1e7de508e63c304c9ba7b",
 	"0035_order_preparation.sql": "62b160657c82c9768dfa014022f00453bdf185071f2d11bd4d49f0ddd952b505",
-	"0036_pos_nomor_harian.sql": "aa0334d050ae7ed80ea108d190339a58ebc701e72e1a4fdd0ee3b2b9fc18b8da"
+	"0036_pos_nomor_harian.sql": "aa0334d050ae7ed80ea108d190339a58ebc701e72e1a4fdd0ee3b2b9fc18b8da",
+	"0037_antrean_notifications.sql": "f9c48f841e52ab3299340708aefa119a36d8265d52c6f1506cc38b9befe14ccf"
 }

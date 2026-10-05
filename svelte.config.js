@@ -7,6 +7,13 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 	kit: {
+		files: {
+			serviceWorker: 'src/sw.ts'
+		},
+		// The PWA plugin owns /sw.js registration and the existing update prompt.
+		serviceWorker: {
+			register: false
+		},
 		csp: {
 			mode: 'auto',
 			directives: {

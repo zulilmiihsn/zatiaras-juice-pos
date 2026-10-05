@@ -7,3 +7,4 @@ export const pendingTransactionStore = createStore(
 	'pending-transactions'
 );
 export const orderQueueStore = createStore('zatiaras-queue-v1', 'order-queue');
+export const notificationStore = createStore('zatiaras-antrean-notifications-v1', 'notifications');

@@ -21,6 +21,7 @@ import { dbPost } from '$lib/services/dataApiClient';
 import { parseApiError } from '$lib/utils/errorHandling';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { getOfflineSessionBranch, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
+import { prepareCheckoutNotificationOrigin } from '$lib/services/orderNotificationService';
 
 class PendingSyncError extends Error {
 	constructor(
@@ -51,10 +52,15 @@ async function assertSyncResponse(response: Response, label: string): Promise<vo
 
 async function replayPendingTransaction(payload: Record<string, unknown>): Promise<void> {
 	if (payload.type === 'pos_transaction' && payload.request) {
+		const origin = await prepareCheckoutNotificationOrigin();
+		const request = payload.request as Record<string, unknown>;
+		const hasOrigin =
+			typeof request.origin_device_id === 'string' &&
+			typeof request.origin_device_token === 'string';
 		const response = await fetchWithCsrfRetry('/api/pos/transaction', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload.request)
+			body: JSON.stringify(hasOrigin ? request : { ...request, ...origin })
 		});
 		await assertSyncResponse(response, 'Sinkronisasi transaksi POS gagal');
 		return;

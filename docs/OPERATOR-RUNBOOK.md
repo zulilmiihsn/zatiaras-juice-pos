@@ -167,6 +167,47 @@ duplikat; realtime lintas cabang; artifact SHA tak terbukti.
 - Smoke offline/failure hanya pada UAT atau D1 terisolasi: muat dua halaman Antrean, putuskan jaringan, reload; kartu dan badge harus menunjukkan cache perangkat, bukan jumlah server. Tandai status saat offline, tutup tab, pulihkan koneksi, lalu buka Antrean lagi; status harus pulih dari intent tersimpan.
 - Simulasikan status gagal di UAT dan koneksi pulih: kartu lokal harus tetap berlabel **Belum tersinkron** sampai tombol **Sinkronkan status** berhasil; jangan menyimpulkan antrean kosong dari cache atau jumlah yang belum diketahui.
 
+### 10a.1 Notifikasi pesanan baru
+
+Source fitur ini bukan catatan deployment. Tidak ada perubahan uang/stok atau status persiapan; jangan memakai notifikasi sebagai bukti pembayaran, pesanan selesai, atau operator telah mendengar.
+
+**Prasyarat schema/config**
+
+1. Ikuti backup/verify/restore drill dan provenance di atas. Terapkan migrasi aditif `0037_antrean_notifications.sql` melalui prosedur schema-first pada **ketiga shard** sebelum aplikasi baru melayani checkout. Periksa tabel event/delivery dan registry berikut indeks endpoint unik. Registry kanonik hanya di `DB_SAMARINDA_GROUP`; event/delivery memakai shard cabang.
+2. Sediakan pasangan P-256 VAPID yang cocok dan `VAPID_SUBJECT` berupa `mailto:`/HTTPS contact. Pasangan **sama** wajib tersedia pada Pages dan Worker realtime. `VAPID_PRIVATE_KEY` adalah secret runtime, bukan vars repo/argv/log; gunakan penyimpanan secret/masukan interaktif yang disetujui. Public key boleh dipublikasikan melalui endpoint config. Jangan memutar key tanpa deaktivasi/aktivasi ulang subscription perangkat.
+3. Jalankan `rtk pnpm deploy:check -- --require-antrean-push` di lingkungan preflight yang aman. Gate ini membuktikan keberadaan config, bukan pengiriman handset; runtime config juga memverifikasi pasangan key. Mode `deploy:check` biasa mengizinkan push belum dikonfigurasi dan mengatakannya, bukan readiness palsu.
+4. Deploy Pages dan Worker dari SHA/artifact yang disetujui. Pastikan cron `* * * * *` aktif untuk pemulihan delivery dan cron cleanup harian tetap terpisah. Jangan deploy output laptop atau mengubah production untuk smoke palsu.
+
+**Aktivasi perangkat**
+
+1. Login exact role kasir/pemilik pada cabang benar. Pada iOS/iPadOS yang mendukung, install PWA Home Screen dahulu. Terima update `/sw.js` melalui prompt aplikasi; tutup/reload tab lama bila diminta, lalu warm `/pos` dan `/antrean`.
+2. Buka Pengaturan > Antrean. Sound default ON hanya preferensi. Tekan **Tes suara** dan pastikan status audio benar-benar siap; verifikasi volume perangkat, Focus/DND, mute, dan speaker fisik.
+3. Pastikan **Service worker: Siap**. Worker lama tanpa handler push menahan aktivasi; terima update aplikasi lalu muat ulang, bukan membuat registrasi kedua atau melewati prompt. Tekan **Aktifkan notifikasi perangkat** melalui gesture, beri izin OS/browser, lalu periksa izin, subscription server, dan readiness terpisah. Permission denied diperbaiki melalui pengaturan browser; jangan mengulang prompt otomatis. HTTPS/localhost dan SW aktif diperlukan.
+4. Sound OFF menghentikan chime profil itu pada semua tab, tetapi banner dan push silent tetap boleh muncul. Profil/browser lain tidak ikut berubah. Data browser dibersihkan berarti identitas baru; aktivasi dapat melepas native subscription lama dan membuat yang baru.
+
+**Smoke penerimaan (UAT atau transaksi operasional sah)**
+
+- A checkout; B/C dengan akun sama/cabang sama menerima banner, A dan tab A lain tidak. B pada halaman lain mempunyai satu loop tiga chime sekitar 5 detik setelah izin audio, bukan satu loop per pesanan.
+- B membuka Antrean **terlihat dan lolos akses/PIN**: semua tab B berhenti/banner hilang/notifikasi ditutup; C tetap belum melihat. Tab Antrean tersembunyi bukan ACK. Keluar halaman tidak menghidupkan event lama; order baru sesudahnya boleh memanggil lagi.
+- OFF pada B tersimpan setelah reload dan semua tab B berhenti; C dan peringatan stok tidak berubah. Warm/reload offline `/pos` dan `/antrean`, satu SW/manifest, nol respons API privat dalam CacheStorage.
+- Tutup receiver PWA dan kunci **HP fisik yang dipakai kasir**. Buktikan encrypted Web Push provider nyata muncul dan klik menuju Antrean melewati auth/PIN normal. Catat OS/browser, instalasi, permission, Focus/DND, jaringan, hasil tampilan dan suara operator. Smoke sintetis/desktop/workerd/provider 201 tidak menggantikan bukti ini. Tidak ada jaminan alarm berulang/custom sound saat tertutup atau membangunkan orang.
+
+**Batas bukti implementasi lokal (bukan rilis)**
+
+- Smoke actual Chrome `154.0.8037.58`, tiga profil kasir pada cabang sama, memakai D1/Pages/Worker realtime terisolasi dan checkout nyata fixture. A serta tab A lain tetap tenang; B/C mempunyai banner dan AudioContext `running`, tiga nada dengan interval sekitar 5 detik. Antrean terlihat pada B menghapus alarm seluruh tab B; C tetap berbunyi dan order tetap belum selesai.
+- Worker published lama benar-benar dipasang: capability tidak tersedia dan aktivasi push ditahan. Tombol **Perbarui aplikasi** menerima worker waiting; setelah reload readiness menjadi Siap dengan satu registrasi, tanpa cutover otomatis sebelum klik.
+- Subscription native ke `fcm.googleapis.com` berhasil diaktifkan. Checkout kedua ketika C tidak mempunyai client aplikasi (browser tetap berjalan, tab `about:blank`) menghasilkan notifikasi generik yang teramati melalui API notifikasi native worker. Tidak ada injeksi event push untuk bukti ini. Deaktivasi lewat UI berhasil melepas subscription native.
+- Navigasi warm offline POS menampilkan produk tersimpan; Antrean menampilkan dua pesanan tersimpan belum selesai. Satu SW, satu manifest pada dokumen, nol entri `/api/` di CacheStorage. Banner 320 px tidak overflow dan CTA setinggi 44 px.
+- Bukti desktop tersebut **tidak** membuktikan tampilan/suara OS, klik notifikasi pada handset, browser benar-benar dihentikan, Focus/DND, atau baterai HP kasir. UAT HP fisik di atas tetap wajib. Tidak ada deployment, mutasi data production, CI remote, commit, atau push dari smoke ini.
+
+**Diagnosis/stop/rollback**
+
+- Banner/audio hilang setelah login/logout/expiry/rebind adalah lifecycle yang disengaja; masuk/aktifkan ulang pada scope sah. Baseline baru tidak memutar histori. Bila audio diblokir, gunakan Tes suara/gesture; jangan menganggap boolean ON sebagai bukti bunyi.
+- Subscription 404/410 dilepas; aktivasi ulang lewat UI. Timeout/429/5xx dipulihkan relay dengan lease 60 detik, maksimal 8 attempt, backoff 30 detik–1 jam dan timeout provider 15 detik. Provider 201 hanya accepted, bukan dibaca/didengar.
+- Inspeksi agregat state delivery (`pending`, `leased`, `sent`, `cancelled`, `failed`) dan usia `next_attempt_at` per cabang melalui tooling berizin; jangan dump token, endpoint, encryption key, atau payload pelanggan. Lease macet pulih setelah expiry. Investigasi konfigurasi/cron/provider sebelum tindakan; tidak menghapus/replay checkout untuk memperbaiki delivery. Pending event/delivery tidak dipangkas otomatis; pantau pertumbuhan metadata.
+- Salah scope, alarm asal, private API dicache, secret bocor, schema satu shard gagal, atau bukti finansial berubah = STOP. Untuk menghentikan push, nonaktifkan pengiriman/config pada **kedua runtime** melalui proses rilis berizin; jangan menghapus ledger atau tabel notifikasi. Rollback Pages/Worker bersama mengikuti provenance/revert di atas, biarkan schema aditif. Versi lama tidak menangkap event baru; ini penghentian fitur, bukan retry pembayaran.
+- Push yang sudah in-flight tidak dapat ditarik kembali. Generic content dan dedup/seen state membatasi race; tidak menjanjikan zero-flash OS notice. Roll-forward dapat memulihkan pending delivery, sehingga tinjau usia/backlog sebelum mengaktifkan kembali.
+
 ## 10b. Wipe riwayat pra-operasional (satu cabang sekali jalan)
 
 Mengosongkan data transaksi uji agar operasional mulai dari nol. Destruktif:

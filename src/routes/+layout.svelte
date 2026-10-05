@@ -4,7 +4,7 @@
 	import BottomNav from '$lib/components/shared/bottomNav.svelte';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { onMount, onDestroy, type Snippet } from 'svelte';
+	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
 	import { goto, invalidateAll, onNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import Download from '@lucide/svelte/icons/download';
@@ -23,6 +23,8 @@
 	import { verifyPagePin } from '$lib/services/pinAccessService';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import PendingTransactionsSheet from '$lib/components/shared/PendingTransactionsSheet.svelte';
+	import OrderNotificationBanner from '$lib/components/shared/OrderNotificationBanner.svelte';
+	import { orderNotifications } from '$lib/stores/orderNotificationState.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -204,6 +206,21 @@
 		}
 	}
 
+	$effect(() => {
+		const path = $page.url.pathname;
+		const accessible = !showPinModal;
+		if (browser) untrack(() => orderNotifications.setPage(path, accessible));
+	});
+
+	const notificationsEnabled = $derived(
+		(userRole.value === 'kasir' || userRole.value === 'pemilik') &&
+			!['/login', '/offline', '/unauthorized'].includes($page.url.pathname)
+	);
+	$effect(() => {
+		if (!browser || !notificationsEnabled) return;
+		return untrack(() => orderNotifications.start());
+	});
+
 	onMount(async () => {
 		await layoutSt.setupPwa();
 		const publicRoutes = ['/login', '/offline', '/unauthorized'];
@@ -211,6 +228,27 @@
 		layoutSt.setupWindowListeners();
 	});
 </script>
+
+<OrderNotificationBanner />
+
+{#if layoutSt.pwaUpdateAvailable}
+	<section
+		class="flex flex-wrap items-center gap-3 border-b border-sky-200 bg-sky-50 px-4 py-3 text-sky-950"
+		aria-label="Update aplikasi"
+	>
+		<p class="min-w-0 flex-1 text-sm">
+			Versi baru tersedia. Selesaikan transaksi yang sedang diisi sebelum memperbarui.
+		</p>
+		<button
+			type="button"
+			onclick={layoutSt.updatePwa}
+			disabled={layoutSt.pwaUpdating}
+			class="min-h-11 rounded-lg bg-sky-900 px-4 font-semibold text-white disabled:opacity-50"
+		>
+			{layoutSt.pwaUpdating ? 'Memperbarui…' : 'Perbarui aplikasi'}
+		</button>
+	</section>
+{/if}
 
 {#if layoutSt.pendingCount > 0}
 	<div

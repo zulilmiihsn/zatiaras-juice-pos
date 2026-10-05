@@ -1,3 +1,6 @@
+import { dispatchOrderNotifications } from './orderNotifications/delivery';
+import { BRANCH_GROUPS, branchContext } from './branchResolver';
+
 export { RealtimeDurableObject } from './realtimeDurableObject.js';
 
 // Retensi log sistem (bukan data jualan). Dibersihkan otomatis via cron.
@@ -82,10 +85,18 @@ export default {
 	/**
 	 * Cron terjadwal: hapus log sistem lama (audit_logs, request_metrics) dari
 	 * SEMUA database cabang. Hanya log/metrik — TIDAK menyentuh transaksi/menu.
-	 * @param {unknown} _event
+	 * @param {{cron?:string}} _event
 	 * @param {Record<string, any>} env
 	 */
 	async scheduled(_event, env) {
+		for (const branch of Object.values(BRANCH_GROUPS).flat()) {
+			try {
+				await dispatchOrderNotifications(env, branchContext(branch));
+			} catch {
+				// Durable relay state survives outages; the next minute resumes leased/retry work.
+			}
+		}
+		if (_event.cron !== '0 3 * * *') return;
 		for (const binding of DB_BINDINGS) {
 			const db = env[binding];
 			if (!db) continue;

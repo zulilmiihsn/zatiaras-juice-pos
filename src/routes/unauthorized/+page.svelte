@@ -13,8 +13,8 @@
 		goto('/pengaturan');
 	}
 
-	function goToLogin() {
-		auth.logout();
+	async function goToLogin() {
+		await auth.logout();
 		goto('/login');
 	}
 </script>

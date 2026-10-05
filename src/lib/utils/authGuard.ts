@@ -4,6 +4,7 @@ import { setUserRole } from '$lib/stores/userRole.svelte';
 import {
 	clearOfflineSessionSnapshot,
 	getOfflineSessionBranch,
+	getOfflineSessionRevision,
 	isOfflineAntreanPath,
 	isOfflinePosPath,
 	persistOfflineSessionSnapshot,
@@ -103,6 +104,7 @@ export class AuthGuard {
 		if (typeof window === 'undefined') return true;
 		if (!navigator.onLine) return this.allowOfflinePosAccess();
 
+		const revision = getOfflineSessionRevision();
 		try {
 			// [CATATAN]: Rate limiting check
 			const clientId = this.getClientIdentifier();
@@ -112,6 +114,7 @@ export class AuthGuard {
 			}
 
 			const payload = await this.fetchSessionPayload();
+			if (revision !== getOfflineSessionRevision()) return false;
 			if (!payload) {
 				this.recordFailedAuth(clientId);
 				goto('/login');
@@ -129,6 +132,7 @@ export class AuthGuard {
 			this.persistValidatedSession(payload);
 			return true;
 		} catch {
+			if (revision !== getOfflineSessionRevision()) return false;
 			return this.allowOfflinePosAccess();
 		}
 	}

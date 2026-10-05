@@ -30,6 +30,8 @@ const TENANT_TABLES = new Set([
 	'penjualan_produk_harian',
 	'auth_sessions',
 	'antrean_offline',
+	'antrean_notification_events',
+	'antrean_notification_deliveries',
 	'audit_logs',
 	'audit_log_outbox',
 	'audit_log_quarantine',

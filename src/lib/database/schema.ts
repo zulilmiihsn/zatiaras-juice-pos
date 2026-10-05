@@ -520,6 +520,88 @@ export const posNomorHarian = sqliteTable(
 	(table) => [primaryKey({ columns: [table.cabang_id, table.tanggal] })]
 );
 
+/** Device ownership is global control-plane metadata in DB_SAMARINDA_GROUP, not a sales tenant. */
+export const antreanNotificationDevices = sqliteTable(
+	'antrean_notification_devices',
+	{
+		device_id: text('device_id').primaryKey(),
+		token_hash: text('token_hash').notNull(),
+		cabang_id: text('cabang_id').notNull(),
+		user_id: text('user_id').notNull(),
+		session_id: text('session_id').notNull(),
+		context_id: text('context_id').notNull(),
+		active: integer('active').notNull().default(1),
+		sound_enabled: integer('sound_enabled').notNull(),
+		subscription: text('subscription'),
+		expires_at: integer('expires_at').notNull(),
+		baseline_cursor: integer('baseline_cursor').notNull(),
+		seen_cursor: integer('seen_cursor').notNull(),
+		delivered_cursor: integer('delivered_cursor').notNull(),
+		dispatch_cursor: integer('dispatch_cursor').notNull(),
+		updated_at: integer('updated_at').notNull()
+	},
+	(table) => [
+		index('idx_notification_devices_branch').on(table.cabang_id, table.active, table.expires_at),
+		uniqueIndex('idx_notification_device_endpoint')
+			.on(sql`json_extract(${table.subscription}, '$.endpoint')`)
+			.where(
+				sql`${table.active}=1 AND ${table.subscription} IS NOT NULL AND json_valid(${table.subscription})`
+			),
+		check('chk_notification_device_active', sql`${table.active} IN (0, 1)`),
+		check('chk_notification_device_sound', sql`${table.sound_enabled} IN (0, 1)`)
+	]
+);
+
+export const antreanNotificationEvents = sqliteTable(
+	'antrean_notification_events',
+	{
+		sequence: integer('sequence').primaryKey({ autoIncrement: true }),
+		event_id: text('event_id').notNull().unique(),
+		cabang_id: text('cabang_id').notNull(),
+		buku_kas_id: text('buku_kas_id').notNull(),
+		idempotency_key: text('idempotency_key').notNull(),
+		origin_device_id: text('origin_device_id'),
+		claimed_origin_device_id: text('claimed_origin_device_id'),
+		origin_device_token_hash: text('origin_device_token_hash'),
+		created_at: text('created_at').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_notification_events_idempotency').on(table.cabang_id, table.idempotency_key),
+		index('idx_notification_events_branch').on(table.cabang_id, table.sequence)
+	]
+);
+
+export const antreanNotificationDeliveries = sqliteTable(
+	'antrean_notification_deliveries',
+	{
+		event_id: text('event_id').notNull(),
+		cabang_id: text('cabang_id').notNull(),
+		device_id: text('device_id').notNull(),
+		context_id: text('context_id').notNull(),
+		state: text('state', { enum: ['pending', 'leased', 'sent', 'cancelled', 'failed'] })
+			.notNull()
+			.default('pending'),
+		attempts: integer('attempts').notNull().default(0),
+		next_attempt_at: integer('next_attempt_at').notNull(),
+		lease_id: text('lease_id'),
+		lease_until: integer('lease_until').notNull().default(0),
+		last_status: integer('last_status')
+	},
+	(table) => [
+		primaryKey({ columns: [table.event_id, table.device_id, table.context_id] }),
+		index('idx_notification_delivery_due').on(
+			table.cabang_id,
+			table.state,
+			table.next_attempt_at,
+			table.lease_until
+		),
+		check(
+			'chk_notification_delivery_state',
+			sql`${table.state} IN ('pending', 'leased', 'sent', 'cancelled', 'failed')`
+		)
+	]
+);
+
 export const posVoidMarkers = sqliteTable(
 	'pos_void_markers',
 	{

@@ -32,10 +32,9 @@
 		}
 	],
 
-	// Cron: tiap hari 03:00 UTC — bersihkan log sistem lama (audit_logs,
-	// request_metrics > 90 hari) dari semua DB. Tidak menyentuh data jualan.
+	// Push relay every minute; existing audit/log maintenance remains daily at 03:00 UTC.
 	"triggers": {
-		"crons": ["0 3 * * *"]
+		"crons": ["* * * * *", "0 3 * * *"]
 	},
 
 	"migrations": [

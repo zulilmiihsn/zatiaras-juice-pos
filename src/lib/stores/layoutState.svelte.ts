@@ -10,6 +10,7 @@ import {
 	retryPendingTransaction
 } from '$lib/utils/offline';
 import type { PendingTransaction } from '$lib/utils/offlineQueue';
+import type { Workbox } from 'workbox-window';
 import { createToastManager } from '$lib/utils/ui';
 
 export function createLayoutState() {
@@ -22,6 +23,16 @@ export function createLayoutState() {
 	let pendingTransactions = $state<PendingTransaction[]>([]);
 	let isPendingSyncing = $state(false);
 	const toastManager = createToastManager();
+	let pwaWorkbox: Workbox | null = null;
+	let pwaRegistration: ServiceWorkerRegistration | null = null;
+	let pwaUpdateAvailable = $state(false);
+	let pwaUpdating = $state(false);
+	const pwaWaiting = () => {
+		pwaUpdateAvailable = Boolean(pwaRegistration?.waiting);
+	};
+	const pwaControlling = () => {
+		if (pwaUpdating) window.location.reload();
+	};
 
 	async function updatePending() {
 		const pending = await getPendingTransactions();
@@ -112,9 +123,30 @@ export function createLayoutState() {
 		try {
 			const { Workbox } = await import('workbox-window');
 			const wb = new Workbox('/sw.js');
-			await wb.register();
+			pwaWorkbox = wb;
+			wb.addEventListener('waiting', pwaWaiting);
+			wb.addEventListener('controlling', pwaControlling);
+			const registration = await wb.register();
+			if (pwaWorkbox !== wb) return;
+			pwaRegistration = registration ?? null;
+			pwaWaiting();
 		} catch (error) {
 			console.log('PWA registration failed:', error);
+		}
+	}
+
+	function updatePwa() {
+		const waiting = pwaRegistration?.waiting;
+		if (!waiting || pwaUpdating) return;
+		pwaUpdating = true;
+		try {
+			waiting.postMessage({ type: 'SKIP_WAITING' });
+		} catch {
+			pwaUpdating = false;
+			toastManager.showToastNotification(
+				'Update belum dapat diterapkan. Muat ulang lalu coba lagi.',
+				'error'
+			);
 		}
 	}
 
@@ -172,8 +204,21 @@ export function createLayoutState() {
 		get isPendingSyncing() {
 			return isPendingSyncing;
 		},
+		get pwaUpdateAvailable() {
+			return pwaUpdateAvailable;
+		},
+		get pwaUpdating() {
+			return pwaUpdating;
+		},
+		updatePwa,
 		toastManager,
-		dispose: () => toastManager.dispose(),
+		dispose: () => {
+			pwaWorkbox?.removeEventListener('waiting', pwaWaiting);
+			pwaWorkbox?.removeEventListener('controlling', pwaControlling);
+			pwaWorkbox = null;
+			pwaRegistration = null;
+			toastManager.dispose();
+		},
 		setupPwa,
 		setupWindowListeners,
 		updatePending,
