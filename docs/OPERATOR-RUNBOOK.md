@@ -180,7 +180,11 @@ Source fitur ini bukan catatan deployment. Tidak ada perubahan uang/stok atau st
    rtk pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
    rtk pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
    ```
-   Sesudah setiap apply, pastikan tiga tabel notifikasi dan tiga indeks `idx_notification_*` tersedia; registry hanya dipakai pada `DB_SAMARINDA_GROUP`, event/delivery pada shard cabang. Hentikan rollout pada kegagalan pertama.
+   Sesudah setiap apply, pastikan tiga tabel notifikasi dan keempat indeks
+   (`idx_notification_devices_branch`, `idx_notification_device_endpoint`,
+   `idx_notification_events_branch`, `idx_notification_delivery_due`) tersedia;
+   registry hanya dipakai pada `DB_SAMARINDA_GROUP`, event/delivery pada shard cabang.
+   Hentikan rollout pada kegagalan pertama.
 3. Simpan `VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` sebagai **GitHub Environment secrets** `production`; simpan subject sebagai environment variable `VAPID_SUBJECT`. Deploy workflow yang sudah memverifikasi artifact menyalin ketiganya ke secret store kedua runtime setelah approval environment, tanpa mencatat nilainya di log/argv/repo. Jangan melakukan `wrangler secret put` manual yang dapat membuat Worker version di luar release workflow. Subject contact cabang ini: `https://github.com/zulilmiihsn/zatiaras-juice-pos/issues` (issue tracker repository operator).
 4. Jalankan `rtk pnpm deploy:check -- --require-antrean-push` di preflight aman. Gate membuktikan config/keypair, bukan penerimaan handset.
 5. Deploy Pages dan Worker dari SHA/artifact yang disetujui. Pastikan cron `* * * * *` aktif untuk pemulihan delivery dan cron cleanup harian tetap terpisah. Jangan deploy output workstation atau mengubah production untuk smoke palsu.
