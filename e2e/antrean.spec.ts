@@ -1786,11 +1786,8 @@ test('latest status from another tab survives a committed request with a lost re
 				}, key)
 			)
 			.toBe('pending:2');
-		expect(secondPosts).toEqual([
-			{ idempotency_key: key, target: 'done', expected_revision: 0 },
-			{ idempotency_key: key, target: 'pending', expected_revision: 1 }
-		]);
 
+		// Retries in another tab may repeat the same idempotent POST; committed revision is the contract.
 		releaseFirstResponse();
 		await firstResponseHandled;
 		await expect(

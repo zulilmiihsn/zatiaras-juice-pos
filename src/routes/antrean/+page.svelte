@@ -130,6 +130,7 @@
 				<button
 					type="button"
 					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+					data-preserve-search
 					onclick={() => s.load(s.activeTab)}
 					aria-label="Muat ulang Antrean"
 				>
