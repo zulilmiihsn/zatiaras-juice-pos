@@ -173,10 +173,17 @@ Source fitur ini bukan catatan deployment. Tidak ada perubahan uang/stok atau st
 
 **Prasyarat schema/config**
 
-1. Ikuti backup/verify/restore drill dan provenance di atas. Terapkan migrasi aditif `0037_antrean_notifications.sql` melalui prosedur schema-first pada **ketiga shard** sebelum aplikasi baru melayani checkout. Periksa tabel event/delivery dan registry berikut indeks endpoint unik. Registry kanonik hanya di `DB_SAMARINDA_GROUP`; event/delivery memakai shard cabang.
-2. Sediakan pasangan P-256 VAPID yang cocok dan `VAPID_SUBJECT` berupa `mailto:`/HTTPS contact. Pasangan **sama** wajib tersedia pada Pages dan Worker realtime. `VAPID_PRIVATE_KEY` adalah secret runtime, bukan vars repo/argv/log; gunakan penyimpanan secret/masukan interaktif yang disetujui. Public key boleh dipublikasikan melalui endpoint config. Jangan memutar key tanpa deaktivasi/aktivasi ulang subscription perangkat.
-3. Jalankan `rtk pnpm deploy:check -- --require-antrean-push` di lingkungan preflight yang aman. Gate ini membuktikan keberadaan config, bukan pengiriman handset; runtime config juga memverifikasi pasangan key. Mode `deploy:check` biasa mengizinkan push belum dikonfigurasi dan mengatakannya, bukan readiness palsu.
-4. Deploy Pages dan Worker dari SHA/artifact yang disetujui. Pastikan cron `* * * * *` aktif untuk pemulihan delivery dan cron cleanup harian tetap terpisah. Jangan deploy output laptop atau mengubah production untuk smoke palsu.
+1. Ikuti backup tiga shard, verifikasi manifest, dan restore drill §1–2. Production dibangun melalui schema manual; `wrangler d1 migrations list` dapat menampilkan seluruh histori lama sebagai pending meskipun schema operasional sudah ada. **Jangan jalankan `wrangler d1 migrations apply` atau migrator penuh**: itu mencoba mengulang migrasi historis.
+2. Verifikasi kolom prerequisite secara read-only, lalu terapkan **hanya** `0037_antrean_notifications.sql`, satu shard per command, berurutan. File ini aditif; jangan rerun bila ada shard gagal—periksa ulang tabel sebelum tindakan:
+   ```powershell
+   rtk pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
+   rtk pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
+   rtk pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
+   ```
+   Sesudah setiap apply, pastikan tiga tabel notifikasi dan tiga indeks `idx_notification_*` tersedia; registry hanya dipakai pada `DB_SAMARINDA_GROUP`, event/delivery pada shard cabang. Hentikan rollout pada kegagalan pertama.
+3. Simpan `VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` sebagai **GitHub Environment secrets** `production`; simpan subject sebagai environment variable `VAPID_SUBJECT`. Deploy workflow yang sudah memverifikasi artifact menyalin ketiganya ke secret store kedua runtime setelah approval environment, tanpa mencatat nilainya di log/argv/repo. Jangan melakukan `wrangler secret put` manual yang dapat membuat Worker version di luar release workflow. Subject contact cabang ini: `https://github.com/zulilmiihsn/zatiaras-juice-pos/issues` (issue tracker repository operator).
+4. Jalankan `rtk pnpm deploy:check -- --require-antrean-push` di preflight aman. Gate membuktikan config/keypair, bukan penerimaan handset.
+5. Deploy Pages dan Worker dari SHA/artifact yang disetujui. Pastikan cron `* * * * *` aktif untuk pemulihan delivery dan cron cleanup harian tetap terpisah. Jangan deploy output workstation atau mengubah production untuk smoke palsu.
 
 **Aktivasi perangkat**
 

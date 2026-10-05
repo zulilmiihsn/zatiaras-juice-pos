@@ -93,6 +93,17 @@ jobs:
           RELEASE_COMMIT_SHA: ${{ inputs.sha }}
         run: node scripts/preflight-release.mjs --verify-only
 
+      - name: Provision Antrean VAPID secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: |
+          test -n "$VAPID_PUBLIC_KEY" -a -n "$VAPID_PRIVATE_KEY" -a -n "$VAPID_SUBJECT"
+          node -e 'process.stdout.write(JSON.stringify({VAPID_PUBLIC_KEY:process.env.VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY:process.env.VAPID_PRIVATE_KEY,VAPID_SUBJECT:process.env.VAPID_SUBJECT}))' | pnpm exec wrangler secret bulk --config wrangler.realtime.jsonc
+          node -e 'process.stdout.write(JSON.stringify({VAPID_PUBLIC_KEY:process.env.VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY:process.env.VAPID_PRIVATE_KEY,VAPID_SUBJECT:process.env.VAPID_SUBJECT}))' | pnpm exec wrangler pages secret bulk --project-name zatiaraspos
+
       - name: Deploy Realtime Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
