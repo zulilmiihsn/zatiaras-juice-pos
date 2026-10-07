@@ -250,7 +250,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Passed local | opencode | §12 AUD-044 2026-10-07      |
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Passed local | opencode | §12 AUD-045 2026-10-07      |
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Passed local | opencode | §12 AUD-046 2026-10-07      |
-| [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Pending      | —        | —                           |
+| [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Passed local | opencode | §12 AUD-047 2026-10-07      |
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Pending      | —        | —                           |
@@ -1477,6 +1477,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: drill 9/9 lulus (SQLite + workerd); CLI smoke PASS; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Drill backup produksi nyata butuh operator (F7).
 - Rollback: revert tiga file via release berizin.
+
+### AUD-047 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: CLI tanpa sumber (usage exit 0) cari `backups/` di repo — bertentangan kebijakan eksternal; flag runbook `(--shard [--live] [--apply])` picu discovery itu; `execSync` interpolasi path rawan injeksi.
+- Fix: tulis ulang CLI — sumber eksplisit saja (`--file` absolut eksternal atau `--backup-manifest` verifier kanonik + COMPLETE + file shard target), usage invalid exit 2, shard/file salah/drill gagal fail-closed pre-mutasi, default dry-run uraikan target + nol mutasi, apply satu spawn array `--file` (tanpa shell). Runbook §4 disinkron ke ejaan baru.
+- File ubah: `rollback-migration.mjs`, suite `rollback-migration.test.mjs` (usage nonzero, parse, file hilang/kosong/rusak, dry-run nol-spawn, apply satu-spawn + gagal exit 1, manifest rusak), `package.json` (`test:rollback` + rantai operations), runbook §4.
+- Gate lokal: rollback 6/6 lulus; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Rehearsal rollback staging nyata butuh operator (F7).
+- Rollback: revert empat file via release berizin.
 
 ## 13. Referensi kontrak dan vendor
 

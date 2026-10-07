@@ -83,8 +83,10 @@ SELECT COUNT(*) FROM pengaturan; -- sama dengan sebelum apply
 
 Berhenti di shard pertama yang gagal; JANGAN lanjut atau rerun buta (2x ALTER
 TABLE gagal bila kolom sudah ada — comment 2 baris itu bila retry terverifikasi).
-Rollback: `node scripts/rollback-migration.mjs --shard=<SHARD> [--live] [--apply]`
-atau restore dari backup langkah 1. Rollback Pages TIDAK mengembalikan schema D1.
+Rollback: `node scripts/rollback-migration.mjs --shard=<BINDING> --backup-manifest <manifest-COMPLETE> [--live] [--dry-run|--apply]`
+atau `--file <abs-path.sql>` eksplisit. CLI memverifikasi manifest kanonik + COMPLETE + drill sumber
+sebelum mutasi; usage salah/non-drill exit nonzero; default dry-run nol mutasi.
+Jangan mencari `backups/` di repo. Rollback Pages TIDAK mengembalikan schema D1.
 
 ## 5. Deploy aplikasi (workflow Deploy, bukan dari laptop)
 

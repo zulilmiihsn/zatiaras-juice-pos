@@ -1,81 +1,168 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, join } from 'node:path';
-import { execSync } from 'node:child_process';
+/**
+ * Rollback migrasi / restore darurat per shard D1 (AUD-047).
+ *
+ * Sumber backup EKSPLISIT dari root backup eksternal terverifikasi
+ * (di luar repo/workspace): --file langsung, atau --backup-manifest
+ * (verifier kanonik + COMPLETE + file shard cocok target). Pencarian
+ * otomatis direktori `backups/` di repo DIHAPUS — bertentangan dengan
+ * kebijakan backup eksternal.
+ *
+ * Fail-closed: usage invalid -> nonzero; shard salah/file hilang/rusak/
+ * drill gagal -> nonzero sebelum mutasi. Default dry-run: uraikan target
+ * + langkah, nol mutasi. Restore penuh via SATU --file wrangler setelah
+ * drill lokal lulus pada file sumber.
+ *
+ * Usage:
+ *   node scripts/rollback-migration.mjs --shard <BINDING> --file <abs.sql> [--live] [--dry-run|--apply]
+ *   node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <abs-manifest> [--live] [--dry-run|--apply]
+ */
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { verifyManifest, canonicalizeExternalPath } from './d1-backup.mjs';
+import { checkDrillDatabase } from './restore-drill-local.mjs';
+import { DatabaseSync } from 'node:sqlite';
 
-console.log('🔄 ZatiarasPOS D1 Migration Rollback & Emergency Restore Utility');
+export const ROLLBACK_SHARDS = Object.freeze([
+	'DB_SAMARINDA_GROUP',
+	'DB_BALIKPAPAN_GROUP',
+	'DB_BERAU_GROUP'
+]);
+export const ROLLBACK_CONFIG = 'wrangler.pages.jsonc';
 
-function getArg(name) {
-	const idx = process.argv.indexOf(name);
-	return idx >= 0 ? process.argv[idx + 1] : null;
+export function rollbackUsage() {
+	return [
+		'Usage:',
+		'  node scripts/rollback-migration.mjs --shard <BINDING> --file <abs-path.sql> [--live] [--dry-run|--apply]',
+		'  node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <abs-manifest> [--live] [--dry-run|--apply]',
+		`  BINDING salah satu: ${ROLLBACK_SHARDS.join('|')}`
+	].join('\n');
 }
 
-const targetShard = getArg('--shard');
-let backupFile = getArg('--file');
-const isLive = process.argv.includes('--live');
-const isApply = process.argv.includes('--apply');
-
-if (!targetShard && !backupFile) {
-	console.log(`
-Usage:
-  node scripts/rollback-migration.mjs --shard <DB_SAMARINDA_GROUP|DB_BALIKPAPAN_GROUP|DB_BERAU_GROUP> [--live] [--apply]
-  node scripts/rollback-migration.mjs --file <path/to/backup.sql> [--shard <SHARD>] [--live] [--apply]
-`);
-	process.exit(0);
+export function parseRollbackArgs(argv) {
+	const args = { shard: null, file: null, backupManifest: null, live: false, apply: false };
+	for (let i = 0; i < argv.length; i++) {
+		const arg = argv[i];
+		if (arg === '--shard') args.shard = argv[++i];
+		else if (arg === '--file') args.file = argv[++i];
+		else if (arg === '--backup-manifest') args.backupManifest = argv[++i];
+		else if (arg === '--live') args.live = true;
+		else if (arg === '--apply') args.apply = true;
+		else if (arg === '--dry-run') args.apply = false;
+		else if (arg === '--local') args.live = false;
+		else throw new Error(`Argumen tidak diizinkan: ${arg}. Lihat usage.`);
+	}
+	if (!args.shard || !ROLLBACK_SHARDS.includes(args.shard))
+		throw new Error(`--shard wajib salah satu: ${ROLLBACK_SHARDS.join('|')}`);
+	if (!args.file && !args.backupManifest)
+		throw new Error('--file atau --backup-manifest wajib diisi (path absolut eksternal)');
+	if (args.file && args.backupManifest)
+		throw new Error('Pilih salah satu: --file atau --backup-manifest');
+	return args;
 }
 
-const shard = targetShard || 'DB_SAMARINDA_GROUP';
-
-// If --shard is specified without --file, find the most recent backup in backups/
-if (!backupFile && targetShard) {
-	const backupsDir = resolve('backups');
-	if (existsSync(backupsDir)) {
-		const candidates = readdirSync(backupsDir)
-			.filter(
-				(f) =>
-					f.endsWith('.sql') && (f.includes(targetShard) || f.includes(targetShard.toLowerCase()))
-			)
-			.map((f) => ({
-				file: join(backupsDir, f),
-				mtime: statSync(join(backupsDir, f)).mtimeMs
-			}))
-			.sort((a, b) => b.mtime - a.mtime);
-
-		if (candidates.length > 0) {
-			backupFile = candidates[0].file;
-			console.log(`📁 Auto-discovered most recent snapshot for ${targetShard}: ${backupFile}`);
-		}
+/** Resolve file SQL sumber dari argumen; verifikasi + drill penuh. Kembalikan rencana. */
+export async function resolveRollbackPlan(args) {
+	let sqlFile;
+	if (args.backupManifest) {
+		const { manifestPath: canonical } = await verifyManifest(args.backupManifest, {});
+		if (!existsSync(join(dirname(canonical), 'COMPLETE')))
+			throw new Error('Backup belum COMPLETE: tolak rollback.');
+		const manifest = JSON.parse(readFileSync(canonical, 'utf8'));
+		const entry = (manifest.shards ?? []).find((s) => s.binding === args.shard);
+		if (!entry) throw new Error(`Manifest tidak memuat shard target ${args.shard}. Hentikan.`);
+		sqlFile = join(dirname(canonical), entry.file);
+	} else {
+		sqlFile = await canonicalizeExternalPath(args.file, { mustExist: true });
+	}
+	if (!sqlFile.endsWith('.sql')) throw new Error('File sumber harus .sql');
+	let sql;
+	try {
+		sql = readFileSync(sqlFile, 'utf8');
+	} catch {
+		throw new Error(`File sumber tidak terbaca: ${sqlFile}`);
+	}
+	if (!sql.trim()) throw new Error('File sumber kosong. Hentikan.');
+	// Drill kanonik pada sumber SEBELUM mutasi apa pun.
+	const mem = new DatabaseSync(':memory:');
+	try {
+		mem.exec('PRAGMA foreign_keys=OFF;');
+		mem.exec(sql);
+		const adapter = {
+			all: (q) => mem.prepare(q).all(),
+			get: (q) => mem.prepare(q).get()
+		};
+		const report = checkDrillDatabase(adapter, 'full');
+		return { shard: args.shard, live: args.live, sqlFile, sql, tables: report.tables.length };
+	} catch (error) {
+		throw new Error(`Drill sumber gagal, rollback ditolak: ${error.message}`);
+	} finally {
+		mem.close();
 	}
 }
 
-if (!backupFile) {
-	console.log(`ℹ️ No local backup snapshot found in backups/ for ${shard}.`);
-	console.log(
-		`💡 D1 migrations are atomic per migration file. If a migration statement fails during apply,`
+export function rollbackSteps(plan, apply) {
+	return [
+		`Target shard : ${plan.shard} (${plan.live ? 'REMOTE LIVE' : 'LOCAL'})`,
+		`Sumber       : ${plan.sqlFile} (${plan.tables} tabel lulus drill)`,
+		apply ? 'Mode         : APPLY (satu wrangler --file)' : 'Mode         : DRY-RUN (nol mutasi)'
+	].join('\n');
+}
+
+export async function main(argv = process.argv.slice(2), deps = {}) {
+	const spawn = deps.spawn ?? spawnSync;
+	let args;
+	try {
+		args = parseRollbackArgs(argv);
+	} catch (error) {
+		console.error(`FAILED: ${error.message}\n${rollbackUsage()}`);
+		process.exitCode = 2;
+		return;
+	}
+	let plan;
+	try {
+		plan = await resolveRollbackPlan(args);
+	} catch (error) {
+		console.error(`FAILED: ${error.message}`);
+		process.exitCode = 1;
+		return;
+	}
+	console.log(rollbackSteps(plan, args.apply));
+	if (!args.apply) {
+		console.log('DRY-RUN selesai tanpa mutasi. Tambahkan --apply untuk eksekusi.');
+		return;
+	}
+	const result = spawn(
+		'npx',
+		[
+			'wrangler',
+			'd1',
+			'execute',
+			plan.shard,
+			plan.live ? '--remote' : '--local',
+			'--config',
+			ROLLBACK_CONFIG,
+			`--file=${plan.sqlFile}`,
+			'--yes'
+		],
+		{ encoding: 'utf8', stdio: 'pipe', shell: process.platform === 'win32' }
 	);
-	console.log(`   D1 automatically rolls back the active transaction.`);
-	console.log(`   To restore an external backup, provide: --file <path/to/backup.sql> --apply`);
-	process.exit(0);
+	if (result.status !== 0) {
+		console.error(`ROLLBACK FAILED (exit ${result.status}):`);
+		console.error((result.stderr || result.stdout || '').slice(0, 1000));
+		process.exitCode = 1;
+		return;
+	}
+	console.log('Rollback/restore selesai. Verifikasi schema + smoke cabang sebelum lanjut.');
 }
 
-if (!existsSync(backupFile)) {
-	console.error(`❌ Backup file not found: ${backupFile}`);
-	process.exit(1);
+const isCli =
+	process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (isCli) {
+	main().catch((error) => {
+		console.error(`FAILED: ${error instanceof Error ? error.message : String(error)}`);
+		process.exitCode = 1;
+	});
 }
-
-const liveFlag = isLive ? '--remote' : '--local';
-console.log(`Target Shard  : ${shard}`);
-console.log(`Backup Source : ${backupFile}`);
-console.log(`Environment   : ${isLive ? 'REMOTE LIVE' : 'LOCAL'}`);
-
-if (!isApply) {
-	console.log(`ℹ️ Dry-run mode: Pass --apply to execute restore on D1 shard.`);
-	process.exit(0);
-}
-
-console.log(`🚀 Executing rollback/restore on ${shard}...`);
-execSync(`npx wrangler d1 execute ${shard} ${liveFlag} --file="${backupFile}"`, {
-	stdio: 'inherit'
-});
-console.log(`✅ Rollback successfully applied on ${shard}.`);
-process.exit(0);
