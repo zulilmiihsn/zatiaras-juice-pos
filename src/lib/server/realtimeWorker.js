@@ -199,50 +199,56 @@ export default {
 				}
 			}
 			// Karantina outbox mati: bukti 90 hari cukup; bukan ledger.
-			try {
-				await db
-					.prepare(`DELETE FROM audit_log_quarantine WHERE quarantined_at < ?`)
-					.bind(cutoff)
-					.run();
-			} catch {
-				// Tabel mungkin belum ada — jangan gagalkan cron.
-			}
-			// Retensi teknis notifikasi (AUD-051): hanya state terminal +
-			// perangkat nonaktif kedaluwarsa. pending/leased TAK PERNAH
-			// dihapus otomatis (ADR 0004); event dirujuk pending/leased aman.
-			try {
-				await db
-					.prepare(
-						`DELETE FROM antrean_notification_deliveries
-						 WHERE state IN ('sent','cancelled','failed') AND next_attempt_at < ?`
-					)
-					.bind(cutoffMs)
-					.run();
-			} catch {
-				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
-			}
-			try {
-				await db
-					.prepare(
-						`DELETE FROM antrean_notification_events WHERE created_at < ?
+			// Retensi teknis notifikasi di bawah ter-scope per cabang (AUD-051):
+			// hanya state terminal + perangkat nonaktif kedaluwarsa.
+			// pending/leased TAK PERNAH dihapus otomatis (ADR 0004);
+			// event dirujuk pending/leased aman.
+			for (const branch of BRANCH_GROUPS[binding] || []) {
+				try {
+					await db
+						.prepare(`DELETE FROM audit_log_quarantine WHERE cabang_id = ? AND quarantined_at < ?`)
+						.bind(branch, cutoff)
+						.run();
+				} catch {
+					// Tabel mungkin belum ada — jangan gagalkan cron.
+				}
+				try {
+					await db
+						.prepare(
+							`DELETE FROM antrean_notification_deliveries
+						 WHERE cabang_id = ? AND state IN ('sent','cancelled','failed') AND next_attempt_at < ?`
+						)
+						.bind(branch, cutoffMs)
+						.run();
+				} catch {
+					// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+				}
+				try {
+					await db
+						.prepare(
+							`DELETE FROM antrean_notification_events WHERE cabang_id = ? AND created_at < ?
 						 AND NOT EXISTS (
 							SELECT 1 FROM antrean_notification_deliveries d
 							WHERE d.event_id = antrean_notification_events.event_id
+							  AND d.cabang_id = antrean_notification_events.cabang_id
 							  AND d.state IN ('pending','leased')
 						)`
-					)
-					.bind(cutoff)
-					.run();
-			} catch {
-				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
-			}
-			try {
-				await db
-					.prepare(`DELETE FROM antrean_notification_devices WHERE active = 0 AND expires_at < ?`)
-					.bind(cutoffMs)
-					.run();
-			} catch {
-				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+						)
+						.bind(branch, cutoff)
+						.run();
+				} catch {
+					// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+				}
+				try {
+					await db
+						.prepare(
+							`DELETE FROM antrean_notification_devices WHERE cabang_id = ? AND active = 0 AND expires_at < ?`
+						)
+						.bind(branch, cutoffMs)
+						.run();
+				} catch {
+					// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+				}
 			}
 		}
 	}
