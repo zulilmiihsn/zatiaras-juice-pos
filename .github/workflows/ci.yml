@@ -194,6 +194,12 @@ jobs:
       - name: Run Post-Commit Workerd Suite
         run: pnpm exec tsx src/tests/post-commit-tests.ts --d1
 
+      - name: Run Retention Suite
+        run: pnpm test:retention
+
+      - name: Run Retention Workerd Suite
+        run: pnpm exec tsx src/tests/retention-tests.ts --d1
+
       - name: Run Stock Policy Suites
         run: |
           pnpm test:stock-policy

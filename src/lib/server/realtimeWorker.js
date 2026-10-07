@@ -4,9 +4,16 @@ import { BRANCH_GROUPS, branchContext } from './branchResolver';
 export { RealtimeDurableObject } from './realtimeDurableObject.js';
 
 // Retensi log sistem (bukan data jualan). Dibersihkan otomatis via cron.
+// Kebijakan terdokumentasi (AUD-051): 90 hari untuk log/metrik/error/
+// karantina/teknis notifikasi terminal; pending/leased TAK PERNAH dihapus
+// otomatis; ledger/struk/arsip bukan log teknis dan tak tersentuh.
 const LOG_RETENTION_DAYS = 90;
-const CLEANUP_TABLES = ['audit_logs', 'request_metrics'];
+const CLEANUP_TABLES = ['audit_logs', 'request_metrics', 'error_events'];
 const DB_BINDINGS = ['DB_SAMARINDA_GROUP', 'DB_BALIKPAPAN_GROUP', 'DB_BERAU_GROUP'];
+// Drain outbox per run: halaman 100 x maks 10 (1000 baris) agar backlog
+// besar pulih dalam budget terukur, bukan selamanya 100/hari.
+const OUTBOX_DRAIN_PAGE = 100;
+const OUTBOX_DRAIN_MAX_PAGES = 10;
 const AUDIT_METADATA_BYTES = 8192;
 
 /** Metadata berbatas yang tetap JSON valid (jangan potong string mentah).
@@ -100,14 +107,23 @@ export default {
 		for (const binding of DB_BINDINGS) {
 			const db = env[binding];
 			if (!db) continue;
-			try {
-				const rows = await db
-					.prepare(
-						`SELECT id, cabang_id, payload, attempt_count FROM audit_log_outbox
-						 WHERE cabang_id IS NOT NULL ORDER BY created_at ASC LIMIT 100`
-					)
-					.all();
-				for (const row of rows.results || []) {
+			let drained = 0;
+			for (let page = 0; page < OUTBOX_DRAIN_MAX_PAGES; page++) {
+				let rows;
+				try {
+					rows = await db
+						.prepare(
+							`SELECT id, cabang_id, payload, attempt_count FROM audit_log_outbox
+							 WHERE cabang_id IS NOT NULL ORDER BY created_at ASC LIMIT ${OUTBOX_DRAIN_PAGE}`
+						)
+						.all();
+				} catch {
+					// Schema may be awaiting migration; retry on the next schedule.
+					break;
+				}
+				const batch = rows.results || [];
+				if (!batch.length) break;
+				for (const row of batch) {
 					let input = null;
 					try {
 						input = JSON.parse(row.payload);
@@ -163,12 +179,15 @@ export default {
 						}
 					}
 				}
-			} catch {
-				// Schema may be awaiting migration; retry on the next schedule.
+				drained += batch.length;
+				if (batch.length < OUTBOX_DRAIN_PAGE) break;
 			}
+			if (drained > 0) console.log(`[cleanup] ${binding}: outbox terdrain ${drained} baris`);
 		}
 
 		const cutoff = new Date(Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+		// Cutoff ms-epoch untuk tabel notifikasi (kolom INTEGER, bukan ISO).
+		const cutoffMs = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 		for (const binding of DB_BINDINGS) {
 			const db = env[binding];
 			if (!db) continue;
@@ -178,6 +197,52 @@ export default {
 				} catch {
 					// Tabel mungkin belum ada / error sebagian — jangan gagalkan cron seluruhnya.
 				}
+			}
+			// Karantina outbox mati: bukti 90 hari cukup; bukan ledger.
+			try {
+				await db
+					.prepare(`DELETE FROM audit_log_quarantine WHERE quarantined_at < ?`)
+					.bind(cutoff)
+					.run();
+			} catch {
+				// Tabel mungkin belum ada — jangan gagalkan cron.
+			}
+			// Retensi teknis notifikasi (AUD-051): hanya state terminal +
+			// perangkat nonaktif kedaluwarsa. pending/leased TAK PERNAH
+			// dihapus otomatis (ADR 0004); event dirujuk pending/leased aman.
+			try {
+				await db
+					.prepare(
+						`DELETE FROM antrean_notification_deliveries
+						 WHERE state IN ('sent','cancelled','failed') AND next_attempt_at < ?`
+					)
+					.bind(cutoffMs)
+					.run();
+			} catch {
+				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+			}
+			try {
+				await db
+					.prepare(
+						`DELETE FROM antrean_notification_events WHERE created_at < ?
+						 AND NOT EXISTS (
+							SELECT 1 FROM antrean_notification_deliveries d
+							WHERE d.event_id = antrean_notification_events.event_id
+							  AND d.state IN ('pending','leased')
+						)`
+					)
+					.bind(cutoff)
+					.run();
+			} catch {
+				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
+			}
+			try {
+				await db
+					.prepare(`DELETE FROM antrean_notification_devices WHERE active = 0 AND expires_at < ?`)
+					.bind(cutoffMs)
+					.run();
+			} catch {
+				// Migrasi 0037 mungkin belum ada — jangan gagalkan cron.
 			}
 		}
 	}

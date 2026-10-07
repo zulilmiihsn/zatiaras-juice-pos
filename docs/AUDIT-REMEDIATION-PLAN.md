@@ -254,7 +254,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Passed local | opencode | §12 AUD-048 2026-10-07      |
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Passed local | opencode | §12 AUD-049 2026-10-07      |
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Passed local | opencode | §12 AUD-050 2026-10-07      |
-| [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Pending      | —        | —                           |
+| [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Passed local | opencode | §12 AUD-051 2026-10-07      |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Pending      | —        | —                           |
@@ -1504,6 +1504,16 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - File ubah: `export-durable-objects.mjs`, `verify-cloudflare-deploy-config.mjs`, suite `realtime-artifact.test.mjs`, `package.json` (`test:realtime-artifact` + rantai operations).
 - Gate lokal: realtime-artifact 3/3 lulus; build produksi lulus; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Smoke websocket/heartbeat/fanout staging + urutan deploy butuh operator (F7).
+- Rollback: revert empat file via release berizin; tanpa migrasi.
+
+### AUD-051 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: drain outbox LIMIT 100/hari tanpa loop (backlog abadi); retensi hanya 2 tabel; delivery/event/device notifikasi tanpa retensi (tumbuh tanpa batas).
+- Fix: drain loop halaman 100 x maks 10/run + hitung terdrain; retensi 90 hari terdokumentasi untuk audit_logs/request_metrics/error_events/karantina + teknis notifikasi (delivery terminal by next_attempt_at, event tua tanpa ref pending/leased, device nonaktif kedaluwarsa). pending/leased TAK PERNAH dihapus; ledger/struk/arsip tak tersentuh.
+- Pelajaran debug: payload tanpa entityType membuat SEMUA baris poison (gagal INSERT → attempt+1 → putar 10 halaman); fixture valid wajib. Bukan bug drain.
+- File ubah: `realtimeWorker.js`, suite `retention-tests.ts` (drain-250 + retensi + pending/leased aman), `package.json` + step CI SQLite + workerd.
+- Gate lokal: retention SQLite + `--d1` lulus; `check` 0/0; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Throughput cron produksi + backlog raksasa butuh observasi operator.
 - Rollback: revert empat file via release berizin; tanpa migrasi.
 
 ### AUD-048 2026-10-07 — Passed local (opencode)
