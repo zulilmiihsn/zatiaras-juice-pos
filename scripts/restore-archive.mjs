@@ -107,8 +107,10 @@ if (!validation.ok) {
 
 const { meta, buku_kas, transaksi_kasir = [] } = archive;
 const schemaVersion = Number(meta.schema_version || 1);
-if (![1, 2].includes(schemaVersion)) {
-	console.error(`ERROR: Versi skema arsip tidak didukung: ${meta.schema_version} (didukung: 1, 2)`);
+if (![1, 2, 3].includes(schemaVersion)) {
+	console.error(
+		`ERROR: Versi skema arsip tidak didukung: ${meta.schema_version} (didukung: 1, 2, 3)`
+	);
 	process.exit(1);
 }
 

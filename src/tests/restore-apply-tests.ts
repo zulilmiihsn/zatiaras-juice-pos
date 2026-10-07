@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { decodeReceiptSnapshot } from '../lib/utils/receiptSnapshot.js';
 import {
 	buildRestoreSql,
 	diffAgainstExisting,
@@ -59,13 +60,40 @@ async function reset() {
 		.run();
 }
 
+const numberedReceiptSnapshot = JSON.stringify({
+	schema_version: 1,
+	items: [
+		{
+			product_id: 'product-fixture',
+			nama: 'Jus fixture',
+			jumlah: 2,
+			harga: 20_000,
+			nominal: 40_000,
+			harga_dasar: 20_000,
+			total_tambahan: 0,
+			tambahan: [],
+			gula: null,
+			es: null,
+			catatan: null
+		}
+	],
+	total_amount: 40_000,
+	total_qty: 2,
+	cash_received: 50_000,
+	change: 10_000,
+	metode_bayar: 'tunai',
+	committed_at: '2025-12-01T01:00:00.000Z',
+	customer_name: 'Fixture customer',
+	settings: { nama_toko: 'Fixture at sale', alamat: 'Old address', ucapan: 'Thank you' }
+});
+
 const numberedHeader = {
 	...header,
 	sumber: 'pos',
 	jumlah: 2,
 	transaction_id: 'sale-restore',
 	idempotency_key: 'restore-sale-key',
-	receipt_snapshot: '{"nomor":"007","total":40000,"items":[{"nama":"Jus fixture","jumlah":2}]}',
+	receipt_snapshot: numberedReceiptSnapshot,
 	preparation_state: 'done',
 	preparation_revision: 3,
 	preparation_completed_at: '2025-12-01T01:05:00.000Z',
@@ -162,6 +190,11 @@ async function numberedRestoreRegressions() {
 			),
 			'Modern daily number and permanent sale content must survive restore/retry'
 		);
+		const restoredReceipt = decodeReceiptSnapshot(restored?.receipt_snapshot);
+		assert.equal(restoredReceipt?.total_amount, 40_000, 'receipt total survives archive restore');
+		assert.equal(restoredReceipt?.cash_received, 50_000, 'cash received survives archive restore');
+		assert.equal(restoredReceipt?.change, 10_000, 'change survives archive restore');
+		assert.equal(restoredReceipt?.settings?.nama_toko, 'Fixture at sale');
 		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 1);
 		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 1);
 		const detail = await db
@@ -455,6 +488,76 @@ try {
 				buku_kas: [{ ...header, stock_policy_mode: 'ignored', stock_policy_revision: null }]
 			}),
 		/Pasangan policy/
+	);
+	// AUD-042: preflight seluruh field bisnis — invalid = zero live-ledger changes.
+	for (const [name, mutate, pattern] of [
+		['not-a-date', { waktu: 'not-a-date' }, /Waktu/],
+		['credit', { tipe: 'credit' }, /Tipe/],
+		['pairing', { jenis: 'beban_usaha' }, /Pasangan tipe\/jenis/],
+		['sumber', { sumber: 'inventaris' }, /Sumber/],
+		['negatif', { nominal: -100 }, /Nominal/],
+		['nan', { nominal: 'bukan-angka' }, /Nominal/],
+		['receipt-rusak', { receipt_snapshot: '{rusak' }, /Snapshot struk/]
+	] as Array<[string, Record<string, unknown>, RegExp]>) {
+		await reset();
+		assert.throws(
+			() => buildRestoreSql({ ...archive, buku_kas: [{ ...header, ...mutate }] }),
+			pattern,
+			name
+		);
+		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0, name);
+		assert.equal(
+			await db.prepare('SELECT COUNT(*) AS n FROM ringkasan_kas_arsip_harian').first('n'),
+			1,
+			name
+		);
+	}
+	await reset();
+	assert.throws(
+		() => buildRestoreSql({ ...archive, buku_kas: [{ id: 'tanpa-nominal' }] }),
+		/Nominal/,
+		'field hilang'
+	);
+	await reset();
+	assert.throws(
+		() =>
+			buildRestoreSql({
+				...archive,
+				meta: { ...archive.meta, counts: { buku_kas: 99, transaksi_kasir: 0 } }
+			}),
+		/Counts/,
+		'count mismatch'
+	);
+	// Detail invalid (orphan/qty/cabang) juga zero-change.
+	for (const [name, detail, pattern] of [
+		['orphan', { id: 'tk', jumlah: 1, nominal: 100 }, /Orphan/],
+		['qty-nol', { id: 'tk', buku_kas_id: 'bk', jumlah: 0, nominal: 100 }, /Jumlah/],
+		[
+			'cabang-detail',
+			{ id: 'tk', buku_kas_id: 'bk', cabang_id: 'berau', jumlah: 1, nominal: 100 },
+			/Cabang detail/
+		]
+	] as Array<[string, Record<string, unknown>, RegExp]>) {
+		await reset();
+		assert.throws(() => buildRestoreSql({ ...archive, transaksi_kasir: [detail] }), pattern, name);
+		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0, name);
+	}
+	// Rp100000 valid terlihat benar di laporan setelah restore.
+	await reset();
+	await db
+		.prepare('UPDATE ringkasan_kas_arsip_harian SET total_nominal = 100000 WHERE id = ?')
+		.bind('sum')
+		.run();
+	const validSeratus = {
+		...archive,
+		meta: { ...archive.meta, counts: { buku_kas: 1, transaksi_kasir: 0 } },
+		buku_kas: [{ ...header, id: 'bk100', nominal: 100000 }],
+		transaksi_kasir: []
+	};
+	await execute(validSeratus);
+	assert.equal(
+		(await buildLaporanAggregate(db, 'samarinda', '2025-12-01', '2025-12-01')).summary.pendapatan,
+		100000
 	);
 	await numberedRestoreRegressions();
 	console.log(

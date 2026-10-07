@@ -245,7 +245,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-039](#aud-039) | F4   | P1        | S     | Archive bounded/resumable/byte-safe              | 041                                                                                      | Passed local | opencode | §12 AUD-039 2026-10-06      |
 | [ ]  | [AUD-040](#aud-040) | F4   | P1        | S     | Resume archive benar-benar mengunduh             | 039                                                                                      | Passed local | opencode | §12 AUD-040 2026-10-07      |
 | [ ]  | [AUD-041](#aud-041) | F4   | P1        | S     | Versioned snapshot dan field restore eksplisit   | 001                                                                                      | Passed local | opencode | §12 AUD-041 2026-10-06      |
-| [ ]  | [AUD-042](#aud-042) | F4   | P1        | R     | Preflight semua field bisnis restore             | 041                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-042](#aud-042) | F4   | P1        | R     | Preflight semua field bisnis restore             | 041                                                                                      | Passed local | opencode | §12 AUD-042 2026-10-07      |
 | [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Pending      | —        | —                           |
@@ -1430,6 +1430,16 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: suite baru SQLite + `--d1` lulus; E2E `archive-download.spec.ts` 3/3 lulus (56.9s/31.1s/24.3s full-run, cleanup OK, tanpa `.wrangler`); `check` 0/0; prettier file tersentuh lulus; `tenant-scope`, `docs-drift`, `error-codes`, `maintainability` lulus; `diff --check` bersih (hanya warning CRLF pra-ada).
 - Batas bukti: CI SHA sama + reviewer belum; tree belum commit. R2 staging asli + volume legacy butuh operator (catat F7).
 - Rollback: revert file via release berizin; tanpa migrasi.
+
+### AUD-042 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: `validateArchive` loloskan `tipe: 'credit'`, `waktu: 'not-a-date'`, nominal negatif/NaN — preflight hijau lalu SQL apply tulis korupsi ke ledger. Gagal beralasan: validasi baru menolak ketiganya + pasangan tipe/jenis + sumber + metode + receipt rusak + qty/detail + count mismatch, semua zero-change.
+- Fix: `validateBukuKasBusiness`/`validateTransaksiKasirBusiness` di `restore-archive-lib.mjs` (tipe in/out, jenis trio + pairing cermin AUD-005, sumber pos/catat/stok, waktu parseable, nominal finite >= 0 <= MAX_SAFE_INTEGER tanpa ubah snapshot historis, metode tunai/non-tunai/qris bila ada, receipt harus JSON valid bila ada, detail jumlah > 0 + nominal wajib + orphan/cabang). Toleransi sadar: metode null (kolom nullable historis), deskripsi bebas, HPP 4dp tak disentuh.
+- Bonus preflight: CLI tolak versi `[1,2]` padahal writer kanonik emit v3 (AUD-041) — gerbang disamakan `[1,2,3]` agar arsip kini restorabel; decoder lama tetap tolak versi baru by design.
+- File ubah: `restore-archive-lib.mjs`, `restore-archive.mjs` (gerbang versi), regresi di `restore-apply-tests.ts` (rantai CI ada).
+- Gate lokal: suite SQLite + `--d1` lulus; guard/usecase/restore lama lulus; `check` 0/0; prettier + `diff --check` bersih.
+- Batas bukti: CI SHA sama + reviewer belum; tree belum commit. Bounded staging/execution tetap AUD-043.
+- Rollback: revert tiga file via release berizin; tanpa migrasi.
 
 ## 13. Referensi kontrak dan vendor
 

@@ -3,6 +3,39 @@ import { createHash, randomUUID } from 'node:crypto';
 /** @typedef {Record<string, unknown>} Row */
 /** @typedef {{meta: {schema_version?: number, archive_id?: string, id?: string, branch?: string, counts?: {buku_kas: number, transaksi_kasir: number}}, buku_kas: Row[], transaksi_kasir?: Row[]}} Archive */
 
+/**
+ * Kontrak versi snapshot arsip (AUD-041). Writer kanonik
+ * (src/lib/server/archiveUseCase.ts ARCHIVE_SCHEMA_VERSION) hanya emit
+ * versi terbaru. Decoder menerima 1-3; versi lebih baru DITOLAK sebelum
+ * apply agar field baru (preparation/provenance/nomor/struk) tak hilang
+ * diam-diam. Decoder era v2 (daftar [1, 2]) menolak v3 lewat gerbang sama.
+ */
+export const SUPPORTED_ARCHIVE_VERSIONS = [1, 2, 3];
+
+/**
+ * Peta field per versi: required harus ada; defaulted diisi seperti
+ * fieldValue() bila arsip lama tak punya (tanpa mengarang histori).
+ * Daftar kolom kanonik = BK_FIELDS/TK_FIELDS di bawah; exporter
+ * (ARCHIVE_*_FIELDS di archiveUseCase.ts) disamakan via tes.
+ */
+export const ARCHIVE_VERSION_CONTRACT = {
+	1: {
+		note: 'Legacy: kolom bisnis inti; preparation/nomor/policy/receipt default.',
+		required: ['id'],
+		defaulted: ['preparation_state', 'preparation_revision', 'nomor_harian', 'tanggal_nomor']
+	},
+	2: {
+		note: 'Nomor harian + preparation + policy + receipt snapshot.',
+		required: ['id'],
+		defaulted: ['preparation_revision', 'total_tambahan', 'nominal_hpp']
+	},
+	3: {
+		note: 'Versi kanonik penuh: semua field bisnis/stok/pesanan eksplisit.',
+		required: ['id'],
+		defaulted: ['preparation_revision', 'total_tambahan', 'nominal_hpp']
+	}
+};
+
 /** @param {string[]} argv */
 export function parseRestoreArgs(argv) {
 	/** @param {string} name */
@@ -35,6 +68,67 @@ export function sqlVal(value) {
 	return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+/** @param {unknown} value */
+function isFiniteNumber(value) {
+	return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
+		? Number.isFinite(Number(value))
+		: false;
+}
+
+/** @param {Row} row */
+function validateBukuKasBusiness(row) {
+	/** @type {string[]} */
+	const fieldErrors = [];
+	if (row.tipe !== 'in' && row.tipe !== 'out')
+		fieldErrors.push(`Tipe kas row ${row.id} tidak valid`);
+	if (!['pendapatan_usaha', 'beban_usaha', 'lainnya'].includes(String(row.jenis)))
+		fieldErrors.push(`Jenis kas row ${row.id} tidak valid`);
+	if (
+		(row.tipe === 'in' && !['pendapatan_usaha', 'lainnya'].includes(String(row.jenis))) ||
+		(row.tipe === 'out' && !['beban_usaha', 'lainnya'].includes(String(row.jenis)))
+	)
+		fieldErrors.push(`Pasangan tipe/jenis row ${row.id} tidak valid`);
+	if (!['pos', 'catat', 'stok'].includes(String(row.sumber)))
+		fieldErrors.push(`Sumber kas row ${row.id} tidak valid`);
+	if (typeof row.waktu !== 'string' || !Number.isFinite(Date.parse(row.waktu)))
+		fieldErrors.push(`Waktu kas row ${row.id} tidak valid`);
+	if (!isFiniteNumber(row.nominal) || Number(row.nominal) < 0)
+		fieldErrors.push(`Nominal kas row ${row.id} tidak valid`);
+	if (isFiniteNumber(row.nominal) && Number(row.nominal) > Number.MAX_SAFE_INTEGER)
+		fieldErrors.push(`Nominal kas row ${row.id} melebihi batas aman`);
+	if (
+		row.metode_bayar !== null &&
+		row.metode_bayar !== undefined &&
+		!['tunai', 'non-tunai', 'qris'].includes(String(row.metode_bayar))
+	)
+		fieldErrors.push(`Metode bayar row ${row.id} tidak valid`);
+	if (row.receipt_snapshot !== null && row.receipt_snapshot !== undefined) {
+		try {
+			JSON.parse(String(row.receipt_snapshot));
+		} catch {
+			fieldErrors.push(`Snapshot struk row ${row.id} tidak valid`);
+		}
+	}
+	return fieldErrors;
+}
+
+/** @param {Row} row */
+function validateTransaksiKasirBusiness(row) {
+	/** @type {string[]} */
+	const fieldErrors = [];
+	if (!row.buku_kas_id) fieldErrors.push(`Detail ${row.id} tanpa induk buku kas`);
+	if (!isFiniteNumber(row.jumlah) || Number(row.jumlah) <= 0)
+		fieldErrors.push(`Jumlah detail ${row.id} tidak valid`);
+	if (!isFiniteNumber(row.nominal) || Number(row.nominal) < 0)
+		fieldErrors.push(`Nominal detail ${row.id} tidak valid`);
+	for (const field of ['harga', 'harga_dasar', 'total_tambahan', 'nominal_hpp']) {
+		const value = row[field];
+		if (value !== null && value !== undefined && (!isFiniteNumber(value) || Number(value) < 0))
+			fieldErrors.push(`Nilai ${field} detail ${row.id} tidak valid`);
+	}
+	return fieldErrors;
+}
+
 /** @param {Archive} archive */
 export function validateArchive(archive) {
 	/** @type {string[]} */
@@ -56,7 +150,7 @@ export function validateArchive(archive) {
 	const branch = archive.meta.branch || '';
 	if (!['samarinda', 'samarinda2', 'balikpapan', 'balikpapan2', 'berau'].includes(branch))
 		errors.push('Cabang arsip tidak valid');
-	if (![1, 2].includes(Number(archive.meta.schema_version || 1)))
+	if (!SUPPORTED_ARCHIVE_VERSIONS.includes(Number(archive.meta.schema_version || 1)))
 		errors.push('Versi arsip tidak didukung');
 	if (!(archive.meta.archive_id || archive.meta.id)) errors.push('Identitas arsip wajib');
 	const buku_kas = archive.buku_kas;
@@ -84,6 +178,7 @@ export function validateArchive(archive) {
 		}
 		ids.add(String(row.id));
 		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang row ${row.id} berbeda`);
+		errors.push(...validateBukuKasBusiness(row));
 		const dailyNumber = row.nomor_harian ?? null;
 		const dailyDate = row.tanggal_nomor ?? null;
 		if ((dailyNumber === null) !== (dailyDate === null))
@@ -158,6 +253,7 @@ export function validateArchive(archive) {
 		detailIds.add(String(row.id));
 		if (!ids.has(String(row.buku_kas_id))) errors.push(`Orphan detail ${row.id}`);
 		if (row.cabang_id && row.cabang_id !== branch) errors.push(`Cabang detail ${row.id} berbeda`);
+		errors.push(...validateTransaksiKasirBusiness(row));
 	}
 	return { ok: errors.length === 0, errors, branch, buku_kas, transaksi_kasir };
 }
