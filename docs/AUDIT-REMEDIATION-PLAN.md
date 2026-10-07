@@ -258,7 +258,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Passed local | opencode | §12 AUD-052 2026-10-07      |
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
-| [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Passed local | opencode | §12 AUD-055 2026-10-07      |
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Pending      | —        | —                           |
 | [ ]  | [AUD-058](#aud-058) | F7   | P1        | O     | Inventaris/rekonsiliasi data terdampak aktual    | 005, 008, 009, 010, 011, 013, 015, 031, 032, 041, 042, 043, 044, 045, 046, 047           | Pending      | —        | —                           |
@@ -1524,6 +1524,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: docs-drift lulus; `check` 0/0; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Failure-injection CI (red-check) ranah operator.
 - Rollback: revert satu file via release berizin.
+
+### AUD-055 2026-10-07 — Passed local (opencode)
+
+- Temuan (verifikasi kode vs docs): login disebut PBKDF2/Argon2 padahal bcryptjs (PIN yang PBKDF2); role disebut hanya 2 padahal kanonik 3 (AUD-019); AGENTS.md pin 29 suite/22 tes padahal rantai kini 57 entri + 29 spec; arsip tanpa versi/budget (writer v3, chunk 50/1MB/10, restore 100 + resume).
+- Fix: GUIDE auth (bcrypt + 3 role + batas Antrean), GUIDE arsip (v3/decoder 1–3/budget/restore chunk), AGENTS tanpa angka pin. FK/D1, HPP 4dp, path CLI/backup, perintah `rtk` sudah sinkron — tanpa klaim baru.
+- Gate lokal: docs-drift lulus; migrasi dry-run 41/41 checksum cocok; prettier + `diff --check` bersih.
+- File ubah: `DEVELOPER-GUIDE.md`, `AGENTS.md`.
+- Batas bukti: CI SHA sama + reviewer belum.
+- Rollback: revert dua file via release berizin.
 
 ### AUD-052 2026-10-07 — Passed local (opencode)
 

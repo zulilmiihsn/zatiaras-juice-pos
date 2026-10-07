@@ -78,15 +78,16 @@ Cloudflare Adapters (D1 via Drizzle, R2 Object Storage, Durable Objects Realtime
 
 1. **Preview**: `GET /api/archive` mengkalkulasi jumlah baris di bawah cutoff tanggal (WITA UTC+8).
 2. **Eksekusi Snapshot**: Serialisasi transaksi terpilih ke format JSON unik di Cloudflare R2 (`arsip/<branch>/<year>/<uuid>.json`).
-3. **Batch Deletion Anti-TOCTOU**: Menghapus baris dari D1 aktif hanya untuk exact ID yang telah terverifikasi tersimpan di snapshot R2 (chunked per 50 item).
-4. **Restore**: Menggunakan script CLI [scripts/restore-archive.mjs](file:///d:/Projects/zatiaraspos/scripts/restore-archive.mjs).
+3. **Batch Deletion Anti-TOCTOU**: Menghapus baris dari D1 aktif hanya untuk exact ID yang telah terverifikasi tersimpan di snapshot R2 (finalisasi per chunk).
+4. **Restore**: Menggunakan script CLI [scripts/restore-archive.mjs](file:///d:/Projects/zatiaraspos/scripts/restore-archive.mjs) (preflight penuh + apply per chunk 100 baris dengan checkpoint resume).
+5. **Kontrak snapshot**: writer emit v3; decoder menerima v1–v3 dan menolak versi lebih baru sebelum apply. Chunk arsip: 50 header/snapshot ≤1MB/maks 10 per panggilan.
 
 ### E. Alur Autentikasi & Otorisasi Peran (Auth Flow)
 
 1. **Login Kasir / Pemilik (`POST /api/veriflogin`)**:
    - Rate limiting per IP dan per username.
-   - Verifikasi hash password (PBKDF2/Argon2) against D1 database cabang terkait.
-   - Validasi whitelist role ketat: hanya `'kasir'` dan `'pemilik'`.
+   - Verifikasi hash password bcrypt terhadap D1 database cabang terkait (PIN supervisor memakai PBKDF2-SHA256 terpisah).
+   - Validasi role ketat: `pemilik`, `kasir`, `admin` (unknown fail-closed; endpoint Antrean hanya `kasir`/`pemilik`).
    - Penerbitan HTTP-only cookie session dengan `SameSite=Lax`, `Secure`, `HttpOnly`.
 2. **Boundary Gate (`hooks.server.ts` & `apiAuth.ts`)**:
    - `requireAuthSession(locals)`: Memeriksa integritas session ID.

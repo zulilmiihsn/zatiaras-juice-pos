@@ -166,11 +166,11 @@ Dokumen pendamping: `DEVELOPER-GUIDE.md` (domain), `docs/adr/` (keputusan),
 ```powershell
 rtk pnpm check            # typecheck, 0 error 0 warning
 rtk pnpm lint             # prettier + eslint
-rtk pnpm test:unit        # 29 suite, semua harus lulus
+rtk pnpm test:unit        # seluruh suite unit, semua harus lulus
 rtk pnpm test:operations  # backup + safety + isolasi + release-gate
 rtk pnpm build            # build produksi
 rtk pnpm deploy:check     # validasi config Cloudflare
-rtk pnpm test:e2e:all     # 22 tes browser terisolasi
+rtk pnpm test:e2e:all     # seluruh tes browser terisolasi
 rtk git diff --check      # tanpa whitespace error
 ```
 
