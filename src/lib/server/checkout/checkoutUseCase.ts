@@ -12,6 +12,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from '../branchResolver';
 import { publishBranchEvent } from '../realtimePublisher';
+import { settlePostCommitEffects } from '../postCommit';
 import { appendAuditLog } from '../auditLog';
 import { consumeRateLimit } from '../rateLimit';
 import { recordErrorEvent } from '../observability';
@@ -36,6 +37,7 @@ import {
 	getSessionIdById,
 	getExistingByIdempotency,
 	loadProducts,
+	loadReceiptSettingsSnapshot,
 	loadRecipesByProduct,
 	loadAddOns
 } from './dataLoader';
@@ -46,6 +48,11 @@ import { computeTransactionFingerprint } from './fingerprint';
 import type { StockDeductions, IngredientDeductions } from './types';
 import { PosPricingTokenError, verifyPosPricingToken } from '../posPricingToken';
 import { validateCheckoutPayload } from '$lib/utils/validation';
+import {
+	decodeReceiptSnapshot,
+	type ReceiptSnapshot,
+	type ReceiptSnapshotSettings
+} from '$lib/utils/receiptSnapshot';
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import { verifyStockPolicyEpoch } from '$lib/server/stockPolicyEpoch';
 import {
@@ -70,12 +77,10 @@ async function parseStoredReceiptSnapshot(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
 	transactionId: string
-): Promise<unknown> {
+): Promise<ReceiptSnapshot> {
 	try {
-		const receipt: unknown = JSON.parse(snapshot);
-		if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) {
-			throw new Error('Snapshot struk bukan object');
-		}
+		const receipt = decodeReceiptSnapshot(snapshot);
+		if (!receipt) throw new Error('Snapshot struk kosong');
 		return receipt;
 	} catch (cause) {
 		await recordErrorEvent(platform, branch, {
@@ -141,9 +146,12 @@ function buildReceiptFromQuote(
 		cashReceived: number;
 		paymentMethod: 'tunai' | 'non-tunai';
 		committedAt: string;
+		customerName: string | null;
+		settings: ReceiptSnapshotSettings | null;
 	}
 ) {
 	return {
+		schema_version: 1 as const,
 		items: quote.items.map((item) => {
 			const unitPrice =
 				normalizeMoney(item.product_price) +
@@ -170,7 +178,9 @@ function buildReceiptFromQuote(
 				? input.cashReceived - input.totalAmount
 				: 0,
 		metode_bayar: input.paymentMethod,
-		committed_at: input.committedAt
+		committed_at: input.committedAt,
+		customer_name: input.customerName || null,
+		settings: input.settings
 	};
 }
 
@@ -626,12 +636,15 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		fail(409, 'Nominal pembayaran non-tunai tidak sama dengan total quote');
 	}
 
+	const receiptSettings = quoteData ? await loadReceiptSettingsSnapshot(db, branch) : null;
 	const receiptSnapshot = quoteData
 		? buildReceiptFromQuote(quoteData, {
 				totalAmount,
 				cashReceived,
 				paymentMethod,
-				committedAt: createdAt
+				committedAt: createdAt,
+				customerName,
+				settings: receiptSettings
 			})
 		: null;
 
@@ -711,7 +724,9 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 					totalAmount: duplicate.nominal,
 					cashReceived,
 					paymentMethod,
-					committedAt: createdAt
+					committedAt: createdAt,
+					customerName,
+					settings: null
 				});
 			}
 
@@ -778,7 +793,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		throw error;
 	}
 
-	// Audit + realtime publish paralel sesudah batch commit.
+	// Audit + realtime publish paralel sesudah batch commit (bounded, AUD-049).
 	const normalizedForAudit = normalizedInputs;
 	const currentCatalogTotal = normalizedForAudit.reduce((sum, item) => {
 		const productPrice = item.productId
@@ -790,7 +805,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		);
 		return sum + (productPrice + addOnTotal) * item.jumlah;
 	}, 0);
-	await Promise.all([
+	await settlePostCommitEffects([
 		appendAuditLog(db, branch, {
 			action: isOfflineReplay
 				? 'pos_transaction.offline_reconciliation_required'
@@ -859,7 +874,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,
 			nomor_harian: nomorHarian,
 			tanggal_nomor: salesDate,
-			receipt: {
+			receipt: receiptSnapshot ?? {
 				items: items.map((item) => {
 					let tambahan: unknown = [];
 					if (item.snapshot_tambahan) {

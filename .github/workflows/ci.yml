@@ -188,6 +188,12 @@ jobs:
       - name: Run Realtime Suite
         run: pnpm test:realtime
 
+      - name: Run Post-Commit Suite
+        run: pnpm test:post-commit
+
+      - name: Run Post-Commit Workerd Suite
+        run: pnpm exec tsx src/tests/post-commit-tests.ts --d1
+
       - name: Run Stock Policy Suites
         run: |
           pnpm test:stock-policy

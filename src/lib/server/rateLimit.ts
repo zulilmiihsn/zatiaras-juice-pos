@@ -14,26 +14,47 @@ function rateLimitId(branch: BranchId, identifier: string) {
 	return `${branch}:${identifier}`;
 }
 
+/**
+ * Budget fetch rate-limit DO (AUD-049): DO hang tak boleh menahan
+ * checkout/login. Timeout kembalikan null agar fallback D1 jalan;
+ * stub abaikan-signal ditangani timer backstop + cleanup.
+ */
+export const RATE_LIMIT_DO_TIMEOUT_MS = 2000;
+
 async function consumeDurableRateLimit(
 	platform: App.Platform | undefined,
 	branch: BranchId,
 	identifier: string,
 	limit: number,
-	windowMs: number
+	windowMs: number,
+	timeoutMs: number = RATE_LIMIT_DO_TIMEOUT_MS
 ): Promise<RateLimitResult | null> {
 	try {
 		const hub = platform?.env?.REALTIME_HUB;
 		if (!hub) return null;
 
+		const budget = Math.max(1, timeoutMs);
 		const id = hub.idFromName(branch);
 		const stub = hub.get(id);
-		const response = await stub.fetch(
-			new Request('https://rate-limit.local/rate-limit', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ identifier, limit, windowMs })
-			})
-		);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let response: Response;
+		try {
+			response = await Promise.race([
+				stub.fetch(
+					new Request('https://rate-limit.local/rate-limit', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ identifier, limit, windowMs }),
+						signal: AbortSignal.timeout(budget)
+					})
+				),
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(() => reject(new Error('rate limit DO timeout')), budget);
+				})
+			]);
+		} finally {
+			if (timer !== undefined) clearTimeout(timer);
+		}
 		if (!response.ok) return null;
 
 		const payload = (await response.json()) as Partial<RateLimitResult>;

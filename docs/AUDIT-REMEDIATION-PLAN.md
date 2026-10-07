@@ -252,7 +252,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Passed local | opencode | §12 AUD-046 2026-10-07      |
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Passed local | opencode | §12 AUD-047 2026-10-07      |
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Passed local | opencode | §12 AUD-048 2026-10-07      |
-| [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Passed local | opencode | §12 AUD-049 2026-10-07      |
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Pending      | —        | —                           |
@@ -1486,6 +1486,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: rollback 6/6 lulus; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Rehearsal rollback staging nyata butuh operator (F7).
 - Rollback: revert empat file via release berizin.
+
+### AUD-049 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: `await Promise.all([audit, publish...])` tanpa deadline + `consumeDurableRateLimit` fetch DO tanpa timeout — stub gantung = respons checkout gantung selamanya (terbukti debug: sale tak kembali; nohub 134ms).
+- Fix: `settlePostCommitEffects` baru (budget 5s, timer ref'd + cleanup, allSettled tanpa unhandled rejection); `publishBranchEvent` timeout 3s (AbortSignal + timer backstop untuk stub abaikan-signal); `consumeRateLimit` DO timeout 2s → fallback D1. Checkout hung-stall kini kembali ~5.2s, sale tepat satu, retry idempoten. Timer `unref` DITOLAK — buktikan ia mematahkan budget (loop kosong keluar sebelum timer).
+- File ubah: `postCommit.ts` baru, `realtimePublisher.ts`, `rateLimit.ts`, `checkoutUseCase.ts` (1 call), suite `post-commit-tests.ts`, `package.json` + step CI SQLite + workerd.
+- Gate lokal: post-commit SQLite + `--d1` lulus; pos-integrity, stock-policy, realtime lulus; `check` 0/0; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Budget worst-case ~7s (2s ratelimit + 5s settle) dinyatakan, bukan diukur beban nyata (AUD-057).
+- Rollback: revert enam file via release berizin; tanpa migrasi.
 
 ### AUD-048 2026-10-07 — Passed local (opencode)
 
