@@ -259,7 +259,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Passed local | opencode | §12 AUD-055 2026-10-07      |
-| [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Passed local | opencode | §12 AUD-056 2026-10-07      |
 | [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Pending      | —        | —                           |
 | [ ]  | [AUD-058](#aud-058) | F7   | P1        | O     | Inventaris/rekonsiliasi data terdampak aktual    | 005, 008, 009, 010, 011, 013, 015, 031, 032, 041, 042, 043, 044, 045, 046, 047           | Pending      | —        | —                           |
 | [ ]  | [AUD-059](#aud-059) | F7   | P0        | O     | Backup/restore/migrasi/rollback shard nyata      | 058, 046, 047, 056, 057                                                                  | Pending      | —        | —                           |
@@ -1552,6 +1552,14 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: uat-target 4/4 lulus (termasuk CLI asli tolak lookalike pre-network).
 - Batas bukti: CI SHA sama + reviewer belum. Windows+Ubuntu + intersepsi transport tercakup pattern operasi; tanpa secret nyata.
 - Rollback: revert empat file via release berizin.
+
+### AUD-056 2026-10-07 — Passed local (opencode)
+
+- Diagnosis: blob HEAD LF-only (terbukti `git show`); CRLF hanya working copy basi pre-`.gitattributes` — `_journal.json` 293 CRLF + `pnpm-workspace.yaml` 30 CRLF. Perbaikan: normalisasi EOL 2 file itu saja (konten jurnal 0038–0040 utuh); runtime/assets/SQL/backup/arsip tetap raw exact; file basi lain tak disentuh.
+- Bukti fresh-checkout: `git worktree` HEAD → journal/manifest/pnpm-workspace/package/wrangler.pages 0 CRLF; worktree dibuang. Tanpa patch salinan manual.
+- Gate lokal: migration-matrix 41/41 + quick_check ok; release-gate 10/10 lulus; `diff --check` tanpa warning journal.
+- Batas bukti: CI SHA sama (Linux LF) + reviewer belum.
+- Rollback: revert via release berizin.
 
 ## 13. Referensi kontrak dan vendor
 
