@@ -165,6 +165,27 @@ if (realtimeBinding?.script_name !== realtimeConfig.name) {
 	);
 }
 
+// Paritas shard D1 lintas config (AUD-050): Pages, app intent, dan Worker
+// realtime WAJIB menunjuk database_id yang sama — drift diam-diam berarti
+// cabang baca shard berbeda antara runtime.
+const realtimeIds = new Map(
+	(realtimeConfig.d1_databases || []).map((d) => [d.binding, d.database_id])
+);
+for (const database of pageConfig.d1_databases || []) {
+	if (realtimeIds.get(database.binding) !== database.database_id) {
+		fail(
+			`D1 ${database.binding}: pages ${database.database_id} != realtime ${realtimeIds.get(database.binding)}`
+		);
+	}
+}
+
+// Cron relay + cleanup harian wajib ada (runbook §10a.1).
+for (const cron of ['* * * * *', '0 3 * * *']) {
+	if (!(realtimeConfig.triggers?.crons || []).includes(cron)) {
+		fail(`wrangler.realtime.jsonc kehilangan cron ${cron}`);
+	}
+}
+
 if (!process.exitCode) {
 	console.log('[cloudflare-config] deploy config looks ready');
 }

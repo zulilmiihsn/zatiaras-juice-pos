@@ -253,7 +253,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Passed local | opencode | §12 AUD-047 2026-10-07      |
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Passed local | opencode | §12 AUD-048 2026-10-07      |
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Passed local | opencode | §12 AUD-049 2026-10-07      |
-| [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Pending      | —        | —                           |
+| [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Passed local | opencode | §12 AUD-050 2026-10-07      |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
@@ -1495,6 +1495,16 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: post-commit SQLite + `--d1` lulus; pos-integrity, stock-policy, realtime lulus; `check` 0/0; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Budget worst-case ~7s (2s ratelimit + 5s settle) dinyatakan, bukan diukur beban nyata (AUD-057).
 - Rollback: revert enam file via release berizin; tanpa migrasi.
+
+### AUD-050 2026-10-07 — Passed local (opencode)
+
+- Temuan: Pages (`wrangler.pages.jsonc`) tanpa REALTIME_HUB — binding hidup di `wrangler.jsonc` (script_name → worker realtime) + dashboard; patch `_worker.js` berupa text-insert rapuh tanpa verifikasi pasca-tulis.
+- Fix: `export-durable-objects` murni + idempoten (`patchWorkerText`/`verifyPatchedWorker` terekspor, guard CLI agar import aman) + verifikasi baca-balik artifact (marker tepat 1x + hookup). `deploy:check` kini gagalkan drift: paritas database_id Pages↔realtime per binding + cron relay/cleanup. Paritas sesi: intercept samakan route (cookie sid + prefix cabang + expiry + 401/503); tanpa cek role di keduanya by design (kanal invalidasi; data lewat API role-gated).
+- Bukti build nyata: `pnpm build` lulus; `_worker.js` marker 1x + hookup; skrip cetak verifikasi.
+- File ubah: `export-durable-objects.mjs`, `verify-cloudflare-deploy-config.mjs`, suite `realtime-artifact.test.mjs`, `package.json` (`test:realtime-artifact` + rantai operations).
+- Gate lokal: realtime-artifact 3/3 lulus; build produksi lulus; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Smoke websocket/heartbeat/fanout staging + urutan deploy butuh operator (F7).
+- Rollback: revert empat file via release berizin; tanpa migrasi.
 
 ### AUD-048 2026-10-07 — Passed local (opencode)
 

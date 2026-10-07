@@ -1,10 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const workerPath = resolve(root, '.svelte-kit/cloudflare/_worker.js');
-const interceptMarker = '// ZATIARAS_REALTIME_WORKER_INTERCEPT';
+export const interceptMarker = '// ZATIARAS_REALTIME_WORKER_INTERCEPT';
 const interceptCode = `${interceptMarker}
 const ZATIARAS_REALTIME_BRANCHES = new Set([
   'samarinda',
@@ -101,6 +100,16 @@ async function zatiarasHandleRealtime(req, env) {
 
 async function main() {
 	let worker = await readFile(workerPath, 'utf8');
+	worker = patchWorkerText(worker);
+	await writeFile(workerPath, worker);
+	// Verifikasi pasca-tulis pada artifact sebenarnya (AUD-050): patch
+	// tepat sekali, hookup ada — bukan klaim dari log sukses semata.
+	verifyPatchedWorker(await readFile(workerPath, 'utf8'));
+	console.log('[durable-object-export] realtime intercept terverifikasi pada artifact');
+}
+
+/** Patch teks worker murni (diuji tanpa build): tepat-sekali + fail-closed. */
+export function patchWorkerText(worker) {
 	if (!worker.includes(interceptMarker)) {
 		const insertionPoint = 'var worker_default = {';
 		if (!worker.includes(insertionPoint)) {
@@ -123,11 +132,27 @@ async function main() {
     let pragma = req.headers.get("cache-control") || "";`
 		);
 	}
-
-	await writeFile(workerPath, worker);
+	return worker;
 }
 
-main().catch((error) => {
-	console.error('[durable-object-export] failed:', error);
-	process.exit(1);
-});
+/** Assert artifact ter-patch tepat sekali dengan hookup lengkap. */
+export function verifyPatchedWorker(worker) {
+	const markers = worker.split(interceptMarker).length - 1;
+	if (markers !== 1) throw new Error(`Intecept realtime muncul ${markers}x (harus 1)`);
+	if (!worker.includes('const realtimeResponse = await zatiarasHandleRealtime(req, env2);')) {
+		throw new Error('Hookup realtime hilang pada artifact');
+	}
+	if (!worker.includes('if (realtimeResponse) return realtimeResponse;')) {
+		throw new Error('Return realtime hilang pada artifact');
+	}
+	return true;
+}
+
+const isCli =
+	process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (isCli) {
+	main().catch((error) => {
+		console.error('[durable-object-export] failed:', error);
+		process.exit(1);
+	});
+}
