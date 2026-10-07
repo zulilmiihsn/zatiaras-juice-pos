@@ -260,7 +260,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Passed local | opencode | §12 AUD-055 2026-10-07      |
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Passed local | opencode | §12 AUD-056 2026-10-07      |
-| [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Pending      | —        | —                           |
+| [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Passed local | opencode | §12 AUD-057 2026-10-07      |
 | [ ]  | [AUD-058](#aud-058) | F7   | P1        | O     | Inventaris/rekonsiliasi data terdampak aktual    | 005, 008, 009, 010, 011, 013, 015, 031, 032, 041, 042, 043, 044, 045, 046, 047           | Pending      | —        | —                           |
 | [ ]  | [AUD-059](#aud-059) | F7   | P0        | O     | Backup/restore/migrasi/rollback shard nyata      | 058, 046, 047, 056, 057                                                                  | Pending      | —        | —                           |
 | [ ]  | [AUD-060](#aud-060) | F7   | P1        | O     | Web Push dan realtime perangkat nyata            | 002, 003, 004, 050, 051                                                                  | Pending      | —        | —                           |
@@ -1560,6 +1560,18 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: migration-matrix 41/41 + quick_check ok; release-gate 10/10 lulus; `diff --check` tanpa warning journal.
 - Batas bukti: CI SHA sama (Linux LF) + reviewer belum.
 - Rollback: revert via release berizin.
+
+### AUD-057 2026-10-07 — Passed local (opencode)
+
+- Budget dinyatakan dulu (workstation Windows/Node 26.8.1, SQLite lokal, kandidat ini):
+  restore chunk-apply ≤15s/100 baris; laporan ≤2s/≤10rb baris; checkout normal ≤2s,
+  stall penuh bounded ≤7s (2s ratelimit + 5s settle). Bundle 445KB max-chunk DICATAT, bukan bukti UX.
+- Ukur: chunk-plan 2000 baris 144ms (20 chunk); apply 2000 baris 3973ms (~500 baris/s);
+  agregat laporan 2000 baris 142ms paritas exact 21.999.000; checkout normal 134–222ms;
+  checkout stall-hang 5201ms (satu sale, bounded). Semua dalam budget dengan headroom besar.
+- Batas bukti: lokal saja. Cold/warm browser, Worker/D1 terkompilasi, arsip 22rb legacy,
+  dan trafik produksi butuh staging + observasi operator. Fixture tak dikecilkan.
+- Rollback: tanpa perubahan kode (catatan bukti saja).
 
 ## 13. Referensi kontrak dan vendor
 
