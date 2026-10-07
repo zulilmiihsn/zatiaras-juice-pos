@@ -24,7 +24,8 @@
  *   node scripts/wipe-branch-history.mjs --branch samarinda --backup-manifest <manifest> --apply --confirm samarinda
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyManifest } from './d1-backup.mjs';
@@ -106,6 +107,64 @@ export function deleteSql(table, branch) {
 	return { sql: `DELETE FROM ${table} WHERE cabang_id = ?`, params: [branch] };
 }
 
+/**
+ * Satu operasi hapus atomik bounded per cabang (AUD-045): 15 DELETE anak-dulu
+ * + guard nol per tabel dalam SATU transaksi. Gagal statement tengah/akhir
+ * = seluruh batch rollback, tanpa state parsial. Semua statement ter-scope
+ * cabang_id — sibling dalam shard sama tak tersentuh.
+ */
+export function buildWipeSql(branch) {
+	if (!BRANCH_BINDINGS[branch])
+		throw new Error('--branch wajib salah satu: samarinda, balikpapan, berau');
+	const safe = branch.replace(/'/g, "''");
+	const lines = ['-- ZatiarasPOS Wipe Branch History (atomic)', 'BEGIN TRANSACTION;'];
+	for (const table of WIPE_TABLES) {
+		lines.push(`DELETE FROM ${table} WHERE cabang_id = '${safe}';`);
+		lines.push(
+			`SELECT CASE WHEN ((SELECT COUNT(*) FROM ${table} WHERE cabang_id = '${safe}') = 0) THEN 1 ELSE json('WIPE_REMAIN:${table}') END;`
+		);
+	}
+	lines.push('COMMIT;');
+	return {
+		sql: lines.join('\n'),
+		statements: lines.slice(1, -1),
+		branch,
+		tables: [...WIPE_TABLES]
+	};
+}
+
+/** Tulis SQL ke file sementara lalu eksekusi satu --file (satu transaksi D1). */
+function applySqlFile(binding, sqlText) {
+	const tempFile = join(tmpdir(), `wipe-${Date.now()}-${Math.floor(Math.random() * 1e6)}.sql`);
+	writeFileSync(tempFile, sqlText, 'utf8');
+	try {
+		const result = spawnSync(
+			'npx',
+			[
+				'wrangler',
+				'd1',
+				'execute',
+				binding,
+				'--remote',
+				'--config',
+				CONFIG_FILE,
+				`--file=${tempFile}`,
+				'--yes'
+			],
+			{ encoding: 'utf8', stdio: 'pipe' }
+		);
+		if (result.status !== 0) {
+			throw new Error(`wipe apply gagal: ${(result.stderr || result.stdout || '').slice(0, 500)}`);
+		}
+	} finally {
+		try {
+			unlinkSync(tempFile);
+		} catch {
+			// best-effort: file tmp tanpa secret; kegagalan hapus dilaporkan non-fatal.
+		}
+	}
+}
+
 function wranglerExecute(binding, sql, params) {
 	const quoted = params.map((p) => `'${String(p).replace(/'/g, "''")}'`);
 	let finalSql = sql;
@@ -136,7 +195,8 @@ function wranglerExecute(binding, sql, params) {
 
 export async function wipeBranchHistory(
 	{ branch, backupManifest, apply },
-	execute = wranglerExecute
+	execute = wranglerExecute,
+	applyFile = applySqlFile
 ) {
 	const { binding } = await assertBackupCoversBranch(backupManifest, branch);
 	// Fase 1: hitung semua + guard arsip SEBELUM menghapus apa pun.
@@ -152,17 +212,24 @@ export async function wipeBranchHistory(
 			);
 		}
 	}
-	// Fase 2: hapus + verifikasi nol per tabel.
+	// Fase 2: satu transaksi atomik (bukan 15 remote call). Gagal di tengah
+	// = rollback utuh; verifikasi nol sudah di dalam transaksi via guard.
 	const report = [];
-	for (const table of WIPE_TABLES) {
-		const before = counts.get(table) ?? 0;
-		let after = before;
-		if (apply && before > 0) {
-			execute(binding, deleteSql(table, branch).sql, [branch]);
-			after = Number(execute(binding, countSql(table, branch).sql, [branch])?.n ?? 0);
-			if (after !== 0) throw new Error(`Gagal mengosongkan ${table}: sisa ${after}. Hentikan.`);
+	if (apply) {
+		applyFile(binding, buildWipeSql(branch).sql);
+		for (const table of WIPE_TABLES) {
+			const after = Number(execute(binding, countSql(table, branch).sql, [branch])?.n ?? 0);
+			report.push({ table, before: counts.get(table) ?? 0, after });
 		}
-		report.push({ table, before, after });
+		const remain = report.filter((r) => r.after !== 0);
+		if (remain.length > 0)
+			throw new Error(
+				`Wipe tak konsisten: ${remain.map((r) => `${r.table}:${r.after}`).join(', ')}. Pulihkan dari backup.`
+			);
+	} else {
+		for (const table of WIPE_TABLES) {
+			report.push({ table, before: counts.get(table) ?? 0, after: counts.get(table) ?? 0 });
+		}
 	}
 	return { branch, binding, apply, report };
 }

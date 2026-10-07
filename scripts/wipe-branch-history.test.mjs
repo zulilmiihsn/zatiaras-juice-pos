@@ -8,15 +8,28 @@ import {
 	parseArgs,
 	WIPE_TABLES,
 	assertBackupCoversBranch,
+	buildWipeSql,
 	wipeBranchHistory
 } from './wipe-branch-history.mjs';
 
 // Fixture backup NYATA: 3 shard cocok config produksi + readback SHA + COMPLETE.
 // Tanpa ini verifier kanonik menolak — sama seperti CLI produksi.
 const SHARDS = [
-	{ binding: 'DB_SAMARINDA_GROUP', name: 'zatiaras-samarinda-group', id: 'b6aafe5b-fd11-436d-9b9e-c007bd531c9e' },
-	{ binding: 'DB_BALIKPAPAN_GROUP', name: 'zatiaras-balikpapan-group', id: '312940d7-b0c0-43e5-86fd-78b762cacb6e' },
-	{ binding: 'DB_BERAU_GROUP', name: 'zatiaras-berau-group', id: '18e2f751-5d54-4bec-b0bc-ae6e1378cdb6' }
+	{
+		binding: 'DB_SAMARINDA_GROUP',
+		name: 'zatiaras-samarinda-group',
+		id: 'b6aafe5b-fd11-436d-9b9e-c007bd531c9e'
+	},
+	{
+		binding: 'DB_BALIKPAPAN_GROUP',
+		name: 'zatiaras-balikpapan-group',
+		id: '312940d7-b0c0-43e5-86fd-78b762cacb6e'
+	},
+	{
+		binding: 'DB_BERAU_GROUP',
+		name: 'zatiaras-berau-group',
+		id: '18e2f751-5d54-4bec-b0bc-ae6e1378cdb6'
+	}
 ];
 function realBackupFixture() {
 	const dir = mkdtempSync(join(tmpdir(), 'wipe-test-'));
@@ -90,7 +103,9 @@ await test('manifest backup nyata wajib COMPLETE dan memuat cabang', async () =>
 		assert.equal((await assertBackupCoversBranch(path, 'samarinda')).binding, 'DB_SAMARINDA_GROUP');
 		await assert.rejects(() => assertBackupCoversBranch(path, 'jakarta'), /--branch wajib/);
 		// Tanpa COMPLETE: ditolak sebelum DELETE.
-		const { default: { unlinkSync } } = await import('node:fs');
+		const {
+			default: { unlinkSync }
+		} = await import('node:fs');
 		unlinkSync(join(dir, 'COMPLETE'));
 		await assert.rejects(() => assertBackupCoversBranch(path, 'samarinda'), /COMPLETE/);
 	} finally {
@@ -103,10 +118,7 @@ await test('manifest palsu/parsial/rusak ditolak sebelum hapus', async () => {
 	try {
 		const bad = join(dir, 'manifest.json');
 		// actualBackupFiles0: klaim tanpa file nyata.
-		writeFileSync(
-			bad,
-			JSON.stringify({ schema: 'zatiaraspos-d1-backup-v1', shards: [] })
-		);
+		writeFileSync(bad, JSON.stringify({ schema: 'zatiaraspos-d1-backup-v1', shards: [] }));
 		await assert.rejects(() => assertBackupCoversBranch(bad, 'samarinda'), /tepat tiga shard/);
 		writeFileSync(bad, 'bukan-json');
 		await assert.rejects(() => assertBackupCoversBranch(bad, 'samarinda'));
@@ -165,21 +177,60 @@ await test('arsip berisi membatalkan sebelum hapus apa pun', async () => {
 	}
 });
 
-await test('apply menghapus sesuai urutan dan verifikasi nol', async () => {
+await test('apply satu transaksi atomik: urutan + scope + guard', async () => {
 	const { dir, path } = tempManifest();
 	try {
 		const seen = [];
+		const counts = { transaksi_kasir: 2, buku_kas: 1 };
+		const applied = [];
 		const result = await wipeBranchHistory(
 			{ branch: 'samarinda', backupManifest: path, apply: true },
-			fakeExecutor({ transaksi_kasir: 2, buku_kas: 1 }, seen)
+			fakeExecutor(counts, seen),
+			(binding, sql) => {
+				applied.push({ binding, sql });
+				for (const table of WIPE_TABLES) counts[table] = 0;
+			}
 		);
-		const deletes = seen.filter((s) => s.startsWith('DELETE'));
-		assert.deepEqual(
-			deletes.map((s) => s.match(/FROM (\w+)/)?.[1]),
-			['transaksi_kasir', 'buku_kas']
+		// Tepat satu file apply ke binding cabang.
+		assert.equal(applied.length, 1);
+		assert.equal(applied[0].binding, 'DB_SAMARINDA_GROUP');
+		const sql = applied[0].sql;
+		assert.ok(sql.startsWith('-- ZatiarasPOS Wipe'));
+		assert.ok(sql.includes('BEGIN TRANSACTION;'));
+		assert.ok(sql.trimEnd().endsWith('COMMIT;'));
+		// Anak sebelum induk; semua DELETE ter-scope cabang; guard nol per tabel.
+		const deletes = [...sql.matchAll(/DELETE FROM (\w+) WHERE cabang_id = 'samarinda';/g)].map(
+			(m) => m[1]
 		);
+		assert.deepEqual(deletes, [...WIPE_TABLES]);
+		assert.ok(!/DELETE FROM \w+;/.test(sql), 'tanpa DELETE tanpa scope cabang');
+		for (const table of WIPE_TABLES) {
+			assert.ok(sql.includes(`WIPE_REMAIN:${table}`), `guard ${table}`);
+		}
 		assert.ok(result.report.every((r) => r.after === 0));
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+await test('apply gagal = throw sebelum klaim sukses', async () => {
+	const { dir, path } = tempManifest();
+	try {
+		await assert.rejects(
+			wipeBranchHistory(
+				{ branch: 'samarinda', backupManifest: path, apply: true },
+				fakeExecutor({ buku_kas: 1 }, []),
+				() => {
+					throw new Error('wrangler gagal: boom');
+				}
+			),
+			/wipe apply gagal|wrangler gagal/
+		);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+await test('buildWipeSql menolak cabang tak dikenal', () => {
+	assert.throws(() => buildWipeSql('jakarta'), /--branch wajib/);
 });

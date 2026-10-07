@@ -248,7 +248,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-042](#aud-042) | F4   | P1        | R     | Preflight semua field bisnis restore             | 041                                                                                      | Passed local | opencode | §12 AUD-042 2026-10-07      |
 | [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Passed local | opencode | §12 AUD-043 2026-10-07      |
 | [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Passed local | opencode | §12 AUD-044 2026-10-07      |
-| [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Passed local | opencode | §12 AUD-045 2026-10-07      |
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Pending      | —        | —                           |
@@ -1458,6 +1458,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - File ubah: `wipe-branch-history.mjs`, regresi `wipe-branch-history.test.mjs` (fixture backup nyata 3 shard + COMPLETE; palsu/parsial/rusak ditolak).
 - Gate lokal: `test:d1-wipe` 7/7 lulus; `check` menyusul di gate cohort.
 - Batas bukti: CI SHA sama + reviewer belum. Tanpa mutasi remote di test (executor palsu).
+- Rollback: revert dua file via release berizin.
+
+### AUD-045 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: hapus 15 tabel via 15 remote call berurutan + verifikasi terpisah — gagal tengah = histori parsial, sibling berisiko.
+- Fix: `buildWipeSql` murni — satu transaksi (BEGIN/COMMIT) berisi 15 DELETE anak-dulu + guard nol per tabel (`WIPE_REMAIN`), semua ter-scope `cabang_id`. CLI: preflight hitung + guard arsip dulu, lalu TEPAT SATU `--file` apply, lalu baca verifikasi pelaporan. Gagal apply/inkonsisten = throw tanpa klaim sukses.
+- File ubah: `wipe-branch-history.mjs`, regresi `wipe-branch-history.test.mjs` (satu call, urutan, scope tanpa DELETE telanjang, guard per tabel, failure injection, cabang tak dikenal).
+- Gate lokal: `test:d1-wipe` 9/9 lulus; `test:d1-backup` 9/9 utuh (verifier tak tersentuh).
+- Batas bukti: CI SHA sama + reviewer belum. Eksekusi remote + konkurensi SQLite/workerd butuh operator (F7).
 - Rollback: revert dua file via release berizin.
 
 ## 13. Referensi kontrak dan vendor
