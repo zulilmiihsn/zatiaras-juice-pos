@@ -9,6 +9,7 @@ export { RealtimeDurableObject } from './realtimeDurableObject.js';
 // otomatis; ledger/struk/arsip bukan log teknis dan tak tersentuh.
 const LOG_RETENTION_DAYS = 90;
 const CLEANUP_TABLES = ['audit_logs', 'request_metrics', 'error_events'];
+/** @type {import('./branchResolver').BranchDbBinding[]} */
 const DB_BINDINGS = ['DB_SAMARINDA_GROUP', 'DB_BALIKPAPAN_GROUP', 'DB_BERAU_GROUP'];
 // Drain outbox per run: halaman 100 x maks 10 (1000 baris) agar backlog
 // besar pulih dalam budget terukur, bukan selamanya 100/hari.

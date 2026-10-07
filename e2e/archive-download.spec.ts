@@ -106,7 +106,10 @@ async function seedOldRow(page: Page, id: string, nominal: number) {
 			metode_bayar: 'tunai'
 		}
 	});
-	expect(res.ok(), `seed ${id} status=${res.status()} body=${(await res.text()).slice(0, 200)}`).toBe(true);
+	expect(
+		res.ok(),
+		`seed ${id} status=${res.status()} body=${(await res.text()).slice(0, 200)}`
+	).toBe(true);
 }
 
 // AUD-040: arsip -> unduh otomatis -> unduh ulang byte-identik (retry
