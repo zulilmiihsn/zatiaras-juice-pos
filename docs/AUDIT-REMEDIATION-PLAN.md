@@ -246,7 +246,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-040](#aud-040) | F4   | P1        | S     | Resume archive benar-benar mengunduh             | 039                                                                                      | Passed local | opencode | §12 AUD-040 2026-10-07      |
 | [ ]  | [AUD-041](#aud-041) | F4   | P1        | S     | Versioned snapshot dan field restore eksplisit   | 001                                                                                      | Passed local | opencode | §12 AUD-041 2026-10-06      |
 | [ ]  | [AUD-042](#aud-042) | F4   | P1        | R     | Preflight semua field bisnis restore             | 041                                                                                      | Passed local | opencode | §12 AUD-042 2026-10-07      |
-| [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Pending      | —        | —                           |
+| [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Passed local | opencode | §12 AUD-043 2026-10-07      |
 | [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Pending      | —        | —                           |
@@ -1440,6 +1440,16 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: suite SQLite + `--d1` lulus; guard/usecase/restore lama lulus; `check` 0/0; prettier + `diff --check` bersih.
 - Batas bukti: CI SHA sama + reviewer belum; tree belum commit. Bounded staging/execution tetap AUD-043.
 - Rollback: revert tiga file via release berizin; tanpa migrasi.
+
+### AUD-043 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: CLI baca preflight satu wrangler per 50 ID (20rb baris = 800 subprocess) lalu satu `--file` tak berbatas — gagal tengah = partial state, tanpa resume.
+- Fix: `planRestore` tunggal (validasi + guard + insert satu sumber; `buildRestoreSql` kini merakit dari plan, tanpa dua implementasi) + `buildRestoreChunks` (default 100 baris/chunk, jauh di bawah batas variabel SQLite 999): tiap chunk BEGIN/COMMIT sendiri berisi guard barisnya + summary guard + insert idempoten + counter MAX + marker upsert (semua aman-ulang). CLI: preflight penuh dulu (baca 200 ID/chunk), dry-run cetak rencana, apply per-chunk dengan checkpoint `tmpdir/restore-<sha12>/chunk-<i>.done`, ulangi perintah = resume. Arsip kecil = satu chunk; paritas statement vs single-shot dibuktikan tes.
+- Gagal beralasan di lama: chunk/crash/resume hijau di baru (SQLite + workerd D1).
+- File ubah: `restore-archive-lib.mjs` (plan + chunk), `restore-archive.mjs` (chunk apply + checkpoint + `--chunk-rows`), suite baru `restore-chunk-tests.ts`, `package.json` + step CI SQLite + workerd.
+- Gate lokal: chunk + apply + guard lama lulus 2 mode; `check` 0/0; prettier + `diff --check` bersih; docs/maintainability lulus.
+- Batas bukti: CI SHA sama + reviewer belum; tree belum commit. Eksekusi CLI nyata + volume legacy butuh operator (F7).
+- Rollback: revert lima file via release berizin; tanpa migrasi.
 
 ## 13. Referensi kontrak dan vendor
 

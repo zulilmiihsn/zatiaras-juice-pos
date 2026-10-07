@@ -167,6 +167,12 @@ jobs:
       - name: Run Restore Apply Suite
         run: pnpm test:restore-apply
 
+      - name: Run Restore Chunk Suite
+        run: pnpm test:restore-chunk
+
+      - name: Run Restore Chunk Workerd Suite
+        run: pnpm exec tsx src/tests/restore-chunk-tests.ts --d1
+
       - name: Run Menu Atomic Suite
         run: pnpm test:menu-atomic
 

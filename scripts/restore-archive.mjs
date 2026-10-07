@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,7 +6,8 @@ import {
 	parseRestoreArgs,
 	sha256Hex,
 	validateArchive,
-	buildRestoreSql,
+	buildRestoreChunks,
+	DEFAULT_RESTORE_CHUNK_ROWS,
 	diffAgainstExisting,
 	BK_FIELDS,
 	TK_FIELDS
@@ -188,7 +189,10 @@ console.log('\n[RESTORE]: Preflight target (konflik + agregat POS)...');
 
 const existingBk = new Map();
 const existingTk = new Map();
-for (const chunk of chunked(buku_kas, 50)) {
+// Baca preflight per 200 ID: jauh di bawah batas variabel SQLite (999),
+// 4x lebih sedikit subprocess wrangler dibanding 50.
+const READ_CHUNK = 200;
+for (const chunk of chunked(buku_kas, READ_CHUNK)) {
 	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
 	const rows = queryTarget(`SELECT id, ${BK_FIELDS.join(', ')} FROM buku_kas WHERE id IN (${ids})`);
 	if (!rows) {
@@ -197,7 +201,7 @@ for (const chunk of chunked(buku_kas, 50)) {
 	}
 	for (const r of rows) existingBk.set(String(r.id), r);
 }
-for (const chunk of chunked(transaksi_kasir, 50)) {
+for (const chunk of chunked(transaksi_kasir, READ_CHUNK)) {
 	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
 	const rows = queryTarget(
 		`SELECT id, ${TK_FIELDS.join(', ')} FROM transaksi_kasir WHERE id IN (${ids})`
@@ -247,49 +251,74 @@ if (posDates.length > 0) {
 	console.log(`Preflight agregat: ${posDates.length} tanggal POS tercakup.`);
 }
 
-console.log('\n[RESTORE]: Generating SQL transaction statements...');
+console.log('\n[RESTORE]: Generating bounded chunk transactions...');
 
-const built = buildRestoreSql(archive, { sha256 });
-const sqlText = built.sql;
-const sqlLines = sqlText.split('\n');
+// Apply terbagi per chunk transaksi (AUD-043): tiap chunk BEGIN/COMMIT
+// sendiri berisi guard barisnya + insert idempoten + upsert aman-ulang.
+// Checkpoint per chunk membuat crash/resume idempoten; sumber arsip utuh.
+const chunkRows = Math.max(1, Number(argValue('--chunk-rows')) || DEFAULT_RESTORE_CHUNK_ROWS);
+const planned = buildRestoreChunks(archive, { sha256 }, chunkRows);
+const checkpointDir = join(tmpdir(), `restore-${sha256.slice(0, 12)}`);
+mkdirSync(checkpointDir, { recursive: true });
+const doneMarker = (index) => join(checkpointDir, `chunk-${index}.done`);
+const pending = planned.chunks.filter((c) => !existsSync(doneMarker(c.index)));
 
-const tempSqlFile = join(tmpdir(), `restore-${built.archiveId.slice(0, 8)}-${Date.now()}.sql`);
-writeFileSync(tempSqlFile, sqlText, 'utf8');
+console.log(
+	`Rencana ${planned.chunks.length} chunk x <=${chunkRows} baris (${planned.totalRows} baris); ${pending.length} pending, checkpoint ${checkpointDir}.`
+);
 
-console.log(`Generated restore SQL (${sqlLines.length} statements) at: ${tempSqlFile}`);
-
-const wranglerArgs = [
-	'wrangler',
-	'd1',
-	'execute',
-	resolvedBinding,
-	isRemote ? '--remote' : '--local',
-	'--config=wrangler.pages.jsonc',
-	`--file=${tempSqlFile}`,
-	'--yes'
-];
-
-console.log(`Executing: npx ${wranglerArgs.join(' ')}`);
-
-const result = spawnSync('npx', wranglerArgs, {
-	stdio: 'pipe',
-	encoding: 'utf8',
-	shell: process.platform === 'win32'
-});
-
-try {
-	unlinkSync(tempSqlFile);
-} catch (error) {
-	console.warn(
-		'WARNING: proses restore selesai, tetapi file SQL sementara gagal dihapus.',
-		error instanceof Error ? error.message : String(error)
+if (isDryRun) {
+	for (const c of planned.chunks)
+		console.log(` - chunk ${c.index}: ${c.rows} baris, ${c.statements.length} statement`);
+	console.log(
+		'\n[DRY RUN]: Validation complete. 0 database mutations made. Pass --apply to restore.'
 	);
+	process.exit(0);
 }
 
-if (result.status !== 0) {
-	console.error(`RESTORE EXECUTION FAILED (exit code ${result.status}):`);
-	console.error(result.stderr || result.stdout);
-	process.exit(1);
+for (const c of pending) {
+	const tempSqlFile = join(
+		tmpdir(),
+		`restore-${planned.archiveId.slice(0, 8)}-c${c.index}-${Date.now()}.sql`
+	);
+	writeFileSync(tempSqlFile, c.sql, 'utf8');
+	console.log(`[RESTORE] chunk ${c.index}/${planned.chunks.length - 1}: ${c.rows} baris...`);
+
+	const wranglerArgs = [
+		'wrangler',
+		'd1',
+		'execute',
+		resolvedBinding,
+		isRemote ? '--remote' : '--local',
+		'--config=wrangler.pages.jsonc',
+		`--file=${tempSqlFile}`,
+		'--yes'
+	];
+
+	const result = spawnSync('npx', wranglerArgs, {
+		stdio: 'pipe',
+		encoding: 'utf8',
+		shell: process.platform === 'win32'
+	});
+
+	try {
+		unlinkSync(tempSqlFile);
+	} catch (error) {
+		console.warn(
+			'WARNING: proses restore selesai, tetapi file SQL sementara gagal dihapus.',
+			error instanceof Error ? error.message : String(error)
+		);
+	}
+
+	if (result.status !== 0) {
+		console.error(`RESTORE CHUNK ${c.index} FAILED (exit code ${result.status}):`);
+		console.error(result.stderr || result.stdout);
+		console.error(
+			`Chunk 0..${c.index - 1} sudah commit dan idempoten; ulangi perintah sama untuk resume. Ledger utuh per chunk.`
+		);
+		process.exit(1);
+	}
+	writeFileSync(doneMarker(c.index), `${new Date().toISOString()} ok\n`, 'utf8');
 }
 
 console.log('✅ RESTORE COMPLETED SUCCESSFULLY!');
@@ -299,4 +328,4 @@ console.log(
 console.log(
 	`- Dilewati identik ${bkDiff.skip.length + tkDiff.skip.length} (idempoten, apply kedua no-op)`
 );
-console.log(`- Marker archive_restore_${built.archiveId} tercatat; sumber POS dipertahankan`);
+console.log(`- Marker archive_restore_${planned.archiveId} tercatat; sumber POS dipertahankan`);
