@@ -1,11 +1,17 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { resolveUatTarget, uatFetch } from './uat-target.mjs';
 
-const baseUrl = (process.argv[2] || 'http://127.0.0.1:5173').replace(/\/$/, '');
+// Validasi target DULU: lookalike/userinfo/skema ditolak sebelum
+// password .env dibaca atau satu pun fetch dilakukan (AUD-048).
+const { baseUrl, local: localTarget } = resolveUatTarget(
+	process.argv[2] || 'http://127.0.0.1:5173',
+	{
+		allowRemote: process.env.ALLOW_REMOTE_UAT === '1'
+	}
+);
 const branch = process.argv[3] || 'samarinda';
 const productId = process.env.LOAD_PRODUCT_ID || 'uat-produk-es-teh';
-const localTarget =
-	baseUrl.startsWith('http://127.0.0.1') || baseUrl.startsWith('http://localhost');
 const localPassword =
 	!process.env.UAT_PASSWORD && localTarget && existsSync('.env')
 		? readFileSync('.env', 'utf8')
@@ -16,9 +22,6 @@ const localPassword =
 		: undefined;
 const password = process.env.UAT_PASSWORD || localPassword;
 
-if (!localTarget && process.env.ALLOW_REMOTE_UAT !== '1') {
-	throw new Error('UAT mutasi hanya boleh ke localhost kecuali ALLOW_REMOTE_UAT=1');
-}
 if (!password) throw new Error('UAT_PASSWORD wajib diisi melalui environment');
 
 function assert(condition, message) {
@@ -41,7 +44,7 @@ async function readPayload(response) {
 }
 
 async function login() {
-	const loginResponse = await fetch(`${baseUrl}/api/veriflogin`, {
+	const loginResponse = await uatFetch(`${baseUrl}/api/veriflogin`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ username: 'pemilik', password, branch })
@@ -49,7 +52,7 @@ async function login() {
 	const loginPayload = await readPayload(loginResponse);
 	assert(loginResponse.ok && loginPayload?.success, `Login gagal: ${loginResponse.status}`);
 	const sidCookie = cookiePair(getSetCookies(loginResponse.headers), 'zatiaras_sid');
-	const csrfResponse = await fetch(`${baseUrl}/api/csrf`, { headers: { Cookie: sidCookie } });
+	const csrfResponse = await uatFetch(`${baseUrl}/api/csrf`, { headers: { Cookie: sidCookie } });
 	const csrfPayload = await readPayload(csrfResponse);
 	assert(csrfResponse.ok && csrfPayload?.token, `CSRF gagal: ${csrfResponse.status}`);
 	const csrfCookie = cookiePair(getSetCookies(csrfResponse.headers), 'zatiaras_csrf');
@@ -60,7 +63,7 @@ async function login() {
 }
 
 async function request(path, auth, init = {}) {
-	return fetch(`${baseUrl}${path}`, {
+	return uatFetch(`${baseUrl}${path}`, {
 		...init,
 		headers: {
 			...(init.headers || {}),

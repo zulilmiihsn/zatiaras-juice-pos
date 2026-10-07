@@ -251,7 +251,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Passed local | opencode | §12 AUD-045 2026-10-07      |
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Passed local | opencode | §12 AUD-046 2026-10-07      |
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Passed local | opencode | §12 AUD-047 2026-10-07      |
-| [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Passed local | opencode | §12 AUD-048 2026-10-07      |
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Pending      | —        | —                           |
@@ -1485,6 +1485,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - File ubah: `rollback-migration.mjs`, suite `rollback-migration.test.mjs` (usage nonzero, parse, file hilang/kosong/rusak, dry-run nol-spawn, apply satu-spawn + gagal exit 1, manifest rusak), `package.json` (`test:rollback` + rantai operations), runbook §4.
 - Gate lokal: rollback 6/6 lulus; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Rehearsal rollback staging nyata butuh operator (F7).
+- Rollback: revert empat file via release berizin.
+
+### AUD-048 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: `startsWith('http://localhost')` anggap `localhost.audit.invalid`, `127.0.0.1.evil`, userinfo sebagai lokal — lalu baca `.env` dan POST kredensial ke host asing; redirect fetch default bisa pindahkan kredensial.
+- Fix: `scripts/uat-target.mjs` bersama — parse URL, hostname loopback EXACT (127.0.0.1/::1/localhost, IPv6 dinormalisasi), tolak userinfo/skema asing/lookalike SEBELUM password dibaca atau fetch, https hanya dengan ALLOW_REMOTE_UAT=1, fetch credential-bearing `redirect: 'error'`. `uat-pos-integrity.mjs` pakai guard + wrapper.
+- File ubah: guard baru, CLI UAT, suite `uat-target.test.mjs` (exact/lookalike/remote/CLI asli), `package.json` (`test:uat-target` + rantai operations).
+- Gate lokal: uat-target 4/4 lulus (termasuk CLI asli tolak lookalike pre-network).
+- Batas bukti: CI SHA sama + reviewer belum. Windows+Ubuntu + intersepsi transport tercakup pattern operasi; tanpa secret nyata.
 - Rollback: revert empat file via release berizin.
 
 ## 13. Referensi kontrak dan vendor
