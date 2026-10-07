@@ -249,7 +249,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Passed local | opencode | §12 AUD-043 2026-10-07      |
 | [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Passed local | opencode | §12 AUD-044 2026-10-07      |
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Passed local | opencode | §12 AUD-045 2026-10-07      |
-| [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Passed local | opencode | §12 AUD-046 2026-10-07      |
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Pending      | —        | —                           |
 | [ ]  | [AUD-048](#aud-048) | F4   | P2        | R     | UAT exact loopback sebelum load credential       | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Pending      | —        | —                           |
@@ -1468,6 +1468,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: `test:d1-wipe` 9/9 lulus; `test:d1-backup` 9/9 utuh (verifier tak tersentuh).
 - Batas bukti: CI SHA sama + reviewer belum. Eksekusi remote + konkurensi SQLite/workerd butuh operator (F7).
 - Rollback: revert dua file via release berizin.
+
+### AUD-046 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: drill hanya hitung tabel — dump satu-tabel/incomplete/orphan tetap PASS.
+- Fix: `checkDrillDatabase` mewajibkan kolom POS aktual, integrity/quick_check ok, orphan domain nol (cermin dataHealth; FK-only bukan pengganti), stok negatif nol, pasangan nomor lengkap, counter >= MAX aktual. Mode `--d1`: parse SQLite dulu lalu salin baris ke D1 terisolasi + cek data-scope di workerd. CLI smoke PASS pada fixture; cleanup milik drill.
+- File ubah: `restore-drill-local.mjs`, suite `restore-drill-local.test.mjs` (7 SQLite + 1 workerd + kontrak), `package.json` (`test:d1-drill` + rantai `test:operations`).
+- Gate lokal: drill 9/9 lulus (SQLite + workerd); CLI smoke PASS; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Drill backup produksi nyata butuh operator (F7).
+- Rollback: revert tiga file via release berizin.
 
 ## 13. Referensi kontrak dan vendor
 
