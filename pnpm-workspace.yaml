@@ -4,10 +4,10 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
-# sharp dipaksa ke versi patch aman (>=0.35.4, libheif GHSA-rgj7-g3m4-5g8c).
+# sharp dipaksa ke versi patch aman (>=0.35.5, librsvg CVE-2026-96889).
 # Hanya dipakai miniflare dev-emulation via wrangler; patch-level, API stabil.
 overrides:
-  sharp@<0.35.4: 0.35.4
+  sharp@<0.35.5: 0.35.5
   '@esbuild-kit/core-utils>esbuild': 0.25.12
   '@humanfs/node@<0.16.8': 0.16.8
   browserslist@<=4.28.6: 4.28.7
@@ -16,10 +16,14 @@ overrides:
   fast-uri@<3.1.8: 3.1.8
   # undici dinaikkan ke 7.29.1 (GHSA-rfgv-xxqx-mfg5 + GHSA-w293-vg96-wgc3, gate audit CI).
   undici@<7.29.1: 7.29.1
-  # brace-expansion dinaikkan (GHSA-qhr7-859c-m2p7 + GHSA-6j4f-fj2g-mc7p, gate audit CI).
-  brace-expansion@>=2.0.0 <2.1.6: 2.1.6
-  brace-expansion@>=4.0.0 <5.0.11: 5.0.11
-  postcss-selector-parser@<7.1.3: 7.1.3
+  # brace-expansion dinaikkan (GHSA-q2hr-2g5m-vwhr, gate audit CI).
+  brace-expansion@>=2.0.0 <2.1.7: 2.1.7
+  brace-expansion@>=4.0.0 <5.0.12: 5.0.12
+  postcss-selector-parser@<7.1.6: 7.1.6
+  # source-map-js dinaikkan (GHSA-68fv-2mgg-jv7q event-loop DoS via postcss/vite build).
+  source-map-js@<1.2.2: 1.2.2
+  # dompurify dinaikkan (GHSA-p98j-92pf-mc4p + GHSA-6688-9rhm-gjv2, via jspdf client-side).
+  dompurify@<3.4.16: 3.4.16
   serialize-javascript@<7.0.5: 7.0.5
   # devalue dinaikkan ke 5.9.4 (GHSA-j22f-vq7h-c4qm + GHSA-mcm9-63f2-9j32 +
   # GHSA-x5rw-q4pp-hg5g, gate audit CI). Tetap lini v5 sesuai svelte 5.

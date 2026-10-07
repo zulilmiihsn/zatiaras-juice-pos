@@ -255,7 +255,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-049](#aud-049) | F5   | P2        | S     | Post-commit effects bounded, audit durable       | 001                                                                                      | Passed local | opencode | §12 AUD-049 2026-10-07      |
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Passed local | opencode | §12 AUD-050 2026-10-07      |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Passed local | opencode | §12 AUD-051 2026-10-07      |
-| [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Passed local | opencode | §12 AUD-052 2026-10-07      |
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Pending      | —        | —                           |
@@ -1515,6 +1515,16 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: retention SQLite + `--d1` lulus; `check` 0/0; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Throughput cron produksi + backlog raksasa butuh observasi operator.
 - Rollback: revert empat file via release berizin; tanpa migrasi.
+
+### AUD-052 2026-10-07 — Passed local (opencode)
+
+- Temuan saat eksekusi: 7 vuln (2 high: source-map-js 1.2.1, sharp 0.35.4; 3 moderate: brace-expansion 2.1.6/5.0.11, postcss-selector-parser 7.1.3; 2 low: dompurify 3.4.14 x2). Override lama PIN versi rentan (advisory terbit sesudah pin).
+- Fix: override minimal preseden repo — sharp 0.35.5, brace-expansion 2.1.7/5.0.12, postcss-selector-parser 7.1.6, source-map-js 1.2.2, dompurify 3.4.16. Tanpa force-update stack.
+- Reachability: semua dev-tooling (vite/postcss/eslint/miniflare) kecuali dompurify (optional via jspdf client-side, sanitasi SVG laporan; tanpa bukti exploit = tanpa klaim exploit).
+- Gate lokal: audit high+ bersih; audit json SELURUH severity 0; frozen-lockfile lulus; receipt-output lulus; build produksi lulus + PWA 160 entry.
+- File ubah: `pnpm-workspace.yaml`, `pnpm-lock.yaml`.
+- Batas bukti: CI SHA sama + reviewer belum.
+- Rollback: revert dua file via release berizin.
 
 ### AUD-048 2026-10-07 — Passed local (opencode)
 
