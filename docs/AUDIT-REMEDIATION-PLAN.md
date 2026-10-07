@@ -247,7 +247,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-041](#aud-041) | F4   | P1        | S     | Versioned snapshot dan field restore eksplisit   | 001                                                                                      | Passed local | opencode | §12 AUD-041 2026-10-06      |
 | [ ]  | [AUD-042](#aud-042) | F4   | P1        | R     | Preflight semua field bisnis restore             | 041                                                                                      | Passed local | opencode | §12 AUD-042 2026-10-07      |
 | [ ]  | [AUD-043](#aud-043) | F4   | P1        | S     | Restore staging bounded dan finalisasi atomik    | 039, 042                                                                                 | Passed local | opencode | §12 AUD-043 2026-10-07      |
-| [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-044](#aud-044) | F4   | P0        | R     | Wipe memerlukan backup COMPLETE nyata            | 001                                                                                      | Passed local | opencode | §12 AUD-044 2026-10-07      |
 | [ ]  | [AUD-045](#aud-045) | F4   | P0        | S     | Wipe tidak terpecah menjadi partial state        | 044                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-046](#aud-046) | F4   | P1        | R     | Restore drill membuktikan POS/integrity/parity   | 042                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-047](#aud-047) | F4   | P2        | R     | CLI rollback/runbook/backup eksternal konsisten  | 044, 046                                                                                 | Pending      | —        | —                           |
@@ -1450,6 +1450,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: chunk + apply + guard lama lulus 2 mode; `check` 0/0; prettier + `diff --check` bersih; docs/maintainability lulus.
 - Batas bukti: CI SHA sama + reviewer belum; tree belum commit. Eksekusi CLI nyata + volume legacy butuh operator (F7).
 - Rollback: revert lima file via release berizin; tanpa migrasi.
+
+### AUD-044 2026-10-07 — Passed local (opencode)
+
+- Reproduksi: `assertBackupCoversBranch` hanya cek file ada + binding tercantum — manifest palsu (`shards: []` tanpa file, bukan-JSON) lolos sebagai "backup" sebelum DELETE.
+- Fix: pakai ulang satu verifier kanonik `verifyManifest` dari `d1-backup.mjs` (path absolut luar repo/workspace tolak traversal/symlink, schema v1, tepat 3 shard cocok id produksi, readback SHA per file) + wajib penanda COMPLETE + cakupan binding cabang. Seluruh preflight tetap sebelum mutasi pertama; konfirmasi eksplisit tak berubah.
+- File ubah: `wipe-branch-history.mjs`, regresi `wipe-branch-history.test.mjs` (fixture backup nyata 3 shard + COMPLETE; palsu/parsial/rusak ditolak).
+- Gate lokal: `test:d1-wipe` 7/7 lulus; `check` menyusul di gate cohort.
+- Batas bukti: CI SHA sama + reviewer belum. Tanpa mutasi remote di test (executor palsu).
+- Rollback: revert dua file via release berizin.
 
 ## 13. Referensi kontrak dan vendor
 

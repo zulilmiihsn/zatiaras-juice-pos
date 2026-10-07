@@ -25,8 +25,9 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyManifest } from './d1-backup.mjs';
 
 export const CONFIG_FILE = 'wrangler.pages.jsonc';
 export const BRANCH_BINDINGS = Object.freeze({
@@ -77,15 +78,24 @@ export function parseArgs(argv) {
 	return args;
 }
 
-/** Manifest backup harus ada dan memuat binding cabang target. */
-export function assertBackupCoversBranch(manifestPath, branch) {
-	const full = resolve(manifestPath);
-	if (!existsSync(full)) throw new Error(`Manifest backup tidak ditemukan: ${manifestPath}`);
-	const manifest = JSON.parse(readFileSync(full, 'utf8'));
+/**
+ * Manifest backup HARUS nyata dan terverifikasi penuh (AUD-044):
+ * satu verifier kanonik `verifyManifest` dari d1-backup.mjs —
+ * path absolut di luar repo/workspace (tolak traversal/symlink),
+ * schema + tepat 3 shard + id database produksi + readback SHA per file —
+ * ditambah penanda COMPLETE dan cakupan binding cabang target.
+ * Manifest palsu/parsial/rusak DITOLAK sebelum DELETE pertama.
+ */
+export async function assertBackupCoversBranch(manifestPath, branch) {
 	const binding = BRANCH_BINDINGS[branch];
+	if (!binding) throw new Error('--branch wajib salah satu: samarinda, balikpapan, berau');
+	const { manifestPath: canonical } = await verifyManifest(manifestPath, {});
+	if (!existsSync(join(dirname(canonical), 'COMPLETE')))
+		throw new Error('Backup belum COMPLETE: verifikasi + penanda COMPLETE wajib sebelum wipe.');
+	const manifest = JSON.parse(readFileSync(canonical, 'utf8'));
 	const covered = (manifest.shards ?? []).some((s) => s.binding === binding);
 	if (!covered) throw new Error(`Manifest tidak memuat ${binding}. Backup dulu cabang ${branch}.`);
-	return { manifestPath: full, binding };
+	return { manifestPath: canonical, binding };
 }
 
 export function countSql(table, branch) {
@@ -128,7 +138,7 @@ export async function wipeBranchHistory(
 	{ branch, backupManifest, apply },
 	execute = wranglerExecute
 ) {
-	const { binding } = assertBackupCoversBranch(backupManifest, branch);
+	const { binding } = await assertBackupCoversBranch(backupManifest, branch);
 	// Fase 1: hitung semua + guard arsip SEBELUM menghapus apa pun.
 	const counts = new Map();
 	for (const table of [...ARCHIVE_GUARD_TABLES, ...WIPE_TABLES]) {
