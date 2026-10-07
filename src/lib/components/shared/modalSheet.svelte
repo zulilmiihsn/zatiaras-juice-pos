@@ -3,6 +3,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import X from '@lucide/svelte/icons/x';
+	import { modalFocus } from '$lib/utils/modalFocus';
 
 	interface ModalSheetProps {
 		open?: boolean;
@@ -81,60 +82,9 @@
 		allowDrag = false;
 	}
 
-	let previousActiveElement: HTMLElement | null = null;
-
 	function focusTrap(node: HTMLElement) {
-		previousActiveElement = document.activeElement as HTMLElement | null;
-
-		function getFocusables() {
-			return Array.from(
-				node.querySelectorAll<HTMLElement>(
-					'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-				)
-			);
-		}
-
-		setTimeout(() => {
-			const focusables = getFocusables();
-			if (focusables.length > 0) {
-				focusables[0].focus();
-			} else {
-				node.focus();
-			}
-		}, 50);
-
-		function handleKeyDown(e: KeyboardEvent) {
-			if (e.key === 'Escape') {
-				e.preventDefault();
-				close();
-				return;
-			}
-			if (e.key === 'Tab') {
-				const focusables = getFocusables();
-				if (focusables.length === 0) return;
-				const first = focusables[0];
-				const last = focusables[focusables.length - 1];
-
-				if (e.shiftKey && document.activeElement === first) {
-					e.preventDefault();
-					last.focus();
-				} else if (!e.shiftKey && document.activeElement === last) {
-					e.preventDefault();
-					first.focus();
-				}
-			}
-		}
-
-		node.addEventListener('keydown', handleKeyDown);
-
-		return {
-			destroy() {
-				node.removeEventListener('keydown', handleKeyDown);
-				if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
-					previousActiveElement.focus();
-				}
-			}
-		};
+		// AUD-023: delegasi ke kebijakan kanonik tunggal.
+		return modalFocus(node, { onEscape: close });
 	}
 </script>
 
@@ -144,14 +94,16 @@
 		class="modal-backdrop"
 		transition:fade={{ duration: 220 }}
 		onclick={(e) => e.target === e.currentTarget && close()}
-		onkeydown={(e) => e.key === 'Escape' && close()}
+		onkeydown={(e) => {
+			// AUD-025: hanya backdrop itu sendiri; Escape di panel milik action
+			// modalFocus (tanpa double-close).
+			if (e.key === 'Escape' && e.target === e.currentTarget) close();
+		}}
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="modal-title"
 		aria-label="Modal sheet"
-		onkeyup={(e) => e.key === 'Enter' && close()}
 		tabindex="-1"
-		onkeypress={(e) => e.key === 'Enter' && close()}
 	>
 		<div
 			use:focusTrap

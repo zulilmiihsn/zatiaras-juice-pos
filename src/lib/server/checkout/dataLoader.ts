@@ -1,6 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { error as kitError } from '@sveltejs/kit';
-import type { BranchId } from '$lib/server/branchResolver';
+import type { BranchContext, BranchId } from '$lib/server/branchResolver';
 import type {
 	ProductRow,
 	RecipeRow,
@@ -8,6 +8,7 @@ import type {
 	CheckoutCapabilities
 } from '$lib/server/checkout/types';
 import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/utils';
+import type { ReceiptSnapshotSettings } from '$lib/utils/receiptSnapshot';
 
 // [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
 
@@ -54,6 +55,38 @@ export async function getCheckoutCapabilities(
 		nomorHarianAvailable:
 			tables.has('pos_nomor_harian') && bukuKas.has('nomor_harian') && bukuKas.has('tanggal_nomor')
 	};
+}
+
+export async function loadReceiptSettingsSnapshot(
+	db: D1Database,
+	branch: BranchContext
+): Promise<ReceiptSnapshotSettings | null> {
+	try {
+		const row = await db
+			.prepare(
+				'SELECT nama_toko, alamat, telepon, instagram, ucapan FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL LIMIT 1'
+			)
+			.bind(branch)
+			.first<{
+				nama_toko?: string | null;
+				alamat?: string | null;
+				telepon?: string | null;
+				instagram?: string | null;
+				ucapan?: string | null;
+			}>();
+		const namaToko = row?.nama_toko?.trim();
+		if (!namaToko) return null;
+		return {
+			nama_toko: namaToko,
+			alamat: row?.alamat || undefined,
+			telepon: row?.telepon || undefined,
+			instagram: row?.instagram || undefined,
+			ucapan: row?.ucapan || undefined
+		};
+	} catch {
+		// Receipt branding is optional; a sale still commits and reprint marks the missing header.
+		return null;
+	}
 }
 
 // [CATATAN]: ── Session lookup ──────────────────────────────────────────────────────────

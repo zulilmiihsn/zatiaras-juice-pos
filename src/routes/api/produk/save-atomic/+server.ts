@@ -57,6 +57,9 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 		Number.isFinite(Number(prod.harga_jumbo))
 			? Math.max(0, Number(prod.harga_jumbo))
 			: null;
+	// Stok awal hanya untuk produk baru. Pada edit, saldo TIDAK PERNAH ditulis
+	// dari payload form (AUD-008): checkout bersamaan bisa menurunkannya
+	// sesudah form dibuka; penyesuaian disengaja lewat rekonsiliasi/ledger.
 	let stok =
 		prod.stok !== null && prod.stok !== undefined && Number.isFinite(Number(prod.stok))
 			? Number(prod.stok)
@@ -74,26 +77,29 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 
 	const rawDb = getRawDb(platform, branch);
 
+	// Saldo + flag kini dibaca sekali: untuk respons edit (saldo aktual, bukan
+	// payload basi) dan guard lacak di mode ignored.
+	let existingStok: number | null = null;
+	let existingLacak: boolean | null = null;
+	if (isEdit) {
+		const current = (await rawDb
+			.prepare('SELECT stok, lacak_stok FROM produk WHERE cabang_id = ? AND id = ? LIMIT 1')
+			.bind(branch, productId)
+			.first()) as { stok?: number | null; lacak_stok?: number | null } | null;
+		if (current) {
+			existingStok = current.stok ?? null;
+			existingLacak = current.lacak_stok == null ? null : Boolean(current.lacak_stok);
+		}
+	}
+
 	const { loadStockPolicy } = await import('$lib/server/stockPolicy');
 	const stockPolicy = await loadStockPolicy(rawDb, branch);
-	if (stockPolicy.mode === 'ignored') {
-		if (isEdit) {
-			const existing = (await rawDb
-				.prepare('SELECT stok, lacak_stok FROM produk WHERE cabang_id = ? AND id = ? LIMIT 1')
-				.bind(branch, productId)
-				.first()) as { stok?: number | null; lacak_stok?: number | null } | null;
-			if (existing) {
-				const existingStok = Number(existing.stok ?? 0);
-				if (
-					(stok !== null && stok !== existingStok) ||
-					lacakStok !== Boolean(existing.lacak_stok)
-				) {
-					throw kitError(
-						409,
-						'Stok produk dijeda. Ubah harga, resep, atau metadata lain; saldo hanya lewat rekonsiliasi.'
-					);
-				}
-			}
+	if (stockPolicy.mode === 'ignored' && isEdit) {
+		if (existingLacak !== null && lacakStok !== existingLacak) {
+			throw kitError(
+				409,
+				'Stok produk dijeda. Ubah harga, resep, atau metadata lain; saldo hanya lewat rekonsiliasi.'
+			);
 		}
 	}
 
@@ -187,7 +193,6 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 						harga_jumbo = ?,
 						kategori_id = ?,
 						tipe = ?,
-						stok = ?,
 						lacak_stok = ?,
 						lacak_bahan = ?,
 						ekstra_ids = ?,
@@ -202,7 +207,6 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 					hargaJumbo,
 					prod.kategori_id || null,
 					tipe,
-					stok,
 					lacakStok ? 1 : 0,
 					lacakBahan ? 1 : 0,
 					ekstraIdsJson,
@@ -301,7 +305,8 @@ export const POST: RequestHandler = async ({ request, platform, locals, url }) =
 				harga_jumbo: hargaJumbo,
 				kategori_id: prod.kategori_id || null,
 				tipe,
-				stok,
+				// Edit mengembalikan saldo aktual (payload stok basi diabaikan).
+				stok: isEdit ? existingStok : stok,
 				lacak_stok: lacakStok,
 				lacak_bahan: lacakBahan,
 				ekstra_ids: ekstraIdsJson,

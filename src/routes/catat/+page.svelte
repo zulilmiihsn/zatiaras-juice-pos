@@ -475,6 +475,20 @@
 									<div class="h-12 w-full animate-pulse rounded-xl bg-slate-100"></div>
 								{/each}
 							</div>
+						{:else if s.recentError && s.recentTransactions.length === 0}
+							<div
+								class="rounded-2xl border border-dashed border-rose-200 bg-rose-50/60 p-6 text-center"
+							>
+								<div class="text-xs font-bold text-rose-700">Gagal memuat aktivitas terbaru</div>
+								<div class="mt-0.5 text-[11px] text-rose-500">Periksa koneksi lalu coba lagi</div>
+								<button
+									type="button"
+									onclick={() => s.loadRecentTransactions()}
+									class="mt-3 cursor-pointer rounded-full bg-white px-4 py-2 text-xs font-black text-rose-600 ring-1 ring-rose-200 transition-all hover:bg-rose-100 active:scale-95"
+								>
+									Muat ulang aktivitas
+								</button>
+							</div>
 						{:else if s.recentTransactions.length === 0}
 							<div class="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
 								<FileText class="mx-auto mb-1.5 h-6 w-6 text-slate-300" />

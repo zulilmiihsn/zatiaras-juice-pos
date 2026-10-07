@@ -79,6 +79,8 @@ test('owner completes authoritative cash checkout through POS UI', async ({ page
 		await page.getByRole('button', { name: 'C', exact: true }).click();
 		await page.getByRole('button', { name: '+ Rp 10.000', exact: true }).click();
 		await expect(cashInput).toHaveValue('10.000');
+		await cashInput.fill('12000');
+		await expect(cashInput).toHaveValue('12.000');
 		const checkoutResponse = page.waitForResponse(
 			(response) =>
 				response.url().endsWith('/api/pos/transaction') && response.request().method() === 'POST'
@@ -90,15 +92,48 @@ test('owner completes authoritative cash checkout through POS UI', async ({ page
 			data?: {
 				transaction_id?: string;
 				total_amount?: number;
-				receipt?: { total_amount?: number };
+				receipt?: {
+					total_amount?: number;
+					cash_received?: number;
+					change?: number;
+					items?: Array<{ nama?: string }>;
+				};
 			};
 		};
 		transactionId = payload.data?.transaction_id || '';
 		expect(transactionId).not.toBe('');
 		expect(payload.data?.total_amount).toBe(10_000);
 		expect(payload.data?.receipt?.total_amount).toBe(10_000);
+		expect(payload.data?.receipt?.cash_received).toBe(12_000);
+		expect(payload.data?.receipt?.change).toBe(2_000);
+		expect(payload.data?.receipt?.items?.[0]?.nama).toBe('Es Teh UAT (Jumbo)');
 		await expect(page.getByText('Transaksi Berhasil!', { exact: true })).toBeVisible();
 		await expect(page.getByText('Rp 10.000', { exact: true }).first()).toBeVisible();
+
+		let historyDetailRequests = 0;
+		let currentSettingsRequests = 0;
+		page.on('request', (request) => {
+			if (request.url().includes('/api/transaksi-kasir?')) historyDetailRequests++;
+			if (request.url().includes('/api/pengaturan')) currentSettingsRequests++;
+		});
+		await page.goto('/pengaturan/pemilik/riwayat');
+		const historyCard = page.getByRole('button', { name: /Penjualan Es Teh UAT/ });
+		await expect(historyCard).toBeVisible({ timeout: 30_000 });
+		const settingsRequestsBeforePrint = currentSettingsRequests;
+		await historyCard.click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page
+			.getByRole('button', { name: 'Cetak Struk', exact: true })
+			.click({ noWaitAfter: true });
+		await page.waitForTimeout(500);
+		expect(historyDetailRequests).toBe(
+			0,
+			'snapshot reprint must not query current transaction details'
+		);
+		expect(currentSettingsRequests).toBe(
+			settingsRequestsBeforePrint,
+			'history reprint must not fetch additional receipt settings'
+		);
 	} finally {
 		if (transactionId) await cleanupTransaction(page, transactionId);
 	}

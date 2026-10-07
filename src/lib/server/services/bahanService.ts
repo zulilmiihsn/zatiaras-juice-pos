@@ -80,6 +80,12 @@ export async function updateBahanRow(
 	payload: Record<string, unknown>
 ) {
 	const safePayload = sanitizeUpdatePayload(payload);
+	// Saldo bukan metadata (AUD-009): PATCH tak boleh menulis stok_saat_ini —
+	// form basi akan menghapus mutasi checkout bersamaan. Saldo eksplisit hanya
+	// lewat mutasi atomik / purchase / rekonsiliasi. Stok awal tetap via create.
+	if ('stok_saat_ini' in safePayload) {
+		throw kitError(400, 'Saldo bahan hanya lewat mutasi stok atau rekonsiliasi, bukan edit bahan');
+	}
 	const current = await db
 		.select({
 			jumlah_beli_terakhir: bahan.jumlah_beli_terakhir,

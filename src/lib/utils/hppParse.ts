@@ -90,7 +90,8 @@ export function parseHppModelResponse(content: unknown): HppParsedPurchase[] {
 			satuan: unitQty.satuan,
 			purchase_qty: unitQty.qty,
 			purchase_cost: cost,
-			biaya_per_satuan: Math.round((cost / unitQty.qty) * 100) / 100
+			// AUD-035: kontrak 4 desimal HPP (ADR 0001), bukan 2.
+			biaya_per_satuan: Math.round((cost / unitQty.qty) * 10000) / 10000
 		});
 	}
 	return out;

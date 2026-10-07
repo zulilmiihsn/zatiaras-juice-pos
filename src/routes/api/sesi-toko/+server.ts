@@ -60,12 +60,10 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload || !body.where?.id) throw kitError(400, 'Payload / id tidak valid');
 
-	const db = getDb(platform, branch);
 	const rawDb = getRawDb(platform, branch);
 	await requirePageAccess(rawDb, session, 'beranda');
 
 	const result = await updateSesiTokoRow(
-		db,
 		rawDb,
 		branch,
 		session,

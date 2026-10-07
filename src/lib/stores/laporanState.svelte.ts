@@ -202,22 +202,45 @@ export function createLaporanState() {
 	}
 
 	let realtimeDisposers: Array<() => void> = [];
+	let laporanAlive = false;
+	let taxSettingsHandler: (() => void) | null = null;
 
 	function setupRealtimeSubscriptions() {
 		realtimeDisposers.forEach((d) => d());
 		realtimeDisposers = [
 			realtimeManager.subscribe('buku_kas', async () => {
-				await scheduleLaporanRefresh(220);
+				if (laporanAlive) await scheduleLaporanRefresh(220);
 			}),
 			realtimeManager.subscribe('transaksi_kasir', async () => {
-				await scheduleLaporanRefresh(220);
+				if (laporanAlive) await scheduleLaporanRefresh(220);
 			})
 		];
+		// AUD-028: handler bernama — lepas sebelum daftar ulang agar
+		// satu event pajak = satu refresh logis, bukan menumpuk.
 		if (typeof window !== 'undefined') {
-			window.addEventListener('zatiara:tax_settings_updated', async () => {
+			if (taxSettingsHandler) {
+				window.removeEventListener('zatiara:tax_settings_updated', taxSettingsHandler);
+			}
+			taxSettingsHandler = () => {
+				if (!laporanAlive) return;
 				lastAppliedReportFingerprint = '';
-				await scheduleLaporanRefresh(50, true);
-			});
+				void scheduleLaporanRefresh(50, true);
+			};
+			window.addEventListener('zatiara:tax_settings_updated', taxSettingsHandler);
+		}
+	}
+
+	function teardownLaporanSubscriptions() {
+		laporanAlive = false;
+		if (typeof window !== 'undefined' && taxSettingsHandler) {
+			window.removeEventListener('zatiara:tax_settings_updated', taxSettingsHandler);
+		}
+		taxSettingsHandler = null;
+		realtimeDisposers.forEach((d) => d());
+		realtimeDisposers = [];
+		if (laporanRefreshTimer) {
+			clearTimeout(laporanRefreshTimer);
+			laporanRefreshTimer = null;
 		}
 	}
 
@@ -375,6 +398,7 @@ export function createLaporanState() {
 	}
 
 	onMount(() => {
+		laporanAlive = true;
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
 			loadRouteIcons('laporan');
 		});
@@ -458,12 +482,7 @@ export function createLaporanState() {
 	});
 
 	onDestroy(() => {
-		realtimeDisposers.forEach((d) => d());
-		realtimeDisposers = [];
-		if (laporanRefreshTimer) {
-			clearTimeout(laporanRefreshTimer);
-			laporanRefreshTimer = null;
-		}
+		teardownLaporanSubscriptions();
 	});
 
 	return {

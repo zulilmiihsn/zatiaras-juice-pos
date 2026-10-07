@@ -1,6 +1,6 @@
 import { formatRupiah } from '$lib/utils/currency';
-import { calculateEngineTax, legacyToSettings, validateTaxSettings } from '$lib/tax/engine';
 import { branchContext, normalizeBranch } from '$lib/server/branchResolver';
+import { buildLaporanAggregate } from '$lib/server/reportQueries';
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import type { D1Database } from '@cloudflare/workers-types';
 
@@ -141,6 +141,10 @@ export async function fetchReportDataSql(
 	} catch {
 		stockMonitoringPaused = false;
 	}
+	// AUD-030: inti finansial (pendapatan/pengeluaran/hasData) berasal
+	// agregat kanonik aktif + arsip, bukan hanya buku_kas aktif.
+	// Rincian bulanan/harian/produk tetap baca aktif (tercatat di batas bukti).
+	const branchId = branchContext(normalizeBranch(requestedBranch));
 	// [CATATAN]: Eksekusi semua kueri agregasi secara paralel dalam 1 batch Promise
 	const [
 		summaryRes,
@@ -151,14 +155,15 @@ export async function fetchReportDataSql(
 		paymentRes,
 		hourRes,
 		topProductsRes,
-		taxConfigRes,
 		stokKritisRes,
 		totalBahanRes,
 		marginProdukRes,
 		seleraGulaRes,
 		seleraEsRes,
 		sesiSummaryRes,
-		latestSesiRes
+		latestSesiRes,
+		canonicalAggregate,
+		archiveTxRes
 	] = await Promise.all([
 		// 1. Ringkasan Finansial
 		rawDb
@@ -343,15 +348,6 @@ export async function fetchReportDataSql(
 			}>;
 		}>,
 
-		// 9. Pengaturan Pajak
-		rawDb
-			.prepare(
-				`SELECT nilai FROM pengaturan WHERE cabang_id = ? AND kunci = 'pajak_config' LIMIT 1`
-			)
-			.bind(requestedBranch)
-			.first()
-			.catch(() => null) as Promise<{ nilai?: string } | null>,
-
 		// 10. Stok Bahan Kritis (stok <= ambang_stok)
 		(stockMonitoringPaused
 			? Promise.resolve({ results: [] })
@@ -495,7 +491,10 @@ export async function fetchReportDataSql(
 			.first()
 			.catch(() => null) as Promise<{ totalSesi?: number; avgOmzetPerSesi?: number } | null>,
 
-		// 16. Sesi Toko Terkini
+		// 16. AUD-038: sesi terkini DALAM periode WITA yang diminta
+		// (semantik bukaan sama dengan ringkasan shift; shift lintas
+		// tengah malam ikut periode bukanya). Di luar periode = tak ada
+		// sesiTerakhir (diexclude), bukan sesi live hari ini.
 		rawDb
 			.prepare(
 				`SELECT
@@ -506,10 +505,12 @@ export async function fetchReportDataSql(
 					is_active AS isActive
 				FROM sesi_toko
 				WHERE cabang_id = ?
+					AND substr(datetime(waktu_buka, '+8 hours'), 1, 10) >= ?
+					AND substr(datetime(waktu_buka, '+8 hours'), 1, 10) <= ?
 				ORDER BY waktu_buka DESC
 				LIMIT 1`
 			)
-			.bind(requestedBranch)
+			.bind(requestedBranch, startYmd, endYmd)
 			.first()
 			.catch(() => null) as Promise<{
 			id?: string;
@@ -517,7 +518,21 @@ export async function fetchReportDataSql(
 			waktuTutup?: string | null;
 			kasAwal?: number;
 			isActive?: number;
-		} | null>
+		} | null>,
+
+		// 17. AUD-030: agregat kanonik (aktif + arsip) sebagai otoritas inti.
+		buildLaporanAggregate(rawDb, branchId, startYmd, endYmd),
+
+		// 18. AUD-030: hitung transaksi arsip dari tabel ringkasan kanonik.
+		rawDb
+			.prepare(
+				`SELECT COALESCE(SUM(jumlah_transaksi), 0) AS arsipTransaksi
+				 FROM ringkasan_kas_arsip_harian
+				 WHERE cabang_id = ? AND tanggal_wita >= ? AND tanggal_wita <= ?`
+			)
+			.bind(requestedBranch, startYmd, endYmd)
+			.first()
+			.catch(() => null) as Promise<{ arsipTransaksi?: number } | null>
 	]);
 
 	// [CATATAN]: Format stok bahan & bahan kritis
@@ -570,7 +585,10 @@ export async function fetchReportDataSql(
 			: undefined
 	};
 
-	const totalRecords = summaryRes?.totalRecords || 0;
+	// AUD-030: hasData + inti finansial dari agregat kanonik
+	// (aktif + arsip). Arsip saja tetap terbaca; gagal sumber
+	// merambat sebagai error (kanonik tanpa catch), bukan NO_DATA.
+	const totalRecords = canonicalAggregate.transactions.length;
 	if (totalRecords === 0) {
 		return {
 			hasData: false,
@@ -582,44 +600,18 @@ export async function fetchReportDataSql(
 		};
 	}
 
-	const pendapatan = summaryRes?.pendapatan || 0;
-	const pengeluaran = summaryRes?.pengeluaran || 0;
+	const pendapatan = canonicalAggregate.summary.pendapatan;
+	const pengeluaran = canonicalAggregate.summary.pengeluaran;
 	const labaKotor = pendapatan - pengeluaran;
 
-	// Pajak via adapter + mesin kanonik yang sama dengan laporan.
-	let persistedSettings = legacyToSettings(null);
-	if (taxConfigRes?.nilai) {
-		let parsed: {
-			schema_version?: number;
-			settings?: unknown;
-		} & Record<string, unknown>;
-		try {
-			parsed = JSON.parse(taxConfigRes.nilai) as typeof parsed;
-		} catch (cause) {
-			throw new Error('Konfigurasi pajak tersimpan rusak; analisis laporan dihentikan.', { cause });
-		}
-		if (parsed.schema_version === 2 && parsed.settings) {
-			const validation = validateTaxSettings(parsed.settings);
-			if (!validation.ok) {
-				throw new Error('Konfigurasi pajak tersimpan tidak valid; analisis laporan dihentikan.');
-			}
-			persistedSettings = parsed.settings as typeof persistedSettings;
-		} else {
-			persistedSettings = legacyToSettings(
-				parsed as Partial<import('$lib/tax/engine').LegacyTaxConfig>
-			);
-		}
-	}
-
-	const taxEngineResult = calculateEngineTax({
-		settings: persistedSettings,
-		periodTurnover: pendapatan,
-		periodGrossProfit: labaKotor,
-		ytdTurnoverBefore: 0
-	});
-	const pajak = taxEngineResult.totalPajak;
-	const labaBersih = taxEngineResult.labaBersih;
-	const totalTransaksi = summaryRes?.totalTransaksiPos || summaryRes?.totalTransaksi || 0;
+	// AUD-031: pajak + laba bersih dari mesin kanonik (omzet usaha,
+	// YTD before, segmentasi tahun pajak). Duplikasi lokal bermasalah
+	// (semua income + YTD=0) dihapus; config dibaca kanonik (fail-closed sama).
+	const pajak = canonicalAggregate.summary.pajak;
+	const labaBersih = canonicalAggregate.summary.labaBersih;
+	const totalTransaksi =
+		(summaryRes?.totalTransaksiPos || summaryRes?.totalTransaksi || 0) +
+		(archiveTxRes?.arsipTransaksi || 0);
 
 	// [CATATAN]: Format data bulanan
 	const monthlyPaymentsMap: Record<

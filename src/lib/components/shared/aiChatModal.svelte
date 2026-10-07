@@ -5,6 +5,8 @@
 	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
 	import { AutoApplyService } from '$lib/services/autoApplyService';
+	import { LEDGER_JENIS_LABEL, resolveLedgerCategory } from '$lib/utils/ledgerCategory';
+	import { AI_ACTION_LABEL, validateRecommendation } from '$lib/utils/aiRecommendationSchema';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import SendIcon from '$lib/components/shared/sendIcon.svelte';
 
@@ -282,12 +284,45 @@
 					</h4>
 					<div class="space-y-3">
 						{#each currentAnalysis.recommendations as rec (rec.id)}
+							{@const recValidation = validateRecommendation({
+								action: rec.action,
+								data: rec.data
+							})}
+							{@const recData = (rec.data ?? {}) as {
+								type?: unknown;
+								category?: unknown;
+								deskripsi?: unknown;
+							}}
+							{@const recCategory = resolveLedgerCategory({
+								type: recData.type,
+								category: recData.category,
+								deskripsi: recData.deskripsi ?? rec.deskripsi
+							})}
 							<div
 								class="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
 							>
 								<div class="flex-1">
 									<p class="text-sm font-medium text-gray-900">{rec.title}</p>
 									<p class="mt-1 text-xs text-gray-600">{rec.deskripsi}</p>
+									<p
+										class="mt-1 text-xs font-semibold {'needsConfirmation' in recCategory
+											? 'text-amber-700'
+											: 'text-slate-500'}"
+									>
+										Kategori: {'needsConfirmation' in recCategory
+											? 'Perlu konfirmasi'
+											: (LEDGER_JENIS_LABEL[recCategory.jenis] ?? recCategory.jenis)}
+									</p>
+									<p class="mt-1 text-xs text-gray-600">
+										Aksi: {(AI_ACTION_LABEL as Record<string, string>)[rec.action] ?? rec.action}
+										{recValidation.ok && recValidation.value.kind !== 'create_category'
+											? ` · Rp ${recValidation.value.amount.toLocaleString('id-ID')}`
+											: ''}
+										{recValidation.ok && recValidation.value.kind === 'update_transaction'
+											? ` · Target ${recValidation.value.id.slice(0, 8)}…`
+											: ''}
+										{!recValidation.ok ? ` · Tak valid: ${recValidation.reason}` : ''}
+									</p>
 								</div>
 								<div class="flex items-center space-x-2">
 									<span

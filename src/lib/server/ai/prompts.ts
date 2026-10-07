@@ -439,17 +439,17 @@ Output: [
 
 Input: "masukkan uang 10rb"
 Output: [
-  { type: "pemasukan", amount: 10000, deskripsi: "Setoran modal ke kas", confidence: 0.95 }
+  { type: "pemasukan", amount: 10000, deskripsi: "Setoran modal ke kas", category: "lainnya", confidence: 0.95 }
 ]
 
-Input: "ambil uang 50rb"
+Input: "ambil uang 50rb buat prive"
 Output: [
-  { type: "pengeluaran", amount: 50000, deskripsi: "Pengambilan uang dari kas", confidence: 0.95 }
+  { type: "pengeluaran", amount: 50000, deskripsi: "Pengambilan prive dari kas", category: "lainnya", confidence: 0.95 }
 ]
 
 Input: "beli bahan baku 100rb"
 Output: [
-  { type: "pengeluaran", amount: 100000, deskripsi: "Pembelian bahan baku", confidence: 0.95 }
+  { type: "pengeluaran", amount: 100000, deskripsi: "Pembelian bahan baku", category: "beban_usaha", confidence: 0.95 }
 ]
 
 Input: "hari ini cuacanya bagus"
@@ -500,6 +500,15 @@ Output: {
 
 ${productData}
 
+KATEGORI AKUNTANSI (AUD-032, wajib di tiap transaksi manual):
+- "pendapatan_usaha": hasil usaha (penjualan non-POS, jasa, parkir). BUKAN modal.
+- "beban_usaha": belanja operasional (bahan, listrik, sewa, gaji).
+- "lainnya": NON-OPERASIONAL — setoran/tarikan modal, prive/pribadi, pinjaman, hibah.
+- Arah saja tak menentukan: setoran modal = pemasukan TAPI kategori "lainnya";
+  prive = pengeluaran TAPI kategori "lainnya".
+- Ragu = isi "lainnya" bila nyebut modal/prive/pinjaman, selain itu kosongkan
+  (sistem minta konfirmasi, jangan tebak kategori usaha).
+
 FORMAT OUTPUT (JSON):
 {
   "transactions": [
@@ -507,6 +516,7 @@ FORMAT OUTPUT (JSON):
       "type": "pemasukan|pengeluaran|penjualan",
       "amount": number,
       "deskripsi": "string",
+      "category": "pendapatan_usaha|beban_usaha|lainnya",
       "confidence": number (0-1),
       "products": [
         {

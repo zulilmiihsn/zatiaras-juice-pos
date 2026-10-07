@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { modalFocus } from '$lib/utils/modalFocus';
 
 	interface AppModalProps {
 		open?: boolean;
@@ -51,12 +52,10 @@
 		onclick={(event) => {
 			if (backdropClose && event.target === event.currentTarget) close();
 		}}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') close();
-		}}
 		tabindex="-1"
 	>
 		<div
+			use:modalFocus={{ onEscape: close }}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={labelledby}

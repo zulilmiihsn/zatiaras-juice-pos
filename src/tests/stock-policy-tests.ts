@@ -738,6 +738,81 @@ try {
 				.first<number>('n'),
 			0
 		);
+
+		// AUD-012: void kalah CAS harus 409 tanpa side effect, bukan raw constraint failure.
+		// Produk_mutasi loser-safe via INSERT..SELECT..WHERE EXISTS, bukan VALUES ELSE 0.
+		const aud012Sale = await checkoutProduct('checkout-product', 10_000, 'aud-012-loser-1');
+		const aud012Tx = aud012Sale.data.transaction_id as string;
+		const aud012StockBefore = await checkoutDb
+			.prepare("SELECT stok FROM produk WHERE id = 'checkout-product'")
+			.first<number>('stok');
+		const aud012VoidCountBefore = await checkoutDb
+			.prepare("SELECT COUNT(*) AS n FROM produk_mutasi WHERE referensi_id = ? AND sumber = 'void'")
+			.bind(aud012Tx)
+			.first<number>('n');
+		assert.equal(aud012VoidCountBefore, 0);
+		const aud012Session = {
+			id: 'session-aud012',
+			userId: 'owner-checkout',
+			username: 'owner',
+			role: 'pemilik',
+			branch: 'samarinda',
+			createdAt: 0,
+			expiresAt: 1,
+			unlockedPages: [],
+			unlockExpiresAt: 0
+		} as NonNullable<App.Locals['authSession']>;
+		let aud012WinnerInjected = false;
+		const aud012OrigBatch = checkoutDb.batch.bind(checkoutDb);
+		// Bungkus db tanpa mutasi objek asli (proxy workerd beku, patch langsung gagal diam).
+		const aud012RaceDb = {
+			prepare: checkoutDb.prepare.bind(checkoutDb),
+			async batch(statements: Parameters<D1Database['batch']>[0]) {
+				if (!aud012WinnerInjected) {
+					aud012WinnerInjected = true;
+					// Pemenang gaya edit metode bayar: bump revision + token setelah void baca header.
+					await aud012OrigBatch([
+						checkoutDb
+							.prepare(
+								`UPDATE buku_kas SET revision = revision + 1, mutation_token = 'aud012-winner'
+								 WHERE cabang_id = 'samarinda' AND transaction_id = ?`
+							)
+							.bind(aud012Tx)
+					]);
+				}
+				return aud012OrigBatch(statements);
+			}
+		} as unknown as D1Database;
+		await assert.rejects(
+			voidTransaksiKasir(aud012RaceDb, 'samarinda', aud012Session, checkoutPlatform, aud012Tx),
+			(error: { status?: number }) => error.status === 409
+		);
+		assert.equal(aud012WinnerInjected, true);
+		assert.equal(
+			await checkoutDb
+				.prepare(
+					"SELECT COUNT(*) AS n FROM produk_mutasi WHERE referensi_id = ? AND sumber = 'void'"
+				)
+				.bind(aud012Tx)
+				.first<number>('n'),
+			0,
+			'loser void tidak boleh tulis mutasi void'
+		);
+		assert.equal(
+			await checkoutDb
+				.prepare("SELECT stok FROM produk WHERE id = 'checkout-product'")
+				.first<number>('stok'),
+			aud012StockBefore,
+			'loser void tidak boleh restore stok'
+		);
+		assert.equal(
+			await checkoutDb
+				.prepare('SELECT COUNT(*) AS n FROM buku_kas WHERE transaction_id = ?')
+				.bind(aud012Tx)
+				.first<number>('n'),
+			1,
+			'loser void tidak boleh hapus header'
+		);
 	} finally {
 		await checkoutHarness.close();
 	}

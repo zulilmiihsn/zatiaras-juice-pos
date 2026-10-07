@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import {
 	AiGatewayError,
 	callAiChat,
+	publicAiErrorMessage,
+	publicAiErrorStatus,
+	pumpAiStream,
+	redactForLog,
 	requestAiStream,
 	requestAiStreamResilient,
 	type AiChatMessage
@@ -195,6 +199,185 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	).catch((e) => e);
 	assert.ok(error instanceof AiGatewayError);
 	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+}
+
+// 13. AUD-034: headers cepat tapi body macet -> UPSTREAM_TIMEOUT, tanpa bocor key.
+{
+	const stalled = new Response(new ReadableStream(), { status: 200 });
+	const { fetchImpl } = scripted([stalled]);
+	const started = Date.now();
+	const error = await callAiChat(KEY, URL, MESSAGES, { ...BASE, timeoutMs: 50 }, fetchImpl).catch(
+		(e) => e
+	);
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	noKeyLeak(error);
+	assert.ok(Date.now() - started < 5000);
+}
+
+// 14. AUD-034: stream tanpa chunk melewati idle -> TIMEOUT + reader dibatalkan.
+{
+	let cancelled = false;
+	const idle = new ReadableStream({
+		cancel() {
+			cancelled = true;
+		}
+	});
+	const reader = idle.getReader();
+	const started = Date.now();
+	const error = await pumpAiStream(reader, {
+		totalMs: 5000,
+		idleMs: 50,
+		errorLabel: 'AI Stream Error',
+		onChunk: () => {}
+	}).catch((e) => e);
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	assert.equal(cancelled, true);
+	assert.ok(Date.now() - started < 5000);
+}
+
+// 15. AUD-034: tetesan lambat melewati total -> TIMEOUT walau chunk datang.
+{
+	const trickle = new ReadableStream({
+		async start(controller) {
+			controller.enqueue(new TextEncoder().encode('data: {"a":1}\n\n'));
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			controller.enqueue(new TextEncoder().encode('data: {"a":2}\n\n'));
+		}
+	});
+	const seen: string[] = [];
+	const error = await pumpAiStream(trickle.getReader(), {
+		totalMs: 50,
+		idleMs: 5000,
+		errorLabel: 'AI Stream Error',
+		onChunk: (value) => {
+			seen.push(new TextDecoder().decode(value));
+		}
+	}).catch((e) => e);
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	assert.equal(seen.length, 1);
+}
+
+// 16. AUD-034: putus klien -> 'aborted' diam-diam + upstream dibatalkan.
+{
+	let cancelled = false;
+	const infinite = new ReadableStream({
+		cancel() {
+			cancelled = true;
+		}
+	});
+	const client = new AbortController();
+	const outcome = pumpAiStream(infinite.getReader(), {
+		totalMs: 5000,
+		idleMs: 5000,
+		errorLabel: 'AI Stream Error',
+		clientSignal: client.signal,
+		onChunk: () => {}
+	});
+	client.abort();
+	assert.equal(await outcome, 'aborted');
+	assert.equal(cancelled, true);
+}
+
+// 17. AUD-034: onChunk minta berhenti -> 'done', lock dilepas.
+{
+	const two = new ReadableStream({
+		start(controller) {
+			controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+			controller.enqueue(new TextEncoder().encode('data: {"a":2}\n\n'));
+			controller.close();
+		}
+	});
+	const chunks: string[] = [];
+	const outcome = await pumpAiStream(two.getReader(), {
+		totalMs: 5000,
+		idleMs: 5000,
+		errorLabel: 'AI Stream Error',
+		onChunk: (value) => {
+			const text = new TextDecoder().decode(value);
+			chunks.push(text);
+			return text.includes('[DONE]');
+		}
+	});
+	assert.equal(outcome, 'done');
+	assert.equal(chunks.length, 1);
+}
+
+// 18. AUD-034: attempt dibatalkan klien sejak awal -> TIMEOUT tanpa fetch gantung.
+{
+	const client = new AbortController();
+	client.abort();
+	const fetchImpl = (async (_url: string, init?: RequestInit) => {
+		if ((init?.signal as AbortSignal | null)?.aborted) {
+			throw new DOMException('Aborted', 'AbortError');
+		}
+		return hang(init?.signal ?? null);
+	}) as typeof fetch;
+	const error = await requestAiStream(
+		KEY,
+		URL,
+		MESSAGES,
+		{ ...BASE, timeoutMs: 5000, clientSignal: client.signal },
+		fetchImpl
+	).catch((e) => e);
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	noKeyLeak(error);
+}
+
+// 19. AUD-037: pesan publik tetap per kelas; teks mentah tak bocor.
+{
+	assert.equal(
+		publicAiErrorMessage(new AiGatewayError('UPSTREAM_TIMEOUT', 'x')),
+		'Asisten AI kehabisan waktu. Silakan coba lagi.'
+	);
+	assert.equal(publicAiErrorStatus(new AiGatewayError('UPSTREAM_TIMEOUT', 'x')), 504);
+	assert.equal(
+		publicAiErrorMessage(new AiGatewayError('INVALID_RESPONSE', 'x')),
+		'Respons AI tidak valid. Silakan coba lagi.'
+	);
+	assert.equal(publicAiErrorStatus(new AiGatewayError('INVALID_RESPONSE', 'x')), 502);
+	assert.equal(
+		publicAiErrorMessage(new AiGatewayError('UPSTREAM_ERROR', 'x', { status: 500 })),
+		'Asisten AI sementara tidak dapat merespons. Silakan coba lagi.'
+	);
+	assert.equal(publicAiErrorStatus(new AiGatewayError('UPSTREAM_ERROR', 'x')), 502);
+	assert.equal(
+		publicAiErrorMessage(new Error('boom')),
+		'Terjadi kesalahan saat memproses pertanyaan. Silakan coba lagi.'
+	);
+	assert.equal(publicAiErrorStatus(new Error('boom')), 500);
+}
+
+// 20. AUD-037: injeksi SQL/skema/endpoint/kredensial tak muncul di publik/log.
+{
+	const injected = [
+		"error near SELECT * FROM profil WHERE password='x'",
+		'D1_ERROR: no such table: buku_kas',
+		'fetch failed: https://openrouter.ai/api/v1/chat/completions 500',
+		'key sk-or-v1-abc123XYZ qwerty',
+		'Authorization: Bearer sk-live-999',
+		'OPENROUTER_API_KEY=sk-secret-1',
+		'password=kasir123 bocor'
+	];
+	for (const payload of injected) {
+		const error = new Error(payload);
+		const publicMessage = publicAiErrorMessage(error);
+		assert.ok(!publicMessage.includes(payload.slice(0, 20)), payload);
+		assert.ok(!/SELECT|sk-|Bearer|password|OPENROUTER/i.test(publicMessage), payload);
+		const logged = redactForLog(error);
+		assert.ok(!logged.includes('sk-or-v1-abc123XYZ'), payload);
+		assert.ok(!logged.includes('sk-live-999'), payload);
+		assert.ok(!logged.includes('sk-secret-1'), payload);
+		assert.ok(!logged.includes('kasir123'), payload);
+		assert.ok(!logged.includes('Bearer sk-live-999'), payload);
+	}
+	// Batas panjang log.
+	assert.ok(redactForLog(new Error('x'.repeat(2000))).length <= 500);
+	// Non-error ikut teredaksi.
+	assert.ok(!redactForLog('token sk-abcdef12345 끝').includes('sk-abcdef12345'));
 }
 
 console.log('ai-gateway-tests: all assertions passed');

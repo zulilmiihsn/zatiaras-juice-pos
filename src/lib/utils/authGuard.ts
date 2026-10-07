@@ -53,7 +53,11 @@ export class AuthGuard {
 	private async fetchSessionPayload(): Promise<SessionPayload | null> {
 		const response = await fetch('/api/session', {
 			method: 'GET',
-			credentials: 'include'
+			credentials: 'include',
+			// Batas sama dengan layanan notifikasi (8s): sesi lambat harus
+			// jatuh ke fallback offline/login deterministik, bukan menggantung
+			// halaman (mis. Pengaturan Antrean kosong setelah reload).
+			signal: AbortSignal.timeout(8000)
 		});
 
 		if (!response.ok) {

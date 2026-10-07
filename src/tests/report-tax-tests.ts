@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { buildLaporanAggregate } from '../lib/server/reportQueries.js';
+import { GET as reportAggregateGet } from '../routes/api/reports/aggregate/+server';
+import { createTestD1 } from './helpers/testD1';
 
 function mockDb(handlers: Array<{ match: RegExp; first?: unknown; all?: unknown[] }>) {
 	return {
@@ -24,6 +26,43 @@ const base = [
 	{ match: /ringkasan_kas_arsip_harian/, first: { total: 0 } },
 	{ match: /pengaturan/, first: null }
 ];
+
+// Mandatory archived cash query failure through the actual handler must not become an empty report.
+{
+	const { db, close } = await createTestD1();
+	try {
+		await db.prepare('DROP TABLE ringkasan_kas_arsip_harian').run();
+		const event = {
+			url: new URL(
+				'https://test.invalid/api/reports/aggregate?start_date=2026-09-01&end_date=2026-09-15'
+			),
+			locals: {
+				authSession: {
+					id: 'session-owner-samarinda',
+					userId: 'owner-samarinda',
+					username: 'owner',
+					role: 'pemilik',
+					branch: 'samarinda',
+					createdAt: 0,
+					expiresAt: Date.now() + 60_000,
+					unlockedPages: [],
+					unlockExpiresAt: 0
+				}
+			},
+			platform: { env: { DB_SAMARINDA_GROUP: db } }
+		};
+		let failure: unknown;
+		try {
+			await reportAggregateGet(event as unknown as Parameters<typeof reportAggregateGet>[0]);
+		} catch (error) {
+			failure = error;
+		}
+		assert.ok(failure instanceof Error, 'Archive query failure must reject the report request');
+		assert.match(failure.message, /no such table: ringkasan_kas_arsip_harian/i);
+	} finally {
+		await close();
+	}
+}
 
 // Config pajak rusak harus fail-closed; jangan silently hitung memakai tarif default.
 {

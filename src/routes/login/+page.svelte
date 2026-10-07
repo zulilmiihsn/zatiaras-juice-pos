@@ -86,7 +86,9 @@
 			await loginWithUsername(sanitizedUsername, password, branch);
 			showSuccessModal = true;
 			await new Promise((resolve) => setTimeout(resolve, 1000));
-			goto('/');
+			// Navigasi wajib await: relogin harus tiba di `/` atau gagal eksplisit,
+			// bukan diam di `/login` dengan modal sukses (flaky E2E Antrean).
+			await goto('/');
 		} catch (e: unknown) {
 			errorMessage = e instanceof Error ? e.message : 'Login gagal';
 			securityUtils.logSecurityEvent('login_failed', {

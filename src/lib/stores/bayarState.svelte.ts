@@ -66,6 +66,7 @@ interface CommittedReceipt {
 	change: number;
 	metode_bayar: string;
 	committed_at: string;
+	settings?: ReceiptSettings | null;
 }
 
 interface CheckoutResponse {
@@ -661,8 +662,14 @@ export function createBayarState() {
 				}))
 			: cart;
 
+		const receiptSettings = committedReceipt
+			? (committedReceipt.settings ?? {
+					nama_toko: 'Header toko saat transaksi tidak tersimpan',
+					ucapan: ''
+				})
+			: pengaturanStruk;
 		const receiptInput = {
-			settings: pengaturanStruk,
+			settings: receiptSettings,
 			nomorHarian: nomorPesanan,
 			items: receiptItems,
 			customerName,
@@ -678,11 +685,11 @@ export function createBayarState() {
 
 		const html = buildSaleReceiptHtml(receiptInput);
 		const escposData = {
-			storeName: pengaturanStruk?.nama_toko || 'Zatiaras Juice',
+			storeName: receiptSettings?.nama_toko || 'Header toko saat transaksi tidak tersimpan',
 			nomorHarian: nomorPesanan,
-			address: pengaturanStruk?.alamat,
-			phone: pengaturanStruk?.telepon,
-			instagram: pengaturanStruk?.instagram,
+			address: receiptSettings?.alamat,
+			phone: receiptSettings?.telepon,
+			instagram: receiptSettings?.instagram,
 			customerName: customerName || 'Pelanggan',
 			dateTime: (receiptInput.printedAt ?? new Date()).toLocaleString('id-ID'),
 			items: receiptItems.map((item) => {
@@ -706,7 +713,7 @@ export function createBayarState() {
 			paymentMethod: receiptInput.paymentMethod,
 			cashReceived: receiptInput.cashReceived,
 			change: receiptInput.change,
-			footerMessage: pengaturanStruk?.ucapan,
+			footerMessage: receiptSettings?.ucapan,
 			queuedOffline: receiptInput.queuedOffline
 		};
 

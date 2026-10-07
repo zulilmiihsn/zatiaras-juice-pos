@@ -129,6 +129,15 @@ export function buildReceiptHtml(
 	const p = pengaturan ?? DEFAULT_RECEIPT_SETTINGS;
 
 	let body = `<div style='text-align:center;font-weight:bold;font-size:14px;margin-bottom:8px;'>*** CETAK ULANG ***</div>`;
+	if (trx.receipt_data_available === false) {
+		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Data uang diterima dan kembalian tidak tersimpan.</b></div>`;
+	}
+	if (trx.receipt_header_available === false) {
+		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Header toko saat transaksi tidak tersimpan.</b></div>`;
+	}
+	if (trx.receipt_items_available === false) {
+		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Detail item transaksi tidak tersedia.</b></div>`;
+	}
 	const nomor = formatNomorHarian(trx.nomor_harian);
 	if (nomor)
 		body += `<div style='text-align:center;font-weight:bold;margin-bottom:8px;'>No. Pesanan: ${nomor}</div>`;
@@ -180,6 +189,16 @@ export function buildReceiptHtml(
 
 	const methodKey = (trx.metode_bayar || '').toLowerCase();
 	body += `<tr><td style='text-align:left;font-size:13px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:13px;padding-top:4px;'>${METHOD_LABELS[methodKey] || methodKey}</td></tr>`;
+	if (methodKey === 'tunai' && trx.receipt_data_available === true) {
+		const cashReceived =
+			typeof trx.cash_received === 'number'
+				? `Rp${formatRupiah(trx.cash_received)}`
+				: 'Tidak tersimpan';
+		const change =
+			typeof trx.change === 'number' ? `Rp${formatRupiah(trx.change)}` : 'Tidak tersimpan';
+		body += `<tr><td style='text-align:left;font-size:13px;'>Dibayar:</td><td style='text-align:right;font-size:13px;'>${cashReceived}</td></tr>`;
+		body += `<tr><td style='text-align:left;font-size:13px;'>Kembalian:</td><td style='text-align:right;font-size:13px;'>${change}</td></tr>`;
+	}
 	body += `</tbody></table>`;
 
 	const footer = `<div style='text-align:center;font-size:13px;white-space:pre-line;'>${escapeHtml(p.ucapan)}</div>`;

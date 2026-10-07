@@ -4,6 +4,10 @@ Tanggal: 22 September 2026
 Baseline: commit `fdcd88411a56acae1b26e4096c3d054da321701c` pada `main`  
 Target: menaikkan kualitas overall dari 7,5/10 menuju minimal 8,5/10 tanpa memecah aplikasi menjadi microservices.
 
+**Rencana aktif hasil audit 5 Oktober 2026:** [Audit Remediation Plan](docs/AUDIT-REMEDIATION-PLAN.md).
+Tracker perbaikan audit, dependensi, Definition of Done, dan evidence AI Agent hanya dikelola di dokumen tersebut.
+Baseline dan evidence fase di bawah tetap merupakan histori; jangan membuka ulang task yang sudah selesai berdasarkan daftar prioritas lama.
+
 ## 1. Keputusan dan batas kerja
 
 - Pertahankan arsitektur modular monolith SvelteKit + Cloudflare Pages, D1, R2, dan Durable Objects.
@@ -1786,13 +1790,12 @@ Task boleh dimulai hanya bila:
 
 ## 16. Prioritas eksekusi berikutnya
 
-Mulai hanya dari paket berikut:
+Gunakan [rencana remediasi audit aktif](docs/AUDIT-REMEDIATION-PLAN.md) sebagai sumber kanonik pekerjaan berikutnya dan statusnya.
 
-1. `CI-01`: ambil log lengkap CI #64.
-2. `CI-02`: reproduksi failure pada Linux/Node yang sama.
-3. `CI-03`: perbaiki akar masalah dengan tes regresi.
-4. `CI-04` dan `CI-05`: pecah job serta simpan diagnostics.
-5. Verifikasi dua run CI hijau.
-6. Baru mulai `REL-01` stale artifact guard.
+1. Mulai `AUD-001`: samakan baseline runtime dengan CI dan buktikan isolasi/cleanup.
+2. Selesaikan `AUD-002` sampai `AUD-004`: akar tiga kegagalan E2E Antrean, tanpa retry buta atau menurunkan assertion.
+3. Lanjutkan task dependency-ready untuk integritas uang/stok/sesi, security/cabang, AI, archive/restore, UI/realtime, dan quality sesuai tracker aktif.
+4. Refactor besar hanya setelah perbaikan correctness dan gate terkait stabil.
+5. Tutup gate operator dan `AUD-063` sebelum mengklaim seluruh perbaikan selesai atau siap rilis.
 
-Jangan mulai refactor AI/archive/POS sebelum CI, artifact safety, dan full E2E CI selesai.
+`CI-01` sampai `CI-05` serta `REL-01` di roadmap ini adalah referensi historis, bukan instruksi mengulang fase yang evidence-nya sudah selesai.

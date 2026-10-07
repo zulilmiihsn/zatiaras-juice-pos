@@ -11,6 +11,7 @@ const MAX_EVENT_HISTORY = 2000;
 const textEncoder = new TextEncoder();
 const eventRateLimit = new Map<string, { count: number; resetAt: number }>();
 const securityEventHistory: Array<{
+	branch: string;
 	eventType: string;
 	eventTimestamp: number;
 	receivedAt: number;
@@ -34,6 +35,7 @@ const ALLOWED_EVENT_TYPES = new Set([
 ]);
 
 function pushSecurityEvent(entry: {
+	branch: string;
 	eventType: string;
 	eventTimestamp: number;
 	receivedAt: number;
@@ -70,7 +72,7 @@ function toTopList(map: Map<string, number>, take: number, keyName: string) {
 		.slice(0, take);
 }
 
-function summarizeWindow(cutoff: number) {
+function summarizeWindow(cutoff: number, branch: string | null) {
 	const eventTypeCounts = new Map<string, number>();
 	const endpointCounts = new Map<string, number>();
 	const codeCounts = new Map<string, number>();
@@ -83,6 +85,10 @@ function summarizeWindow(cutoff: number) {
 		const event = securityEventHistory[index];
 		if (event.receivedAt < cutoff) {
 			break;
+		}
+		// AUD-018: ringkasan terikat tenant; admin (branch null) melihat global.
+		if (branch !== null && event.branch !== branch) {
+			continue;
 		}
 
 		totalEvents += 1;
@@ -257,6 +263,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			: {};
 
 	pushSecurityEvent({
+		branch: locals.authSession?.branch ?? 'anonymous',
 		eventType,
 		eventTimestamp: timestamp,
 		receivedAt,
@@ -281,7 +288,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const windowHours = toWindowHours(url.searchParams.get('windowHours'));
 	const windowMs = windowHours * 60 * 60 * 1000;
 	const cutoff = Date.now() - windowMs;
-	const summary = summarizeWindow(cutoff);
+	// AUD-018: pemilik hanya cabangnya; admin global.
+	const scopeBranch =
+		locals.authSession.role === 'admin' ? null : (locals.authSession.branch ?? '');
+	const summary = summarizeWindow(cutoff, scopeBranch);
 
 	return json({
 		success: true,

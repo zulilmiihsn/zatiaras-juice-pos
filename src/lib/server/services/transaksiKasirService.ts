@@ -180,31 +180,34 @@ export async function voidTransaksiKasir(
 
 	for (const mutation of productMutationRows) {
 		const restore = -mutation.delta_jumlah;
+		// Kalah CAS = tidak insert baris (0 row), bukan insert delta 0.
+		// Insert delta 0 melanggar CHECK delta<>0 + trigger void guard
+		// sehingga batch lempar raw failure, bukan 409.
 		statements.push(
 			rawDb
 				.prepare(
 					`INSERT INTO produk_mutasi (
 						id, cabang_id, produk_id, delta_jumlah, stok_setelah, sumber,
 						referensi_id, dibuat_oleh, created_at
-					) VALUES (?, ?, ?,
-						CASE WHEN EXISTS (
-							SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?
-						) THEN ? ELSE 0 END,
+					) SELECT ?, ?, ?, ?,
 						COALESCE((SELECT stok FROM produk WHERE cabang_id = ? AND id = ?), 0) + ?,
-						'void', ?, ?, ?)`
+						'void', ?, ?, ?
+						WHERE EXISTS (
+							SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?
+						)`
 				)
 				.bind(
 					crypto.randomUUID(),
 					branch,
 					mutation.produk_id,
-					...guardArgs,
 					restore,
 					branch,
 					mutation.produk_id,
 					restore,
 					transactionId,
 					actor,
-					now
+					now,
+					...guardArgs
 				)
 		);
 	}

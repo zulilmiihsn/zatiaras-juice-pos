@@ -3,6 +3,7 @@
 	import { auth } from '$lib/auth/auth';
 	import { browser } from '$app/environment';
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
+	import { branchLabel } from '$lib/utils/branches';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { realtimeManager } from '$lib/realtime/realtimeManager';
 	import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
@@ -64,6 +65,13 @@
 
 	$effect(() => {
 		currentUserRole = userRole.value || '';
+	});
+
+	// AUD-029: label dari profil terautentikasi, bukan tebakan UI.
+	// Profil belum ada (loading/ganti sesi) = placeholder netral.
+	const headerBranchLabel = $derived.by(() => {
+		const branch = (userProfile.value as { branch?: unknown } | null)?.branch;
+		return branchLabel(branch) ?? '…';
 	});
 
 	onMount(async () => {
@@ -383,7 +391,9 @@
 						>
 							Zatiaras Juice
 						</h1>
-						<span class="text-[11px] font-medium text-white/85 md:text-xs">Samarinda</span>
+						<span class="text-[11px] font-medium text-white/85 md:text-xs">
+							{headerBranchLabel}
+						</span>
 					</div>
 				</div>
 

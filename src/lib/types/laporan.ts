@@ -32,6 +32,7 @@ export interface BukuKasRecord {
 	nama_produk?: string;
 	produk_detail?: string;
 	transaction_id?: string;
+	receipt_snapshot?: string | null;
 	nomor_harian?: number | null;
 	tanggal_nomor?: string | null;
 	idempotency_key?: string | null;
@@ -56,6 +57,12 @@ export interface HistoryItem {
 	sumber: string;
 	metode_bayar: string;
 	nama_pelanggan: string;
+	receipt_snapshot?: string | null;
+	cash_received?: number | null;
+	change?: number | null;
+	receipt_data_available?: boolean;
+	receipt_header_available?: boolean;
+	receipt_items_available?: boolean;
 }
 
 // ============================================================================

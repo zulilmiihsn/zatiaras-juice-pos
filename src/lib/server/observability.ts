@@ -11,13 +11,20 @@ export function branchFromObservation(
 	session: ObservationSession,
 	fallback?: unknown
 ): BranchId | null {
-	try {
-		return normalizeBranch(session?.branch || fallback || '');
-	} catch {
-		const env = platform?.env as Record<string, unknown> | undefined;
-		if (env?.DB_SAMARINDA_GROUP || env?.DB) return 'samarinda';
-		return null;
+	// AUD-017: telemetri anonim tak boleh pilih tenant via ?branch=.
+	// Sesi ada = cabang sesi otoritas (fallback diabaikan).
+	// Tanpa sesi = null (drop, tak tulis ke tabel tenant mana pun).
+	// Tanpa default samarinda: trafik anonim bukan data cabang.
+	if (session?.branch) {
+		try {
+			return normalizeBranch(session.branch);
+		} catch {
+			return null;
+		}
 	}
+	void platform;
+	void fallback;
+	return null;
 }
 
 function getObservationDb(platform: App.Platform | undefined, branch: BranchId) {

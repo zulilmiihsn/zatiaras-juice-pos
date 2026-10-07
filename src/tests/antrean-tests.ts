@@ -13,6 +13,7 @@ import { executeCheckout, CheckoutUseCaseError } from '../lib/server/checkout/ch
 import { getCheckoutCapabilities } from '../lib/server/checkout/dataLoader';
 import { filterQueueOrders } from '../lib/utils/orderQueueLocal';
 import { signPosPricingToken } from '../lib/server/posPricingToken';
+import { decodeReceiptSnapshot } from '../lib/utils/receiptSnapshot';
 import { voidTransaksiKasir } from '../lib/server/services/transaksiKasirService';
 import { previewArchive, runArchive } from '../lib/server/archiveUseCase';
 import { createTestD1 } from './helpers/testD1';
@@ -255,6 +256,18 @@ try {
 		},
 		ttlMs: 60_000
 	});
+	await db
+		.prepare(
+			"INSERT INTO pengaturan (id, cabang_id, kunci, nama_toko, alamat, telepon, instagram, ucapan) VALUES ('settings-antrean', 'samarinda', NULL, 'Toko Saat Checkout', 'Alamat Checkout', '0811000000', '@checkout', 'Terima kasih')"
+		)
+		.run();
+	assert.equal(
+		await db
+			.prepare('SELECT nama_toko FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL LIMIT 1')
+			.bind('samarinda')
+			.first<string>('nama_toko'),
+		'Toko Saat Checkout'
+	);
 	const checkoutResult = await executeCheckout({
 		db,
 		branch: samarinda,
@@ -269,11 +282,22 @@ try {
 		}
 	});
 	assert.equal(checkoutResult.idempotent, false);
+	const checkoutReceipt = decodeReceiptSnapshot(checkoutResult.data.receipt);
+	assert.equal(checkoutReceipt?.total_amount, 15_000);
+	assert.equal(checkoutReceipt?.cash_received, 15_000);
+	assert.equal(checkoutReceipt?.change, 0);
+	assert.equal(checkoutReceipt?.settings?.nama_toko, 'Toko Saat Checkout');
+	assert.equal(checkoutReceipt?.settings?.alamat, 'Alamat Checkout');
 	const storedState = await db
 		.prepare('SELECT preparation_state FROM buku_kas WHERE idempotency_key = ? AND cabang_id = ?')
 		.bind('antrean-checkout-e2e-0001', 'samarinda')
 		.first<string>('preparation_state');
 	assert.equal(storedState, 'pending');
+	await db
+		.prepare(
+			"UPDATE pengaturan SET nama_toko = 'Toko Setelah Checkout' WHERE cabang_id = 'samarinda'"
+		)
+		.run();
 	const retryResult = await executeCheckout({
 		db,
 		branch: samarinda,
@@ -288,6 +312,11 @@ try {
 		}
 	});
 	assert.equal(retryResult.idempotent, true);
+	assert.equal(
+		decodeReceiptSnapshot(retryResult.data.receipt)?.settings?.nama_toko,
+		'Toko Saat Checkout',
+		'retry returns the committed header snapshot, not current settings'
+	);
 	assert.equal(
 		await db
 			.prepare('SELECT COUNT(*) AS n FROM buku_kas WHERE idempotency_key = ? AND cabang_id = ?')

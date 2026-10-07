@@ -62,6 +62,17 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				count: result.count,
 				key: result.key,
 				...(result.filename ? { filename: result.filename } : {}),
+				...(result.job_id ? { job_id: result.job_id } : {}),
+				message: result.message
+			});
+		}
+		if (result.kind === 'partial') {
+			return json({
+				ok: true,
+				partial: true,
+				count: result.count,
+				parts: result.parts,
+				remaining: result.remaining,
 				message: result.message
 			});
 		}
@@ -70,8 +81,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			count: result.count,
 			key: result.key,
 			filename: result.filename,
-			content: result.content,
-			counts: result.counts
+			...(result.content !== undefined ? { content: result.content } : {}),
+			counts: result.counts,
+			parts: result.parts,
+			...(result.job_id ? { job_id: result.job_id } : {})
 		});
 	} catch (error) {
 		if (error instanceof ArchiveUseCaseError) throw kitError(error.status, error.message);

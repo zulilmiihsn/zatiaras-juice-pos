@@ -61,8 +61,10 @@ function findYear(question: string): number | null {
 	return m ? Number(m[1]) : null;
 }
 
-function monthRange(year: number, month: number, todayWita: string): AiPeriod {
+function monthRange(year: number, month: number, todayWita: string): AiPeriod | 'invalid' {
 	const start = `${year}-${String(month).padStart(2, '0')}-01`;
+	// AUD-036: bulan yang sepenuhnya di masa depan bukan periode historis.
+	if (start > todayWita) return 'invalid';
 	const lastDay = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 0))
 		.toISOString()
 		.slice(0, 10);
@@ -87,6 +89,8 @@ function findExplicitDay(question: string, todayWita: string): AiPeriod | 'inval
 		const dim = new Date(Date.UTC(year, monthNumber(id), 0)).getUTCDate();
 		if (day < 1 || day > dim) return 'invalid';
 		const ymd = `${year}-${String(monthNumber(id)).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+		// AUD-036: tanggal eksplisit masa depan bukan historis (tanpa query).
+		if (ymd > todayWita) return 'invalid';
 		return { start: ymd, end: ymd, type: 'daily' };
 	}
 	return null;
@@ -226,7 +230,9 @@ export function resolveAiPeriod(question: string, todayWita: string): AiPeriod |
 		// Bulan depan tanpa tahun eksplisit = ambigu, serahkan ke analyzer.
 		if (explicitYear === null && y === thisYear && namedMonth > Number(todayWita.slice(5, 7)))
 			return null;
-		return monthRange(y, namedMonth, todayWita);
+		const named = monthRange(y, namedMonth, todayWita);
+		if (named === 'invalid') return null;
+		return named;
 	}
 	if (q.includes('bulan lalu') || q.includes('bulan kemarin')) return prevMonthRange(todayWita);
 	if (q.includes('bulan ini')) return { start: monthStart, end: todayWita, type: 'monthly' };

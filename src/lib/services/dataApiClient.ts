@@ -126,11 +126,14 @@ export type WriteResource = keyof typeof WRITE_ROUTES;
  */
 export async function dbGet<T extends DataRecord = DataRecord>(
 	table: ReadResource,
-	params: Record<string, string> = {}
+	params: Record<string, string> = {},
+	branch?: string
 ): Promise<T[]> {
 	const url = READ_ROUTES[table];
 	if (!url) throw new Error(`[dataApiClient] dbGet: unknown table "${table}"`);
-	const qs = new URLSearchParams({ branch: currentBranch(), ...params }).toString();
+	// AUD-020: cabang eksplisit hasil capture sekali di caller.
+	// Tanpa argumen, fallback malas ke cabang aktif (perilaku lama).
+	const qs = new URLSearchParams({ branch: branch ?? currentBranch(), ...params }).toString();
 	const response = await fetch(`${url}?${qs}`);
 	if (!response.ok) throw await parseError(response, `GET ${table}`);
 	return parseRows<T>(await response.json(), `GET ${table}`);

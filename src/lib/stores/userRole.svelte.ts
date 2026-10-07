@@ -1,7 +1,9 @@
-export type UserRole = 'pemilik' | 'kasir' | 'admin';
+import { normalizeRole, type ValidRole } from '$lib/utils/roles';
+
+export type UserRole = ValidRole;
 
 function isUserRole(role: unknown): role is UserRole {
-	return role === 'pemilik' || role === 'kasir' || role === 'admin';
+	return normalizeRole(role) !== null;
 }
 
 // [CATATAN]: Store untuk user role dan profile menggunakan runes Svelte 5

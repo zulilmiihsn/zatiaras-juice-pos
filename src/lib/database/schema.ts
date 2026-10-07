@@ -24,7 +24,7 @@ export const profil = sqliteTable(
 		created_at: text('created_at').default(now()),
 		updated_at: text('updated_at').default(now())
 	},
-	(table) => [index('idx_profil_branch_username').on(table.cabang_id, table.username)]
+	(table) => [uniqueIndex('idx_profil_branch_username').on(table.cabang_id, table.username)]
 );
 
 export const authSessions = sqliteTable(
@@ -343,11 +343,17 @@ export const bahanMutasi = sqliteTable(
 		referensi_id: text('referensi_id'),
 		catatan: text('catatan'),
 		dibuat_oleh: text('dibuat_oleh'),
-		created_at: text('created_at').default(now())
+		created_at: text('created_at').default(now()),
+		/** Kunci idempotency perintah kulakan atomik (AUD-006). NULL untuk baris non-purchase. */
+		operation_key: text('operation_key')
 	},
 	(table) => [
 		index('idx_bahan_mutasi_branch_created').on(table.cabang_id, table.created_at),
-		index('idx_bahan_mutasi_branch_bahan').on(table.cabang_id, table.bahan_id)
+		index('idx_bahan_mutasi_branch_bahan').on(table.cabang_id, table.bahan_id),
+		// Partial unique: hanya baris purchase ber-kunci yang wajib unik per cabang.
+		uniqueIndex('idx_bahan_mutasi_branch_operation_key')
+			.on(table.cabang_id, table.operation_key)
+			.where(sql`${table.operation_key} IS NOT NULL`)
 	]
 );
 
@@ -795,7 +801,11 @@ export const sesiToko = sqliteTable(
 	},
 	(table) => [
 		index('idx_sesi_toko_branch_active').on(table.cabang_id, table.is_active),
-		index('idx_sesi_toko_branch_opening').on(table.cabang_id, table.waktu_buka)
+		index('idx_sesi_toko_branch_opening').on(table.cabang_id, table.waktu_buka),
+		// Satu sesi aktif per cabang (AUD-010). Baris nonaktif/NULL tak dibatasi.
+		uniqueIndex('idx_sesi_toko_branch_single_active')
+			.on(table.cabang_id)
+			.where(sql`${table.is_active} = 1`)
 	]
 );
 

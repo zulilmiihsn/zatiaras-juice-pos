@@ -5,6 +5,7 @@ import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { toCursorPage } from '$lib/server/dataPagination';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { containsPosLedger, POS_LEDGER_ROUTE_MESSAGE } from '$lib/server/ledgerPolicy';
+import { validateManualLedgerRows, validateManualLedgerPatch } from '$lib/server/ledgerValidation';
 import { newMutationToken, batchClaimChanges } from '$lib/server/ledgerCas';
 import { error as kitError } from '@sveltejs/kit';
 
@@ -119,9 +120,13 @@ export async function insertBukuKasRows(
 		for (const k of ['revision', 'mutation_token']) delete (row as Record<string, unknown>)[k];
 	}
 
+	// Validasi seluruh batch sebelum tulis apa pun: satu baris invalid
+	// menolak seluruh batch tanpa mutasi (AUD-005). Tanpa fallback 0.
+	const validRows = validateManualLedgerRows(rows);
+
 	// Dedup by id
 	const newRows: Array<Record<string, unknown>> = [];
-	for (const row of rows) {
+	for (const row of validRows) {
 		const existing = await rawDb
 			.prepare('SELECT id FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1')
 			.bind(branch, String(row.id))
@@ -166,12 +171,14 @@ export async function updateBukuKasRow(
 ) {
 	const existing = (await rawDb
 		.prepare(
-			'SELECT id, sumber, transaction_id, nominal, waktu, metode_bayar, revision FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1'
+			'SELECT id, sumber, tipe, jenis, transaction_id, nominal, waktu, metode_bayar, revision FROM buku_kas WHERE cabang_id = ? AND id = ? LIMIT 1'
 		)
 		.bind(branch, String(id))
 		.first()) as {
 		id: string;
 		sumber?: string;
+		tipe?: string;
+		jenis?: string;
 		transaction_id?: string;
 		nominal?: number;
 		waktu?: string;
@@ -331,7 +338,13 @@ export async function updateBukuKasRow(
 		return { ok: true };
 	}
 
-	const manualPayload = sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>);
+	const manualPayload = validateManualLedgerPatch(
+		sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>) as Record<
+			string,
+			unknown
+		>,
+		{ tipe: existing.tipe, jenis: existing.jenis }
+	);
 	for (const k of ['revision', 'mutation_token'])
 		delete (manualPayload as Record<string, unknown>)[k];
 	// Increment atomik satu statement (bukan snapshot+1) agar dua update tak berbagi versi.

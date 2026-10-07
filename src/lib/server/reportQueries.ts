@@ -118,8 +118,7 @@ export async function buildLaporanAggregate(
 				 ORDER BY tanggal_wita DESC`
 				)
 				.bind(branch, startDate, endDate)
-				.all()
-				.catch(() => ({ results: [] }))) as {
+				.all()) as {
 				results?: Array<Record<string, unknown>>;
 			}
 		).results || [];

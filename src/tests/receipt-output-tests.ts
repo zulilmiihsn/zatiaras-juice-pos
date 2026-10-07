@@ -4,6 +4,7 @@ import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
 import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
+import { buildHistoryEscPosData, prepareHistoryReceipt } from '../lib/utils/historyReceipt.js';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
 import { isTodayWita, rentangHariWitaUtc } from '../lib/utils/dateTime.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
@@ -62,6 +63,125 @@ const sale = buildSaleReceiptHtml({
 });
 
 const count = (s: string, sub: string) => s.split(sub).length - 1;
+
+// AUD-014: the committed receipt snapshot wins over later catalog, ledger, and settings values.
+{
+	const snapshot = JSON.stringify({
+		schema_version: 1,
+		items: [
+			{
+				product_id: 'old-product',
+				nama: 'Jus Harga Lama',
+				jumlah: 1,
+				harga: 10_000,
+				nominal: 10_000,
+				harga_dasar: 10_000,
+				total_tambahan: 0,
+				tambahan: [],
+				gula: null,
+				es: null,
+				catatan: null
+			}
+		],
+		total_amount: 10_000,
+		total_qty: 1,
+		cash_received: 12_000,
+		change: 2_000,
+		metode_bayar: 'tunai',
+		committed_at: '2026-06-29T08:30:00.000Z',
+		customer_name: 'Pelanggan Historis',
+		settings: {
+			nama_toko: 'Toko Saat Transaksi',
+			alamat: 'Alamat Lama',
+			telepon: '0811000000',
+			instagram: '@toko.lama',
+			ucapan: 'Terima kasih versi lama'
+		}
+	});
+	const prepared = prepareHistoryReceipt(
+		{
+			...history,
+			nominal: 99_000,
+			metode_bayar: 'non-tunai',
+			nama_pelanggan: 'Nama Sekarang',
+			receipt_snapshot: snapshot
+		},
+		[{ nama_produk: 'Nama Katalog Baru', jumlah: 1, harga: 99_000, nominal: 99_000 }]
+	);
+	const historicHtml = buildReceiptHtml(prepared.history, prepared.settings, prepared.items);
+	assert.ok(historicHtml.includes('Toko Saat Transaksi'));
+	assert.ok(historicHtml.includes('Alamat Lama'));
+	assert.ok(historicHtml.includes('Jus Harga Lama'));
+	assert.ok(historicHtml.includes('Pelanggan Historis'));
+	assert.ok(historicHtml.includes('Rp10.000'), 'total lama yang tersimpan dipakai');
+	assert.ok(historicHtml.includes('Rp12.000'), 'uang diterima snapshot ditampilkan');
+	assert.ok(historicHtml.includes('Rp2.000'), 'kembalian snapshot ditampilkan');
+	assert.ok(!historicHtml.includes('Nama Katalog Baru'));
+	assert.ok(!historicHtml.includes('Toko UAT'), 'pengaturan receipt masa kini tidak dipakai');
+
+	const escpos = new TextDecoder().decode(buildReceiptEscPos(buildHistoryEscPosData(prepared)));
+	assert.ok(escpos.includes('TOKO SAAT TRANSAKSI'));
+	assert.ok(escpos.includes('Jus Harga Lama'));
+	assert.ok(escpos.includes('Dibayar'));
+	assert.ok(escpos.includes('12.000'));
+	assert.ok(escpos.includes('Kembalian'));
+	assert.ok(escpos.includes('2.000'));
+}
+
+// Snapshot fields explicitly null remain unavailable, not a fabricated zero payment/change.
+{
+	const prepared = prepareHistoryReceipt({
+		...history,
+		receipt_snapshot: JSON.stringify({
+			items: [
+				{
+					nama: 'Jus Parsial',
+					jumlah: 1,
+					harga: 10_000,
+					nominal: 10_000,
+					harga_dasar: 10_000,
+					total_tambahan: 0,
+					tambahan: []
+				}
+			],
+			total_amount: 10_000,
+			total_qty: 1,
+			cash_received: null,
+			change: null,
+			metode_bayar: 'tunai'
+		})
+	});
+	const partialHtml = buildReceiptHtml(prepared.history, prepared.settings, prepared.items);
+	assert.ok(partialHtml.includes('Tidak tersimpan'));
+	assert.ok(!partialHtml.includes("Dibayar:</td><td style='text-align:right;font-size:13px;'>Rp0"));
+}
+
+// Legacy: use only stored transaction detail; missing header/cash/change are never fabricated.
+{
+	const prepared = prepareHistoryReceipt(history, [
+		{ nama_produk: 'Nama Historis Tersimpan', jumlah: 1, harga: 25_000, nominal: 25_000 }
+	]);
+	const legacyHtml = buildReceiptHtml(prepared.history, prepared.settings, prepared.items);
+	assert.ok(legacyHtml.includes('Nama Historis Tersimpan'));
+	assert.ok(legacyHtml.includes('Header toko saat transaksi tidak tersimpan'));
+	assert.ok(legacyHtml.includes('Data uang diterima dan kembalian tidak tersimpan'));
+	assert.ok(!legacyHtml.includes('Dibayar:</td>'));
+	assert.ok(!legacyHtml.includes('Kembalian:</td>'));
+	assert.ok(prepared.historyWarning);
+}
+
+// A present but corrupt snapshot must fail closed rather than substituting current catalog data.
+assert.throws(
+	() =>
+		prepareHistoryReceipt({ ...history, receipt_snapshot: '{broken' }, [
+			{ nama_produk: 'Catalog' }
+		]),
+	/Snapshot struk tidak dapat dibaca/
+);
+assert.throws(
+	() => prepareHistoryReceipt({ ...history, sumber: 'arsip' }),
+	/Ringkasan arsip bukan transaksi individual/
+);
 
 const nowAtWitaMidnight = new Date('2026-09-29T16:00:00.000Z');
 assert.equal(isTodayWita('2026-09-29T16:00:00.000Z', nowAtWitaMidnight), true);

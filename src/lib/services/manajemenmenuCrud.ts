@@ -139,24 +139,29 @@ export function createHppState() {
 			return data.items || [];
 		},
 		async savePurchasedItem(item: HppParsedItem, existing?: Ingredient) {
+			// Satu perintah kulakan atomik (AUD-006): mutasi + HPP satu batch.
+			// qty parse dianggap satuan dasar (cermin perilaku lama): kirim dalam
+			// satuan dasar bahan agar konversi server identitas.
 			if (existing) {
-				await transactionService.updateRows(
-					'bahan',
-					{
-						satuan: item.satuan,
-						yield_persen: 100, // default
-						jumlah_beli_terakhir: item.purchase_qty, // interpreted as portions
-						biaya_beli_terakhir: item.purchase_cost,
-						biaya_per_satuan: calculateEffectiveUnitCost(item.purchase_cost, item.purchase_qty)
-					},
-					{ id: String(existing.id) }
-				);
-				await transactionService.insertRows('bahan_mutasi', {
-					bahan_id: String(existing.id),
-					delta_jumlah: item.purchase_qty, // portions
-					source: 'purchase',
-					catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`
+				const res = await fetchWithCsrfRetry('/api/bahan/purchase', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						payload: {
+							bahan_id: String(existing.id),
+							arah: 'tambah',
+							jumlah: item.purchase_qty,
+							satuan: (existing as unknown as { satuan?: string }).satuan || item.satuan || 'gram',
+							catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`,
+							operation_key: crypto.randomUUID(),
+							kas: null,
+							update_hpp: false,
+							hpp: { jumlah_beli: item.purchase_qty, biaya_beli: item.purchase_cost }
+						}
+					})
 				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data?.message || 'Gagal menyimpan bahan HPP');
 				return;
 			}
 			const inserted = await transactionService.insertRows('bahan', {
@@ -173,12 +178,25 @@ export function createHppState() {
 			if (typeof bahanId !== 'string' && typeof bahanId !== 'number') {
 				throw new Error('Bahan baru tersimpan tanpa ID yang valid');
 			}
-			await transactionService.insertRows('bahan_mutasi', {
-				bahan_id: String(bahanId),
-				delta_jumlah: item.purchase_qty,
-				source: 'purchase',
-				catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`
+			const res = await fetchWithCsrfRetry('/api/bahan/purchase', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					payload: {
+						bahan_id: String(bahanId),
+						arah: 'tambah',
+						jumlah: item.purchase_qty,
+						satuan: item.satuan || 'gram',
+						catatan: `Belanja Rp ${Math.round(Number(item.purchase_cost || 0)).toLocaleString('id-ID')}`,
+						operation_key: crypto.randomUUID(),
+						kas: null,
+						update_hpp: false,
+						hpp: null
+					}
+				})
 			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.message || 'Gagal menyimpan mutasi bahan HPP');
 		}
 	};
 }

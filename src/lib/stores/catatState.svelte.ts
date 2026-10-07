@@ -6,7 +6,7 @@ import {
 	validateIncomeExpense
 } from '$lib/utils/validation';
 import { securityUtils } from '$lib/utils/security';
-import { witaToUtcISO } from '$lib/utils/dateTime';
+import { getNowWita, getTodayWita, witaToUtcISO, witaToUtcRange } from '$lib/utils/dateTime';
 import { formatRupiah } from '$lib/utils/currency';
 import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
 import { addPendingTransaction } from '$lib/utils/offline';
@@ -48,6 +48,7 @@ export function createCatatState() {
 	let sesiAktif = $state<TokoSession | null>(null);
 	let recentTransactions = $state<CatatRecentTransaction[]>([]);
 	let isLoadingRecent = $state(false);
+	let recentError = $state('');
 	let isSubmitting = $state(false);
 	// Intent gagal terakhir: submit ulang isi SAMA sesudah gagal memakai ID sama
 	// (dedup id server cegah ganda saat status ambigu). Sukses membersihkan;
@@ -81,12 +82,14 @@ export function createCatatState() {
 		}
 	});
 
+	// AUD-026: default SELALU dari instant sekarang dalam WITA,
+	// bukan zona perangkat. witaToUtcISO di saveTransaksi sudah kanonik.
 	function getLocalDateString() {
-		const now = new Date();
-		const year = now.getFullYear();
-		const month = String(now.getMonth() + 1).padStart(2, '0');
-		const day = String(now.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
+		return getTodayWita();
+	}
+
+	function getLocalTimeString() {
+		return getNowWita().slice(11, 16);
 	}
 
 	async function cekSesiTokoAktif() {
@@ -94,15 +97,22 @@ export function createCatatState() {
 	}
 
 	async function loadRecentTransactions() {
+		// AUD-027: lima terbaru HARI WITA (batas UTC + terbaru dulu),
+		// bukan lima tertua global. Gagal query = state error, bukan kosong valid.
 		try {
 			isLoadingRecent = true;
+			recentError = '';
+			const { startUtc, endUtc } = witaToUtcRange(getTodayWita());
 			const rows = await transactionService.getRows('buku_kas', {
 				sumber: 'catat',
+				start: startUtc,
+				end: endUtc,
+				direction: 'desc',
 				limit: '5'
 			});
 			recentTransactions = Array.isArray(rows) ? (rows as unknown as CatatRecentTransaction[]) : [];
 		} catch {
-			recentTransactions = [];
+			recentError = 'Gagal memuat aktivitas terbaru. Coba muat ulang.';
 		} finally {
 			isLoadingRecent = false;
 		}
@@ -120,7 +130,7 @@ export function createCatatState() {
 			}
 		}
 		date = getLocalDateString();
-		time = new Date().toTimeString().slice(0, 5);
+		time = getLocalTimeString();
 		jenis = mode === 'pemasukan' ? 'pendapatan_usaha' : 'beban_usaha';
 		await Promise.all([cekSesiTokoAktif(), loadRecentTransactions()]);
 	}
@@ -462,6 +472,9 @@ export function createCatatState() {
 		},
 		get isLoadingRecent() {
 			return isLoadingRecent;
+		},
+		get recentError() {
+			return recentError;
 		},
 		get isSubmitting() {
 			return isSubmitting;

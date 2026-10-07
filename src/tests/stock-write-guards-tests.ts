@@ -65,10 +65,71 @@ try {
 	);
 	await expectStatus(
 		() =>
-			ProductPost(
-				event({ payload: { id: 'direct-tracked', nama: 'Direct', harga: 1000, stok: 5 } }) as never
+			ProductPatch(
+				event({ payload: { stok: 20 }, where: { id: 'guard-product' } }, 'PATCH') as never
 			),
 		409
+	);
+
+	// AUD-008: form basi tak menimpa saldo. Buka (stok 3) -> checkout susutkan
+	// jadi 1 -> simpan metadata dengan stok tangkapan 3: saldo tetap 1.
+	await db.prepare(`UPDATE produk SET stok = 1 WHERE id = 'guard-product'`).run();
+	const staleSave = (await ProductSave(
+		event({
+			produk: { id: 'guard-product', nama: 'Guard Stale', harga: 11000, stok: 3, lacak_stok: true }
+		}) as unknown as Parameters<typeof ProductSave>[0]
+	)) as Response;
+	assert.equal(staleSave.status, 200);
+	assert.equal(
+		await db.prepare("SELECT stok FROM produk WHERE id = 'guard-product'").first<number>('stok'),
+		1
+	);
+	assert.equal(
+		await db.prepare("SELECT nama FROM produk WHERE id = 'guard-product'").first<string>('nama'),
+		'Guard Stale'
+	);
+	await db.prepare(`UPDATE produk SET stok = 3, nama = 'Guard' WHERE id = 'guard-product'`).run();
+
+	// AUD-009: PATCH metadata bahan menolak field saldo; mutasi bersamaan utuh.
+	await db.prepare(`UPDATE bahan SET stok_saat_ini = 7 WHERE id = 'guard-bahan'`).run();
+	await expectStatus(
+		() =>
+			BahanPatch({
+				...event({
+					payload: { nama: 'Guard Bahan', stok_saat_ini: 10 },
+					where: { id: 'guard-bahan' }
+				}),
+				request: new Request('https://test.invalid/api/x', {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						payload: { nama: 'Guard Bahan', stok_saat_ini: 10 },
+						where: { id: 'guard-bahan' }
+					})
+				})
+			} as unknown as Parameters<typeof BahanPatch>[0]),
+		400
+	);
+	assert.equal(
+		await db
+			.prepare("SELECT stok_saat_ini FROM bahan WHERE id = 'guard-bahan'")
+			.first<number>('stok_saat_ini'),
+		7
+	);
+	const bahanMetaOk = (await BahanPatch({
+		...event({ payload: {}, where: { id: 'guard-bahan' } }),
+		request: new Request('https://test.invalid/api/x', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ payload: { nama: 'Guard Bahan Meta' }, where: { id: 'guard-bahan' } })
+		})
+	} as unknown as Parameters<typeof BahanPatch>[0])) as Response;
+	assert.equal(bahanMetaOk.status, 200);
+	assert.equal(
+		await db
+			.prepare("SELECT stok_saat_ini FROM bahan WHERE id = 'guard-bahan'")
+			.first<number>('stok_saat_ini'),
+		7
 	);
 	await expectStatus(
 		() =>
@@ -116,15 +177,14 @@ try {
 			} as unknown as Parameters<typeof BahanPatch>[0]),
 		409
 	);
-	await expectStatus(
-		() =>
-			ProductSave(
-				event({
-					produk: { id: 'guard-product', nama: 'Guard', harga: 10000, stok: 99, lacak_stok: true }
-				}) as unknown as Parameters<typeof ProductSave>[0]
-			),
-		409
-	);
+	// Ignored: edit metadata dengan stok basi diabaikan (200, saldo utuh);
+	// hanya ubah flag lacak yang ditolak.
+	const staleIgnored = (await ProductSave(
+		event({
+			produk: { id: 'guard-product', nama: 'Guard', harga: 10000, stok: 99, lacak_stok: true }
+		}) as unknown as Parameters<typeof ProductSave>[0]
+	)) as Response;
+	assert.equal(staleIgnored.status, 200);
 	await expectStatus(
 		() =>
 			ProductPost(

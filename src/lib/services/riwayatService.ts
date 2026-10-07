@@ -38,6 +38,7 @@ function toHistoryItem(t: BukuKasRecord): HistoryItem {
 		nomor_harian: t.nomor_harian ?? null,
 		tanggal_nomor: t.tanggal_nomor ?? null,
 		idempotency_key: t.idempotency_key,
+		receipt_snapshot: t.receipt_snapshot ?? null,
 		waktu: t.waktu || t.created_at,
 		nama: t.deskripsi || t.nama_pelanggan || t.nama || '-',
 		nominal: t.nominal || 0,

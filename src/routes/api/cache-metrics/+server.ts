@@ -8,6 +8,7 @@ const ALLOWED_PAGES = new Set(['dashboard', 'laporan', 'pos']);
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const metricsHistory: Array<{
+	branch: string;
 	page: 'dashboard' | 'laporan' | 'pos';
 	timestamp: number;
 	receivedAt: number;
@@ -66,7 +67,7 @@ function pushMetric(entry: (typeof metricsHistory)[number]): void {
 	}
 }
 
-function summarize(cutoff: number) {
+function summarize(cutoff: number, branch: string | null) {
 	const pageTotals = new Map<
 		string,
 		{
@@ -83,6 +84,10 @@ function summarize(cutoff: number) {
 		const item = metricsHistory[index];
 		if (item.receivedAt < cutoff) {
 			break;
+		}
+		// AUD-018: ringkasan terikat tenant; admin (branch null) melihat global.
+		if (branch !== null && item.branch !== branch) {
+			continue;
 		}
 
 		if (!latestByPage.has(item.page)) {
@@ -209,6 +214,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 	const timestamp = clampNumber(payload.timestamp, receivedAt - WINDOW_MS, receivedAt + WINDOW_MS);
 
 	pushMetric({
+		branch: locals.authSession.branch ?? '',
 		page: normalizedPage as 'dashboard' | 'laporan' | 'pos',
 		timestamp,
 		receivedAt,
@@ -245,7 +251,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const windowMinutes = clampWindowMinutes(url.searchParams.get('windowMinutes'));
 	const cutoff = Date.now() - windowMinutes * 60 * 1000;
-	const summary = summarize(cutoff);
+	// AUD-018: pemilik hanya cabangnya; admin global.
+	const scopeBranch =
+		locals.authSession.role === 'admin' ? null : (locals.authSession.branch ?? '');
+	const summary = summarize(cutoff, scopeBranch);
 
 	return json({
 		success: true,

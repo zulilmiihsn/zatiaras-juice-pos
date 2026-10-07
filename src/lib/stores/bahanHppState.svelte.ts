@@ -308,7 +308,10 @@ export function createBahanHppState(config: BahanHppConfig) {
 			isi_per_kemasan: packSize,
 			satuan_beli: bahanForm.satuan_beli || bahanForm.satuan,
 			kategori: resolvedCategory,
-			stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)),
+			// Edit tak kirim saldo (AUD-009). Stok awal hanya saat buat.
+			...(!editBahanId
+				? { stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)) }
+				: {}),
 			ambang_stok: Math.max(0, parseQuantityInput(bahanForm.ambang_stok)),
 			yield_persen: yieldPercent,
 			jumlah_beli_terakhir: purchaseQuantityInBase,

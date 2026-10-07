@@ -1,4 +1,6 @@
 import type { AiRecommendation, AutoApplyResult } from '$lib/types/ai';
+import { validateRecommendation } from '$lib/utils/aiRecommendationSchema';
+import { resolveLedgerCategory } from '$lib/utils/ledgerCategory';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { userRole } from '$lib/stores/userRole.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
@@ -140,17 +142,43 @@ export class AutoApplyService {
 	private async applySingleRecommendation(
 		recommendation: AiRecommendation
 	): Promise<string | void> {
-		switch (recommendation.action) {
+		// AUD-033: validasi skema yang sama dengan parse; field model di luar
+		// allowlist (id/branch/transaction_id/…) tak pernah sampai mutasi.
+		const validation = validateRecommendation({
+			action: recommendation.action,
+			data: recommendation.data
+		});
+		if (!validation.ok) throw new Error(`Rekomendasi tidak valid: ${validation.reason}`);
+		const validated = validation.value;
+		switch (validated.kind) {
 			case 'create_transaction':
-				return this.createTransaction(recommendation.data as TransactionData, recommendation.id);
+				return this.createTransaction(
+					{
+						type: validated.type,
+						amount: validated.amount,
+						deskripsi: validated.deskripsi,
+						category: validated.category as string | undefined,
+						products: validated.products as Array<Record<string, unknown>>,
+						customerName: validated.customerName ?? undefined,
+						metode_bayar: validated.metode_bayar ?? undefined
+					},
+					recommendation.id
+				);
 			case 'update_transaction':
-				await this.updateTransaction(recommendation.data as UpdateTransactionData);
+				await this.updateTransaction({
+					id: validated.id,
+					type: validated.type,
+					amount: validated.amount,
+					deskripsi: validated.deskripsi,
+					category: validated.category as string | undefined
+				});
 				return;
 			case 'create_category':
-				await this.createCategory(recommendation.data as CategoryData);
+				await this.createCategory({
+					nama: validated.nama,
+					deskripsi: validated.deskripsi ?? undefined
+				});
 				return;
-			default:
-				throw new Error(`Action tidak didukung: ${recommendation.action}`);
 		}
 	}
 
@@ -171,6 +199,16 @@ export class AutoApplyService {
 		const branch = selectedBranch.value;
 		// [CATATAN]: 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
 		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
+		// AUD-032: arah saja tak menentukan jenis usaha. Ambigu = tolak
+		// eksplisit agar pemilik konfirmasi manual, bukan default diam.
+		const resolved = resolveLedgerCategory({
+			type: data.type,
+			category: data.category,
+			deskripsi: data.deskripsi
+		});
+		if ('needsConfirmation' in resolved) {
+			throw new Error(`Kategori perlu konfirmasi: ${resolved.reason}`);
+		}
 		// Intent stabil per rekomendasi: retry aman via dedup id server.
 		const transactionId = `ai-manual-${recommendationId || crypto.randomUUID()}`;
 
@@ -179,7 +217,7 @@ export class AutoApplyService {
 			tipe,
 			nominal: Number(data.amount),
 			deskripsi: String(data.deskripsi).trim(),
-			jenis: data.category || this.getDefaultCategory(data.type as string),
+			jenis: resolved.jenis,
 			sumber: 'catat',
 			waktu: new Date().toISOString(),
 			metode_bayar: 'tunai',
@@ -357,13 +395,29 @@ export class AutoApplyService {
 
 	private async updateTransaction(data: UpdateTransactionData): Promise<void> {
 		if (!data.id) throw new Error('ID transaksi diperlukan untuk update');
+		if (!data.amount || !Number.isFinite(Number(data.amount)) || Number(data.amount) <= 0)
+			throw new Error('Amount transaksi tidak valid atau kosong');
+		if (!data.deskripsi || String(data.deskripsi).trim() === '')
+			throw new Error('Description transaksi tidak valid atau kosong');
 		const branch = selectedBranch.value;
-		const payload = {
+		const payload: Record<string, unknown> = {
 			tipe: data.type === 'pemasukan' ? 'in' : 'out',
 			nominal: data.amount,
-			deskripsi: data.deskripsi,
-			jenis: data.category
+			deskripsi: data.deskripsi
 		};
+		// AUD-032/033: kategori model wajib valid; absen = jangan sentuh
+		// jenis existing (bukan default diam / mentah ke server).
+		if (data.category !== undefined) {
+			const resolved = resolveLedgerCategory({
+				type: data.type,
+				category: data.category,
+				deskripsi: data.deskripsi
+			});
+			if ('needsConfirmation' in resolved) {
+				throw new Error(`Kategori perlu konfirmasi: ${resolved.reason}`);
+			}
+			payload.jenis = resolved.jenis;
+		}
 
 		const res = await apiFetch('/api/buku-kas', {
 			method: 'PATCH',
@@ -403,15 +457,6 @@ export class AutoApplyService {
 		});
 
 		await throwIfNotOk(res, 'Gagal membuat kategori');
-	}
-
-	private getDefaultCategory(type: string): string {
-		const map: Record<string, string> = {
-			pemasukan: 'pendapatan_usaha',
-			pengeluaran: 'beban_usaha',
-			penjualan: 'pendapatan_usaha'
-		};
-		return map[type] || 'lainnya';
 	}
 
 	private deduplicateRecommendations(recommendations: AiRecommendation[]): AiRecommendation[] {

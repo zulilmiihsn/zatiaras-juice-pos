@@ -8,17 +8,15 @@
 	import { createToastManager } from '$lib/utils/ui';
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
+	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
-	import { loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
 	import RiwayatTransactionCard from '$lib/components/riwayat/RiwayatTransactionCard.svelte';
 
 	// [CATATAN]: ─── State ─────────────────────────────────────────────────────────────
-	let pengaturanStruk = $state<ReceiptSettings | null>(null);
 	let transaksiHariIni = $state<HistoryItem[]>([]);
 	let loading = $state(true);
 	let loadingMore = $state(false);
@@ -84,18 +82,13 @@
 		showDetailModal = true;
 	}
 
-	// [CATATAN]: ─── Fetch pengaturan struk ────────────────────────────────────────────
-	async function fetchPengaturanStruk() {
-		pengaturanStruk = await loadReceiptSettings();
-	}
-
 	// [CATATAN]: ─── Cetak struk ──────────────────────────────────────────────────────
 	async function printStruk() {
 		if (!selectedTransaksi) return;
 
 		loading = true;
 		try {
-			await printRiwayatStruk(selectedTransaksi, pengaturanStruk);
+			await printRiwayatStruk(selectedTransaksi);
 		} catch (err) {
 			ErrorHandler.logError(err as Error, 'printStruk (riwayat kasir)');
 			toastManager.showToastNotification('Gagal mencetak struk', 'error');
@@ -109,7 +102,6 @@
 		if (typeof window !== 'undefined') {
 			document.body.classList.add('hide-nav');
 		}
-		await fetchPengaturanStruk();
 		await fetchTransaksiHariIni();
 	});
 

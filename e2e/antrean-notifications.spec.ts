@@ -96,7 +96,10 @@ async function checkout(
 	const response = offline
 		? null
 		: page.waitForResponse(
-				(res) => res.url().endsWith('/api/pos/transaction') && res.request().method() === 'POST'
+				(res) => res.url().endsWith('/api/pos/transaction') && res.request().method() === 'POST',
+				// Timeout eksplisit agar kegagalan menunjuk tahap checkout,
+				// bukan habis sebagai timeout 120s tanpa lokasi.
+				{ timeout: 30_000 }
 			);
 	await page.getByRole('button', { name: 'Selesai', exact: true }).click();
 	await expect(
@@ -118,7 +121,9 @@ async function cleanup(page: Page, ids: string[]) {
 			return (
 				await fetch(`/api/transaksi-kasir?transaction_id=${encodeURIComponent(transactionId)}`, {
 					method: 'DELETE',
-					headers: { 'X-CSRF-Token': token }
+					headers: { 'X-CSRF-Token': token },
+					// Cleanup tidak boleh menggantung 120s dan menutupi asersi pertama.
+					signal: AbortSignal.timeout(15_000)
 				})
 			).status;
 		}, id);
@@ -141,7 +146,8 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 		const bNotes = await chimeStarts(b.page),
 			cNotes = await chimeStarts(c.page);
 		const request = a.page.waitForRequest(
-			(req) => req.url().endsWith('/api/pos/transaction') && req.method() === 'POST'
+			(req) => req.url().endsWith('/api/pos/transaction') && req.method() === 'POST',
+			{ timeout: 30_000 }
 		);
 		const first = await checkout(a.page, 'Notifikasi pertama');
 		ids.push(first.transactionId);

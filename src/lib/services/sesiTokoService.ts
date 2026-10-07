@@ -108,7 +108,14 @@ export async function bukaToko(openingCash: number, openingTime: string): Promis
 			}
 		})
 	});
-	if (!response.ok) throw new Error(`Gagal membuka toko: HTTP ${response.status}`);
+	if (!response.ok) {
+		const detail = await response.json().catch(() => null);
+		const message =
+			detail && typeof detail.message === 'string' && detail.message
+				? detail.message
+				: `Gagal membuka toko: HTTP ${response.status}`;
+		throw new Error(message);
+	}
 	await getSesiAktif();
 }
 

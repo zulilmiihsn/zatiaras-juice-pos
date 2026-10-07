@@ -141,6 +141,7 @@ export function buildReceiptEscPos(
 		cashReceived?: number;
 		change?: number;
 		footerMessage?: string;
+		historyWarning?: string;
 		queuedOffline?: boolean;
 	},
 	options: EscPosOptions = {}
@@ -203,6 +204,11 @@ export function buildReceiptEscPos(
 	}
 
 	builder.divider('-');
+
+	// Jelaskan bila data historis yang tidak tersedia memang tidak pernah tersimpan.
+	if (data.historyWarning) {
+		builder.align('center').bold(true).line(data.historyWarning).bold(false).align('left');
+	}
 
 	// Ucapan Footer
 	if (data.footerMessage) {

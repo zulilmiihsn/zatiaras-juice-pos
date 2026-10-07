@@ -184,6 +184,29 @@ export class SmartCache {
 	private backgroundRefreshMap = new Map<string, number>();
 	private etagMap = new Map<string, string>();
 	private keyRegistry = new Set<string>();
+	// AUD-020: epoch commit per key + global. Naik tiap invalidate/clear.
+	// Commit (foreground maupun background refresh) hanya jalan bila epoch
+	// tak berubah sejak fetch dimulai — respons basi tak bangkitkan cache.
+	private commitEpoch = new Map<string, number>();
+	private commitGlobal = 0;
+
+	private commitSnapshot(key: string): { epoch: number; global: number } {
+		return { epoch: this.commitEpoch.get(key) ?? 0, global: this.commitGlobal };
+	}
+
+	private canCommit(
+		key: string,
+		snapshot: { epoch: number; global: number },
+		guard?: () => boolean
+	): boolean {
+		if (guard && !guard()) return false;
+		const current = this.commitSnapshot(key);
+		return current.epoch === snapshot.epoch && current.global === snapshot.global;
+	}
+
+	private bumpCommitEpoch(key: string): void {
+		this.commitEpoch.set(key, (this.commitEpoch.get(key) ?? 0) + 1);
+	}
 	private stats = {
 		memoryHits: 0,
 		indexedDBHits: 0,
@@ -205,10 +228,12 @@ export class SmartCache {
 			backgroundRefresh?: boolean;
 			etag?: string;
 			forceRefresh?: boolean;
+			guard?: () => boolean;
 		} = {}
 	): Promise<T> {
-		const { ttl, backgroundRefresh = true, etag, forceRefresh = false } = options;
+		const { ttl, backgroundRefresh = true, etag, forceRefresh = false, guard } = options;
 		this.stats.requests += 1;
+		const snapshot = this.commitSnapshot(key);
 
 		// [CATATAN]: Check memory cache first (fastest)
 		if (!forceRefresh) {
@@ -217,7 +242,13 @@ export class SmartCache {
 				this.stats.memoryHits += 1;
 				// [CATATAN]: Trigger background refresh if enabled
 				if (backgroundRefresh) {
-					this.scheduleBackgroundRefresh(key, async () => ({ data: await fetcher() }), ttl);
+					this.scheduleBackgroundRefresh(
+						key,
+						async () => ({ data: await fetcher() }),
+						ttl,
+						undefined,
+						guard
+					);
 				}
 				return memoryData;
 			}
@@ -233,7 +264,13 @@ export class SmartCache {
 
 				// [CATATAN]: Trigger background refresh if enabled
 				if (backgroundRefresh) {
-					this.scheduleBackgroundRefresh(key, async () => ({ data: await fetcher() }), ttl);
+					this.scheduleBackgroundRefresh(
+						key,
+						async () => ({ data: await fetcher() }),
+						ttl,
+						undefined,
+						guard
+					);
 				}
 
 				return indexedDBData;
@@ -243,6 +280,10 @@ export class SmartCache {
 		// [CATATAN]: Fetch fresh data
 		this.stats.networkFetches += 1;
 		const freshData = await fetcher();
+
+		// AUD-020: skip commit bila guard/epoch gugur (cabang pindah atau
+		// invalidate susul). Data tetap dikembalikan ke pemanggil.
+		if (!this.canCommit(key, snapshot, guard)) return freshData;
 
 		// [CATATAN]: Store in both caches
 		this.memoryCache.set(key, freshData, ttl);
@@ -265,11 +306,13 @@ export class SmartCache {
 			ttl?: number;
 			backgroundRefresh?: boolean;
 			forceRefresh?: boolean;
+			guard?: () => boolean;
 		} = {}
 	): Promise<T> {
-		const { ttl, backgroundRefresh = true, forceRefresh = false } = options;
+		const { ttl, backgroundRefresh = true, forceRefresh = false, guard } = options;
 		const currentETag = this.etagMap.get(key);
 		this.stats.requests += 1;
+		const snapshot = this.commitSnapshot(key);
 
 		// [CATATAN]: Check if we have cached data and ETag
 		if (!forceRefresh && currentETag) {
@@ -282,7 +325,7 @@ export class SmartCache {
 				}
 				// [CATATAN]: Trigger background refresh with ETag
 				if (backgroundRefresh) {
-					this.scheduleBackgroundRefresh(key, fetcher, ttl, currentETag);
+					this.scheduleBackgroundRefresh(key, fetcher, ttl, currentETag, guard);
 				}
 				return cachedData;
 			}
@@ -291,6 +334,9 @@ export class SmartCache {
 		// [CATATAN]: Fetch fresh data with ETag
 		this.stats.networkFetches += 1;
 		const result = await fetcher(currentETag);
+
+		// AUD-020: skip commit bila guard/epoch gugur.
+		if (!this.canCommit(key, snapshot, guard)) return result.data;
 
 		// [CATATAN]: Store data and ETag
 		this.memoryCache.set(key, result.data, ttl);
@@ -309,7 +355,8 @@ export class SmartCache {
 		key: string,
 		fetcher: (etag?: string) => Promise<{ data: T; etag?: string }>,
 		ttl?: number,
-		etag?: string
+		etag?: string,
+		guard?: () => boolean
 	): void {
 		// [CATATAN]: Already scheduled, skip to avoid refresh storms
 		if (this.backgroundRefreshMap.has(key)) {
@@ -319,6 +366,11 @@ export class SmartCache {
 		// [CATATAN]: Jangan schedule refresh jika offline
 		if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
+		// AUD-020: epoch saat schedule; commit refresh gugur bila guard
+		// atau invalidate susul (respons basi tak timpa cache segar).
+		const snapshot = this.commitSnapshot(key);
+		if (guard && !guard()) return;
+
 		// [CATATAN]: Schedule new refresh
 		const refreshId = setTimeout(async () => {
 			try {
@@ -326,6 +378,7 @@ export class SmartCache {
 				if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 				const result = await fetcher(etag);
 				if (etag && result.etag === etag) return;
+				if (!this.canCommit(key, snapshot, guard)) return;
 
 				this.memoryCache.set(key, result.data, ttl);
 				await this.indexedDBCache.set(key, result.data, ttl);
@@ -372,12 +425,16 @@ export class SmartCache {
 				this.backgroundRefreshMap.delete(key);
 				this.etagMap.delete(key);
 				this.keyRegistry.delete(key);
+				// AUD-020: gugurkan commit fetch yang masih terbang untuk key ini.
+				this.bumpCommitEpoch(key);
 			})
 		);
 	}
 
 	// [CATATAN]: Clear all caches
 	async clear(): Promise<void> {
+		// AUD-020: gugurkan semua commit yang masih terbang.
+		this.commitGlobal += 1;
 		this.memoryCache.clear();
 		if (browser) {
 			await this.indexedDBCache.clear();

@@ -1,4 +1,5 @@
 import type { TransactionAnalysis, DetectedTransaction, AiRecommendation } from '$lib/types/ai';
+import { validateRecommendation } from '$lib/utils/aiRecommendationSchema';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import {
 	getApiErrorMessageFromResponse,
@@ -86,6 +87,11 @@ export class AiAnalysisService {
 						products: tx.products || [] // Include products data
 					};
 
+					// AUD-033: samakan gerbang validasi dengan rekomendasi model.
+					if (
+						!validateRecommendation({ action: 'create_transaction', data: recommendationData }).ok
+					)
+						return;
 					recommendations.push({
 						id: `rec_${Date.now()}_${index}`,
 						action: 'create_transaction',
@@ -114,14 +120,49 @@ export class AiAnalysisService {
 					};
 				}
 
+				// AUD-033: validasi skema runtime; rekomendasi malformed
+				// dibuang sebelum sampai consent/apply.
+				const action = (rec.action as unknown as string) || 'create_transaction';
+				const title =
+					typeof rec.title === 'string' && rec.title.trim() !== ''
+						? rec.title.trim().slice(0, 200)
+						: `Rekomendasi ${index + 1}`;
+				const priority =
+					rec.priority === 'high' || rec.priority === 'low' ? rec.priority : 'medium';
+				const validation = validateRecommendation({ action, data: recommendationData });
+				if (!validation.ok) return;
+				const validated = validation.value;
 				recommendations.push({
 					id: `rec_${Date.now()}_${index}`,
-					action: ((rec.action as unknown as string) || 'create_transaction') as
-						'create_transaction' | 'update_transaction' | 'create_category',
-					title: (rec.title as unknown as string) || `Rekomendasi ${index + 1}`,
+					action:
+						validated.kind === 'create_category'
+							? 'create_category'
+							: validated.kind === 'update_transaction'
+								? 'update_transaction'
+								: 'create_transaction',
+					title,
 					deskripsi: (rec.deskripsi as unknown as string) || '',
-					data: recommendationData,
-					priority: ((rec.priority as unknown as string) || 'medium') as 'low' | 'medium' | 'high'
+					data:
+						validated.kind === 'create_category'
+							? { nama: validated.nama, deskripsi: validated.deskripsi }
+							: validated.kind === 'update_transaction'
+								? {
+										id: validated.id,
+										type: validated.type,
+										amount: validated.amount,
+										deskripsi: validated.deskripsi,
+										category: validated.category
+									}
+								: {
+										type: validated.type,
+										amount: validated.amount,
+										deskripsi: validated.deskripsi,
+										category: validated.category,
+										products: validated.products,
+										customerName: validated.customerName,
+										metode_bayar: validated.metode_bayar
+									},
+					priority
 				});
 			});
 		}

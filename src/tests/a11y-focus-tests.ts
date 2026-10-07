@@ -100,3 +100,16 @@ assert.equal(trap.isOpen, false);
 console.log(
 	'a11y-focus-tests: 9 assertions passed (100% focus trap & keyboard navigation verified)'
 );
+
+// AUD-023: matematika trap kebijakan kanonik nyata (dipakai modalFocus action).
+// Keyboard/visual end-to-end dibuktikan e2e/modal-focus.spec.ts.
+import { trapFocusStep } from '../lib/utils/modalFocus';
+
+assert.equal(trapFocusStep(0, 0, false), -1);
+assert.equal(trapFocusStep(4, 3, false), 0);
+assert.equal(trapFocusStep(4, 0, true), 3);
+assert.equal(trapFocusStep(4, 1, false), 2);
+assert.equal(trapFocusStep(4, -1, false), 0);
+assert.equal(trapFocusStep(1, 0, false), 0);
+
+console.log('a11y-focus-tests: trapFocusStep contract passed (AUD-023)');

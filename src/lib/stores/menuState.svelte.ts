@@ -165,10 +165,16 @@ export function createMenuState(deps: MenuDeps) {
 				tipe: menuForm.tipe,
 				harga: parseRupiah(menuForm.harga),
 				harga_jumbo: menuForm.harga_jumbo ? parseRupiah(menuForm.harga_jumbo) : null,
-				stok:
-					menuForm.stok !== null && menuForm.stok !== undefined && menuForm.stok !== ''
-						? Number(menuForm.stok)
-						: null,
+				// Edit tak mengirim saldo: server mengabaikan stok basi form agar
+				// checkout bersamaan tak tertimpa (AUD-008). Stok awal hanya saat buat.
+				...(!editMenuId
+					? {
+							stok:
+								menuForm.stok !== null && menuForm.stok !== undefined && menuForm.stok !== ''
+									? Number(menuForm.stok)
+									: null
+						}
+					: {}),
 				lacak_stok: menuForm.lacak_stok,
 				lacak_bahan: menuForm.lacak_bahan,
 				ekstra_ids: menuForm.ekstra_ids,

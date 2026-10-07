@@ -13,6 +13,7 @@ import { and, eq } from 'drizzle-orm';
 import { appendAuditLog } from '$lib/server/auditLog';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 import { recordErrorEvent } from '$lib/server/observability';
+import { normalizeRole } from '$lib/utils/roles';
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_IP_ATTEMPTS = 60;
@@ -137,11 +138,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 				metadata: { reason: 'user_not_found', username }
 			});
 
+			// Pesan publik seragam anti-enumeration (AUD-016).
+			// Alasan rinci hanya di audit log server.
 			return new Response(
 				JSON.stringify({
 					success: false,
 					code: 'INVALID_CREDENTIALS',
-					message: 'Username tidak ditemukan'
+					message: 'Username atau password salah.'
 				}),
 				{
 					status: 401
@@ -163,19 +166,41 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			});
 
 			return new Response(
-				JSON.stringify({ success: false, code: 'INVALID_CREDENTIALS', message: 'Password salah' }),
+				JSON.stringify({
+					success: false,
+					code: 'INVALID_CREDENTIALS',
+					message: 'Username atau password salah.'
+				}),
 				{
 					status: 401
 				}
 			);
 		}
 
-		// [CATATAN]: Validasi ketat role user dari database
-		const VALID_ROLES = new Set(['kasir', 'pemilik']);
-		const rawRole = String(user.role || '')
-			.toLowerCase()
-			.trim();
-		const normalizedRole = VALID_ROLES.has(rawRole) ? (rawRole as 'kasir' | 'pemilik') : 'kasir';
+		// [CATATAN]: Role user dari database wajib lolos kebijakan kanonik
+		// (AUD-019). Unknown fail-closed tanpa sesi, pesan publik seragam
+		// anti-enumeration; alasan rinci hanya di audit log.
+		const normalizedRole = normalizeRole(user.role);
+		if (!normalizedRole) {
+			await appendAuditLog(rawDb, branchId, {
+				action: 'login.failed',
+				entityType: 'profil',
+				entityId: user.id,
+				ipHash,
+				metadata: { reason: 'unknown_role', username }
+			});
+
+			return new Response(
+				JSON.stringify({
+					success: false,
+					code: 'INVALID_CREDENTIALS',
+					message: 'Username atau password salah.'
+				}),
+				{
+					status: 401
+				}
+			);
+		}
 
 		const authSession = await createAuthSession(platform, {
 			userId: user.id,
@@ -192,7 +217,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			session: {
 				userId: user.id,
 				username: user.username,
-				role: user.role
+				role: normalizedRole
 			},
 			metadata: { username: user.username }
 		});
@@ -215,7 +240,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 				user: {
 					id: user.id,
 					username: user.username,
-					role: user.role,
+					role: normalizedRole,
 					branch: branchId
 				}
 			}),

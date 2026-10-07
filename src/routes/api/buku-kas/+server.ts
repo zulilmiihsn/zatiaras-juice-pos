@@ -11,6 +11,7 @@ import {
 	deleteBukuKasRow,
 	deleteBukuKasByTransaction
 } from '$lib/server/services/bukuKasService';
+import { LedgerValidationError } from '$lib/server/ledgerValidation';
 import type { RequestHandler } from './$types';
 
 /**
@@ -77,12 +78,15 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const rawDb = getRawDb(platform, branch);
 	await requirePageAccess(rawDb, session, 'catat');
 
-	const rows = payloadRows(body.payload, branch).map((row) => ({
-		...row,
-		nominal: row.nominal ?? 0
-	}));
+	const rows = payloadRows(body.payload, branch);
 
-	const result = await insertBukuKasRows(db, rawDb, branch, session, platform, rows);
+	let result;
+	try {
+		result = await insertBukuKasRows(db, rawDb, branch, session, platform, rows);
+	} catch (error) {
+		if (error instanceof LedgerValidationError) throw kitError(error.status, error.message);
+		throw error;
+	}
 	return json(result);
 };
 
@@ -100,15 +104,23 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const rawDb = getRawDb(platform, branch);
 	await requirePageAccess(rawDb, session, 'catat');
 
-	const result = await updateBukuKasRow(
-		db,
-		rawDb,
-		branch,
-		session,
-		platform,
-		String(body.where.id),
-		body.payload as Record<string, unknown>
-	);
+	const rowId = String(body.where.id);
+	const result = await (async () => {
+		try {
+			return await updateBukuKasRow(
+				db,
+				rawDb,
+				branch,
+				session,
+				platform,
+				rowId,
+				body.payload as Record<string, unknown>
+			);
+		} catch (error) {
+			if (error instanceof LedgerValidationError) throw kitError(error.status, error.message);
+			throw error;
+		}
+	})();
 	return json(result);
 };
 

@@ -6,7 +6,15 @@ import { getRawDb } from '$lib/server/dataApiHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 import { requirePageAccess } from '$lib/server/pageAccess';
-import { requestAiStreamResilient } from '$lib/server/aiGateway';
+import {
+	AI_STREAM_IDLE_MS,
+	AI_STREAM_TOTAL_MS,
+	publicAiErrorMessage,
+	publicAiErrorStatus,
+	pumpAiStream,
+	redactForLog,
+	requestAiStreamResilient
+} from '$lib/server/aiGateway';
 import {
 	analyzeBusinessData,
 	analyzeTransactionText,
@@ -257,12 +265,13 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 				temperature: 0.6,
 				model: chatModel,
 				tools: searchTools,
-				errorLabel: 'AI Stream Error'
+				errorLabel: 'AI Stream Error',
+				clientSignal: event.request.signal
 			});
 
 			if (!upstreamRes.ok || !upstreamRes.body) {
-				const errText = await upstreamRes.text().catch(() => '');
-				console.error('[OpenRouter Stream Error]', upstreamRes.status, errText);
+				// AUD-037: body provider tak tepercaya tak masuk log; status cukup.
+				console.error('[OpenRouter Stream Error]', upstreamRes.status);
 				return json(
 					{
 						success: false,
@@ -277,8 +286,22 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 
 			const sseStream = new ReadableStream({
 				async start(controller) {
+					const safeEnqueue = (bytes: Uint8Array) => {
+						try {
+							controller.enqueue(bytes);
+						} catch {
+							// Klien pergi: hentikan diam-diam.
+						}
+					};
+					const safeClose = () => {
+						try {
+							controller.close();
+						} catch {
+							// Sudah tutup.
+						}
+					};
 					// Kirim meta data pertama kali
-					controller.enqueue(
+					safeEnqueue(
 						encoder.encode(
 							`data: ${JSON.stringify({
 								type: 'meta',
@@ -300,55 +323,56 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 					const reader = upstreamRes.body!.getReader();
 					let buffer = '';
 
+					// AUD-034: baca upstream lewat pump berdeadline (total +
+					// idle) + abort putus klien; reader selalu dilepas.
 					try {
-						while (true) {
-							const { done, value } = await reader.read();
-							if (done) break;
+						const outcome = await pumpAiStream(reader, {
+							totalMs: AI_STREAM_TOTAL_MS,
+							idleMs: AI_STREAM_IDLE_MS,
+							errorLabel: 'AI Stream Error',
+							clientSignal: event.request.signal,
+							onChunk: (value) => {
+								buffer += decoder.decode(value, { stream: true });
+								const lines = buffer.split('\n');
+								buffer = lines.pop() || '';
 
-							buffer += decoder.decode(value, { stream: true });
-							const lines = buffer.split('\n');
-							buffer = lines.pop() || '';
-
-							for (const line of lines) {
-								const trimmed = line.trim();
-								if (!trimmed || trimmed.startsWith(':')) continue;
-								if (trimmed.startsWith('data: ')) {
-									const dataStr = trimmed.slice(6).trim();
-									if (dataStr === '[DONE]') {
-										controller.enqueue(
-											encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-										);
-										controller.close();
-										return;
-									}
-									try {
-										const parsed = JSON.parse(dataStr);
-										const token = parsed.choices?.[0]?.delta?.content;
-										if (token) {
-											controller.enqueue(
-												encoder.encode(
-													`data: ${JSON.stringify({ type: 'token', text: token })}\n\n`
-												)
-											);
+								for (const line of lines) {
+									const trimmed = line.trim();
+									if (!trimmed || trimmed.startsWith(':')) continue;
+									if (trimmed.startsWith('data: ')) {
+										const dataStr = trimmed.slice(6).trim();
+										if (dataStr === '[DONE]') return true;
+										try {
+											const parsed = JSON.parse(dataStr);
+											const token = parsed.choices?.[0]?.delta?.content;
+											if (token) {
+												safeEnqueue(
+													encoder.encode(
+														`data: ${JSON.stringify({ type: 'token', text: token })}\n\n`
+													)
+												);
+											}
+										} catch {
+											// Abaikan chunk json parsial
 										}
-									} catch {
-										// Abaikan chunk json parsial
 									}
 								}
+								return false;
 							}
+						});
+						if (outcome === 'done') {
+							safeEnqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
 						}
-						controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-						controller.close();
+						safeClose();
 					} catch (err: unknown) {
-						controller.enqueue(
+						// AUD-037: pesan publik tetap per kelas; teks mentah
+						// (SQL/skema/endpoint/kredensial) tak pernah ke SSE.
+						safeEnqueue(
 							encoder.encode(
-								`data: ${JSON.stringify({
-									type: 'error',
-									error: err instanceof Error ? err.message : 'Koneksi stream terputus.'
-								})}\n\n`
+								`data: ${JSON.stringify({ type: 'error', error: publicAiErrorMessage(err) })}\n\n`
 							)
 						);
-						controller.close();
+						safeClose();
 					}
 				}
 			});
@@ -396,18 +420,15 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 			webSearch: shouldSearchWeb
 		});
 	} catch (error) {
-		console.error('[AI Chat 500 Error]', error);
-		const errorMsg =
-			error instanceof Error && error.message
-				? error.message
-				: 'Terjadi kesalahan saat memproses pertanyaan. Silakan coba lagi.';
+		// AUD-037: log teredaksi; respons pesan tetap + status per kelas.
+		console.error('[AI Chat Error]', redactForLog(error));
 		return json(
 			{
 				success: false,
-				error: errorMsg,
+				error: publicAiErrorMessage(error),
 				code: 'SERVER_ERROR'
 			},
-			{ status: 500 }
+			{ status: publicAiErrorStatus(error) }
 		);
 	}
 }

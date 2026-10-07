@@ -96,6 +96,39 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 							)
 					)
 				);
+				// AUD-029: satu pemilik tiap cabang non-samarinda untuk label E2E.
+				// Tiap baris masuk shard cabangnya sendiri (login query shard itu).
+				// Aditif per-run, unik per (cabang, username), tak menyentuh seed lain.
+				for (const [binding, id, cabang] of [
+					['DB_BERAU_GROUP', 'uat-owner-berau-e2e', 'berau'],
+					['DB_BALIKPAPAN_GROUP', 'uat-owner-balikpapan-e2e', 'balikpapan'],
+					['DB_SAMARINDA_GROUP', 'uat-owner-samarinda2-e2e', 'samarinda2'],
+					['DB_BALIKPAPAN_GROUP', 'uat-owner-balikpapan2-e2e', 'balikpapan2']
+				]) {
+					const shardDb = /** @type {import('@cloudflare/workers-types').D1Database} */ (
+						proxy.env[binding]
+					);
+					await shardDb
+						.prepare(
+							'INSERT INTO profil (id, cabang_id, role, username, password, nama_lengkap) VALUES (?, ?, ?, ?, ?, ?)'
+						)
+						.bind(id, cabang, 'pemilik', 'owner-e2e', passwordHash, `UAT E2E owner-e2e ${cabang}`)
+						.run();
+				}
+				// AUD-019: satu admin + satu role tak dikenal untuk kontrak role E2E.
+				// Aditif per-run, username unik, tak menyentuh seed lain.
+				await db.batch(
+					[
+						['uat-admin-samarinda-e2e', 'admin', 'admin-e2e'],
+						['uat-weird-samarinda-e2e', 'supervisor', 'weird-e2e']
+					].map(([id, role, username]) =>
+						db
+							.prepare(
+								'INSERT INTO profil (id, cabang_id, role, username, password, nama_lengkap) VALUES (?, ?, ?, ?, ?, ?)'
+							)
+							.bind(id, 'samarinda', role, username, passwordHash, `UAT E2E ${username}`)
+					)
+				);
 				return { migrations: migrations.length, databases: bindings.length };
 			} finally {
 				await proxy.dispose();

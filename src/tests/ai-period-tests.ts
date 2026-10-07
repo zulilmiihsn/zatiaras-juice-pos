@@ -140,3 +140,51 @@ for (const q of [
 	assert.equal(hasPeriodQualifier(q), true, q);
 }
 console.log('ai-period-tests: composite qualifiers and analyzer fallbacks passed');
+
+// AUD-036: tanggal/bulan masa depan tahun berjalan ditolak (tanpa query
+// historis); hari ini, kemarin, kabisat, lintas batas tetap konsisten.
+// ref '2026-09-15': 31 Des 2026 dan Des 2026 masa depan -> null.
+const refFuture = '2026-09-15';
+for (const q of [
+	'laporan tanggal 31 Desember 2026',
+	'laporan 31 Desember 2026',
+	'laporan Desember 2026',
+	'menu terlaris Desember 2026',
+	'laporan 1 Desember 2026',
+	'laporan December 25, 2026'
+]) {
+	assert.equal(resolveAiPeriod(q, refFuture), null, q);
+	assert.equal(hasPeriodQualifier(q), true, q);
+}
+// Batas inklusif: hari ini boleh; kemarin boleh; esok tidak.
+assert.deepEqual(resolveAiPeriod('laporan tanggal 15 September 2026', refFuture), {
+	start: '2026-09-15',
+	end: '2026-09-15',
+	type: 'daily'
+});
+assert.deepEqual(resolveAiPeriod('penjualan kemarin', refFuture), {
+	start: '2026-09-14',
+	end: '2026-09-14',
+	type: 'daily'
+});
+assert.equal(resolveAiPeriod('laporan tanggal 16 September 2026', refFuture), null);
+// Kabisat valid vs mustahil tanpa rollover diam-diam.
+assert.deepEqual(resolveAiPeriod('laporan 29 Februari 2024', '2024-03-01'), {
+	start: '2024-02-29',
+	end: '2024-02-29',
+	type: 'daily'
+});
+assert.equal(resolveAiPeriod('laporan 29 Februari 2025', '2025-03-01'), null);
+assert.equal(resolveAiPeriod('laporan 31 Februari 2024', '2024-03-01'), null);
+// Lintas batas: bulan lalu Desember tahun lalu; awal tahun Kempis Januari.
+assert.deepEqual(resolveAiPeriod('menu terlaris bulan lalu', '2026-01-10'), {
+	start: '2025-12-01',
+	end: '2025-12-31',
+	type: 'monthly'
+});
+assert.deepEqual(resolveAiPeriod('laporan Januari 2026', '2026-01-10'), {
+	start: '2026-01-01',
+	end: '2026-01-10',
+	type: 'monthly'
+});
+console.log('ai-period-tests: future rejection and boundary consistency passed (AUD-036)');

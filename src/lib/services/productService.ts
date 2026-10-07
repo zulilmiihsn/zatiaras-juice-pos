@@ -36,8 +36,29 @@ export class ProductService {
 		return ProductService.instance;
 	}
 
+	// AUD-020: generasi per key. Hanya flight terkini boleh commit;
+	// commit gugur bila cabang pindah atau flight baru susul.
+	private tableFlight = new Map<string, number>();
+
+	private beginTableFlight(key: string): number {
+		const next = (this.tableFlight.get(key) ?? 0) + 1;
+		this.tableFlight.set(key, next);
+		return next;
+	}
+
+	private tableFlightAlive(key: string, generation: number, branch: string): boolean {
+		return (
+			this.tableFlight.get(key) === generation && (selectedBranch.value || 'default') === branch
+		);
+	}
+
 	private async getCachedTable(table: ReadResource, cacheKey: string, offlineKeyPrefix: string) {
+		// AUD-020: capture cabang sekali; fetch pakai cabang itu,
+		// namespace cache + request sama, commit tolak bila konteks pindah.
 		const branch = selectedBranch.value || 'default';
+		const namespacedKey = `${cacheKey}_${branch}`;
+		const generation = this.beginTableFlight(namespacedKey);
+		const guard = () => this.tableFlightAlive(namespacedKey, generation, branch);
 		const offlineKey = `table:${offlineKeyPrefix}:${branch}`;
 		const stored = await idbGet<unknown>(offlineKey, catalogStore);
 		const offlineData = isTableSnapshot(stored) ? stored.data : [];
@@ -45,10 +66,12 @@ export class ProductService {
 			return offlineData;
 		}
 		try {
-			const data = await smartCache.get(`${cacheKey}_${branch}`, async () => dbGetStrict(table), {
+			const data = await smartCache.get(namespacedKey, async () => dbGetStrict(table, {}, branch), {
 				ttl: 180000,
-				backgroundRefresh: true
+				backgroundRefresh: true,
+				guard
 			});
+			if (!guard()) return data || [];
 			await idbSet(
 				offlineKey,
 				{
@@ -125,12 +148,16 @@ export class ProductService {
 
 	async getIngredients(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
+		const key = `ingredients_${branch}`;
 		if (forceRefresh) {
-			await smartCache.invalidate(`ingredients_${branch}`);
+			await smartCache.invalidate(key);
 		}
-		return smartCache.get(`ingredients_${branch}`, async () => dbGet('bahan'), {
+		const generation = this.beginTableFlight(key);
+		const guard = () => this.tableFlightAlive(key, generation, branch);
+		return smartCache.get(key, async () => dbGet('bahan', {}, branch), {
 			ttl: CACHE_TTL_MS.SHORT,
-			backgroundRefresh: true
+			backgroundRefresh: true,
+			guard
 		});
 	}
 
@@ -141,9 +168,13 @@ export class ProductService {
 
 	async getHppSettings() {
 		const branch = selectedBranch.value || 'default';
-		const rows = await smartCache.get(`hpp_settings_${branch}`, async () => dbGet('hpp_settings'), {
+		const key = `hpp_settings_${branch}`;
+		const generation = this.beginTableFlight(key);
+		const guard = () => this.tableFlightAlive(key, generation, branch);
+		const rows = await smartCache.get(key, async () => dbGet('hpp_settings', {}, branch), {
 			ttl: 180000,
-			backgroundRefresh: true
+			backgroundRefresh: true,
+			guard
 		});
 		return rows?.[0] || null;
 	}

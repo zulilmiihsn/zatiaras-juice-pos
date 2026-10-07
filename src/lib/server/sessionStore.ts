@@ -5,6 +5,7 @@ import {
 	type BranchId
 } from '$lib/server/branchResolver';
 import { MS_PER_DAY } from '$lib/constants/time';
+import { normalizeRole } from '$lib/utils/roles';
 import { revokeNotificationSession } from '$lib/server/orderNotifications/useCase';
 
 export interface AuthSession {
@@ -149,8 +150,11 @@ export async function getAuthSession(
 		unlockedPages = [];
 	}
 
-	const normalizedRole =
-		row.role === 'pemilik' || row.role === 'kasir' || row.role === 'admin' ? row.role : 'kasir';
+	// AUD-019: unknown role fail-closed (null sesi), bukan default kasir.
+	const normalizedRole = normalizeRole(row.role);
+	if (!normalizedRole) {
+		return null;
+	}
 
 	return {
 		id: row.id,

@@ -236,19 +236,36 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 			? await bcrypt.hash(cleanNewPassword, 10)
 			: user.password;
 
-		// Perubahan kredensial dan pencabutan seluruh sesi user secara atomik
-		await rawDb.batch([
-			rawDb
-				.prepare(
-					`UPDATE profil
-					 SET username = ?, password = ?, updated_at = ?
-					 WHERE cabang_id = ? AND id = ?`
-				)
-				.bind(cleanNewUsername, finalHashedPassword, new Date().toISOString(), branchId, user.id),
-			rawDb
-				.prepare('DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?')
-				.bind(branchId, user.id)
-		]);
+		// Perubahan kredensial dan pencabutan seluruh sesi user secara atomik.
+		// UNIQUE (cabang_id, username) di DB adalah otoritas race; check-before-update
+		// di atas hanya fast-path ramah. Pelanggaran unik dipetakan ke USERNAME_EXISTS.
+		try {
+			await rawDb.batch([
+				rawDb
+					.prepare(
+						`UPDATE profil
+						 SET username = ?, password = ?, updated_at = ?
+						 WHERE cabang_id = ? AND id = ?`
+					)
+					.bind(cleanNewUsername, finalHashedPassword, new Date().toISOString(), branchId, user.id),
+				rawDb
+					.prepare('DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?')
+					.bind(branchId, user.id)
+			]);
+		} catch (error) {
+			const message = String((error as { message?: unknown })?.message ?? error).toUpperCase();
+			if (message.includes('UNIQUE') || message.includes('CONSTRAINT')) {
+				return new Response(
+					JSON.stringify({
+						success: false,
+						code: 'USERNAME_EXISTS',
+						message: 'Username baru sudah digunakan oleh akun lain di cabang ini.'
+					}),
+					{ status: 400 }
+				);
+			}
+			throw error;
+		}
 
 		await publishBranchEvent(
 			platform?.env as Record<string, unknown> | undefined,

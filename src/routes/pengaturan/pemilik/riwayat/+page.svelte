@@ -11,19 +11,16 @@
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
-	import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
+	import type { HistoryItem } from '$lib/types/laporan';
 	type IconComponent = typeof import('@lucide/svelte/icons/trash').default;
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
-	import { loadReceiptSettings } from '$lib/utils/receiptPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
 	import RiwayatTransactionCard from '$lib/components/riwayat/RiwayatTransactionCard.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
-
-	let pengaturanStruk = $state<ReceiptSettings | null>(null);
 
 	let transaksiHariIni = $state<HistoryItem[]>([]);
 	let loading = $state(true);
@@ -179,16 +176,12 @@
 		}
 	});
 
-	async function fetchPengaturanStruk() {
-		pengaturanStruk = await loadReceiptSettings();
-	}
-
 	async function printStrukDariRiwayat() {
 		if (!selectedTransaksi) return;
 
 		loading = true;
 		try {
-			await printRiwayatStruk(selectedTransaksi, pengaturanStruk);
+			await printRiwayatStruk(selectedTransaksi);
 		} catch (error) {
 			ErrorHandler.logError(error as Error, 'printStrukDariRiwayat');
 			toastManager.showToastNotification('Gagal mencetak struk', 'error');
@@ -210,7 +203,6 @@
 		if (typeof window !== 'undefined') {
 			document.body.classList.add('hide-nav');
 		}
-		await fetchPengaturanStruk();
 		await fetchTransaksiHariIni();
 		Trash = (await import('@lucide/svelte/icons/trash')).default;
 		// [CATATAN]: pollingInterval = setInterval(fetchTransaksiHariIni, 5000); // HAPUS polling otomatis

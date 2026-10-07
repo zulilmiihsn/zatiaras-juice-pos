@@ -75,12 +75,28 @@ async function totals() {
 try {
 	for (const count of [1, 20, 21, 45, 101]) {
 		await reset(count);
-		assert.equal((await archive()).status, 200);
+		const first = await archive();
+		assert.equal(first.status, 200);
 		assert.deepEqual(await totals(), { rows: 0, amount: count * 1000, active: 0 });
 		assert.equal(await db.prepare('SELECT status FROM archive_jobs').first('status'), 'completed');
 		const retry = (await (await archive()).json()) as { resumed?: boolean };
 		assert.equal(retry.resumed, true);
-		assert.equal(objects.size, 1);
+		// AUD-039: chunk 50 header/part; 101 header = 3 objek R2.
+		const expectedParts = Math.max(1, Math.ceil(count / 50));
+		assert.equal(objects.size, expectedParts);
+		const firstJson = (await first.json()) as {
+			content?: string;
+			parts?: Array<{ key: string; checksum: string; count: number }>;
+		};
+		assert.equal(firstJson.parts?.length, expectedParts);
+		if (expectedParts === 1) {
+			assert.equal(typeof firstJson.content, 'string');
+		} else {
+			assert.equal(firstJson.content, undefined);
+		}
+		for (const part of firstJson.parts || []) {
+			assert.ok(objects.has(part.key));
+		}
 		assert.deepEqual(await totals(), { rows: 0, amount: count * 1000, active: 0 });
 	}
 	// New eligible data must not be hidden by the prior completed pointer.
