@@ -257,7 +257,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Passed local | opencode | §12 AUD-051 2026-10-07      |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Passed local | opencode | §12 AUD-052 2026-10-07      |
 | [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
-| [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Pending      | —        | —                           |
+| [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Pending      | —        | —                           |
 | [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Pending      | —        | —                           |
@@ -1515,6 +1515,15 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: retention SQLite + `--d1` lulus; `check` 0/0; prettier bersih.
 - Batas bukti: CI SHA sama + reviewer belum. Throughput cron produksi + backlog raksasa butuh observasi operator.
 - Rollback: revert empat file via release berizin; tanpa migrasi.
+
+### AUD-054 2026-10-07 — Passed local (opencode)
+
+- Audit gate: tanpa `.skip`/`.todo`/fixme di unit+E2E; tanpa hitungan suite lawas di-pin; `readFileSync` tersisa hanya kontrak konten (docs/manifest/SQL/migrasi) + fixture, bukan mock perilaku; orkestrasi tunggal (test:all→test:release, CI build terminal, tanpa siklus unit→build→unit).
+- Fix: `docs-drift` kini tegakkan rantai hidup — tiap entri test:unit/test:operations wajib script ada + target file ada. Gagal beralasan pada rantai sintetis mati; hijau pada rantai nyata (50+ unit, 8 operasi).
+- File ubah: `docs-drift-tests.ts`.
+- Gate lokal: docs-drift lulus; `check` 0/0; prettier bersih.
+- Batas bukti: CI SHA sama + reviewer belum. Failure-injection CI (red-check) ranah operator.
+- Rollback: revert satu file via release berizin.
 
 ### AUD-052 2026-10-07 — Passed local (opencode)
 

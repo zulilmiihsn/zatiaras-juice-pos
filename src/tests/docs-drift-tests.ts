@@ -78,5 +78,25 @@ for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/deploy.ym
 	}
 }
 
+// Rantai suite wajib hidup (AUD-054): tiap entri test:unit/test:operations
+// adalah script package.json yang target file-nya ada — tanpa entri mati,
+// tanpa hitungan suite lawas yang di-pin.
+for (const chain of ['test:unit', 'test:operations']) {
+	const entries = String(pkg.scripts[chain] ?? '')
+		.split('&&')
+		.map((s) => s.trim().replace(/^pnpm\s+/, ''));
+	assert.ok(entries.length > 0, `rantai ${chain} kosong`);
+	for (const name of entries) {
+		const command = pkg.scripts[name];
+		assert.ok(command, `rantai ${chain} memanggil script hilang: ${name}`);
+		const file = command
+			.split('&&')
+			.map((s) => s.trim())
+			.map((s) => s.match(/^(?:tsx|node --test)\s+(\S+)/)?.[1])
+			.find(Boolean);
+		if (file) assert.ok(existsSync(join(ROOT, file)), `target suite hilang: ${file}`);
+	}
+}
+
 console.log('docs-drift-tests: README/DEVELOPER-GUIDE/plan/workflows sinkron dengan package.json');
 process.exit(0);
