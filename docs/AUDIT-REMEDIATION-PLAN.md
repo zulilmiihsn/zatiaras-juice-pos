@@ -256,7 +256,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Passed local | opencode | §12 AUD-050 2026-10-07      |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Passed local | opencode | §12 AUD-051 2026-10-07      |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Passed local | opencode | §12 AUD-052 2026-10-07      |
-| [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Pending      | —        | —                           |
+| [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Blocked      | opencode | §12 AUD-053 2026-10-07      |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Passed local | opencode | §12 AUD-055 2026-10-07      |
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Passed local | opencode | §12 AUD-056 2026-10-07      |
@@ -1015,7 +1015,7 @@ Evidence task tidak boleh diganti dengan link CI baseline. Jika task tidak mengu
 
 Progress dihitung dari 63 row tracker: jumlah Pending/In progress/Blocked/Passed local/Completed; `[x]` harus tepat sama dengan Completed. Source/gate failure/operator task tetap masuk denominator sampai accepted disposition/DoD, bukan dihapus. Reviewer mengecek dependency closure dan bukti, bukan hanya hitungan centang.
 
-Status 2026-10-06: **40 Passed local, 23 Pending, 0 In progress, 0 Blocked, 0 Completed**. `[x]` tetap 0/63.
+Status 2026-10-07: **56 Passed local, 1 Blocked (AUD-053 sisa slice), 6 Pending (AUD-058..063 operator/final), 0 In progress, 0 Completed**. `[x]` tetap 0/63.
 
 ## 10. Gate operator dan prasyarat eksternal
 
@@ -1560,6 +1560,20 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Gate lokal: migration-matrix 41/41 + quick_check ok; release-gate 10/10 lulus; `diff --check` tanpa warning journal.
 - Batas bukti: CI SHA sama (Linux LF) + reviewer belum.
 - Rollback: revert via release berizin.
+
+### AUD-053 2026-10-07 — Blocked slice 1 (opencode)
+
+- Alasan block: refactor halaman raksasa hanya aman per slice dengan CI hijau sebagai jaring.
+  Slice berikut butuh `test:release` penuh + CI SHA sama hijau + reviewer: sisa stok script,
+  pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak tersentuh slice ini).
+- Slice 1 selesai lokal: `stockHealth.ts` murni (getStockHealth verbatim + predikat low-stock
+  tunggal gantikan 2 derived ganda + filter/hitung/opsi kategori) dipakai halaman stok;
+  halaman 2173→2064 baris, tanpa ubah perilaku. Regresi `stock-health-tests.ts` (5 status,
+  predikat, filter, kategori) + `test:stock-health` rantai unit + step CI.
+- Gate lokal slice: unit baru lulus; kulakan E2E 1/1 lulus (48.7s); stock-policy lulus;
+  `check` 0/0; maintainability (max 2064 ≤ 2200) + docs-drift lulus; prettier bersih.
+- File ubah: `stockHealth.ts` + suite baru, halaman stok, `package.json` + step CI.
+- Buka block: gate F8 hijau → lanjut slice 2 per file owner tunggal.
 
 ### AUD-057 2026-10-07 — Passed local (opencode)
 

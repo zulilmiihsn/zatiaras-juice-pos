@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { fly, slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Plus from '@lucide/svelte/icons/plus';
@@ -20,6 +20,7 @@
 	import Wallet from '@lucide/svelte/icons/wallet';
 	import { productService } from '$lib/services/productService';
 	import { transactionService } from '$lib/services/transactionService';
+	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 	import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 	import {
 		formatRupiah,
@@ -48,6 +49,13 @@
 		type UnitOption
 	} from '$lib/utils/unitConversion';
 	import type { Ingredient } from '$lib/types/product';
+	import {
+		getStockHealth,
+		filterLowStock,
+		filterBahan,
+		buildCategoryOptions,
+		countCategory
+	} from '$lib/utils/stockHealth';
 
 	// State
 	let bahanList = $state<Ingredient[]>([]);
@@ -66,109 +74,15 @@
 	];
 
 	const dynamicCategories = $derived.by(() => {
-		const set = new Set<string>(['Bahan Baku']);
-		for (const b of bahanList) {
-			const cat = (b.kategori || '').trim();
-			if (cat) set.add(cat);
-		}
-		return Array.from(set);
+		return buildCategoryOptions(bahanList, defaultCategories).dynamic;
 	});
 
 	const availableCategoryOptions = $derived.by(() => {
-		const set = new Set<string>(defaultCategories);
-		for (const b of bahanList) {
-			const cat = (b.kategori || '').trim();
-			if (cat) set.add(cat);
-		}
-		return Array.from(set);
+		return buildCategoryOptions(bahanList, defaultCategories).available;
 	});
 
 	function getCategoryCount(cat: string): number {
-		if (cat === 'all') return bahanList.length;
-		if (cat === 'low_stock') return lowStockItems.length;
-		return bahanList.filter(
-			(b) => (b.kategori || 'Bahan Baku').trim().toLowerCase() === cat.toLowerCase()
-		).length;
-	}
-
-	function getStockHealth(b: Ingredient) {
-		const current = Math.max(0, Number(b.stok_saat_ini || 0));
-		const threshold = Math.max(0, Number(b.ambang_stok || 0));
-		const lastPurchase = Math.max(0, Number(b.jumlah_beli_terakhir || 0));
-
-		// Baseline target / maximum benchmark for progress bar:
-		const maxCapacity = Math.max(lastPurchase, threshold > 0 ? threshold * 2.5 : 50, current, 1);
-
-		let percent = Math.min(100, Math.max(0, Math.round((current / maxCapacity) * 100)));
-		if (current > 0 && percent === 0) percent = 4;
-
-		// 1. HABIS (0 pcs) -> Rose/Merah Pekat
-		if (current === 0) {
-			return {
-				status: 'out',
-				label: 'Habis',
-				badgeClass: 'bg-rose-100 text-rose-700 border-rose-200',
-				barGradient: 'bg-rose-600',
-				trackBg: 'bg-rose-100',
-				textColor: 'text-rose-600',
-				cardBg: 'border-rose-200/90 bg-gradient-to-b from-rose-50/30 to-white',
-				percent: 0
-			};
-		}
-
-		// 2. SISA SEDIKIT (stok <= ambang batas ATAU percent <= 25%) -> Gradasi Merah/Rose
-		if ((threshold > 0 && current <= threshold) || percent <= 25) {
-			return {
-				status: 'critical',
-				label: 'Sisa Sedikit',
-				badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
-				barGradient: 'bg-gradient-to-r from-rose-500 to-red-500',
-				trackBg: 'bg-rose-100/80',
-				textColor: 'text-rose-600',
-				cardBg: 'border-rose-200/80 bg-gradient-to-b from-rose-50/20 to-white',
-				percent
-			};
-		}
-
-		// 3. MENDEKATI BATAS (stok <= 1.5x ambang ATAU percent <= 45%) -> Gradasi Amber/Oranye
-		if ((threshold > 0 && current <= threshold * 1.5) || percent <= 45) {
-			return {
-				status: 'warning',
-				label: 'Mendekati Batas',
-				badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-				barGradient: 'bg-gradient-to-r from-amber-400 to-orange-500',
-				trackBg: 'bg-amber-100/80',
-				textColor: 'text-amber-600',
-				cardBg: 'border-amber-200/70 bg-gradient-to-b from-amber-50/15 to-white',
-				percent
-			};
-		}
-
-		// 4. SETENGAH (percent 46% - 74%) -> Gradasi Sky/Biru Cyan
-		if (percent < 75) {
-			return {
-				status: 'half',
-				label: 'Setengah',
-				badgeClass: 'bg-sky-50 text-sky-700 border-sky-200',
-				barGradient: 'bg-gradient-to-r from-sky-400 to-blue-500',
-				trackBg: 'bg-sky-100/80',
-				textColor: 'text-sky-600',
-				cardBg: 'border-slate-100/90 hover:border-slate-200/90',
-				percent
-			};
-		}
-
-		// 5. PENUH (percent >= 75%) -> Gradasi Hijau Emerald
-		return {
-			status: 'full',
-			label: 'Penuh',
-			badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-			barGradient: 'bg-gradient-to-r from-emerald-400 to-teal-500',
-			trackBg: 'bg-emerald-100/60',
-			textColor: 'text-emerald-600',
-			cardBg: 'border-slate-100/90 hover:border-slate-200/90',
-			percent
-		};
+		return countCategory(bahanList, lowStockItems.length, cat);
 	}
 
 	// Toast state
@@ -182,46 +96,32 @@
 		showToast = true;
 	}
 
-	// Stats & Filtered Data
-	let lowStockItems = $derived(
-		bahanList.filter(
-			(b) =>
-				Number(b.ambang_stok || 0) > 0 && Number(b.stok_saat_ini || 0) <= Number(b.ambang_stok || 0)
-		)
-	);
+	// Stats & Filtered Data (predikat/filter terpusat di stockHealth.ts).
+	let lowStockItems = $derived(filterLowStock(bahanList));
 
 	let filteredBahan = $derived.by(() => {
-		const query = searchKeyword.trim().toLowerCase();
-		return bahanList.filter((b) => {
-			const matchesSearch =
-				!query ||
-				b.nama.toLowerCase().includes(query) ||
-				(b.kategori || '').toLowerCase().includes(query);
-			if (!matchesSearch) return false;
-
-			if (selectedCategory === 'all') return true;
-			if (selectedCategory === 'low_stock') {
-				return (
-					Number(b.ambang_stok || 0) > 0 &&
-					Number(b.stok_saat_ini || 0) <= Number(b.ambang_stok || 0)
-				);
-			}
-			const itemCat = (b.kategori || 'Bahan Baku').trim().toLowerCase();
-			return itemCat === selectedCategory.toLowerCase();
-		});
+		return filterBahan(bahanList, searchKeyword, selectedCategory);
 	});
 
 	// Load Data
+	// AUD-021: generasi per load. Hanya request terkini boleh commit data,
+	// tampilkan error, atau finalize loading. Request basi yang selesai
+	// belakangan diabaikan diam-diam.
+	let bahanLoadGeneration = 0;
 	async function loadBahan(forceRefresh = true) {
+		const generation = ++bahanLoadGeneration;
+		const alive = () => generation === bahanLoadGeneration;
 		isLoading = true;
 		try {
 			const data = (await productService.getIngredients(forceRefresh)) as unknown as Ingredient[];
+			if (!alive()) return;
 			bahanList = data || [];
 			evaluateAndAlertLowStock(bahanList);
 		} catch {
+			if (!alive()) return;
 			notify('Gagal memuat data stok bahan', 'error');
 		} finally {
-			isLoading = false;
+			if (alive()) isLoading = false;
 		}
 	}
 
@@ -346,7 +246,10 @@
 			isi_per_kemasan: packSize,
 			satuan_beli: bahanForm.satuan_beli || bahanForm.satuan,
 			kategori: resolvedCategory,
-			stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)),
+			// Edit tak kirim saldo (AUD-009): cermin menuState. Stok awal hanya saat buat.
+			...(!editBahanId
+				? { stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)) }
+				: {}),
 			ambang_stok: Math.max(0, parseQuantityInput(bahanForm.ambang_stok)),
 			yield_persen: yieldPercent,
 			biaya_beli_terakhir: purchaseCost,
@@ -387,6 +290,8 @@
 	let kasPaymentMethod = $state<'tunai' | 'non-tunai'>('tunai');
 	let kasCategory = $state<'beban_usaha' | 'lainnya'>('beban_usaha');
 	let updateHppWithPurchase = $state(true);
+	// Kunci idempotency perintah kulakan: stabil per niat modal agar retry aman.
+	let mutasiOperationKey = $state('');
 
 	function getMutationClickFrequencyMap(): Record<string, number> {
 		if (typeof window === 'undefined') return {};
@@ -481,6 +386,21 @@
 		return getCompatibleUnits(selectedBahanForMutasi.satuan || 'gram');
 	});
 
+	// Preset "Kulakan Terakhir" (AUD-007): tersimpan dalam satuan dasar,
+	// wajib dikonversi balik ke satuan beli untuk label + isian. Tanpa ini
+	// 1000 gram tersimpan tampil/diisi sebagai 1000 kg (= 1.000.000 gram).
+	const terakhirKulakanPreset = $derived.by(() => {
+		if (!selectedBahanForMutasi) return null;
+		const storedBase = Number(selectedBahanForMutasi.jumlah_beli_terakhir || 0);
+		if (!Number.isFinite(storedBase) || storedBase <= 0) return null;
+		const baseUnit = selectedBahanForMutasi.satuan || 'gram';
+		const buyUnit = selectedBahanForMutasi.satuan_beli || baseUnit;
+		const pack = Number(selectedBahanForMutasi.isi_per_kemasan) || 1;
+		const display = safeConvertFromBaseUnit(storedBase, buyUnit, baseUnit, pack);
+		if (Number.isFinite(display) && display > 0) return { amount: display, unit: buyUnit };
+		return { amount: storedBase, unit: baseUnit };
+	});
+
 	const mutasiBaseAmount = $derived.by(() => {
 		if (!selectedBahanForMutasi || !mutasiAmount) return 0;
 		const parsed = parseQuantityInput(mutasiAmount);
@@ -532,6 +452,7 @@
 		kasPaymentMethod = 'tunai';
 		kasCategory = 'beban_usaha';
 		updateHppWithPurchase = true;
+		mutasiOperationKey = crypto.randomUUID();
 		showHistorySection = false;
 		showMutasiModal = true;
 		void loadMutasiHistory(bahan.id);
@@ -588,61 +509,50 @@
 
 		isSavingMutasi = true;
 		const signedDelta = mutasiType === 'tambah' ? baseQty : -baseQty;
-		const unitInfo =
-			mutasiUnit !== selectedBahanForMutasi.satuan ? ` (${mutasiAmount} ${mutasiUnit})` : '';
-		const defaultNote =
-			mutasiType === 'tambah'
-				? `Tambah stok: +${formatQuantity(baseQty)} ${selectedBahanForMutasi.satuan}${unitInfo}`
-				: `Koreksi stok: -${formatQuantity(baseQty)} ${selectedBahanForMutasi.satuan}${unitInfo}`;
 
 		try {
-			// 1. Simpan Mutasi Stok Fisik
-			await transactionService.insertRows('bahan_mutasi', {
-				bahan_id: String(selectedBahanForMutasi.id),
-				delta_jumlah: signedDelta,
-				sumber: 'manual',
-				catatan: mutasiNotes.trim() || defaultNote
-			});
-
+			// Satu perintah kulakan atomik (AUD-006): mutasi + kas + HPP dalam satu
+			// batch server. Kunci operasi stabil per niat modal: gagal → coba lagi
+			// memakai kunci sama (idempoten); sukses/tutup → kunci dibuang.
+			const parsedAmount = parseQuantityInput(mutasiAmount);
 			const parsedNominal = parseRupiah(kasNominal);
+			const withKas = recordKasTransaction && parsedNominal > 0;
+			const deskripsiKas =
+				mutasiNotes.trim() ||
+				(mutasiType === 'tambah'
+					? `Kulakan Bahan: ${selectedBahanForMutasi.nama} (${mutasiAmount} ${mutasiUnit})`
+					: `Beban Kerusakan Bahan: ${selectedBahanForMutasi.nama} (${mutasiAmount} ${mutasiUnit})`);
 
-			// 2. Jika opsi Catat Kas Aktif & nominal > 0 -> Simpan ke Buku Kas (Laporan Keuangan)
-			if (recordKasTransaction && parsedNominal > 0) {
-				const deskripsiKas =
-					mutasiNotes.trim() ||
-					(mutasiType === 'tambah'
-						? `Kulakan Bahan: ${selectedBahanForMutasi.nama} (${mutasiAmount} ${mutasiUnit})`
-						: `Beban Kerusakan Bahan: ${selectedBahanForMutasi.nama} (${mutasiAmount} ${mutasiUnit})`);
-
-				await transactionService.insertRows('buku_kas', {
-					waktu: new Date().toISOString(),
-					sumber: 'stok',
-					tipe: 'out',
-					jenis: kasCategory,
-					nominal: parsedNominal,
-					metode_bayar: kasPaymentMethod,
-					deskripsi: deskripsiKas
-				});
-
-				// 3. Jika Kulakan & opsi update HPP aktif -> update harga beli terakhir & biaya_per_satuan di tabel bahan
-				// Kontrak: jumlah_beli_terakhir = jumlah dasar (baseQty), bukan input mentah.
-				if (mutasiType === 'tambah' && updateHppWithPurchase && baseQty > 0) {
-					const rawYield = Number(selectedBahanForMutasi.yield_persen || 100);
-					const yieldFactor = Math.min(100, Math.max(1, rawYield)) / 100;
-					const netUsable = baseQty * yieldFactor;
-					const newUnitCost =
-						netUsable > 0 ? calculateEffectiveUnitCost(parsedNominal, netUsable) : 0;
-
-					await transactionService.updateRows(
-						'bahan',
-						{
-							biaya_beli_terakhir: parsedNominal,
-							jumlah_beli_terakhir: baseQty,
-							biaya_per_satuan: newUnitCost
-						},
-						{ id: String(selectedBahanForMutasi.id) }
-					);
-				}
+			const res = await fetchWithCsrfRetry('/api/bahan/purchase', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					payload: {
+						bahan_id: String(selectedBahanForMutasi.id),
+						arah: mutasiType,
+						jumlah: parsedAmount,
+						satuan: mutasiUnit,
+						catatan: mutasiNotes.trim() || undefined,
+						operation_key: mutasiOperationKey,
+						kas: withKas
+							? {
+									nominal: parsedNominal,
+									metode_bayar: kasPaymentMethod,
+									jenis: kasCategory,
+									deskripsi: deskripsiKas
+								}
+							: null,
+						update_hpp: mutasiType === 'tambah' && updateHppWithPurchase
+					}
+				})
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				notify(
+					`Gagal mengubah stok: ${detail?.message || `HTTP ${res.status}`}. Periksa lagi lalu coba lagi.`,
+					'error'
+				);
+				return;
 			}
 
 			await cacheOrchestrator.clearAllCaches();
@@ -712,30 +622,56 @@
 	}
 
 	// Lifecycle
+	// AUD-022: setup sinkron sebelum await apa pun agar resolving
+	// tak mendaftarkan subscription sesudah destroy. Handler window
+	// bernama agar bisa dilepas; destroy menaikkan generasi load
+	// (batalkan commit in-flight AUD-021).
 	let offStokBus: (() => void) | null = null;
 	let stokRealtimeDisposers: Array<() => void> = [];
+	let stokMounted = false;
 
-	onMount(async () => {
-		await loadBahan(true);
+	function handlePenjualanBerhasil(): void {
+		void loadBahan(true);
+	}
+
+	function teardownStokSubscriptions(): void {
+		stokMounted = false;
+		bahanLoadGeneration++;
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('penjualan-berhasil', handlePenjualanBerhasil);
+		}
+		if (offStokBus) offStokBus();
+		offStokBus = null;
+		for (const unsub of stokRealtimeDisposers) unsub();
+		stokRealtimeDisposers = [];
+	}
+
+	onMount(() => {
+		stokMounted = true;
 		offStokBus = refreshBus.on('stok', () => {
-			void loadBahan(true);
+			if (stokMounted) void loadBahan(true);
 		});
-		window.addEventListener('penjualan-berhasil', () => {
-			void loadBahan(true);
-		});
-		stokRealtimeDisposers.push(realtimeManager.subscribe('bahan', () => void loadBahan(true)));
+		window.addEventListener('penjualan-berhasil', handlePenjualanBerhasil);
 		stokRealtimeDisposers.push(
-			realtimeManager.subscribe('bahan_mutasi', () => void loadBahan(true))
+			realtimeManager.subscribe('bahan', () => {
+				if (stokMounted) void loadBahan(true);
+			})
 		);
 		stokRealtimeDisposers.push(
-			realtimeManager.subscribe('transaksi_kasir', () => void loadBahan(true))
+			realtimeManager.subscribe('bahan_mutasi', () => {
+				if (stokMounted) void loadBahan(true);
+			})
 		);
+		stokRealtimeDisposers.push(
+			realtimeManager.subscribe('transaksi_kasir', () => {
+				if (stokMounted) void loadBahan(true);
+			})
+		);
+		void loadBahan(true);
 	});
 
 	onDestroy(() => {
-		if (offStokBus) offStokBus();
-		for (const unsub of stokRealtimeDisposers) unsub();
-		stokRealtimeDisposers = [];
+		teardownStokSubscriptions();
 	});
 </script>
 
@@ -1112,1033 +1048,1016 @@
 	</div>
 </div>
 
-<!-- Modal Tambah / Edit Bahan -->
-{#if showBahanModal}
+<!-- Modal Tambah / Edit Bahan (AUD-024: AppModal kanonik) -->
+<AppModal
+	open={showBahanModal}
+	labelledby="stok-bahan-title"
+	size="sm"
+	align="center"
+	panelClass="border border-pink-100/90 bg-white ring-1 ring-pink-500/10"
+	onClose={closeBahanModal}
+>
 	<div
-		class="z-modal fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
-		role="dialog"
-		aria-modal="true"
-		onclick={(e) => e.target === e.currentTarget && closeBahanModal()}
-		onkeydown={(e) => e.key === 'Escape' && closeBahanModal()}
-		tabindex="-1"
+		class="flex flex-shrink-0 items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-6 py-4.5"
 	>
-		<div
-			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10 transition-all"
-			in:fly={{ y: 24, duration: 220, easing: cubicOut }}
-		>
+		<div class="flex items-center gap-3.5">
 			<div
-				class="flex flex-shrink-0 items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-6 py-4.5"
+				class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-600 to-rose-500 text-white shadow-sm shadow-pink-500/25"
 			>
-				<div class="flex items-center gap-3.5">
-					<div
-						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-600 to-rose-500 text-white shadow-sm shadow-pink-500/25"
-					>
-						<Boxes class="h-5 w-5 stroke-[2.2]" />
-					</div>
-					<div>
-						<h2 class="text-lg font-black tracking-tight text-slate-900">
-							{editBahanId ? 'Edit Bahan Baku' : 'Tambah Bahan Baku'}
-						</h2>
-						<p class="text-xs font-medium text-slate-500 sm:text-sm">
-							{editBahanId
-								? 'Perbarui data stok & kalkulator modal'
-								: 'Daftarkan bahan baku & takaran saji baru'}
-						</p>
-					</div>
-				</div>
-				<button
-					type="button"
-					class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-pink-100/70 hover:text-slate-700 active:scale-95"
-					onclick={closeBahanModal}
-					aria-label="Tutup modal"
-				>
-					<X class="h-4 w-4 stroke-[2.2]" />
-				</button>
+				<Boxes class="h-5 w-5 stroke-[2.2]" />
 			</div>
-
-			<form
-				id="stok-bahan-form"
-				class="flex flex-1 flex-col gap-4 overflow-y-auto p-6"
-				onsubmit={handleSaveBahan}
-				autocomplete="off"
-			>
-				<div class="flex flex-col gap-1.5">
-					<label
-						for="modal-bahan-nama"
-						class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-					>
-						Nama Bahan
-					</label>
-					<input
-						id="modal-bahan-nama"
-						type="text"
-						class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-						bind:value={bahanForm.nama}
-						required
-						placeholder="Contoh: Alpukat Mentega, Gula Pasir, Cup 16oz"
-					/>
-				</div>
-
-				<!-- Tipe Satuan / Sifat Bahan -->
-				<div class="flex flex-col gap-1.5">
-					<span class="text-xs font-bold tracking-wider text-zinc-700 uppercase">
-						Tipe Takaran / Sifat Bahan
-					</span>
-					<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-						{#each UNIT_CATEGORIES as cat}
-							<button
-								type="button"
-								class="flex cursor-pointer flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all {bahanForm.tipe_satuan ===
-								cat.value
-									? 'border-pink-500 bg-pink-50/80 font-bold text-pink-700 shadow-xs ring-2 ring-pink-500/20'
-									: 'border-zinc-200/80 bg-zinc-50/50 text-zinc-600 hover:border-pink-200 hover:bg-white'}"
-								onclick={() => {
-									bahanForm.tipe_satuan = cat.value;
-									bahanForm.satuan = cat.defaultBase;
-									if (cat.value === 'berat') bahanForm.satuan_beli = 'kg';
-									else if (cat.value === 'cairan') bahanForm.satuan_beli = 'liter';
-									else if (cat.value === 'kemasan') bahanForm.satuan_beli = 'pack';
-									else bahanForm.satuan_beli = 'buah';
-								}}
-							>
-								<span class="text-xs font-bold capitalize">{cat.value}</span>
-								<span class="mt-0.5 text-[10px] font-medium text-zinc-400">({cat.defaultBase})</span
-								>
-							</button>
-						{/each}
-					</div>
-				</div>
-
-				<div class="flex flex-col gap-1.5">
-					<label
-						for="modal-bahan-kategori"
-						class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-					>
-						Kategori Bahan
-					</label>
-					<div class="flex flex-col gap-2">
-						<div class="relative">
-							<select
-								id="modal-bahan-kategori"
-								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm font-medium text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
-								bind:value={bahanForm.kategoriSelect}
-							>
-								{#each availableCategoryOptions as cat}
-									<option value={cat}>{cat}</option>
-								{/each}
-								<option value="__new__">+ Buat Kategori Baru...</option>
-							</select>
-							<ChevronDown
-								class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
-							/>
-						</div>
-
-						{#if bahanForm.kategoriSelect === '__new__'}
-							<input
-								type="text"
-								class="w-full rounded-2xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
-								bind:value={bahanForm.customKategori}
-								placeholder="Ketik nama kategori baru (contoh: Kemasan, Buah Segar)"
-								required
-							/>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Satuan Dasar & Stok Siap Pakai -->
-				<div class="grid grid-cols-2 gap-3">
-					<div class="flex flex-col gap-1.5">
-						<label
-							for="modal-bahan-satuan"
-							class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-						>
-							Satuan Simpan
-						</label>
-						<div class="relative">
-							<select
-								id="modal-bahan-satuan"
-								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
-								bind:value={bahanForm.satuan}
-							>
-								{#if bahanForm.tipe_satuan === 'cairan'}
-									<option value="ml">Mililiter (ml)</option>
-									<option value="liter">Liter (L)</option>
-									<option value="cup">Cup (200ml)</option>
-								{:else if bahanForm.tipe_satuan === 'berat'}
-									<option value="gram">Gram (g)</option>
-									<option value="kg">Kilogram (kg)</option>
-									<option value="ons">Ons (100g)</option>
-								{:else if bahanForm.tipe_satuan === 'kemasan'}
-									<option value="pcs">Pcs / Lembar</option>
-									<option value="pack">Pack / Bungkus</option>
-								{:else}
-									<option value="buah">Buah</option>
-									<option value="porsi">Porsi</option>
-									<option value="pcs">Pcs</option>
-									<option value="biji">Biji</option>
-								{/if}
-							</select>
-							<ChevronDown
-								class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
-							/>
-						</div>
-					</div>
-
-					<div class="flex flex-col gap-1.5">
-						<label
-							for="modal-bahan-stok"
-							class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-						>
-							Stok Siap Pakai
-						</label>
-						<input
-							id="modal-bahan-stok"
-							type="text"
-							class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-							bind:value={bahanForm.stok_saat_ini}
-							oninput={(e) => handleRupiahFormat(e, 'stok_saat_ini')}
-							onblur={() => handleQuantityBlur('stok_saat_ini')}
-							placeholder="0"
-						/>
-					</div>
-				</div>
-
-				{#if bahanForm.tipe_satuan === 'kemasan'}
-					<div class="flex flex-col gap-1.5">
-						<label
-							for="modal-bahan-isi-kemasan"
-							class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-						>
-							1 Pack/Bungkus Isi Berapa Pcs?
-						</label>
-						<input
-							id="modal-bahan-isi-kemasan"
-							type="text"
-							class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-							bind:value={bahanForm.isi_per_kemasan}
-							oninput={(e) => handleRupiahFormat(e, 'isi_per_kemasan')}
-							onblur={() => handleQuantityBlur('isi_per_kemasan')}
-							placeholder="Contoh: 50"
-						/>
-					</div>
-				{/if}
-
-				<div class="flex flex-col gap-1.5">
-					<label
-						for="modal-bahan-ambang"
-						class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
-					>
-						Batas Peringatan Habis ({bahanForm.satuan})
-					</label>
-					<input
-						id="modal-bahan-ambang"
-						type="text"
-						class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-						bind:value={bahanForm.ambang_stok}
-						oninput={(e) => handleRupiahFormat(e, 'ambang_stok')}
-						onblur={() => handleQuantityBlur('ambang_stok')}
-						placeholder="Contoh: 5"
-					/>
-					<p class="text-xs text-zinc-400">
-						Jika stok di bawah angka ini, muncul status peringatan stok.
-					</p>
-				</div>
-
-				<!-- Pembelian / Kulakan Grosir -->
-				<div class="rounded-2xl border border-zinc-200/80 bg-zinc-50/60 p-3.5">
-					<div class="mb-2 text-xs font-extrabold tracking-wider text-zinc-800 uppercase">
-						Kalkulator Kulakan / Pembelian Grosir
-					</div>
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-						<div class="flex flex-col gap-1.5">
-							<label for="modal-bahan-beli-qty" class="text-[11px] font-bold text-zinc-600">
-								Jumlah Beli
-							</label>
-							<div class="flex gap-2">
-								<input
-									id="modal-bahan-beli-qty"
-									type="text"
-									class="w-full rounded-2xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-									bind:value={bahanForm.jumlah_beli_terakhir}
-									oninput={(e) => handleRupiahFormat(e, 'jumlah_beli_terakhir')}
-									onblur={() => handleQuantityBlur('jumlah_beli_terakhir')}
-									placeholder="1"
-								/>
-								<div class="relative w-28">
-									<select
-										class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
-										bind:value={bahanForm.satuan_beli}
-									>
-										{#if bahanForm.tipe_satuan === 'berat'}
-											<option value="kg">kg</option>
-											<option value="gram">gram</option>
-											<option value="ons">ons</option>
-										{:else if bahanForm.tipe_satuan === 'cairan'}
-											<option value="liter">Liter</option>
-											<option value="ml">ml</option>
-										{:else if bahanForm.tipe_satuan === 'kemasan'}
-											<option value="pack">Pack / bks</option>
-											<option value="slop">Slop</option>
-											<option value="dus">Dus</option>
-											<option value="pcs">pcs</option>
-										{:else}
-											<option value="buah">buah</option>
-											<option value="porsi">porsi</option>
-											<option value="biji">biji</option>
-										{/if}
-									</select>
-									<ChevronDown
-										class="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<div class="flex flex-col gap-1.5">
-							<label for="modal-bahan-beli-cost" class="text-[11px] font-bold text-zinc-600">
-								Total Harga Beli
-							</label>
-							<div class="relative">
-								<span
-									class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
-									>Rp</span
-								>
-								<input
-									id="modal-bahan-beli-cost"
-									type="text"
-									class="w-full rounded-2xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-									bind:value={bahanForm.biaya_beli_terakhir}
-									oninput={(e) => handleRupiahFormat(e, 'biaya_beli_terakhir')}
-									placeholder="35.000"
-								/>
-							</div>
-						</div>
-					</div>
-
-					<!-- Hitung Susut Kulit/Biji (Hanya untuk Buah Segar / Tipe Berat & Unit) -->
-					{#if bahanForm.tipe_satuan === 'berat' || bahanForm.tipe_satuan === 'unit'}
-						<div class="mt-3 flex flex-col gap-2 border-t border-zinc-200/60 pt-3">
-							<div class="flex items-center justify-between">
-								<label
-									class="flex cursor-pointer items-center gap-2 text-xs font-bold text-zinc-700 select-none"
-								>
-									<input
-										type="checkbox"
-										class="h-4 w-4 rounded border-zinc-300 text-pink-600 focus:ring-pink-500/20"
-										checked={Number(bahanForm.yield_persen || 100) < 100}
-										onchange={(e) => {
-											bahanForm.yield_persen = e.currentTarget.checked ? '70' : '100';
-										}}
-									/>
-									<span>Hitung Susut Kulit/Biji (Khusus Buah Utuh)</span>
-								</label>
-								{#if Number(bahanForm.yield_persen || 100) < 100}
-									<span class="text-xs font-black text-pink-600"
-										>{bahanForm.yield_persen}% Bersih</span
-									>
-								{/if}
-							</div>
-
-							{#if Number(bahanForm.yield_persen || 100) < 100}
-								<div class="flex flex-col gap-2 pt-1">
-									<div class="relative">
-										<input
-											id="modal-bahan-yield"
-											type="number"
-											min="1"
-											max="100"
-											class="w-full rounded-2xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
-											bind:value={bahanForm.yield_persen}
-											placeholder="70"
-										/>
-										<span
-											class="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
-											>% Daging Bersih</span
-										>
-									</div>
-									<!-- Quick Preset Buttons -->
-									<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-										<span class="text-[10px] font-semibold text-zinc-400">Pilihan Cepat:</span>
-										<button
-											type="button"
-											class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
-											onclick={() => (bahanForm.yield_persen = '70')}
-										>
-											Alpukat/Mangga (70%)
-										</button>
-										<button
-											type="button"
-											class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
-											onclick={() => (bahanForm.yield_persen = '45')}
-										>
-											Nanas (45%)
-										</button>
-										<button
-											type="button"
-											class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
-											onclick={() => (bahanForm.yield_persen = '50')}
-										>
-											Jeruk (50%)
-										</button>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/if}
-
-					{#if parseQuantityInput(bahanForm.jumlah_beli_terakhir) > 0}
-						{@const numQty = parseQuantityInput(bahanForm.jumlah_beli_terakhir)}
-						{@const numCost = parseRupiah(bahanForm.biaya_beli_terakhir)}
-						{@const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1)}
-						{@const baseQty = safeConvertToBaseUnit(
-							numQty,
-							bahanForm.satuan_beli || bahanForm.satuan,
-							bahanForm.satuan,
-							packSize
-						)}
-						{@const isFruitYield =
-							(bahanForm.tipe_satuan === 'berat' || bahanForm.tipe_satuan === 'unit') &&
-							Number(bahanForm.yield_persen || 100) < 100}
-						{@const numYield = isFruitYield
-							? Math.min(100, Math.max(1, Number(bahanForm.yield_persen || 100)))
-							: 100}
-						{@const netBaseQty = (baseQty * numYield) / 100}
-						{@const effectiveUnitCost =
-							netBaseQty > 0 ? calculateEffectiveUnitCost(numCost, netBaseQty) : 0}
-
-						<div
-							class="mt-3 rounded-xl border border-pink-100 bg-pink-50/80 p-2.5 text-xs text-zinc-700"
-						>
-							<div class="flex flex-wrap items-center justify-between gap-1 font-bold">
-								<span class="text-zinc-600">
-									{#if isFruitYield}
-										Daging Bersih: <span class="text-zinc-900"
-											>{formatQuantity(netBaseQty)} {bahanForm.satuan}</span
-										>
-										<span class="text-[10px] font-normal text-zinc-400">
-											(dari {formatQuantity(baseQty)} {bahanForm.satuan} utuh)</span
-										>
-									{:else}
-										Total: <span class="text-zinc-900"
-											>{formatQuantity(baseQty)} {bahanForm.satuan}</span
-										>
-									{/if}
-								</span>
-								<span class="text-pink-700">
-									Modal: Rp {formatRupiah(Math.round(effectiveUnitCost))} / {bahanForm.satuan}
-								</span>
-							</div>
-						</div>
-					{/if}
-				</div>
-			</form>
-
-			<!-- Fixed Action Buttons -->
-			<div class="flex flex-shrink-0 gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
-				<button
-					type="button"
-					class="flex-1 cursor-pointer rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
-					onclick={closeBahanModal}
-				>
-					Batal
-				</button>
-				<button
-					type="submit"
-					form="stok-bahan-form"
-					class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
-				>
-					{editBahanId ? 'Simpan Perubahan' : 'Tambah Bahan'}
-				</button>
+			<div>
+				<h2 id="stok-bahan-title" class="text-lg font-black tracking-tight text-slate-900">
+					{editBahanId ? 'Edit Bahan Baku' : 'Tambah Bahan Baku'}
+				</h2>
+				<p class="text-xs font-medium text-slate-500 sm:text-sm">
+					{editBahanId
+						? 'Perbarui data stok & kalkulator modal'
+						: 'Daftarkan bahan baku & takaran saji baru'}
+				</p>
 			</div>
 		</div>
-	</div>
-{/if}
-
-<!-- Modal Mutasi Cepat (+ Kulakan / - Koreksi) -->
-{#if showMutasiModal && selectedBahanForMutasi}
-	<div
-		class="z-modal fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
-		role="dialog"
-		aria-modal="true"
-		onclick={(e) => e.target === e.currentTarget && closeMutasiModal()}
-		onkeydown={(e) => e.key === 'Escape' && closeMutasiModal()}
-		tabindex="-1"
-	>
-		<div
-			class="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-pink-100/90 bg-white shadow-2xl ring-1 ring-pink-500/10"
-			in:fly={{ y: 24, duration: 220, easing: cubicOut }}
+		<button
+			type="button"
+			class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-pink-100/70 hover:text-slate-700 active:scale-95"
+			onclick={closeBahanModal}
+			aria-label="Tutup modal"
 		>
-			<!-- Header -->
-			<div
-				class="relative flex items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-5 py-4 sm:px-6"
+			<X class="h-4 w-4 stroke-[2.2]" />
+		</button>
+	</div>
+
+	<form
+		id="stok-bahan-form"
+		class="flex flex-1 flex-col gap-4 overflow-y-auto p-6"
+		onsubmit={handleSaveBahan}
+		autocomplete="off"
+	>
+		<div class="flex flex-col gap-1.5">
+			<label
+				for="modal-bahan-nama"
+				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
 			>
-				<div class="flex items-center gap-3.5">
-					<div
-						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm {mutasiType ===
-						'tambah'
-							? 'bg-gradient-to-tr from-pink-600 to-rose-500 shadow-pink-500/25'
-							: 'bg-gradient-to-tr from-amber-600 to-rose-600 shadow-amber-500/25'}"
+				Nama Bahan
+			</label>
+			<input
+				id="modal-bahan-nama"
+				type="text"
+				class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+				bind:value={bahanForm.nama}
+				required
+				placeholder="Contoh: Alpukat Mentega, Gula Pasir, Cup 16oz"
+			/>
+		</div>
+
+		<!-- Tipe Satuan / Sifat Bahan -->
+		<div class="flex flex-col gap-1.5">
+			<span class="text-xs font-bold tracking-wider text-zinc-700 uppercase">
+				Tipe Takaran / Sifat Bahan
+			</span>
+			<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+				{#each UNIT_CATEGORIES as cat}
+					<button
+						type="button"
+						class="flex cursor-pointer flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all {bahanForm.tipe_satuan ===
+						cat.value
+							? 'border-pink-500 bg-pink-50/80 font-bold text-pink-700 shadow-xs ring-2 ring-pink-500/20'
+							: 'border-zinc-200/80 bg-zinc-50/50 text-zinc-600 hover:border-pink-200 hover:bg-white'}"
+						onclick={() => {
+							bahanForm.tipe_satuan = cat.value;
+							bahanForm.satuan = cat.defaultBase;
+							if (cat.value === 'berat') bahanForm.satuan_beli = 'kg';
+							else if (cat.value === 'cairan') bahanForm.satuan_beli = 'liter';
+							else if (cat.value === 'kemasan') bahanForm.satuan_beli = 'pack';
+							else bahanForm.satuan_beli = 'buah';
+						}}
 					>
-						{#if mutasiType === 'tambah'}
-							<ArrowUpRight class="h-5 w-5 stroke-[2.5]" />
-						{:else}
-							<ArrowDownRight class="h-5 w-5 stroke-[2.5]" />
-						{/if}
-					</div>
-					<div>
-						<h2 class="text-base font-black tracking-tight text-slate-900 sm:text-lg">
-							{mutasiType === 'tambah' ? 'Catat Kulakan / Masuk' : 'Koreksi / Buang Rusak'}
-						</h2>
-						<p class="text-xs font-semibold text-pink-700 sm:text-sm">
-							{selectedBahanForMutasi.nama}
-							<span class="font-normal text-slate-400"
-								>• Sisa: {formatQuantity(selectedBahanForMutasi.stok_saat_ini)}
-								{selectedBahanForMutasi.satuan}</span
-							>
-						</p>
-					</div>
+						<span class="text-xs font-bold capitalize">{cat.value}</span>
+						<span class="mt-0.5 text-[10px] font-medium text-zinc-400">({cat.defaultBase})</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<div class="flex flex-col gap-1.5">
+			<label
+				for="modal-bahan-kategori"
+				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+			>
+				Kategori Bahan
+			</label>
+			<div class="flex flex-col gap-2">
+				<div class="relative">
+					<select
+						id="modal-bahan-kategori"
+						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm font-medium text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						bind:value={bahanForm.kategoriSelect}
+					>
+						{#each availableCategoryOptions as cat}
+							<option value={cat}>{cat}</option>
+						{/each}
+						<option value="__new__">+ Buat Kategori Baru...</option>
+					</select>
+					<ChevronDown
+						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
+					/>
 				</div>
 
-				<button
-					type="button"
-					onclick={closeMutasiModal}
-					class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-pink-100/70 hover:text-slate-700 active:scale-95"
-					aria-label="Tutup"
+				{#if bahanForm.kategoriSelect === '__new__'}
+					<input
+						type="text"
+						class="w-full rounded-2xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						bind:value={bahanForm.customKategori}
+						placeholder="Ketik nama kategori baru (contoh: Kemasan, Buah Segar)"
+						required
+					/>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Satuan Dasar & Stok Siap Pakai -->
+		<div class="grid grid-cols-2 gap-3">
+			<div class="flex flex-col gap-1.5">
+				<label
+					for="modal-bahan-satuan"
+					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
 				>
-					<X class="h-4 w-4 stroke-[2.2]" />
-				</button>
+					Satuan Simpan
+				</label>
+				<div class="relative">
+					<select
+						id="modal-bahan-satuan"
+						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						bind:value={bahanForm.satuan}
+					>
+						{#if bahanForm.tipe_satuan === 'cairan'}
+							<option value="ml">Mililiter (ml)</option>
+							<option value="liter">Liter (L)</option>
+							<option value="cup">Cup (200ml)</option>
+						{:else if bahanForm.tipe_satuan === 'berat'}
+							<option value="gram">Gram (g)</option>
+							<option value="kg">Kilogram (kg)</option>
+							<option value="ons">Ons (100g)</option>
+						{:else if bahanForm.tipe_satuan === 'kemasan'}
+							<option value="pcs">Pcs / Lembar</option>
+							<option value="pack">Pack / Bungkus</option>
+						{:else}
+							<option value="buah">Buah</option>
+							<option value="porsi">Porsi</option>
+							<option value="pcs">Pcs</option>
+							<option value="biji">Biji</option>
+						{/if}
+					</select>
+					<ChevronDown
+						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
+					/>
+				</div>
 			</div>
 
-			<!-- Scrollable Form Body -->
-			<form
-				id="stok-mutasi-form"
-				onsubmit={handleSaveMutasi}
-				autocomplete="off"
-				class="flex flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-6"
+			<div class="flex flex-col gap-1.5">
+				<label
+					for="modal-bahan-stok"
+					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+				>
+					Stok Siap Pakai
+				</label>
+				<input
+					id="modal-bahan-stok"
+					type="text"
+					class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+					bind:value={bahanForm.stok_saat_ini}
+					oninput={(e) => handleRupiahFormat(e, 'stok_saat_ini')}
+					onblur={() => handleQuantityBlur('stok_saat_ini')}
+					placeholder="0"
+				/>
+			</div>
+		</div>
+
+		{#if bahanForm.tipe_satuan === 'kemasan'}
+			<div class="flex flex-col gap-1.5">
+				<label
+					for="modal-bahan-isi-kemasan"
+					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+				>
+					1 Pack/Bungkus Isi Berapa Pcs?
+				</label>
+				<input
+					id="modal-bahan-isi-kemasan"
+					type="text"
+					class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+					bind:value={bahanForm.isi_per_kemasan}
+					oninput={(e) => handleRupiahFormat(e, 'isi_per_kemasan')}
+					onblur={() => handleQuantityBlur('isi_per_kemasan')}
+					placeholder="Contoh: 50"
+				/>
+			</div>
+		{/if}
+
+		<div class="flex flex-col gap-1.5">
+			<label
+				for="modal-bahan-ambang"
+				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
 			>
-				<!-- Dual Amount & Unit Selector -->
+				Batas Peringatan Habis ({bahanForm.satuan})
+			</label>
+			<input
+				id="modal-bahan-ambang"
+				type="text"
+				class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+				bind:value={bahanForm.ambang_stok}
+				oninput={(e) => handleRupiahFormat(e, 'ambang_stok')}
+				onblur={() => handleQuantityBlur('ambang_stok')}
+				placeholder="Contoh: 5"
+			/>
+			<p class="text-xs text-zinc-400">
+				Jika stok di bawah angka ini, muncul status peringatan stok.
+			</p>
+		</div>
+
+		<!-- Pembelian / Kulakan Grosir -->
+		<div class="rounded-2xl border border-zinc-200/80 bg-zinc-50/60 p-3.5">
+			<div class="mb-2 text-xs font-extrabold tracking-wider text-zinc-800 uppercase">
+				Kalkulator Kulakan / Pembelian Grosir
+			</div>
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<div class="flex flex-col gap-1.5">
-					<label
-						for="mutasi-amount"
-						class="text-xs font-black tracking-wider text-slate-700 uppercase"
-					>
-						Jumlah & Satuan
+					<label for="modal-bahan-beli-qty" class="text-[11px] font-bold text-zinc-600">
+						Jumlah Beli
 					</label>
-					<div
-						class="flex items-center rounded-2xl border border-slate-200 bg-slate-50/80 p-1.5 ring-1 ring-transparent transition-all focus-within:border-pink-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-pink-500/15"
-					>
+					<div class="flex gap-2">
 						<input
-							id="mutasi-amount"
-							type="number"
-							step="any"
-							min="0.0001"
-							bind:value={mutasiAmount}
-							required
-							placeholder="0"
-							class="min-w-0 flex-1 border-0 bg-transparent px-4 py-2.5 text-xl font-black text-slate-900 placeholder:text-slate-300 focus:outline-none"
+							id="modal-bahan-beli-qty"
+							type="text"
+							class="w-full rounded-2xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							bind:value={bahanForm.jumlah_beli_terakhir}
+							oninput={(e) => handleRupiahFormat(e, 'jumlah_beli_terakhir')}
+							onblur={() => handleQuantityBlur('jumlah_beli_terakhir')}
+							placeholder="1"
 						/>
-						<div class="relative shrink-0 pr-1">
+						<div class="relative w-28">
 							<select
-								bind:value={mutasiUnit}
-								class="cursor-pointer appearance-none rounded-2xl border border-pink-200/90 bg-white py-2.5 pr-8 pl-3.5 text-xs font-black text-pink-700 shadow-2xs transition-all hover:bg-pink-50/50 focus:border-pink-500 focus:outline-none sm:text-sm"
+								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
+								bind:value={bahanForm.satuan_beli}
 							>
-								{#each mutasiCompatibleUnits as unit}
-									<option value={unit.value}>{unit.label}</option>
-								{/each}
+								{#if bahanForm.tipe_satuan === 'berat'}
+									<option value="kg">kg</option>
+									<option value="gram">gram</option>
+									<option value="ons">ons</option>
+								{:else if bahanForm.tipe_satuan === 'cairan'}
+									<option value="liter">Liter</option>
+									<option value="ml">ml</option>
+								{:else if bahanForm.tipe_satuan === 'kemasan'}
+									<option value="pack">Pack / bks</option>
+									<option value="slop">Slop</option>
+									<option value="dus">Dus</option>
+									<option value="pcs">pcs</option>
+								{:else}
+									<option value="buah">buah</option>
+									<option value="porsi">porsi</option>
+									<option value="biji">biji</option>
+								{/if}
 							</select>
 							<ChevronDown
-								class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-pink-500"
+								class="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400"
 							/>
 						</div>
 					</div>
 				</div>
 
-				<!-- Live Conversion & Calculation Preview Card -->
-				{#if mutasiBaseAmount > 0}
-					<div
-						class="rounded-2xl border border-pink-100 bg-gradient-to-br from-pink-50/90 via-rose-50/60 to-white p-4 text-xs shadow-2xs sm:text-sm"
-					>
-						{#if mutasiUnit !== selectedBahanForMutasi.satuan}
-							<div
-								class="mb-2.5 flex items-center justify-between border-b border-pink-100/70 pb-2 text-xs"
-							>
-								<span class="font-bold text-pink-800">Konversi Satuan:</span>
-								<span
-									class="rounded-lg border border-pink-100 bg-white px-2.5 py-1 font-black text-pink-700 shadow-2xs"
-								>
-									{formatQuantity(mutasiAmount)}
-									{mutasiUnit} = {formatQuantity(mutasiBaseAmount)}
-									{selectedBahanForMutasi.satuan}
-								</span>
-							</div>
+				<div class="flex flex-col gap-1.5">
+					<label for="modal-bahan-beli-cost" class="text-[11px] font-bold text-zinc-600">
+						Total Harga Beli
+					</label>
+					<div class="relative">
+						<span class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
+							>Rp</span
+						>
+						<input
+							id="modal-bahan-beli-cost"
+							type="text"
+							class="w-full rounded-2xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							bind:value={bahanForm.biaya_beli_terakhir}
+							oninput={(e) => handleRupiahFormat(e, 'biaya_beli_terakhir')}
+							placeholder="35.000"
+						/>
+					</div>
+				</div>
+			</div>
+
+			<!-- Hitung Susut Kulit/Biji (Hanya untuk Buah Segar / Tipe Berat & Unit) -->
+			{#if bahanForm.tipe_satuan === 'berat' || bahanForm.tipe_satuan === 'unit'}
+				<div class="mt-3 flex flex-col gap-2 border-t border-zinc-200/60 pt-3">
+					<div class="flex items-center justify-between">
+						<label
+							class="flex cursor-pointer items-center gap-2 text-xs font-bold text-zinc-700 select-none"
+						>
+							<input
+								type="checkbox"
+								class="h-4 w-4 rounded border-zinc-300 text-pink-600 focus:ring-pink-500/20"
+								checked={Number(bahanForm.yield_persen || 100) < 100}
+								onchange={(e) => {
+									bahanForm.yield_persen = e.currentTarget.checked ? '70' : '100';
+								}}
+							/>
+							<span>Hitung Susut Kulit/Biji (Khusus Buah Utuh)</span>
+						</label>
+						{#if Number(bahanForm.yield_persen || 100) < 100}
+							<span class="text-xs font-black text-pink-600">{bahanForm.yield_persen}% Bersih</span>
 						{/if}
-						<div class="flex items-center justify-between">
-							<span class="font-bold text-slate-600">Estimasi Stok Akhir:</span>
-							<div class="flex items-center gap-2 font-black text-slate-900">
-								<span class="text-slate-500"
-									>{formatQuantity(selectedBahanForMutasi.stok_saat_ini)}</span
-								>
-								<span class={mutasiType === 'tambah' ? 'text-emerald-600' : 'text-rose-600'}>
-									{mutasiType === 'tambah' ? '+' : '-'}{formatQuantity(mutasiBaseAmount)}
-								</span>
-								<span class="text-slate-300">➔</span>
+					</div>
+
+					{#if Number(bahanForm.yield_persen || 100) < 100}
+						<div class="flex flex-col gap-2 pt-1">
+							<div class="relative">
+								<input
+									id="modal-bahan-yield"
+									type="number"
+									min="1"
+									max="100"
+									class="w-full rounded-2xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+									bind:value={bahanForm.yield_persen}
+									placeholder="70"
+								/>
 								<span
-									class="rounded-xl bg-white px-3 py-1 text-sm font-black text-pink-700 shadow-xs ring-1 ring-pink-500/10 sm:text-base"
+									class="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
+									>% Daging Bersih</span
 								>
-									{formatQuantity(mutasiPreviewFinalStock)}
-									{selectedBahanForMutasi.satuan}
-								</span>
+							</div>
+							<!-- Quick Preset Buttons -->
+							<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+								<span class="text-[10px] font-semibold text-zinc-400">Pilihan Cepat:</span>
+								<button
+									type="button"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									onclick={() => (bahanForm.yield_persen = '70')}
+								>
+									Alpukat/Mangga (70%)
+								</button>
+								<button
+									type="button"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									onclick={() => (bahanForm.yield_persen = '45')}
+								>
+									Nanas (45%)
+								</button>
+								<button
+									type="button"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									onclick={() => (bahanForm.yield_persen = '50')}
+								>
+									Jeruk (50%)
+								</button>
 							</div>
 						</div>
-					</div>
-				{/if}
+					{/if}
+				</div>
+			{/if}
 
-				<!-- Rekomendasi Cepat / Quick Presets -->
-				<div class="flex flex-col gap-2">
-					<div
-						class="flex items-center justify-between text-xs font-black tracking-wider text-slate-600 uppercase"
-					>
-						<span class="flex items-center gap-1.5">
-							<Sparkles class="h-3.5 w-3.5 text-pink-500" />
-							Pilihan Cepat
+			{#if parseQuantityInput(bahanForm.jumlah_beli_terakhir) > 0}
+				{@const numQty = parseQuantityInput(bahanForm.jumlah_beli_terakhir)}
+				{@const numCost = parseRupiah(bahanForm.biaya_beli_terakhir)}
+				{@const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1)}
+				{@const baseQty = safeConvertToBaseUnit(
+					numQty,
+					bahanForm.satuan_beli || bahanForm.satuan,
+					bahanForm.satuan,
+					packSize
+				)}
+				{@const isFruitYield =
+					(bahanForm.tipe_satuan === 'berat' || bahanForm.tipe_satuan === 'unit') &&
+					Number(bahanForm.yield_persen || 100) < 100}
+				{@const numYield = isFruitYield
+					? Math.min(100, Math.max(1, Number(bahanForm.yield_persen || 100)))
+					: 100}
+				{@const netBaseQty = (baseQty * numYield) / 100}
+				{@const effectiveUnitCost =
+					netBaseQty > 0 ? calculateEffectiveUnitCost(numCost, netBaseQty) : 0}
+
+				<div
+					class="mt-3 rounded-xl border border-pink-100 bg-pink-50/80 p-2.5 text-xs text-zinc-700"
+				>
+					<div class="flex flex-wrap items-center justify-between gap-1 font-bold">
+						<span class="text-zinc-600">
+							{#if isFruitYield}
+								Daging Bersih: <span class="text-zinc-900"
+									>{formatQuantity(netBaseQty)} {bahanForm.satuan}</span
+								>
+								<span class="text-[10px] font-normal text-zinc-400">
+									(dari {formatQuantity(baseQty)} {bahanForm.satuan} utuh)</span
+								>
+							{:else}
+								Total: <span class="text-zinc-900"
+									>{formatQuantity(baseQty)} {bahanForm.satuan}</span
+								>
+							{/if}
+						</span>
+						<span class="text-pink-700">
+							Modal: Rp {formatRupiah(Math.round(effectiveUnitCost))} / {bahanForm.satuan}
 						</span>
 					</div>
+				</div>
+			{/if}
+		</div>
+	</form>
 
-					<div class="flex flex-wrap gap-2">
-						<!-- Terakhir Kulakan Chip -->
-						{#if mutasiType === 'tambah' && Number(selectedBahanForMutasi.jumlah_beli_terakhir || 0) > 0}
+	<!-- Fixed Action Buttons -->
+	<div class="flex flex-shrink-0 gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
+		<button
+			type="button"
+			class="flex-1 cursor-pointer rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
+			onclick={closeBahanModal}
+		>
+			Batal
+		</button>
+		<button
+			type="submit"
+			form="stok-bahan-form"
+			class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
+		>
+			{editBahanId ? 'Simpan Perubahan' : 'Tambah Bahan'}
+		</button>
+	</div>
+</AppModal>
+
+<!-- Modal Mutasi Cepat (+ Kulakan / - Koreksi) (AUD-024: AppModal kanonik) -->
+{#if showMutasiModal && selectedBahanForMutasi}
+	<AppModal
+		open={showMutasiModal}
+		labelledby="stok-mutasi-title"
+		size="sm"
+		align="center"
+		panelClass="border border-pink-100/90 bg-white ring-1 ring-pink-500/10"
+		onClose={closeMutasiModal}
+	>
+		<!-- Header -->
+		<div
+			class="relative flex items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-5 py-4 sm:px-6"
+		>
+			<div class="flex items-center gap-3.5">
+				<div
+					class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm {mutasiType ===
+					'tambah'
+						? 'bg-gradient-to-tr from-pink-600 to-rose-500 shadow-pink-500/25'
+						: 'bg-gradient-to-tr from-amber-600 to-rose-600 shadow-amber-500/25'}"
+				>
+					{#if mutasiType === 'tambah'}
+						<ArrowUpRight class="h-5 w-5 stroke-[2.5]" />
+					{:else}
+						<ArrowDownRight class="h-5 w-5 stroke-[2.5]" />
+					{/if}
+				</div>
+				<div>
+					<h2
+						id="stok-mutasi-title"
+						class="text-base font-black tracking-tight text-slate-900 sm:text-lg"
+					>
+						{mutasiType === 'tambah' ? 'Catat Kulakan / Masuk' : 'Koreksi / Buang Rusak'}
+					</h2>
+					<p class="text-xs font-semibold text-pink-700 sm:text-sm">
+						{selectedBahanForMutasi.nama}
+						<span class="font-normal text-slate-400"
+							>• Sisa: {formatQuantity(selectedBahanForMutasi.stok_saat_ini)}
+							{selectedBahanForMutasi.satuan}</span
+						>
+					</p>
+				</div>
+			</div>
+
+			<button
+				type="button"
+				onclick={closeMutasiModal}
+				class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-pink-100/70 hover:text-slate-700 active:scale-95"
+				aria-label="Tutup"
+			>
+				<X class="h-4 w-4 stroke-[2.2]" />
+			</button>
+		</div>
+
+		<!-- Scrollable Form Body -->
+		<form
+			id="stok-mutasi-form"
+			onsubmit={handleSaveMutasi}
+			autocomplete="off"
+			class="flex flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-6"
+		>
+			<!-- Dual Amount & Unit Selector -->
+			<div class="flex flex-col gap-1.5">
+				<label
+					for="mutasi-amount"
+					class="text-xs font-black tracking-wider text-slate-700 uppercase"
+				>
+					Jumlah & Satuan
+				</label>
+				<div
+					class="flex items-center rounded-2xl border border-slate-200 bg-slate-50/80 p-1.5 ring-1 ring-transparent transition-all focus-within:border-pink-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-pink-500/15"
+				>
+					<input
+						id="mutasi-amount"
+						type="number"
+						step="any"
+						min="0.0001"
+						bind:value={mutasiAmount}
+						required
+						placeholder="0"
+						class="min-w-0 flex-1 border-0 bg-transparent px-4 py-2.5 text-xl font-black text-slate-900 placeholder:text-slate-300 focus:outline-none"
+					/>
+					<div class="relative shrink-0 pr-1">
+						<select
+							bind:value={mutasiUnit}
+							class="cursor-pointer appearance-none rounded-2xl border border-pink-200/90 bg-white py-2.5 pr-8 pl-3.5 text-xs font-black text-pink-700 shadow-2xs transition-all hover:bg-pink-50/50 focus:border-pink-500 focus:outline-none sm:text-sm"
+						>
+							{#each mutasiCompatibleUnits as unit}
+								<option value={unit.value}>{unit.label}</option>
+							{/each}
+						</select>
+						<ChevronDown
+							class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-pink-500"
+						/>
+					</div>
+				</div>
+			</div>
+
+			<!-- Live Conversion & Calculation Preview Card -->
+			{#if mutasiBaseAmount > 0}
+				<div
+					class="rounded-2xl border border-pink-100 bg-gradient-to-br from-pink-50/90 via-rose-50/60 to-white p-4 text-xs shadow-2xs sm:text-sm"
+				>
+					{#if mutasiUnit !== selectedBahanForMutasi.satuan}
+						<div
+							class="mb-2.5 flex items-center justify-between border-b border-pink-100/70 pb-2 text-xs"
+						>
+							<span class="font-bold text-pink-800">Konversi Satuan:</span>
+							<span
+								class="rounded-lg border border-pink-100 bg-white px-2.5 py-1 font-black text-pink-700 shadow-2xs"
+							>
+								{formatQuantity(mutasiAmount)}
+								{mutasiUnit} = {formatQuantity(mutasiBaseAmount)}
+								{selectedBahanForMutasi.satuan}
+							</span>
+						</div>
+					{/if}
+					<div class="flex items-center justify-between">
+						<span class="font-bold text-slate-600">Estimasi Stok Akhir:</span>
+						<div class="flex items-center gap-2 font-black text-slate-900">
+							<span class="text-slate-500"
+								>{formatQuantity(selectedBahanForMutasi.stok_saat_ini)}</span
+							>
+							<span class={mutasiType === 'tambah' ? 'text-emerald-600' : 'text-rose-600'}>
+								{mutasiType === 'tambah' ? '+' : '-'}{formatQuantity(mutasiBaseAmount)}
+							</span>
+							<span class="text-slate-300">➔</span>
+							<span
+								class="rounded-xl bg-white px-3 py-1 text-sm font-black text-pink-700 shadow-xs ring-1 ring-pink-500/10 sm:text-base"
+							>
+								{formatQuantity(mutasiPreviewFinalStock)}
+								{selectedBahanForMutasi.satuan}
+							</span>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Rekomendasi Cepat / Quick Presets -->
+			<div class="flex flex-col gap-2">
+				<div
+					class="flex items-center justify-between text-xs font-black tracking-wider text-slate-600 uppercase"
+				>
+					<span class="flex items-center gap-1.5">
+						<Sparkles class="h-3.5 w-3.5 text-pink-500" />
+						Pilihan Cepat
+					</span>
+				</div>
+
+				<div class="flex flex-wrap gap-2">
+					<!-- Terakhir Kulakan Chip -->
+					{#if mutasiType === 'tambah' && terakhirKulakanPreset}
+						<button
+							type="button"
+							onclick={() =>
+								setQuickAmount(
+									terakhirKulakanPreset.amount,
+									terakhirKulakanPreset.unit,
+									'Kulakan rutin'
+								)}
+							class="flex cursor-pointer items-center gap-1.5 rounded-xl border border-pink-200 bg-pink-50/90 px-3.5 py-2 text-xs font-extrabold text-pink-700 shadow-2xs transition-all hover:bg-pink-100/80 active:scale-95 sm:text-sm"
+						>
+							<Sparkles class="h-3.5 w-3.5 text-pink-600" />
+							<span
+								>Kulakan Terakhir ({formatQuantity(terakhirKulakanPreset.amount)}
+								{terakhirKulakanPreset.unit})</span
+							>
+						</button>
+					{/if}
+
+					<!-- Standard Numerical Presets based on mutasiType -->
+					{#if mutasiType === 'tambah'}
+						{#each [1, 2, 5, 10, 20] as val}
+							<button
+								type="button"
+								onclick={() => setQuickAmount(val)}
+								class="cursor-pointer rounded-xl border border-slate-200/90 bg-slate-50 px-3.5 py-1.5 text-xs font-extrabold text-slate-700 transition-all hover:border-pink-300 hover:bg-pink-50/50 hover:text-pink-700 active:scale-95 sm:text-sm"
+							>
+								+{val}
+							</button>
+						{/each}
+					{:else}
+						{#each [1, 2, 5, 10] as val}
+							<button
+								type="button"
+								onclick={() => setQuickAmount(val)}
+								class="cursor-pointer rounded-xl border border-slate-200/90 bg-slate-50 px-3.5 py-1.5 text-xs font-extrabold text-slate-700 transition-all hover:border-rose-300 hover:bg-rose-50/50 hover:text-rose-700 active:scale-95 sm:text-sm"
+							>
+								-{val}
+							</button>
+						{/each}
+						{#if Number(selectedBahanForMutasi.stok_saat_ini || 0) > 0}
 							<button
 								type="button"
 								onclick={() =>
 									setQuickAmount(
-										Number(selectedBahanForMutasi?.jumlah_beli_terakhir || 1),
-										selectedBahanForMutasi?.satuan_beli || selectedBahanForMutasi?.satuan,
-										'Kulakan rutin'
+										Number(selectedBahanForMutasi?.stok_saat_ini || 0),
+										selectedBahanForMutasi?.satuan,
+										'Habis / Stok Rusak Total'
 									)}
-								class="flex cursor-pointer items-center gap-1.5 rounded-xl border border-pink-200 bg-pink-50/90 px-3.5 py-2 text-xs font-extrabold text-pink-700 shadow-2xs transition-all hover:bg-pink-100/80 active:scale-95 sm:text-sm"
+								class="cursor-pointer rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-extrabold text-rose-700 transition-all hover:bg-rose-100/80 active:scale-95 sm:text-sm"
 							>
-								<Sparkles class="h-3.5 w-3.5 text-pink-600" />
-								<span
-									>Kulakan Terakhir ({formatQuantity(selectedBahanForMutasi.jumlah_beli_terakhir)}
-									{selectedBahanForMutasi.satuan_beli || selectedBahanForMutasi.satuan})</span
-								>
+								Habiskan ({formatQuantity(selectedBahanForMutasi.stok_saat_ini)})
 							</button>
 						{/if}
-
-						<!-- Standard Numerical Presets based on mutasiType -->
-						{#if mutasiType === 'tambah'}
-							{#each [1, 2, 5, 10, 20] as val}
-								<button
-									type="button"
-									onclick={() => setQuickAmount(val)}
-									class="cursor-pointer rounded-xl border border-slate-200/90 bg-slate-50 px-3.5 py-1.5 text-xs font-extrabold text-slate-700 transition-all hover:border-pink-300 hover:bg-pink-50/50 hover:text-pink-700 active:scale-95 sm:text-sm"
-								>
-									+{val}
-								</button>
-							{/each}
-						{:else}
-							{#each [1, 2, 5, 10] as val}
-								<button
-									type="button"
-									onclick={() => setQuickAmount(val)}
-									class="cursor-pointer rounded-xl border border-slate-200/90 bg-slate-50 px-3.5 py-1.5 text-xs font-extrabold text-slate-700 transition-all hover:border-rose-300 hover:bg-rose-50/50 hover:text-rose-700 active:scale-95 sm:text-sm"
-								>
-									-{val}
-								</button>
-							{/each}
-							{#if Number(selectedBahanForMutasi.stok_saat_ini || 0) > 0}
-								<button
-									type="button"
-									onclick={() =>
-										setQuickAmount(
-											Number(selectedBahanForMutasi?.stok_saat_ini || 0),
-											selectedBahanForMutasi?.satuan,
-											'Habis / Stok Rusak Total'
-										)}
-									class="cursor-pointer rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-extrabold text-rose-700 transition-all hover:bg-rose-100/80 active:scale-95 sm:text-sm"
-								>
-									Habiskan ({formatQuantity(selectedBahanForMutasi.stok_saat_ini)})
-								</button>
-							{/if}
-						{/if}
-					</div>
-				</div>
-
-				<!-- Catatan & Quick Note Tags -->
-				<div class="flex flex-col gap-1.5">
-					<label
-						for="mutasi-notes"
-						class="text-xs font-black tracking-wider text-slate-700 uppercase"
-					>
-						Catatan
-					</label>
-					<input
-						id="mutasi-notes"
-						type="text"
-						bind:value={mutasiNotes}
-						placeholder={mutasiType === 'tambah'
-							? 'Contoh: Beli di pasar subuh'
-							: 'Contoh: Buah busuk / tumpah'}
-						class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
-					/>
-					<!-- Quick Tag Pills -->
-					<div class="flex flex-wrap gap-1.5 pt-1">
-						{#if mutasiType === 'tambah'}
-							{#each ['Pasar Subuh', 'Supplier Grosir', 'Supermarket', 'Restock Toko'] as tag}
-								<button
-									type="button"
-									onclick={() => setQuickNote(tag)}
-									class="cursor-pointer rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition-all hover:border-pink-300 hover:text-pink-700 active:scale-95"
-								>
-									{tag}
-								</button>
-							{/each}
-						{:else}
-							{#each ['Kadaluarsa / Basi', 'Tumpah / Pecah', 'Koreksi Hitungan', 'Penyusutan Alami'] as tag}
-								<button
-									type="button"
-									onclick={() => setQuickNote(tag)}
-									class="cursor-pointer rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition-all hover:border-rose-300 hover:text-rose-700 active:scale-95"
-								>
-									{tag}
-								</button>
-							{/each}
-						{/if}
-					</div>
-				</div>
-
-				<!-- Finansial / Buku Kas Integration Toggle Card (Progressive Disclosure) -->
-				<div
-					class="rounded-2xl border {recordKasTransaction
-						? 'border-pink-300 bg-pink-50/50 shadow-xs ring-1 ring-pink-500/15'
-						: 'border-slate-200/80 bg-slate-50/50'} p-4 transition-all"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex items-center gap-3">
-							<div
-								class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors {recordKasTransaction
-									? 'bg-pink-600 text-white shadow-xs shadow-pink-600/30'
-									: 'bg-slate-200 text-slate-600'}"
-							>
-								<Wallet class="h-4.5 w-4.5 stroke-[2.2]" />
-							</div>
-							<div>
-								<span class="block text-xs font-black text-slate-800 sm:text-sm">
-									{mutasiType === 'tambah'
-										? 'Catat Pengeluaran Uang Kas?'
-										: 'Catat Kerugian ke Buku Kas?'}
-								</span>
-								<p class="text-[11px] font-medium text-slate-500">
-									{mutasiType === 'tambah'
-										? 'Otomatis catat belanja kulakan ke Buku Kas & Laporan Keuangan'
-										: 'Catat nilai nominal bahan terbuang/rusak sebagai beban'}
-								</p>
-							</div>
-						</div>
-
-						<!-- Switch Toggle (Default: OFF / 100% Opsional) -->
-						<button
-							type="button"
-							role="switch"
-							aria-label={mutasiType === 'tambah'
-								? 'Catat pengeluaran uang kas'
-								: 'Catat kerugian ke buku kas'}
-							aria-checked={recordKasTransaction}
-							onclick={() => {
-								recordKasTransaction = !recordKasTransaction;
-								if (recordKasTransaction && !kasNominal && selectedBahanForMutasi) {
-									if (
-										mutasiType === 'tambah' &&
-										Number(selectedBahanForMutasi.biaya_beli_terakhir || 0) > 0
-									) {
-										kasNominal = formatRupiah(selectedBahanForMutasi.biaya_beli_terakhir);
-									} else if (
-										mutasiType === 'kurang' &&
-										Number(selectedBahanForMutasi.biaya_per_satuan || 0) > 0 &&
-										mutasiBaseAmount > 0
-									) {
-										kasNominal = formatRupiah(
-											Math.round(mutasiBaseAmount * Number(selectedBahanForMutasi.biaya_per_satuan))
-										);
-									}
-								}
-							}}
-							class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {recordKasTransaction
-								? 'bg-pink-600'
-								: 'bg-slate-300'}"
-						>
-							<span
-								class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out {recordKasTransaction
-									? 'translate-x-5'
-									: 'translate-x-0'}"
-							></span>
-						</button>
-					</div>
-
-					{#if recordKasTransaction}
-						<div
-							class="mt-4 flex flex-col gap-3.5 border-t border-pink-200/70 pt-3.5"
-							in:slide={{ duration: 180 }}
-						>
-							<!-- Input Nominal Uang -->
-							<div class="flex flex-col gap-1">
-								<label
-									for="kas-nominal"
-									class="text-xs font-black tracking-wider text-slate-700 uppercase"
-								>
-									Total Nominal Uang
-								</label>
-								<div class="relative flex items-center">
-									<span
-										class="pointer-events-none absolute left-4 text-sm font-black text-slate-400"
-										>Rp</span
-									>
-									<input
-										id="kas-nominal"
-										type="text"
-										inputmode="numeric"
-										value={kasNominal}
-										oninput={(e) => {
-											const val = (e.target as HTMLInputElement).value;
-											kasNominal = formatRupiah(parseRupiah(val));
-										}}
-										placeholder="0"
-										class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pr-4 pl-11 text-base font-black text-slate-900 shadow-2xs transition-all focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
-									/>
-								</div>
-							</div>
-
-							<!-- Metode Pembayaran & Kategori Akuntansi -->
-							<div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-								<!-- Metode Pembayaran -->
-								<div class="flex flex-col gap-1">
-									<span class="text-[11px] font-black tracking-wider text-slate-700 uppercase"
-										>Metode Bayar</span
-									>
-									<div class="grid grid-cols-2 gap-1.5 rounded-xl bg-slate-200/70 p-1">
-										<button
-											type="button"
-											onclick={() => (kasPaymentMethod = 'tunai')}
-											class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasPaymentMethod ===
-											'tunai'
-												? 'bg-white text-pink-700 shadow-xs'
-												: 'text-slate-600 hover:text-slate-900'}"
-										>
-											Tunai (Laci)
-										</button>
-										<button
-											type="button"
-											onclick={() => (kasPaymentMethod = 'non-tunai')}
-											class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasPaymentMethod ===
-											'non-tunai'
-												? 'bg-white text-pink-700 shadow-xs'
-												: 'text-slate-600 hover:text-slate-900'}"
-										>
-											Non-Tunai
-										</button>
-									</div>
-								</div>
-
-								<!-- Kategori Biaya Buku Kas -->
-								<div class="flex flex-col gap-1">
-									<span class="text-[11px] font-black tracking-wider text-slate-700 uppercase"
-										>Kategori Akuntansi</span
-									>
-									<div class="grid grid-cols-2 gap-1.5 rounded-xl bg-slate-200/70 p-1">
-										<button
-											type="button"
-											onclick={() => (kasCategory = 'beban_usaha')}
-											class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasCategory ===
-											'beban_usaha'
-												? 'bg-white text-pink-700 shadow-xs'
-												: 'text-slate-600 hover:text-slate-900'}"
-										>
-											Beban Usaha
-										</button>
-										<button
-											type="button"
-											onclick={() => (kasCategory = 'lainnya')}
-											class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasCategory ===
-											'lainnya'
-												? 'bg-white text-pink-700 shadow-xs'
-												: 'text-slate-600 hover:text-slate-900'}"
-										>
-											Lainnya
-										</button>
-									</div>
-								</div>
-							</div>
-
-							<!-- Live HPP Calculator Card (Khusus Tambah / Kulakan) -->
-							{#if mutasiType === 'tambah' && parseRupiah(kasNominal) > 0 && mutasiBaseAmount > 0}
-								<div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs">
-									<label class="flex cursor-pointer items-start gap-2.5">
-										<input
-											type="checkbox"
-											bind:checked={updateHppWithPurchase}
-											class="mt-0.5 h-4 w-4 rounded text-pink-600 focus:ring-pink-500"
-										/>
-										<div>
-											<span class="font-extrabold text-emerald-950">Perbarui HPP Bahan Baku</span>
-											<p class="mt-0.5 text-emerald-800">
-												Biaya modal baru: <strong class="font-black"
-													>Rp{formatRupiah(
-														Math.round(parseRupiah(kasNominal) / mutasiBaseAmount)
-													)}</strong
-												>
-												/ {selectedBahanForMutasi.satuan}
-												<span class="text-emerald-700"
-													>(sebelumnya: Rp{formatRupiah(
-														selectedBahanForMutasi.biaya_per_satuan || 0
-													)})</span
-												>
-											</p>
-										</div>
-									</label>
-								</div>
-							{/if}
-						</div>
 					{/if}
 				</div>
+			</div>
 
-				<!-- Riwayat Mutasi Terakhir (Mini Section - Max 10 items, scrollable for 3 visible) -->
-				<div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
+			<!-- Catatan & Quick Note Tags -->
+			<div class="flex flex-col gap-1.5">
+				<label
+					for="mutasi-notes"
+					class="text-xs font-black tracking-wider text-slate-700 uppercase"
+				>
+					Catatan
+				</label>
+				<input
+					id="mutasi-notes"
+					type="text"
+					bind:value={mutasiNotes}
+					placeholder={mutasiType === 'tambah'
+						? 'Contoh: Beli di pasar subuh'
+						: 'Contoh: Buah busuk / tumpah'}
+					class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
+				/>
+				<!-- Quick Tag Pills -->
+				<div class="flex flex-wrap gap-1.5 pt-1">
+					{#if mutasiType === 'tambah'}
+						{#each ['Pasar Subuh', 'Supplier Grosir', 'Supermarket', 'Restock Toko'] as tag}
+							<button
+								type="button"
+								onclick={() => setQuickNote(tag)}
+								class="cursor-pointer rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition-all hover:border-pink-300 hover:text-pink-700 active:scale-95"
+							>
+								{tag}
+							</button>
+						{/each}
+					{:else}
+						{#each ['Kadaluarsa / Basi', 'Tumpah / Pecah', 'Koreksi Hitungan', 'Penyusutan Alami'] as tag}
+							<button
+								type="button"
+								onclick={() => setQuickNote(tag)}
+								class="cursor-pointer rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition-all hover:border-rose-300 hover:text-rose-700 active:scale-95"
+							>
+								{tag}
+							</button>
+						{/each}
+					{/if}
+				</div>
+			</div>
+
+			<!-- Finansial / Buku Kas Integration Toggle Card (Progressive Disclosure) -->
+			<div
+				class="rounded-2xl border {recordKasTransaction
+					? 'border-pink-300 bg-pink-50/50 shadow-xs ring-1 ring-pink-500/15'
+					: 'border-slate-200/80 bg-slate-50/50'} p-4 transition-all"
+			>
+				<div class="flex items-center justify-between gap-3">
+					<div class="flex items-center gap-3">
+						<div
+							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors {recordKasTransaction
+								? 'bg-pink-600 text-white shadow-xs shadow-pink-600/30'
+								: 'bg-slate-200 text-slate-600'}"
+						>
+							<Wallet class="h-4.5 w-4.5 stroke-[2.2]" />
+						</div>
+						<div>
+							<span class="block text-xs font-black text-slate-800 sm:text-sm">
+								{mutasiType === 'tambah'
+									? 'Catat Pengeluaran Uang Kas?'
+									: 'Catat Kerugian ke Buku Kas?'}
+							</span>
+							<p class="text-[11px] font-medium text-slate-500">
+								{mutasiType === 'tambah'
+									? 'Otomatis catat belanja kulakan ke Buku Kas & Laporan Keuangan'
+									: 'Catat nilai nominal bahan terbuang/rusak sebagai beban'}
+							</p>
+						</div>
+					</div>
+
+					<!-- Switch Toggle (Default: OFF / 100% Opsional) -->
 					<button
 						type="button"
-						onclick={() => (showHistorySection = !showHistorySection)}
-						class="flex w-full cursor-pointer items-center justify-between text-left text-xs font-black text-slate-700 transition-colors hover:text-pink-600"
+						role="switch"
+						aria-label={mutasiType === 'tambah'
+							? 'Catat pengeluaran uang kas'
+							: 'Catat kerugian ke buku kas'}
+						aria-checked={recordKasTransaction}
+						onclick={() => {
+							recordKasTransaction = !recordKasTransaction;
+							if (recordKasTransaction && !kasNominal && selectedBahanForMutasi) {
+								if (
+									mutasiType === 'tambah' &&
+									Number(selectedBahanForMutasi.biaya_beli_terakhir || 0) > 0
+								) {
+									kasNominal = formatRupiah(selectedBahanForMutasi.biaya_beli_terakhir);
+								} else if (
+									mutasiType === 'kurang' &&
+									Number(selectedBahanForMutasi.biaya_per_satuan || 0) > 0 &&
+									mutasiBaseAmount > 0
+								) {
+									kasNominal = formatRupiah(
+										Math.round(mutasiBaseAmount * Number(selectedBahanForMutasi.biaya_per_satuan))
+									);
+								}
+							}
+						}}
+						class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {recordKasTransaction
+							? 'bg-pink-600'
+							: 'bg-slate-300'}"
 					>
-						<span class="flex items-center gap-2">
-							<History class="h-4 w-4 text-slate-400" />
-							Riwayat {mutasiType === 'tambah' ? 'Kulakan / Masuk' : 'Koreksi / Buang'} ({filteredMutations.length})
-						</span>
-						<ChevronDown
-							class="h-4 w-4 text-slate-400 transition-transform {showHistorySection
-								? 'rotate-180'
-								: ''}"
-						/>
+						<span
+							class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out {recordKasTransaction
+								? 'translate-x-5'
+								: 'translate-x-0'}"
+						></span>
 					</button>
-
-					{#if showHistorySection}
-						<div class="mt-3 border-t border-slate-200/60 pt-2.5" in:slide={{ duration: 180 }}>
-							{#if isLoadingMutasiHistory}
-								<p class="py-2 text-center text-xs text-slate-400">Memuat riwayat...</p>
-							{:else if filteredMutations.length === 0}
-								<p class="py-2 text-center text-xs text-slate-400">
-									Belum ada riwayat {mutasiType === 'tambah' ? 'kulakan manual' : 'koreksi/buang'} untuk
-									bahan ini.
-								</p>
-							{:else}
-								<div class="no-scrollbar flex max-h-[195px] flex-col gap-2 overflow-y-auto pr-1">
-									{#each filteredMutations as preset}
-										<button
-											type="button"
-											onclick={() => applyMutationFromHistory(preset)}
-											title="Klik untuk mengisi form dengan data ini"
-											class="group flex w-full cursor-pointer items-center justify-between rounded-2xl border border-slate-100 bg-white p-3.5 text-left text-xs shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-50/60 active:scale-[0.98] sm:text-sm"
-										>
-											<div class="min-w-0 flex-1 pr-3">
-												<p
-													class="truncate font-bold text-slate-900 transition-colors group-hover:text-pink-700"
-												>
-													{preset.catatan}
-												</p>
-												{#if preset.latest_created_at}
-													<p class="mt-0.5 text-xs text-slate-400">
-														{new Date(preset.latest_created_at).toLocaleDateString('id-ID', {
-															day: 'numeric',
-															month: 'short',
-															hour: '2-digit',
-															minute: '2-digit'
-														})}
-													</p>
-												{/if}
-											</div>
-											<span
-												class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-black sm:text-sm {preset.delta_jumlah >
-												0
-													? 'bg-emerald-50 text-emerald-700'
-													: 'bg-rose-50 text-rose-700'}"
-											>
-												{preset.delta_jumlah > 0 ? '+' : ''}{formatQuantity(
-													Math.abs(preset.delta_jumlah)
-												)}
-												{selectedBahanForMutasi.satuan}
-											</span>
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					{/if}
 				</div>
-			</form>
 
-			<!-- Action Buttons -->
-			<div class="flex gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
+				{#if recordKasTransaction}
+					<div
+						class="mt-4 flex flex-col gap-3.5 border-t border-pink-200/70 pt-3.5"
+						in:slide={{ duration: 180 }}
+					>
+						<!-- Input Nominal Uang -->
+						<div class="flex flex-col gap-1">
+							<label
+								for="kas-nominal"
+								class="text-xs font-black tracking-wider text-slate-700 uppercase"
+							>
+								Total Nominal Uang
+							</label>
+							<div class="relative flex items-center">
+								<span class="pointer-events-none absolute left-4 text-sm font-black text-slate-400"
+									>Rp</span
+								>
+								<input
+									id="kas-nominal"
+									type="text"
+									inputmode="numeric"
+									value={kasNominal}
+									oninput={(e) => {
+										const val = (e.target as HTMLInputElement).value;
+										kasNominal = formatRupiah(parseRupiah(val));
+									}}
+									placeholder="0"
+									class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pr-4 pl-11 text-base font-black text-slate-900 shadow-2xs transition-all focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15 focus:outline-none"
+								/>
+							</div>
+						</div>
+
+						<!-- Metode Pembayaran & Kategori Akuntansi -->
+						<div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+							<!-- Metode Pembayaran -->
+							<div class="flex flex-col gap-1">
+								<span class="text-[11px] font-black tracking-wider text-slate-700 uppercase"
+									>Metode Bayar</span
+								>
+								<div class="grid grid-cols-2 gap-1.5 rounded-xl bg-slate-200/70 p-1">
+									<button
+										type="button"
+										onclick={() => (kasPaymentMethod = 'tunai')}
+										class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasPaymentMethod ===
+										'tunai'
+											? 'bg-white text-pink-700 shadow-xs'
+											: 'text-slate-600 hover:text-slate-900'}"
+									>
+										Tunai (Laci)
+									</button>
+									<button
+										type="button"
+										onclick={() => (kasPaymentMethod = 'non-tunai')}
+										class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasPaymentMethod ===
+										'non-tunai'
+											? 'bg-white text-pink-700 shadow-xs'
+											: 'text-slate-600 hover:text-slate-900'}"
+									>
+										Non-Tunai
+									</button>
+								</div>
+							</div>
+
+							<!-- Kategori Biaya Buku Kas -->
+							<div class="flex flex-col gap-1">
+								<span class="text-[11px] font-black tracking-wider text-slate-700 uppercase"
+									>Kategori Akuntansi</span
+								>
+								<div class="grid grid-cols-2 gap-1.5 rounded-xl bg-slate-200/70 p-1">
+									<button
+										type="button"
+										onclick={() => (kasCategory = 'beban_usaha')}
+										class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasCategory ===
+										'beban_usaha'
+											? 'bg-white text-pink-700 shadow-xs'
+											: 'text-slate-600 hover:text-slate-900'}"
+									>
+										Beban Usaha
+									</button>
+									<button
+										type="button"
+										onclick={() => (kasCategory = 'lainnya')}
+										class="cursor-pointer rounded-lg py-1.5 text-xs font-black transition-all {kasCategory ===
+										'lainnya'
+											? 'bg-white text-pink-700 shadow-xs'
+											: 'text-slate-600 hover:text-slate-900'}"
+									>
+										Lainnya
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<!-- Live HPP Calculator Card (Khusus Tambah / Kulakan) -->
+						{#if mutasiType === 'tambah' && parseRupiah(kasNominal) > 0 && mutasiBaseAmount > 0}
+							<div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs">
+								<label class="flex cursor-pointer items-start gap-2.5">
+									<input
+										type="checkbox"
+										bind:checked={updateHppWithPurchase}
+										class="mt-0.5 h-4 w-4 rounded text-pink-600 focus:ring-pink-500"
+									/>
+									<div>
+										<span class="font-extrabold text-emerald-950">Perbarui HPP Bahan Baku</span>
+										<p class="mt-0.5 text-emerald-800">
+											Biaya modal baru: <strong class="font-black"
+												>Rp{formatRupiah(
+													Math.round(parseRupiah(kasNominal) / mutasiBaseAmount)
+												)}</strong
+											>
+											/ {selectedBahanForMutasi.satuan}
+											<span class="text-emerald-700"
+												>(sebelumnya: Rp{formatRupiah(
+													selectedBahanForMutasi.biaya_per_satuan || 0
+												)})</span
+											>
+										</p>
+									</div>
+								</label>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Riwayat Mutasi Terakhir (Mini Section - Max 10 items, scrollable for 3 visible) -->
+			<div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
 				<button
 					type="button"
-					onclick={closeMutasiModal}
-					class="flex-1 cursor-pointer rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
+					onclick={() => (showHistorySection = !showHistorySection)}
+					class="flex w-full cursor-pointer items-center justify-between text-left text-xs font-black text-slate-700 transition-colors hover:text-pink-600"
 				>
-					Batal
+					<span class="flex items-center gap-2">
+						<History class="h-4 w-4 text-slate-400" />
+						Riwayat {mutasiType === 'tambah' ? 'Kulakan / Masuk' : 'Koreksi / Buang'} ({filteredMutations.length})
+					</span>
+					<ChevronDown
+						class="h-4 w-4 text-slate-400 transition-transform {showHistorySection
+							? 'rotate-180'
+							: ''}"
+					/>
 				</button>
-				<button
-					type="submit"
-					form="stok-mutasi-form"
-					disabled={isSavingMutasi || mutasiBaseAmount <= 0}
-					class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{isSavingMutasi ? 'Menyimpan...' : 'Simpan Perubahan'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
 
-<!-- Modal Konfirmasi Hapus -->
-{#if showDeleteModal}
-	<div
-		class="z-alert fixed inset-0 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
-		role="dialog"
-		aria-modal="true"
-		onclick={(e) => e.target === e.currentTarget && (showDeleteModal = false)}
-		onkeydown={(e) => e.key === 'Escape' && (showDeleteModal = false)}
-		tabindex="-1"
-	>
-		<div
-			class="relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[28px] border border-rose-100/90 bg-white p-6 shadow-2xl ring-1 ring-rose-500/10"
-			in:fly={{ y: 20, duration: 200, easing: cubicOut }}
-		>
-			<div
-				class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-2xs"
+				{#if showHistorySection}
+					<div class="mt-3 border-t border-slate-200/60 pt-2.5" in:slide={{ duration: 180 }}>
+						{#if isLoadingMutasiHistory}
+							<p class="py-2 text-center text-xs text-slate-400">Memuat riwayat...</p>
+						{:else if filteredMutations.length === 0}
+							<p class="py-2 text-center text-xs text-slate-400">
+								Belum ada riwayat {mutasiType === 'tambah' ? 'kulakan manual' : 'koreksi/buang'} untuk
+								bahan ini.
+							</p>
+						{:else}
+							<div class="no-scrollbar flex max-h-[195px] flex-col gap-2 overflow-y-auto pr-1">
+								{#each filteredMutations as preset}
+									<button
+										type="button"
+										onclick={() => applyMutationFromHistory(preset)}
+										title="Klik untuk mengisi form dengan data ini"
+										class="group flex w-full cursor-pointer items-center justify-between rounded-2xl border border-slate-100 bg-white p-3.5 text-left text-xs shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-50/60 active:scale-[0.98] sm:text-sm"
+									>
+										<div class="min-w-0 flex-1 pr-3">
+											<p
+												class="truncate font-bold text-slate-900 transition-colors group-hover:text-pink-700"
+											>
+												{preset.catatan}
+											</p>
+											{#if preset.latest_created_at}
+												<p class="mt-0.5 text-xs text-slate-400">
+													{new Date(preset.latest_created_at).toLocaleDateString('id-ID', {
+														day: 'numeric',
+														month: 'short',
+														hour: '2-digit',
+														minute: '2-digit'
+													})}
+												</p>
+											{/if}
+										</div>
+										<span
+											class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-black sm:text-sm {preset.delta_jumlah >
+											0
+												? 'bg-emerald-50 text-emerald-700'
+												: 'bg-rose-50 text-rose-700'}"
+										>
+											{preset.delta_jumlah > 0 ? '+' : ''}{formatQuantity(
+												Math.abs(preset.delta_jumlah)
+											)}
+											{selectedBahanForMutasi.satuan}
+										</span>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</form>
+
+		<!-- Action Buttons -->
+		<div class="flex gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
+			<button
+				type="button"
+				onclick={closeMutasiModal}
+				class="flex-1 cursor-pointer rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
 			>
-				<Trash2 class="h-6 w-6 stroke-[2.2]" />
-			</div>
-			<h2 class="mb-1 text-center text-lg font-black text-slate-900">Hapus Bahan Ini?</h2>
-			<p class="mb-5 text-center text-xs font-medium text-slate-500 sm:text-sm">
-				Bahan yang dihapus tidak dapat dipulihkan dan resep menu yang menggunakannya akan
-				terpengaruh.
-			</p>
-			<div class="flex w-full gap-3">
-				<button
-					type="button"
-					class="flex-1 rounded-2xl bg-slate-100 py-3 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
-					onclick={() => (showDeleteModal = false)}
-				>
-					Batal
-				</button>
-				<button
-					type="button"
-					class="flex-1 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 py-3 text-sm font-black text-white shadow-md shadow-rose-600/25 transition-all hover:opacity-95 active:scale-95"
-					onclick={handleDeleteBahan}
-				>
-					Ya, Hapus
-				</button>
-			</div>
+				Batal
+			</button>
+			<button
+				type="submit"
+				form="stok-mutasi-form"
+				disabled={isSavingMutasi || mutasiBaseAmount <= 0}
+				class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				{isSavingMutasi ? 'Menyimpan...' : 'Simpan Perubahan'}
+			</button>
+		</div>
+	</AppModal>
+{/if}
+
+<!-- Modal Konfirmasi Hapus (AUD-024: AppModal kanonik) -->
+<AppModal
+	open={showDeleteModal}
+	labelledby="stok-hapus-title"
+	size="xs"
+	align="center"
+	zClass="z-alert"
+	panelClass="border border-rose-100/90 bg-white p-6 ring-1 ring-rose-500/10"
+	onClose={() => (showDeleteModal = false)}
+>
+	<div class="flex w-full flex-col items-center">
+		<div
+			class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-600 shadow-2xs"
+		>
+			<Trash2 class="h-6 w-6 stroke-[2.2]" />
+		</div>
+		<h2 id="stok-hapus-title" class="mb-1 text-center text-lg font-black text-slate-900">
+			Hapus Bahan Ini?
+		</h2>
+		<p class="mb-5 text-center text-xs font-medium text-slate-500 sm:text-sm">
+			Bahan yang dihapus tidak dapat dipulihkan dan resep menu yang menggunakannya akan terpengaruh.
+		</p>
+		<div class="flex w-full gap-3">
+			<button
+				type="button"
+				class="flex-1 rounded-2xl bg-slate-100 py-3 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
+				onclick={() => (showDeleteModal = false)}
+			>
+				Batal
+			</button>
+			<button
+				type="button"
+				class="flex-1 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 py-3 text-sm font-black text-white shadow-md shadow-rose-600/25 transition-all hover:opacity-95 active:scale-95"
+				onclick={handleDeleteBahan}
+			>
+				Ya, Hapus
+			</button>
 		</div>
 	</div>
-{/if}
+</AppModal>
 
 <!-- Toast Notification -->
 <ToastNotification show={showToast} message={toastMessage} type={toastType} position="top" />

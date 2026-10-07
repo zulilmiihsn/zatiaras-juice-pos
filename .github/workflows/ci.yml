@@ -203,6 +203,7 @@ jobs:
       - name: Run Stock Policy Suites
         run: |
           pnpm test:stock-policy
+          pnpm test:stock-health
           pnpm test:stock-reconciliation
           pnpm test:stock-offline-review
           pnpm test:stock-write-guards
