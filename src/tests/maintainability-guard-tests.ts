@@ -19,11 +19,17 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 
 // Direct DB import dari route: daftar allowlist eksplisit (baseline 26 file).
 // Route BARU yang import DB langsung menggagalkan tes ini (target: BranchContext).
+// AUD-006 menambahkan purchase route (BranchContext + use case tipis, preseden
+// checkout): kenaikan eksplisit ini disetujui. Target tetap mengecilkan daftar.
+// AUD-040 menambahkan archive download route (branch-scoped job lookup +
+// R2 streaming, pola route tipis sama): kenaikan eksplisit ini disetujui.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/archive/+server.ts',
+	'src/routes/api/archive/download/+server.ts',
 	'src/routes/api/bahan-mutasi/+server.ts',
 	'src/routes/api/bahan/+server.ts',
+	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/buku-kas/+server.ts',
 	'src/routes/api/dashboard/best-sellers/+server.ts',
 	'src/routes/api/dashboard/pos-kas-7hari/+server.ts',

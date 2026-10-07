@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import Archive from '@lucide/svelte/icons/archive';
@@ -21,16 +21,49 @@
 		count: number;
 		message?: string;
 		filename?: string;
+		job_id?: string;
+		parts?: Array<{ jobId: string; filename: string }>;
 	} | null>(null);
+	let downloadState = $state<'idle' | 'downloading' | 'downloaded' | 'failed'>('idle');
+	let downloadMessage = $state('');
 
 	onMount(() => {
 		if (userRole.value !== 'pemilik') goto('/unauthorized');
 	});
 
+	function triggerBrowserDownload(content: string, filename: string) {
+		const blob = new Blob([content], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function downloadJob(jobId: string, filename: string) {
+		downloadState = 'downloading';
+		downloadMessage = '';
+		try {
+			const csrf = await fetch('/api/csrf').then((r) => (r.ok ? r.json() : null));
+			const res = await fetch(`/api/archive/download?job_id=${encodeURIComponent(jobId)}`, {
+				headers: csrf?.token ? { 'X-CSRF-Token': csrf.token } : {}
+			});
+			if (!res.ok) throw new Error('Unduhan arsip gagal. Coba lagi.');
+			triggerBrowserDownload(await res.text(), filename);
+			downloadState = 'downloaded';
+		} catch {
+			downloadState = 'failed';
+			downloadMessage = 'Unduhan arsip gagal. Coba lagi.';
+		}
+	}
+
 	async function doArchive() {
 		showConfirm = false;
 		loading = true;
 		result = null;
+		downloadState = 'idle';
+		downloadMessage = '';
 		try {
 			const res = await fetchWithCsrfRetry('/api/archive', {
 				method: 'POST',
@@ -42,13 +75,8 @@
 
 			// [CATATAN]: Unduh salinan ke perangkat owner (selain tersimpan di cloud).
 			if (data.content) {
-				const blob = new Blob([data.content], { type: 'application/json' });
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = data.filename || 'arsip.json';
-				a.click();
-				URL.revokeObjectURL(url);
+				triggerBrowserDownload(data.content, data.filename || 'arsip.json');
+				downloadState = 'downloaded';
 			}
 			result = data;
 		} catch (e) {
@@ -177,9 +205,45 @@
 					>
 						<CheckCircle2 class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
 						<div class="text-sm text-emerald-800">
-							<b>{result.count} baris</b> berhasil diarsipkan & diunduh (<code class="text-xs"
-								>{result.filename}</code
-							>). Salinan juga tersimpan di cloud. Database kini lebih lega.
+							<b>{result.count} baris</b> berhasil diarsipkan{#if result.filename}
+								& diunduh (<code class="text-xs">{result.filename}</code>)
+							{/if}. Salinan juga tersimpan di cloud. Database kini lebih lega.
+							{#if result.job_id}
+								<div class="mt-2 flex flex-wrap items-center gap-2">
+									<button
+										type="button"
+										onclick={() =>
+											downloadJob(result?.job_id as string, result?.filename || 'arsip.json')}
+										disabled={downloadState === 'downloading'}
+										class="cursor-pointer rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+									>
+										{downloadState === 'downloading'
+											? 'Mengunduh…'
+											: downloadState === 'downloaded'
+												? 'Unduh ulang arsip'
+												: 'Unduh arsip'}
+									</button>
+									{#if downloadState === 'downloaded'}
+										<span class="text-xs font-bold text-emerald-700">Unduhan selesai.</span>
+									{:else if downloadState === 'failed'}
+										<span class="text-xs font-bold text-rose-600">{downloadMessage}</span>
+									{/if}
+								</div>
+							{/if}
+							{#if result.parts && result.parts.length > 1}
+								<div class="mt-2 flex flex-wrap items-center gap-2">
+									{#each result.parts as part}
+										<button
+											type="button"
+											onclick={() => downloadJob(part.jobId, part.filename)}
+											disabled={downloadState === 'downloading'}
+											class="cursor-pointer rounded-full bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 transition-all hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
+										>
+											Unduh {part.filename}
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
 					</div>
 				{:else if result.ok}
@@ -195,36 +259,3 @@
 		{/if}
 	</div>
 </div>
-
-<!-- Modal konfirmasi -->
-{#if showConfirm}
-	<div
-		class="z-alert fixed inset-0 flex items-end justify-center bg-black/30"
-		transition:fade={{ duration: 150 }}
-	>
-		<div
-			class="mx-auto w-full max-w-md rounded-t-2xl bg-white p-6 pb-8 shadow-lg"
-			transition:slide|local
-		>
-			<h3 class="mb-2 text-lg font-bold text-gray-800">Konfirmasi Arsip</h3>
-			<p class="mb-5 text-sm text-gray-600">
-				Semua transaksi <b>sebelum {beforeYear}</b> akan diunduh + disimpan ke cloud, lalu
-				<b>dihapus dari database aktif</b>. Data bisa dipulihkan dari file arsip kapan saja.
-			</p>
-			<div class="flex gap-3">
-				<button
-					onclick={() => (showConfirm = false)}
-					class="flex-1 rounded-xl bg-gray-100 px-4 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-				>
-					Batal
-				</button>
-				<button
-					onclick={doArchive}
-					class="flex-1 rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white hover:bg-emerald-600"
-				>
-					Ya, Arsipkan
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}

@@ -131,6 +131,9 @@ jobs:
       - name: Run Report Tax Suite
         run: pnpm test:report-tax
 
+      - name: Run Report Tax Workerd Suite
+        run: pnpm exec tsx src/tests/report-tax-tests.ts --d1
+
       - name: Run Service Pure Suite
         run: pnpm test:service-pure
 
@@ -209,6 +212,69 @@ jobs:
 
       - name: Run Docs Drift Suite
         run: pnpm test:docs-drift
+
+      - name: Run Ledger Validation Suite
+        run: pnpm test:ledger-validation
+
+      - name: Run Purchase Command Suite
+        run: pnpm test:purchase-command
+
+      - name: Run Purchase Command Workerd Suite
+        run: pnpm test:purchase-command --d1
+
+      - name: Run Sesi Toko Suite
+        run: pnpm test:sesi-toko
+
+      - name: Run Sesi Toko Workerd Suite
+        run: pnpm exec tsx src/tests/sesi-toko-tests.ts --d1
+
+      - name: Run Credential Username Suite
+        run: pnpm test:credential-username
+
+      - name: Run Credential Username Workerd Suite
+        run: pnpm exec tsx src/tests/credential-username-tests.ts --d1
+
+      - name: Run Telemetry Scope Suite
+        run: pnpm test:telemetry-scope
+
+      - name: Run Telemetry Scope Workerd Suite
+        run: pnpm exec tsx src/tests/telemetry-scope-tests.ts --d1
+
+      - name: Run Diagnostic Scope Suite
+        run: pnpm test:diagnostic-scope
+
+      - name: Run Role Contract Suite
+        run: pnpm test:role-contract
+
+      - name: Run Catat Timezone Suite
+        run: pnpm test:catat-timezone
+
+      - name: Run Branch Label Suite
+        run: pnpm test:branch-label
+
+      - name: Run AI Report Suite
+        run: pnpm test:ai-report
+
+      - name: Run Ledger Category Suite
+        run: pnpm test:ledger-category
+
+      - name: Run AI Recommendation Schema Suite
+        run: pnpm test:ai-recommendation-schema
+
+      - name: Run HPP Parse Usecase Suite
+        run: pnpm test:hpp-parse-usecase
+
+      - name: Run Archive Version Suite
+        run: pnpm test:archive-version
+
+      - name: Run Archive Chunk Suite
+        run: pnpm test:archive-chunk
+
+      - name: Run Archive Download Suite
+        run: pnpm test:archive-download
+
+      - name: Run Archive Download Workerd Suite
+        run: pnpm exec tsx src/tests/archive-download-tests.ts --d1
 
       - name: Upload Unit Logs
         if: failure()
