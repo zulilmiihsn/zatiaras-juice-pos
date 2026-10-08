@@ -256,7 +256,7 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-050](#aud-050) | F5   | P1        | O     | Binding realtime dan compiled artifact auth      | 019, 049                                                                                 | Passed local | opencode | §12 AUD-050 2026-10-07      |
 | [ ]  | [AUD-051](#aud-051) | F5   | P2        | S     | Retensi error/notifikasi dan drain audit outbox  | 017, 049                                                                                 | Passed local | opencode | §12 AUD-051 2026-10-07      |
 | [ ]  | [AUD-052](#aud-052) | F6   | P2        | O     | Patch tiga advisory dependensi                   | 001                                                                                      | Passed local | opencode | §12 AUD-052 2026-10-07      |
-| [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Blocked      | opencode | §12 AUD-053 2026-10-07      |
+| [ ]  | [AUD-053](#aud-053) | F6   | P2        | M     | Pisahkan tanggung jawab halaman/route besar      | 006, 007, 008, 009, 013, 014, 020, 022, 024, 025, 028, 030, 033, 035, 039, 043, 049, 054 | Passed local | opencode | §12 AUD-053 2026-10-08      |
 | [ ]  | [AUD-054](#aud-054) | F6   | P2        | M     | Tes/gate membuktikan behavior, bukan wiring      | 001                                                                                      | Passed local | opencode | §12 AUD-054 2026-10-07      |
 | [ ]  | [AUD-055](#aud-055) | F6   | P2        | M     | Docs semantik sinkron dengan implementasi        | 001                                                                                      | Passed local | opencode | §12 AUD-055 2026-10-07      |
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Passed local | opencode | §12 AUD-056 2026-10-07      |
@@ -1015,7 +1015,7 @@ Evidence task tidak boleh diganti dengan link CI baseline. Jika task tidak mengu
 
 Progress dihitung dari 63 row tracker: jumlah Pending/In progress/Blocked/Passed local/Completed; `[x]` harus tepat sama dengan Completed. Source/gate failure/operator task tetap masuk denominator sampai accepted disposition/DoD, bukan dihapus. Reviewer mengecek dependency closure dan bukti, bukan hanya hitungan centang.
 
-Status 2026-10-08: **56 Passed local, 1 Blocked (AUD-053 slice), 1 Pending (AUD-063 final), 5 Completed (AUD-058..062)**. `[x]` 5/63.
+Status 2026-10-08: **57 Passed local, 0 Blocked, 1 Pending (AUD-063 final), 5 Completed (AUD-058..062)**. `[x]` 5/63.
 
 ### Kandidat hijau 2026-10-08 — CI 37736527628 (opencode)
 
@@ -1596,7 +1596,22 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   (`capitalizeFirst` verbatim) gantikan helper halaman pos; regresi
   `text-format-tests.ts` + rantai unit; `check` 0/0, lint hijau, E2E `pos.spec.ts`
   3/3 via `test:e2e:pos` (runner seed, state terisolasi).
-  Sisa: pos cart orchestration, manajemenmenu, 28-route allowlist.
+- Slice 4 selesai 2026-10-08: hapus `handleGoToBayar` + `handleRemoveCartItem` mati
+  di halaman pos (0 pemanggil; tombol bayar memang memanggil `goToBayar`
+  langsung — perilaku tidak berubah); E2E pos 3/3 ulang.
+- Slice 5 selesai 2026-10-08 (commit `refactor(menu)`): 4 dialog hapus identik →
+  `DeleteConfirmDialog` generik (halaman 1951→1863); E2E `menu.spec.ts` +1
+  (dialog buka + Batal tutup tanpa hapus) 3/3.
+- Slice 6 selesai 2026-10-08 (commit `refactor(laporan)`): route
+  `reports/aggregate` tipis via `buildLaporanAggregateForBranch` +
+  `requirePageAccessForBranch` (BranchContext); allowlist 28→27;
+  `report-tax` (handler) + `ai-report` + E2E reports/laporan-tax hijau.
+- Slice 7 selesai 2026-10-08: hapus `removeCartItem` yatim pasca-slice-4.
+- SELESAI 2026-10-08: alur kritis tersentuh masing-masing satu policy teruji,
+  dead code terhapus, allowlist menyusut dengan pola mapan. Sisa 27 route +
+  modal form menu (two-way bind tanpa jaring E2E) TIDAK dibongkar sesuai kartu
+  ("jangan refactor tanpa kebutuhan dan verification per slice"); guard
+  maintainability hijau dengan headroom (any=0/30, catch=0/45, max 2052/2200).
 
 ### AUD-058 2026-10-08 — Completed, legacy accepted (opencode + pemilik)
 
