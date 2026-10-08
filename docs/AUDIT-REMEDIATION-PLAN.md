@@ -1015,7 +1015,21 @@ Evidence task tidak boleh diganti dengan link CI baseline. Jika task tidak mengu
 
 Progress dihitung dari 63 row tracker: jumlah Pending/In progress/Blocked/Passed local/Completed; `[x]` harus tepat sama dengan Completed. Source/gate failure/operator task tetap masuk denominator sampai accepted disposition/DoD, bukan dihapus. Reviewer mengecek dependency closure dan bukti, bukan hanya hitungan centang.
 
-Status 2026-10-07: **56 Passed local, 6 Blocked (AUD-053 slice + AUD-058..062 operator), 1 Pending (AUD-063 final), 0 In progress, 0 Completed**. `[x]` tetap 0/63.
+Status 2026-10-08: **56 Passed local, 6 Blocked (AUD-053 slice + AUD-058..062 operator), 1 Pending (AUD-063 final), 0 In progress, 0 Completed**. `[x]` tetap 0/63.
+
+### Kandidat hijau 2026-10-08 — CI 37736527628 (opencode)
+
+- SHA kandidat = HEAD origin/main `7023ddc75bac819cf1d8451a4a085778d4b140d8`.
+  CI [37736527628](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37736527628)
+  **success**: Static, Operations, Unit (semua suite incl. workerd),
+  Quality, E2E A 36/36 + B 36/36 + C 35/35 (107/107, state untouched),
+  Build + manifest + artifact `release-<sha>` ter-upload.
+- Jalan ke sini: 4 run merah ditriase tanpa redakan asersi — prasyarat tak-commit,
+  env CI, pesan identifier, guard server, polusi antar-spec, kaskade login 429
+  (pecah 3 grup), CSRF antar-GET/POST, kunci dummy, margin burst, hermetik catat.
+- Belum Completed: review manusia, AUD-053 slice sisa, operator F7
+  (staging/prod, backup/restore/migrasi, push/AI/printer), promosi via workflow
+  Deploy oleh approver. Tanpa klaim production-ready.
 
 ## 10. Gate operator dan prasyarat eksternal
 
