@@ -1603,6 +1603,11 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   antar-run (lolos solo 2x + grup) — pantau, bukan redakan.
 - File ubah: 2 pesan error, 2 page.server guard, fixture ai-mutation, script grup + CI
   (timeout e2e 25→45 mnt).
+- Lanjutan 2026-10-08: data GET `no-store` (respons heuristik browser tak boleh
+  menimpa fetch cabang; hardening produksi, bukan akar flake workstation);
+  cache-branch poll toleran traffic latar prefetch (calls==2 terbukti CI dari
+  prefetch idle, panggilan pertama tetap fetch capture); IDB read produk
+  best-effort try/catch; catat-recent hermetik (cleanup + CSRF per-hapus).
 - Lanjutan: catat-recent hermetik (cleanup ledger ber-CSRF + retry ECONNRESET;
   polusi AI terbukti via probe, CSRF sekali-pakai tertangkap 403 eksplisit);
   cache-branch:88 flaky khusus workstation multi-tes (lolos solo/CI/instrumen;

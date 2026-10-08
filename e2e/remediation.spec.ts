@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { gotoHydrated } from './helpers';
+import { existsSync, readFileSync } from 'node:fs';
+import { gotoHydrated, ownerUsernameForTest } from './helpers';
 import type { createTaxSettingsState } from '../src/lib/stores/taxSettingsState.svelte';
 
 declare global {
@@ -11,6 +12,37 @@ const settings = {
 	isTaxEnabled: true,
 	taxes: [{ id: 'pph', nama: 'PPh', tipe: 'pph_final', persentase: 0.5, isEnabled: true }]
 };
+
+function readUatPassword(): string {
+	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
+	const password = existsSync('.env')
+		? readFileSync('.env', 'utf8')
+				.split(/\r?\n/)
+				.find((line) => line.startsWith('UAT_PASSWORD='))
+				?.slice('UAT_PASSWORD='.length)
+				.trim()
+		: '';
+	if (!password) throw new Error('UAT_PASSWORD tidak tersedia');
+	return password;
+}
+
+// Login ASLI (bukan mockSession): halaman pajak memakai guard server
+// (+page.server.ts) yang hanya lolos sesi server nyata. API pajak tetap mock.
+async function loginAsOwner(page: Page, title: string) {
+	await page.goto('/login');
+	await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 60_000 });
+	await page.getByLabel('Pilih Cabang').selectOption('samarinda');
+	await page.getByPlaceholder('Masukkan username').fill(ownerUsernameForTest(title));
+	await page.getByPlaceholder('Masukkan password').fill(readUatPassword());
+	const loginResponse = page.waitForResponse(
+		(response) =>
+			response.url().endsWith('/api/veriflogin') && response.request().method() === 'POST'
+	);
+	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+	const response = await loginResponse;
+	expect(response.ok()).toBe(true);
+	await expect(page).toHaveURL(/\/$/, { timeout: 60_000 });
+}
 
 async function mockSession(page: Page) {
 	await page.addInitScript(() => {
@@ -42,7 +74,7 @@ async function mockSession(page: Page) {
 }
 
 test('latest tax draft survives an older success and a newer failed save', async ({ page }) => {
-	await mockSession(page);
+	await loginAsOwner(page, test.info().title);
 	const requests: Array<{ rate: number; reply: (status: number) => Promise<void> }> = [];
 	await page.route('**/api/pengaturan/pajak*', async (route) => {
 		if (route.request().method() === 'GET') {

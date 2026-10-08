@@ -134,7 +134,9 @@ export async function dbGet<T extends DataRecord = DataRecord>(
 	// AUD-020: cabang eksplisit hasil capture sekali di caller.
 	// Tanpa argumen, fallback malas ke cabang aktif (perilaku lama).
 	const qs = new URLSearchParams({ branch: branch ?? currentBranch(), ...params }).toString();
-	const response = await fetch(`${url}?${qs}`);
+	// Tanpa no-store, browser boleh menyajikan respons GET heuristik basi
+	// (terbukti E2E: fulfill/respons lama menimpa fetch cabang baru).
+	const response = await fetch(`${url}?${qs}`, { cache: 'no-store' });
 	if (!response.ok) throw await parseError(response, `GET ${table}`);
 	return parseRows<T>(await response.json(), `GET ${table}`);
 }
@@ -160,7 +162,7 @@ export async function dbGetPage<T extends DataRecord = DataRecord>(
 	});
 	if (cursor) query.set('cursor', cursor);
 
-	const response = await fetch(`${url}?${query.toString()}`);
+	const response = await fetch(`${url}?${query.toString()}`, { cache: 'no-store' });
 	if (!response.ok) throw await parseError(response, `GET ${table} page`);
 	return parsePage<T>(await response.json(), `GET ${table} page`);
 }

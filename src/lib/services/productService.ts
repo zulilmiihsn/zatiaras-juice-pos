@@ -60,7 +60,14 @@ export class ProductService {
 		const generation = this.beginTableFlight(namespacedKey);
 		const guard = () => this.tableFlightAlive(namespacedKey, generation, branch);
 		const offlineKey = `table:${offlineKeyPrefix}:${branch}`;
-		const stored = await idbGet<unknown>(offlineKey, catalogStore);
+		// IDB best-effort: gagal buka/baca tak boleh melumpuhkan pemuatan
+		// produk (jatuh ke network, bukan reject diam-diam).
+		let stored: unknown;
+		try {
+			stored = await idbGet<unknown>(offlineKey, catalogStore);
+		} catch {
+			stored = undefined;
+		}
 		const offlineData = isTableSnapshot(stored) ? stored.data : [];
 		if (typeof navigator !== 'undefined' && !navigator.onLine) {
 			return offlineData;
@@ -90,7 +97,12 @@ export class ProductService {
 	async getPosCatalog(): Promise<PosCatalogLoadResult> {
 		const branch = selectedBranch.value || 'default';
 		const key = `pos-catalog:v2:${branch}`;
-		const stored = await idbGet<unknown>(key, catalogStore);
+		let stored: unknown;
+		try {
+			stored = await idbGet<unknown>(key, catalogStore);
+		} catch {
+			stored = undefined;
+		}
 		const cached = isPosCatalogSnapshot(stored) && stored.branch === branch ? stored : null;
 		const fallback = (message?: string): PosCatalogLoadResult =>
 			cached
