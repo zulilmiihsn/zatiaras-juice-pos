@@ -318,3 +318,12 @@ keputusan go/no-go + nama approver.
 - **Bukti/rollback:** backup COMPLETE §11.3 menyimpan keadaan pra-hapus (hash cocok).
 - **Aturan ke depan:** hapus data production langsung dilarang tanpa backup dulu +
   catat di sini (ID, alasan, approver) — pelajaran dari §11.5.
+
+### 11.6 Rilis sinkronisasi pasca-tutup — 8 Oktober 2026
+
+- **Source SHA production:** `8d4ddf52311f753583dbd29ade4b6ce5567d0a75` (menggantikan §11.4).
+- **CI:** [37797201831](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37797201831) sukses penuh.
+- **Deploy:** [37800599684](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37800599684) sukses dari artifact CI. Worker versi `014250c8`, Pages `6d88709c` (`https://6d88709c.zatiaraspos.pages.dev`).
+- **Isi rilis:** refactor dashboard 4 route (allowlist 27→23) + docs 11.5/pasca-tutup. Tanpa migrasi schema baru.
+- **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
+- **Approver:** pemilik. Prod kini = main = keadaan rencana tertutup. TUNTAS.
