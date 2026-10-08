@@ -226,9 +226,6 @@
 	function closeCartModal() {
 		showCartModal = false;
 	}
-	function removeCartItem(idx: number): void {
-		cart.removeItem(idx);
-	}
 	function handleDecCartItem(idx: number): void {
 		const currentItem = cart.items[idx];
 		if (!currentItem) return;
