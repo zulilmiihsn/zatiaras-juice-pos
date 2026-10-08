@@ -29,11 +29,11 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // weekly) via wrapper BranchContext yang sama: penurunan eksplisit disetujui.
 // AUD-053 lanjutan menghapus route transaksi-kasir via wrapper service yang sama.
 // AUD-053 lanjutan menghapus route sesi-toko via wrapper service yang sama.
+// AUD-053 lanjutan menghapus route bahan-mutasi via wrapper service yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/archive/+server.ts',
 	'src/routes/api/archive/download/+server.ts',
-	'src/routes/api/bahan-mutasi/+server.ts',
 	'src/routes/api/bahan/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/buku-kas/+server.ts',

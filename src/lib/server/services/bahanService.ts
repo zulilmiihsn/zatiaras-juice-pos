@@ -1,9 +1,11 @@
 import { and, asc, desc, eq, type SQL } from 'drizzle-orm';
 import { bahan, bahanMutasi } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
+import { loadStockPolicy } from '$lib/server/stockPolicy';
 import { error as kitError } from '@sveltejs/kit';
 
 export type Database = ReturnType<typeof getDb>;
@@ -277,4 +279,32 @@ export async function recordBahanMutasi(
 	});
 
 	return { ok: true, data: [row] };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getBahanMutasiListForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	bahanId: string | null,
+	limit: number
+) {
+	return getBahanMutasiList(getDb(platform, branch), branch, bahanId, limit);
+}
+
+export async function recordBahanMutasiForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	row: Record<string, unknown>
+) {
+	const rawDb = getRawDb(platform, branch);
+	const policy = await loadStockPolicy(rawDb, branch);
+	if (policy.mode === 'ignored') {
+		throw kitError(
+			409,
+			'Mutasi stok manual dijeda. Gunakan alur rekonsiliasi untuk menyesuaikan stok.'
+		);
+	}
+	return recordBahanMutasi(rawDb, branch, session, platform, row);
 }
