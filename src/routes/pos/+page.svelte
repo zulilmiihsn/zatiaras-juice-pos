@@ -512,17 +512,6 @@
 	function handleImgErrorId(id: string | number): void {
 		handleImgError(String(id));
 	}
-	function handleGoToBayar(e: Event): void {
-		e.stopPropagation();
-		if (pos.isCatalogExpired) {
-			showErrorNotif('Katalog POS kedaluwarsa. Muat ulang sebelum melanjutkan pembayaran.');
-			return;
-		}
-		goToBayar();
-	}
-	function handleRemoveCartItem(idx: number): void {
-		removeCartItem(idx);
-	}
 </script>
 
 <div class="flex w-full max-w-full flex-col overflow-x-clip bg-[#faf7f8]">
