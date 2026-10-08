@@ -1,23 +1,22 @@
 import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
-import { getDb, getRawDb } from '$lib/server/dataApiHelpers';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
 import {
-	getPengaturan,
-	insertPengaturanRows,
-	updatePengaturanRow
+	getPengaturanForBranch,
+	insertPengaturanRowsForBranch,
+	updatePengaturanRowForBranch
 } from '$lib/server/services/pengaturanService';
 import type { RequestHandler } from './$types';
 
 /**
  * /api/pengaturan — Resource route controller untuk tabel `pengaturan` (1 row per cabang).
  * Menangani HTTP auth, validasi request, dan delegasi ke pengaturanService.
+ * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
-	const db = getDb(platform, branch);
 
-	const rows = await getPengaturan(db, branch);
+	const rows = await getPengaturanForBranch(platform, branch);
 	return json(rows);
 };
 
@@ -29,11 +28,9 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');
 
-	const db = getDb(platform, branch);
-	const rawDb = getRawDb(platform, branch);
 	const requestedRows = Array.isArray(body.payload) ? body.payload : [body.payload];
 
-	const result = await insertPengaturanRows(db, rawDb, branch, session, platform, requestedRows);
+	const result = await insertPengaturanRowsForBranch(platform, branch, session, requestedRows);
 	return json(result);
 };
 
@@ -45,16 +42,12 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload || body.where?.id == null) throw kitError(400, 'Payload / id tidak valid');
 
-	const db = getDb(platform, branch);
-	const rawDb = getRawDb(platform, branch);
 	const idStr = String(body.where!.id);
 
-	const result = await updatePengaturanRow(
-		db,
-		rawDb,
+	const result = await updatePengaturanRowForBranch(
+		platform,
 		branch,
 		session,
-		platform,
 		idStr,
 		body.payload as Record<string, unknown>
 	);

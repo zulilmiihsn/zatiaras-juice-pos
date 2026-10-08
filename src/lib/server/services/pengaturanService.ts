@@ -1,7 +1,8 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { pengaturan } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { error as kitError } from '@sveltejs/kit';
 
@@ -134,4 +135,44 @@ export async function updatePengaturanRow(
 		fields: fields.map(([k]) => k)
 	});
 	return { ok: true };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getPengaturanForBranch(platform: App.Platform | undefined, branch: BranchContext) {
+	return getPengaturan(getDb(platform, branch), branch);
+}
+
+export function insertPengaturanRowsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	requestedRows: Array<Record<string, unknown>>
+) {
+	return insertPengaturanRows(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		requestedRows
+	);
+}
+
+export function updatePengaturanRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string,
+	payload: Record<string, unknown>
+) {
+	return updatePengaturanRow(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		id,
+		payload
+	);
 }
