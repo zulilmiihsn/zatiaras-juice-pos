@@ -1,8 +1,8 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { buildDailySummaryReversalStatements } from '$lib/server/dailySummary';
-import { requireBranch } from '$lib/server/branchResolver';
+import { requireBranch, type BranchContext } from '$lib/server/branchResolver';
 import { toCursorPage } from '$lib/server/dataPagination';
-import { publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import { getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { newMutationToken, claimLedgerStatement, batchClaimChanges } from '$lib/server/ledgerCas';
 import { error as kitError } from '@sveltejs/kit';
 
@@ -338,4 +338,33 @@ export async function voidTransaksiKasir(
 	});
 
 	return { ok: true };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function listTransaksiKasirForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	filter: TransaksiKasirFilter,
+	limit: number,
+	cursor: { sortValue: string; id: string } | null,
+	cursorPagination: boolean
+) {
+	return getTransaksiKasirList(
+		getRawDb(platform, branch),
+		branch,
+		filter,
+		limit,
+		cursor,
+		cursorPagination
+	);
+}
+
+export function voidTransaksiKasirForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	transactionId: string
+) {
+	return voidTransaksiKasir(getRawDb(platform, branch), branch, session, platform, transactionId);
 }
