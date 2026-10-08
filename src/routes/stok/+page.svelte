@@ -56,6 +56,7 @@
 		buildCategoryOptions,
 		countCategory
 	} from '$lib/utils/stockHealth';
+	import { readMutationFrequency, recordMutationClick } from '$lib/utils/mutationFrequency';
 
 	// State
 	let bahanList = $state<Ingredient[]>([]);
@@ -294,24 +295,11 @@
 	let mutasiOperationKey = $state('');
 
 	function getMutationClickFrequencyMap(): Record<string, number> {
-		if (typeof window === 'undefined') return {};
-		try {
-			const raw = localStorage.getItem('mutasi_click_freq');
-			return raw ? JSON.parse(raw) : {};
-		} catch {
-			return {};
-		}
+		return readMutationFrequency();
 	}
 
 	function incrementMutationClickFrequency(key: string) {
-		if (typeof window === 'undefined') return;
-		try {
-			const map = getMutationClickFrequencyMap();
-			map[key] = (map[key] || 0) + 1;
-			localStorage.setItem('mutasi_click_freq', JSON.stringify(map));
-		} catch {
-			// Best-effort usage ranking; unavailable browser storage must not block stock updates.
-		}
+		recordMutationClick(key);
 	}
 
 	interface GroupedMutationPreset {
