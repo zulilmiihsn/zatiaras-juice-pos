@@ -1592,6 +1592,10 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   (read/record dengan storage injectable, kunci + bentuk JSON identik, error tetap
   ditelan) gantikan 2 helper halaman stok; regresi `mutation-frequency-tests.ts`
   (kosong/rusak/lempar/SSR/round-trip) + rantai `test:unit`; `check` 0/0, lint hijau.
+- Slice 3 selesai 2026-10-08 (commit `refactor(pos)`): `textFormat.ts`
+  (`capitalizeFirst` verbatim) gantikan helper halaman pos; regresi
+  `text-format-tests.ts` + rantai unit; `check` 0/0, lint hijau, E2E `pos.spec.ts`
+  3/3 via `test:e2e:pos` (runner seed, state terisolasi).
   Sisa: pos cart orchestration, manajemenmenu, 28-route allowlist.
 
 ### AUD-058 2026-10-08 — Completed, legacy accepted (opencode + pemilik)
