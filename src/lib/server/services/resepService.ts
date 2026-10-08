@@ -1,7 +1,8 @@
 import { and, desc, eq, type SQL } from 'drizzle-orm';
 import { resepProduk } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { error as kitError } from '@sveltejs/kit';
 
 export type Database = ReturnType<typeof getDb>;
@@ -171,4 +172,80 @@ export async function deleteResepByProduct(
 		produk_id: productId
 	});
 	return { ok: true };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getResepListForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	productId: string | null,
+	limit: number
+) {
+	return getResepList(getDb(platform, branch), branch, productId, limit);
+}
+
+export function insertResepRowsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	payload: Array<Record<string, unknown>>
+) {
+	return insertResepRows(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		payload
+	);
+}
+
+export function replaceResepForProductForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	productId: string,
+	payload: Array<Record<string, unknown>>
+) {
+	return replaceResepForProduct(
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		productId,
+		payload
+	);
+}
+
+export function deleteResepRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string
+) {
+	return deleteResepRow(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		id
+	);
+}
+
+export function deleteResepByProductForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	productId: string
+) {
+	return deleteResepByProduct(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		productId
+	);
 }

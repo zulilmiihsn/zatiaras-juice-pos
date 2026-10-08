@@ -31,9 +31,9 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // AUD-053 lanjutan menghapus route sesi-toko via wrapper service yang sama.
 // AUD-053 lanjutan menghapus route bahan-mutasi via wrapper service yang sama.
 // AUD-053 lanjutan menghapus 2 route arsip via wrapper use case yang sama.
+// AUD-053 lanjutan menghapus route bahan + resep-produk via wrapper service yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
-	'src/routes/api/bahan/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/buku-kas/+server.ts',
 	'src/routes/api/gantikeamanan/+server.ts',
@@ -47,7 +47,6 @@ const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/pos/quote/+server.ts',
 	'src/routes/api/pos/transaction/+server.ts',
 	'src/routes/api/produk/save-atomic/+server.ts',
-	'src/routes/api/resep-produk/+server.ts',
 	'src/routes/api/security-events/+server.ts',
 	'src/routes/api/veriflogin/+server.ts'
 ];

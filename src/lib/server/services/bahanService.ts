@@ -308,3 +308,70 @@ export async function recordBahanMutasiForBranch(
 	}
 	return recordBahanMutasi(rawDb, branch, session, platform, row);
 }
+
+export function getBahanListForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	limit: number
+) {
+	return getBahanList(getDb(platform, branch), branch, limit);
+}
+
+export async function insertBahanRowsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	rows: Array<Record<string, unknown>>
+) {
+	const rawDb = getRawDb(platform, branch);
+	const policy = await loadStockPolicy(rawDb, branch);
+	if (policy.mode === 'ignored') {
+		for (const row of rows) {
+			const stokAwal = Number(row.stok_saat_ini ?? 0);
+			if (Number.isFinite(stokAwal) && stokAwal !== 0) {
+				throw kitError(409, 'Stok awal bahan harus 0 saat monitoring nonaktif');
+			}
+			if (row.ambang_stok !== undefined && row.ambang_stok !== null) {
+				throw kitError(409, 'Ambang stok tidak dapat diatur saat monitoring nonaktif');
+			}
+			row.stok_saat_ini = 0;
+		}
+	}
+	return insertBahanRows(getDb(platform, branch), rawDb, branch, session, platform, rows);
+}
+
+export async function updateBahanRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string,
+	payload: Record<string, unknown>
+) {
+	const rawDb = getRawDb(platform, branch);
+	const policy = await loadStockPolicy(rawDb, branch);
+	if (policy.mode === 'ignored') {
+		if ('stok_saat_ini' in payload || 'ambang_stok' in payload) {
+			throw kitError(
+				409,
+				'Saldo stok hanya dapat diubah lewat rekonsiliasi saat monitoring nonaktif'
+			);
+		}
+	}
+	return updateBahanRow(getDb(platform, branch), rawDb, branch, session, platform, id, payload);
+}
+
+export function deleteBahanRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string
+) {
+	return deleteBahanRow(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		id
+	);
+}
