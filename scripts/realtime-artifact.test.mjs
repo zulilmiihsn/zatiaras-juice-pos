@@ -42,19 +42,15 @@ await test('intercept tolak sesi asing/cabang salah (kontrak)', () => {
 
 await test('deploy:check hijau termasuk paritas shard + cron', () => {
 	// Env dummy non-placeholder: checker file-level deterministik tanpa secret.
-	const r = spawnSync(
-		'node',
-		['scripts/verify-cloudflare-deploy-config.mjs'],
-		{
-			encoding: 'utf8',
-			stdio: 'pipe',
-			env: {
-				...process.env,
-				CLOUDFLARE_API_TOKEN: 'dummy-ci-token-32-karakter-xxxx',
-				POS_PRICE_SIGNING_KEY: 'dummy-ci-signing-key-32-karakter-x'
-			}
+	const r = spawnSync('node', ['scripts/verify-cloudflare-deploy-config.mjs'], {
+		encoding: 'utf8',
+		stdio: 'pipe',
+		env: {
+			...process.env,
+			CLOUDFLARE_API_TOKEN: 'dummy-ci-token-32-karakter-xxxx',
+			POS_PRICE_SIGNING_KEY: 'dummy-ci-signing-key-32-karakter-x'
 		}
-	);
+	});
 	assert.equal(r.status, 0, r.stderr || r.stdout);
 	assert.match(r.stdout, /deploy config looks ready/);
 });
