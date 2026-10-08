@@ -344,7 +344,7 @@ jobs:
   e2e:
     name: E2E Browser Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     needs: [static, operations]
     steps:
       - name: Checkout Code
@@ -367,8 +367,14 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run Full E2E Suite
-        run: pnpm test:e2e:all
+      - name: Run Full E2E Suite A (36 tests, isolated server+DB)
+        run: pnpm test:e2e:ci-a
+
+      - name: Run Full E2E Suite B (36 tests, isolated server+DB)
+        run: pnpm test:e2e:ci-b
+
+      - name: Run Full E2E Suite C (35 tests, isolated server+DB)
+        run: pnpm test:e2e:ci-c
 
       - name: Verify No Project State Touched
         run: |

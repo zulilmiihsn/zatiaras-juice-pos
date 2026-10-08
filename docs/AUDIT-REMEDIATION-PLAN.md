@@ -1561,9 +1561,7 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
 - Batas bukti: CI SHA sama (Linux LF) + reviewer belum.
 - Rollback: revert via release berizin.
 
-### AUD-053 2026-10-07 — Blocked slice 1 (opencode)
-
-- Alasan block: refactor halaman raksasa hanya aman per slice dengan CI hijau sebagai jaring.
+### AUD-053 2026-10-07 — Blocked slice 1 (opencode)- Alasan block: refactor halaman raksasa hanya aman per slice dengan CI hijau sebagai jaring.
   Slice berikut butuh `test:release` penuh + CI SHA sama hijau + reviewer: sisa stok script,
   pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak tersentuh slice ini).
 - Slice 1 selesai lokal: `stockHealth.ts` murni (getStockHealth verbatim + predikat low-stock
@@ -1586,6 +1584,23 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
   quota AI, dan printer fisik — bukti §§10–11 mensyaratkan itu dan dilarang diakali
   simulasi. Nol mutasi produksi dilakukan sesi ini.
 - Buka block: identitas target + approver + backup COMPLETE + jadwal staging (runbook §§1–11).
+
+### F8 gate 2026-10-08 — perbaikan CI dari 2 run merah (opencode)
+
+- Run 37685021672: (1) file prasyarat AUD-014 belum commit (receiptSnapshot/dataLoader) +
+  (2) `realtime-artifact` panggil deploy:check tanpa env CI. Fix: commit fondasi +
+  env dummy non-secret pada test.
+- Run 37705951214 (static/operasi/unit/quality hijau): E2E 96/107. Triase 11 gagal:
+  (a) pesan 503/AI memuat nama `OPENROUTER_API_KEY` (kontrak AUD-037) → pesan tanpa identifier
+  di hpp-parse + aichat; (b) redirect anonim flaky (menu/pajak, guard client vs hidrasi) →
+  `+page.server.ts` 302 anonim pada 2 halaman online-only (API tetap otoritas role);
+  (c) polusi antar-spec ai-category→ai-mutation (75000 sama di DB server bersama) →
+  fixture unik 75001; (d) kaskade login 429 (60/IP + 15/user per 15 mnt vs ~100 login
+  se~11 mnt CI): suite 107 tes dipecah 3 grup (36/36/35) @ server+DB terisolasi
+  (`test:e2e:ci-a/b/c`), tanpa ubah tes/assertion/limit. cache-branch:88 flaky
+  antar-run (lolos solo 2x + grup) — pantau, bukan redakan.
+- File ubah: 2 pesan error, 2 page.server guard, fixture ai-mutation, script grup + CI
+  (timeout e2e 25→45 mnt).
 
 ### AUD-057 2026-10-07 — Passed local (opencode)
 

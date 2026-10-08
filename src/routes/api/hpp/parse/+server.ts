@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		((platform?.env as Record<string, unknown> | undefined)?.OPENROUTER_API_KEY as string) ||
 		env.OPENROUTER_API_KEY;
 	if (!apiKey) {
-		throw kitError(503, 'AI belum aktif. Isi OPENROUTER_API_KEY atau input bahan manual.');
+		throw kitError(503, 'AI belum aktif. Minta pemilik mengisi kunci AI atau input bahan manual.');
 	}
 
 	const { rawDb } = hppBranchDb(

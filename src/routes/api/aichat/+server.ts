@@ -199,7 +199,7 @@ async function handleRegularChat(event: import('./$types').RequestEvent) {
 				{
 					success: false,
 					error:
-						'API key OpenRouter tidak dikonfigurasi. Silakan tambahkan OPENROUTER_API_KEY di file .env atau Cloudflare Secrets',
+						'Kunci AI belum dikonfigurasi. Minta pemilik mengaktifkannya atau lanjut tanpa AI.',
 					code: 'SERVICE_UNAVAILABLE'
 				},
 				{ status: 500 }
