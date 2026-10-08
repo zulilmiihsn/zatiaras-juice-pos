@@ -7,7 +7,10 @@ export async function getCsrfToken(forceRefresh: boolean = false): Promise<strin
 
 	const response = await fetch('/api/csrf', {
 		method: 'GET',
-		credentials: 'include'
+		credentials: 'include',
+		// Token segar tiap ambil: tanpa no-store, browser boleh menyajikan
+		// token basi dari cache HTTP (flaky 403 pada mutasi beruntun).
+		cache: 'no-store'
 	});
 
 	if (!response.ok) {

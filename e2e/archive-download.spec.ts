@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, promises as fs, readFileSync } from 'node:fs';
-import { ownerUsernameForTest } from './helpers';
+import { csrfMutate, ownerUsernameForTest } from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -37,14 +37,6 @@ async function readDownload(download: import('@playwright/test').Download): Prom
 	return fs.readFile(path, 'utf8');
 }
 
-async function csrfPost(page: Page, path: string, data: unknown) {
-	const csrf = (await (await page.request.get('/api/csrf')).json()) as { token?: string };
-	return page.request.post(path, {
-		data,
-		headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
-	});
-}
-
 // Klik Svelte hanya sah sesudah hidrasi; klik SSR buta = no-op.
 // Helper ini klik ulang sampai dialog konfirmasi benar muncul.
 async function openArchiveConfirm(page: Page) {
@@ -78,13 +70,9 @@ async function closeOpenSession(page: Page) {
 		? rows[0]
 		: (rows as unknown as { data?: Array<{ id?: string }> })?.data?.[0];
 	if (!active?.id) return;
-	const csrf = (await (await page.request.get('/api/csrf')).json()) as { token?: string };
-	const patched = await page.request.patch('/api/sesi-toko', {
-		data: {
-			payload: { waktu_tutup: new Date().toISOString(), is_active: false },
-			where: { id: active.id }
-		},
-		headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
+	const patched = await csrfMutate(page, 'PATCH', '/api/sesi-toko', {
+		payload: { waktu_tutup: new Date().toISOString(), is_active: false },
+		where: { id: active.id }
 	});
 	console.log(
 		`PROBE sesi-patch status=${patched.status()} body=${(await patched.text()).slice(0, 200)}`
@@ -93,7 +81,7 @@ async function closeOpenSession(page: Page) {
 
 // Tanam baris lama langsung via API agar eligible arsip.
 async function seedOldRow(page: Page, id: string, nominal: number) {
-	const res = await csrfPost(page, '/api/buku-kas', {
+	const res = await csrfMutate(page, 'POST', '/api/buku-kas', {
 		payload: {
 			id,
 			tipe: 'in',
