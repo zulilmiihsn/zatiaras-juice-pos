@@ -1,4 +1,34 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { ownerUsernameForTest } from './helpers';
+
+function readUatPassword(): string {
+	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
+	if (!existsSync('.env')) throw new Error('UAT_PASSWORD tidak tersedia');
+	const password = readFileSync('.env', 'utf8')
+		.split(/\r?\n/)
+		.find((line) => line.startsWith('UAT_PASSWORD='))
+		?.slice('UAT_PASSWORD='.length)
+		.trim();
+	if (!password) throw new Error('UAT_PASSWORD tidak tersedia');
+	return password;
+}
+
+async function loginAsOwner(page: Page) {
+	await page.goto('/login');
+	await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 60_000 });
+	await page.getByLabel('Pilih Cabang').selectOption('samarinda');
+	await page.getByPlaceholder('Masukkan username').fill(ownerUsernameForTest(test.info().title));
+	await page.getByPlaceholder('Masukkan password').fill(readUatPassword());
+	const loginResponse = page.waitForResponse(
+		(response) =>
+			response.url().endsWith('/api/veriflogin') && response.request().method() === 'POST'
+	);
+	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+	const response = await loginResponse;
+	expect(response.ok(), `Login UI gagal: ${response.status()} ${await response.text()}`).toBe(true);
+	await expect(page).toHaveURL(/\/$/);
+}
 
 test.describe('Menu Management Behavioral Flows', () => {
 	test('menu route protects unauthorized access and enforces security boundary', async ({
@@ -19,5 +49,19 @@ test.describe('Menu Management Behavioral Flows', () => {
 		const options = await branchSelect.locator('option').allTextContents();
 		expect(options.some((opt) => /samarinda/i.test(opt))).toBe(true);
 		expect(options.some((opt) => /balikpapan/i.test(opt))).toBe(true);
+	});
+
+	test('delete dialog opens with correct copy and cancel closes without deleting', async ({
+		page
+	}) => {
+		await loginAsOwner(page);
+		await page.goto('/pengaturan/pemilik/manajemenmenu');
+		const deleteButton = page.getByRole('button', { name: 'Hapus Menu', exact: true }).first();
+		await expect(deleteButton).toBeVisible({ timeout: 60_000 });
+		await deleteButton.click();
+		await expect(page.getByRole('heading', { name: 'Hapus Menu?' })).toBeVisible();
+		await expect(page.getByText('Menu yang dihapus tidak dapat dikembalikan')).toBeVisible();
+		await page.getByRole('button', { name: 'Batal', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Hapus Menu?' })).toBeHidden();
 	});
 });
