@@ -1,7 +1,8 @@
 import { and, eq, gte, lte, asc } from 'drizzle-orm';
 import { dailySalesSummary, bukuKas } from '$lib/database/schema';
-import type { BranchId, DrizzleDb } from '$lib/server/branchResolver';
+import type { BranchContext, BranchId, DrizzleDb } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
+import { getDb, getRawDb } from '$lib/server/dataApiHelpers';
 
 /** Konversi timestamp ISO ke tanggal WITA 'YYYY-MM-DD' (zona Asia/Makassar). */
 function witaDate(ts: string): string {
@@ -114,4 +115,42 @@ export async function getPosKas7Hari(
 				lte(bukuKas.waktu, endTime)
 			)
 		);
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getDashboardStatsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	startTime: string,
+	endTime: string
+) {
+	return getDashboardStats(getDb(platform, branch), branch, startTime, endTime);
+}
+
+export function getWeeklyIncomeSummaryForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	startTime: string,
+	endTime: string
+) {
+	return getWeeklyIncomeSummary(getDb(platform, branch), branch, startTime, endTime);
+}
+
+export function getBestSellersSummaryForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	startTime: string,
+	endTime: string
+) {
+	return getBestSellersSummary(getRawDb(platform, branch), branch, startTime, endTime);
+}
+
+export function getPosKas7HariForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	startTime: string,
+	endTime: string
+) {
+	return getPosKas7Hari(getDb(platform, branch), branch, startTime, endTime);
 }

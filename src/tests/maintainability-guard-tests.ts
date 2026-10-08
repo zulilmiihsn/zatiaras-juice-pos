@@ -25,6 +25,8 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // R2 streaming, pola route tipis sama): kenaikan eksplisit ini disetujui.
 // AUD-053 menghapus reports aggregate route (BranchContext + use case tipis,
 // preseden sama): penurunan eksplisit ini disetujui. Target tetap mengecilkan daftar.
+// AUD-053 lanjutan menghapus 4 route dashboard (stats, best-sellers, pos-kas-7hari,
+// weekly) via wrapper BranchContext yang sama: penurunan eksplisit disetujui.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/archive/+server.ts',
@@ -33,10 +35,6 @@ const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/bahan/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/buku-kas/+server.ts',
-	'src/routes/api/dashboard/best-sellers/+server.ts',
-	'src/routes/api/dashboard/pos-kas-7hari/+server.ts',
-	'src/routes/api/dashboard/stats/+server.ts',
-	'src/routes/api/dashboard/weekly/+server.ts',
 	'src/routes/api/gantikeamanan/+server.ts',
 	'src/routes/api/hpp-settings/+server.ts',
 	'src/routes/api/monitoring/+server.ts',
