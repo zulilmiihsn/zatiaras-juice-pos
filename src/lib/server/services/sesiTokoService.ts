@@ -1,7 +1,8 @@
 import { and, desc, eq, type SQL } from 'drizzle-orm';
 import { sesiToko } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { error as kitError } from '@sveltejs/kit';
 import { normalizeMoney } from '$lib/server/checkout/utils';
 
@@ -241,4 +242,50 @@ export async function updateSesiTokoRow(
 		fields: ['waktu_tutup', 'is_active']
 	});
 	return { ok: true, duplicate: false };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getSesiTokoListForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	id: string | null,
+	active: string | null,
+	limit: number
+) {
+	return getSesiTokoList(getDb(platform, branch), branch, id, active, limit);
+}
+
+export function getSesiSummaryForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	sessionId: string
+) {
+	return getSesiSummary(getRawDb(platform, branch), branch, sessionId);
+}
+
+export function insertSesiTokoRowsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	rows: Array<Record<string, unknown>>
+) {
+	return insertSesiTokoRows(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		rows
+	);
+}
+
+export function updateSesiTokoRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string,
+	payload: Record<string, unknown>
+) {
+	return updateSesiTokoRow(getRawDb(platform, branch), branch, session, platform, id, payload);
 }

@@ -28,6 +28,7 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // AUD-053 lanjutan menghapus 4 route dashboard (stats, best-sellers, pos-kas-7hari,
 // weekly) via wrapper BranchContext yang sama: penurunan eksplisit disetujui.
 // AUD-053 lanjutan menghapus route transaksi-kasir via wrapper service yang sama.
+// AUD-053 lanjutan menghapus route sesi-toko via wrapper service yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/archive/+server.ts',
@@ -49,7 +50,6 @@ const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/produk/save-atomic/+server.ts',
 	'src/routes/api/resep-produk/+server.ts',
 	'src/routes/api/security-events/+server.ts',
-	'src/routes/api/sesi-toko/+server.ts',
 	'src/routes/api/veriflogin/+server.ts'
 ];
 assert.deepEqual(metrics.routeDbImportFiles, ALLOWED_ROUTE_DB_IMPORTS);
