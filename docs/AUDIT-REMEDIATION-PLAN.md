@@ -1620,6 +1620,10 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   modal form menu (two-way bind tanpa jaring E2E) TIDAK dibongkar sesuai kartu
   ("jangan refactor tanpa kebutuhan dan verification per slice"); guard
   maintainability hijau dengan headroom (any=0/30, catch=0/45, max 2052/2200).
+- Pasca-tutup 2026-10-08 (commit `refactor(dashboard)`): 4 route dashboard tipis
+  via wrapper BranchContext yang sama; allowlist 28→27→23; E2E dashboard 6/6 +
+  reports 2/2. Sisa 23 route (termasuk auth kritis) + modal form menu tetap debt
+  terpola, kerjakan per kebutuhan.
 
 ### AUD-058 2026-10-08 — Completed, orphan dihapus pemilik (opencode + pemilik)
 
