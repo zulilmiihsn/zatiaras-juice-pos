@@ -20,7 +20,11 @@ try {
 	const env = {
 		...process.env,
 		ZATIARAS_E2E_CONFIG: environment.configPath,
-		ZATIARAS_E2E_STATE: environment.persistPath
+		ZATIARAS_E2E_STATE: environment.persistPath,
+		// Kunci AI dummy yang pasti invalid (AUD-035): burst limiter teruji
+		// via 502 upstream deterministik; tanpa panggilan berbayar/flaky
+		// dan tanpa bergantung .env workstation. Tak pernah secret nyata.
+		OPENROUTER_API_KEY: 'e2e-dummy-key-tidak-valid-untuk-upstream'
 	};
 	const child = fork(new URL('./e2e-server.mjs', import.meta.url), [], {
 		env,

@@ -89,10 +89,11 @@ test('hpp parse auth and safe-failure contracts hold', async ({ page, browser })
 
 // AUD-035: bukti wiring rute — rentetan cepat menyentuh 429 SEBELUM upstream.
 // Tanpa limit rute (kode lama), semua 502 tanpa satu pun 429.
+// 25x (bukan 21 pas): satu galat transien tak boleh menggeser bukti limit 20.
 test('hpp parse rate limit rejects burst before upstream', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
 	const statuses: number[] = [];
-	for (let i = 0; i < 21; i++) {
+	for (let i = 0; i < 25; i++) {
 		const res = await csrfPost(page, '/api/hpp/parse', { text: `belanja uji ${i}` });
 		statuses.push(res.status());
 		if (statuses.filter((s) => s === 429).length >= 1) break;
