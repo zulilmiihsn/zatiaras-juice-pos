@@ -43,6 +43,7 @@
 	// [CATATAN]: Utils & Constants
 	import { debounce, fuzzySearch } from '$lib/utils/performance';
 	import { formatRupiah } from '$lib/utils/currency';
+	import { capitalizeFirst } from '$lib/utils/textFormat';
 	import { securityUtils } from '$lib/utils/security';
 	import { validateNumber, sanitizeInput } from '$lib/utils/validation';
 	import { ICE_OPTIONS, SUGAR_OPTIONS } from '$lib/utils/orderDetails';
@@ -470,11 +471,6 @@
 		cart.clearCart();
 		showCartModal = false;
 		showToastNotif('Keranjang dikosongkan', 'success');
-	}
-
-	function capitalizeFirst(str: string): string {
-		if (!str) return '';
-		return str.charAt(0).toUpperCase() + str.slice(1);
 	}
 
 	let skeletonCount = $state<number>(POS_SKELETON.TABLET);
