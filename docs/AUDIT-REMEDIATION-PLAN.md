@@ -1621,7 +1621,7 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   ("jangan refactor tanpa kebutuhan dan verification per slice"); guard
   maintainability hijau dengan headroom (any=0/30, catch=0/45, max 2052/2200).
 
-### AUD-058 2026-10-08 — Completed, legacy accepted (opencode + pemilik)
+### AUD-058 2026-10-08 — Completed, orphan dihapus pemilik (opencode + pemilik)
 
 - Inventaris 3 shard dari backup COMPLETE 2026-10-08: 1 orphan legacy Samarinda —
   `bahan_mutasi` `1100f28c-4a20-4a7e-8ace-695b9b4c2432` ("Kulakan rutin" manual +3,
@@ -1629,9 +1629,15 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   `1560832e-4d7e-4a1d-b9ca-25c35e5057dc` yang sudah terhapus. Satu-satunya referensi
   ke bahan itu; audit sekitarnya = transaksi uji "Es Teh UAT" (kemungkinan bahan uji
   yang terhapus saat beres-beres).
-- Keputusan pemilik: BIARKAN (tanpa repair). Dampak nol ke stok/laporan/migrasi.
-- Detector `dataHealth.ts` + `test:data-health` menjaga agar orphan baru terdeteksi;
-  drill menandai temuan ini sebagai FAIL-yang-diharapkan sampai legacy dibersihkan.
+- Keputusan awal pemilik: BIARKAN. Kemudian pemilik menghapus sendiri seluruh baris
+  uji September langsung di production (di luar aplikasi — aplikasi tidak punya
+  endpoint hapus-mutasi; tanpa audit trail di DB).
+- Verifikasi pasca-hapus (read-only, `--remote`): `bahan_mutasi` yatim = 0 di
+  ketiga shard; Samarinda mutasi=0/kasir=4, Balikpapan mutasi=0/kasir=0,
+  Berau mutasi=0/kasir=0; data operasional (transaksi 29–30 Sep, login Okt,
+  katalog 128 bahan) utuh. Backup COMPLETE pagi menyimpan keadaan pra-hapus
+  (hash manifest cocok) sebagai bukti/rollback.
+- Detector `dataHealth.ts` + `test:data-health` menjaga agar orphan baru terdeteksi.
 
 ### AUD-059 2026-10-08 — Completed (opencode + approver pemilik)
 

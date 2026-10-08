@@ -305,3 +305,16 @@ keputusan go/no-go + nama approver.
 - **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
 - **Approver:** pemilik. Rollback: revert + redeploy via workflow; schema sesi ini tanpa migrasi baru (aditif 0038–0040 dari §11.3 dipertahankan).
 - **Status audit:** `docs/AUDIT-REMEDIATION-PLAN.md` 63/63 Completed; rencana DITUTUP.
+
+### 11.5 Pembersihan data uji oleh pemilik — 8 Oktober 2026
+
+- **Aksi:** pemilik menghapus sendiri baris-baris uji September ("Es Teh UAT" dkk,
+  termasuk orphan `bahan_mutasi` `1100f28c-…`) langsung di D1 production, di luar
+  aplikasi (aplikasi tidak punya endpoint hapus-mutasi; tanpa audit trail di DB).
+  Agen TIDAK menjalankan DELETE apa pun.
+- **Verifikasi pasca-hapus (read-only):** yatim `bahan_mutasi` = 0 di ketiga shard;
+  Samarinda mutasi=0/kasir=4, Balikpapan mutasi=0/kasir=0, Berau mutasi=0/kasir=0;
+  data operasional + katalog utuh.
+- **Bukti/rollback:** backup COMPLETE §11.3 menyimpan keadaan pra-hapus (hash cocok).
+- **Aturan ke depan:** hapus data production langsung dilarang tanpa backup dulu +
+  catat di sini (ID, alasan, approver) — pelajaran dari §11.5.
