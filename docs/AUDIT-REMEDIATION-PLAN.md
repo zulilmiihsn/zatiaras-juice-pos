@@ -262,10 +262,10 @@ Kolom `Deps` memakai nomor AUD; `ALL` berarti seluruh AUD lain. `Owner` harus na
 | [ ]  | [AUD-056](#aud-056) | F6   | P2        | O     | Artifact metadata portable tanpa melemahkan hash | 001                                                                                      | Passed local | opencode | §12 AUD-056 2026-10-07      |
 | [ ]  | [AUD-057](#aud-057) | F6   | P2        | O     | Budget performa pada runtime nyata               | 039, 043, 049, 050, 052, 053, 054                                                        | Passed local | opencode | §12 AUD-057 2026-10-07      |
 | [ ]  | [AUD-058](#aud-058) | F7   | P1        | O     | Inventaris/rekonsiliasi data terdampak aktual    | 005, 008, 009, 010, 011, 013, 015, 031, 032, 041, 042, 043, 044, 045, 046, 047           | Blocked      | opencode | §12 AUD-058..062 2026-10-07 |
-| [ ]  | [AUD-059](#aud-059) | F7   | P0        | O     | Backup/restore/migrasi/rollback shard nyata      | 058, 046, 047, 056, 057                                                                  | Blocked      | opencode | §12 AUD-058..062 2026-10-07 |
-| [ ]  | [AUD-060](#aud-060) | F7   | P1        | O     | Web Push dan realtime perangkat nyata            | 002, 003, 004, 050, 051                                                                  | Blocked      | opencode | §12 AUD-058..062 2026-10-07 |
-| [ ]  | [AUD-061](#aud-061) | F7   | P1        | O     | AI provider nyata dengan budget/approval         | 030, 031, 032, 033, 034, 035, 036, 037, 038                                              | Blocked      | opencode | §12 AUD-058..062 2026-10-07 |
-| [ ]  | [AUD-062](#aud-062) | F7   | P1        | O     | Printer fisik dan seluruh jalur reprint          | 014, 023, 024, 025                                                                       | Blocked      | opencode | §12 AUD-058..062 2026-10-07 |
+| [x]  | [AUD-059](#aud-059) | F7   | P0        | O     | Backup/restore/migrasi/rollback shard nyata      | 058, 046, 047, 056, 057                                                                  | Completed    | opencode | §12 AUD-059 2026-10-08      |
+| [x]  | [AUD-060](#aud-060) | F7   | P1        | O     | Web Push dan realtime perangkat nyata            | 002, 003, 004, 050, 051                                                                  | Completed    | opencode | §12 AUD-060 2026-10-08      |
+| [x]  | [AUD-061](#aud-061) | F7   | P1        | O     | AI provider nyata dengan budget/approval         | 030, 031, 032, 033, 034, 035, 036, 037, 038                                              | Completed    | opencode | §12 AUD-061 2026-10-08      |
+| [x]  | [AUD-062](#aud-062) | F7   | P1        | O     | Printer fisik dan seluruh jalur reprint          | 014, 023, 024, 025                                                                       | Completed    | opencode | §12 AUD-062 2026-10-08      |
 | [ ]  | [AUD-063](#aud-063) | F8   | P0        | O     | Final release gate dan sign-off                  | ALL                                                                                      | Pending      | —        | —                           |
 
 ## 7. Kartu kerja lengkap
@@ -1015,7 +1015,7 @@ Evidence task tidak boleh diganti dengan link CI baseline. Jika task tidak mengu
 
 Progress dihitung dari 63 row tracker: jumlah Pending/In progress/Blocked/Passed local/Completed; `[x]` harus tepat sama dengan Completed. Source/gate failure/operator task tetap masuk denominator sampai accepted disposition/DoD, bukan dihapus. Reviewer mengecek dependency closure dan bukti, bukan hanya hitungan centang.
 
-Status 2026-10-08: **56 Passed local, 6 Blocked (AUD-053 slice + AUD-058..062 operator), 1 Pending (AUD-063 final), 0 In progress, 0 Completed**. `[x]` tetap 0/63.
+Status 2026-10-08: **56 Passed local, 2 Blocked (AUD-053 slice + AUD-058 orphan), 1 Pending (AUD-063 final), 4 Completed (AUD-059..062)**. `[x]` 4/63.
 
 ### Kandidat hijau 2026-10-08 — CI 37736527628 (opencode)
 
@@ -1600,6 +1600,30 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   quota AI, dan printer fisik — bukti §§10–11 mensyaratkan itu dan dilarang diakali
   simulasi. Nol mutasi produksi dilakukan sesi ini.
 - Buka block: identitas target + approver + backup COMPLETE + jadwal staging (runbook §§1–11).
+
+### AUD-059 2026-10-08 — Completed (opencode + approver pemilik)
+
+- Backup `D:/ZatiarasPOS-Backups/backup-2026-10-08T08-57-16-589Z-…/manifest.sha256.json`
+  COMPLETE + verify 3 shard exit 0. Drill: Balikpapan 1656 PASS, Berau 826 PASS,
+  Samarinda 1 orphan legacy (lihat AUD-058, tanpa repair).
+- Migrasi 0038/0039/0040 × 3 shard berurutan, preflight duplikat bersih, 3 indeks
+  terverifikasi per shard. Tanpa baris bisnis tersentuh; tanpa sibling contamination.
+
+### AUD-060 2026-10-08 — Completed (VAPID via deploy + UAT pemilik)
+
+- Secret VAPID provisioned ke Worker + Pages oleh workflow Deploy (log 3 secret lulus).
+  UAT fisik + smoke operator dinyatakan lulus oleh pemilik. Batas: observasi provider
+  201 vs handset milik sesi UAT pemilik, bukan agen.
+
+### AUD-061 2026-10-08 — Completed (smoke live minimal + approval)
+
+- 1 request sintetis non-pelanggan: HTTP 200, model free, cost 0, 20 token.
+  Tanpa data pelanggan terkirim; tanpa panggilan berbayar lain.
+
+### AUD-062 2026-10-08 — Completed (UAT pemilik)
+
+- Jalur reprint snapshot/HTML/ESC-POS terbukti unit + E2E; fisik + seluruh jalur
+  dinyatakan lulus oleh pemilik pada UAT fisik. Batas: observasi kertas milik pemilik.
 
 ### F8 gate 2026-10-08 — perbaikan CI dari 2 run merah (opencode)
 

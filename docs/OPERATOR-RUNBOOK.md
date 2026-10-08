@@ -279,3 +279,19 @@ keputusan go/no-go + nama approver.
 - **Monitoring snapshot:** browser smoke di atas; tidak diambil agregat Cloudflare atau baseline trafik. Status tersebut bukan UAT provider/handset dan tidak membuktikan push diterima operator.
 - **UAT operator:** belum dijalankan pada HP fisik. Ikuti checklist **Aktivasi perangkat** dan **Smoke penerimaan** §10a.1; verifikasi suara, izin OS, push saat PWA tertutup, dan klik notifikasi yang melewati auth/PIN.
 - **Rollback reference:** Pages sebelum rilis `2a06d56a-5fc7-4a01-90b6-aeb65229c9ea` (source `47781c9`); Worker version `27708e94-b75d-4142-9453-c2a397cd4be6`, deployment `95e16dd4-2a3a-4de5-8e1b-fb1200e93dae`. Schema aditif dipertahankan; rollback tidak dijalankan atau diklaim teruji.
+
+### 11.3 Rilis remediasi audit — 8 Oktober 2026
+
+- **Source SHA production:** `e5cee57bd78f9df793bb74f095bcb04ff5288bdf`.
+- **CI:** [37740742752](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37740742752), sukses pada SHA tersebut: Static, Operations (53 tes), Unit (semua suite incl. workerd), Quality, E2E A 36/36 + B 36/36 + C 35/35 (**107/107**, state untouched), Build + manifest + artifact.
+- **Artifact CI:** `release-e5cee57bd78f9df793bb74f095bcb04ff5288bdf`, ID `11534335417`, digest GitHub `sha256:fe81902e67167e839c2ed8514ea2ceda9ea1182c00bee8cc1b84ede373d6bfea`.
+- **Dry-run:** [37758689739](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37758689739), provenance lulus; deploy dilewati.
+- **Deploy:** [37759141703](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37759141703), job production sukses. VAPID provisioned ke Worker + Pages (3 secret), Worker realtime versi `3e9662f2` (cron `* * * * *` + `0 3 * * *`), Pages deployment `5e382f2b` (`https://5e382f2b.zatiaraspos.pages.dev`, alias utama ikut).
+- **Approver/window:** pemilik menyetujui seluruh operasi + UAT fisik via percakapan (tercatat agen). Tanpa sesi kasir aktif yang menghalangi; tidak ada operasi destruktif.
+- **Backup:** `D:/ZatiarasPOS-Backups/backup-2026-10-08T08-57-16-589Z-316594cc-b6cb-4c99-af08-9682eff6e987/manifest.sha256.json`, penanda `COMPLETE`, verify tiga shard exit 0. Restore drill: Balikpapan 38 tabel/1656 baris PASS, Berau 38/826 PASS, Samarinda GAGAL pada 1 orphan legacy (`bahan_mutasi` `1100f28c-…` → `bahan` `1560832e-…` hilang, cabang samarinda; 0 orphan transaksi, 0 stok negatif). Tanpa perbaikan otomatis — keputusan pemilik.
+- **Schema:** preflight duplikat sesi/username bersih 3 shard; terapkan `0038_purchase_operation_key`, `0039_sesi_toko_single_active`, `0040_profil_unique_username` berurutan per shard, verifikasi 3 indeks tiap shard. Bookmark akhir Samarinda `00000488-…-…83b3`, Balikpapan `…5d8035b2…`, Berau `…5bad03f9…` (lengkap di log agen). Tanpa baris bisnis tersentuh.
+- **Smoke read-only production:** `/`, `/login` deployment + alias HTTP 200; Worker `/health` 200. Tanpa login/checkout/mutasi production oleh agen (tanpa kredensial prod; UAT fisik oleh pemilik, dinyatakan aman).
+- **AI provider smoke:** 1 request sintetis non-pelanggan: HTTP 200, model free, cost 0, 20 token.
+- **Monitoring:** snapshot jendela deploy tidak diambil (trafik rendah); bukan bukti statistik.
+- **Rollback reference:** revert commit rilis + redeploy via workflow yang sama; schema aditif 0038–0040 dipertahankan (forward-fix, bukan drop); backup § di atas retensi operator.
+- **Keputusan:** GO oleh pemilik; UAT fisik + smoke operator dinyatakan lulus oleh pemilik.
