@@ -10,6 +10,7 @@
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from './branchResolver';
+import { getRawDb } from './dataApiHelpers';
 import {
 	acquireArchiveJob,
 	countEligibleRows,
@@ -962,4 +963,75 @@ export async function runArchive(
 			throw err;
 		}
 	}
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function previewArchiveForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	year: number
+) {
+	return previewArchive(getRawDb(platform, branch), branch, year);
+}
+
+export function runArchiveForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	year: number
+) {
+	const bucket = platform?.env?.STORAGE as ArchiveBucket | undefined;
+	return runArchive(getRawDb(platform, branch), bucket, branch, year);
+}
+
+export interface ArchiveDownload {
+	body: ArrayBuffer;
+	filename: string;
+	checksum: string | null;
+	jobId: string;
+}
+
+export async function downloadArchiveForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	jobId: string
+): Promise<ArchiveDownload> {
+	const rawDb = getRawDb(platform, branch);
+	const job = (await rawDb
+		.prepare(
+			`SELECT id, object_key, checksum, counts FROM archive_jobs
+			 WHERE id = ? AND cabang_id = ? AND status = 'completed' LIMIT 1`
+		)
+		.bind(jobId, branch)
+		.first()
+		.catch(() => null)) as {
+		id?: string;
+		object_key?: string | null;
+		checksum?: string | null;
+		counts?: string | null;
+	} | null;
+
+	if (!job?.object_key) {
+		throw new ArchiveUseCaseError(404, 'Arsip tidak ditemukan untuk cabang ini');
+	}
+
+	const bucket = platform?.env?.STORAGE as ArchiveBucket | undefined;
+	if (!bucket) {
+		throw new ArchiveUseCaseError(503, 'Storage tidak tersedia');
+	}
+	const object = await bucket.get(job.object_key).catch(() => null);
+	if (!object) {
+		throw new ArchiveUseCaseError(502, 'File arsip di cloud tidak dapat dibaca. Coba lagi.');
+	}
+
+	let filename = `arsip-${branch}.json`;
+	const keyBase = job.object_key.split('/').pop() || filename;
+	if (/^[A-Za-z0-9._-]+\.json$/.test(keyBase)) filename = keyBase;
+
+	return {
+		body: await object.arrayBuffer(),
+		filename,
+		checksum: job.checksum ?? null,
+		jobId: job.id || jobId
+	};
 }

@@ -1,12 +1,16 @@
 import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
-import { getRawDb } from '$lib/server/dataApiHelpers';
-import { ArchiveUseCaseError, previewArchive, runArchive } from '$lib/server/archiveUseCase';
+import {
+	ArchiveUseCaseError,
+	previewArchiveForBranch,
+	runArchiveForBranch
+} from '$lib/server/archiveUseCase';
 import type { RequestHandler } from './$types';
 
 /**
  * Preview arsip transaksi lama (sebelum tahun tertentu) tanpa mutasi data.
  * Route hanya auth + parsing + response; logika di archiveUseCase.
+ * Route tipis (AUD-053): SQL di use case via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals);
@@ -17,9 +21,8 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	if (!Number.isInteger(year) || year < 2020 || year > 2100) {
 		throw kitError(400, 'Parameter before_year tidak valid');
 	}
-	const rawDb = getRawDb(platform, branch);
 	try {
-		const preview = await previewArchive(rawDb, branch, year);
+		const preview = await previewArchiveForBranch(platform, branch, year);
 		return json({ ok: true, preview: true, ...preview });
 	} catch (error) {
 		if (error instanceof ArchiveUseCaseError) throw kitError(error.status, error.message);
@@ -39,19 +42,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const body = (await request.json().catch(() => null)) as { before_year?: number } | null;
 	const year = Number(body?.before_year);
 
-	const rawDb = getRawDb(platform, branch);
-	const bucket = platform?.env?.STORAGE as
-		| {
-				put: (k: string, v: string, o?: unknown) => Promise<unknown>;
-				get: (k: string) => Promise<null | {
-					text: () => Promise<string>;
-					arrayBuffer: () => Promise<ArrayBuffer>;
-				}>;
-		  }
-		| undefined;
-
 	try {
-		const result = await runArchive(rawDb, bucket, branch, year);
+		const result = await runArchiveForBranch(platform, branch, year);
 		if (result.kind === 'empty') {
 			return json({ ok: true, count: 0, message: result.message });
 		}
