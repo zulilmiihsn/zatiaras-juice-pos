@@ -68,6 +68,54 @@ async function submitCatatAt(
 // AUD-027: enam baris hari ini (menit beda) + satu kemarin = lima terbaru hari ini.
 test('recent card shows five newest rows of today only', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
+	// Server DB dipakai bersama seluruh spec dalam satu run (mis. baris AI
+	// dari ai-category/ai-mutation juga "hari ini" dan menggeser 5-terbaru).
+	// Bersihkan ledger dulu agar himpunan terkontrol; DB fresh per run dan
+	// follower (dashboard label, hpp, kulakan, laporan-tax, pos+cleanup,
+	// stock, tax) tak bergantung pada baris ini.
+	// Server dev terisolasi kadang mereset koneksi antar-tes (ECONNRESET transien):
+	// coba ulang terbatas dengan jeda, gagal keras bila persisten.
+	async function apiJson<T>(method: 'get' | 'delete', url: string): Promise<T> {
+		let lastError: unknown = null;
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				const res =
+					method === 'get'
+						? await page.request.get(url)
+						: await page.request.delete(url, { headers });
+				// HTTP error = jawaban pasti server (tanpa retry buta); hanya
+				// galat transport (ECONNRESET transien) yang dicoba ulang.
+				if (!res.ok()) throw new Error(`HTTP ${res.status()} untuk ${method} ${url}`);
+				return (await res.json()) as T;
+			} catch (error) {
+				if (error instanceof Error && error.message.startsWith('HTTP ')) throw error;
+				lastError = error;
+				await page.waitForTimeout(2000);
+			}
+		}
+		throw lastError;
+	}
+	const csrf = (await apiJson<{ token?: string }>('get', '/api/csrf')) as { token?: string };
+	const headers = csrf.token ? { 'X-CSRF-Token': csrf.token } : {};
+	const existing = (await apiJson<Array<{ id?: string }>>(
+		'get',
+		'/api/buku-kas?limit=500'
+	)) as Array<{
+		id?: string;
+	}>;
+	console.log(`PROBE catat-cleanup rows=${existing.length}`);
+	for (const row of existing) {
+		if (!row.id) continue;
+		// Token CSRF sekali pakai: ambil baru tiap hapus (pola csrfPost).
+		const fresh = (await apiJson<{ token?: string }>('get', '/api/csrf')) as {
+			token?: string;
+		};
+		const del = await page.request.delete(`/api/buku-kas?id=${encodeURIComponent(row.id)}`, {
+			headers: fresh.token ? { 'X-CSRF-Token': fresh.token } : {}
+		});
+		console.log(`PROBE delete ${row.id} status=${del.status()}`);
+		if (!del.ok()) throw new Error(`Cleanup hapus gagal: HTTP ${del.status()}`);
+	}
 	await page.goto('/catat');
 	await expect(page.locator('#catat-form')).toBeVisible({ timeout: 30000 });
 	// Tunggu init klien (default tanggal terisi = hidrasi + state jalan).
