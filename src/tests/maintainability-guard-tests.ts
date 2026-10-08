@@ -23,6 +23,8 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // checkout): kenaikan eksplisit ini disetujui. Target tetap mengecilkan daftar.
 // AUD-040 menambahkan archive download route (branch-scoped job lookup +
 // R2 streaming, pola route tipis sama): kenaikan eksplisit ini disetujui.
+// AUD-053 menghapus reports aggregate route (BranchContext + use case tipis,
+// preseden sama): penurunan eksplisit ini disetujui. Target tetap mengecilkan daftar.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/archive/+server.ts',
@@ -46,7 +48,6 @@ const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/pos/quote/+server.ts',
 	'src/routes/api/pos/transaction/+server.ts',
 	'src/routes/api/produk/save-atomic/+server.ts',
-	'src/routes/api/reports/aggregate/+server.ts',
 	'src/routes/api/resep-produk/+server.ts',
 	'src/routes/api/security-events/+server.ts',
 	'src/routes/api/sesi-toko/+server.ts',

@@ -1,6 +1,8 @@
 import { error as kitError } from '@sveltejs/kit';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { AuthSession } from '$lib/server/sessionStore';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getRawDb } from '$lib/server/dataApiHelpers';
 
 export const PROTECTED_PAGES = ['beranda', 'laporan', 'pengaturan', 'catat'] as const;
 export type ProtectedPage = (typeof PROTECTED_PAGES)[number];
@@ -59,4 +61,15 @@ export async function requirePageAccess(
 	}
 
 	throw kitError(403, 'PIN_REQUIRED');
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function requirePageAccessForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: AuthSession,
+	page: ProtectedPage
+): Promise<void> {
+	return requirePageAccess(getRawDb(platform, branch), session, page);
 }

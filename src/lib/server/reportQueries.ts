@@ -1,5 +1,6 @@
-import type { BranchId } from '$lib/server/branchResolver';
+import type { BranchId, BranchContext } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
+import { getRawDb } from '$lib/server/dataApiHelpers';
 import {
 	TAX_CONTRACT_VERSION,
 	calculateEngineTax,
@@ -348,4 +349,15 @@ export async function buildLaporanAggregate(
 			label: taxLabelFor(persistedSettings)
 		}
 	};
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function buildLaporanAggregateForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	startDate: string,
+	endDate: string
+): Promise<LaporanAggregate> {
+	return buildLaporanAggregate(getRawDb(platform, branch), branch, startDate, endDate);
 }
