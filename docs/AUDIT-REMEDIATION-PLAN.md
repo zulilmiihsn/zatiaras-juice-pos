@@ -1601,6 +1601,10 @@ Tracker di §6 adalah status terkini; catatan milestone di bagian ini menjelaska
   antar-run (lolos solo 2x + grup) — pantau, bukan redakan.
 - File ubah: 2 pesan error, 2 page.server guard, fixture ai-mutation, script grup + CI
   (timeout e2e 25→45 mnt).
+- Lanjutan: catat-recent hermetik (cleanup ledger ber-CSRF + retry ECONNRESET;
+  polusi AI terbukti via probe, CSRF sekali-pakai tertangkap 403 eksplisit);
+  cache-branch:88 flaky khusus workstation multi-tes (lolos solo/CI/instrumen;
+  guard terbukti airtight per interleaving — pantau, tanpa ubah kode hijau).
 
 ### AUD-057 2026-10-07 — Passed local (opencode)
 
