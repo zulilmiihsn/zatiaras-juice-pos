@@ -1608,6 +1608,9 @@ pos cart orchestration, manajemenmenu, 28-route allowlist (038+ baris inti tak t
   cache-branch poll toleran traffic latar prefetch (calls==2 terbukti CI dari
   prefetch idle, panggilan pertama tetap fetch capture); IDB read produk
   best-effort try/catch; catat-recent hermetik (cleanup + CSRF per-hapus).
+- Lanjutan 2026-10-08 (CI grup): runner tanam `OPENROUTER_API_KEY` dummy invalid
+  (limiter HPP teruji via 502 deterministik; tanpa billing/flaky .env), burst
+  21→25 toleransi satu galat transien (limit 20 tetap terbukti 429).
 - Lanjutan: catat-recent hermetik (cleanup ledger ber-CSRF + retry ECONNRESET;
   polusi AI terbukti via probe, CSRF sekali-pakai tertangkap 403 eksplisit);
   cache-branch:88 flaky khusus workstation multi-tes (lolos solo/CI/instrumen;
