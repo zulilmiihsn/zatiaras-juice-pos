@@ -159,4 +159,40 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
 		await expect(card).toBeHidden({ timeout: 60_000 });
 	});
+
+	test('bahan form creates then deletes without leftovers', async ({ page }) => {
+		await loginAsOwner(page);
+		await page.goto('/pengaturan/pemilik/manajemenmenu');
+		await expect(page.getByRole('button', { name: 'Tambah Menu' })).toBeVisible({
+			timeout: 60_000
+		});
+		const tambahBahan = page.getByRole('button', { name: 'Tambah Bahan', exact: true }).first();
+		let switched = false;
+		for (let attempt = 0; attempt < 30 && !switched; attempt += 1) {
+			await page.getByRole('button', { name: 'Bahan', exact: true }).click({ timeout: 15_000 });
+			await page.waitForTimeout(2000);
+			switched = await tambahBahan.isVisible();
+		}
+		expect(switched).toBe(true);
+		await tambahBahan.click();
+		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeVisible();
+
+		const name = `Bahan UAT ${Date.now() % 100000}`;
+		await page.getByLabel('Nama Bahan').fill(name);
+		await page.getByRole('button', { name: 'Simpan Bahan', exact: true }).click();
+		const card = page.locator('div[role="button"]', { hasText: name });
+		await expect(card).toBeVisible({ timeout: 60_000 });
+		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeHidden();
+
+		await card.getByRole('button', { name: 'Ubah Stok Bahan', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Ubah Stok Bahan' })).toBeVisible();
+		await page.getByLabel('Jumlah Perubahan').fill('2');
+		await page.getByRole('button', { name: 'Simpan', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Ubah Stok Bahan' })).toBeHidden();
+
+		await card.getByRole('button', { name: 'Hapus Bahan Baku', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Hapus Bahan?' })).toBeVisible();
+		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
+		await expect(card).toBeHidden({ timeout: 60_000 });
+	});
 });
