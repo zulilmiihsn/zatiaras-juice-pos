@@ -40,12 +40,11 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // AUD-053 lanjutan menghapus route buku-kas via wrapper service yang sama.
 // AUD-053 lanjutan menghapus route security-events via observability yang sama.
 // AUD-053 lanjutan menghapus route save-atomic via service yang sama.
+// AUD-053 lanjutan menghapus route pin + pin/verify via service yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/gantikeamanan/+server.ts',
-	'src/routes/api/pin/+server.ts',
-	'src/routes/api/pin/verify/+server.ts',
 	'src/routes/api/veriflogin/+server.ts'
 ];
 assert.deepEqual(metrics.routeDbImportFiles, ALLOWED_ROUTE_DB_IMPORTS);
