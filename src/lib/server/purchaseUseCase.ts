@@ -11,6 +11,7 @@
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from './branchResolver';
+import { getRawDb } from './dataApiHelpers';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import { convertToBaseUnit } from '$lib/utils/unitConversion';
 import { validateManualLedgerRows, LedgerValidationError } from './ledgerValidation';
@@ -356,4 +357,15 @@ export async function executePurchase(
 		stok_setelah: typeof after?.stok === 'number' ? after.stok : null,
 		kas_id: kasRow ? String(kasRow.id) : null
 	};
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function executePurchaseForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	input: PurchaseInput
+): Promise<PurchaseResult> {
+	return executePurchase(getRawDb(platform, branch), branch, session, platform, input);
 }
