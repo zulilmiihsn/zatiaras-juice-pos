@@ -130,4 +130,33 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
 		await expect(card).toBeHidden({ timeout: 60_000 });
 	});
+
+	test('menu form creates then deletes without leftovers', async ({ page }) => {
+		await loginAsOwner(page);
+		await page.goto('/pengaturan/pemilik/manajemenmenu');
+		const tambahMenu = page.getByRole('button', { name: 'Tambah Menu', exact: true }).first();
+		await expect(tambahMenu).toBeVisible({ timeout: 60_000 });
+		// Klik bisa hilang pre-hidrasi seperti tab: ulangi sampai modal terbuka.
+		const tambahHeading = page.getByRole('heading', { name: 'Tambah Menu Baru' });
+		let opened = false;
+		for (let attempt = 0; attempt < 30 && !opened; attempt += 1) {
+			await tambahMenu.click({ timeout: 15_000 });
+			await page.waitForTimeout(2000);
+			opened = await tambahHeading.isVisible();
+		}
+		expect(opened).toBe(true);
+
+		const name = `Menu UAT ${Date.now() % 100000}`;
+		await page.getByLabel('Nama Menu').fill(name);
+		await page.getByLabel('Harga Reguler').fill('12000');
+		await page.getByRole('button', { name: 'Simpan Menu', exact: true }).click();
+		const card = page.locator('div[role="button"]', { hasText: name });
+		await expect(card).toBeVisible({ timeout: 60_000 });
+		await expect(page.getByRole('heading', { name: 'Tambah Menu Baru' })).toBeHidden();
+
+		await card.getByRole('button', { name: 'Hapus Menu', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Hapus Menu?' })).toBeVisible();
+		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
+		await expect(card).toBeHidden({ timeout: 60_000 });
+	});
 });
