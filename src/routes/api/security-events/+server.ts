@@ -1,7 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getD1Database } from '$lib/server/branchResolver';
-import { appendAuditLog } from '$lib/server/auditLog';
-import { branchFromObservation } from '$lib/server/observability';
+import { branchFromObservation, recordSecurityEvent } from '$lib/server/observability';
 import type { RequestHandler } from './$types';
 
 const WINDOW_MS = 5 * 60 * 1000;
@@ -161,14 +159,6 @@ function sanitizeEventType(eventType: unknown): string | null {
 	return normalized;
 }
 
-async function hashIdentifier(value: string): Promise<string> {
-	const bytes = new TextEncoder().encode(value);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
-	return Array.from(new Uint8Array(hashBuffer))
-		.map((byte) => byte.toString(16).padStart(2, '0'))
-		.join('');
-}
-
 export const POST: RequestHandler = async ({ request, getClientAddress, locals, platform }) => {
 	const clientIp = getClientAddress();
 	if (isRateLimited(clientIp)) {
@@ -229,20 +219,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 	});
 
 	const branch = branchFromObservation(platform, locals.authSession);
-	if (branch) {
-		const db = getD1Database(platform?.env as Record<string, unknown> | undefined, branch);
-		await appendAuditLog(db, branch, {
-			action: `security.${eventType}`,
-			entityType: 'security_event',
-			ipHash: await hashIdentifier(clientIp),
-			session: locals.authSession,
-			metadata: {
-				eventType,
-				data: eventData,
-				timestamp
-			}
-		});
-	}
+	await recordSecurityEvent(platform, branch, {
+		eventType,
+		timestamp,
+		eventData,
+		clientIp,
+		session: locals.authSession
+	});
 
 	const normalizedData =
 		eventData && typeof eventData === 'object'

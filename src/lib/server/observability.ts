@@ -1,4 +1,5 @@
 import { getD1Database, normalizeBranch, type BranchId } from '$lib/server/branchResolver';
+import { appendAuditLog } from '$lib/server/auditLog';
 
 type ObservationSession = {
 	userId?: string | null;
@@ -141,4 +142,40 @@ export async function recordRequestMetric(
 	} catch {
 		// [CATATAN]: Ignore until migrations are applied.
 	}
+}
+
+async function hashIdentifier(value: string): Promise<string> {
+	const bytes = new TextEncoder().encode(value);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+	return Array.from(new Uint8Array(hashBuffer))
+		.map((byte) => byte.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; tulis audit milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export async function recordSecurityEvent(
+	platform: App.Platform | undefined,
+	branch: BranchId | null,
+	input: {
+		eventType: string;
+		timestamp: number;
+		eventData: unknown;
+		clientIp: string;
+		session: App.Locals['authSession'];
+	}
+): Promise<void> {
+	if (!branch) return;
+	const db = getObservationDb(platform, branch);
+	await appendAuditLog(db, branch, {
+		action: `security.${input.eventType}`,
+		entityType: 'security_event',
+		ipHash: await hashIdentifier(input.clientIp),
+		session: input.session,
+		metadata: {
+			eventType: input.eventType,
+			data: input.eventData,
+			timestamp: input.timestamp
+		}
+	});
 }
