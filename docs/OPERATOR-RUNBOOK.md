@@ -327,3 +327,12 @@ keputusan go/no-go + nama approver.
 - **Isi rilis:** refactor dashboard 4 route (allowlist 27→23) + docs 11.5/pasca-tutup. Tanpa migrasi schema baru.
 - **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
 - **Approver:** pemilik. Prod kini = main = keadaan rencana tertutup. TUNTAS.
+
+### 11.7 Rilis debt habis (allowlist 0 + modal menu) — 9 Oktober 2026
+
+- **Source SHA production:** `0c3268bbb54a5b74f3ce6b279c8d5d7902a88625` (menggantikan §11.6).
+- **CI:** [37900524468](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37900524468) sukses penuh.
+- **Deploy:** [37903196792](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37903196792) sukses dari artifact CI. Worker versi `8d306e90`, Pages `44848f1e` (`https://44848f1e.zatiaraspos.pages.dev`).
+- **Isi rilis:** allowlist route DB 28→0 (semua route tipis via BranchContext) + 6 modal menu terekstrak (halaman 1951→396) + E2E menu 2→7 + tes pin/auth baru. Tanpa migrasi schema baru.
+- **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
+- **Approver:** pemilik. Prod kini = main. Debt TUNTAS: allowlist KOSONG, modal selesai.
