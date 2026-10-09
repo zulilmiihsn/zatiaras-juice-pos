@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gte, like, lt, lte, gt, or, sql, type SQL } from 'drizzle-orm';
 import { bukuKas } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
+import type { BranchContext } from '$lib/server/branchResolver';
+import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { toCursorPage } from '$lib/server/dataPagination';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { containsPosLedger, POS_LEDGER_ROUTE_MESSAGE } from '$lib/server/ledgerPolicy';
@@ -411,4 +412,83 @@ export async function deleteBukuKasByTransaction(
 		transaction_id: transactionId
 	});
 	return { ok: true };
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function getBukuKasListForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	filter: BukuKasFilter,
+	limit: number,
+	cursor: { sortValue: string; id: string } | null,
+	cursorPagination: boolean
+) {
+	return getBukuKasList(getDb(platform, branch), branch, filter, limit, cursor, cursorPagination);
+}
+
+export function insertBukuKasRowsForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	rows: Array<Record<string, unknown>>
+) {
+	return insertBukuKasRows(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		rows
+	);
+}
+
+export function updateBukuKasRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string,
+	payload: Record<string, unknown>
+) {
+	return updateBukuKasRow(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		id,
+		payload
+	);
+}
+
+export function deleteBukuKasRowForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	id: string
+) {
+	return deleteBukuKasRow(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		id
+	);
+}
+
+export function deleteBukuKasByTransactionForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: SessionUser,
+	transactionId: string
+) {
+	return deleteBukuKasByTransaction(
+		getDb(platform, branch),
+		getRawDb(platform, branch),
+		branch,
+		session,
+		platform,
+		transactionId
+	);
 }
