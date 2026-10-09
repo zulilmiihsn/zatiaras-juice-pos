@@ -43,7 +43,8 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // AUD-053 lanjutan menghapus route pin + pin/verify via service yang sama.
 // AUD-053 lanjutan menghapus route purchase + veriflogin via service yang sama.
 // AUD-053 lanjutan menghapus route gantikeamanan via service yang sama.
-const ALLOWED_ROUTE_DB_IMPORTS = ['src/routes/api/aichat/+server.ts'];
+// AUD-053 lanjutan menghapus route aichat via use case yang sama: allowlist KOSONG.
+const ALLOWED_ROUTE_DB_IMPORTS: string[] = [];
 assert.deepEqual(metrics.routeDbImportFiles, ALLOWED_ROUTE_DB_IMPORTS);
 
 // Hotspot baris: cegah file raksasa baru (maksimum saat ini 2145).
