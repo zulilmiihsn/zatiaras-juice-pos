@@ -64,4 +64,39 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await page.getByRole('button', { name: 'Batal', exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'Hapus Menu?' })).toBeHidden();
 	});
+
+	test('kategori form creates then deletes without leftovers', async ({ page }) => {
+		await loginAsOwner(page);
+		await page.goto('/pengaturan/pemilik/manajemenmenu');
+		// Tunggu hidrasi + tab Menu default terisi agar klik tab tak hilang pre-hidrasi.
+		await expect(page.getByRole('button', { name: 'Tambah Menu' })).toBeVisible({
+			timeout: 60_000
+		});
+		// Hidrasi halaman berat tertinggal dari paint SSR: klik tab bisa hilang
+		// sebelum listener Svelte terpasang. Ulangi sampai efek terlihat.
+		const tambahKategori = page
+			.getByRole('button', { name: 'Tambah Kategori', exact: true })
+			.first();
+		let switched = false;
+		for (let attempt = 0; attempt < 30 && !switched; attempt += 1) {
+			await page.getByRole('button', { name: 'Kategori', exact: true }).click({ timeout: 15_000 });
+			await page.waitForTimeout(2000);
+			switched = await tambahKategori.isVisible();
+		}
+		expect(switched).toBe(true);
+		await tambahKategori.click();
+		await expect(page.getByRole('heading', { name: 'Tambah Kategori' })).toBeVisible();
+
+		const name = `Kat UAT ${Date.now() % 100000}`;
+		await page.getByLabel('Nama Kategori').fill(name);
+		await page.getByRole('button', { name: 'Simpan Kategori', exact: true }).click();
+		const card = page.locator('div[role="button"]', { hasText: name });
+		await expect(card).toBeVisible({ timeout: 60_000 });
+		await expect(page.getByRole('heading', { name: 'Tambah Kategori' })).toBeHidden();
+
+		await card.getByRole('button', { name: 'Hapus Kategori', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Hapus Kategori?' })).toBeVisible();
+		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
+		await expect(card).toBeHidden({ timeout: 60_000 });
+	});
 });
