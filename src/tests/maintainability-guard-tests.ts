@@ -34,6 +34,7 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // AUD-053 lanjutan menghapus route bahan + resep-produk via wrapper service yang sama.
 // AUD-053 lanjutan menghapus route pengaturan + hpp-settings + pajak via wrapper
 // service yang sama.
+// AUD-053 lanjutan menghapus route pos catalog + transaction via use case yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
@@ -42,9 +43,7 @@ const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/monitoring/+server.ts',
 	'src/routes/api/pin/+server.ts',
 	'src/routes/api/pin/verify/+server.ts',
-	'src/routes/api/pos/catalog/+server.ts',
 	'src/routes/api/pos/quote/+server.ts',
-	'src/routes/api/pos/transaction/+server.ts',
 	'src/routes/api/produk/save-atomic/+server.ts',
 	'src/routes/api/security-events/+server.ts',
 	'src/routes/api/veriflogin/+server.ts'

@@ -10,7 +10,7 @@
  * yang membawa status HTTP; route memetakan ke kitError/json.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import type { BranchContext } from '../branchResolver';
+import { getD1Database, type BranchContext } from '../branchResolver';
 import { publishBranchEvent } from '../realtimePublisher';
 import { settlePostCommitEffects } from '../postCommit';
 import { appendAuditLog } from '../auditLog';
@@ -907,4 +907,21 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			}
 		}
 	};
+}
+
+// KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
+// boundary server agar route tidak masuk allowlist import DB langsung.
+export function executeCheckoutForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: CheckoutSession,
+	rawBody: unknown
+) {
+	return executeCheckout({
+		db: getD1Database(platform?.env as Record<string, unknown> | undefined, branch),
+		branch,
+		session,
+		platform,
+		rawBody
+	});
 }
