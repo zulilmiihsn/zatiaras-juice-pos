@@ -36,12 +36,12 @@ assert.ok(metrics.emptyCatch <= 45, `empty catch ${metrics.emptyCatch} melebihi 
 // service yang sama.
 // AUD-053 lanjutan menghapus route pos catalog + transaction + quote via use case
 // yang sama.
+// AUD-053 lanjutan menghapus route monitoring via snapshot boundary yang sama.
 const ALLOWED_ROUTE_DB_IMPORTS = [
 	'src/routes/api/aichat/+server.ts',
 	'src/routes/api/bahan/purchase/+server.ts',
 	'src/routes/api/buku-kas/+server.ts',
 	'src/routes/api/gantikeamanan/+server.ts',
-	'src/routes/api/monitoring/+server.ts',
 	'src/routes/api/pin/+server.ts',
 	'src/routes/api/pin/verify/+server.ts',
 	'src/routes/api/produk/save-atomic/+server.ts',
