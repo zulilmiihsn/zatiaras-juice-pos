@@ -6,6 +6,8 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 
 **File ini satu-satunya sumber status penutupan aktif.**
 
+**Revisi DoD oleh pemilik, 13 Oktober 2026:** DoD diganti versi pragmatis di [plan §6.13](AUDIT-REMEDIATION-PLAN.md#613-revisi-dod-oleh-pemilik--13-oktober-2026): tes terarah hijau, CI hijau pada commit yang di-push, `/code-review` bersih, dan UAT pemilik untuk kartu UI/perangkat/operasional. Staging terpisah dan reviewer manusia independen tidak lagi disyaratkan. Remediasi WIP sudah di-commit dan di-push sebagai `b62ce9d`.
+
 **Arahan pemilik TRK-065:** hentikan full-browser otomatis; pemilik mengambil alih UAT menyeluruh. Agen tetap menguji alur terarah/invariant lokal, tidak menghapus/skip test atau mengklaim manual=automated pass. Bukti eksternal diminta segera per ID. Acceptance/CI/review yang belum terpenuhi tetap eksplisit; handoff bukan Completed.
 
 - [Plan](AUDIT-REMEDIATION-PLAN.md): acceptance, dependency, DoD, gate, dan jalur CLOSED §6.3.

@@ -391,6 +391,21 @@ Backup bytes prerequisite kini terpenuhi; actualschema contract/d1migrationhisto
 - Current card tidak otomatisPassedlocal: aggregate `test:unit` exit1 pada existingAUD049 postcommit7/8 aborted-signal assertion. Separate remainingregistered scripts+ledger/CAS/roleD1+operations117/check/lint29commands0 (19hashstable) bukan pengganti unit66PASS. Earlier linttimeout dan newfixtureerrorregistryred tetap; currentlint/registry0 sesudah justified changes, registry/runtime errorcodes tidak diubah.
 - Next deterministic abort/lifetime diagnosis atau explicit reviewed minimum-gate disposition, tanpa speculative049rewrite/skip/timeoutboost/blindunitrerun. Hanya sesudah eligible localcheckpoint005 lanjut006. No production/inference/fullbrowser/releasemacro/commit/push/CI/reviewer/immutablecandidate. Status tunggal tracker§2.1/TRK-074; follow-upBatch28 chronology, bukan status kedua.
 
+### 6.13 Revisi DoD oleh pemilik — 13 Oktober 2026
+
+Pemilik menyetujui DoD pragmatis berikut sebagai pengganti poin §4.2 yang tidak dapat dipenuhi proyek satu-pengembang tanpa staging. Keputusan ini berlaku untuk seluruh kartu mulai sekarang dan menggantikan syarat yang bertentangan di §4.2, §6.3, §6.4, dan §11.
+
+Sebuah kartu `Completed` bila:
+
+1. Perbaikan kode (atau disposition `Not affected` beralasan) ada di `main`, dan tes terarah unit/SQLite/workerd D1 yang relevan hijau.
+2. CI GitHub Actions (`.github/workflows/ci.yml`, Ubuntu) hijau pada commit yang di-push. Ini memenuhi syarat "CI pada SHA yang sama" dan bukti Linux.
+3. Review kode oleh agen terpisah (`/code-review`) per batch tidak menyisakan temuan terbuka. Ini pengganti reviewer manusia independen.
+4. Kartu UI/perangkat/operasional: pemilik lulus checklist UAT manual di production.
+
+Yang dihapus dari DoD: staging terpisah (production belum dipakai bisnis dan berfungsi sebagai staging sampai go-live), reviewer manusia independen, log hash source per perintah, serta larangan rerun tes yang hanya bertujuan pembuktian. Larangan §4.3 (skip/timeout boost/assertion dilemahkan untuk menutupi bug) tetap berlaku.
+
+Kewenangan dari pemilik: commit dan push ke `main`; deploy dan migrasi production boleh dilakukan agen setelah backup tiga shard terverifikasi. E2E: lokal hanya spec terarah untuk kartu kritis; suite penuh berjalan di CI.
+
 ## 7. Kartu kerja lengkap
 
 Semua kartu mewarisi DoD, gate profile, rollback, dan larangan global. `Target` adalah file/module yang sudah ditemukan; helper/test baru hanya dibuat bila belum ada tempat yang sesuai, bukan scaffold. Tambahkan test domain baru ke script, `test:unit`, dan step CI sesuai aturan repo; smoke operasional yang membutuhkan artifact berjalan sesudah build, jangan menciptakan dependency cycle CI.
