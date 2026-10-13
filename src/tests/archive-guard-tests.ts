@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { ARCHIVE_CHUNK_HEADERS } from '../lib/server/archiveUseCase';
 import { POST } from '../routes/api/archive/+server';
 import { acquireArchiveJob } from '../lib/server/archiveService';
 import { createTestD1 } from './helpers/testD1';
@@ -73,7 +74,8 @@ async function totals() {
 	};
 }
 try {
-	for (const count of [1, 20, 21, 45, 101]) {
+	// ARCHIVE_CHUNK_HEADERS + 1: batas chunk dan respons completed multi-bagian.
+	for (const count of [1, 20, 21, 45, 101, ARCHIVE_CHUNK_HEADERS + 1]) {
 		await reset(count);
 		const first = await archive();
 		assert.equal(first.status, 200);
@@ -81,8 +83,8 @@ try {
 		assert.equal(await db.prepare('SELECT status FROM archive_jobs').first('status'), 'completed');
 		const retry = (await (await archive()).json()) as { resumed?: boolean };
 		assert.equal(retry.resumed, true);
-		// AUD-039: chunk 50 header/part; 101 header = 3 objek R2.
-		const expectedParts = Math.max(1, Math.ceil(count / 50));
+		// AUD-039/057: satu objek R2 per ARCHIVE_CHUNK_HEADERS header.
+		const expectedParts = Math.max(1, Math.ceil(count / ARCHIVE_CHUNK_HEADERS));
 		assert.equal(objects.size, expectedParts);
 		const firstJson = (await first.json()) as {
 			content?: string;
@@ -106,7 +108,8 @@ try {
 		)
 		.run();
 	assert.equal((await archive()).status, 200);
-	assert.equal((await totals()).amount, 101500);
+	// Kasus terakhir loop: ARCHIVE_CHUNK_HEADERS + 1 header @1000, lalu 500 baru.
+	assert.equal((await totals()).amount, (ARCHIVE_CHUNK_HEADERS + 1) * 1000 + 500);
 	for (const conflict of ['edit', 'delete', 'session', 'lease', 'takeover']) {
 		await reset(45);
 		onUpload = async () => {

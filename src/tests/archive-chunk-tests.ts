@@ -11,7 +11,8 @@ import {
 import { branchContext } from '../lib/server/branchResolver';
 
 // AUD-039: chunk arsip bounded + resume tanpa OOM/duplikasi/kehilangan.
-assert.ok(ARCHIVE_CHUNK_HEADERS <= 80, 'IN clause muat budget 100 bind-param D1');
+// AUD-057: ID chunk lewat json_each, jadi jumlah header tak dibatasi bind-param.
+assert.ok(ARCHIVE_CHUNK_HEADERS >= 500, 'Setahun tak boleh kembali ke ribuan file kecil');
 assert.ok(ARCHIVE_CHUNK_MAX_BYTES <= 2_000_000);
 assert.ok(ARCHIVE_MAX_CHUNKS_PER_CALL >= 1);
 
@@ -143,7 +144,8 @@ try {
 		await db.prepare("UPDATE buku_kas SET receipt_snapshot=NULL WHERE id='oversized-0'").run();
 		await db
 			.prepare(`UPDATE ${field === 'deskripsi' ? 'buku_kas' : 'transaksi_kasir'} SET ${field}=?`)
-			.bind('ü🧾'.repeat(250000))
+			// ±2,4MB: tetap melampaui batas byte per objek (2MB).
+			.bind('ü🧾'.repeat(400000))
 			.run();
 		const tables = ['buku_kas', 'transaksi_kasir', 'ringkasan_kas_arsip_harian', 'pengaturan'];
 		const snapshot = async () =>
@@ -238,7 +240,8 @@ try {
 	// Fan-out cannot hide an oversized group behind many individually small details.
 	await resetAll();
 	await seedHeaders(1, { prefix: 'fanout' });
-	for (let i = 0; i < 1200; i += 50) {
+	// ±2,4MB detail kecil: melampaui batas byte per objek (2MB).
+	for (let i = 0; i < 2400; i += 50) {
 		await db.batch(
 			Array.from({ length: 50 }, (_, n) =>
 				db
@@ -258,7 +261,7 @@ try {
 	);
 	assert.equal(fanout.transferredRows(), 0);
 	assert.equal(objects.size, 0);
-	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 1201);
+	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 2401);
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM archive_jobs').first('n'), 0);
 
 	// A later oversized group cannot roll back or erase a previously committed part.
@@ -266,8 +269,18 @@ try {
 	await seedHeaders(2, { prefix: 'later' });
 	await db
 		.prepare("UPDATE buku_kas SET deskripsi=? WHERE id='later-1'")
-		.bind('ü🧾'.repeat(250000))
+		.bind('ü🧾'.repeat(400000))
 		.run();
+	// AUD-057: bagian yang sudah commit di panggilan yang sama tetap dilaporkan.
+	const later = (await runArchive(db, storage, branch, 2025)) as Extract<
+		ArchiveResult,
+		{ kind: 'partial' }
+	>;
+	assert.equal(later.kind, 'partial');
+	assert.equal(later.parts.length, 1);
+	assert.equal(later.count, 2, '1 header + 1 detail');
+	assert.match(later.message, /batas ukuran/);
+	assert.match(later.interrupted ?? '', /batas ukuran/);
 	await assert.rejects(
 		runArchive(db, storage, branch, 2025),
 		(error) => error instanceof Error && /batas ukuran/.test(error.message)
@@ -314,7 +327,7 @@ try {
 			`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,deskripsi)
 		VALUES('foreign-large','balikpapan','2024-06-01T02:00:00.000Z','catat','in','pendapatan_usaha',4321,?)`
 		)
-		.bind('ü🧾'.repeat(250000))
+		.bind('ü🧾'.repeat(400000))
 		.run();
 	await runArchive(db, storage, branch, 2025);
 	assert.equal(
@@ -341,7 +354,7 @@ try {
 	const before = await ledgerTotal();
 	const done = (await runArchive(db, storage, branch, 2025, {
 		chunkHeaders: 3,
-		maxChunks: 10
+		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
 	})) as Extract<ArchiveResult, { kind: 'completed' }>;
 	assert.equal(done.kind, 'completed');
 	assert.equal(done.count, 14);
@@ -380,18 +393,30 @@ try {
 			};
 		}
 	};
-	await assert.rejects(runArchive(db, flaky, branch, 2025, { chunkHeaders: 2, maxChunks: 10 }));
+	// Part-1 sudah commit: dilaporkan sebagai partial berisi part-1 + alasan gagal (AUD-057).
+	const flakyResult = (await runArchive(db, flaky, branch, 2025, {
+		chunkHeaders: 2,
+		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
+	})) as Extract<ArchiveResult, { kind: 'partial' }>;
+	assert.equal(flakyResult.kind, 'partial');
+	assert.equal(flakyResult.parts.length, 1);
+	// Error non-domain tidak bocor ke respons; teks mentah hanya di log server.
+	assert.equal(flakyResult.interrupted, 'Kesalahan internal saat memproses bagian berikutnya.');
+	assert.doesNotMatch(flakyResult.message, /meledak/);
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 3);
-	await runArchive(db, storage, branch, 2025, { chunkHeaders: 2, maxChunks: 10 });
+	await runArchive(db, storage, branch, 2025, {
+		chunkHeaders: 2,
+		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
+	});
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
 	assert.equal(await ledgerTotal(), 5000);
 
-	// 3. Byte budget: 8 baris x 200KB -> pecah, tiap part ≤ 1MB.
+	// 3. Byte budget: 8 baris x 400KB -> pecah, tiap part ≤ batas byte.
 	await resetAll();
-	await seedHeaders(8, { prefix: 'big', padSnapshot: 200_000 });
+	await seedHeaders(8, { prefix: 'big', padSnapshot: 400_000 });
 	const big = (await runArchive(db, storage, branch, 2025, {
 		chunkHeaders: 50,
-		maxChunks: 10
+		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
 	})) as Extract<ArchiveResult, { kind: 'completed' }>;
 	assert.equal(big.kind, 'completed');
 	assert.ok(big.parts.length >= 2);
@@ -399,6 +424,35 @@ try {
 		assert.ok(Buffer.byteLength(content, 'utf8') <= ARCHIVE_CHUNK_MAX_BYTES);
 	}
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
+
+	// AUD-057: banyak grup ringkasan manual dalam satu chunk tetap satu batch kecil
+	// (dulu satu INSERT per grup: 1000 header manual = ±1000 statement per batch).
+	await resetAll();
+	const summaryDays = 120;
+	for (let i = 0; i < summaryDays; i++) {
+		const day = new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
+		await seedHeaders(1, { prefix: `sum${i}`, day });
+	}
+	let maxBatch = 0;
+	const batchObserved = new Proxy(db, {
+		get(target, key) {
+			if (key === 'batch')
+				return (statements: D1PreparedStatement[]) => {
+					maxBatch = Math.max(maxBatch, statements.length);
+					return target.batch(statements);
+				};
+			const value = Reflect.get(target, key);
+			return typeof value === 'function' ? value.bind(target) : value;
+		}
+	});
+	const summarized = await runArchive(batchObserved, storage, branch, 2025);
+	assert.equal(summarized.kind, 'completed');
+	assert.equal(await ledgerTotal(), summaryDays * 1000);
+	assert.equal(
+		await db.prepare('SELECT COUNT(*) AS n FROM ringkasan_kas_arsip_harian').first('n'),
+		summaryDays
+	);
+	assert.ok(maxBatch <= 10, `Batch finalisasi ${maxBatch} statement, harus konstan`);
 
 	// 4. Cap per panggilan -> partial jujur + recall menuntaskan.
 	await resetAll();
@@ -411,7 +465,7 @@ try {
 	assert.ok(partial.remaining > 0);
 	const resumed = (await runArchive(db, storage, branch, 2025, {
 		chunkHeaders: 3,
-		maxChunks: 10
+		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
 	})) as Extract<ArchiveResult, { kind: 'completed' }>;
 	assert.equal(resumed.kind, 'completed');
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);

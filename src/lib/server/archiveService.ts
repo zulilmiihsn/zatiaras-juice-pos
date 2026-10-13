@@ -181,24 +181,23 @@ export async function sealManifestItems(
 	branch: string,
 	rows: Array<{ id: string; transaction_id?: string | null; revision?: number | null }>
 ): Promise<void> {
-	const stmts = rows.map((r) =>
-		rawDb
-			.prepare(
-				`INSERT OR IGNORE INTO archive_job_items (job_id, cabang_id, buku_kas_id, transaction_id, revision)
-				 VALUES (?, ?, ?, ?, ?)`
-			)
-			.bind(
-				jobId,
-				branch,
-				String(r.id),
-				r.transaction_id ? String(r.transaction_id) : null,
-				Number(r.revision ?? 0)
-			)
-	);
-	for (let i = 0; i < stmts.length; i += 50) {
-		const chunk = stmts.slice(i, i + 50);
-		if (chunk.length) await rawDb.batch(chunk);
-	}
+	if (!rows.length) return;
+	// AUD-057: satu statement untuk seluruh chunk (JSON), bukan satu INSERT per baris.
+	// Revision sudah divalidasi bilangan bulat oleh buildArchiveSnapshot (422).
+	const items = rows.map((r) => ({
+		id: String(r.id),
+		transaction_id: r.transaction_id ? String(r.transaction_id) : null,
+		revision: r.revision ?? 0
+	}));
+	await rawDb
+		.prepare(
+			`INSERT OR IGNORE INTO archive_job_items (job_id, cabang_id, buku_kas_id, transaction_id, revision)
+			 SELECT ?, ?, json_extract(value, '$.id'), json_extract(value, '$.transaction_id'),
+				json_extract(value, '$.revision')
+			 FROM json_each(?)`
+		)
+		.bind(jobId, branch, JSON.stringify(items))
+		.run();
 }
 
 export function deterministicSummaryId(

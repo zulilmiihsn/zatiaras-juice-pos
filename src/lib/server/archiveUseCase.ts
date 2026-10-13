@@ -169,11 +169,20 @@ export function buildArchiveSnapshot(input: {
 	const { branch, year, cutoffWita, archiveJobId, bukuKas, transaksiKasir } = input;
 	const partSuffix = input.partSuffix ?? null;
 	const now = input.now ?? new Date();
-	const itemManifest = bukuKas.map((r) => ({
-		id: String(r.id),
-		transaction_id: (r.transaction_id as string | null) ?? null,
-		revision: Number(r.revision ?? 0)
-	}));
+	const itemManifest = bukuKas.map((r) => {
+		// Hanya angka bulat aman: '' / boolean / NaN tak boleh menjadi revision 0/1.
+		const revision = r.revision ?? 0;
+		if (typeof revision !== 'number' || !Number.isSafeInteger(revision))
+			throw new ArchiveUseCaseError(
+				422,
+				`Revision transaksi ${String(r.id)} tidak valid; pengarsipan dibatalkan tanpa menghapus data, perlu review operator.`
+			);
+		return {
+			id: String(r.id),
+			transaction_id: (r.transaction_id as string | null) ?? null,
+			revision
+		};
+	});
 	const tkIds = transaksiKasir.map((r) => String(r.id)).filter(Boolean);
 	const projectRow = (row: Record<string, unknown>, fields: readonly string[]) => {
 		const projected: Record<string, unknown> = {};
@@ -331,14 +340,17 @@ export async function previewArchive(
 }
 
 /**
- * Budget chunk arsip (AUD-039, terukur): maksimal 50 header per chunk
- * (batas 100 bind-param D1 + batch pernyataan), snapshot ≤1MB per objek
- * R2, maksimal 10 chunk per panggilan (recall melanjutkan otomatis karena
- * row terarsip hilang dari eligibility).
+ * Budget chunk arsip (AUD-039, AUD-057 terukur): maksimal 1000 header per
+ * chunk, snapshot ≤2MB per objek R2, maksimal 3 chunk per panggilan Worker
+ * (recall melanjutkan otomatis karena row terarsip hilang dari eligibility).
+ * ID per chunk dikirim sebagai satu parameter JSON (json_each), jadi ukuran
+ * chunk tak dibatasi 100 bind-param D1 maupun jumlah statement batch.
+ * Dulu 50 header/1MB/10 chunk: setahun 500 transaksi/hari = ±3.650 file
+ * dan ±365 panggilan.
  */
-export const ARCHIVE_CHUNK_HEADERS = 50;
-export const ARCHIVE_CHUNK_MAX_BYTES = 1_000_000;
-export const ARCHIVE_MAX_CHUNKS_PER_CALL = 10;
+export const ARCHIVE_CHUNK_HEADERS = 1000;
+export const ARCHIVE_CHUNK_MAX_BYTES = 2_000_000;
+export const ARCHIVE_MAX_CHUNKS_PER_CALL = 3;
 
 export interface ArchivePart {
 	jobId: string;
@@ -374,6 +386,8 @@ export type ArchiveResult =
 			parts: ArchivePart[];
 			remaining: number;
 			message: string;
+			/** Alasan chunk berikutnya gagal setelah bagian lain commit (AUD-057). */
+			interrupted?: string;
 	  };
 
 export interface ArchiveChunkCursor {
@@ -657,12 +671,27 @@ export async function runArchive(
 	let firstFilename = '';
 	let firstJobId = '';
 	let exhausted = false;
+	let interrupted: string | null = null;
 	for (let chunk = 0; chunk < maxChunks; chunk++) {
-		const result = await runArchiveChunkJob(
-			cursor,
-			parts.length === 0 ? null : parts.length,
-			chunkHeaders
-		);
+		let result: Awaited<ReturnType<typeof runArchiveChunkJob>>;
+		try {
+			result = await runArchiveChunkJob(
+				cursor,
+				parts.length === 0 ? null : parts.length,
+				chunkHeaders
+			);
+		} catch (error) {
+			// Bagian yang sudah commit di panggilan ini tetap dilaporkan (dihitung +
+			// diunduh klien) beserta alasan berhenti; klien berhenti, bukan langsung ulang.
+			if (parts.length === 0) throw error;
+			if (error instanceof ArchiveUseCaseError) {
+				interrupted = error.message;
+			} else {
+				console.error('[archive] chunk gagal setelah bagian lain commit', error);
+				interrupted = 'Kesalahan internal saat memproses bagian berikutnya.';
+			}
+			break;
+		}
 		if (result.empty) {
 			exhausted = true;
 			break;
@@ -704,13 +733,15 @@ export async function runArchive(
 	}
 	// Cap tercapai tanpa tanda habis = recount jujur; 0 = selesai.
 	const remaining = exhausted ? 0 : await countEligibleRows(rawDb, branch, cutoff);
-	if (remaining > 0) {
+	// Interupsi selalu dilaporkan, walau recount 0 (mis. baris chunk gagal di-void).
+	if (remaining > 0 || interrupted) {
 		return {
 			kind: 'partial',
 			count: archivedCount,
 			parts,
 			remaining,
-			message: `Terarsip ${archivedCount} baris dalam ${parts.length} bagian; tersisa ${remaining} baris. Panggil lagi untuk melanjutkan.`
+			message: `Terarsip ${archivedCount} baris dalam ${parts.length} bagian; tersisa ${remaining} baris. ${interrupted ? `Bagian berikutnya gagal: ${interrupted} ` : ''}Panggil lagi untuk melanjutkan.`,
+			...(interrupted ? { interrupted } : {})
 		};
 	}
 	return {
@@ -779,11 +810,10 @@ export async function runArchive(
 				transaksiKasir,
 				partSuffix: partSeq === null ? null : partSeq
 			});
-			let shrinkPasses = 0;
+			// Paruh sampai muat atau tinggal satu header (1000 header = maks 10 paruhan).
 			while (
 				Buffer.byteLength(snapshot.content, 'utf8') > ARCHIVE_CHUNK_MAX_BYTES &&
-				bukuKas.length > 1 &&
-				shrinkPasses++ < 6
+				bukuKas.length > 1
 			) {
 				const keep = Math.max(1, Math.ceil(bukuKas.length / 2));
 				bukuKas = bukuKas.slice(0, keep);
@@ -851,6 +881,8 @@ export async function runArchive(
 			verifyReadbackBytes(content, await readback.text());
 
 			const manualSummaries = summarizeManualRows(bukuKas);
+			const tkIdsJson = JSON.stringify(tkIds);
+			const bukuKasIdsJson = JSON.stringify(itemManifest.map((m) => m.id));
 
 			const finalizeToken = crypto.randomUUID();
 			const nowMs = Date.now();
@@ -890,21 +922,25 @@ export async function runArchive(
 						itemManifest.length,
 						archiveJobId,
 						tkIds.length,
-						JSON.stringify(tkIds),
+						tkIdsJson,
 						branch
 					)
 			];
 			const jobGuard = `EXISTS (SELECT 1 FROM archive_jobs WHERE id = ? AND owner_token = ? AND status = 'finalizing')`;
 
 			// 1. Ringkasan arsip manual, ID deterministik job+dimensi (retry tidak ganda).
-			for (const s of manualSummaries.values()) {
-				const sid = deterministicSummaryId(
-					archiveJobId,
-					s.tanggal_wita,
-					s.tipe,
-					s.jenis,
-					s.metode_bayar
-				);
+			// AUD-057: satu statement per chunk (JSON), bukan satu INSERT per grup, agar
+			// batch atomik tak membengkak saat chunk berisi ribuan baris manual.
+			const summaryRows = [...manualSummaries.values()].map((s) => ({
+				id: deterministicSummaryId(archiveJobId, s.tanggal_wita, s.tipe, s.jenis, s.metode_bayar),
+				tanggal_wita: s.tanggal_wita,
+				tipe: s.tipe,
+				jenis: s.jenis,
+				metode_bayar: s.metode_bayar,
+				jumlah_transaksi: s.count,
+				total_nominal: s.total_nominal
+			}));
+			if (summaryRows.length) {
 				batchStatements.push(
 					rawDb
 						.prepare(
@@ -912,54 +948,43 @@ export async function runArchive(
 						id, cabang_id, archive_id, tanggal_wita, tipe, jenis, metode_bayar,
 						jumlah_transaksi, total_nominal, created_at
 					)
-					SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-					WHERE ${jobGuard} AND NOT EXISTS (SELECT 1 FROM ringkasan_kas_arsip_harian WHERE id = ?)`
+					SELECT json_extract(value, '$.id'), ?, ?, json_extract(value, '$.tanggal_wita'),
+						json_extract(value, '$.tipe'), json_extract(value, '$.jenis'),
+						json_extract(value, '$.metode_bayar'), json_extract(value, '$.jumlah_transaksi'),
+						json_extract(value, '$.total_nominal'), ?
+					FROM json_each(?)
+					WHERE ${jobGuard} AND NOT EXISTS (
+						SELECT 1 FROM ringkasan_kas_arsip_harian r WHERE r.id = json_extract(value, '$.id')
+					)`
 						)
 						.bind(
-							sid,
 							branch,
 							archiveId,
-							s.tanggal_wita,
-							s.tipe,
-							s.jenis,
-							s.metode_bayar,
-							s.count,
-							s.total_nominal,
 							new Date().toISOString(),
+							JSON.stringify(summaryRows),
 							archiveJobId,
-							finalizeToken,
-							sid
+							finalizeToken
 						)
 				);
 			}
 
 			// 2. Delete exact snapshot IDs under the winning claim (no recheck after deletion).
 			// transaksi detail dulu, header terakhir.
-			for (let i = 0; i < tkIds.length; i += 50) {
-				const chunk = tkIds.slice(i, i + 50);
-				const placeholders = chunk.map(() => '?').join(',');
-				batchStatements.push(
-					rawDb
-						.prepare(
-							`DELETE FROM transaksi_kasir WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard}`
-						)
-						.bind(branch, ...chunk, archiveJobId, finalizeToken)
-				);
-			}
-			for (let i = 0; i < itemManifest.length; i += 20) {
-				const chunk = itemManifest.slice(i, i + 20);
-				const placeholders = chunk.map(() => '?').join(',');
-				const ids = chunk.map((m) => m.id);
-				batchStatements.push(
-					rawDb
-						.prepare(
-							`DELETE FROM buku_kas WHERE cabang_id = ? AND id IN (${placeholders})
-						 AND ${jobGuard}`
-						)
-						.bind(branch, ...ids, archiveJobId, finalizeToken)
-				);
-			}
+			// Satu statement per tabel: ID chunk sebagai satu parameter JSON.
+			batchStatements.push(
+				rawDb
+					.prepare(
+						`DELETE FROM transaksi_kasir WHERE cabang_id = ?
+						 AND id IN (SELECT value FROM json_each(?)) AND ${jobGuard}`
+					)
+					.bind(branch, tkIdsJson, archiveJobId, finalizeToken),
+				rawDb
+					.prepare(
+						`DELETE FROM buku_kas WHERE cabang_id = ?
+						 AND id IN (SELECT value FROM json_each(?)) AND ${jobGuard}`
+					)
+					.bind(branch, bukuKasIdsJson, archiveJobId, finalizeToken)
+			);
 
 			batchStatements.push(
 				rawDb

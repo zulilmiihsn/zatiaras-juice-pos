@@ -233,3 +233,90 @@ test('failed download is labeled failed, not downloaded', async ({ page }) => {
 	expect(JSON.parse(recoveredBytes).meta.branch).toBe('samarinda');
 	await expect(page.getByText('Unduhan selesai.')).toBeVisible();
 });
+
+// AUD-057: arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri
+// sampai selesai dan mengunduh tiap bagian (respons server dimock, tanpa mutasi).
+test('archive auto-continues partial calls and downloads every part', async ({ page }) => {
+	await loginAsOwner(page, test.info().title);
+	const responses = [
+		{
+			ok: true,
+			partial: true,
+			count: 2000,
+			remaining: 1500,
+			parts: [
+				{ jobId: 'j1', filename: 'a1.json' },
+				{ jobId: 'j2', filename: 'a2.json' }
+			],
+			message: 'lanjut'
+		},
+		{
+			ok: true,
+			partial: true,
+			count: 1000,
+			remaining: 500,
+			parts: [{ jobId: 'j3', filename: 'a3.json' }],
+			message: 'lanjut'
+		},
+		{
+			ok: true,
+			count: 500,
+			parts: [{ jobId: 'j4', filename: 'a4.json' }],
+			key: 'k4',
+			filename: 'a4.json',
+			job_id: 'j4'
+		}
+	];
+	let calls = 0;
+	await page.route('**/api/archive', async (route) => {
+		if (route.request().method() !== 'POST') return route.fallback();
+		await route.fulfill({ json: responses[Math.min(calls++, responses.length - 1)] });
+	});
+	const downloaded: string[] = [];
+	await page.route('**/api/archive/download?*', async (route) => {
+		const jobId = new URL(route.request().url()).searchParams.get('job_id') ?? '';
+		downloaded.push(jobId);
+		await route.fulfill({ body: JSON.stringify({ job: jobId }), contentType: 'application/json' });
+	});
+	await openArchiveConfirm(page);
+	await page.getByRole('button', { name: 'Ya, Lanjutkan' }).click();
+	await expect(page.getByText('3500 baris', { exact: false })).toBeVisible({ timeout: 60_000 });
+	expect(calls).toBe(3);
+	expect(downloaded).toEqual(['j1', 'j2', 'j3', 'j4']);
+	await expect(page.getByText('(4 bagian, dikirim ke unduhan browser)')).toBeVisible();
+});
+
+// AUD-057: error di tengah loop tetap melaporkan bagian yang sudah terarsip.
+test('archive mid-loop failure keeps archived parts visible', async ({ page }) => {
+	await loginAsOwner(page, test.info().title);
+	let calls = 0;
+	await page.route('**/api/archive', async (route) => {
+		if (route.request().method() !== 'POST') return route.fallback();
+		calls++;
+		if (calls === 1)
+			return route.fulfill({
+				json: {
+					ok: true,
+					partial: true,
+					count: 2000,
+					remaining: 900,
+					parts: [
+						{ jobId: 'm1', filename: 'm1.json' },
+						{ jobId: 'm2', filename: 'm2.json' }
+					]
+				}
+			});
+		return route.fulfill({ status: 409, json: { message: 'Lease arsip sedang dipakai.' } });
+	});
+	await page.route('**/api/archive/download?*', (route) =>
+		route.fulfill({ body: '{}', contentType: 'application/json' })
+	);
+	await openArchiveConfirm(page);
+	await page.getByRole('button', { name: 'Ya, Lanjutkan' }).click();
+	await expect(page.getByText('2000 baris', { exact: false })).toBeVisible({ timeout: 60_000 });
+	await expect(
+		page.getByRole('alert').filter({ hasText: 'Lease arsip sedang dipakai.' })
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Unduh m2.json' })).toBeVisible();
+	expect(calls).toBe(2);
+});

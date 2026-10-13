@@ -65,7 +65,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				count: result.count,
 				parts: result.parts,
 				remaining: result.remaining,
-				message: result.message
+				message: result.message,
+				...(result.interrupted ? { interrupted: result.interrupted } : {})
 			});
 		}
 		return json({

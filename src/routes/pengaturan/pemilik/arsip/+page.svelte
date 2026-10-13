@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -21,9 +22,16 @@
 		filename?: string;
 		job_id?: string;
 		parts?: Array<{ jobId: string; filename: string }>;
+		notice?: string;
 	} | null>(null);
 	let downloadState = $state<'idle' | 'downloading' | 'downloaded' | 'failed'>('idle');
 	let downloadMessage = $state('');
+	// AUD-057: arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri.
+	let progress = $state('');
+	const MAX_ARCHIVE_CALLS = 500;
+	// Navigasi keluar menghentikan loop: tak ada POST/unduhan baru di halaman lain.
+	let destroyed = false;
+	onDestroy(() => (destroyed = true));
 
 	function triggerBrowserDownload(content: string, filename: string) {
 		const blob = new Blob([content], { type: 'application/json' });
@@ -58,30 +66,82 @@
 		showConfirm = false;
 		loading = true;
 		result = null;
+		progress = '';
 		downloadState = 'idle';
 		downloadMessage = '';
+		let archivedCount = 0;
+		const archivedParts: Array<{ jobId: string; filename: string }> = [];
+		let last: Record<string, unknown> = {};
+		// Satu sumber hasil: total & daftar bagian seluruh panggilan sesi ini.
+		const finish = (notice?: string) => {
+			const only = archivedParts.length === 1 ? archivedParts[0] : null;
+			const multiPart = archivedParts.length > 1;
+			result = {
+				ok: true,
+				message: archivedCount ? undefined : (last.message as string | undefined),
+				count: archivedCount || Number(last.count) || 0,
+				parts: archivedParts.length
+					? [...archivedParts]
+					: (last.parts as Array<{ jobId: string; filename: string }> | undefined),
+				filename: multiPart ? undefined : (only?.filename ?? (last.filename as string | undefined)),
+				job_id: multiPart ? undefined : (only?.jobId ?? (last.job_id as string | undefined)),
+				notice
+			};
+		};
 		try {
-			const res = await fetchWithCsrfRetry('/api/archive', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ before_year: beforeYear })
-			});
-			const data = await res.json();
-			if (!res.ok) throw new Error(data?.message || 'Gagal mengarsipkan');
+			// Server memproses beberapa bagian per panggilan ('partial' bila masih ada sisa).
+			// Halaman memanggil ulang sampai selesai; tiap bagian baru diunduh dulu
+			// sebelum lanjut, dan unduhan gagal menghentikan loop (data aman di cloud).
+			for (let call = 0; call < MAX_ARCHIVE_CALLS && !destroyed; call++) {
+				const res = await fetchWithCsrfRetry('/api/archive', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ before_year: beforeYear })
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data?.message || 'Gagal mengarsipkan');
+				last = data;
+				// 'resumed' = tak ada sisa; job lama sudah terhitung bila sesi ini mengarsipkan.
+				if (data.resumed) return finish();
 
-			result = data;
-			// Every fresh part uses the same job-scoped download boundary as manual retry, so a
-			// multi-part archive leaves a complete local copy rather than only part 1.
-			// A body error must not turn a valid archive commit into a false download success.
-			if (!data.resumed && Array.isArray(data.parts)) {
-				for (const part of data.parts as Array<{ jobId: string; filename: string }>) {
-					if (!(await downloadJob(part.jobId, part.filename || 'arsip.json'))) break;
+				const parts = Array.isArray(data.parts)
+					? (data.parts as Array<{ jobId: string; filename: string }>)
+					: [];
+				archivedCount += data.count || 0;
+				archivedParts.push(...parts);
+				// A body error must not turn a valid archive commit into a false download success.
+				for (const part of parts) {
+					if (destroyed) return;
+					if (!(await downloadJob(part.jobId, part.filename || 'arsip.json'))) {
+						return finish(
+							data.partial
+								? 'Pengarsipan dijeda karena unduhan bagian gagal. Bagian yang sudah diarsipkan aman di cloud; unduh ulang lewat tombol di atas, lalu tekan Arsipkan lagi untuk melanjutkan sisanya.'
+								: 'Unduhan bagian gagal. Semua transaksi sudah diarsipkan dan aman di cloud; unduh ulang lewat tombol di atas.'
+						);
+					}
 				}
+				if (!data.partial) return finish();
+				// Server berhenti karena satu bagian gagal: tampilkan alasannya; ulang langsung
+				// bisa menabrak lease job gagal dan menutupi penyebab aslinya.
+				if (data.interrupted)
+					return finish(
+						`Pengarsipan dijeda: ${data.interrupted} Bagian di atas aman di cloud; tekan Arsipkan lagi nanti untuk melanjutkan.`
+					);
+				progress = `${archivedCount} baris diarsipkan (${archivedParts.length} bagian). Melanjutkan…`;
 			}
+			if (destroyed) return;
+			throw new Error('Pengarsipan belum selesai.');
 		} catch (e) {
-			result = { ok: false, count: 0, message: e instanceof Error ? e.message : 'Gagal' };
+			const message = e instanceof Error ? e.message : 'Gagal';
+			// Baris yang sudah terarsip tetap dilaporkan, lengkap dengan tombol unduh per bagian.
+			if (archivedCount > 0)
+				finish(
+					`Pengarsipan berhenti: ${message} Bagian yang sudah diarsipkan di atas aman di cloud.`
+				);
+			else result = { ok: false, count: 0, message };
 		} finally {
 			loading = false;
+			progress = '';
 		}
 	}
 </script>
@@ -196,6 +256,9 @@
 		</div>
 
 		<!-- Hasil -->
+		{#if loading && progress}
+			<p class="mt-3 text-center text-sm font-semibold text-slate-600" role="status">{progress}</p>
+		{/if}
 		{#if result}
 			<div class="mt-4" transition:slide|local>
 				{#if result.ok && result.count > 0}
@@ -207,8 +270,17 @@
 							<b>{result.count} baris</b> berhasil diarsipkan{#if result.filename && downloadState === 'downloaded'}
 								& diunduh (<code class="text-xs">{result.filename}</code>)
 							{:else if result.parts && result.parts.length > 1 && downloadState === 'downloaded'}
-								& diunduh ({result.parts.length} bagian)
+								({result.parts.length} bagian, dikirim ke unduhan browser)
 							{/if}. Salinan juga tersimpan di cloud. Database kini lebih lega.
+							{#if result.parts && result.parts.length > 1}
+								<p class="mt-1 text-xs text-emerald-700">
+									Jika browser meminta izin mengunduh banyak file, pilih Izinkan. Bagian yang belum
+									tersimpan bisa diunduh ulang di bawah.
+								</p>
+							{/if}
+							{#if result.notice}
+								<p class="mt-2 text-xs font-bold text-amber-700" role="alert">{result.notice}</p>
+							{/if}
 							{#if result.job_id}
 								<div class="mt-2 flex flex-wrap items-center gap-2">
 									<button

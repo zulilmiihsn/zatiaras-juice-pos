@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createTestD1 } from './helpers/testD1';
 import { applyRestorePlan } from './helpers/restorePlan';
 import { branchContext } from '../lib/server/branchResolver';
@@ -82,6 +85,8 @@ const report: Record<string, unknown> = {
 	dataset: { days: DAYS, salesPerDay: SALES_PER_DAY, manualPerDay: MANUAL_PER_DAY },
 	budget: BUDGET
 };
+// Direktori objek arsip sementara (ratusan MB) selalu dihapus, juga saat gagal.
+const tempDirs: string[] = [];
 try {
 	// 1. Seed: SQL literal multi-baris agar tak terkena batas 100 bind-param D1.
 	const seedStart = performance.now();
@@ -254,20 +259,28 @@ try {
 
 	if (!SKIP_ARCHIVE) {
 		// 4. Arsip setahun: panggil runArchive berulang seperti UI sampai selesai.
-		const objects = new Map<string, string>();
+		// Objek arsip disimpan di disk, bukan memori: setahun ±0,3GB JSON.
+		const objectDir = mkdtempSync(join(tmpdir(), 'zatiaras-perf-archive-'));
+		tempDirs.push(objectDir);
+		const objectPath = (key: string) => join(objectDir, encodeURIComponent(key));
 		const storage = {
 			async put(key: string, value: string) {
-				objects.set(key, value);
+				writeFileSync(objectPath(key), value);
 			},
 			async get(key: string) {
-				if (!objects.has(key)) return null;
-				const text = objects.get(key)!;
+				let text: string;
+				try {
+					text = readFileSync(objectPath(key), 'utf8');
+				} catch {
+					return null;
+				}
 				return {
 					text: async () => text,
 					arrayBuffer: async () => new TextEncoder().encode(text).buffer as ArrayBuffer
 				};
 			}
 		};
+		const objectKeys = () => readdirSync(objectDir).map((name) => decodeURIComponent(name));
 		const archiveCalls: number[] = [];
 		let archived: ArchiveResult | null = null;
 		const archiveStart = performance.now();
@@ -279,10 +292,10 @@ try {
 			if (archived.kind !== 'partial') break;
 		}
 		assert.ok(archived && ['completed', 'resumed'].includes(archived.kind), String(archived?.kind));
-		const archiveBytes = [...objects.values()].map((text) => Buffer.byteLength(text));
+		const archiveBytes = objectKeys().map((key) => statSync(objectPath(key)).size);
 		report.archive = {
 			calls: archiveCalls.length,
-			objects: objects.size,
+			objects: archiveBytes.length,
 			maxCallMs: Math.max(...archiveCalls),
 			totalMs: Math.round(performance.now() - archiveStart),
 			maxObjectBytes: Math.max(...archiveBytes),
@@ -302,8 +315,9 @@ try {
 		// 5. Restore setahun: tiap objek arsip direncanakan + diterapkan seperti CLI.
 		const restoreStart = performance.now();
 		let maxRestorePartMs = 0;
-		for (const [key, text] of objects) {
+		for (const key of objectKeys()) {
 			if (!key.endsWith('.json')) continue;
+			const text = readFileSync(objectPath(key), 'utf8');
 			const start = performance.now();
 			const archive = JSON.parse(text);
 			const sha256 = createHash('sha256').update(text).digest('hex');
@@ -312,7 +326,7 @@ try {
 			track();
 		}
 		report.restore = {
-			parts: [...objects.keys()].filter((k) => k.endsWith('.json')).length,
+			parts: objectKeys().filter((k) => k.endsWith('.json')).length,
 			maxPartMs: Math.round(maxRestorePartMs),
 			totalMs: Math.round(performance.now() - restoreStart)
 		};
@@ -358,5 +372,18 @@ try {
 	);
 	console.log('perf-budget-tests: budget pemilik terpenuhi');
 } finally {
-	await close();
+	// Cleanup dulu; kegagalan close tak boleh menutupi kegagalan budget.
+	try {
+		await close();
+	} catch (error) {
+		console.warn('perf-budget-tests: gagal menutup D1:', error);
+	}
+	for (const dir of tempDirs) {
+		try {
+			rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+		} catch (error) {
+			// Jangan menutupi kegagalan budget yang sebenarnya.
+			console.warn(`perf-budget-tests: gagal menghapus ${dir}:`, error);
+		}
+	}
 }
