@@ -172,6 +172,16 @@ Jangan mencari `backups/` di repo. Rollback Pages TIDAK mengembalikan schema D1.
    approval environment `production`).
 3. Catat deployment ID Worker realtime + Pages; keduanya wajib memakai SHA sama.
 
+Akhir baris (AUD-056): `.gitattributes` memaksa LF, jadi checkout bersih
+Windows maupun Linux menghasilkan byte yang sama dan artifact CI lolos
+`--verify-only` di keduanya (bukti 13 Oktober 2026: clone bersih Windows,
+`core.autocrlf=true`, memverifikasi artifact Ubuntu `f8103fd`). Checkout Windows
+lama dari sebelum aturan itu bisa masih menyimpan CRLF. Verifikasi tetap gagal
+pada hash byte persis, tetapi pesannya menyebut "Hanya beda akhir baris CRLF".
+Perbaiki dengan checkout ulang setelah memastikan tak ada perubahan lokal:
+`git rm --cached -r . && git reset --hard`. Manifest rilis hanya dibuat di CI,
+bukan dari workstation.
+
 Workflow saat ini menolak SHA historis bila HEAD `main` sudah bergerak. Rollback
 kode normal: revert commit rilis yang relevan, tunggu CI/artifact SHA baru hijau,
 lalu ulangi dry-run dan deploy di atas. Ini membutuhkan CI, bukan rollback instan.

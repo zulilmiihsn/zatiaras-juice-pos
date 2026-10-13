@@ -146,6 +146,27 @@ test('config berubah setelah manifest ditolak (REL-T06)', () => {
 	}
 });
 
+// AUD-056: journal migrasi CRLF (checkout Windows lama) tetap ditolak, dengan
+// diagnosis jelas; perubahan isi substantif tidak diberi diagnosis CRLF.
+test('journal CRLF ditolak dengan diagnosis, perubahan isi tanpa diagnosis', () => {
+	const fx = fixture();
+	try {
+		writeFileSync(join('drizzle', 'meta', '_journal.json'), '{}\r\n');
+		const crlf = verifyManifest(fx.manifest, SHA);
+		assert.ok(
+			crlf.some(
+				(e) => e.includes('Migration berubah') && e.includes('_journal.json') && e.includes('CRLF')
+			)
+		);
+		writeFileSync(join('drizzle', 'meta', '_journal.json'), '{"tampered":1}\r\n');
+		const tampered = verifyManifest(fx.manifest, SHA);
+		assert.ok(tampered.some((e) => e.includes('Migration berubah') && e.includes('_journal.json')));
+		assert.ok(!tampered.some((e) => e.includes('CRLF')));
+	} finally {
+		fx.done();
+	}
+});
+
 test('hash direktori konsisten dengan manifest', () => {
 	const fx = fixture(5);
 	try {

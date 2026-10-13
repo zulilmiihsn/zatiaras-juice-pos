@@ -192,6 +192,25 @@ export function readManifest(path = MANIFEST_PATH) {
  * Verifikasi manifest terhadap state saat ini. Kembalikan array error (kosong = lulus).
  * Menolak: SHA beda, file hilang/berubah/tambahan, config/migrasi berubah, schema beda.
  */
+/**
+ * AUD-056: diagnosis saja, bukan pelonggaran. Bila file sumber berbeda hanya
+ * karena CRLF (checkout Windows lama sebelum `.gitattributes eol=lf`), pesan
+ * menyebut penyebab dan perbaikannya; verifikasi tetap gagal (hash byte persis).
+ */
+function lineEndingHint(file, expected) {
+	try {
+		const text = readFileSync(resolve(file), 'utf8');
+		if (!text.includes('\r\n')) return '';
+		if (sha256Hex(text.replace(/\r\n/g, '\n')) !== expected) return '';
+		return (
+			' Hanya beda akhir baris CRLF dari checkout lama; konten sama.' +
+			' Perbaiki checkout: git rm --cached -r . && git reset --hard (pastikan tak ada perubahan lokal).'
+		);
+	} catch {
+		return '';
+	}
+}
+
 export function verifyManifest(manifest, expectedSha) {
 	const errors = [];
 	if (!manifest || typeof manifest !== 'object') return ['Manifest bukan object JSON.'];
@@ -231,7 +250,9 @@ export function verifyManifest(manifest, expectedSha) {
 	const checkGroup = (label, recorded, current) => {
 		for (const [file, expected] of Object.entries(recorded || {})) {
 			if (!(file in (current || {}))) errors.push(`${label} hilang: ${file}.`);
-			else if (current[file] !== expected) errors.push(`${label} berubah: ${file}.`);
+			else if (current[file] !== expected) {
+				errors.push(`${label} berubah: ${file}.${lineEndingHint(file, expected)}`);
+			}
 		}
 	};
 	try {
