@@ -8,6 +8,8 @@
 	interface ModalSheetProps {
 		open?: boolean;
 		title?: string;
+		/** Nama dialog bila memakai `header` kustom tanpa `title`. */
+		label?: string;
 		showCloseButton?: boolean;
 		onClose?: () => void;
 		children?: Snippet;
@@ -18,12 +20,19 @@
 	let {
 		open = $bindable(false),
 		title = '',
+		label,
 		showCloseButton = false,
 		onClose,
 		children,
 		footer,
 		header
 	}: ModalSheetProps = $props();
+
+	// AUD-023: id judul unik per instance agar sheet bertumpuk tidak
+	// saling meminjam nama; header kustom memakai `label`.
+	const uid = $props.id();
+	const titleId = `${uid}-title`;
+	const labelledby = $derived(!header && title ? titleId : undefined);
 
 	function portal(node: HTMLElement) {
 		document.body.appendChild(node);
@@ -101,8 +110,8 @@
 		}}
 		role="dialog"
 		aria-modal="true"
-		aria-labelledby="modal-title"
-		aria-label="Modal sheet"
+		aria-labelledby={labelledby}
+		aria-label={labelledby ? undefined : label || title || undefined}
 		tabindex="-1"
 	>
 		<div
@@ -127,9 +136,8 @@
 			{:else if title}
 				<div
 					class="sheet-header flex items-center justify-between border-b border-slate-100/80 px-5 pt-1 pb-3"
-					id="modal-title"
 				>
-					<span class="truncate text-base font-extrabold text-slate-800">{title}</span>
+					<span id={titleId} class="truncate text-base font-extrabold text-slate-800">{title}</span>
 					{#if showCloseButton}
 						<button
 							type="button"

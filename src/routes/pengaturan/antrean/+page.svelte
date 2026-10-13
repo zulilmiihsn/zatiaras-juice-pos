@@ -40,12 +40,27 @@
 					<input
 						type="checkbox"
 						role="switch"
-						aria-checked={orderNotifications.soundEnabled}
-						checked={orderNotifications.soundEnabled}
-						onchange={(event) => orderNotifications.setSound(event.currentTarget.checked)}
-						class="h-6 w-6 accent-rose-700"
+						aria-checked={orderNotifications.soundEnabled === true}
+						aria-describedby={orderNotifications.soundEnabled === null ? 'sound-state' : undefined}
+						checked={orderNotifications.soundEnabled === true}
+						disabled={orderNotifications.soundEnabled === null &&
+							!orderNotifications.soundUnreadable}
+						onchange={async (event) => {
+							const input = event.currentTarget;
+							await orderNotifications.setSound(input.checked);
+							// Gagal simpan: kembalikan tampilan ke nilai yang benar-benar tersimpan.
+							input.checked = orderNotifications.soundEnabled === true;
+						}}
+						class="h-6 w-6 accent-rose-700 disabled:opacity-50"
 					/>
 				</label>
+				{#if orderNotifications.soundEnabled === null}
+					<p id="sound-state" class="mt-1 text-sm text-stone-600" role="status">
+						{orderNotifications.soundUnreadable
+							? 'Pilihan suara perangkat ini tidak dapat dibaca. Pilih ulang untuk menyimpannya.'
+							: 'Memuat pilihan suara perangkat ini…'}
+					</p>
+				{/if}
 				<button
 					onclick={() => orderNotifications.testSound()}
 					class="mt-3 min-h-11 w-full rounded-xl border border-stone-400 px-4 font-semibold"

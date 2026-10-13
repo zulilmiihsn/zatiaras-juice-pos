@@ -392,11 +392,22 @@ export async function readNotificationSound(): Promise<boolean> {
 	return preference?.enabled ?? true;
 }
 export async function saveNotificationSound(enabled: boolean): Promise<void> {
+	// Baris rusak/hilang tidak boleh mengunci pilihan: revisi baru selalu di atas
+	// revisi sah yang tersimpan maupun salinan pada konteks aktif.
+	const context = await get<ActiveOrderNotificationContext | null>(
+		'active-context',
+		notificationStore
+	);
+	const contextRevision = Number.isSafeInteger(context?.sound_revision)
+		? Math.max(0, context!.sound_revision)
+		: 0;
 	let revision = 0;
 	await update<NotificationSoundPreference>(
 		'sound-preference',
 		(current) => {
-			revision = (current?.revision ?? 0) + 1;
+			const stored =
+				Number.isSafeInteger(current?.revision) && current!.revision >= 0 ? current!.revision : 0;
+			revision = Math.max(stored, contextRevision) + 1;
 			return { enabled, revision };
 		},
 		notificationStore

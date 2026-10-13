@@ -295,6 +295,97 @@ test('Antrean sound preference persists across tabs and devices remain independe
 	}
 });
 
+// AUD-003: preferensi suara milik profil browser; reload saat verifikasi sesi
+// notifikasi gagal tidak boleh menampilkan default "aktif".
+test('Antrean sound switch keeps the stored preference when notification session check fails after reload', async ({
+	browser,
+	baseURL
+}) => {
+	const a = await device(browser, baseURL);
+	try {
+		const sound = a.page.getByRole('switch', { name: 'Suara pesanan baru' });
+		await sound.uncheck();
+		await expect
+			.poll(() =>
+				a.page.evaluate(async () => {
+					const path = '/src/lib/utils/orderNotificationLocal.ts';
+					const module = await import(/* @vite-ignore */ path);
+					return module.readNotificationSound();
+				})
+			)
+			.toBe(false);
+		// Guard halaman tetap memakai /api/session asli; hanya pemeriksaan sesi milik
+		// layanan notifikasi (dikenali dari stack modul dev yang tidak di-bundle) gagal.
+		await a.page.addInitScript(() => {
+			const original = window.fetch.bind(window);
+			const observed = window as typeof window & { notificationSessionFailures: number };
+			observed.notificationSessionFailures = 0;
+			window.fetch = (input, init) => {
+				const url =
+					typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+				if (
+					new URL(url, location.href).pathname === '/api/session' &&
+					new Error().stack?.includes('orderNotificationService')
+				) {
+					observed.notificationSessionFailures++;
+					return Promise.resolve(new Response('', { status: 503 }));
+				}
+				return original(input, init);
+			};
+		});
+		await a.page.reload({ waitUntil: 'domcontentloaded' });
+		await expect(a.page.getByText('Sesi notifikasi belum dapat diperiksa.')).toBeVisible();
+		expect(
+			await a.page.evaluate(
+				() =>
+					(window as typeof window & { notificationSessionFailures: number })
+						.notificationSessionFailures
+			)
+		).toBeGreaterThan(0);
+		await expect(sound).toBeEnabled();
+		await expect(sound).not.toBeChecked();
+
+		// Baris preferensi rusak: kontrol tetap bisa dipakai dan menimpa baris itu.
+		await a.page.evaluate(
+			() =>
+				new Promise<void>((resolve, reject) => {
+					const open = indexedDB.open('zatiaras-antrean-notifications-v1');
+					open.onerror = () => reject(open.error);
+					open.onsuccess = () => {
+						const tx = open.result.transaction('notifications', 'readwrite');
+						tx.objectStore('notifications').put(
+							{ enabled: 'yes', revision: 'x' },
+							'sound-preference'
+						);
+						tx.oncomplete = () => resolve();
+						tx.onerror = () => reject(tx.error);
+					};
+				})
+		);
+		await a.page.reload({ waitUntil: 'domcontentloaded' });
+		await expect(
+			a.page.getByText(
+				'Pilihan suara perangkat ini tidak dapat dibaca. Pilih ulang untuk menyimpannya.'
+			)
+		).toBeVisible();
+		await expect(sound).toBeEnabled();
+		await expect(sound).not.toBeChecked();
+		await sound.check();
+		await expect
+			.poll(() =>
+				a.page.evaluate(async () => {
+					const path = '/src/lib/utils/orderNotificationLocal.ts';
+					const module = await import(/* @vite-ignore */ path);
+					return module.readNotificationSound();
+				})
+			)
+			.toBe(true);
+		await expect(sound).toBeChecked();
+	} finally {
+		await a.context.close();
+	}
+});
+
 test('Antrean atomic push receipt deduplicates, preserves newer unseen on old ack, and rejects wrong scope and origin', async ({
 	browser,
 	baseURL

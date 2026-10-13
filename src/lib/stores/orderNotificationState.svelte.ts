@@ -28,7 +28,10 @@ import { readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 import { clearUserRole, setUserRole } from '$lib/stores/userRole.svelte';
 
 let context = $state<ActiveOrderNotificationContext | null>(null);
-let soundEnabled = $state(true);
+// null = preferensi perangkat belum terbaca; UI tidak boleh menebak default.
+let soundEnabled = $state<boolean | null>(null);
+// Baris preferensi rusak/IDB gagal: switch tetap bisa dipakai untuk menimpa.
+let soundUnreadable = $state(false);
 let audioReady = $state(false);
 let pushActive = $state(false);
 let pushReady = $state(false);
@@ -114,6 +117,17 @@ function chime() {
 	}
 }
 async function loadLocal(): Promise<void> {
+	// AUD-003: suara adalah preferensi profil browser, bukan bagian sesi
+	// tervalidasi; dibaca sebelum guard scope agar reload offline atau
+	// validasi sesi yang gagal tidak menampilkan default `true`. Kegagalan
+	// baca suara tidak boleh menghentikan pembersihan konteks di bawah.
+	try {
+		soundEnabled = await readNotificationSound();
+		soundUnreadable = false;
+	} catch {
+		soundEnabled = null;
+		soundUnreadable = true;
+	}
 	const local = await readNotificationContext();
 	const scope = getNotificationScope();
 	if (local && !notificationScopeMatches(local, scope)) {
@@ -146,7 +160,6 @@ async function loadLocal(): Promise<void> {
 	}
 	context = local;
 	if (!local) pushActive = false;
-	soundEnabled = await readNotificationSound();
 	if (!context?.events.length || !soundEnabled) stopChime();
 }
 async function acknowledgeVisible(): Promise<void> {
@@ -234,7 +247,8 @@ async function reconcile(): Promise<void> {
 				pushActive = notificationRegistration.push_active;
 				if (!context || !notificationScopeMatches(context) || generation !== disposedGeneration)
 					return;
-				soundEnabled = context.sound_enabled;
+				// Suara dibaca dari preferensi perangkat (loadLocal), bukan salinan
+				// konteks hasil registrasi yang bisa basi terhadap setSound paralel.
 				if (pushReady && !pushConfig)
 					void refreshPushReadiness().catch(() => {
 						pushConfig = null;
@@ -416,6 +430,9 @@ export const orderNotifications = {
 	get soundEnabled() {
 		return soundEnabled;
 	},
+	get soundUnreadable() {
+		return soundUnreadable;
+	},
 	get audioReady() {
 		return audioReady;
 	},
@@ -462,6 +479,7 @@ export const orderNotifications = {
 		try {
 			await saveNotificationSound(enabled);
 			soundEnabled = enabled;
+			soundUnreadable = false;
 			if (enabled) await unlockAudio();
 			else stopChime();
 			announce();

@@ -147,3 +147,67 @@ test('delete dialog confirms and cancels via keyboard', async ({ page }) => {
 		)
 	).toBe('Hapus bahan');
 });
+
+async function captureBahanWrites(page: Page): Promise<Array<{ method: string; url: string }>> {
+	const writes: Array<{ method: string; url: string }> = [];
+	await page.route(
+		(url) => url.pathname === '/api/bahan',
+		async (route) => {
+			if (route.request().method() === 'GET') {
+				await route.fallback();
+				return;
+			}
+			writes.push({ method: route.request().method(), url: route.request().url() });
+			await route.fulfill({ json: { ok: true } });
+		}
+	);
+	return writes;
+}
+
+// AUD-024: dialog Tambah Bahan dikirim penuh via keyboard (Enter dari input).
+test('bahan dialog submits from keyboard and restores focus', async ({ page }) => {
+	await mockSession(page);
+	const writes = await captureBahanWrites(page);
+	await gotoHydrated(page, '/stok', 'text=Gula Uji');
+	const trigger = page.getByRole('button', { name: 'Tambah Bahan' });
+	await trigger.focus();
+	await page.keyboard.press('Enter');
+
+	const dialog = page.getByRole('dialog', { name: 'Tambah Bahan Baku' });
+	await expect(dialog).toBeVisible({ timeout: 15000 });
+	await expect.poll(() => dialogHasFocus(page, 'stok-bahan-title'), { timeout: 10000 }).toBe(true);
+	await page.locator('#modal-bahan-nama').focus();
+	await page.keyboard.type('Gula Enter');
+	await page.keyboard.press('Enter');
+
+	await expect(dialog).toBeHidden({ timeout: 10000 });
+	expect(writes.length).toBe(1);
+	await expect
+		.poll(() =>
+			page.evaluate(() => (document.activeElement as HTMLElement | null)?.textContent?.trim() ?? '')
+		)
+		.toContain('Tambah Bahan');
+});
+
+// AUD-024: konfirmasi hapus via keyboard mengirim tepat satu penghapusan.
+test('delete dialog confirms from keyboard', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await mockSession(page);
+	const writes = await captureBahanWrites(page);
+	await gotoHydrated(page, '/stok', 'text=Gula Uji');
+	await page.getByLabel('Hapus bahan').first().focus();
+	await page.keyboard.press('Enter');
+
+	const dialog = page.getByRole('dialog', { name: 'Hapus Bahan Ini?' });
+	await expect(dialog).toBeVisible({ timeout: 15000 });
+	await expect.poll(() => dialogHasFocus(page, 'stok-hapus-title'), { timeout: 10000 }).toBe(true);
+	const confirm = dialog.getByRole('button', { name: 'Ya, Hapus' });
+	for (let i = 0; i < 4 && !(await confirm.evaluate((el) => el === document.activeElement)); i++)
+		await page.keyboard.press('Tab');
+	await expect(confirm).toBeFocused();
+	await page.keyboard.press('Enter');
+
+	await expect(dialog).toBeHidden({ timeout: 10000 });
+	expect(writes.length).toBe(1);
+	expect(writes[0].url).toContain('b-uji');
+});

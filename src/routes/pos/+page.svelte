@@ -816,7 +816,7 @@
 		</div>
 		<CustomItemModal bind:show={showCustomItemModal} onAdd={addCustomItemToCart} />
 
-		<ModalSheet bind:open={showCartModal} onClose={closeCartModal}>
+		<ModalSheet bind:open={showCartModal} label="Keranjang Pesanan" onClose={closeCartModal}>
 			{#snippet header()}
 				<div class="flex items-center justify-between border-b border-pink-100/60 px-5 pt-1 pb-3.5">
 					<div class="flex items-center gap-2">
@@ -989,7 +989,11 @@
 			position="top"
 		/>
 
-		<ModalSheet bind:open={showModal} onClose={closeModal}>
+		<ModalSheet
+			bind:open={showModal}
+			label={selectedProduct ? selectedProduct.nama : 'Pilihan Menu'}
+			onClose={closeModal}
+		>
 			{#snippet header()}
 				<div class="border-b border-slate-100/90 px-5 pt-1 pb-3.5">
 					<div class="min-w-0 flex-1">

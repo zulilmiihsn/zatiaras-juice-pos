@@ -133,3 +133,109 @@ test('cart sheet traps focus and restores trigger', async ({ page }) => {
 	);
 	expect(restoredAria).toBe(triggerAria);
 });
+
+// AUD-023: kontrak kebijakan kanonik pada DOM browser nyata — panel tanpa
+// focusable, Escape nested hanya menutup dialog teratas, inert dialog nested
+// dilepas saat ditutup, restore ke pemicu atau dialog tersisa.
+test('modalFocus handles empty panels, nested Escape, inert cleanup and restore', async ({
+	page
+}) => {
+	await page.goto('/login', { waitUntil: 'domcontentloaded' });
+	await page.evaluate(async () => {
+		const path = '/src/lib/utils/modalFocus.ts';
+		const { modalFocus } = await import(/* @vite-ignore */ path);
+		const root = document.createElement('div');
+		root.id = 'mf-root';
+		root.innerHTML = `
+			<button id="mf-open-outer">Buka luar</button>
+			<button id="mf-open-empty">Buka kosong</button>
+			<div id="mf-sibling" role="dialog" aria-label="Saudara" hidden>
+				<button id="mf-sibling-button">Saudara</button>
+			</div>
+			<div id="mf-outer" role="dialog" aria-label="Luar">
+				<button id="mf-outer-first">Pertama</button>
+				<h2 id="mf-outer-heading" tabindex="-1">Judul</h2>
+				<button id="mf-open-inner">Buka dalam</button>
+				<div id="mf-inner" role="dialog" aria-label="Dalam" hidden>
+					<input id="mf-inner-input" aria-label="Isian" />
+				</div>
+			</div>
+			<div id="mf-empty" role="dialog" aria-label="Kosong" hidden><p>Tanpa kontrol</p></div>`;
+		document.body.appendChild(root);
+		const log: string[] = [];
+		const handles = new Map<string, { destroy(): void }>();
+		const w = window as unknown as Record<string, unknown>;
+		w.mfLog = log;
+		w.mfOpen = (id: string) => {
+			const node = document.getElementById(id)!;
+			node.hidden = false;
+			handles.set(id, modalFocus(node, { onEscape: () => log.push(id) }));
+		};
+		w.mfClose = (id: string) => {
+			handles.get(id)?.destroy();
+			handles.delete(id);
+			document.getElementById(id)!.hidden = true;
+		};
+	});
+	const active = () => page.evaluate(() => document.activeElement?.id ?? '');
+	const call = (fn: 'mfOpen' | 'mfClose', id: string) =>
+		page.evaluate(
+			([name, target]) => (window as unknown as Record<string, (id: string) => void>)[name](target),
+			[fn, id] as const
+		);
+	const escapes = () => page.evaluate(() => [...(window as unknown as { mfLog: string[] }).mfLog]);
+
+	// Panel tanpa focusable tetap menerima fokus; Tab tidak keluar.
+	await page.locator('#mf-open-empty').focus();
+	await call('mfOpen', 'mf-empty');
+	await expect.poll(active).toBe('mf-empty');
+	await page.keyboard.press('Tab');
+	expect(await active()).toBe('mf-empty');
+	await call('mfClose', 'mf-empty');
+	expect(await active()).toBe('mf-open-empty');
+
+	// Nested: Escape dari dialog dalam hanya menutup dialog dalam.
+	await page.locator('#mf-open-outer').focus();
+	await call('mfOpen', 'mf-outer');
+	await expect.poll(active).toBe('mf-outer-first');
+	await page.locator('#mf-open-inner').focus();
+	await call('mfOpen', 'mf-inner');
+	await expect.poll(active).toBe('mf-inner-input');
+	expect(await page.locator('#mf-outer-first').getAttribute('inert')).toBe('');
+	await page.keyboard.press('Escape');
+	expect(await escapes()).toEqual(['mf-inner']);
+	await page.keyboard.press('Shift+Tab');
+	expect(await active()).toBe('mf-inner-input');
+
+	// Tutup dalam: isi dialog luar aktif lagi, fokus kembali ke pemicunya.
+	await call('mfClose', 'mf-inner');
+	expect(await page.locator('#mf-outer-first').getAttribute('inert')).toBeNull();
+	expect(await active()).toBe('mf-open-inner');
+	await page.keyboard.press('Tab');
+	expect(await active()).toBe('mf-outer-first');
+	await page.keyboard.press('Escape');
+	expect(await escapes()).toEqual(['mf-inner', 'mf-outer']);
+
+	// Tab dari heading tabindex=-1 di tengah panel lanjut ke kontrol berikutnya.
+	await page.locator('#mf-outer-heading').focus();
+	await page.keyboard.press('Tab');
+	expect(await active()).toBe('mf-open-inner');
+
+	// Dialog saudara bertumpuk: dialog bawah inert, hanya teratas menangani Escape.
+	await call('mfOpen', 'mf-sibling');
+	await expect.poll(active).toBe('mf-sibling-button');
+	expect(await page.locator('#mf-outer').getAttribute('inert')).toBe('');
+	await page.keyboard.press('Escape');
+	expect(await escapes()).toEqual(['mf-inner', 'mf-outer', 'mf-sibling']);
+	await call('mfClose', 'mf-sibling');
+	expect(await page.locator('#mf-outer').getAttribute('inert')).toBeNull();
+	expect(await active()).toBe('mf-open-inner');
+
+	// Pemicu disabled tidak bisa menerima fokus; latar bebas dari inert.
+	await page.evaluate(() => {
+		(document.getElementById('mf-open-outer') as HTMLButtonElement).disabled = true;
+	});
+	await call('mfClose', 'mf-outer');
+	expect(await active()).toBe('');
+	expect(await page.evaluate(() => document.querySelector('[inert]') === null)).toBe(true);
+});
