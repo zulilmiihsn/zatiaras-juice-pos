@@ -189,10 +189,6 @@ export function readManifest(path = MANIFEST_PATH) {
 }
 
 /**
- * Verifikasi manifest terhadap state saat ini. Kembalikan array error (kosong = lulus).
- * Menolak: SHA beda, file hilang/berubah/tambahan, config/migrasi berubah, schema beda.
- */
-/**
  * AUD-056: diagnosis saja, bukan pelonggaran. Bila file sumber berbeda hanya
  * karena CRLF (checkout Windows lama sebelum `.gitattributes eol=lf`), pesan
  * menyebut penyebab dan perbaikannya; verifikasi tetap gagal (hash byte persis).
@@ -211,6 +207,10 @@ function lineEndingHint(file, expected) {
 	}
 }
 
+/**
+ * Verifikasi manifest terhadap state saat ini. Kembalikan array error (kosong = lulus).
+ * Menolak: SHA beda, file hilang/berubah/tambahan, config/migrasi berubah, schema beda.
+ */
 export function verifyManifest(manifest, expectedSha) {
 	const errors = [];
 	if (!manifest || typeof manifest !== 'object') return ['Manifest bukan object JSON.'];
