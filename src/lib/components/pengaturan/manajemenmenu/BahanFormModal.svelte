@@ -1,23 +1,10 @@
 <script lang="ts">
+	import { previewBahanCost } from '$lib/utils/bahanForm';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import X from '@lucide/svelte/icons/x';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import {
-		formatRupiah,
-		handleRupiahInput,
-		handleQuantityInput,
-		formatQuantityField,
-		parseQuantityInput
-	} from '$lib/utils/currency';
-	import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
-	import {
-		UNIT_CATEGORIES,
-		ALL_UNITS,
-		getCompatibleUnits,
-		safeConvertToBaseUnit,
-		formatQuantity,
-		type UnitCategory
-	} from '$lib/utils/unitConversion';
+	import { formatRupiah, parseQuantityInput } from '$lib/utils/currency';
+	import { UNIT_CATEGORIES, formatQuantity } from '$lib/utils/unitConversion';
 	import { createManajemenmenuState } from '$lib/stores/manajemenmenuState.svelte';
 
 	// KENAPA: form tambah/edit bahan satu unit dengan kategori/ekstra (satu
@@ -365,24 +352,16 @@
 			{/if}
 
 			{#if parseQuantityInput(s.bahanForm.jumlah_beli_terakhir) > 0}
-				{@const numQty = parseQuantityInput(s.bahanForm.jumlah_beli_terakhir)}
-				{@const numCost = Number(String(s.bahanForm.biaya_beli_terakhir).replace(/\./g, '') || 0)}
-				{@const packSize = parseQuantityInput(s.bahanForm.isi_per_kemasan) || 1}
-				{@const baseQty = safeConvertToBaseUnit(
-					numQty,
-					s.bahanForm.satuan_beli || s.bahanForm.satuan,
-					s.bahanForm.satuan,
-					packSize
-				)}
-				{@const isFruitYield =
-					(s.bahanForm.tipe_satuan === 'berat' || s.bahanForm.tipe_satuan === 'unit') &&
-					Number(s.bahanForm.yield_persen || 100) < 100}
-				{@const numYield = isFruitYield
-					? Math.min(100, Math.max(1, Number(s.bahanForm.yield_persen || 100)))
-					: 100}
-				{@const netBaseQty = (baseQty * numYield) / 100}
-				{@const effectiveUnitCost =
-					netBaseQty > 0 ? calculateEffectiveUnitCost(numCost, netBaseQty) : 0}
+				{@const preview = previewBahanCost(s.bahanForm, s.editingBahan) ?? {
+					baseQty: 0,
+					netQty: 0,
+					yieldPercent: 100,
+					unitCost: 0
+				}}
+				{@const isFruitYield = preview.yieldPercent < 100}
+				{@const baseQty = preview.baseQty}
+				{@const netBaseQty = preview.netQty}
+				{@const effectiveUnitCost = preview.unitCost}
 
 				<div
 					class="mt-3 rounded-xl border border-pink-100 bg-pink-50/80 p-2.5 text-xs text-slate-700"

@@ -332,6 +332,9 @@ export function createManajemenmenuState() {
 		get editBahanId() {
 			return bahanHppSt.editBahanId;
 		},
+		get editingBahan() {
+			return bahanHppSt.editingBahan;
+		},
 		get mutasiBahanId() {
 			return bahanHppSt.mutasiBahanId;
 		},

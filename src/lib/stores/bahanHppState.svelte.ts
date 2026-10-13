@@ -7,13 +7,12 @@ import { formatRupiah, parseRupiah, parseQuantityInput } from '$lib/utils/curren
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { createHppCalculator } from '$lib/utils/manajemenmenuHpp';
-import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import {
-	convertToBaseUnit,
-	safeConvertFromBaseUnit,
-	detectUnitCategory,
-	type UnitCategory
-} from '$lib/utils/unitConversion';
+	bahanFormFromIngredient,
+	buildBahanPayload,
+	emptyBahanForm,
+	type BahanForm
+} from '$lib/utils/bahanForm';
 import type { Ingredient, ProductRecipe, HppSettings } from '$lib/types/product';
 
 interface BahanHppConfig {
@@ -56,21 +55,12 @@ export function createBahanHppState(config: BahanHppConfig) {
 		return Array.from(set);
 	});
 
-	let bahanForm = $state({
-		nama: '',
-		tipe_satuan: 'berat' as UnitCategory,
-		satuan: 'gram',
-		isi_per_kemasan: '1',
-		satuan_beli: 'kg',
-		kategoriSelect: 'Bahan Baku',
-		customKategori: '',
-		kategori: 'Bahan Baku',
-		stok_saat_ini: '',
-		ambang_stok: '',
-		yield_persen: '100', // kept for DB compatibility
-		jumlah_beli_terakhir: '',
-		biaya_beli_terakhir: ''
-	});
+	let bahanForm = $state<BahanForm>(emptyBahanForm());
+	const editingBahan = $derived(
+		editBahanId === null
+			? null
+			: (bahanList.find((b) => String(b.id) === String(editBahanId)) ?? null)
+	);
 
 	let hppForm = $state<{
 		rincian_biaya: Array<{ id: string; nama: string; nominal: string }>;
@@ -202,124 +192,25 @@ export function createBahanHppState(config: BahanHppConfig) {
 
 	function openBahanForm(bahan: Ingredient | null = null) {
 		showBahanForm = true;
-		if (bahan) {
-			editBahanId = bahan.id;
-			const cat = (bahan.kategori || 'Bahan Baku').trim() || 'Bahan Baku';
-			const isKnown = availableCategoryOptions.includes(cat);
-			const detectedType = bahan.tipe_satuan || detectUnitCategory(bahan.satuan || 'gram');
-			const baseUnit = bahan.satuan || (detectedType === 'cairan' ? 'ml' : 'gram');
-			const buyUnit = bahan.satuan_beli || baseUnit;
-			const pack = Number(bahan.isi_per_kemasan) || 1;
-			const storedBaseQty = Number(bahan.jumlah_beli_terakhir) || 0;
-			const displayQty = safeConvertFromBaseUnit(storedBaseQty, buyUnit, baseUnit, pack);
-			bahanForm = {
-				nama: bahan.nama,
-				tipe_satuan: detectedType,
-				satuan: baseUnit,
-				isi_per_kemasan: formatRupiah(bahan.isi_per_kemasan || 1) || '1',
-				satuan_beli: buyUnit,
-				kategoriSelect: isKnown ? cat : '__new__',
-				customKategori: isKnown ? '' : cat,
-				kategori: cat,
-				stok_saat_ini: formatRupiah(bahan.stok_saat_ini) || '0',
-				ambang_stok: formatRupiah(bahan.ambang_stok) || '0',
-				yield_persen: formatRupiah(bahan.yield_persen ?? 100) || '100',
-				jumlah_beli_terakhir: formatRupiah(
-					Number.isFinite(displayQty) ? displayQty : storedBaseQty
-				),
-				biaya_beli_terakhir: formatRupiah(bahan.biaya_beli_terakhir)
-			};
-		} else {
-			editBahanId = null;
-			bahanForm = {
-				nama: '',
-				tipe_satuan: 'berat',
-				satuan: 'gram',
-				isi_per_kemasan: '1',
-				satuan_beli: 'kg',
-				kategoriSelect: 'Bahan Baku',
-				customKategori: '',
-				kategori: 'Bahan Baku',
-				stok_saat_ini: '',
-				ambang_stok: '',
-				yield_persen: '100',
-				jumlah_beli_terakhir: '',
-				biaya_beli_terakhir: ''
-			};
-		}
+		editBahanId = bahan ? bahan.id : null;
+		bahanForm = bahan ? bahanFormFromIngredient(bahan, availableCategoryOptions) : emptyBahanForm();
 	}
 
 	function closeBahanForm() {
 		showBahanForm = false;
 		editBahanId = null;
-		bahanForm = {
-			nama: '',
-			tipe_satuan: 'berat',
-			satuan: 'gram',
-			isi_per_kemasan: '1',
-			satuan_beli: 'kg',
-			kategoriSelect: 'Bahan Baku',
-			customKategori: '',
-			kategori: 'Bahan Baku',
-			stok_saat_ini: '',
-			ambang_stok: '',
-			yield_persen: '100',
-			jumlah_beli_terakhir: '',
-			biaya_beli_terakhir: ''
-		};
+		bahanForm = emptyBahanForm();
 	}
 
 	async function saveBahan() {
-		if (!bahanForm.nama.trim()) {
-			config.showNotif('Nama bahan wajib diisi', 'warning');
+		// AUD-053: kebijakan payload sama dengan halaman Stok (utils/bahanForm).
+		const built = buildBahanPayload(bahanForm, Boolean(editBahanId), editingBahan);
+		if (!built.ok) {
+			config.showNotif(built.error, 'warning');
 			return;
 		}
-		const purchaseQuantityInput = Math.max(0, parseQuantityInput(bahanForm.jumlah_beli_terakhir));
-		const purchaseCost = Math.max(0, parseRupiah(bahanForm.biaya_beli_terakhir));
-		const resolvedCategory =
-			(bahanForm.kategoriSelect === '__new__'
-				? bahanForm.customKategori.trim()
-				: bahanForm.kategoriSelect.trim()) || 'Bahan Baku';
-		const packSize = Math.max(1, parseQuantityInput(bahanForm.isi_per_kemasan) || 1);
-
-		// Convert purchase quantity to base unit (e.g. 1 kg -> 1000 gram), strict.
-		let purchaseQuantityInBase: number;
 		try {
-			purchaseQuantityInBase = convertToBaseUnit(
-				purchaseQuantityInput,
-				bahanForm.satuan_beli || bahanForm.satuan,
-				bahanForm.satuan,
-				packSize
-			);
-		} catch {
-			config.showNotif('Satuan beli tidak kompatibel dengan satuan dasar', 'warning');
-			return;
-		}
-
-		const rawYield = parseQuantityInput(bahanForm.yield_persen) || 100;
-		const yieldPercent = Math.min(100, Math.max(1, rawYield));
-		const yieldFactor = yieldPercent / 100;
-		const netUsableQuantityInBase = purchaseQuantityInBase * yieldFactor;
-
-		const payload = {
-			nama: bahanForm.nama.trim(),
-			satuan: bahanForm.satuan || 'gram',
-			tipe_satuan: bahanForm.tipe_satuan || 'berat',
-			isi_per_kemasan: packSize,
-			satuan_beli: bahanForm.satuan_beli || bahanForm.satuan,
-			kategori: resolvedCategory,
-			// Edit tak kirim saldo (AUD-009). Stok awal hanya saat buat.
-			...(!editBahanId
-				? { stok_saat_ini: Math.max(0, parseQuantityInput(bahanForm.stok_saat_ini)) }
-				: {}),
-			ambang_stok: Math.max(0, parseQuantityInput(bahanForm.ambang_stok)),
-			yield_persen: yieldPercent,
-			jumlah_beli_terakhir: purchaseQuantityInBase,
-			biaya_beli_terakhir: purchaseCost,
-			biaya_per_satuan: calculateEffectiveUnitCost(purchaseCost, netUsableQuantityInBase)
-		};
-		try {
-			await bahanCrud.save(payload, editBahanId);
+			await bahanCrud.save(built.payload, editBahanId);
 			closeBahanForm();
 			await cacheOrchestrator.invalidateCacheOnChange('bahan');
 			await fetchBahan();
@@ -482,6 +373,9 @@ export function createBahanHppState(config: BahanHppConfig) {
 		},
 		get editBahanId() {
 			return editBahanId;
+		},
+		get editingBahan() {
+			return editingBahan;
 		},
 		get mutasiBahanId() {
 			return mutasiBahanId;
