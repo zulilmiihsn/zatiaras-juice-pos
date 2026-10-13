@@ -1,10 +1,15 @@
-import { callAiChat, OPENROUTER_API_URL, type AiChatMessage } from '$lib/server/aiGateway';
+import {
+	callAiChat,
+	isBudgetRefusal,
+	resolveAiModel,
+	OPENROUTER_API_URL,
+	type AiChatMessage
+} from '$lib/server/aiGateway';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 import { parseHppModelResponse, type HppParsedPurchase } from '$lib/utils/hppParse';
 import { normalizeBranch, getD1Database, type BranchId } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
 
-const HPP_MODEL = 'deepseek/deepseek-chat';
 const HPP_MAX_TEXT = 2000;
 const HPP_RATE_LIMIT = 20;
 const HPP_RATE_WINDOW_MS = 10 * 60 * 1000;
@@ -40,6 +45,8 @@ export interface HppParseDeps {
 	timeoutMs?: number;
 	/** AUD-034/035: putus klien membatalkan panggilan upstream. */
 	clientSignal?: AbortSignal | null;
+	/** AUD-061: override model terkonfigurasi (hanya `:free` yang dipakai). */
+	model?: string;
 }
 
 /**
@@ -102,8 +109,8 @@ export async function parseHppText(deps: HppParseDeps): Promise<HppParsedPurchas
 				title: 'Zatiaras POS - HPP Parse',
 				maxTokens: 800,
 				temperature: 0.1,
-				model: HPP_MODEL,
-				fallbacks: [],
+				// AUD-061: budget AI Rp 0 (dulu deepseek/deepseek-chat berbayar).
+				model: resolveAiModel(deps.model),
 				errorLabel: 'HPP Parse Error',
 				timeoutMs: deps.timeoutMs,
 				clientSignal: deps.clientSignal ?? null
@@ -111,6 +118,8 @@ export async function parseHppText(deps: HppParseDeps): Promise<HppParsedPurchas
 			deps.fetchImpl ?? fetch
 		);
 	} catch (error) {
+		// Salah konfigurasi budget AI bukan kesalahan tulisan pemilik: teruskan (500).
+		if (isBudgetRefusal(error)) throw error;
 		throw new HppParseError(
 			'UPSTREAM_ERROR',
 			'AI gagal membaca cerita belanja. Coba tulis lebih jelas atau input manual.'

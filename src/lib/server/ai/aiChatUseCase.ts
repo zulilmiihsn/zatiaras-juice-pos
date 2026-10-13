@@ -23,6 +23,7 @@ import {
 	AI_STREAM_IDLE_MS,
 	AI_STREAM_TOTAL_MS,
 	AiGatewayError,
+	isBudgetRefusal,
 	callAiChat,
 	publicAiErrorMessage,
 	publicAiErrorStatus,
@@ -407,8 +408,8 @@ export async function identifyDataRequirements(
 		const parsed: unknown = JSON.parse(cleanContent);
 		return parseDataRequirements(parsed, todayWita);
 	} catch (error) {
-		// Klien sudah pergi: jangan lanjut menyiapkan laporan untuk siapa pun.
-		if (deps.clientSignal?.aborted) throw error;
+		// Klien sudah pergi / salah konfigurasi budget AI: jangan lanjut menyiapkan laporan.
+		if (deps.clientSignal?.aborted || isBudgetRefusal(error)) throw error;
 		console.warn('[AI Chat] identifyDataRequirements gagal/timeout, fallback aman:', error);
 		return {
 			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
@@ -1025,12 +1026,14 @@ export async function handleRegularChat(input: {
 			rangeContext,
 			reportContext,
 			fullMessages,
-			shouldSearchWeb,
 			businessMemory,
 			sanitizedHistory
 		} = pipeline;
 
-		const searchTools = shouldSearchWeb ? [{ type: 'openrouter:web_search' }] : undefined;
+		// AUD-061: budget AI Rp 0 — tool openrouter:web_search ditagih per pencarian, jadi
+		// pencarian web dimatikan; shouldSearchWeb tetap dipakai untuk memilih prompt.
+		const searchTools: AiTool[] | undefined = undefined;
+		const webSearchUsed = Boolean(searchTools);
 
 		// [CATATAN]: 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream.
 		// Retry tanpa tools + fallback model ditangani aiGateway (dengan timeout).
@@ -1092,7 +1095,7 @@ export async function handleRegularChat(input: {
 									prioritas: dataRequirements.prioritas,
 									scope: dataRequirements.scope
 								},
-								webSearch: shouldSearchWeb
+								webSearch: webSearchUsed
 							})}\n\n`
 						)
 					);
@@ -1191,7 +1194,7 @@ export async function handleRegularChat(input: {
 					prioritas: dataRequirements.prioritas,
 					scope: dataRequirements.scope
 				},
-				webSearch: shouldSearchWeb
+				webSearch: webSearchUsed
 			}
 		};
 	} catch (error) {

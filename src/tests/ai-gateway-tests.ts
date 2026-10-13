@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import {
+	AI_FALLBACK_MODELS,
 	AiGatewayError,
+	DEFAULT_AI_MODEL,
 	callAiChat,
+	isFreeModel,
+	resolveAiModel,
 	publicAiErrorMessage,
 	publicAiErrorStatus,
 	pumpAiStream,
@@ -18,8 +22,8 @@ const BASE = {
 	title: 'T',
 	maxTokens: 10,
 	temperature: 0,
-	model: 'model-utama',
-	fallbacks: ['model-cadangan'],
+	model: 'test/model-utama:free',
+	fallbacks: ['test/model-cadangan:free'],
 	errorLabel: 'AI 1 Error'
 };
 
@@ -59,7 +63,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	const out = await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl);
 	assert.equal(out, 'hai');
 	assert.equal(calls.length, 1);
-	assert.equal(bodyOf(calls[0]).model, 'model-utama');
+	assert.equal(bodyOf(calls[0]).model, 'test/model-utama:free');
 	assert.equal((calls[0].init.headers as Record<string, string>).Authorization, `Bearer ${KEY}`);
 }
 
@@ -69,7 +73,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	const out = await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl);
 	assert.equal(out, 'cadangan');
 	assert.equal(calls.length, 2);
-	assert.equal(bodyOf(calls[1]).model, 'model-cadangan');
+	assert.equal(bodyOf(calls[1]).model, 'test/model-cadangan:free');
 	assert.match(String((calls[1].init.headers as Record<string, string>)['X-Title']), /Fallback/);
 }
 
@@ -125,7 +129,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 
 // 7. Gagal dengan tools -> ulang tanpa tools.
 {
-	const tools = [{ type: 'openrouter:web_search' }];
+	const tools = [{ type: 'function', function: { name: 'cari' } }];
 	const { fetchImpl, calls } = scripted([status(400), okContent('tanpa-tools')]);
 	const out = await callAiChat(KEY, URL, MESSAGES, { ...BASE, tools }, fetchImpl);
 	assert.equal(out, 'tanpa-tools');
@@ -134,18 +138,37 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(!('tools' in bodyOf(calls[1])));
 }
 
-// 8. Fallback malformed -> '' (parity perilaku lama).
+// 8. Primary 500 + fallback tanpa konten -> UPSTREAM_ERROR 500 (AUD-061: dulu '' = gelembung
+// jawaban kosong; status primary tetap dilaporkan secara deterministik).
 {
 	const { fetchImpl } = scripted([
 		status(500),
 		new Response(JSON.stringify({ choices: [{ message: {} }] }), { status: 200 })
 	]);
-	assert.equal(await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl), '');
+	const error = await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl).catch((e) => e);
+	assert.equal(error?.code, 'UPSTREAM_ERROR');
+	assert.equal(error?.status, 500);
+}
+
+// 8b. AUD-061: primary 200 tanpa konten (model kehabisan token) -> fallback dipakai.
+{
+	const { fetchImpl, calls } = scripted([
+		new Response(
+			JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: null } }] }),
+			{ status: 200 }
+		),
+		okContent('dari cadangan')
+	]);
+	assert.equal(await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl), 'dari cadangan');
+	assert.equal(calls.length, 2);
+	assert.equal(bodyOf(calls[1]).model, 'test/model-cadangan:free');
+	// Reasoning dimatikan agar max_tokens dipakai untuk jawaban.
+	assert.deepEqual(bodyOf(calls[0]).reasoning, { enabled: false });
 }
 
 // 9. Stream tangguh: primary+no-tools gagal -> fallback sukses.
 {
-	const withTools = [{ type: 'openrouter:web_search' }];
+	const withTools = [{ type: 'function', function: { name: 'cari' } }];
 	const good = new Response('stream', { status: 200 });
 	const { fetchImpl, calls } = scripted([status(500), status(500), good]);
 	const res = await requestAiStreamResilient(
@@ -158,7 +181,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(res.ok, true);
 	assert.equal(calls.length, 3);
 	const titles = calls.map((c) => String((c.init.headers as Record<string, string>)['X-Title']));
-	assert.deepEqual(titles, ['T', 'T (No Tools)', 'T (Fallback model-cadangan)']);
+	assert.deepEqual(titles, ['T', 'T (No Tools)', 'T (Fallback test/model-cadangan:free)']);
 }
 
 // 10. Stream semua gagal -> respons terakhir (route memetakan 502).
@@ -582,12 +605,94 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 		KEY,
 		URL,
 		MESSAGES,
-		{ ...BASE, fallbacks: ['fb-1', 'fb-2'], timeoutMs: 50, budgetMs: 30 },
+		{ ...BASE, fallbacks: ['test/fb-1:free', 'test/fb-2:free'], timeoutMs: 50, budgetMs: 30 },
 		fetchImpl
 	).catch((e) => e);
 	assert.equal(error?.code, 'UPSTREAM_TIMEOUT');
 	assert.equal(calls.length, 2);
 	assert.ok(Date.now() - started < 1000);
+}
+
+// AUD-061: budget AI pemilik Rp 0 — hanya model gratis, ditolak sebelum request keluar.
+{
+	// Router gratis memilih model acak (termasuk content-safety): tidak diizinkan.
+	assert.equal(isFreeModel('openrouter/free'), false);
+	assert.ok(isFreeModel('nvidia/nemotron-3.5-lightning:free'));
+	assert.ok(isFreeModel(DEFAULT_AI_MODEL));
+	assert.equal(resolveAiModel(undefined), DEFAULT_AI_MODEL);
+	// Kandidat berbayar dilewati; kandidat :free berikutnya tetap dipakai.
+	assert.equal(
+		resolveAiModel('deepseek/deepseek-chat', undefined, 'google/gemma-4-31b-it:free'),
+		'google/gemma-4-31b-it:free'
+	);
+	assert.equal(resolveAiModel('google/gemma-4-31b-it:free'), 'google/gemma-4-31b-it:free');
+	for (const configured of ['openrouter/free', 'deepseek/deepseek-chat'])
+		assert.equal(resolveAiModel(configured), DEFAULT_AI_MODEL, configured);
+	for (const paid of [
+		'deepseek/deepseek-chat',
+		'openai/gpt-5',
+		'x/y:free:extra',
+		'free',
+		'a/b:freebie'
+	])
+		assert.equal(isFreeModel(paid), false, paid);
+	assert.ok(AI_FALLBACK_MODELS.every(isFreeModel), 'fallback default wajib gratis');
+
+	for (const run of [
+		(f: typeof fetch) =>
+			callAiChat(KEY, URL, MESSAGES, { ...BASE, model: 'deepseek/deepseek-chat' }, f),
+		(f: typeof fetch) =>
+			requestAiStream(KEY, URL, MESSAGES, { ...BASE, model: 'deepseek/deepseek-chat' }, f)
+	]) {
+		let fetched = 0;
+		const f = (async () => {
+			fetched++;
+			return okContent('tidak boleh');
+		}) as unknown as typeof fetch;
+		await assert.rejects(run(f), (error) => {
+			assert.ok(error instanceof AiGatewayError);
+			assert.equal(error.code, 'PAID_AI_REFUSED');
+			assert.equal(publicAiErrorStatus(error), 500);
+			assert.doesNotMatch(publicAiErrorMessage(error), /deepseek|berbayar/);
+			return true;
+		});
+		assert.equal(fetched, 0, 'model berbayar tidak pernah dikirim ke provider');
+	}
+}
+
+// AUD-061 review: tool berbayar, konten '', dan penolakan budget yang tak boleh tertelan.
+{
+	let fetched = 0;
+	const counting = (async () => {
+		fetched++;
+		return okContent('x');
+	}) as unknown as typeof fetch;
+	const paidTool = [{ type: 'openrouter:web_search' }];
+	for (const run of [
+		() => callAiChat(KEY, URL, MESSAGES, { ...BASE, tools: paidTool }, counting),
+		() => requestAiStreamResilient(KEY, URL, MESSAGES, { ...BASE, tools: paidTool }, counting),
+		() =>
+			requestAiStreamResilient(
+				KEY,
+				URL,
+				MESSAGES,
+				{ ...BASE, model: 'deepseek/deepseek-chat' },
+				counting
+			)
+	])
+		await assert.rejects(run(), (error) => (error as AiGatewayError).code === 'PAID_AI_REFUSED');
+	assert.equal(fetched, 0, 'tak ada request berbayar maupun fallback diam-diam');
+
+	// Konten '' (bukan null) juga memicu fallback.
+	const empty = scripted([okContent(''), okContent('isi')]);
+	assert.equal(await callAiChat(KEY, URL, MESSAGES, BASE, empty.fetchImpl), 'isi');
+	assert.equal(empty.calls.length, 2);
+
+	// Primary kosong + fallback 429 -> UPSTREAM_ERROR 429 (kuota gratis), bukan "tidak valid".
+	const quota = scripted([okContent(''), status(429)]);
+	const error = await callAiChat(KEY, URL, MESSAGES, BASE, quota.fetchImpl).catch((e) => e);
+	assert.equal(error?.code, 'UPSTREAM_ERROR');
+	assert.equal(error?.status, 429);
 }
 
 console.log('ai-gateway-tests: all assertions passed');

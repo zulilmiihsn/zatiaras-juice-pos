@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
+import { resolveAiModel } from '$lib/server/aiGateway';
 import {
 	checkAiChatPageAccess,
 	checkAiChatRateLimit,
@@ -13,8 +14,6 @@ import {
 // timeout, dan retry dimiliki $lib/server/aiGateway; orkestrasi AI di aiChatUseCase.
 // Env dibaca di route (modul use case bebas $env agar suite unit tsx jalan).
 const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'openrouter/free';
-const MODEL = env.AI_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL;
 
 function getOpenRouterApiKey(platform: App.Platform | undefined): string | undefined {
 	return (
@@ -25,12 +24,11 @@ function getOpenRouterApiKey(platform: App.Platform | undefined): string | undef
 
 function getOpenRouterModel(platform: App.Platform | undefined): string {
 	const platformEnv = platform?.env as Record<string, unknown> | undefined;
-	return (
-		(platformEnv?.AI_MODEL as string) ||
-		(platformEnv?.OPENROUTER_MODEL as string) ||
-		env.AI_MODEL ||
-		env.OPENROUTER_MODEL ||
-		DEFAULT_MODEL
+	return resolveAiModel(
+		platformEnv?.AI_MODEL as string | undefined,
+		platformEnv?.OPENROUTER_MODEL as string | undefined,
+		env.AI_MODEL,
+		env.OPENROUTER_MODEL
 	);
 }
 
@@ -53,7 +51,7 @@ export const POST: RequestHandler = async (event) => {
 		// Analisis teks kasir: tanpa gate halaman laporan (dipakai kasir).
 		const deps = {
 			apiKey: getOpenRouterApiKey(event.platform) || '',
-			model: MODEL,
+			model: getOpenRouterModel(event.platform),
 			url: OPENROUTER_API_URL,
 			clientSignal: event.request.signal
 		};
@@ -69,7 +67,7 @@ export const POST: RequestHandler = async (event) => {
 		rawBody: body,
 		deps: {
 			apiKey: getOpenRouterApiKey(event.platform) || '',
-			model: MODEL,
+			model: getOpenRouterModel(event.platform),
 			url: OPENROUTER_API_URL
 		},
 		chatModel: getOpenRouterModel(event.platform),

@@ -2,6 +2,7 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { requireAnyRole, requireAuthSession } from '$lib/server/apiAuth';
 import { HppParseError, hppBranchDb, parseHppText } from '$lib/server/hppParseUseCase';
+import { resolveAiModel } from '$lib/server/aiGateway';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals, platform }) => {
@@ -29,7 +30,15 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			text,
 			apiKey,
 			platform,
-			clientSignal: request.signal
+			clientSignal: request.signal,
+			// AUD-061: override sama dengan /api/aichat; hanya model :free yang dipakai.
+			model: resolveAiModel(
+				(platform?.env as Record<string, unknown> | undefined)?.AI_MODEL as string | undefined,
+				(platform?.env as Record<string, unknown> | undefined)?.OPENROUTER_MODEL as
+					string | undefined,
+				env.AI_MODEL,
+				env.OPENROUTER_MODEL
+			)
 		});
 		return json({ ok: true, source: 'ai', items });
 	} catch (error) {

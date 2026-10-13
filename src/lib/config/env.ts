@@ -6,8 +6,7 @@ export const config = {
 	// [CATATAN]: API Endpoints
 	OPENROUTER_API_URL: 'https://openrouter.ai/api/v1/chat/completions',
 
-	// [CATATAN]: Model configuration
-	MODEL: 'deepseek/deepseek-chat',
+	// [CATATAN]: Model AI hanya di $lib/server/aiGateway (DEFAULT_AI_MODEL, AUD-061: gratis saja).
 
 	// [CATATAN]: Request configuration
 	MAX_TOKENS: 2000,

@@ -28,7 +28,9 @@ export type AiGatewayErrorCode =
 	| 'UPSTREAM_ERROR'
 	| 'INVALID_RESPONSE'
 	/** Klien memutus permintaan; bukan kegagalan provider. */
-	| 'CLIENT_ABORTED';
+	| 'CLIENT_ABORTED'
+	/** AUD-061: budget pemilik Rp 0; model/tool berbayar ditolak sebelum request. */
+	| 'PAID_AI_REFUSED';
 
 export class AiGatewayError extends Error {
 	readonly code: AiGatewayErrorCode;
@@ -73,6 +75,8 @@ export function publicAiErrorStatus(error: unknown): number {
 		if (error.code === 'UPSTREAM_TIMEOUT') return 504;
 		// Klien sudah pergi; status hanya untuk log akses (konvensi 499).
 		if (error.code === 'CLIENT_ABORTED') return 499;
+		// Salah konfigurasi server, bukan kegagalan provider.
+		if (error.code === 'PAID_AI_REFUSED') return 500;
 		return 502;
 	}
 	return 500;
@@ -117,10 +121,48 @@ export interface AiChatOptions {
 
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const OPENROUTER_TIMEOUT_MS = 25_000;
+/**
+ * AUD-061 (uji live 14 Okt 2026): budget AI pemilik Rp 0, jadi hanya model `:free`
+ * spesifik. Router `openrouter/free` tidak dipakai karena memilih model acak, termasuk
+ * model content-safety yang menjawab "User Safety: safe". ling-3.0-flash-fin:free sudah
+ * dihapus OpenRouter. Daftar gratis berubah-ubah: cek ulang saat model hilang.
+ */
+export const DEFAULT_AI_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 export const AI_FALLBACK_MODELS = [
 	'nvidia/nemotron-3.5-lightning:free',
-	'inclusionai/ling-3.0-flash-fin:free'
+	'google/gemma-4-31b-it:free'
 ];
+
+export function isFreeModel(model: string): boolean {
+	return /^[\w.-]+\/[\w.-]+:free$/.test(model);
+}
+
+/** Tool server OpenRouter (`openrouter:*`, mis. web_search) ditagih per pemakaian. */
+export function isPaidTool(tool: AiTool): boolean {
+	return String(tool?.type ?? '').startsWith('openrouter:');
+}
+
+let warnedPaidModel = false;
+/**
+ * Override env (AI_MODEL/OPENROUTER_MODEL, urut prioritas): kandidat `:free` spesifik pertama
+ * yang menang; kandidat berbayar dilewati (peringatan sekali), lalu default gratis.
+ */
+export function resolveAiModel(...candidates: Array<string | undefined>): string {
+	for (const candidate of candidates) {
+		if (!candidate) continue;
+		if (isFreeModel(candidate)) return candidate;
+		if (!warnedPaidModel) {
+			warnedPaidModel = true;
+			console.warn('[ai] model terkonfigurasi bukan model :free spesifik; dilewati');
+		}
+	}
+	return DEFAULT_AI_MODEL;
+}
+
+/** Penolakan budget adalah salah konfigurasi: selalu diteruskan, tak pernah ditelan fallback. */
+export function isBudgetRefusal(error: unknown): boolean {
+	return error instanceof AiGatewayError && error.code === 'PAID_AI_REFUSED';
+}
 // AUD-034: deadline body/stream. Body non-stream dibaca lewat pump yang sama
 // dengan stream (deadline, abort klien, reader dibatalkan) dan dibatasi ukuran.
 export const AI_BODY_MAX_BYTES = 1_000_000;
@@ -151,11 +193,23 @@ function chatPayload(
 	withTools: boolean,
 	stream: boolean
 ): string {
+	// Setiap body request lewat sini: satu titik penegakan budget Rp 0.
+	if (!isFreeModel(model))
+		throw new AiGatewayError('PAID_AI_REFUSED', 'Model AI berbayar ditolak (budget Rp 0)', {
+			model
+		});
+	if (withTools && opts.tools?.some(isPaidTool))
+		throw new AiGatewayError('PAID_AI_REFUSED', 'Tool AI berbayar ditolak (budget Rp 0)', {
+			model
+		});
 	const payload: Record<string, unknown> = {
 		model,
 		messages,
 		max_tokens: opts.maxTokens,
-		temperature: opts.temperature
+		temperature: opts.temperature,
+		// AUD-061: model reasoning gratis menghabiskan max_tokens untuk berpikir lalu
+		// mengembalikan content null. Matikan reasoning agar token dipakai untuk jawaban.
+		reasoning: { enabled: false }
 	};
 	if (withTools && opts.tools && opts.tools.length > 0) {
 		payload.tools = opts.tools;
@@ -345,35 +399,43 @@ export async function callAiChat(
 		result = await attempt(opts.model, false, `${opts.title} (No Tools)`);
 	}
 
-	if (!result.ok) {
-		for (const [index, model] of fallbacks.entries()) {
-			const isLast = index === fallbacks.length - 1;
-			try {
-				let fallback = await attempt(model, useTools, `${opts.title} (Fallback ${model})`);
-				if (!fallback.ok && useTools) {
-					fallback = await attempt(model, false, `${opts.title} (Fallback ${model} No Tools)`);
-				}
-				if (fallback.ok) return extractContent(fallback.data) ?? '';
-			} catch (error) {
-				// Klien sudah pergi: jangan memanggil model berikutnya.
-				if (clientSignal?.aborted) throw error;
-				// Timeout pada fallback terakhir diteruskan apa adanya agar
-				// diagnosis benar; selain itu lanjut seperti perilaku lama.
-				if (error instanceof AiGatewayError && error.code === 'UPSTREAM_TIMEOUT' && isLast) {
-					throw error;
-				}
-				if (!isLast) continue;
-				break;
-			}
-		}
-		throw new AiGatewayError('UPSTREAM_ERROR', `${opts.errorLabel}: ${result.status}`, {
-			status: result.status,
-			model: opts.model
-		});
-	}
+	// AUD-061: respons 200 tanpa konten (null/kosong, mis. model kehabisan token) juga
+	// dicoba di fallback. Error akhir deterministik: status HTTP primary bila primary gagal HTTP
+	// (parity); bila primary kosong, status HTTP fallback pertama (mis. 429 kuota gratis);
+	// selain itu INVALID_RESPONSE.
+	const usable = (data: unknown) => {
+		const content = extractContent(data);
+		return content !== null && content.trim() !== '' ? content : null;
+	};
+	const primaryContent = result.ok ? usable(result.data) : null;
+	if (primaryContent !== null) return primaryContent;
+	let fallbackStatus: number | null = null;
 
-	const content = extractContent(result.data);
-	if (content === null) {
+	for (const [index, model] of fallbacks.entries()) {
+		const isLast = index === fallbacks.length - 1;
+		try {
+			let fallback = await attempt(model, useTools, `${opts.title} (Fallback ${model})`);
+			if (!fallback.ok && useTools) {
+				fallback = await attempt(model, false, `${opts.title} (Fallback ${model} No Tools)`);
+			}
+			if (fallback.ok) {
+				const content = usable(fallback.data);
+				if (content !== null) return content;
+			} else fallbackStatus ??= fallback.status;
+		} catch (error) {
+			// Klien sudah pergi / salah konfigurasi budget: jangan memanggil model berikutnya.
+			if (clientSignal?.aborted || isBudgetRefusal(error)) throw error;
+			// Timeout pada fallback terakhir diteruskan apa adanya agar
+			// diagnosis benar; selain itu lanjut seperti perilaku lama.
+			if (error instanceof AiGatewayError && error.code === 'UPSTREAM_TIMEOUT' && isLast) {
+				throw error;
+			}
+			if (!isLast) continue;
+			break;
+		}
+	}
+	const status = result.ok ? fallbackStatus : result.status;
+	if (status === null)
 		throw new AiGatewayError(
 			'INVALID_RESPONSE',
 			`${opts.errorLabel}: respons upstream tidak valid`,
@@ -381,8 +443,10 @@ export async function callAiChat(
 				model: opts.model
 			}
 		);
-	}
-	return content;
+	throw new AiGatewayError('UPSTREAM_ERROR', `${opts.errorLabel}: ${status}`, {
+		status,
+		model: opts.model
+	});
 }
 
 /**
@@ -579,6 +643,10 @@ export async function requestAiStreamResilient(
 			lastResponse = response;
 			if (response.ok && response.body) return response;
 		} catch (error) {
+			if (isBudgetRefusal(error)) {
+				if (lastResponse) discardBody(lastResponse);
+				throw error;
+			}
 			lastError = error;
 		}
 	}
