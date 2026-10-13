@@ -84,12 +84,19 @@ if (!process.argv.includes('--compiled')) {
 		const bindings = ['DB_SAMARINDA_GROUP', 'DB_BALIKPAPAN_GROUP', 'DB_BERAU_GROUP'];
 		const databases = Object.fromEntries(bindings.map((binding) => [binding, randomUUID()]));
 		const config = join(directory, 'wrangler.json');
+		// Wrangler joins `tsconfig` onto the config directory, so an absolute repo path breaks on POSIX.
+		// A local wrapper keeps the field relative on every OS while inheriting the repo aliases.
+		await writeFile(
+			join(directory, 'tsconfig.json'),
+			JSON.stringify({ extends: resolve('tsconfig.json') }),
+			{ mode: 0o600, flag: 'wx' }
+		);
 		await writeFile(
 			config,
 			JSON.stringify({
 				name: 'owned-scheduled-smoke',
 				main: resolve('src/lib/server/realtimeWorker.js'),
-				tsconfig: resolve('tsconfig.json'),
+				tsconfig: 'tsconfig.json',
 				compatibility_date: '2026-06-29',
 				compatibility_flags: ['nodejs_compat'],
 				vars: { AUDIT_MAINTENANCE_QUERY_BUDGET: '900' },
