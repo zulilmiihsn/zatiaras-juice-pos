@@ -73,9 +73,13 @@ for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/deploy.ym
 // Job CI wajib ada (gate Fase 1-3).
 {
 	const ci = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
-	for (const job of ['static:', 'operations:', 'unit:', 'quality:', 'e2e:', 'build:']) {
+	// AUD-054: job `quality` dihapus; ia mengulang check/lint/build job static dan build.
+	for (const job of ['static:', 'operations:', 'unit:', 'e2e:', 'build:']) {
 		assert.ok(ci.includes(`\n  ${job}`), `job CI hilang: ${job}`);
 	}
+	assert.ok(!ci.includes('\n  quality:'), 'job CI quality duplikat muncul lagi');
+	assert.equal(ci.split('run: pnpm build').length - 1, 1, 'CI wajib build tepat sekali');
+	assert.equal(ci.split('run: pnpm check').length - 1, 1, 'CI wajib check tepat sekali');
 }
 
 // Rantai suite wajib hidup (AUD-054): tiap entri test:unit/test:operations

@@ -265,7 +265,7 @@ UI -> store/service -> route HTTP (auth + parse + respons)
 - Format pesan: `fix|feat|refactor|test|docs|chore(scope): hasil`.
 - Jangan campur format massal dengan perubahan perilaku.
 - Jangan push secret, `.env`, state database, backup, atau artifact runtime
-  (`build-artifacts.json`, `code-quality-report.md` sudah gitignored).
+  (`build-artifacts.json` sudah gitignored).
 - Rilis hanya via preflight + artifact terverifikasi + CI hijau + runbook.
   Dilarang deploy dari output workstation tanpa provenance.
 

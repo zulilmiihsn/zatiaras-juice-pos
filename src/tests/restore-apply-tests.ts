@@ -5,17 +5,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decodeReceiptSnapshot } from '../lib/utils/receiptSnapshot.js';
 import {
-	buildRestoreSql,
 	buildRestoreChunks,
 	diffAgainstExisting,
 	BK_FIELDS,
 	TK_FIELDS
 } from '../../scripts/restore-archive-lib.mjs';
 import { createTestD1 } from './helpers/testD1';
+import { applyRestoreFinal, applyRestorePlan, applyRestoreStages } from './helpers/restorePlan';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 import { allocateNomorHarian } from '../lib/server/checkout/nomorHarian';
 
-type RestoreArchive = Parameters<typeof buildRestoreSql>[0];
+type RestoreArchive = Parameters<typeof buildRestoreChunks>[0];
 const { db, close } = await createTestD1();
 const header = {
 	id: 'bk',
@@ -38,8 +38,7 @@ const archive = {
 	transaksi_kasir: []
 };
 async function execute(input: RestoreArchive = archive) {
-	const built = buildRestoreSql(input);
-	return db.batch(built.statements.map((q) => db.prepare(q)));
+	return applyRestorePlan(db, buildRestoreChunks(input));
 }
 async function reset() {
 	await db.batch(
@@ -154,7 +153,7 @@ for (const change of [
 		buku_kas: [{ ...numberedHeader, ...change }]
 	};
 	assert.throws(
-		() => buildRestoreSql(malformed),
+		() => buildRestoreChunks(malformed),
 		/tidak valid|Snapshot|Revision/,
 		`Malformed archive accepted: ${Object.keys(change)}`
 	);
@@ -172,7 +171,7 @@ for (const change of [
 ]) {
 	assert.throws(
 		() =>
-			buildRestoreSql({
+			buildRestoreChunks({
 				...numberedArchive,
 				buku_kas: [{ ...numberedHeader, receipt_snapshot: JSON.stringify(change) }]
 			}),
@@ -193,7 +192,7 @@ for (const change of [
 		transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], ...change }]
 	};
 	assert.throws(
-		() => buildRestoreSql(malformed),
+		() => buildRestoreChunks(malformed),
 		/tidak valid/,
 		`Malformed detail accepted: ${Object.keys(change)}`
 	);
@@ -263,7 +262,7 @@ function cliPreflightRegressions() {
 async function preflightInvariantRegressions() {
 	await seedNumberedRestore();
 	const before = await snapshotRestoreState();
-	assert.doesNotThrow(() => buildRestoreSql(numberedArchive), 'Positive canonical control');
+	assert.doesNotThrow(() => buildRestoreChunks(numberedArchive), 'Positive canonical control');
 	for (const change of [
 		{ nominal: 40001 },
 		{ jumlah: 3 },
@@ -330,7 +329,7 @@ async function preflightInvariantRegressions() {
 	assert.deepEqual(await snapshotRestoreState(), before);
 	assert.throws(
 		() =>
-			buildRestoreSql({
+			buildRestoreChunks({
 				...numberedArchive,
 				meta: { ...numberedArchive.meta, schema_version: 3, counts: undefined }
 			}),
@@ -523,6 +522,22 @@ async function seedNumberedRestore() {
 	);
 }
 
+/** Job arsip selesai + ringkasan manualnya untuk archive_id terpisah dari 'arc'. */
+async function seedSeparateArchive(archiveId: string) {
+	await db
+		.prepare(
+			"INSERT INTO archive_jobs(id,cabang_id,before_year,cutoff,status,owner_token,lease_expires_at,created_at,updated_at) SELECT ?,cabang_id,before_year,cutoff,'completed',owner_token,lease_expires_at,created_at,updated_at FROM archive_jobs WHERE id='arc'"
+		)
+		.bind(archiveId)
+		.run();
+	await db
+		.prepare(
+			"INSERT INTO ringkasan_kas_arsip_harian(id,cabang_id,archive_id,tanggal_wita,tipe,jenis,jumlah_transaksi,total_nominal,created_at) VALUES(?,'samarinda',?,'2025-12-01','in','pendapatan_usaha',1,40000,'2026-10-02')"
+		)
+		.bind(`${archiveId}-summary`, archiveId)
+		.run();
+}
+
 async function snapshotRestoreState() {
 	const tables = [
 		'buku_kas',
@@ -565,24 +580,16 @@ async function stagedPosParityRegressions() {
 		await db.batch(stage.statements.map((sql) => db.prepare(sql)));
 		assert.deepEqual(await snapshotRestoreState(), beforeStage);
 	}
-	await assert.rejects(
-		db.batch(
-			[...planned.final.statements, "SELECT json('late-pos-final-failure')"].map((sql) =>
-				db.prepare(sql)
-			)
-		)
-	);
+	await assert.rejects(applyRestoreFinal(db, planned, ["SELECT json('late-pos-final-failure')"]));
 	assert.deepEqual(await snapshotRestoreState(), beforeStage);
-	await db.batch(planned.final.statements.map((sql) => db.prepare(sql)));
+	await applyRestoreFinal(db, planned);
 	assert.deepEqual(
 		await protectedRows(),
 		expected,
 		'Atomic staged POS must retain every receipt/preparation/policy/provenance/number/HPP field and report parity'
 	);
 	const committed = await snapshotRestoreState();
-	for (const stage of planned.chunks)
-		await db.batch(stage.statements.map((sql) => db.prepare(sql)));
-	await db.batch(planned.final.statements.map((sql) => db.prepare(sql)));
+	await applyRestorePlan(db, planned);
 	assert.deepEqual(await snapshotRestoreState(), committed);
 	await reset();
 }
@@ -665,7 +672,7 @@ async function numberedRestoreRegressions() {
 	for (const malformed of [{ nomor_harian: null }, { tanggal_nomor: undefined }]) {
 		assert.throws(
 			() =>
-				buildRestoreSql({ ...numberedArchive, buku_kas: [{ ...numberedHeader, ...malformed }] }),
+				buildRestoreChunks({ ...numberedArchive, buku_kas: [{ ...numberedHeader, ...malformed }] }),
 			/Pasangan nomor harian row bk tidak lengkap/
 		);
 	}
@@ -684,7 +691,7 @@ async function numberedRestoreRegressions() {
 	]) {
 		assert.throws(
 			() =>
-				buildRestoreSql({
+				buildRestoreChunks({
 					...numberedArchive,
 					buku_kas: [{ ...numberedHeader, nomor_harian: nomor }]
 				}),
@@ -701,7 +708,7 @@ async function numberedRestoreRegressions() {
 	]) {
 		assert.throws(
 			() =>
-				buildRestoreSql({
+				buildRestoreChunks({
 					...numberedArchive,
 					buku_kas: [{ ...numberedHeader, tanggal_nomor: date }]
 				}),
@@ -710,7 +717,10 @@ async function numberedRestoreRegressions() {
 	}
 	assert.throws(
 		() =>
-			buildRestoreSql({ ...numberedArchive, buku_kas: [{ ...numberedHeader, sumber: 'catat' }] }),
+			buildRestoreChunks({
+				...numberedArchive,
+				buku_kas: [{ ...numberedHeader, sumber: 'catat' }]
+			}),
 		/Nomor harian row bk hanya untuk POS/
 	);
 	assert.deepEqual(await snapshotRestoreState(), beforeInvalid);
@@ -733,8 +743,12 @@ async function numberedRestoreRegressions() {
 		await execute(numberedArchive);
 		const existing = await db.prepare('SELECT * FROM buku_kas').first<Record<string, unknown>>();
 		assert.ok(existing);
+		// Arsip terpisah: archive_id sama dengan isi lain sudah ditolak lebih awal
+		// (RESTORE_SOURCE_CONFLICT); di sini yang diuji guard final atomik.
+		await seedSeparateArchive('arc-conflict');
 		const conflictingArchive = {
 			...numberedArchive,
+			meta: { ...numberedArchive.meta, archive_id: 'arc-conflict' },
 			buku_kas: [{ ...numberedHeader, ...changed }]
 		};
 		assert.equal(
@@ -743,7 +757,11 @@ async function numberedRestoreRegressions() {
 			1
 		);
 		const before = await snapshotRestoreState();
-		await assert.rejects(() => execute(conflictingArchive));
+		// Sentinel guard SQLite tampil sebagai "malformed JSON"; tahapnya yang dibuktikan:
+		// staging lolos (tak ada konflik sumber), batch final atomik yang menolak.
+		const conflictPlan = buildRestoreChunks(conflictingArchive);
+		await applyRestoreStages(db, conflictPlan);
+		await assert.rejects(() => applyRestoreFinal(db, conflictPlan));
 		assert.deepEqual(await snapshotRestoreState(), before);
 	}
 
@@ -784,14 +802,14 @@ async function numberedRestoreRegressions() {
 		]
 	};
 	assert.doesNotThrow(
-		() => buildRestoreSql(collisionArchive),
+		() => buildRestoreChunks(collisionArchive),
 		'Collision must reach actual SQL, not fail preflight'
 	);
 	await assert.rejects(() => execute(collisionArchive), /UNIQUE constraint failed/);
 	assert.deepEqual(await snapshotRestoreState(), collisionBefore);
 	assert.throws(
 		() =>
-			buildRestoreSql({
+			buildRestoreChunks({
 				...numberedArchive,
 				meta: { ...numberedArchive.meta, counts: { buku_kas: 2, transaksi_kasir: 1 } },
 				buku_kas: [
@@ -805,12 +823,8 @@ async function numberedRestoreRegressions() {
 	// This failure is after INSERTs and counter advancement, not the preflight guard.
 	await seedNumberedRestore();
 	await execute(archive);
-	await db.prepare("UPDATE archive_jobs SET status='completed' WHERE id='arc'").run();
-	await db
-		.prepare(
-			"INSERT INTO ringkasan_kas_arsip_harian(id,cabang_id,archive_id,tanggal_wita,tipe,jenis,jumlah_transaksi,total_nominal,created_at) VALUES('late-summary','samarinda','arc','2025-12-01','in','pendapatan_usaha',1,40000,'2026-10-02')"
-		)
-		.run();
+	// Arsip terpisah: jalur chunk (benar) menolak archive_id sama dengan isi berbeda.
+	await seedSeparateArchive('arc-late');
 	await db
 		.prepare(
 			"INSERT INTO pos_nomor_harian(cabang_id,tanggal,terakhir) VALUES('samarinda','2025-12-01',2)"
@@ -819,24 +833,22 @@ async function numberedRestoreRegressions() {
 	const lateHeader = { ...numberedHeader, id: 'late-sale' };
 	const lateArchive: RestoreArchive = {
 		...numberedArchive,
+		meta: { ...numberedArchive.meta, archive_id: 'arc-late' },
 		buku_kas: [lateHeader],
 		transaksi_kasir: numberedArchive.transaksi_kasir?.map((row) => ({
 			...row,
 			buku_kas_id: lateHeader.id
 		}))
 	};
-	const built = buildRestoreSql(lateArchive);
+	const built = buildRestoreChunks(lateArchive);
 	const lateBefore = await snapshotRestoreState();
 	try {
 		await db
 			.prepare(
-				"CREATE TRIGGER fail_restore_marker BEFORE INSERT ON pengaturan WHEN NEW.kunci = 'archive_restore_arc' BEGIN SELECT CASE WHEN (SELECT terakhir FROM pos_nomor_harian WHERE cabang_id='samarinda' AND tanggal='2025-12-01')=7 THEN RAISE(ABORT, 'injected late restore failure') ELSE RAISE(ABORT, 'restore counter did not advance before marker') END; END"
+				"CREATE TRIGGER fail_restore_marker BEFORE INSERT ON pengaturan WHEN NEW.kunci = 'archive_restore_arc-late' BEGIN SELECT CASE WHEN (SELECT terakhir FROM pos_nomor_harian WHERE cabang_id='samarinda' AND tanggal='2025-12-01')=7 THEN RAISE(ABORT, 'injected late restore failure') ELSE RAISE(ABORT, 'restore counter did not advance before marker') END; END"
 			)
 			.run();
-		await assert.rejects(
-			() => db.batch(built.statements.map((q) => db.prepare(q))),
-			/injected late restore failure/
-		);
+		await assert.rejects(() => applyRestorePlan(db, built), /injected late restore failure/);
 		assert.deepEqual(await snapshotRestoreState(), lateBefore);
 		assert.equal(await db.prepare('SELECT terakhir FROM pos_nomor_harian').first('terakhir'), 2);
 	} finally {
@@ -877,7 +889,7 @@ try {
 	);
 	for (const change of ['metode_bayar', 'nominal']) {
 		await reset();
-		const builtBeforeConcurrentWrite = buildRestoreSql(archive);
+		const builtBeforeConcurrentWrite = buildRestoreChunks(archive);
 		// A row appears AFTER the client preflight/generation but BEFORE atomic apply.
 		await db
 			.prepare(
@@ -885,9 +897,7 @@ try {
 			)
 			.bind(change === 'nominal' ? 99999 : 40000, change === 'metode_bayar' ? 'non-tunai' : 'tunai')
 			.run();
-		await assert.rejects(() =>
-			db.batch(builtBeforeConcurrentWrite.statements.map((q) => db.prepare(q)))
-		);
+		await assert.rejects(() => applyRestorePlan(db, builtBeforeConcurrentWrite));
 		assert.equal(
 			await db
 				.prepare('SELECT total_nominal FROM ringkasan_kas_arsip_harian')
@@ -896,6 +906,15 @@ try {
 		);
 		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM pengaturan').first('n'), 0);
 	}
+	// Baris identik sudah ada di live (dipulihkan arsip lain): job baru tetap menjalankan
+	// guard + INSERT final di atas baris itu, sukses tanpa duplikat dan tanpa menimpa.
+	await reset();
+	await execute();
+	const firstRestore = await db.prepare('SELECT * FROM buku_kas').first();
+	await seedSeparateArchive('arc-identical');
+	await execute({ ...archive, meta: { ...archive.meta, archive_id: 'arc-identical' } });
+	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 1);
+	assert.deepEqual(await db.prepare('SELECT * FROM buku_kas').first(), firstRestore);
 	await reset();
 	await db
 		.prepare(
@@ -927,12 +946,12 @@ try {
 		40000
 	);
 	assert.throws(
-		() => buildRestoreSql({ ...archive, buku_kas: [{ ...header, cabang_id: 'berau' }] }),
+		() => buildRestoreChunks({ ...archive, buku_kas: [{ ...header, cabang_id: 'berau' }] }),
 		/Cabang/
 	);
 	assert.throws(
 		() =>
-			buildRestoreSql({
+			buildRestoreChunks({
 				...archive,
 				buku_kas: [{ ...header, stock_policy_mode: 'ignored', stock_policy_revision: null }]
 			}),
@@ -950,7 +969,7 @@ try {
 	] as Array<[string, Record<string, unknown>, RegExp]>) {
 		await reset();
 		assert.throws(
-			() => buildRestoreSql({ ...archive, buku_kas: [{ ...header, ...mutate }] }),
+			() => buildRestoreChunks({ ...archive, buku_kas: [{ ...header, ...mutate }] }),
 			pattern,
 			name
 		);
@@ -963,14 +982,14 @@ try {
 	}
 	await reset();
 	assert.throws(
-		() => buildRestoreSql({ ...archive, buku_kas: [{ id: 'tanpa-nominal' }] }),
+		() => buildRestoreChunks({ ...archive, buku_kas: [{ id: 'tanpa-nominal' }] }),
 		/Nominal/,
 		'field hilang'
 	);
 	await reset();
 	assert.throws(
 		() =>
-			buildRestoreSql({
+			buildRestoreChunks({
 				...archive,
 				meta: { ...archive.meta, counts: { buku_kas: 99, transaksi_kasir: 0 } }
 			}),
@@ -988,7 +1007,11 @@ try {
 		]
 	] as Array<[string, Record<string, unknown>, RegExp]>) {
 		await reset();
-		assert.throws(() => buildRestoreSql({ ...archive, transaksi_kasir: [detail] }), pattern, name);
+		assert.throws(
+			() => buildRestoreChunks({ ...archive, transaksi_kasir: [detail] }),
+			pattern,
+			name
+		);
 		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0, name);
 	}
 	// Rp100000 valid terlihat benar di laporan setelah restore.

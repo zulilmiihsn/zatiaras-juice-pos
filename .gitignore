@@ -42,8 +42,9 @@ check*.txt
 .lint_full.txt
 *.log
 test-report.md
-code-quality-report.md
 build-artifacts.json
+# Laporan suite kualitas lama (dihapus AUD-054); tetap diabaikan di clone lama.
+code-quality-report.md
 svelte_check*.txt
 playwright-report/
 test-results/

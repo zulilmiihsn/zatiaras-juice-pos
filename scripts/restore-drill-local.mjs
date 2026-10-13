@@ -74,13 +74,6 @@ export function loadDrillContract(expectedMigration) {
 	}
 }
 
-// Compatibility for existing consumers; actual checks derive every application table/column.
-const currentContract = loadDrillContract();
-export const POS_REQUIRED_COLUMNS = Object.freeze({
-	buku_kas: currentContract.columns.buku_kas,
-	transaksi_kasir: currentContract.columns.transaksi_kasir
-});
-
 /** Block SQL capable of escaping the in-memory database; do not inspect quoted business text. */
 export function assertSafeDrillSql(sql) {
 	const executable = sql.replace(

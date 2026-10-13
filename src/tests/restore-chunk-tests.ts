@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { wranglerInvocation } from '../../scripts/wrangler-cli.mjs';
 import {
+	BK_FIELDS,
 	buildRestoreChunks,
-	buildRestoreSql,
 	DEFAULT_RESTORE_CHUNK_ROWS,
+	diffAgainstExisting,
 	MAX_RESTORE_SQL_BYTES
 } from '../../scripts/restore-archive-lib.mjs';
 import { createTestD1 } from './helpers/testD1';
+import { applyRestoreFinal, applyRestorePlan, applyRestoreStages } from './helpers/restorePlan';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 
 const { db, close } = await createTestD1();
@@ -161,13 +163,11 @@ async function representativeBudgetRegression(sales: number) {
 	assert.ok(plan.final.statements.length <= 20);
 	assert.ok(plan.final.statements.every((sql) => Buffer.byteLength(sql) <= MAX_RESTORE_SQL_BYTES));
 	console.log('RESTORE_SYNTHETIC_STAGING_START', sales * 2, plan.chunks.length, plannedMs);
-	for (const chunk of plan.chunks) {
-		await applyStatements(chunk.statements);
-	}
+	await applyRestoreStages(db, plan);
 	assert.equal(await count(), 0, 'Representative target staging still has zero live headers');
 	console.log('RESTORE_SYNTHETIC_FINAL_START', sales * 2, performance.now() - start);
 	const finalStart = performance.now();
-	await applyStatements(plan.final.statements);
+	await applyRestoreFinal(db, plan);
 	const finalMs = performance.now() - finalStart;
 	assert.equal(await count(), sales);
 	assert.equal(await count('transaksi_kasir'), sales);
@@ -303,20 +303,33 @@ function actualCliRegression() {
 try {
 	actualCliRegression();
 	const small = archiveOf(3, 5000);
-	const direct = buildRestoreSql(small, { now: fixedNow });
-	await applyStatements(direct.statements);
-	const before = (await snapshot()).buku_kas;
-	await reset();
 	const single = buildRestoreChunks(small, { now: fixedNow }, 100);
 	assert.equal(single.chunks.length, 1);
 	assert.equal(single.totalRows, 3);
 	await applyStatements(single.chunks[0].statements);
 	assert.equal(await count(), 0, 'Staging never commits a live row');
 	await applyStatements(single.final.statements);
+	// Oracle = arsip masukan itu sendiri, dibandingkan per field bisnis kanonik.
+	const restored = (await snapshot()).buku_kas as Array<Record<string, unknown>>;
+	const fidelity = diffAgainstExisting(
+		small.buku_kas,
+		new Map(restored.map((row) => [String(row.id), row])),
+		BK_FIELDS
+	);
+	assert.equal(restored.length, small.buku_kas.length);
+	// Pembanding mentah, independen dari fieldValue yang dipakai staging.
+	for (const input of small.buku_kas as Array<Record<string, unknown>>) {
+		const row = restored.find((candidate) => candidate.id === input.id);
+		assert.ok(row, `Baris arsip hilang: ${String(input.id)}`);
+		assert.equal(row.restored_from_archive, 1, 'Penanda restore wajib tertulis');
+		for (const [column, value] of Object.entries(input)) {
+			assert.equal(row[column], value, `Kolom ${column} berubah saat restore`);
+		}
+	}
 	assert.deepEqual(
-		(await snapshot()).buku_kas,
-		before,
-		'Staged final preserves all single-shot business fields'
+		{ insert: fidelity.insert.length, conflict: fidelity.conflict },
+		{ insert: 0, conflict: [] },
+		'Staged final preserves every archived business field'
 	);
 
 	const big = archiveOf(250, 1000);
@@ -384,8 +397,7 @@ try {
 		250000
 	);
 	const committed = await snapshot();
-	for (const stage of planned.chunks) await applyStatements(stage.statements);
-	await applyStatements(planned.final.statements);
+	await applyRestorePlan(db, planned);
 	assert.deepEqual(
 		await snapshot(),
 		committed,
@@ -400,7 +412,7 @@ try {
 
 	// A target row changes AFTER all stages. Final must roll back every earlier proposed live mutation.
 	await reset();
-	for (const stage of planned.chunks) await applyStatements(stage.statements);
+	await applyRestoreStages(db, planned);
 	await db
 		.prepare(
 			"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,metode_bayar) VALUES('chunk-bk-249','samarinda','2025-11-01T01:00:00Z','catat','in','pendapatan_usaha',9999,'tunai')"
@@ -412,7 +424,7 @@ try {
 
 	// Deliberately fail AFTER inserts, marker, checkpoint and cleanup. The batch must undo all of them.
 	await reset();
-	for (const stage of planned.chunks) await applyStatements(stage.statements);
+	await applyRestoreStages(db, planned);
 	const lateBefore = await snapshot([
 		...liveTables,
 		'archive_restore_jobs',

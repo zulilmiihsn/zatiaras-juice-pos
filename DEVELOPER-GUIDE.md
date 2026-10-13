@@ -170,7 +170,7 @@ Keputusan dan batas: [ADR 0004](docs/adr/0004-antrean-notifications.md). Realtim
 
 - Seluruh 28 task perancangan diverifikasi menggunakan test behavioral tanpa mengandalkan mock regex mentah (`readFileSync`).
 - Total 13 berkas test pengujian (`src/tests/`) mencakup unit, integritas data POS, yield resep, paritas arsip, validasi migrasi, dan aksesibilitas focus trap.
-- Pipeline `pnpm test:all` memvalidasi seluruh gerbang operasi, kualitas tipe data, dan fungsionalitas aplikasi.
+- Pipeline `pnpm test:all` menjalankan operasi, gate statis (`test:static`, sama dengan job CI Static), dan `test:unit`; build hanya di `test:release`.
 
 ---
 
@@ -190,7 +190,7 @@ Keputusan dan batas: [ADR 0004](docs/adr/0004-antrean-notifications.md). Realtim
 | **Playwright Browser E2E**         | `pnpm test:e2e:pos`                                                                     | `e2e/pos.spec.ts`                                |
 | **Notifikasi Antrean SQLite/D1**   | `rtk pnpm test:antrean-notifications` / `rtk pnpm test:antrean-notifications -- --d1`   | `src/tests/antrean-notification-tests.ts`        |
 | **Notifikasi Antrean Browser**     | `rtk pnpm exec node scripts/run-playwright-local.mjs e2e/antrean-notifications.spec.ts` | `e2e/antrean-notifications.spec.ts`              |
-| **Verifikasi Menyeluruh Kualitas** | `pnpm test:quality`                                                                     | `src/tests/code-quality-tests.ts`                |
+| **Gate Statis (sama dengan CI)**   | `pnpm test:static`                                                                      | `svelte-check`, ESLint, Prettier                 |
 | **Production Build**               | `pnpm build`                                                                            | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
 
 ---

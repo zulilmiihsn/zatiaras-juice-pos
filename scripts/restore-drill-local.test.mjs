@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import {
 	checkDrillDatabase as checkDatabase,
-	POS_REQUIRED_COLUMNS,
+	loadDrillContract,
 	captureDrillParity,
 	assertDrillParity,
 	assertSafeDrillSql,
@@ -447,8 +447,9 @@ await test('dump tidak boleh ATTACH/VACUUM file; kata dalam catatan tetap sah', 
 	);
 });
 await test('kontrak kolom POS diturunkan dari migrasi aktual', () => {
-	assert.ok(POS_REQUIRED_COLUMNS.buku_kas.includes('receipt_snapshot'));
-	assert.ok(POS_REQUIRED_COLUMNS.transaksi_kasir.includes('buku_kas_id'));
+	const { columns } = loadDrillContract();
+	assert.ok(columns.buku_kas.includes('receipt_snapshot'));
+	assert.ok(columns.transaksi_kasir.includes('buku_kas_id'));
 });
 await test('CLI --d1 asli memuat dump lengkap lalu menjalankan checker dan parity', async () => {
 	const fixture = await temporaryDump();

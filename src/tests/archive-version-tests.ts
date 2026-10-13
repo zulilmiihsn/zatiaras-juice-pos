@@ -11,9 +11,10 @@ import {
 	BK_FIELDS,
 	SUPPORTED_ARCHIVE_VERSIONS,
 	TK_FIELDS,
-	buildRestoreSql,
+	buildRestoreChunks,
 	validateArchive
 } from '../../scripts/restore-archive-lib.mjs';
+import { applyRestorePlan } from './helpers/restorePlan';
 import { createTestD1 } from './helpers/testD1';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 
@@ -141,7 +142,7 @@ assert.equal(validateArchive(parsed).ok, true);
 const newer = structuredClone(parsed) as typeof parsed & { meta: { schema_version: number } };
 newer.meta.schema_version = 4;
 assert.equal(validateArchive(newer).ok, false);
-assert.throws(() => buildRestoreSql(newer), /Versi arsip tidak didukung/);
+assert.throws(() => buildRestoreChunks(newer), /Versi arsip tidak didukung/);
 // Gerbang era v2 menolak v3 (kontrak upgrade eksplisit).
 assert.ok(![1, 2].includes(Number(parsed.meta.schema_version)));
 
@@ -179,8 +180,7 @@ try {
 			`INSERT INTO penjualan_produk_harian(id,cabang_id,tanggal_penjualan,produk_id,nama_produk,jumlah,penjualan_kotor,penjualan_tunai,penjualan_nontunai,jumlah_transaksi) VALUES('pday','samarinda','2024-06-15','jus-1','Jus',2,40000,40000,0,1)`
 		].map((q) => db.prepare(q))
 	);
-	const built = buildRestoreSql(parsed);
-	await db.batch(built.statements.map((q) => db.prepare(q)));
+	await applyRestorePlan(db, buildRestoreChunks(parsed));
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 1);
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 1);
 	const restored = (await db.prepare('SELECT * FROM buku_kas').first()) as Record<string, unknown>;
@@ -210,8 +210,7 @@ try {
 	);
 
 	// Legacy v1 terapkan dengan default (tanpa mengarang nomor/preparation).
-	const legacyBuilt = buildRestoreSql(legacyV1);
-	await db.batch(legacyBuilt.statements.map((q) => db.prepare(q)));
+	await applyRestorePlan(db, buildRestoreChunks(legacyV1));
 	const legacyRow = {
 		...((await db
 			.prepare(

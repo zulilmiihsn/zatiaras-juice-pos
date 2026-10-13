@@ -126,7 +126,7 @@ Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil t
 | `pnpm check`        | Sinkronisasi SvelteKit dan pemeriksaan TypeScript/Svelte                                                 |
 | `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                          |
 | `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan   |
-| `pnpm test:all`     | Self-test operasional, quality test, lalu seluruh `test:unit`                                            |
+| `pnpm test:all`     | Self-test operasional, gate statis (`test:static`: check, lint, audit), lalu seluruh `test:unit`         |
 | `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                            |
 | `pnpm test:e2e:all` | Seluruh tes browser terisolasi (D1/config/port/password unik per run, tanpa menyentuh `.wrangler/state`) |
 

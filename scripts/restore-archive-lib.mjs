@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { decodeDecimalNumber } from '../src/lib/utils/currency.ts';
 import { decodeReceiptSnapshot } from '../src/lib/utils/receiptSnapshot.ts';
 
@@ -801,9 +801,8 @@ export function diffAgainstExisting(snapshotRows, existingById, fields) {
 }
 
 /**
- * Rencana restore murni (AUD-043): validasi penuh dulu, lalu rakit SQL.
- * Legacy single-shot dan staging memakai preflight/normalisasi yang sama.
- * Guard legacy dirakit lazy: staging tidak perlu mematerialisasi SQL per-row.
+ * Rencana restore murni (AUD-043): validasi penuh seluruh arsip sebelum SQL
+ * apa pun dirakit. Satu-satunya perakit SQL adalah buildRestoreChunks.
  */
 /** @param {Archive} archive @param {{sha256?: string, now?: string}} opts */
 export function planRestore(archive, opts = {}) {
@@ -812,79 +811,7 @@ export function planRestore(archive, opts = {}) {
 	const { branch, buku_kas, transaksi_kasir } = validated;
 	const archiveId = archive.meta.archive_id || archive.meta.id || '';
 	const now = opts.now || new Date().toISOString();
-	// Failing SQL assertion aborts the enclosing D1/SQLite transaction BEFORE cleanup.
-	// SQLite json() is used to raise an error without persistent guard tables/triggers.
-	// Satu pembangun guard untuk full-plan dan chunk (tanpa dua implementasi).
-	const headersById = new Map(buku_kas.map((row) => [String(row.id), row]));
-	/** @param {string} table @param {string[]} fields @param {Row[]} rows */
-	function guardRows(table, fields, rows) {
-		/** @type {string[]} */ const out = [];
-		for (const row of rows) {
-			const normalized = { ...row, cabang_id: row.cabang_id || branch };
-			const same = fields.map((f) => `${f} IS ${sqlVal(fieldValue(normalized, f))}`).join(' AND ');
-			out.push(
-				`SELECT CASE WHEN (NOT EXISTS (SELECT 1 FROM ${table} WHERE id = ${sqlVal(row.id)} AND NOT (${same}))) THEN 1 ELSE json(${sqlVal(`RESTORE_CONFLICT:${table}:${row.id}`)}) END;`
-			);
-		}
-		return out;
-	}
-	/** @param {Row[]} bkSlice @param {Row[]} tkSlice */
-	function summaryGuardsFor(bkSlice, tkSlice) {
-		/** @type {string[]} */ const out = [];
-		for (const row of bkSlice.filter((r) => r.sumber === 'pos')) {
-			const date = `date(datetime(${sqlVal(row.waktu)}, '+8 hours'))`;
-			out.push(
-				`SELECT CASE WHEN (EXISTS (SELECT 1 FROM ringkasan_penjualan_harian WHERE cabang_id=${sqlVal(branch)} AND tanggal_penjualan=${date})) THEN 1 ELSE json('RESTORE_MISSING_POS_SUMMARY') END;`
-			);
-		}
-		for (const row of tkSlice) {
-			// Header dibaca dari arsip penuh: baris TK boleh beda chunk dengan induknya.
-			const header = headersById.get(String(row.buku_kas_id));
-			if (header?.sumber !== 'pos') continue;
-			const productId = row.produk_id ?? `custom:${row.nama_produk}`;
-			out.push(
-				`SELECT CASE WHEN (EXISTS (SELECT 1 FROM penjualan_produk_harian WHERE cabang_id=${sqlVal(branch)} AND tanggal_penjualan=date(datetime(${sqlVal(row.created_at || header.waktu)}, '+8 hours')) AND produk_id=${sqlVal(productId)})) THEN 1 ELSE json('RESTORE_MISSING_PRODUCT_SUMMARY') END;`
-			);
-		}
-		return out;
-	}
-	/** @param {string} table @param {Row[]} rows @param {string[]} fields */
-	function insertLines(table, rows, fields) {
-		/** @type {string[]} */ const out = [];
-		for (const row of rows) {
-			const normalized = { ...row, cabang_id: row.cabang_id || branch };
-			const restoredMarker = table === 'buku_kas' ? ['restored_from_archive'] : [];
-			const columns = ['id', ...fields, ...restoredMarker, 'updated_at'];
-			const values = [
-				row.id,
-				...fields.map((f) => fieldValue(normalized, f)),
-				...(table === 'buku_kas' ? [1] : []),
-				row.updated_at || now
-			];
-			out.push(
-				`INSERT INTO ${table} (${columns.join(',')}) SELECT ${values.map(sqlVal).join(',')} WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE id=${sqlVal(row.id)});`
-			);
-		}
-		return out;
-	}
-	return {
-		branch,
-		archiveId,
-		now,
-		sha256: opts.sha256 || null,
-		buku_kas,
-		transaksi_kasir,
-		get guardLines() {
-			return [
-				...guardRows('buku_kas', BK_FIELDS, buku_kas),
-				...guardRows('transaksi_kasir', TK_FIELDS, transaksi_kasir),
-				...summaryGuardsFor(buku_kas, transaksi_kasir)
-			];
-		},
-		guardRows,
-		summaryGuardsFor,
-		insertLines
-	};
+	return { branch, archiveId, now, sha256: opts.sha256 || null, buku_kas, transaksi_kasir };
 }
 
 /** Staging is resumable; ONLY final.statements may mutate live tables, in one atomic batch.
@@ -1059,43 +986,3 @@ function assertRestoreSqlBudget(statements) {
 /** Default baris per chunk: jauh di bawah batas variabel SQLite (999) dan budget batch D1. */
 /** @type {number} */
 export const DEFAULT_RESTORE_CHUNK_ROWS = 100;
-
-/** @param {Row[]} rows */
-function dailyMaximaFor(rows) {
-	/** @type {Map<string, number>} */
-	const dailyMaxima = new Map();
-	for (const row of rows) {
-		if (row.sumber !== 'pos' || row.nomor_harian == null) continue;
-		const date = String(row.tanggal_nomor);
-		const number = Number(fieldValue(row, 'nomor_harian'));
-		dailyMaxima.set(date, Math.max(dailyMaxima.get(date) ?? 0, number));
-	}
-	return dailyMaxima;
-}
-
-/** @param {Archive} archive @param {{sha256?: string, now?: string}} opts */
-export function buildRestoreSql(archive, opts = {}) {
-	const plan = planRestore(archive, opts);
-	const { branch, archiveId, now, buku_kas, transaksi_kasir } = plan;
-	const lines = ['-- ZatiarasPOS Archive Restore Transaction', 'BEGIN TRANSACTION;'];
-	lines.push(...plan.guardLines);
-	lines.push(
-		`DELETE FROM ringkasan_kas_arsip_harian WHERE cabang_id=${sqlVal(branch)} AND archive_id=${sqlVal(archiveId)};`
-	);
-	lines.push(...plan.insertLines('buku_kas', buku_kas, BK_FIELDS));
-	lines.push(...plan.insertLines('transaksi_kasir', transaksi_kasir, TK_FIELDS));
-	// Restore preserves official numbers and only advances their allocator high-water mark.
-	for (const [date, number] of dailyMaximaFor(buku_kas)) {
-		lines.push(
-			`INSERT INTO pos_nomor_harian(cabang_id,tanggal,terakhir) VALUES(${sqlVal(branch)},${sqlVal(date)},${sqlVal(number)}) ON CONFLICT(cabang_id,tanggal) DO UPDATE SET terakhir=MAX(pos_nomor_harian.terakhir,excluded.terakhir);`
-		);
-	}
-	lines.push(
-		`INSERT INTO pengaturan(id,cabang_id,kunci,nilai,updated_at) VALUES(${sqlVal(randomUUID())},${sqlVal(branch)},${sqlVal('archive_restore_' + archiveId)},${sqlVal(JSON.stringify({ restored_at: now, archive_id: archiveId, sha256: opts.sha256 || null }))},${sqlVal(now)}) ON CONFLICT(cabang_id,kunci) DO UPDATE SET nilai=excluded.nilai,updated_at=excluded.updated_at;`
-	);
-	lines.push(
-		`UPDATE archive_jobs SET status='restored',updated_at=${sqlVal(now)} WHERE cabang_id=${sqlVal(branch)} AND id=${sqlVal(archiveId)} AND status='completed';`
-	);
-	lines.push('COMMIT;');
-	return { sql: lines.join('\n'), statements: lines.slice(2, -1), branch, archiveId };
-}

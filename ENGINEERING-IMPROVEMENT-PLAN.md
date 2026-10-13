@@ -163,7 +163,7 @@ Menemukan penyebab nyata kegagalan CI #64, memperbaiki portabilitas, dan menghas
 - [x] Ambil log lengkap job `Run All Test Suites` melalui GitHub UI/CLI/API terautentikasi.
 - [x] Catat command, suite, assertion, OS, Node, dan stack trace pertama yang gagal.
 - [x] Reproduksi pada Ubuntu dengan Node dari `.node-version` dan install frozen lockfile.
-- [x] Jalankan setiap kelompok terpisah: `test:operations`, `test:quality`, dan `test:unit`.
+- [x] Jalankan setiap kelompok terpisah: `test:operations`, `test:static` (dulu `test:quality`; diganti AUD-054), dan `test:unit`.
 - [x] Perbaiki akar masalah. Jangan menambah retry atau skip untuk menyembunyikan kegagalan deterministik.
 - [x] Pecah workflow menjadi job/step yang memberi nama suite gagal secara langsung.
 - [x] Simpan output test sebagai artifact saat gagal.
@@ -215,7 +215,7 @@ Menemukan penyebab nyata kegagalan CI #64, memperbaiki portabilitas, dan menghas
 
 - [ ] `pnpm install --frozen-lockfile` lulus pada Ubuntu dan Windows.
 - [ ] `pnpm test:operations` lulus pada Ubuntu dan Windows.
-- [ ] `pnpm test:quality` lulus pada Ubuntu dan Windows.
+- [ ] `pnpm test:static` lulus pada Ubuntu dan Windows (pengganti `test:quality`, AUD-054).
 - [ ] `pnpm test:unit` lulus pada Ubuntu dan Windows.
 - [ ] Dua run CI remote berturut-turut hijau pada commit berbeda atau rerun bersih.
 - [ ] Kegagalan buatan pada satu suite menampilkan nama suite dan log yang dapat diunduh.
@@ -353,7 +353,7 @@ Menjadikan 22 tes browser dan persistence D1 terisolasi sebagai gate otomatis, b
 
 - Job `e2e` di `.github/workflows/ci.yml`: install Chromium `--with-deps`, `pnpm test:e2e:all`, lalu step `Verify No Project State Touched` (tolak bila `.wrangler` muncul atau `git status` kotor). Report `playwright-report` + `test-results` di-upload hanya saat gagal.
 - Concurrency cancellation sudah ada sejak Fase 1 (`ci-${{ github.ref }}`, cancel-in-progress).
-- Job `build` kini `needs: [static, operations, unit, quality, e2e]` sehingga artifact tidak dibuat bila E2E gagal.
+- Job `build` kini `needs: [static, operations, unit, e2e]` (job `quality` duplikat dihapus AUD-054) sehingga artifact tidak dibuat bila E2E gagal.
 - Cleanup server/workerd dan isolasi D1 diwarisi dari runner terisolasi Fase B9 (`scripts/e2e-server.mjs` + `e2e-environment.mjs`).
 - CI #71 (`06668b4`): **success, 6/6 job** — Static, Operations, Unit, E2E Browser Tests, Quality, Build. E2E lolos di Linux pada percobaan pertama; step `Verify No Project State Touched` lulus (tanpa `.wrangler`, git status bersih).
 - Batas bukti: E2E-T02 paralel dua run dan E2E-T03 failure-injection disengaja belum dijalankan di CI; branch protection required-checks perlu diaktifkan manual di GitHub (di luar kode).
