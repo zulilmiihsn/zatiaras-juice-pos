@@ -22,10 +22,10 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      1 |
-| In progress  |      1 |
+| In progress  |      0 |
 | Blocked      |      5 |
 | Passed local |      0 |
-| Completed    |     56 |
+| Completed    |     57 |
 | **Total**    | **63** |
 
 **Completed 0 bukan berarti belum ada perbaikan.** Artinya belum ada task remediasi baru yang disahkan memenuhi seluruh DoD. `Pending` pada task dengan bukti baseline berarti acceptance kandidat terintegrasi belum dikonsolidasi, bukan kode lama hilang atau harus ditulis ulang.
@@ -183,7 +183,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-054](AUDIT-REMEDIATION-PLAN.md#aud-054) | Tes/gate membuktikan behavior, bukan wiring      | Konsumen nyata; jalur/gate pengganti dihapus           | Completed        | claude-opus-5.5 | TRK-082: restore via chunk CLI, mock fokus & Quality job dihapus; `e509a71`, CI 38387868694, deploy 38389626715                                                    |
 | [x]  | [AUD-055](AUDIT-REMEDIATION-PLAN.md#aud-055) | Docs semantik sinkron dengan implementasi        | Fix inti lokal                                         | Completed        | claude-opus-5.5 | TRK-076: bcrypt/PBKDF2, FK D1, arsip v3, perintah d1:backup dicocokkan dengan kode; docs-drift lulus                                                               |
 | [x]  | [AUD-056](AUDIT-REMEDIATION-PLAN.md#aud-056) | Artifact metadata portable tanpa melemahkan hash | Clone bersih Windows/Linux + tamper ditolak            | Completed        | claude-opus-5.5 | TRK-082: artifact Ubuntu `e509a71` lolos verify di clone Windows; CRLF diberi diagnosis, tetap ditolak                                                             |
-| [ ]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki | In progress      | claude-opus-5.5 | TRK-089: `ca447e4` deploy 38468839308; setahun penuh lulus (arsip 65 panggilan/193 file, maks 5,3 s); menunggu UAT batch 8                                         |
+| [x]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki | Completed        | claude-opus-5.5 | TRK-090: `ca447e4` deploy 38468839308; setahun penuh lulus (arsip 65 panggilan/193 file, maks 5,3 s); UAT batch 8 lulus                                            |
 | [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                               | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
 | [ ]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Sebagian                                               | Blocked          | —               | §10: staging recovery/rollback/RPO/RTO approval + proof                                                                                                            |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                    | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
@@ -995,6 +995,12 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
   - Bila koneksi putus setelah server commit, bagian di panggilan itu tidak terunduh lokal. Salinannya tetap di R2 (terverifikasi readback).
 - AUD-057 tetap **In progress** sampai UAT pemilik batch 8.
 - Status: **1 Pending (AUD-063) / 1 In progress (AUD-057) / 5 Blocked / 56 Completed**.
+
+### TRK-090 — 14 Oktober 2026: UAT batch 8 lulus — AUD-057 Completed
+
+- Pemilik menjalankan UAT batch 8 (`docs/AUDIT-UAT-CHECKLIST.md`) di production pada deploy `ca447e4`: "oke udah, mantap". Ketiga langkah ditandai Lulus.
+- DoD AUD-057 terpenuhi: perbaikan di main, tes terarah hijau, CI 38466526746 hijau, code review tanpa temuan terbuka (TRK-089), dan UAT pemilik lulus.
+- Status: **1 Pending (AUD-063) / 0 In progress / 5 Blocked / 57 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
