@@ -183,7 +183,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-054](AUDIT-REMEDIATION-PLAN.md#aud-054) | Tes/gate membuktikan behavior, bukan wiring      | Konsumen nyata; jalur/gate pengganti dihapus           | Completed        | claude-opus-5.5 | TRK-082: restore via chunk CLI, mock fokus & Quality job dihapus; `e509a71`, CI 38387868694, deploy 38389626715                                                    |
 | [x]  | [AUD-055](AUDIT-REMEDIATION-PLAN.md#aud-055) | Docs semantik sinkron dengan implementasi        | Fix inti lokal                                         | Completed        | claude-opus-5.5 | TRK-076: bcrypt/PBKDF2, FK D1, arsip v3, perintah d1:backup dicocokkan dengan kode; docs-drift lulus                                                               |
 | [x]  | [AUD-056](AUDIT-REMEDIATION-PLAN.md#aud-056) | Artifact metadata portable tanpa melemahkan hash | Clone bersih Windows/Linux + tamper ditolak            | Completed        | claude-opus-5.5 | TRK-082: artifact Ubuntu `e509a71` lolos verify di clone Windows; CRLF diberi diagnosis, tetap ditolak                                                             |
-| [ ]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki | In progress      | claude-opus-5.5 | TRK-088: `b85be1a` deploy 38450143016; arsip/restore setahun penuh belum selesai diukur (dihentikan sistem: memori)                                                |
+| [ ]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki | In progress      | claude-opus-5.5 | TRK-089: `ca447e4` deploy 38468839308; setahun penuh lulus (arsip 65 panggilan/193 file, maks 5,3 s); menunggu UAT batch 8                                         |
 | [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                               | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
 | [ ]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Sebagian                                               | Blocked          | —               | §10: staging recovery/rollback/RPO/RTO approval + proof                                                                                                            |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                    | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
@@ -972,6 +972,28 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
   - Ekstrapolasi dari biaya per panggilan yang datar: ±365 panggilan × ±6 s ≈ 37 menit arsip; restore ±3.650 bagian × ±0,1–0,3 s.
   - `peakNodeRssMb` hanya proses Node, bukan memori workerd.
 - Catatan operasional (bukan pelanggaran budget): dengan 50 header per bagian dan 10 bagian per panggilan, arsip setahun = ±365 klik di halaman Arsip dan ±3.650 file unduhan. Usulan perbaikan (bagian lebih besar dan/atau lanjut otomatis) perlu keputusan pemilik karena menyentuh jalur data kritis AUD-039.
+- Status: **1 Pending (AUD-063) / 1 In progress (AUD-057) / 5 Blocked / 56 Completed**.
+
+### TRK-089 — 14 Oktober 2026: AUD-057 arsip bagian besar + lanjut otomatis, ukur setahun penuh, deploy ca447e4
+
+- Owner: claude-opus-5.5. Keputusan pemilik: "ikut rekomendasimu" (perbaiki UX arsip dulu, lalu ukur setahun penuh sekali pada desain final).
+- Commit `ca447e4`. CI [38466526746](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38466526746) hijau; deploy [38468839308](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38468839308). Tidak ada migrasi.
+- Perubahan server (`archiveUseCase.ts`, `archiveService.ts`, `/api/archive`):
+  - Bagian 1000 header / ≤2MB / 3 bagian per panggilan (dulu 50 / 1MB / 10).
+  - ID chunk, manifest `archive_job_items`, ringkasan manual, dan DELETE kini satu statement JSON (`json_each`). Batch finalisasi berisi jumlah statement konstan, tidak bergantung jumlah baris atau grup. Tes baru: 120 grup ringkasan manual menghasilkan batch ≤10 statement.
+  - Jika satu bagian gagal setelah bagian lain di panggilan yang sama sudah commit, respons berupa `partial` berisi bagian yang sudah commit plus field `interrupted`. Dulu bagian itu tidak dilaporkan ke halaman. Error non-domain dilog di server dan tidak dikirim mentah ke klien.
+  - Pengecilan snapshot berjalan sampai satu header (dulu dibatasi 6 paruhan). Revision wajib bilangan bulat aman; jika tidak, error 422 dan data tidak dihapus.
+- Halaman Arsip:
+  - Melanjutkan otomatis selama `partial` dan mengunduh tiap bagian.
+  - Berhenti dengan pesan jelas bila unduhan gagal, server melapor `interrupted`, terjadi error di tengah (baris yang sudah terarsip tetap dilaporkan beserta tombol unduh per bagian), atau halaman ditinggalkan.
+  - Label "dikirim ke unduhan browser" hanya muncul bila unduhan terakhir berhasil, ditambah petunjuk izin unduhan banyak file.
+- Ukur setahun penuh `pnpm test:perf-budget` (workerd D1, 182.500 POS + 3.650 manual; desain final kecuali perbaikan review yang hanya mengurangi statement): laporan 1.375 / 1.309 / 1.108 ms; checkout p50 322, p95 402, maks 432 ms; arsip **65 panggilan, 193 file**, panggilan terlama **5,3 s**, total 2,6 menit; restore 193 bagian, terlama **2,3 s**, total 4,5 menit; paritas jumlah POS/manual lulus. Semua budget pemilik lulus. Harness kini menyimpan objek arsip di disk dan membersihkannya di `finally` (puncak RSS Node 903MB).
+- Code review 3 ronde, temuan ditindaklanjuti. #7 ronde 1 (biaya paruhan berulang) tidak diubah: deret geometris, total ±2× satu snapshot.
+- Tes: archive-chunk dan archive-guard di SQLite dan workerd, archive-usecase/download/version/restore, hardening, `pnpm check`, ESLint, E2E arsip 7/7 (termasuk lanjut otomatis 3 panggilan / 4 bagian dan error di tengah loop).
+- Batas bukti:
+  - Cabang `interrupted` di halaman hanya dicek tipe, tanpa E2E khusus.
+  - Bila koneksi putus setelah server commit, bagian di panggilan itu tidak terunduh lokal. Salinannya tetap di R2 (terverifikasi readback).
+- AUD-057 tetap **In progress** sampai UAT pemilik batch 8.
 - Status: **1 Pending (AUD-063) / 1 In progress (AUD-057) / 5 Blocked / 56 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
