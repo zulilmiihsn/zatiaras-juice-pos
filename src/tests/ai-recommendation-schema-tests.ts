@@ -106,4 +106,56 @@ if (injected.ok && injected.value.kind === 'create_transaction') {
 	assert.ok(injected.value.deskripsi.length <= 500);
 }
 
-console.log('ai-recommendation-schema-tests: allowlist, amount, id, inject passed');
+for (const amount of [true, false, null, [], [500], {}, '0x10', '   ']) {
+	assert.equal(
+		validateRecommendation({
+			action: 'update_transaction',
+			data: { id: 'bk-1', type: 'pemasukan', amount, deskripsi: 'Koreksi' }
+		}).ok,
+		false,
+		'Model values must not gain monetary authority through coercion'
+	);
+}
+for (const type of ['__proto__', 'constructor', 'toString']) {
+	assert.equal(
+		validateRecommendation({
+			action: 'update_transaction',
+			data: { id: 'bk-1', type, amount: 500, deskripsi: 'Koreksi' }
+		}).ok,
+		false,
+		'Inherited aliases are not transaction types'
+	);
+}
+const canonicalAmount = validateRecommendation({
+	action: 'update_transaction',
+	data: { id: 'bk-1', type: 'pemasukan', amount: '25000.6', deskripsi: 'Koreksi' }
+});
+assert.equal(
+	canonicalAmount.ok &&
+		canonicalAmount.value.kind === 'update_transaction' &&
+		canonicalAmount.value.amount,
+	25001
+);
+
+for (const action of ['create_transaction', 'update_transaction']) {
+	for (const amount of ['9007199254740991.1', '9.0071992547409911e15']) {
+		assert.equal(
+			validateRecommendation({
+				action,
+				data: { id: 'bk-1', type: 'pemasukan', amount, deskripsi: 'Dana' }
+			}).ok,
+			false,
+			'AI must reject the exact unsafe decimal before dropping its string provenance'
+		);
+	}
+	const exponent = validateRecommendation({
+		action,
+		data: { id: 'bk-1', type: 'pemasukan', amount: '2.50006e4', deskripsi: 'Dana' }
+	});
+	assert.equal(
+		exponent.ok && exponent.value.kind !== 'create_category' && exponent.value.amount,
+		25001
+	);
+}
+
+console.log('ai-recommendation-schema-tests: allowlist, strict money/types, id, inject passed');

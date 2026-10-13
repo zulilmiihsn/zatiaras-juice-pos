@@ -36,7 +36,7 @@ export function normalizeBranch(input: unknown): BranchId {
 	const value = String(input || '')
 		.trim()
 		.toLowerCase();
-	const branch = BRANCH_ALIASES[value];
+	const branch = Object.hasOwn(BRANCH_ALIASES, value) ? BRANCH_ALIASES[value] : undefined;
 	if (!branch) {
 		throw error(400, 'Branch tidak valid');
 	}

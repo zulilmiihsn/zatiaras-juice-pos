@@ -28,7 +28,7 @@ export interface ArchiveBucket {
 	put(key: string, value: string, opts?: unknown): Promise<unknown>;
 	get(
 		key: string
-	): Promise<null | { text: () => Promise<string>; arrayBuffer: () => Promise<ArrayBuffer> }>;
+	): Promise<null | { text: () => Promise<string>; body?: ReadableStream<Uint8Array> }>;
 }
 
 export class ArchiveUseCaseError extends Error {
@@ -364,7 +364,6 @@ export type ArchiveResult =
 			count: number;
 			key: string;
 			filename: string;
-			content?: string;
 			counts: { buku_kas: number; transaksi_kasir: number };
 			parts: ArchivePart[];
 			job_id?: string;
@@ -487,37 +486,114 @@ async function findResumedArchive(
 	return null;
 }
 
-/** Baca satu chunk eligible terurut (waktu, id) sesudah cursor. */
+// SQLite sizes escaped TEXT without transferring it. Numeric transport/JSON differences
+// fit 32 bytes per IEEE-754 scalar; raw numbers are still fetched, never SQL-JSON decoded.
+function archiveRowReadBytes(alias: string, fields: readonly string[]): string {
+	return `(${2 + fields.reduce((n, field) => n + field.length + 4, 0)} + ${fields
+		.map((field) => {
+			const column = `${alias}.${field}`;
+			return `(CASE WHEN typeof(${column}) = 'blob' OR length(CAST(${column} AS BLOB)) > ${ARCHIVE_CHUNK_MAX_BYTES}
+			THEN ${ARCHIVE_CHUNK_MAX_BYTES + 1}
+			WHEN typeof(${column}) IN ('integer', 'real') THEN 32
+			ELSE length(CAST(json_quote(${column}) AS BLOB)) END)`;
+		})
+		.join(' + ')})`;
+}
+
+function archiveGroupReadBytes(): string {
+	return `(${archiveRowReadBytes('bk', [...ARCHIVE_BUKU_KAS_FIELDS, 'revision'])}
+		+ ${archiveRowReadBytes('bk', ['id', 'transaction_id', 'revision'])}
+		+ COALESCE((SELECT SUM(${archiveRowReadBytes('tk', ARCHIVE_TRANSAKSI_KASIR_FIELDS)})
+			FROM transaksi_kasir tk WHERE tk.cabang_id = bk.cabang_id AND tk.buku_kas_id = bk.id), 0))`;
+}
+
+/** Compact locators first; guarded atomic payload reads prevent a preflight/growth race. */
 async function readArchiveChunk(
 	rawDb: D1Database,
 	branch: BranchContext,
 	cutoff: string,
 	cursor: ArchiveChunkCursor | null,
 	limit: number
-): Promise<{ bukuKas: ArchiveRow[]; transaksiKasir: Array<Record<string, unknown>> }> {
-	const headerCols = [...ARCHIVE_BUKU_KAS_FIELDS, 'revision'].join(', ');
-	const cursorSql = cursor ? 'AND ((waktu > ?) OR (waktu = ? AND id > ?))' : '';
+): Promise<{
+	bukuKas: ArchiveRow[];
+	transaksiKasir: Array<Record<string, unknown>>;
+	hasMore: boolean;
+}> {
+	const cursorSql = cursor ? 'AND ((bk.waktu > ?) OR (bk.waktu = ? AND bk.id > ?))' : '';
 	const cursorBinds = cursor ? [cursor.waktu, cursor.waktu, cursor.id] : [];
-	const bukuKasResult = (await rawDb
+	const groupBytes = archiveGroupReadBytes();
+	const detailCount = `(SELECT COUNT(*) FROM transaksi_kasir tk
+		WHERE tk.cabang_id = bk.cabang_id AND tk.buku_kas_id = bk.id)`;
+	const compact = await rawDb
 		.prepare(
-			`SELECT ${headerCols} FROM buku_kas WHERE cabang_id = ? AND waktu < ? ${cursorSql} ORDER BY waktu ASC, id ASC LIMIT ?`
+			`SELECT CAST(bk.rowid AS TEXT) AS row_key,
+		${groupBytes} AS bytes, ${detailCount} AS detail_count
+		FROM buku_kas bk WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
+		ORDER BY bk.waktu ASC, bk.id ASC LIMIT ?`
 		)
-		.bind(branch, cutoff, ...cursorBinds, limit)
-		.all()) as unknown as { results?: Array<Record<string, unknown>> };
-	const bukuKas = (bukuKasResult?.results || []) as ArchiveRow[];
-	if (bukuKas.length === 0) return { bukuKas: [], transaksiKasir: [] };
-	// Detail chunk header ini saja (IN terbatas ukuran chunk).
-	const detailCols = ARCHIVE_TRANSAKSI_KASIR_FIELDS.map((f) => `tk.${f}`).join(', ');
-	const placeholders = bukuKas.map(() => '?').join(',');
-	const transaksiKasirResult = (await rawDb
-		.prepare(
-			`SELECT ${detailCols} FROM transaksi_kasir tk WHERE tk.cabang_id = ? AND tk.buku_kas_id IN (${placeholders}) ORDER BY tk.id ASC`
-		)
-		.bind(branch, ...bukuKas.map((r) => String(r.id)))
-		.all()) as unknown as { results?: Array<Record<string, unknown>> };
+		.bind(branch, cutoff, ...cursorBinds, limit + 1)
+		.all<{ row_key: string; bytes: number; detail_count: number }>();
+	const selected: Array<{ rowKey: string; bytes: number; detailCount: number }> = [];
+	let usedBytes = 4096; // Bounded v3 metadata, array punctuation and job/key fields.
+	for (const row of compact.results) {
+		if (selected.length === limit) break;
+		if (
+			!/^-?\d{1,20}$/.test(row.row_key) ||
+			!Number.isSafeInteger(row.bytes) ||
+			row.bytes < 0 ||
+			!Number.isSafeInteger(row.detail_count) ||
+			row.detail_count < 0 ||
+			usedBytes + row.bytes > ARCHIVE_CHUNK_MAX_BYTES
+		) {
+			if (selected.length > 0) break;
+			throw new ArchiveUseCaseError(
+				413,
+				'Transaksi melebihi batas ukuran satu snapshot arsip. Pengarsipan dibatalkan tanpa membaca seluruh isi atau menghapus data transaksi ini; perlu review operator.'
+			);
+		}
+		selected.push({ rowKey: row.row_key, bytes: row.bytes, detailCount: row.detail_count });
+		usedBytes += row.bytes;
+	}
+	if (selected.length === 0) return { bukuKas: [], transaksiKasir: [], hasMore: false };
+	// Materialize only the guarded locators, not fields. The same D1 transaction owns
+	// both payload SELECTs, so no huge detail can arrive between the header/detail reads.
+	const guarded = `WITH selected AS MATERIALIZED (
+		SELECT bk.rowid AS row_key FROM buku_kas bk JOIN json_each(?) chosen
+		ON CAST(bk.rowid AS TEXT) = json_extract(chosen.value, '$.rowKey')
+		WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
+		AND ${groupBytes} <= json_extract(chosen.value, '$.bytes')
+		AND ${detailCount} = json_extract(chosen.value, '$.detailCount'))`;
+	const selection = JSON.stringify(selected);
+	const [headers, details] = await rawDb.batch<Record<string, unknown>>([
+		rawDb
+			.prepare(
+				`${guarded} SELECT ${[...ARCHIVE_BUKU_KAS_FIELDS, 'revision'].map((f) => `bk.${f}`).join(', ')}
+			FROM buku_kas bk JOIN selected ON bk.rowid = selected.row_key
+			WHERE bk.cabang_id = ? ORDER BY bk.waktu ASC, bk.id ASC`
+			)
+			.bind(selection, branch, cutoff, ...cursorBinds, branch),
+		rawDb
+			.prepare(
+				`${guarded} SELECT ${ARCHIVE_TRANSAKSI_KASIR_FIELDS.map((f) => `tk.${f}`).join(', ')}
+			FROM transaksi_kasir tk JOIN buku_kas bk ON bk.id = tk.buku_kas_id AND bk.cabang_id = tk.cabang_id
+			JOIN selected ON bk.rowid = selected.row_key
+			WHERE tk.cabang_id = ? ORDER BY tk.id ASC`
+			)
+			.bind(selection, branch, cutoff, ...cursorBinds, branch)
+	]);
+	if (
+		headers.results.length !== selected.length ||
+		details.results.length !== selected.reduce((n, row) => n + row.detailCount, 0)
+	) {
+		throw new ArchiveUseCaseError(
+			409,
+			'Data arsip berubah bersamaan sebelum pembacaan. Coba lagi setelah memeriksa transaksi.'
+		);
+	}
 	return {
-		bukuKas,
-		transaksiKasir: transaksiKasirResult?.results || []
+		bukuKas: headers.results as ArchiveRow[],
+		transaksiKasir: details.results,
+		hasMore: compact.results.length > selected.length
 	};
 }
 
@@ -558,12 +634,21 @@ export async function runArchive(
 	// agar invocasi worker tetap bounded; sisa dilaporkan via 'partial'.
 	const chunkHeaders = options?.chunkHeaders ?? ARCHIVE_CHUNK_HEADERS;
 	const maxChunks = options?.maxChunks ?? ARCHIVE_MAX_CHUNKS_PER_CALL;
+	if (
+		!Number.isInteger(chunkHeaders) ||
+		chunkHeaders < 1 ||
+		chunkHeaders > ARCHIVE_CHUNK_HEADERS ||
+		!Number.isInteger(maxChunks) ||
+		maxChunks < 1 ||
+		maxChunks > ARCHIVE_MAX_CHUNKS_PER_CALL
+	) {
+		throw new ArchiveUseCaseError(400, 'Batas chunk arsip tidak valid');
+	}
 	let cursor: ArchiveChunkCursor | null = null;
 	const parts: ArchivePart[] = [];
 	let archivedCount = 0;
 	let archivedBukuKas = 0;
 	let archivedTransaksiKasir = 0;
-	let firstContent: string | undefined;
 	let firstCounts = { buku_kas: 0, transaksi_kasir: 0 };
 	let firstKey = '';
 	let firstFilename = '';
@@ -584,7 +669,6 @@ export async function runArchive(
 		archivedBukuKas += result.part.counts.buku_kas;
 		archivedTransaksiKasir += result.part.counts.transaksi_kasir;
 		if (parts.length === 1) {
-			firstContent = result.content;
 			firstCounts = result.part.counts;
 			firstKey = result.part.key;
 			firstFilename = result.part.filename;
@@ -610,7 +694,6 @@ export async function runArchive(
 			count: archivedCount,
 			key: firstKey,
 			filename: firstFilename,
-			content: firstContent,
 			counts: firstCounts,
 			parts,
 			job_id: firstJobId
@@ -647,7 +730,6 @@ export async function runArchive(
 		| {
 				empty: false;
 				part: ArchivePart;
-				content: string;
 				nextCursor: ArchiveChunkCursor;
 				hasMore: boolean;
 		  }
@@ -657,16 +739,11 @@ export async function runArchive(
 
 		// Baca chunk dulu (tanpa job): kosong = selesai tanpa job sampah.
 		// Row hilang antara recount dan baca (void/concurrent delete) ikut tertangani.
-		const peek = await readArchiveChunk(rawDb, branch, cutoff, chunkCursor, headersPerChunk + 1);
+		const peek = await readArchiveChunk(rawDb, branch, cutoff, chunkCursor, headersPerChunk);
 		if (peek.bukuKas.length === 0) return { empty: true } as const;
-		let chunkHasMore = peek.bukuKas.length > headersPerChunk;
-		let bukuKas = (
-			chunkHasMore ? peek.bukuKas.slice(0, headersPerChunk) : peek.bukuKas
-		) as ArchiveRow[];
-		const keptHeaderIds = () => new Set(bukuKas.map((r) => String(r.id)));
-		let transaksiKasir = peek.transaksiKasir.filter((r) =>
-			keptHeaderIds().has(String((r as Record<string, unknown>).buku_kas_id))
-		) as Array<Record<string, unknown>>;
+		let chunkHasMore = peek.hasMore;
+		let bukuKas = peek.bukuKas;
+		let transaksiKasir = peek.transaksiKasir;
 
 		// Klaim job atomik per cabang (cutoff berbeda pun saling eksklusi).
 		let job;
@@ -721,6 +798,13 @@ export async function runArchive(
 					transaksiKasir,
 					partSuffix: partSeq === null ? null : partSeq
 				});
+			}
+			// A header and its details are indivisible. Never upload an oversized last group.
+			if (Buffer.byteLength(snapshot.content, 'utf8') > ARCHIVE_CHUNK_MAX_BYTES) {
+				throw new ArchiveUseCaseError(
+					413,
+					'Transaksi melebihi batas ukuran satu snapshot arsip. Pengarsipan dibatalkan tanpa menghapus data transaksi ini; perlu review operator.'
+				);
 			}
 			const lastKept = bukuKas[bukuKas.length - 1];
 			const nextCursor: ArchiveChunkCursor = {
@@ -948,7 +1032,6 @@ export async function runArchive(
 					count: total,
 					counts: { buku_kas: bukuKas.length, transaksi_kasir: transaksiKasir.length }
 				},
-				content,
 				nextCursor,
 				hasMore: chunkHasMore
 			};
@@ -985,7 +1068,7 @@ export function runArchiveForBranch(
 }
 
 export interface ArchiveDownload {
-	body: ArrayBuffer;
+	body: ReadableStream<Uint8Array>;
 	filename: string;
 	checksum: string | null;
 	jobId: string;
@@ -1020,7 +1103,7 @@ export async function downloadArchiveForBranch(
 		throw new ArchiveUseCaseError(503, 'Storage tidak tersedia');
 	}
 	const object = await bucket.get(job.object_key).catch(() => null);
-	if (!object) {
+	if (!object?.body) {
 		throw new ArchiveUseCaseError(502, 'File arsip di cloud tidak dapat dibaca. Coba lagi.');
 	}
 
@@ -1029,7 +1112,8 @@ export async function downloadArchiveForBranch(
 	if (/^[A-Za-z0-9._-]+\.json$/.test(keyBase)) filename = keyBase;
 
 	return {
-		body: await object.arrayBuffer(),
+		// Pass the R2 stream through: backpressure/cancellation stay with the HTTP consumer.
+		body: object.body,
 		filename,
 		checksum: job.checksum ?? null,
 		jobId: job.id || jobId

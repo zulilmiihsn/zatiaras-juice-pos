@@ -104,22 +104,31 @@ test('malicious recommendations cannot mutate, valid applies once', async ({ pag
 	await expect(chatbox).toBeVisible({ timeout: 15000 });
 	await chatbox.fill('setor modal dan lain-lain');
 	await page.keyboard.press('Enter');
-	await expect(page.getByText('Catat setoran modal', { exact: true })).toBeVisible({
+	await expect(page.getByText('Buat transaksi', { exact: true }).first()).toBeVisible({
 		timeout: 30000
 	});
 
 	// Aksi asing + amount negatif gugur di parse (tak tampil di consent).
 	await expect(page.getByText('Hapus cabang', { exact: true })).toHaveCount(0);
 	await expect(page.getByText('Catat minus', { exact: true })).toHaveCount(0);
+	await expect(page.getByText('Catat setoran modal', { exact: true })).toHaveCount(0);
+	await expect(page.getByText('Catat 10rb', { exact: true })).toHaveCount(0);
+	await expect(
+		page.getByText(/Tidak dapat diterapkan: Target transaksi tidak tersedia/)
+	).toBeVisible();
 	// Consent tampilkan nominal tervalidasi, bukan judul model.
 	await expect(page.getByText('Rp 99.999.999', { exact: false }).first()).toBeVisible();
 	await expect(page.getByText('Target bk-tidak…', { exact: false }).first()).toBeVisible();
 
 	const terapkan = page.getByRole('button', { name: 'Terapkan Rekomendasi' });
 	await terapkan.scrollIntoViewIfNeeded();
-	await terapkan.evaluate((el: HTMLElement) => el.click());
+	await terapkan.click();
 	await expect(page.getByText(/gagal diterapkan/).first()).toBeVisible({ timeout: 45000 });
 
+	await terapkan.click();
+	await expect(page.getByText(/2 rekomendasi sudah diterapkan sebelumnya/).first()).toBeVisible({
+		timeout: 45000
+	});
 	// Valid terapkan tepat sekali sebagai Lainnya; mismatch ikut sebagai usaha;
 	// target asing + rec gugur tak menulis apa pun.
 	// Nominal/deskripsi unik per spec (ai-category memakai 75000 di DB server bersama).

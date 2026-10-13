@@ -73,7 +73,6 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			count: result.count,
 			key: result.key,
 			filename: result.filename,
-			...(result.content !== undefined ? { content: result.content } : {}),
 			counts: result.counts,
 			parts: result.parts,
 			...(result.job_id ? { job_id: result.job_id } : {})

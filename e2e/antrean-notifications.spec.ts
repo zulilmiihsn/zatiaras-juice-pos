@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
-import { ownerUsernameForTest } from './helpers';
+import { csrfMutate, ownerUsernameForTest } from './helpers';
 
 async function login(
 	page: Page,
@@ -14,7 +14,15 @@ async function login(
 	await page.getByLabel('Pilih Cabang').selectOption(branch);
 	await page.getByPlaceholder('Masukkan username').fill(username);
 	await page.getByPlaceholder('Masukkan password').fill(password);
+	// Separate server authentication from navigation: cold module loading must not consume the auth deadline.
+	const authenticated = page.waitForResponse(
+		(response) =>
+			new URL(response.url()).pathname === '/api/veriflogin' &&
+			response.request().method() === 'POST',
+		{ timeout: 30_000 }
+	);
 	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+	expect((await authenticated).status()).toBe(200);
 	await expect(page).toHaveURL(/\/$/);
 	await page.goto('/pengaturan/antrean', { waitUntil: 'domcontentloaded' });
 	await expect(
@@ -52,9 +60,14 @@ async function device(
 			return oscillator;
 		};
 	});
-	const page = await context.newPage();
-	await login(page);
-	return { context, page };
+	try {
+		const page = await context.newPage();
+		await login(page);
+		return { context, page };
+	} catch (error) {
+		await Promise.allSettled([context.close()]); // Keep the original startup/auth assertion if teardown also fails.
+		throw error;
+	}
 }
 async function local(page: Page) {
 	return page.evaluate(async () => {
@@ -116,18 +129,13 @@ async function checkout(
 }
 async function cleanup(page: Page, ids: string[]) {
 	for (const id of ids) {
-		const status = await page.evaluate(async (transactionId) => {
-			const token = (await (await fetch('/api/csrf')).json()).token;
-			return (
-				await fetch(`/api/transaksi-kasir?transaction_id=${encodeURIComponent(transactionId)}`, {
-					method: 'DELETE',
-					headers: { 'X-CSRF-Token': token },
-					// Cleanup tidak boleh menggantung 120s dan menutupi asersi pertama.
-					signal: AbortSignal.timeout(15_000)
-				})
-			).status;
-		}, id);
-		expect(status).toBe(200);
+		const response = await csrfMutate(
+			page,
+			'DELETE',
+			`/api/transaksi-kasir?transaction_id=${encodeURIComponent(id)}`,
+			undefined
+		);
+		expect(response.status()).toBe(200);
 	}
 }
 
@@ -135,11 +143,18 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 	browser,
 	baseURL
 }) => {
-	const a = await device(browser, baseURL),
-		b = await device(browser, baseURL),
-		c = await device(browser, baseURL);
+	const clients: Awaited<ReturnType<typeof device>>[] = [];
+	try {
+		for (let index = 0; index < 3; index++) clients.push(await device(browser, baseURL));
+	} catch (error) {
+		await Promise.allSettled(clients.map((client) => client.context.close()));
+		throw error;
+	}
+	const [a, b, c] = clients;
 	const ids: string[] = [];
 	const orders: string[] = [];
+	let primaryFailure: unknown;
+	let hasFailure = false;
 	try {
 		await b.page.getByRole('button', { name: 'Tes suara', exact: true }).click();
 		await c.page.getByRole('button', { name: 'Tes suara', exact: true }).click();
@@ -232,12 +247,24 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 			new Set((await local(c.page))?.events.map((event: { event_id: string }) => event.event_id))
 				.size
 		).toBe(3);
+	} catch (error) {
+		hasFailure = true;
+		primaryFailure = error;
 	} finally {
-		await cleanup(a.page, ids);
-		await a.context.close();
-		await b.context.close();
-		await c.context.close();
+		const cleaned = await Promise.allSettled([cleanup(a.page, ids)]);
+		const closed = await Promise.allSettled(clients.map((client) => client.context.close()));
+		// Failed teardown must fail a passing test, but cannot mask the original behavioral assertion.
+		if (!hasFailure) {
+			const teardownFailure = [...cleaned, ...closed].find(
+				(result) => result.status === 'rejected'
+			);
+			if (teardownFailure?.status === 'rejected') {
+				hasFailure = true;
+				primaryFailure = teardownFailure.reason;
+			}
+		}
 	}
+	if (hasFailure) throw primaryFailure;
 });
 
 test('Antrean sound preference persists across tabs and devices remain independent at mobile widths', async ({
@@ -425,94 +452,120 @@ test('Antrean own offline checkout replay uses persistent profile origin and onl
 	}
 });
 
-test('Antrean relogin clears old user events while preserving profile identity and starts without historical noise', async ({
-	browser,
-	baseURL
-}) => {
-	const a = await device(browser, baseURL),
-		b = await device(browser, baseURL);
-	const ids: string[] = [];
-	let releaseValidation: (() => void) | undefined;
-	try {
-		const before = await local(b.page);
-		const order = await checkout(a.page, 'Notifikasi sebelum ganti akun');
-		ids.push(order.transactionId);
-		await wake(b.page);
-		await expect
-			.poll(async () =>
-				(await local(b.page))?.events.map((event: { order_id: string }) => event.order_id)
-			)
-			.toContain(order.orderId);
-		const oldUsername = ownerUsernameForTest(test.info().title);
-		const newUsername = oldUsername === 'pemilik-e2e-2' ? 'pemilik-e2e-1' : 'pemilik-e2e-2';
-		await b.page.goto('/pengaturan', { waitUntil: 'domcontentloaded' });
-		const validationGate = new Promise<void>((resolve) => {
-			releaseValidation = resolve;
-		});
-		let capturedValidation!: () => void;
-		const validationCaptured = new Promise<void>((resolve) => {
-			capturedValidation = resolve;
-		});
-		await b.page.route('**/api/session', async (route) => {
-			if (route.request().headers()['x-e2e-session-race'] !== 'held') {
-				await route.continue();
-				return;
+type NotificationDevice = Awaited<ReturnType<typeof device>>;
+// Cold Vite/auth bootstrap is fixture setup, not the relogin behavior's unchanged 120s deadline.
+const reloginTest = test.extend<{
+	devices: { a: NotificationDevice; b: NotificationDevice; ids: string[] };
+}>({
+	devices: [
+		async ({ browser, baseURL }, use) => {
+			const a = await device(browser, baseURL);
+			let b: NotificationDevice | undefined;
+			const ids: string[] = [];
+			try {
+				b = await device(browser, baseURL);
+				await use({ a, b, ids });
+			} finally {
+				try {
+					await cleanup(a.page, ids);
+				} finally {
+					try {
+						await b?.context.close();
+					} finally {
+						await a.context.close();
+					}
+				}
 			}
-			const response = await route.fetch();
-			expect((await response.json()).authenticated).toBe(true);
-			capturedValidation();
-			await validationGate;
-			await route.fulfill({ response });
-		});
-		await b.page.evaluate(async () => {
-			const path = '/src/lib/utils/authGuard.ts';
-			const guard = await import(/* @vite-ignore */ path);
-			const observed = window as typeof window & { staleAuthValidation: Promise<boolean> };
-			const originalFetch = window.fetch;
-			window.fetch = (input, init) =>
-				originalFetch(input, {
-					...init,
-					headers: { ...init?.headers, 'X-E2E-Session-Race': 'held' }
-				});
-			observed.staleAuthValidation = guard.requireAuth();
-			window.fetch = originalFetch;
-		});
-		await validationCaptured;
-		await b.page.getByRole('button', { name: 'Logout', exact: true }).click();
-		await b.page
-			.getByRole('dialog', { name: 'Konfirmasi Logout' })
-			.getByRole('button', { name: 'Keluar', exact: true })
-			.click();
-		await expect(b.page).toHaveURL(/\/login$/);
-		expect((await local(b.page)) === null).toBe(true);
-		releaseValidation!();
-		expect(
-			await b.page.evaluate(
-				async () =>
-					await (window as typeof window & { staleAuthValidation: Promise<boolean> })
-						.staleAuthValidation
-			)
-		).toBe(false);
-		expect(await b.page.evaluate(() => localStorage.getItem('zatiaras_session') === null)).toBe(
-			true
-		);
-		expect((await local(b.page)) === null).toBe(true);
-		await login(b.page, 'samarinda', newUsername);
-		const rebound = await local(b.page);
-		expect(rebound.device_id).toBe(before.device_id);
-		expect(rebound.device_token === before.device_token).toBe(true);
-		expect(rebound.user_id).not.toBe(before.user_id);
-		expect(rebound.context_id).not.toBe(before.context_id);
-		expect(rebound.events).toEqual([]);
-		await b.page.reload({ waitUntil: 'domcontentloaded' });
-		await expect(
-			b.page.getByText('Notifikasi dalam aplikasi siap untuk cabang sesi ini.', { exact: true })
-		).toBeVisible();
-		expect((await local(b.page)).events).toEqual([]);
-	} finally {
-		releaseValidation?.();
-		await cleanup(a.page, ids);
-		await a.context.close();
-		await b.context.close();
-	}
+		},
+		{ timeout: 120_000 }
+	]
 });
+
+reloginTest(
+	'Antrean relogin clears old user events while preserving profile identity and starts without historical noise',
+	async ({ devices }) => {
+		const { a, b, ids } = devices;
+		let releaseValidation: (() => void) | undefined;
+		try {
+			const before = await local(b.page);
+			const order = await checkout(a.page, 'Notifikasi sebelum ganti akun');
+			ids.push(order.transactionId);
+			await wake(b.page);
+			await expect
+				.poll(async () =>
+					(await local(b.page))?.events.map((event: { order_id: string }) => event.order_id)
+				)
+				.toContain(order.orderId);
+			const oldUsername = ownerUsernameForTest(test.info().title);
+			const newUsername = oldUsername === 'pemilik-e2e-2' ? 'pemilik-e2e-1' : 'pemilik-e2e-2';
+			await b.page.goto('/pengaturan', { waitUntil: 'domcontentloaded' });
+			const validationGate = new Promise<void>((resolve) => {
+				releaseValidation = resolve;
+			});
+			let validationCaptured = false;
+			await b.page.route('**/api/session', async (route) => {
+				if (route.request().headers()['x-e2e-session-race'] !== 'held') {
+					await route.continue();
+					return;
+				}
+				const response = await route.fetch();
+				expect((await response.json()).authenticated).toBe(true);
+				validationCaptured = true;
+				await validationGate;
+				await route.fulfill({ response });
+			});
+			await b.page.evaluate(async () => {
+				const path = '/src/lib/utils/authGuard.ts';
+				const guard = await import(/* @vite-ignore */ path);
+				const observed = window as typeof window & { staleAuthValidation: Promise<boolean> };
+				const originalFetch = window.fetch;
+				window.fetch = (input, init) =>
+					originalFetch(input, {
+						...init,
+						headers: { ...init?.headers, 'X-E2E-Session-Race': 'held' }
+					});
+				observed.staleAuthValidation = guard.requireAuth();
+				window.fetch = originalFetch;
+			});
+			await expect
+				.poll(() => validationCaptured, {
+					message: 'RequireAuth harus mengirim tagged validation sebelum simulasi logout',
+					timeout: 10_000
+				})
+				.toBe(true);
+			await b.page.getByRole('button', { name: 'Logout', exact: true }).click();
+			await b.page
+				.getByRole('dialog', { name: 'Konfirmasi Logout' })
+				.getByRole('button', { name: 'Keluar', exact: true })
+				.click();
+			await expect(b.page).toHaveURL(/\/login$/);
+			expect((await local(b.page)) === null).toBe(true);
+			releaseValidation!();
+			expect(
+				await b.page.evaluate(
+					async () =>
+						await (window as typeof window & { staleAuthValidation: Promise<boolean> })
+							.staleAuthValidation
+				)
+			).toBe(false);
+			expect(await b.page.evaluate(() => localStorage.getItem('zatiaras_session') === null)).toBe(
+				true
+			);
+			expect((await local(b.page)) === null).toBe(true);
+			await login(b.page, 'samarinda', newUsername);
+			const rebound = await local(b.page);
+			expect(rebound.device_id).toBe(before.device_id);
+			expect(rebound.device_token === before.device_token).toBe(true);
+			expect(rebound.user_id).not.toBe(before.user_id);
+			expect(rebound.context_id).not.toBe(before.context_id);
+			expect(rebound.events).toEqual([]);
+			await b.page.reload({ waitUntil: 'domcontentloaded' });
+			await expect(
+				b.page.getByText('Notifikasi dalam aplikasi siap untuk cabang sesi ini.', { exact: true })
+			).toBeVisible();
+			expect((await local(b.page)).events).toEqual([]);
+		} finally {
+			releaseValidation?.();
+		}
+	}
+);

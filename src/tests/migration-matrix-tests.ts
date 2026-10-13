@@ -68,6 +68,21 @@ assert.match(migration0024, /nilai/);
 const db = new DatabaseSync(':memory:');
 
 for (const file of files) {
+	if (file === '0041_purchase_request_fingerprint.sql') {
+		// Upgrade nyata dari schema 0040: histori/unique key tidak dibackfill atau ditulis ulang.
+		db.exec(`INSERT INTO bahan(id, cabang_id, nama, satuan, stok_saat_ini) VALUES
+			('upgrade-purchase-bahan', 'berau', 'Fixture', 'gram', 77);
+			INSERT INTO bahan_mutasi(id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber, operation_key)
+			VALUES ('upgrade-purchase-ledger', 'berau', 'upgrade-purchase-bahan', 7, 77, 'manual', 'upgrade-legacy-key');`);
+	}
+	if (file === '0042_archive_restore_staging.sql')
+		db.exec(
+			"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,created_at,updated_at) VALUES('upgrade-staging-history','berau','2025-01-01T00:00:00Z','catat','in','pendapatan_usaha',9450,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z')"
+		);
+	const beforeStaging =
+		file === '0042_archive_restore_staging.sql'
+			? JSON.stringify(db.prepare('SELECT * FROM buku_kas ORDER BY id').all())
+			: null;
 	const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
 	const statements = content
 		.split('--> statement-breakpoint')
@@ -77,7 +92,47 @@ for (const file of files) {
 	for (const stmt of statements) {
 		db.exec(stmt);
 	}
+	if (beforeStaging !== null) {
+		assert.equal(
+			JSON.stringify(db.prepare('SELECT * FROM buku_kas ORDER BY id').all()),
+			beforeStaging,
+			'0042 is additive, no ledger rewrite'
+		);
+		assert.equal(db.prepare('SELECT COUNT(*) AS n FROM archive_restore_jobs').get()?.n, 0);
+		assert.equal(db.prepare('SELECT COUNT(*) AS n FROM archive_restore_rows').get()?.n, 0);
+		db.exec("DELETE FROM buku_kas WHERE id='upgrade-staging-history'");
+	}
 }
+
+const legacyPurchase = db
+	.prepare(
+		`SELECT request_fingerprint, delta_jumlah, stok_setelah, operation_key
+	FROM bahan_mutasi WHERE cabang_id = 'berau' AND id = 'upgrade-purchase-ledger'`
+	)
+	.get();
+assert.deepEqual(
+	{ ...legacyPurchase },
+	{
+		request_fingerprint: null,
+		delta_jumlah: 7,
+		stok_setelah: 77,
+		operation_key: 'upgrade-legacy-key'
+	}
+);
+assert.equal(
+	db
+		.prepare(
+			"SELECT stok_saat_ini FROM bahan WHERE cabang_id = 'berau' AND id = 'upgrade-purchase-bahan'"
+		)
+		.get()?.stok_saat_ini,
+	77
+);
+assert.throws(
+	() =>
+		db.exec(`INSERT INTO bahan_mutasi(id, cabang_id, bahan_id, delta_jumlah, sumber, operation_key)
+	VALUES ('upgrade-key-collision', 'berau', 'upgrade-purchase-bahan', 1, 'manual', 'upgrade-legacy-key')`),
+	/UNIQUE constraint failed/
+);
 
 // 1. Execute real PRAGMA quick_check on SQLite C-engine
 const quickCheckRows = db.prepare('PRAGMA quick_check;').all() as Array<{ quick_check?: string }>;

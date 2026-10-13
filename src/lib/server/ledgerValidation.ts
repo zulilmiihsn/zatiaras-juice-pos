@@ -4,10 +4,14 @@
  * Seluruh nominal/deskrimininasi invalid DITOLAK dengan 400 — tidak pernah
  * dikoersi menjadi 0 (laporan menganggap string invalid sebagai 0 adalah
  * bug baca; menambalnya dengan fallback 0 hanya memindahkan korupsi ke tulis).
- * Desimal rupiah dibulatkan ke integer via Math.round sebelum simpan.
+ * Normalisasi rupiah kanonik dilakukan setelah validasi; string angka legacy
+ * didecode eksplisit, bukan coercion object/boolean/array.
  *
  * Tidak import SvelteKit. Route memetakan LedgerValidationError ke kitError.
  */
+
+import { decodeMoneyAmount, normalizeMoney } from '$lib/utils/currency';
+import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
 
 export class LedgerValidationError extends Error {
 	readonly status: number;
@@ -37,12 +41,21 @@ function asRecord(row: unknown): ManualLedgerRow {
 
 /** Nominal rupiah: finite, >= 0, dalam rentang aman; desimal dibulatkan. */
 export function validateLedgerNominal(value: unknown): number {
-	const amount = Number(value);
-	if (value === null || value === undefined || value === '' || !Number.isFinite(amount))
+	const decoded = decodeMoneyAmount(value);
+	if (!decoded.ok) {
+		if (decoded.reason === 'negative') fail('Nominal tidak boleh negatif');
+		if (decoded.reason === 'unsafe') fail('Nominal melebihi batas aman');
 		fail('Nominal harus angka yang valid');
-	if (amount < 0) fail('Nominal tidak boleh negatif');
-	if (amount > Number.MAX_SAFE_INTEGER) fail('Nominal melebihi batas aman');
-	return Math.round(amount);
+	}
+	return normalizeMoney(decoded.amount);
+}
+
+export function validateExpectedLedgerRevision(value: unknown): number {
+	const revision = decodeLedgerRevision(value);
+	if (revision === null) {
+		fail('Revisi transaksi wajib bilangan bulat aman. Muat ulang sebelum mengubah transaksi.');
+	}
+	return revision;
 }
 
 export function validateLedgerTipe(value: unknown): 'in' | 'out' {

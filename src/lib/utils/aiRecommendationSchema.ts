@@ -3,6 +3,8 @@
 // Prinsip: allowlist field per action; ID/branch/immutable tak pernah
 // menjadi otoritas dari model; ambigu merambat ke kebijakan kategori,
 // bukan default diam. Murni tanpa dependensi (unit-testable).
+import { decodeMoneyAmount, normalizeMoney } from './currency';
+
 export const AI_RECOMMENDATION_ACTIONS = [
 	'create_transaction',
 	'update_transaction',
@@ -24,7 +26,6 @@ const TYPE_ALIASES: Record<string, AiTransactionType> = {
 	penjualan: 'penjualan'
 };
 
-const MAX_SAFE_AMOUNT = Number.MAX_SAFE_INTEGER;
 const MAX_DESKRIPSI = 500;
 const MAX_ID = 200;
 const MAX_NAMA = 100;
@@ -68,14 +69,16 @@ function cleanText(value: unknown, max: number): string | null {
 }
 
 function cleanAmount(value: unknown): number | null {
-	const amount = Number(value);
-	if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_SAFE_AMOUNT) return null;
-	return amount;
+	const decoded = decodeMoneyAmount(value);
+	if (!decoded.ok || decoded.amount <= 0) return null;
+	const normalized = normalizeMoney(decoded.amount);
+	return normalized > 0 ? normalized : null;
 }
 
 function cleanType(value: unknown): AiTransactionType | null {
 	if (typeof value !== 'string') return null;
-	return TYPE_ALIASES[value.trim().toLowerCase()] ?? null;
+	const key = value.trim().toLowerCase();
+	return Object.prototype.hasOwnProperty.call(TYPE_ALIASES, key) ? TYPE_ALIASES[key] : null;
 }
 
 function cleanId(value: unknown): string | null {

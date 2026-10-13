@@ -1,6 +1,6 @@
 # ADR 0003: Tanpa Migrasi Foreign Key — Guard Aplikasi + Preflight Data
 
-Tanggal: 2026-09-23. Status: diterima.
+Tanggal: 2026-09-23. Status: diterima; koreksi fakta runtime 2026-10-09 (AUD-055), keputusan menunda migrasi tetap.
 
 ## Konteks
 
@@ -9,14 +9,12 @@ foreign key mengandalkan service. Opsi: migrasi FK/unique/check bertahap.
 
 ## Keputusan
 
-Jangan tambah FK enforcement. Alasan:
+Tunda penambahan constraint FK pada relasi legacy sampai preflight/approval migrasi tersedia. Alasan:
 
-1. Cloudflare D1 tidak menegakkan foreign key — migrasi FK hanya dokumentasi
-   berbiaya risiko tanpa perlindungan runtime.
+1. **Cloudflare D1 menegakkan FK yang dideklarasikan**, dengan `foreign_keys` aktif. Pernyataan sebelumnya bahwa D1 tidak menegakkan FK keliru. [Dokumentasi vendor](https://developers.cloudflare.com/d1/sql-api/foreign-keys/) dan regression workerd `scripts/restore-drill-local.test.mjs` membuktikan `PRAGMA foreign_keys = 1` serta penolakan insert dengan parent fixture yang hilang. Relasi legacy tanpa deklarasi FK tetap memerlukan detector/guard aplikasi.
 2. Tanpa inspeksi data produksi aktual, constraint baru dapat menolak data
-   valid atau gagal di tengah shard (first-fail-stop) dan memblokir rilis.
-3. Guard atomik sudah ada di titik mutasi kritis (klaim arsip, CAS ledger,
-   idempotency, trigger non-negatif stok) dan tercakup regresi.
+   legacy atau gagal di tengah shard (first-fail-stop) dan memblokir rilis.
+3. Pertahankan constraint/guard yang sudah valid, tetapi jangan menganggapnya menutup seluruh integrity contract: audit independen masih menemukan gap restore dan expected-revision CAS ledger. Koreksi fakta bukan izin menjalankan migrasi FK production.
 
 ## Konsekuensi
 

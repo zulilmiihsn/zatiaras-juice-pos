@@ -13,7 +13,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { getD1Database, type BranchContext } from '../branchResolver';
 import { publishBranchEvent } from '../realtimePublisher';
 import { settlePostCommitEffects } from '../postCommit';
-import { appendAuditLog } from '../auditLog';
+import { auditIntentStatement, type AuditLogInput } from '../auditLog';
 import { consumeRateLimit } from '../rateLimit';
 import { recordErrorEvent } from '../observability';
 import { buildOrderCreatedStatement } from '../orderNotifications/repository';
@@ -653,6 +653,46 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const salesDate = getWitaSalesDate(createdAt);
 	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
 
+	const currentCatalogTotal = normalizedInputs.reduce((sum, item) => {
+		const productPrice = item.productId
+			? normalizeMoney(productsById.get(item.productId)?.harga)
+			: normalizeMoney(item.source.custom_price);
+		const addOnTotal = item.addOnIds.reduce(
+			(addOnSum, id) => addOnSum + normalizeMoney(addOnsById.get(id)?.harga),
+			0
+		);
+		return sum + (productPrice + addOnTotal) * item.jumlah;
+	}, 0);
+	const auditInput: AuditLogInput = {
+		action: isOfflineReplay
+			? 'pos_transaction.offline_reconciliation_required'
+			: 'pos_transaction.created',
+		entityType: 'buku_kas',
+		entityId: bukuKasId,
+		transactionId,
+		amount: totalAmount,
+		session,
+		metadata: {
+			customerName,
+			paymentMethod,
+			totalQty,
+			itemCount: items.length,
+			nomorHarian,
+			tanggalNomor: salesDate,
+			pricingSource: isOfflineReplay ? 'offline_signed_catalog' : 'online_quote',
+			queuedAt: isOfflineReplay ? Number(body.queued_at) : null,
+			currentCatalogTotal,
+			priceVariance: totalAmount - currentCatalogTotal,
+			stockPolicyMode: stockPolicy.mode,
+			stockPolicyRevision: stockPolicy.revision,
+			inventoryApplication,
+			stockReplayDisposition: replayDisposition,
+			inventoryReconciliationRequired: isOfflineReplay,
+			stockDeductions: Object.fromEntries(stockDeductions),
+			ingredientDeductions: Object.fromEntries(ingredientDeductions)
+		}
+	};
+
 	const statements = buildCheckoutStatements({
 		db,
 		branch,
@@ -688,6 +728,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		body.origin_device_token
 	);
 	statements.push(
+		auditIntentStatement(db, branch, auditInput, `checkout:${branch}:${bukuKasId}`, createdAt),
 		buildOrderCreatedStatement(db, branch, {
 			bukuKasId,
 			idempotencyKey,
@@ -748,6 +789,9 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			};
 		}
 		const message = error instanceof Error ? error.message : String(error);
+		if (/no such table:\s*(?:main\.)?audit_log_outbox/i.test(message)) {
+			fail(503, 'Skema audit belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0018.');
+		}
 		if (/no such table:\s*(?:main\.)?antrean_notification_events/i.test(message)) {
 			fail(
 				503,
@@ -793,72 +837,45 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		throw error;
 	}
 
-	// Audit + realtime publish paralel sesudah batch commit (bounded, AUD-049).
-	const normalizedForAudit = normalizedInputs;
-	const currentCatalogTotal = normalizedForAudit.reduce((sum, item) => {
-		const productPrice = item.productId
-			? normalizeMoney(productsById.get(item.productId)?.harga)
-			: normalizeMoney(item.source.custom_price);
-		const addOnTotal = item.addOnIds.reduce(
-			(addOnSum, id) => addOnSum + normalizeMoney(addOnsById.get(id)?.harga),
-			0
-		);
-		return sum + (productPrice + addOnTotal) * item.jumlah;
-	}, 0);
-	await settlePostCommitEffects([
-		appendAuditLog(db, branch, {
-			action: isOfflineReplay
-				? 'pos_transaction.offline_reconciliation_required'
-				: 'pos_transaction.created',
-			entityType: 'buku_kas',
-			entityId: bukuKasId,
-			transactionId,
-			amount: totalAmount,
-			session,
-			metadata: {
-				customerName,
-				paymentMethod,
-				totalQty,
-				itemCount: items.length,
-				nomorHarian,
-				tanggalNomor: salesDate,
-				pricingSource: isOfflineReplay ? 'offline_signed_catalog' : 'online_quote',
-				queuedAt: isOfflineReplay ? Number(body.queued_at) : null,
-				currentCatalogTotal,
-				priceVariance: totalAmount - currentCatalogTotal,
-				stockPolicyMode: stockPolicy.mode,
-				stockPolicyRevision: stockPolicy.revision,
-				inventoryApplication,
-				stockReplayDisposition: replayDisposition,
-				inventoryReconciliationRequired: isOfflineReplay,
-				stockDeductions: Object.fromEntries(stockDeductions),
-				ingredientDeductions: Object.fromEntries(ingredientDeductions)
-			}
-		}),
-		publishBranchEvent(
-			platform?.env as Record<string, unknown> | undefined,
-			branch,
-			'buku_kas',
-			'insert',
-			{ id: bukuKasId, transaction_id: transactionId }
-		),
-		publishBranchEvent(
-			platform?.env as Record<string, unknown> | undefined,
-			branch,
-			'transaksi_kasir',
-			'insert',
-			{ transaction_id: transactionId }
-		),
-		...Array.from(ingredientDeductions.keys()).map((bahanId) =>
-			publishBranchEvent(
-				platform?.env as Record<string, unknown> | undefined,
-				branch,
-				'bahan',
-				'update',
-				{ id: bahanId }
+	// Intent is already durable. Audit delivery is owned by the scheduled drain, not request lifetime.
+	await settlePostCommitEffects(
+		[
+			(signal) =>
+				publishBranchEvent(
+					platform?.env as Record<string, unknown> | undefined,
+					branch,
+					'buku_kas',
+					'insert',
+					{ id: bukuKasId, transaction_id: transactionId },
+					undefined,
+					signal
+				),
+			(signal) =>
+				publishBranchEvent(
+					platform?.env as Record<string, unknown> | undefined,
+					branch,
+					'transaksi_kasir',
+					'insert',
+					{ transaction_id: transactionId },
+					undefined,
+					signal
+				),
+			...Array.from(ingredientDeductions.keys()).map(
+				(bahanId) => (signal: AbortSignal) =>
+					publishBranchEvent(
+						platform?.env as Record<string, unknown> | undefined,
+						branch,
+						'bahan',
+						'update',
+						{ id: bahanId },
+						undefined,
+						signal
+					)
 			)
-		)
-	]);
+		],
+		undefined,
+		platform?.context
+	);
 	// Pengiriman berjalan setelah commit; kegagalan provider tidak mengubah hasil checkout.
 	void kickOrderNotifications(platform, branch);
 

@@ -1,35 +1,48 @@
-/**
- * Penyelesaian efek post-commit bounded (AUD-049).
- *
- * Commit bisnis sudah sah sebelum fungsi ini dipanggil; audit/log/realtime
- * adalah best-effort dan TAK BOLEH menunda balasan tanpa deadline.
- * - Tiap task tak boleh melempar (bungkus .catch di caller).
- * - Timer selalu dibersihkan; upstream realtime membawa AbortSignal sendiri
- *   (REALTIME_PUBLISH_TIMEOUT_MS) plus timer backstop, jadi tak ada janji
- *   yatim tanpa cleanup.
- * - Timeout di sini hanya membebaskan respons; task latar tetap dirujuk
- *   allSettled sampai selesai (tanpa unhandled rejection).
- */
-
-/** Budget maksimum efek post-commit menahan respons checkout. */
+/** Post-commit work is expendable; durable intent must already belong to the business batch. */
 export const POST_COMMIT_EFFECTS_TIMEOUT_MS = 5000;
+export type PostCommitTask = Promise<unknown> | ((signal: AbortSignal) => Promise<unknown>);
+type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
 
+/** Legacy promises remain supported, but cannot be cancelled. New I/O uses signal-aware factories. */
 export async function settlePostCommitEffects(
-	tasks: Array<Promise<unknown>>,
-	timeoutMs: number = POST_COMMIT_EFFECTS_TIMEOUT_MS
+	tasks: PostCommitTask[],
+	timeoutMs: number = POST_COMMIT_EFFECTS_TIMEOUT_MS,
+	context?: ExecutionContext
 ): Promise<void> {
 	if (tasks.length === 0) return;
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	try {
-		// Timer SENGAJA menahan event loop sampai budget (tanpa unref):
-		// budget adalah jaminan respons, bukan beban latar.
-		await Promise.race([
-			Promise.allSettled(tasks),
-			new Promise<void>((resolve) => {
-				timer = setTimeout(() => resolve(), Math.max(1, timeoutMs));
-			})
-		]);
-	} finally {
-		if (timer !== undefined) clearTimeout(timer);
+	const controller = new AbortController();
+	const budget = Number.isFinite(timeoutMs)
+		? Math.min(POST_COMMIT_EFFECTS_TIMEOUT_MS, Math.max(1, timeoutMs))
+		: POST_COMMIT_EFFECTS_TIMEOUT_MS;
+	const completion = (async () => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await Promise.race([
+				Promise.allSettled(
+					tasks.map((task) =>
+						Promise.resolve().then(() =>
+							typeof task === 'function' ? task(controller.signal) : task
+						)
+					)
+				),
+				new Promise<void>((resolve) => {
+					timer = setTimeout(() => {
+						controller.abort(new Error('post-commit deadline'));
+						resolve();
+					}, budget);
+				})
+			]);
+		} finally {
+			if (timer !== undefined) clearTimeout(timer);
+		}
+	})();
+	if (context) {
+		try {
+			context.waitUntil(completion);
+			return;
+		} catch {
+			/* Unavailable execution context: bounded awaited fallback, never invalidate the commit. */
+		}
 	}
+	await completion;
 }

@@ -1,5 +1,6 @@
 import adapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { withSingleFlightEmulation } from './scripts/platform-emulation.mjs';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -44,15 +45,17 @@ const config = {
 		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
 		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-		adapter: adapter({
-			config: './wrangler.pages.jsonc',
-			platformProxy: {
-				configPath: process.env.ZATIARAS_E2E_CONFIG || './wrangler.pages.jsonc',
-				...(process.env.ZATIARAS_E2E_CONFIG && process.env.ZATIARAS_E2E_STATE
-					? { persist: { path: process.env.ZATIARAS_E2E_STATE } }
-					: {})
-			}
-		})
+		adapter: withSingleFlightEmulation(
+			adapter({
+				config: './wrangler.pages.jsonc',
+				platformProxy: {
+					configPath: process.env.ZATIARAS_E2E_CONFIG || './wrangler.pages.jsonc',
+					...(process.env.ZATIARAS_E2E_CONFIG && process.env.ZATIARAS_E2E_STATE
+						? { persist: { path: process.env.ZATIARAS_E2E_STATE } }
+						: {})
+				}
+			})
+		)
 	}
 };
 

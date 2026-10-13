@@ -193,6 +193,22 @@ export class RealtimeDurableObject {
 
 	/**
 	 * @param {RealtimeSocket} socket
+	 * @param {number} code
+	 */
+	async webSocketClose(socket, code) {
+		try {
+			// Hibernating sockets need an explicit peer acknowledgement; reserved codes are not sendable.
+			const closeCode =
+				code >= 1000 && code < 5000 && ![1004, 1005, 1006, 1015].includes(code) ? code : 1000;
+			socket.close(closeCode, 'peer closed');
+		} catch {
+			// A transport error can close the socket before this best-effort acknowledgement.
+			return;
+		}
+	}
+
+	/**
+	 * @param {RealtimeSocket} socket
 	 */
 	async webSocketError(socket) {
 		try {

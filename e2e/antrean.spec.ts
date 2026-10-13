@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { ownerUsernameForTest } from './helpers';
+import { csrfMutate, ownerUsernameForTest } from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -31,17 +31,13 @@ async function loginAsOwner(page: Page) {
 }
 
 async function cleanupTransaction(page: Page, transactionId: string) {
-	const result = await page.evaluate(async (id) => {
-		const csrfResponse = await fetch('/api/csrf');
-		const csrf = (await csrfResponse.json()) as { token?: string };
-		if (!csrfResponse.ok || !csrf.token) return { ok: false, status: csrfResponse.status };
-		const response = await fetch(`/api/transaksi-kasir?transaction_id=${encodeURIComponent(id)}`, {
-			method: 'DELETE',
-			headers: { 'X-CSRF-Token': csrf.token }
-		});
-		return { ok: response.ok, status: response.status };
-	}, transactionId);
-	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
+	const response = await csrfMutate(
+		page,
+		'DELETE',
+		`/api/transaksi-kasir?transaction_id=${encodeURIComponent(transactionId)}`,
+		undefined
+	);
+	expect(response.ok(), `Cleanup transaksi gagal: ${response.status()}`).toBe(true);
 }
 
 interface UatOrder {
@@ -702,6 +698,12 @@ test('legacy status intent without a token is staged and replayed', async ({ pag
 			staged = local?.in_flight ?? null;
 			await route.continue();
 		});
+		const acknowledgement = page.waitForResponse(
+			(response) =>
+				new URL(response.url()).pathname === '/api/antrean/status' &&
+				response.request().method() === 'POST' &&
+				response.request().postDataJSON()?.idempotency_key === key
+		);
 		await page.goto('/antrean');
 		await expect
 			.poll(() =>
@@ -722,11 +724,19 @@ test('legacy status intent without a token is staged and replayed', async ({ pag
 			expected_revision: 0
 		});
 		expect(staged?.intent_id).toBeTruthy();
-		const remaining = await page.evaluate(async () => {
-			const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
-			return await local.loadStatusIntents('samarinda');
-		});
-		expect(remaining).toHaveLength(0);
+		const acknowledged = await acknowledgement;
+		expect(acknowledged.status()).toBe(200);
+		await acknowledged.finished();
+		// Target commit can be visible before the response is consumed and local IDB acknowledgement finishes.
+		await expect
+			.poll(() =>
+				page.evaluate(async () => {
+					const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
+					return await local.loadStatusIntents('samarinda');
+				})
+			)
+			.toEqual([]);
+		expect(posts).toEqual([{ idempotency_key: key, target: 'done', expected_revision: 0 }]);
 	} finally {
 		await page.unroute('**/api/antrean/status').catch(() => {});
 		await cleanupTransaction(page, order.transactionId);
@@ -1672,7 +1682,8 @@ test('latest status from another tab survives a committed request with a lost re
 	await loginAsOwner(page);
 	const order = await checkoutUatOrder(page, `UAT cross tab ${Date.now()}`);
 	let firstCommitStatus = 0;
-	let firstResponsePending = false;
+	let firstRoutesStarted = 0;
+	let firstRoutesFinished = 0;
 	let signalFirstCommit!: () => void;
 	let releaseFirstResponse!: () => void;
 	let signalFirstResponseHandled!: () => void;
@@ -1682,7 +1693,8 @@ test('latest status from another tab survives a committed request with a lost re
 		(resolve) => (signalFirstResponseHandled = resolve)
 	);
 	let secondTab: Page | undefined;
-	let secondResponsePending = false;
+	let secondRoutesStarted = 0;
+	let secondRoutesFinished = 0;
 	let signalSecondRequest!: () => void;
 	let releaseSecondRequest!: () => void;
 	let signalSecondResponseHandled!: () => void;
@@ -1693,6 +1705,8 @@ test('latest status from another tab survives a committed request with a lost re
 	);
 	const secondPosts: Array<{ idempotency_key: string; target: string; expected_revision: number }> =
 		[];
+	let hasFailure = false;
+	let primaryFailure: unknown;
 	try {
 		const key = await page.evaluate(async (id) => {
 			const response = await fetch('/api/antrean?state=pending&limit=100');
@@ -1705,19 +1719,21 @@ test('latest status from another tab survives a committed request with a lost re
 		const originalCard = page.locator('article', { hasText: order.customer });
 		await expect(originalCard).toBeVisible();
 		await page.route('**/api/antrean/status', async (route) => {
-			firstResponsePending = true;
-			const response = await route.fetch();
-			firstCommitStatus = response.status();
-			signalFirstCommit();
-			await holdFirstResponse;
+			const first = ++firstRoutesStarted === 1;
 			try {
+				const response = await route.fetch();
+				if (first) {
+					firstCommitStatus = response.status();
+					signalFirstCommit();
+				}
+				await holdFirstResponse;
 				await route.fulfill({
 					status: 502,
 					json: { message: 'Injected response loss after commit' }
 				});
 			} finally {
-				firstResponsePending = false;
-				signalFirstResponseHandled();
+				firstRoutesFinished++;
+				if (first) signalFirstResponseHandled();
 			}
 		});
 		await originalCard.getByRole('button', { name: /tandai selesai/i }).click();
@@ -1726,19 +1742,17 @@ test('latest status from another tab survives a committed request with a lost re
 
 		secondTab = await context.newPage();
 		await secondTab.route('**/api/antrean/status', async (route) => {
-			secondPosts.push(route.request().postDataJSON() as (typeof secondPosts)[number]);
-			if (secondPosts.length === 1) {
-				secondResponsePending = true;
-				signalSecondRequest();
-				await holdSecondRequest;
-			}
+			const first = ++secondRoutesStarted === 1;
 			try {
+				secondPosts.push(route.request().postDataJSON() as (typeof secondPosts)[number]);
+				if (first) {
+					signalSecondRequest();
+					await holdSecondRequest;
+				}
 				await route.continue();
 			} finally {
-				if (secondPosts.length === 1) {
-					secondResponsePending = false;
-					signalSecondResponseHandled();
-				}
+				secondRoutesFinished++;
+				if (first) signalSecondResponseHandled();
 			}
 		});
 		await secondTab.goto('/');
@@ -1800,18 +1814,40 @@ test('latest status from another tab survives a committed request with a lost re
 			return (await local.loadStatusIntents('samarinda')).length;
 		});
 		expect(finalIntentCount).toBe(0);
+	} catch (error) {
+		hasFailure = true;
+		primaryFailure = error;
 	} finally {
 		releaseSecondRequest();
 		releaseFirstResponse();
-		if (secondResponsePending) await secondResponseHandled;
-		if (firstResponsePending) await firstResponseHandled;
-		await page.unroute('**/api/antrean/status').catch(() => {});
-		if (secondTab) {
-			await secondTab.unroute('**/api/antrean/status').catch(() => {});
-			await secondTab.close();
+		// One completed-response promise cannot own later replays. Remove routing and wait
+		// for every active callback before closing a tab or deleting its transaction.
+		const drained = await Promise.allSettled([
+			page.unrouteAll({ behavior: 'wait' }),
+			...(secondTab ? [secondTab.unrouteAll({ behavior: 'wait' })] : [])
+		]);
+		const closed = await Promise.allSettled(secondTab ? [secondTab.close()] : []);
+		// If shutdown is unconfirmed, leave the owned row for runner teardown instead of racing a replay.
+		const cleaned = await Promise.allSettled(
+			[...drained, ...closed].every((result) => result.status === 'fulfilled')
+				? [cleanupTransaction(page, order.transactionId)]
+				: []
+		);
+		if (!hasFailure) {
+			const failure = [...drained, ...cleaned, ...closed].find(
+				(result) => result.status === 'rejected'
+			);
+			if (failure?.status === 'rejected') {
+				hasFailure = true;
+				primaryFailure = failure.reason;
+			}
 		}
-		await cleanupTransaction(page, order.transactionId);
 	}
+	if (hasFailure) throw primaryFailure;
+	expect(firstRoutesStarted).toBeGreaterThanOrEqual(1);
+	expect(secondRoutesStarted).toBeGreaterThanOrEqual(2);
+	expect(firstRoutesFinished).toBe(firstRoutesStarted);
+	expect(secondRoutesFinished).toBe(secondRoutesStarted);
 });
 
 test('status flight drains an intent saved during its final IndexedDB reread', async ({ page }) => {

@@ -42,7 +42,32 @@ const fullBk = {
 	transaction_id: 'tx-full',
 	idempotency_key: 'key-full',
 	request_fingerprint: 'fp-full',
-	receipt_snapshot: '{"total":40000}',
+	receipt_snapshot: JSON.stringify({
+		schema_version: 1,
+		items: [
+			{
+				product_id: 'jus-1',
+				nama: 'Jus',
+				jumlah: 2,
+				harga: 20000,
+				nominal: 40000,
+				harga_dasar: 20000,
+				total_tambahan: 0,
+				tambahan: [],
+				gula: 'normal',
+				es: 'normal',
+				catatan: null
+			}
+		],
+		total_amount: 40000,
+		total_qty: 2,
+		cash_received: 50000,
+		change: 10000,
+		metode_bayar: 'tunai',
+		committed_at: '2024-06-15T02:00:00.000Z',
+		customer_name: 'Pelanggan',
+		settings: { nama_toko: 'Fixture', alamat: null, ucapan: null }
+	}),
 	nomor_harian: 7,
 	tanggal_nomor: '2024-06-15',
 	stock_policy_mode: 'tracked',

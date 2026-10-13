@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { ownerUsernameForTest } from './helpers';
+import { csrfPost, ownerUsernameForTest } from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -31,16 +31,7 @@ async function loginAsOwner(page: Page, title: string) {
 	await expect(page).toHaveURL(/\/$/);
 }
 
-async function csrfPost(page: Page, path: string, data: unknown) {
-	const csrf = (await (await page.request.get('/api/csrf')).json()) as { token?: string };
-	return page.request.post(path, {
-		data,
-		headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
-	});
-}
-
-// AUD-037: kontrak negatif rute tetap — auth, validasi, dan kode klien sah.
-// Tanpa provider key, kegagalan upstream non-stream 500 generik (aman).
+// Semua request invalid berhenti sebelum provider; CSRF_INVALID hanya retry sekali sesuai kontrak.
 test('aichat negative contracts stay stable', async ({ page }) => {
 	const anonymous = await csrfPost(page, '/api/aichat', { text: 'halo' });
 	expect(anonymous.status()).toBe(401);

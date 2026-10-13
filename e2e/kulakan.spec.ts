@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ownerUsernameForTest } from './helpers';
+import { csrfMutate, ownerUsernameForTest } from './helpers';
 
 async function login(page: Page, username: string) {
 	const password = process.env.UAT_PASSWORD;
@@ -128,4 +128,150 @@ test('Kulakan satu perintah mencatat stok, kas, dan HPP sekaligus', async ({ pag
 
 	// Bersih-bersih: hapus bahan uji (mutasi/kas terisolasi per run).
 	await api(page, `/api/bahan?branch=samarinda&id=${bahanId}`, 'DELETE');
+});
+
+test('Kulakan lost response retries immutable intent exactly once', async ({ page }) => {
+	await login(page, ownerUsernameForTest(test.info().title));
+	const created = await csrfMutate(page, 'POST', '/api/bahan', {
+		payload: {
+			nama: 'Gula Lost Response',
+			satuan: 'gram',
+			tipe_satuan: 'berat',
+			isi_per_kemasan: 1000,
+			satuan_beli: 'kg',
+			kategori: 'Bahan Baku',
+			stok_saat_ini: 0,
+			yield_persen: 100
+		}
+	});
+	expect(created.ok()).toBe(true);
+	const bahanId = (await created.json()).data[0].id as string;
+	try {
+		await page.goto('/stok');
+		await page.getByPlaceholder('Cari buah, gula, susu, cup...').fill('Gula Lost Response');
+		await expect(page.locator('h3', { hasText: 'Gula Lost Response' })).toBeVisible();
+		await page.locator('button:visible', { hasText: 'Masuk' }).first().click();
+		await page.locator('#mutasi-amount').fill('1');
+		await page.locator('#stok-mutasi-form select').selectOption('kg');
+		await page.getByRole('switch', { name: 'Catat pengeluaran uang kas' }).click();
+		await page.locator('#kas-nominal').fill('20000');
+		const bodies: string[] = [];
+		let lost = false;
+		let rejectedRetry = false;
+		await page.route('**/api/bahan/purchase', async (route) => {
+			bodies.push(route.request().postData() || '');
+			if (lost && !rejectedRetry) {
+				rejectedRetry = true;
+				// Validation pada attempt baru tidak membuktikan commit lama tidak ada.
+				await route.fulfill({ status: 400, json: { message: 'Retry ditolak validasi' } });
+				return;
+			}
+			const response = await route.fetch();
+			if (response.ok() && !lost) {
+				lost = true;
+				await route.abort('failed'); // Server sudah commit; hanya respons ke klien dibuang.
+			} else await route.fulfill({ response });
+		});
+		await page.getByRole('dialog').getByRole('button', { name: 'Simpan Perubahan' }).click();
+		const retry = page.getByRole('dialog').getByRole('button', { name: 'Coba lagi', exact: true });
+		await expect(retry).toBeEnabled({ timeout: 30000 });
+		expect(lost).toBe(true);
+		await expect(page.locator('#mutasi-amount')).toBeDisabled();
+		await expect(page.locator('#kas-nominal')).toBeDisabled();
+		// Bahkan bila value dimutasi programatis, body retry harus tetap snapshot lama.
+		await page.locator('#mutasi-amount').evaluate((input: HTMLInputElement) => {
+			input.value = '2';
+			input.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+		const rejected = page.waitForResponse(
+			(res) => res.url().endsWith('/api/bahan/purchase') && res.status() === 400
+		);
+		await retry.click();
+		await rejected;
+		expect(rejectedRetry).toBe(true);
+		await expect(page.locator('#mutasi-amount')).toBeDisabled();
+		await expect(retry).toBeEnabled();
+		const response = page.waitForResponse(
+			(res) => res.url().endsWith('/api/bahan/purchase') && res.ok()
+		);
+		await retry.click();
+		expect((await (await response).json()).duplicate).toBe(true);
+		await expect(page.getByRole('dialog')).toHaveCount(0);
+		expect(bodies.length).toBeGreaterThanOrEqual(3);
+		for (const body of bodies) expect(body).toBe(bodies[0]);
+		const payload = JSON.parse(bodies[0]).payload;
+		const rows = await api<{ id: string; stok_saat_ini: number; biaya_per_satuan: number }[]>(
+			page,
+			'/api/bahan',
+			'GET'
+		);
+		expect(rows.find((r) => r.id === bahanId)?.stok_saat_ini).toBe(1000);
+		expect(rows.find((r) => r.id === bahanId)?.biaya_per_satuan).toBe(20);
+		const movements = await api<{ operation_key: string }[]>(
+			page,
+			`/api/bahan-mutasi?bahan_id=${bahanId}`,
+			'GET'
+		);
+		expect(movements.filter((r) => r.operation_key === payload.operation_key)).toHaveLength(1);
+		const cash = await api<{ idempotency_key: string; nominal: number }[]>(
+			page,
+			'/api/buku-kas?limit=500',
+			'GET'
+		);
+		expect(
+			cash.filter((r) => r.idempotency_key === `purchase:${payload.operation_key}`)
+		).toHaveLength(1);
+	} finally {
+		await page.unroute('**/api/bahan/purchase');
+		const removed = await csrfMutate(page, 'DELETE', `/api/bahan?id=${bahanId}`, undefined);
+		expect(removed.ok()).toBe(true);
+	}
+});
+
+test('Ledger rejects JSON coercion and invalid final batch row without mutation', async ({
+	page
+}) => {
+	await login(page, ownerUsernameForTest(test.info().title));
+	const validId = 'ledger-numeric-boundary-valid';
+	const row = {
+		id: validId,
+		sumber: 'catat',
+		tipe: 'in',
+		jenis: 'pendapatan_usaha',
+		nominal: '100000.6',
+		waktu: '2026-10-09T00:00:00.000Z',
+		metode_bayar: 'qris',
+		deskripsi: 'Fixture numeric boundary'
+	};
+	const invalid = [true, false, '   ', [], [1000], {}, '0x10', 'Infinity', null];
+	for (const nominal of invalid) {
+		const res = await csrfMutate(page, 'POST', '/api/buku-kas', {
+			payload: [row, { ...row, id: 'ledger-numeric-boundary-invalid', nominal }]
+		});
+		expect(res.status()).toBe(400);
+	}
+	const before = await api<{ id: string }[]>(page, '/api/buku-kas?limit=500', 'GET');
+	expect(before.filter((r) => r.id.startsWith('ledger-numeric-boundary-'))).toHaveLength(0);
+	const created = await csrfMutate(page, 'POST', '/api/buku-kas', { payload: row });
+	expect(created.ok()).toBe(true);
+	try {
+		for (const nominal of invalid) {
+			const res = await csrfMutate(page, 'PATCH', '/api/buku-kas', {
+				payload: { nominal },
+				where: { id: validId }
+			});
+			expect(res.status()).toBe(400);
+		}
+		const rows = await api<{ id: string; nominal: number; metode_bayar: string }[]>(
+			page,
+			'/api/buku-kas?limit=500',
+			'GET'
+		);
+		const saved = rows.find((r) => r.id === validId);
+		expect(saved?.nominal).toBe(100001);
+		expect(saved?.metode_bayar).toBe('non-tunai');
+	} finally {
+		const removed = await csrfMutate(page, 'DELETE', `/api/buku-kas?id=${validId}`, undefined);
+		expect(removed.ok()).toBe(true);
+	}
 });

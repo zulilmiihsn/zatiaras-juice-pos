@@ -1,9 +1,16 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Archive Management Behavioral Flows', () => {
-	test('archive dashboard route requires pemilik authentication', async ({ page }) => {
-		await page.goto('/pengaturan/pemilik/arsip');
-		await expect(page).toHaveURL(/\/login/);
+	test('archive dashboard route requires pemilik authentication', async ({ browser, baseURL }) => {
+		const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+		try {
+			const page = await context.newPage();
+			await page.goto('/pengaturan/pemilik/arsip');
+			await expect(page).toHaveURL(/\/login/);
+			await expect(page.locator('form')).toBeVisible();
+		} finally {
+			await context.close();
+		}
 	});
 
 	test('validates archive cut-off date boundary in page context', async ({ page }) => {

@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
-	import { AutoApplyService } from '$lib/services/autoApplyService';
+	import { AutoApplyService, type RecommendationConsent } from '$lib/services/autoApplyService';
+	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { LEDGER_JENIS_LABEL, resolveLedgerCategory } from '$lib/utils/ledgerCategory';
+	import { formatRupiah } from '$lib/utils/currency';
+	import { formatWitaDateTime } from '$lib/utils/dateTime';
 	import { AI_ACTION_LABEL, validateRecommendation } from '$lib/utils/aiRecommendationSchema';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import SendIcon from '$lib/components/shared/sendIcon.svelte';
@@ -26,14 +29,47 @@
 	let currentAnalysis: TransactionAnalysis | null = $state(null);
 	let showRecommendations = $state(false);
 	let appliedSinceOpen = $state(false);
+	let consent: RecommendationConsent | null = $state.raw(null);
+	let generation = 0;
+	let observedEpoch = -1;
+	let observedOpen = false;
 
 	const aiAnalysisService = AiAnalysisService.getInstance();
 	const autoApplyService = AutoApplyService.getInstance();
 
+	function invalidateConsent() {
+		generation++;
+		autoApplyService.cancelConsent(consent);
+		consent = null;
+		currentAnalysis = null;
+		showRecommendations = false;
+	}
+
 	onMount(() => {
-		if (isOpen) {
-			addWelcomeMessage();
-		}
+		const changed = () => invalidateConsent();
+		const storageChanged = (event: StorageEvent) => {
+			if (event.key === 'zatiaras_session_revision' || event.key === 'zatiaras_session') changed();
+		};
+		window.addEventListener('auth-session-refreshed', changed);
+		window.addEventListener('storage', storageChanged);
+		return () => {
+			window.removeEventListener('auth-session-refreshed', changed);
+			window.removeEventListener('storage', storageChanged);
+			invalidateConsent();
+		};
+	});
+
+	$effect(() => {
+		const open = isOpen;
+		const epoch = selectedBranch.contextEpoch;
+		untrack(() => {
+			if (epoch === observedEpoch && open === observedOpen) return;
+			observedEpoch = epoch;
+			observedOpen = open;
+			invalidateConsent();
+			isLoading = false;
+			if (open) addWelcomeMessage();
+		});
 	});
 
 	// [CATATAN]: Reactive statement untuk mengontrol body scroll
@@ -44,6 +80,12 @@
 			document.body.classList.remove('modal-open');
 		}
 	});
+
+	function mountAbovePage(node: HTMLElement) {
+		// Header stacking/transform contexts can otherwise put page content above a fixed sheet.
+		node.ownerDocument.body.appendChild(node);
+		return { destroy: () => node.remove() };
+	}
 
 	function addWelcomeMessage() {
 		const welcomeMessage: AiChatMessage = {
@@ -69,15 +111,23 @@
 		messages = [...messages, userMessage];
 		const messageText = currentMessage.trim();
 		currentMessage = '';
+		invalidateConsent();
+		const ownedGeneration = generation;
 		isLoading = true;
 
 		try {
-			// [CATATAN]: Analisis transaksi
 			const analysis = await aiAnalysisService.analyzeTransaction(messageText);
-			currentAnalysis = analysis;
+			if (!isOpen || generation !== ownedGeneration) return;
+			const prepared = await autoApplyService.prepareRecommendations(analysis.recommendations);
+			if (!isOpen || generation !== ownedGeneration) {
+				autoApplyService.cancelConsent(prepared);
+				return;
+			}
+			consent = prepared;
+			currentAnalysis = { ...analysis, recommendations: [...prepared.recommendations] };
 
 			// [CATATAN]: Generate response
-			const responseText = aiAnalysisService.generateResponseText(analysis);
+			const responseText = aiAnalysisService.generateResponseText(currentAnalysis);
 
 			const aiMessage: AiChatMessage = {
 				id: `msg_${Date.now()}`,
@@ -93,26 +143,33 @@
 				showRecommendations = true;
 			}
 		} catch (error) {
+			if (!isOpen || generation !== ownedGeneration) return;
 			const errorMessage: AiChatMessage = {
 				id: `msg_${Date.now()}`,
-				content: 'Maaf, terjadi kesalahan saat menganalisis pesan Anda. Silakan coba lagi.',
+				content:
+					'Rekomendasi tidak dapat disiapkan. Muat ulang dan tinjau target transaksi sebelum menerapkan.',
 				role: 'assistant',
 				timestamp: new Date()
 			};
 			messages = [...messages, errorMessage];
 		} finally {
-			isLoading = false;
+			if (generation === ownedGeneration) isLoading = false;
 		}
 	}
 
 	async function applyRecommendations() {
-		if (!currentAnalysis || !currentAnalysis.recommendations.length) return;
-
+		if (!currentAnalysis || !consent || !currentAnalysis.recommendations.length) return;
+		const ownedGeneration = generation;
+		const ownedConsent = consent;
 		isLoading = true;
 		// [CATATAN]: Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
 
 		try {
-			const result = await autoApplyService.applyRecommendations(currentAnalysis.recommendations);
+			const result = await autoApplyService.applyRecommendations(
+				currentAnalysis.recommendations,
+				ownedConsent
+			);
+			if (!isOpen || generation !== ownedGeneration) return;
 
 			const resultMessage: AiChatMessage = {
 				id: `msg_${Date.now()}`,
@@ -124,6 +181,8 @@
 			messages = [...messages, resultMessage];
 			// [CATATAN]: Jika sukses, barulah kosongkan analisis dan rekomendasi
 			if (result.success) {
+				autoApplyService.cancelConsent(ownedConsent);
+				consent = null;
 				currentAnalysis = null;
 				showRecommendations = false;
 				appliedSinceOpen = true;
@@ -140,6 +199,7 @@
 				refreshBus.emit('riwayat');
 			}
 		} catch (error) {
+			if (!isOpen || generation !== ownedGeneration) return;
 			const errorMessage: AiChatMessage = {
 				id: `msg_${Date.now()}`,
 				content: 'Maaf, terjadi kesalahan saat menerapkan rekomendasi. Silakan coba lagi.',
@@ -148,7 +208,7 @@
 			};
 			messages = [...messages, errorMessage];
 		} finally {
-			isLoading = false;
+			if (generation === ownedGeneration) isLoading = false;
 		}
 	}
 
@@ -168,6 +228,7 @@
 			refreshBus.emit('laporan');
 			refreshBus.emit('riwayat');
 		}
+		invalidateConsent();
 		messages = [];
 		currentAnalysis = null;
 		showRecommendations = false;
@@ -180,6 +241,7 @@
 
 {#if isOpen}
 	<div
+		use:mountAbovePage
 		class="modal-overlay z-sheet fixed inset-0 flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
 		transition:fade={{ duration: 180 }}
 		onclick={closeModal}
@@ -288,6 +350,8 @@
 								action: rec.action,
 								data: rec.data
 							})}
+							{@const before = consent?.updates[rec.id]}
+							{@const rejected = consent?.rejected[rec.id]}
 							{@const recData = (rec.data ?? {}) as {
 								type?: unknown;
 								category?: unknown;
@@ -304,6 +368,38 @@
 								<div class="flex-1">
 									<p class="text-sm font-medium text-gray-900">{rec.title}</p>
 									<p class="mt-1 text-xs text-gray-600">{rec.deskripsi}</p>
+									{#if rejected}
+										<p role="alert" class="mt-1 text-xs text-red-700">
+											Tidak dapat diterapkan: {rejected}
+										</p>
+									{/if}
+									{#if before}
+										<p data-testid="ai-update-before" class="mt-1 text-xs text-gray-700">
+											Sebelum: {before.id} · Revisi {before.revision} · Rp {formatRupiah(
+												before.nominal
+											)} · {before.tipe} · {before.jenis} · {before.deskripsi} · {formatWitaDateTime(
+												before.waktu
+											)} WITA
+										</p>
+										{#if recValidation.ok && recValidation.value.kind === 'update_transaction'}
+											<p data-testid="ai-update-after" class="mt-1 text-xs text-gray-700">
+												Sesudah: {before.id} · Rp {formatRupiah(recValidation.value.amount)} · {recValidation
+													.value.type === 'pemasukan'
+													? 'in'
+													: 'out'} · {recData.category === undefined
+													? before.jenis
+													: 'needsConfirmation' in recCategory
+														? 'Perlu konfirmasi'
+														: recCategory.jenis} · {recValidation.value.deskripsi} · {formatWitaDateTime(
+													before.waktu
+												)} WITA
+											</p>
+										{/if}
+										<p class="mt-1 text-xs text-gray-700">
+											Target/revisi berasal dari data sesi saat ini, bukan dari model. Koreksi kas
+											ini tidak mengubah stok.
+										</p>
+									{/if}
 									<p
 										class="mt-1 text-xs font-semibold {'needsConfirmation' in recCategory
 											? 'text-amber-700'
@@ -316,7 +412,7 @@
 									<p class="mt-1 text-xs text-gray-600">
 										Aksi: {(AI_ACTION_LABEL as Record<string, string>)[rec.action] ?? rec.action}
 										{recValidation.ok && recValidation.value.kind !== 'create_category'
-											? ` · Rp ${recValidation.value.amount.toLocaleString('id-ID')}`
+											? ` · Rp ${formatRupiah(recValidation.value.amount)}`
 											: ''}
 										{recValidation.ok && recValidation.value.kind === 'update_transaction'
 											? ` · Target ${recValidation.value.id.slice(0, 8)}…`
@@ -342,13 +438,13 @@
 						<div class="mt-4 flex space-x-3">
 							<button
 								onclick={applyRecommendations}
-								disabled={isLoading}
+								disabled={isLoading || !consent}
 								class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{isLoading ? 'Menerapkan...' : 'Terapkan Rekomendasi'}
 							</button>
 							<button
-								onclick={() => (showRecommendations = false)}
+								onclick={invalidateConsent}
 								class="rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
 							>
 								Batal
@@ -357,7 +453,7 @@
 					{:else}
 						<div class="mt-4">
 							<button
-								onclick={() => (showRecommendations = false)}
+								onclick={invalidateConsent}
 								class="w-full rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
 							>
 								Tutup

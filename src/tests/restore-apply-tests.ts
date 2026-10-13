@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { decodeReceiptSnapshot } from '../lib/utils/receiptSnapshot.js';
 import {
 	buildRestoreSql,
+	buildRestoreChunks,
 	diffAgainstExisting,
 	BK_FIELDS,
 	TK_FIELDS
@@ -42,6 +47,8 @@ async function reset() {
 			'DROP TRIGGER IF EXISTS fail_restore',
 			'DROP TRIGGER IF EXISTS fail_restore_marker',
 			...[
+				'archive_restore_rows',
+				'archive_restore_jobs',
 				'transaksi_kasir',
 				'buku_kas',
 				'pengaturan',
@@ -64,7 +71,7 @@ const numberedReceiptSnapshot = JSON.stringify({
 	schema_version: 1,
 	items: [
 		{
-			product_id: 'product-fixture',
+			product_id: 'juice-fixture',
 			nama: 'Jus fixture',
 			jumlah: 2,
 			harga: 20_000,
@@ -127,6 +134,383 @@ const numberedArchive: RestoreArchive = {
 	]
 };
 
+// Reproduced AUD-042: valid JSON is not a valid receipt or a valid business row.
+const beforeMalformedPreflight = await snapshotRestoreState();
+for (const change of [
+	{ receipt_snapshot: 'null' },
+	{ receipt_snapshot: '{}' },
+	{ jumlah: 'not-a-quantity' },
+	{ jumlah: true },
+	{ created_at: 'not-a-date' },
+	{ created_at: '2025-02-30T00:00:00Z' },
+	{ preparation_completed_at: 'not-a-date' },
+	{ stock_policy_mode: 'tracked', stock_policy_revision: true },
+	{ preparation_revision: true },
+	{ deskripsi: { invalid: 'object' } }
+]) {
+	const malformed: RestoreArchive = {
+		...numberedArchive,
+		meta: { ...numberedArchive.meta, schema_version: 3 },
+		buku_kas: [{ ...numberedHeader, ...change }]
+	};
+	assert.throws(
+		() => buildRestoreSql(malformed),
+		/tidak valid|Snapshot|Revision/,
+		`Malformed archive accepted: ${Object.keys(change)}`
+	);
+}
+const receiptForValidation = JSON.parse(numberedReceiptSnapshot) as {
+	total_amount: unknown;
+	items: Array<{ jumlah: unknown; nominal: unknown }>;
+};
+for (const change of [
+	{ ...receiptForValidation, total_amount: 50000 },
+	{ ...receiptForValidation, change: 0 },
+	{ ...receiptForValidation, settings: [] },
+	{ ...receiptForValidation, items: [{ ...receiptForValidation.items[0], nominal: 30000 }] },
+	{ ...receiptForValidation, items: [{ ...receiptForValidation.items[0], jumlah: true }] }
+]) {
+	assert.throws(
+		() =>
+			buildRestoreSql({
+				...numberedArchive,
+				buku_kas: [{ ...numberedHeader, receipt_snapshot: JSON.stringify(change) }]
+			}),
+		/Snapshot|snapshot|struk/,
+		'Malformed receipt totals/quantity accepted'
+	);
+}
+
+for (const change of [
+	{ jumlah: 1.5 },
+	{ nominal: true },
+	{ created_at: 'not-a-date' },
+	{ snapshot_tambahan: 'null' },
+	{ snapshot_hpp: 'not-json' }
+]) {
+	const malformed: RestoreArchive = {
+		...numberedArchive,
+		transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], ...change }]
+	};
+	assert.throws(
+		() => buildRestoreSql(malformed),
+		/tidak valid/,
+		`Malformed detail accepted: ${Object.keys(change)}`
+	);
+}
+assert.deepEqual(
+	await snapshotRestoreState(),
+	beforeMalformedPreflight,
+	'Malformed whole-archive preflight changed live state'
+);
+
+function cliPreflightRegressions() {
+	const directory = mkdtempSync(join(tmpdir(), 'zatiaras-restore-preflight-'));
+	const file = join(directory, 'archive fixture.json');
+	try {
+		for (const [input, status, message] of [
+			[numberedArchive, 0, /DRY RUN.*Validation complete/s],
+			[
+				{
+					...numberedArchive,
+					transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], nominal: 40001 }]
+				},
+				1,
+				/tidak cocok/
+			],
+			[
+				{
+					...numberedArchive,
+					transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], snapshot_hpp: '[]' }]
+				},
+				1,
+				/snapshot_hpp.*tidak valid/
+			]
+		] as Array<[RestoreArchive, number, RegExp]>) {
+			writeFileSync(file, JSON.stringify(input));
+			const result = spawnSync(
+				process.execPath,
+				['scripts/restore-archive.mjs', '--file', file, '--dry-run'],
+				{ encoding: 'utf8', timeout: 30000 }
+			);
+			assert.equal(result.status, status, result.stdout + result.stderr);
+			assert.match(result.stdout + result.stderr, message);
+			assert.doesNotMatch(
+				result.stdout,
+				/\[RESTORE\]/,
+				'CLI dry-run must never enter target mutation'
+			);
+		}
+		const mismatch = spawnSync(
+			process.execPath,
+			[
+				'scripts/restore-archive.mjs',
+				'--file',
+				file,
+				'--dry-run',
+				'--expect-sha256',
+				'0'.repeat(64)
+			],
+			{ encoding: 'utf8', timeout: 30000 }
+		);
+		assert.equal(mismatch.status, 1);
+		assert.match(mismatch.stderr, /CHECKSUM MISMATCH/);
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
+}
+
+async function preflightInvariantRegressions() {
+	await seedNumberedRestore();
+	const before = await snapshotRestoreState();
+	assert.doesNotThrow(() => buildRestoreSql(numberedArchive), 'Positive canonical control');
+	for (const change of [
+		{ nominal: 40001 },
+		{ jumlah: 3 },
+		{ harga: 19000 },
+		{ harga_dasar: 19000 },
+		{ total_tambahan: 1 },
+		{ transaction_id: 'different-sale' },
+		{ snapshot_hpp: '[]' },
+		{ snapshot_hpp: '{"total":true}' },
+		{ snapshot_hpp: '{"total":12000,"ingredients":{}}' },
+		{ snapshot_tambahan: '[{"nama":"Extra","harga":true}]' }
+	]) {
+		const malformed: RestoreArchive = {
+			...numberedArchive,
+			transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], ...change }]
+		};
+		await assert.rejects(
+			() => execute(malformed),
+			/tidak valid|tidak cocok/,
+			`Preflight accepted ${JSON.stringify(change)}`
+		);
+		assert.deepEqual(
+			await snapshotRestoreState(),
+			before,
+			'Invalid whole-archive preflight changed live state'
+		);
+	}
+	// Total alone cannot prove that the immutable receipt describes the restored lines.
+	const changedReceipt = JSON.parse(numberedReceiptSnapshot) as {
+		items: Array<{ product_id: string; harga: number }>;
+	};
+	changedReceipt.items[0].product_id = 'different-product';
+	await assert.rejects(
+		() =>
+			execute({
+				...numberedArchive,
+				buku_kas: [{ ...numberedHeader, receipt_snapshot: JSON.stringify(changedReceipt) }]
+			}),
+		/tidak cocok|tidak valid/
+	);
+	assert.deepEqual(await snapshotRestoreState(), before);
+	// Late invalid detail must reject the entire source, not commit its valid first sale.
+	await assert.rejects(
+		() =>
+			execute({
+				...numberedArchive,
+				meta: { ...numberedArchive.meta, counts: { buku_kas: 2, transaksi_kasir: 2 } },
+				buku_kas: [
+					numberedHeader,
+					{ ...numberedHeader, id: 'last-header', nomor_harian: 8, idempotency_key: 'last-key' }
+				],
+				transaksi_kasir: [
+					numberedArchive.transaksi_kasir![0],
+					{
+						...numberedArchive.transaksi_kasir![0],
+						id: 'last-detail',
+						buku_kas_id: 'last-header',
+						nominal: 40001
+					}
+				]
+			}),
+		/tidak valid|tidak cocok/
+	);
+	assert.deepEqual(await snapshotRestoreState(), before);
+	assert.throws(
+		() =>
+			buildRestoreSql({
+				...numberedArchive,
+				meta: { ...numberedArchive.meta, schema_version: 3, counts: undefined }
+			}),
+		/Counts/,
+		'Current v3 must declare full source counts'
+	);
+	for (const change of [
+		{ sumber: ['pos'] },
+		{ jenis: ['pendapatan_usaha'] },
+		{ stock_policy_mode: ['tracked'], stock_policy_revision: 0 },
+		{ stock_replay_disposition: ['normal'] },
+		{ nomor_harian: '0x07' }
+	]) {
+		await assert.rejects(
+			() => execute({ ...numberedArchive, buku_kas: [{ ...numberedHeader, ...change }] }),
+			/tidak valid/
+		);
+		assert.deepEqual(await snapshotRestoreState(), before);
+	}
+	// Both known current and explicit legacy snapshots stay exact; topping HPP is not in the base recipe snapshot.
+	for (const version of [1, 2, 3]) {
+		for (const hpp of [
+			{ nominal_hpp: 12000.125, snapshot_hpp: '{"total":12000.125}' },
+			{
+				nominal_hpp: 13000.125,
+				snapshot_hpp: JSON.stringify({
+					product_id: 'juice-fixture',
+					product_name: 'Jus fixture',
+					porsi: 'reguler',
+					jumlah: 2,
+					hpp_per_item: 6000.0625,
+					nominal_hpp: 12000.125,
+					ingredients: [
+						{
+							bahan_id: 'ingredient-fixture',
+							nama: 'Fixture',
+							satuan: 'gram',
+							jumlah_per_item: 2.1234,
+							biaya_per_satuan: 3.4567
+						}
+					]
+				})
+			}
+		]) {
+			await seedNumberedRestore();
+			await execute({
+				...numberedArchive,
+				meta: { ...numberedArchive.meta, schema_version: version },
+				transaksi_kasir: [{ ...numberedArchive.transaksi_kasir![0], ...hpp }]
+			});
+			const detail = await db
+				.prepare('SELECT nominal_hpp,snapshot_hpp FROM transaksi_kasir')
+				.first();
+			assert.deepEqual(detail && { ...detail }, hpp, 'Never round or rewrite historical HPP bytes');
+		}
+	}
+	// Legacy NULL is unknown, not an instruction to synthesize a receipt/HPP from a catalog.
+	await seedNumberedRestore();
+	await execute({
+		...numberedArchive,
+		buku_kas: [{ ...numberedHeader, receipt_snapshot: null, jumlah: null }],
+		transaksi_kasir: [
+			{
+				...numberedArchive.transaksi_kasir![0],
+				harga: null,
+				harga_dasar: null,
+				total_tambahan: null,
+				snapshot_hpp: null,
+				snapshot_tambahan: null
+			}
+		]
+	});
+	assert.deepEqual(
+		{ ...(await db.prepare('SELECT receipt_snapshot,jumlah FROM buku_kas').first()) },
+		{ receipt_snapshot: null, jumlah: null }
+	);
+	// Preserve one-to-one receipt lines as a multiset, not database row order.
+	const rawReceipt = JSON.parse(numberedReceiptSnapshot) as {
+		items: Array<Record<string, unknown>>;
+	};
+	const splitReceipt = {
+		...rawReceipt,
+		items: [
+			{ ...rawReceipt.items[0], jumlah: 1, nominal: 20000 },
+			{ ...rawReceipt.items[0], jumlah: 1, nominal: 20000, gula: 'manis' }
+		]
+	};
+	await seedNumberedRestore();
+	await execute({
+		...numberedArchive,
+		meta: { ...numberedArchive.meta, counts: { buku_kas: 1, transaksi_kasir: 2 } },
+		buku_kas: [{ ...numberedHeader, receipt_snapshot: JSON.stringify(splitReceipt) }],
+		transaksi_kasir: [
+			{ ...numberedArchive.transaksi_kasir![0], jumlah: 1, nominal: 20000, gula: 'manis' },
+			{ ...numberedArchive.transaksi_kasir![0], id: 'second-line', jumlah: 1, nominal: 20000 }
+		]
+	});
+	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 2);
+	// Optional legacy addon IDs are unknown, but conflicting known IDs must fail.
+	const addonReceipt = {
+		...rawReceipt,
+		total_amount: 42000,
+		change: 8000,
+		items: [
+			{
+				...rawReceipt.items[0],
+				harga: 21000,
+				nominal: 42000,
+				total_tambahan: 1000,
+				tambahan: [{ id: 'known-addon', nama: 'Extra', harga: 1000 }]
+			}
+		]
+	};
+	const addonArchive = {
+		...numberedArchive,
+		buku_kas: [
+			{ ...numberedHeader, nominal: 42000, receipt_snapshot: JSON.stringify(addonReceipt) }
+		],
+		transaksi_kasir: [
+			{
+				...numberedArchive.transaksi_kasir![0],
+				harga: 21000,
+				nominal: 42000,
+				total_tambahan: 1000,
+				snapshot_tambahan: '[{"nama":"Extra","harga":1000}]'
+			}
+		]
+	};
+	await seedNumberedRestore();
+	await execute(addonArchive);
+	const beforeAddonConflict = await snapshotRestoreState();
+	await assert.rejects(
+		() =>
+			execute({
+				...addonArchive,
+				transaksi_kasir: [
+					{
+						...addonArchive.transaksi_kasir[0],
+						snapshot_tambahan: '[{"id":"different-addon","nama":"Extra","harga":1000}]'
+					}
+				]
+			}),
+		/tidak cocok/
+	);
+	assert.deepEqual(await snapshotRestoreState(), beforeAddonConflict);
+	// Unknown legacy identity must not greedily consume the only receipt line matching a known identity.
+	const partialReceipt = {
+		...rawReceipt,
+		items: [
+			{ ...rawReceipt.items[0], jumlah: 1, nominal: 20000 },
+			{ ...rawReceipt.items[0], jumlah: 1, nominal: 20000, product_id: 'second-product' }
+		]
+	};
+	await seedNumberedRestore();
+	await db.batch([
+		db.prepare(
+			"UPDATE penjualan_produk_harian SET jumlah=1,penjualan_kotor=20000,penjualan_tunai=20000 WHERE id='product-day'"
+		),
+		db.prepare(
+			"INSERT INTO penjualan_produk_harian(id,cabang_id,tanggal_penjualan,produk_id,nama_produk,jumlah,penjualan_kotor,penjualan_tunai,jumlah_transaksi) VALUES('custom-day','samarinda','2025-12-01','custom:Jus fixture','Jus fixture',1,20000,20000,1)"
+		)
+	]);
+	await execute({
+		...numberedArchive,
+		meta: { ...numberedArchive.meta, counts: { buku_kas: 1, transaksi_kasir: 2 } },
+		buku_kas: [{ ...numberedHeader, receipt_snapshot: JSON.stringify(partialReceipt) }],
+		transaksi_kasir: [
+			{
+				...numberedArchive.transaksi_kasir![0],
+				id: 'unknown-legacy-line',
+				jumlah: 1,
+				nominal: 20000,
+				produk_id: null
+			},
+			{ ...numberedArchive.transaksi_kasir![0], jumlah: 1, nominal: 20000 }
+		]
+	});
+	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir').first('n'), 2);
+}
+
 async function seedNumberedRestore() {
 	await reset();
 	await db.batch(
@@ -158,6 +542,49 @@ async function snapshotRestoreState() {
 			})
 		)
 	);
+}
+
+async function stagedPosParityRegressions() {
+	await seedNumberedRestore();
+	await execute(numberedArchive);
+	const protectedRows = async () => ({
+		headers: (
+			await db.prepare(`SELECT id,${BK_FIELDS.join(',')} FROM buku_kas ORDER BY id`).all()
+		).results.map((row) => ({ ...row })),
+		details: (
+			await db.prepare(`SELECT id,${TK_FIELDS.join(',')} FROM transaksi_kasir ORDER BY id`).all()
+		).results.map((row) => ({ ...row })),
+		counter: await db.prepare('SELECT terakhir FROM pos_nomor_harian').first('terakhir'),
+		report: (await buildLaporanAggregate(db, 'samarinda', '2025-12-01', '2025-12-01')).summary
+	});
+	const expected = await protectedRows();
+	await seedNumberedRestore();
+	const beforeStage = await snapshotRestoreState();
+	const planned = buildRestoreChunks(numberedArchive, { now: '2026-10-07T00:00:00Z' }, 1);
+	for (const stage of planned.chunks) {
+		await db.batch(stage.statements.map((sql) => db.prepare(sql)));
+		assert.deepEqual(await snapshotRestoreState(), beforeStage);
+	}
+	await assert.rejects(
+		db.batch(
+			[...planned.final.statements, "SELECT json('late-pos-final-failure')"].map((sql) =>
+				db.prepare(sql)
+			)
+		)
+	);
+	assert.deepEqual(await snapshotRestoreState(), beforeStage);
+	await db.batch(planned.final.statements.map((sql) => db.prepare(sql)));
+	assert.deepEqual(
+		await protectedRows(),
+		expected,
+		'Atomic staged POS must retain every receipt/preparation/policy/provenance/number/HPP field and report parity'
+	);
+	const committed = await snapshotRestoreState();
+	for (const stage of planned.chunks)
+		await db.batch(stage.statements.map((sql) => db.prepare(sql)));
+	await db.batch(planned.final.statements.map((sql) => db.prepare(sql)));
+	assert.deepEqual(await snapshotRestoreState(), committed);
+	await reset();
 }
 
 async function numberedRestoreRegressions() {
@@ -335,13 +762,32 @@ async function numberedRestoreRegressions() {
 	const collisionBefore = await snapshotRestoreState();
 	const collisionArchive: RestoreArchive = {
 		...numberedArchive,
-		meta: { ...numberedArchive.meta, counts: { buku_kas: 2, transaksi_kasir: 1 } },
+		meta: { ...numberedArchive.meta, counts: { buku_kas: 2, transaksi_kasir: 2 } },
 		buku_kas: [
-			{ ...numberedHeader, id: 'first-in-batch', idempotency_key: 'first-key', nomor_harian: 6 },
+			{
+				...numberedHeader,
+				id: 'first-in-batch',
+				transaction_id: 'first-sale',
+				idempotency_key: 'first-key',
+				nomor_harian: 6
+			},
 			numberedHeader
+		],
+		transaksi_kasir: [
+			{
+				...numberedArchive.transaksi_kasir![0],
+				id: 'first-detail',
+				buku_kas_id: 'first-in-batch',
+				transaction_id: 'first-sale'
+			},
+			numberedArchive.transaksi_kasir![0]
 		]
 	};
-	await assert.rejects(() => execute(collisionArchive));
+	assert.doesNotThrow(
+		() => buildRestoreSql(collisionArchive),
+		'Collision must reach actual SQL, not fail preflight'
+	);
+	await assert.rejects(() => execute(collisionArchive), /UNIQUE constraint failed/);
 	assert.deepEqual(await snapshotRestoreState(), collisionBefore);
 	assert.throws(
 		() =>
@@ -398,6 +844,9 @@ async function numberedRestoreRegressions() {
 	}
 }
 try {
+	cliPreflightRegressions();
+	await preflightInvariantRegressions();
+	await stagedPosParityRegressions();
 	await reset();
 	await execute();
 	await execute();

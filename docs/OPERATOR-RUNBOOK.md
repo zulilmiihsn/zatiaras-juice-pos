@@ -13,6 +13,56 @@ spontan di production.
 - [ ] Tidak ada sesi kasir aktif / antrean offline pending pada cabang target
       untuk operasi yang mensyaratkannya (arsip, migrasi destruktif).
 
+### Snapshot schema production dan handoff operator — 12 Oktober 2026
+
+Pemilik mengambil alih full-browser/UAT manual; agen tidak mengulang suite penuh otomatis selama handoff [plan §6.4–6.6](AUDIT-REMEDIATION-PLAN.md). Spec terarah/invariant lokal tetap diuji. Manual pass bukan command/CI otomatis pass; artifact/SHA/review/backup/rollback go/no-go di atas tidak dihapus. Target akhir production tanpa staging disetujui, bukan izin menguji wipe/restore pada live data.
+
+Read-only aggregate yang disetujui pemilik pada ketiga D1 (36SELECT sukses, masing-masing rows_written0/changed_dbfalse) menemukan `d1_migrations` kosong; kolom `bahan_mutasi.request_fingerprint` dan tabel `archive_restore_jobs`/`archive_restore_rows` belum tersedia. **Jangan rollout kode yang membutuhkan0041/0042 tanpa preflight schema aktual, verified currentbackup/readback, compatibility/rollback dan explicit approval per shard.** Jangan mengarang history atau mengisi migrationledger berdasarkan tebakan bahwa “schema terlihat terbaru”. Existing trusted-baseline/drill memerlukan contract schema/ledger yang benar-benar cocok; source/currentmigration list saja bukan proof production. Stop bila contract tidak cocok, buat disposition ter-review—bukan bypass validation atau rerun seluruh historicalDDL.
+
+Metrik volume hanya9ledger/14detail di Samarinda pada delapan tabel yang ditargetkan; physical3DB≈9.81MB termasukindex/overhead/freepages. Ini bukan fullinventory/backup/R2/performance/billing proof atau representatif satu tahun operasi. Approved workload/growth/headroom serta biaya actual bulanan masih perlu operator. Batas operasional pemilik Rp50.000/bulan, platform Android/Windows; printerthermalBluetooth dan businessUAT oleh pemilik. Jangan mengirim credential/customerbody/privateexports kechat/repo; jangan paidprovider call tanpa scopedbudget/modelapproval.
+
+### Backup production: izin export tidak menghapus gate availability
+
+Persetujuan pemilik12Oktober2026 mencakup export backup lengkap3D1 ke `D:/ZatiarasPOS-Backups/` dan checksum/readback, bukan migration/restore/wipe/deploy. Exporter Wrangler yang terpasang memperingatkan D1 sementara tidak melayani query selama export. **Konfirmasi tidak ada transaksi kasir aktif dan explicit window/jeda layanan serial per shard dulu.** Flag `--skip-confirmation` bukan authorization window. Jangan menyimpulkan idle dari jumlah ledger/session atau waktu; bila window belum dikonfirmasi, export ditahan dan tidak ada COMPLETE baru yang boleh diklaim.
+
+Dump penuh dapat memuat data pelanggan dan credential/auth state: hanya lokasi privat di luar repo/workspace dengan akses terbatas, tanpa isi dump/presigned download URL/secret di chat/log/repo. Simpan original verifiedbytes dan setiapFAILED; checksum/COMPLETE tidak sendiri membuktikan trusted source-completeness, actualschema contract, recoverability atau rollback approval. Readback yang gagal/hasil ambigu bukan alasan retry/destructiveapply otomatis.
+
+Billing snapshot: owner melaporkan dashboardRp0; CFbillingAPI menolak credential proyek403, sehingga invoice/usage tidak independentverified. OpenRouter key lokal monthlyusage0USD/historical0.049USD/limitnull; deployedkeyequivalence tidakverified dan capRp50k/bulan belum disetel. MetadataGET tidak inference dan tidak mengizinkan topup/upgrade/modelcall berbayar. Jangan menganggap angka0 ataufree_tier sebagai jaminan biaya keseluruhan/future.
+
+### Backup aktual12Oktober2026 dan perlindungan log exporter
+
+Setelah pemilik mengonfirmasi serialwindow, backup3D1 selesai pada12:43UTC di `D:/ZatiarasPOS-Backups/backup-2026-10-12T12-42-36-766Z-eafa8157-9ee5-4f16-88ae-06b718069446/`. FileSQL3+manifest+COMPLETE verified(readback/SHA-256/UTF8/noFAILED) dan nativeWindowsACL hanyaowner/SYSTEM/Admin. Tiga postexportSELECT1 sukses pada12:56UTC; jangan menafsirkan waktu command sebagai actualdowntime atau probe sebagai fullbusinesssmoke. Ini serialsnapshot, bukan atomiccrossshard atau independentlyapprovedcompleteness/recoverydrill. Dump asli tetap privat dan tidak diubah; migration0041/0042 serta actualschema/rollback/review gates belum diselesaikan.
+
+Wrangler otomatis menulis presignedURL export ke debuglog disk meskipun stdout tidak diprint oleh wrapper. Nativebackup runner kini **memaksa `WRANGLER_WRITE_LOGS=false`**, termasuk bila caller mengisi true; gunakan canonicalrunner, jangan bypass dengan manualCLI yang mengaktifkan logging. SupportedSDKswitch diverifikasi dengan nativeSDKlogcontrol dan unitbefore-red/after-green; tidak mem-patchSDK ataufakeglobals. Actualbackup tadi predatesfix—jangan mengklaimpatchedrunner sudahdiexerciseproductionexport. Enam log yang terbukti milik run ini sudah disanitasi URLs(readback/pre-posthash retained); rawURLs tidak disimpan sebagai evidence. Jangan menyunting/deleting log historical/unrelated secara massal atau mengulangexport hanya untuk membuktikan fix.
+
+COMPLETE/checksum bukan approval recovery. Sebelum SQLtarget/drill, kumpulkan sourceboundfullinventory/schema contract yang independentlyapproved; emptyd1migrationledger tidak boleh ditebak/backfill. Tidak ada productionrestore/wipe/migration/deploy permission dari backupwindow ini.
+
+### Gate browser lokal sebelum kandidat disahkan
+
+`rtk pnpm test:e2e:all` tanpa argumen menjalankan seluruh inventory canonical CI-a/b/c, fresh owned D1/server/browser per cohort. Port listening belum application-ready: launcher menunggu anonymous loopback `/login` HTTP200 HTML/form sebelum Playwright, memakai sisa total startup120s yang sama; body/redirect/status/budget failure menggagalkan startup, bukan menaikkan deadline/retry. Startup ini warming SSR/emulator, bukan approved cold/warm performance evidence. Adapter dev memakai lazy single-flight emulation agar cold concurrent requests tidak membuka proxy bersaing pada SQLite yang sama. Launcher menolak missing/duplicate/unknown spec sebelum startup; semua cohort dicoba dan satu failure membuat aggregate exit nonzero. Login/IP/user/CSRF guard tetap aktif. Selection CLI eksplisit berscope satu environment dan tidak menggantikan full gate. Artifact/report dipisah per invocation/cohort di ignored `test-results/isolated-<uuid>/` serta `playwright-report/isolated-<uuid>/`; archive failure evidence sebelum cleanup manual, jangan memasukkannya/credential ke repo.
+
+Keberhasilan lokal Windows bukan pinned Node/Ubuntu, compiled Worker, CI same-SHA atau go/no-go produksi. Unit native child cleanup hanya membuktikan lifecycle yang benar-benar diuji; interruption/hard-kill tetap perlu gate terpisah. Tidak ada langkah ini yang mengizinkan production export/mutation/release.
+
+### Gate realtime compiled — lokal, bukan approval staging
+
+Sesudah `rtk pnpm build`, jalankan `rtk pnpm test:realtime-compiled`. Gate ini juga berada setelah build pada `test:release` dan sebelum manifest/upload artifact CI. `test:realtime-artifact` hanya generator/source consumer dan tidak menggantikan smoke compiled.
+
+Wrapper ESM menjaga adapter SvelteKit asli dan memakai reader live profile/session/branch kanonik. Unknown/deleted/wrong-branch profile, expired/revoked/mismatched-prefix session dan ordinary foreign branch ditolak; admin cross-branch tetap kebijakan kanonik. Missing binding/DB outage fail closed dengan respons aman. Realtime DO mengakui peer close agar disconnect/reconnect tidak meninggalkan socket closing.
+
+Smoke menjalankan entry Pages built yang dibundel dengan **Worker dry-run privat** di actual workerd, tiga D1 disposable dan real external DO class. Ini **bukan Pages dry-run/deploy**, actual staging binding/deploy sequence, scheduled audit drain, device/browser atau compiled memory acceptance. Hash artifact dan close/runtime/state cleanup ada di log; tidak memakai produksi, real credentials atau model berbayar. CI step baru harus lulus pada SHA kandidat yang sama; source-stable working tree lokal belum provenance release.
+
+Operator tetap memerlukan approved staging target, deployment IDs/config/SHA yang cocok dan websocket negative/positive smoke pada binding staging sebenarnya sebelum AUD-050 dapat ditutup. Jangan dispatch production untuk mengganti bukti yang belum tersedia.
+
+### Gate scheduled audit backend — bukan staging cron approval
+
+Jalankan `rtk pnpm test:scheduled-worker`, `rtk pnpm exec tsx src/tests/retention-tests.ts --d1` dan `rtk pnpm test:scheduled-compiled`. Last gate membundel **actual backend Worker source** lewat private Wrangler Worker dry-run, lalu actual workerd scheduled controller dengan43migrations×3D1disposable; source handler/SQLite dan Pages DO-only smoke tidak menggantikannya. Release chain dan CI compiled scheduled smoke berada sebelum manifest/upload; remote CI belum disahkan hanya karena YAML/source lokal benar.
+
+Policy: audit drain pada minute/daily cron existing, retention hanya daily03:00UTC. Event time/zero/actor/metadata asli dan exact-source guarded transaction terpelihara; poison/oversize/too-old source masuk quarantine, transient outage retained. Retry scheduled `min(60min,2min×attempt_count)`; manual same-consumer recovery dapat dilakukan setelah read-only diagnosis/repair dengan target approved. Jangan delete pending intent/quarantine conflict atau retry sale dengan key baru.
+
+Default **40 SQL statements audit+retention/tick**, reserve32 untuk daily maintenance, page100/cap1000rows per shard dibagi siblings; rotating priority dan bounded isolation. Override `AUDIT_MAINTENANCE_QUERY_BUDGET` integer1–900 membutuhkan approved platform quota/volume dan relay/provider budget terpisah; invalid setting fallback40/report. **Owned synthetic budget900 bukan production plan acceptance**. Monitor aggregate selected/delivered/quarantined/retained/queries/exhausted/missingBindings; no payload/provider credential diagnostics.
+
+Retention90hari dan100rows/table/branch/tick, exact cutoff retained, active/pending/leased/live POS references protected. Foreign registry tombstones sengaja ditahan karena tidak ada cross-shard atomic destructive guard; cleanup completeness memerlukan owner/ADR, bukan penghapusan setelah advisory read. Approved backlog/growth/cold-warm/memory/latency/quota, actual staging cron/config/binding/deploy SHA/sequence, verified backend uploaded artifact, pinned Node/Ubuntu/CI/reviewer tetap prerequisite AUD-051. Local dry-run/scheduled controller tidak memberi izin deploy atau destructive maintenance produksi. Tidak ada migrasi baru untuk perubahan ini.
+
 ## 1. Backup tiga shard (wajib pertama)
 
 ```powershell
@@ -30,17 +80,17 @@ identitas shard, hash/readback, dan penolakan operasi di luar allowlist tetap wa
 
 ## 2. Restore drill (tanpa DB non-production: drill lokal)
 
-Tanpa database non-production, buktikan dump dapat direstore secara lokal
-(read-only, in-memory, tidak menyentuh D1 mana pun):
+Tanpa database non-production, buktikan dump sesuai trusted reference secara lokal
+(read-only, in-memory; `--d1` opsional memakai workerd disposable, bukan remote):
 
 ```powershell
-pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_berau_group.sql"
-pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_balikpapan_group.sql"
-pnpm d1:restore:drill -- --file "<output-dir>\<run-id>\db_samarinda_group.sql"
+rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_berau_group.sql" --shard DB_BERAU_GROUP --expect-baseline "<trusted-inventory-berau.json>" --expect-baseline-sha256 <APPROVED_SHA_BERAU>
+rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_balikpapan_group.sql" --shard DB_BALIKPAPAN_GROUP --expect-baseline "<trusted-inventory-balikpapan.json>" --expect-baseline-sha256 <APPROVED_SHA_BALIKPAPAN>
+rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP --expect-baseline "<trusted-inventory-samarinda.json>" --expect-baseline-sha256 <APPROVED_SHA_SAMARINDA>
 ```
 
-Syarat lulus: tiap file `PASS restore drill lokal` dengan daftar tabel + row count.
-Bila ada DB non-production, drill penuh ke sana:
+Syarat lulus: tiap file PASS schema/domain/baseline dengan binding/name/ID, exact migration, source bytes/SHA dan all-table counts/field hashes sesuai inventory yang disetujui. Backup historis perlu `--expect-migration <nama.sql>` yang tepat. COMPLETE/export hash saja tidak membuktikan tidak ada source rows hilang. Inventory/approved hash diambil dari trusted source dan dicatat terpisah, bukan dibuat ulang dari kandidat SQL. Lihat recovery gate §4. Bila tidak ada reference tepercaya, berhenti; jangan menambahkan bypass.
+Bila ada DB non-production **dan approval target/operator**, drill penuh ke sana:
 
 ```powershell
 CONFIRM_D1_RESTORE=<binding-nonprod> pnpm d1:restore -- --database <binding> --file <backup.sql>
@@ -83,10 +133,26 @@ SELECT COUNT(*) FROM pengaturan; -- sama dengan sebelum apply
 
 Berhenti di shard pertama yang gagal; JANGAN lanjut atau rerun buta (2x ALTER
 TABLE gagal bila kolom sudah ada — comment 2 baris itu bila retry terverifikasi).
-Rollback: `node scripts/rollback-migration.mjs --shard=<BINDING> --backup-manifest <manifest-COMPLETE> [--live] [--dry-run|--apply]`
-atau `--file <abs-path.sql>` eksplisit. CLI memverifikasi manifest kanonik + COMPLETE + drill sumber
-sebelum mutasi; usage salah/non-drill exit nonzero; default dry-run nol mutasi.
+Rollback dry-run: `rtk node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest-COMPLETE> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run`
+atau `--file <abs-path.sql>` eksplisit. Parser memakai **`--shard <BINDING>`**, bukan `--shard=<BINDING>`. CLI memverifikasi manifest kanonik + COMPLETE, trust anchors baseline dan drill sumber sebelum mutasi; usage salah/non-drill exit nonzero; default dry-run nol mutasi. `--live`/`--apply` hanya setelah approval spesifik, bukan dari contoh ini.
 Jangan mencari `backups/` di repo. Rollback Pages TIDAK mengembalikan schema D1.
+
+**Recovery gate setelah audit dibuka ulang (2026-10-09):**
+
+- `rtk pnpm d1:restore:drill --file <abs-path.sql> --shard <BINDING> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash>` memeriksa semua tabel/kolom/index/trigger aplikasi dari migrasi terverifikasi dan ledger `d1_migrations`, bukan hanya dua tabel POS. Default target adalah schema kandidat saat ini. Untuk backup sebelum 0041 gunakan target historis eksplisit, misalnya `--expect-migration 0040_profil_unique_username.sql`; schema dan ledger harus sama persis dengan target itu. Tidak ada auto-upgrade atau penulisan ulang data backup.
+- Tambahan `--d1` menyalin sumber yang lulus SQLite ke workerd **disposable** (`persist:false`), menjalankan checker async aktual, lalu membandingkan count dan hash semua field tiap tabel (termasuk financial, receipt, idempotency). Tidak menghubungi DB production dan tidak menghapus state development. SQLite/workerd fixture bukan bukti staging restore, largest workload, atau RPO/RTO.
+- Rollback CLI memakai Node + bin paket Wrangler, tanpa shell/npx.cmd; path dengan spasi/`&` tetap satu argumen. `--expect-migration` juga tersedia untuk preflight sumber rollback historis. Apply memakai **snapshot OS-temp private dari bytes UTF-8 yang sudah diverifikasi**, bukan membuka ulang path sumber mutable; snapshot dibersihkan pada success/nonzero/throw, source tetap ada. Failed/ambiguous result bukan izin retry buta: cek target dan operator lebih dahulu. `--persist-to <owned-local-root>` tersedia hanya untuk rehearsal lokal terisolasi. Windows local CLI late-failure/schema+all-field rollback/parity telah diuji synthetic; Ubuntu/approved staging/hard interruption belum. Default tetap dry-run; perubahan ini bukan izin `--apply`/`--live`.
+- Preflight bisnis JSON/SQL kini satu validator canonical: angka mesin, rupiah/quantity/revision safe integer, timestamp kalender, tipe field, JSON snapshot, dan receipt item/total/header/cash-change consistency. NULL legacy tidak diganti data katalog. Malformed/fractional nominal rupiah ditolak, bukan di-round otomatis. Jika backup legacy ditolak, pertahankan sumber/checksum dan lakukan review ADR/owner; jangan mengedit data agar PASS tanpa artifact/approval baru.
+- **Perbaikan invariant lokal 10 Oktober 2026:** mismatch nominal/jumlah/identitas yang diketahui antara header–detail–receipt kini ditolak sebelum JSON SQL generation dan oleh SQL drill. Subtotal harga×qty, harga dasar+add-on, receipt line/add-on one-to-one serta explicit HPP/add-on shapes diperiksa; known values menggunakan BigInt untuk rupiah. Missing optional legacy identity tidak diinvent atau disamakan dengan conflicting known ID. Supported HPP shapes adalah legacy `{total}` dan checkout `{nominal_hpp,...}`; base-recipe HPP dapat lebih kecil dari detail karena topping. NULL legacy tetap unknown. Corrupt source tidak memulai disposable D1 maupun rollback spawn; actual workerd post-copy corruption juga ditolak dalam tes. Lihat Follow-up Batch 4 / Tracker TRK-004 untuk batas bukti.
+- **Baseline eksternal kini wajib:** format `zatiaraspos-drill-baseline-v1` memuat `database:{binding,name,id}`, `migration`, `source:{bytes,sha256}`, dan `tables:{<name>:{count,sha256}}` untuk seluruh tabel termasuk `d1_migrations`. Hash field menggunakan canonical serializer `captureDrillParity`, termasuk BLOB; bukan `COUNT(*)` saja. Inventory berasal dari sumber otoritatif yang diketahui lengkap dan review operator; source bytes/hash ditambahkan setelah export. Approved SHA-256 baseline dicatat terpisah. **Dilarang membuat ulang inventory dari candidate dump rusak lalu menyebutnya expected baseline.** Helper fixture hanya untuk data synthetic, bukan pembuat baseline production. Backup lama tanpa trusted reference belum dapat disertifikasi lengkap; berhenti untuk inventory/approval, bukan bypass flags. Baseline/source/identity/migration salah ditolak sebelum disposable copy atau rollback spawn; canonical identity juga harus cocok config.
+- **Wipe backup gate (AUD-044):** manifest dan tiap shard harus canonical external regular files, identitas config/bytes/SHA benar, `COMPLETE` file reguler (bukan directory/symlink), dan tidak ada `FAILED.json`. COMPLETE/checksum saja tidak authorize wipe: SQL sumber harus lulus full schema/domain serta approved external baseline yang sama dengan drill. `rtk node scripts/wipe-branch-history.mjs --branch samarinda --backup-manifest <external-manifest.json> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run` adalah contoh **read-only**, bukan approval. Semua source/baseline/budget checks dilakukan sebelum target calls. Apply harus `--confirm <branch>` sama persis juga pada actual API, tidak hanya parser.
+- **Wipe atomic safety (AUD-045):** quiesce target dengan approval operator sebelum eksekusi. Satu file atomic memeriksa arsip/restore intent, ordered columns, count dan **seluruh fields rows branch terhadap backup**, lalu menghapus 15 tabel anak-dulu dan memeriksa hasil nol di batch yang sama. Perubahan field/count sejak backup ditolak, termasuk race setelah preflight; catalog/settings/profiles/audit dan sibling branch tidak dihapus. Backup maupun target yang mempunyai archive/restore intent memerlukan review deliberatif, bukan bypass. Limits implementasi: 90,000 byte per statement dan 1,000 statements; oversized row/operation = `WIPE_BUDGET_BLOCKED` untuk ADR/owner, bukan multi-call delete. Limits ini bukan approved production largest/memory budget. Laporan `after=0` adalah titik guarded commit, bukan jaminan tidak ada write baru sesudahnya. Lost response/interrupt memerlukan read-only target verification; stale retry dengan backup lama fail-closed, jangan menerbitkan baseline baru dari target ambigu. Stock reconciliation fisik, katalog verification dan smoke tetap wajib; tidak merekonstruksi stok dari histori yang dihapus. SQLite/workerd late middle/end failure/concurrent intent/sibling dan actual owned local CLI rollback lulus synthetic; remote/Ubuntu/hard interruption/operator acceptance tetap belum.
+- **AUD-042/046 parent masih terbuka:** baseline dan financial core lulus focused tests lokal, tetapi full semantic/caller/card review, source inventory real yang disetujui, same-candidate CI/reviewer belum disahkan. Parity saja tetap bukan completeness. PASS dengan approved inventory adalah bukti sesuai reference tersebut, bukan izin destructive recovery atau bukti RPO/RTO.
+- **Restore staging/atomic final lokal:** `rtk node scripts/restore-archive.mjs --file <archive.json> --dry-run` memvalidasi seluruh sumber dan semua SQL budgets, tanpa DB mutation. Apply memerlukan approved `--expect-sha256` serta approval target terpisah. Migrasi additive `0042_archive_restore_staging.sql` wajib tersedia pada target restore; belum diterapkan ke development persistent/production. Staging private/checkpoint terikat source digest; live ledger belum berubah. Final **15 statement dalam satu Wrangler file/atomic D1 batch**, bukan live commit tiap chunk. Local staging memakai satu workerd, remote staging masih file per phase; largest remote/Ubuntu/staging acceptance belum terbukti. CLI mempertahankan source, membersihkan hanya OS-temp SQL miliknya; commit ambigu di-retry dengan source/digest/target sama. Checkpoint OS `.done` lama bukan bukti commit.
+- **Archive byte cap/streaming lokal (AUD-039/040):** tiap snapshot ≤1,000,000 byte, termasuk satu header beserta semua details. Group yang tidak dapat diperkecil ditolak **413 sebelum seal/R2 put/delete**, lease dilepas dan source group utuh untuk review operator; jangan memangkas histori agar lolos. Ini bukan rollback whole archival run: parts sebelumnya dapat sudah completed sesuai kontrak segmented archive. HTTP download completed session-branch job meneruskan R2 stream; tidak memanggil `arrayBuffer()`/`text()` untuk buffering server. Initial missing/failed R2 read/body = 502; error/cancel setelah headers terjadi pada stream dan client harus retry, bukan melabeli sukses. SQLite/workerd handler dan browser failure/recovery lulus lokal; largest compiled-memory/real R2/operator masih perlu bukti.
+- **AUD-043 serta operational rollback belum closed:** SQLite/workerd/actual local CLI menguji incomplete staging, crash/resume, late conflict, late rollback, concurrent final dan retry; synthetic 22k/44k rows bukan persetujuan largest real target atau compiled Worker memory. Individual staged row/statement melebihi 90,000-byte SQL budget ditolak `RESTORE_BUDGET_BLOCKED`; jangan partial apply atau memperkecil acceptance fixture. Production recovery hanya setelah approval target, budget/legacy/platform/staging evidence dan artifact terverifikasi sesuai follow-up.
+
+**Audit/realtime checkout lokal (AUD-049):** intent audit disimpan bersama stock/cash/order/event commit di outbox existing0018; tidak diperlukan migrasi baru. Missing outbox schema menolak checkout503, bukan silent sale tanpa audit. Sink gagal setelah commit tidak membatalkan sale; intent menunggu scheduled drain, jangan retry dengan key baru/backfill legacy intent tebakan. Execution context menahan lifecycle publish tanpa menahan respons; fallback signal-aware bounded. New caller tidak memakai post-commit `appendAuditLog` sebagai satu-satunya durability. SQLite/workerd/imported-handler failure/replay/concurrency/drain/cancel tests lokal tidak mengesahkan compiled Worker/staging/Node24/Ubuntu atau throughput/poison/retention AUD-051. Outbox dapat menunggu cron; pantau backlog sesuai approval operator, jangan hapus pending intent agar health terlihat hijau.
 
 ## 5. Deploy aplikasi (workflow Deploy, bukan dari laptop)
 
@@ -227,13 +293,19 @@ Mengosongkan data transaksi uji agar operasional mulai dari nol. Destruktif:
 rollback satu-satunya adalah restore dari backup langkah 1.
 
 ```powershell
-pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
-pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
-pnpm d1:wipe-history -- --branch <samarinda|balikpapan|berau> --backup-manifest <output-dir>\<run-id>\manifest.sha256.json
-pnpm d1:wipe-history -- --branch <cabang> --backup-manifest <manifest> --apply --confirm <cabang>
+rtk pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
+rtk pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
+rtk pnpm d1:wipe-history --branch <samarinda|balikpapan|berau> --backup-manifest <output-dir>\<run-id>\manifest.sha256.json --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run
+# Hanya setelah approval destructive target dan maintenance window terpisah:
+rtk pnpm d1:wipe-history --branch <cabang> --backup-manifest <manifest> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --apply --confirm <cabang>
 ```
 
-Syarat lulus per cabang: tiap tabel `before -> 0`, tanpa error; script berhenti
+Expected inventory harus independen/approved sesuai §4, bukan diturunkan dari
+candidate export. Default LOCAL; operasi remote menambahkan `--live` hanya
+setelah approval spesifik. Rehearsal memakai `--local --persist-to <owned-root>`.
+Contoh flags wipe tidak memakai separator `--` tambahan sebelum `--branch`.
+
+Syarat lulus per cabang: tiap tabel `before -> 0` pada titik commit, tanpa error; script berhenti
 total bila arsip berisi atau verifikasi nol gagal. Setelah wipe: hitung fisik
 stok + rekonsiliasi finalisasi per cabang (level stok tak bisa direkonstruksi
 dari mutasi yang dihapus), verifikasi katalog/pengaturan utuh, smoke checkout

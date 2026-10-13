@@ -107,6 +107,9 @@ jobs:
       - name: Run Hardening Suite
         run: pnpm test:hardening
 
+      - name: Run CSRF Contract Suite
+        run: pnpm test:csrf-contract
+
       - name: Run Stores Suite
         run: pnpm test:stores
 
@@ -200,6 +203,12 @@ jobs:
       - name: Run Retention Workerd Suite
         run: pnpm exec tsx src/tests/retention-tests.ts --d1
 
+      - name: Run Scheduled Worker Contracts
+        run: pnpm test:scheduled-worker
+
+      - name: Run Platform Emulation Single-Flight Contracts
+        run: pnpm test:platform-emulation
+
       - name: Run Stock Policy Suites
         run: |
           pnpm test:stock-policy
@@ -234,6 +243,15 @@ jobs:
 
       - name: Run Ledger Validation Suite
         run: pnpm test:ledger-validation
+
+      - name: Run Ledger Validation Workerd Suite
+        run: pnpm test:ledger-validation --d1
+
+      - name: Run Manual Ledger Revision CAS Suite
+        run: pnpm test:ledger-cas
+
+      - name: Run Manual Ledger Revision CAS on D1
+        run: pnpm test:ledger-cas --d1
 
       - name: Run Purchase Command Suite
         run: pnpm test:purchase-command
@@ -291,6 +309,12 @@ jobs:
 
       - name: Run Archive Download Suite
         run: pnpm test:archive-download
+
+      - name: Run Archive Bounded Read Workerd Suite
+        run: pnpm exec tsx src/tests/archive-chunk-tests.ts --d1
+
+      - name: Run Archive Finalization Workerd Suite
+        run: pnpm exec tsx src/tests/archive-guard-tests.ts --d1
 
       - name: Run Archive Download Workerd Suite
         run: pnpm exec tsx src/tests/archive-download-tests.ts --d1
@@ -417,6 +441,54 @@ jobs:
 
       - name: Build Application Bundle
         run: pnpm build
+
+      - name: Compiled Realtime Smoke (owned local workerd)
+        run: |
+          set -o pipefail
+          pnpm test:realtime-compiled 2>&1 | tee realtime-compiled.log
+
+      - name: Upload Compiled Realtime Evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: realtime-compiled-${{ github.sha }}
+          path: realtime-compiled.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Compiled Scheduled Audit Smoke (owned local workerd)
+        run: |
+          set -o pipefail
+          pnpm test:scheduled-compiled 2>&1 | tee scheduled-compiled.log
+
+      - name: Upload Scheduled Audit Evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: scheduled-compiled-${{ github.sha }}
+          path: scheduled-compiled.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Install Chromium for Compiled Ledger Callers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Compiled Ledger Browser Callers (owned Pages assets/workerd)
+        run: |
+          set -o pipefail
+          pnpm test:ledger-browser-compiled 2>&1 | tee ledger-browser-compiled.log
+
+      - name: Upload Compiled Ledger Browser Evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ledger-browser-compiled-${{ github.sha }}
+          path: |
+            ledger-browser-compiled.log
+            test-results/compiled-*/
+            playwright-report/compiled-*/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Record Release Manifest
         env:

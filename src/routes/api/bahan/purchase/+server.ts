@@ -19,11 +19,15 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = await parseBody<{ payload?: PurchaseInput }>(request);
+	const body = await parseBody<{ branch?: unknown; payload?: PurchaseInput }>(request);
 	if (!body?.payload || typeof body.payload !== 'object' || Array.isArray(body.payload)) {
 		throw kitError(400, 'Payload tidak valid');
 	}
 
+	// Preserve purchase session scope, termasuk admin; captured body bukan izin tenant baru.
+	if (requireSessionBranch(locals, body.branch) !== branch) {
+		throw kitError(403, 'Branch tidak sesuai session');
+	}
 	try {
 		const result = await executePurchaseForBranch(platform, branch, session, body.payload);
 		return json(result);

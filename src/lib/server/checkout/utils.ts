@@ -1,4 +1,8 @@
 import { error as kitError } from '@sveltejs/kit';
+import { roundMoney } from '$lib/utils/currency';
+
+// Pertahankan import existing checkout; policy angka murni kanonik berada di currency.
+export { normalizeMoney, normalizeCost, roundMoney } from '$lib/utils/currency';
 
 export const IN_QUERY_CHUNK_SIZE = 80;
 export const CHECKOUT_WINDOW_MS = 60 * 1000;
@@ -11,22 +15,6 @@ export function checkoutItemCountError(items: unknown): string | null {
 		return `Maksimal ${CHECKOUT_MAX_LINE_ITEMS} jenis item dalam satu transaksi`;
 	}
 	return null;
-}
-
-export function normalizeMoney(value: unknown): number {
-	const amount = Number(value);
-	if (!Number.isFinite(amount) || amount < 0) return 0;
-	return Math.round(amount);
-}
-
-export function normalizeCost(value: unknown): number {
-	const amount = Number(value);
-	if (!Number.isFinite(amount) || amount < 0) return 0;
-	return Math.round(amount * 10000) / 10000;
-}
-
-export function roundMoney(value: number): number {
-	return Math.round(value * 100) / 100;
 }
 
 export function normalizePaymentMethod(value: unknown): 'tunai' | 'non-tunai' {

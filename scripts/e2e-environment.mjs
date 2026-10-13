@@ -3,6 +3,38 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+/** Full gate shares the CI inventory, but never shares its auth limiter state across cohorts. */
+export function resolveE2eSelections(argv, options = {}) {
+	if (argv.length) return [{ name: 'selected', args: [...argv] }];
+	const scripts = options.scripts || JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+	const specFiles =
+		options.specFiles ||
+		readdirSync('e2e', { recursive: true })
+			.filter((file) => /\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file))
+			.map((file) => `e2e/${file.replaceAll('\\', '/')}`);
+	const prefix = 'node scripts/run-playwright-local.mjs ';
+	const selections = ['a', 'b', 'c'].map((cohort) => {
+		const command = scripts[`test:e2e:ci-${cohort}`];
+		if (typeof command !== 'string' || !command.startsWith(prefix)) {
+			throw new Error(`E2E coverage: canonical CI cohort ${cohort} missing/invalid`);
+		}
+		const args = command.slice(prefix.length).trim().split(/\s+/);
+		if (args.some((file) => !specFiles.includes(file))) {
+			throw new Error(`E2E coverage: unknown/nonliteral spec in cohort ${cohort}`);
+		}
+		return { name: `ci-${cohort}`, args };
+	});
+	const selected = selections.flatMap(({ args }) => args);
+	if (
+		new Set(selected).size !== selected.length ||
+		selected.length !== specFiles.length ||
+		specFiles.some((file) => !selected.includes(file))
+	) {
+		throw new Error('E2E coverage: missing/duplicate spec; full gate refused before startup');
+	}
+	return selections;
+}
+
 /** Each run owns its directory. No rename, backup, or deletion of dev state. */
 export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_TMPDIR || tmpdir()) {
 	const directory = mkdtempSync(join(baseDirectory, 'zatiaras-e2e-'));

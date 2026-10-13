@@ -1,158 +1,112 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'vite';
+import ts from 'typescript';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const workerPath = resolve(root, '.svelte-kit/cloudflare/_worker.js');
-export const interceptMarker = '// ZATIARAS_REALTIME_WORKER_INTERCEPT';
-const interceptCode = `${interceptMarker}
-const ZATIARAS_REALTIME_BRANCHES = new Set([
-  'samarinda',
-  'samarinda2',
-  'balikpapan',
-  'balikpapan2',
-  'berau'
-]);
+const output = resolve(root, '.svelte-kit/cloudflare');
+export const interceptMarker = '// ZATIARAS_REALTIME_MODULE_WRAPPER_V2';
+const adapterFile = '_worker.sveltekit.js';
+const authFile = '_worker.auth.js';
 
-function zatiarasRealtimeJson(body, status) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' }
-  });
-}
-
-function zatiarasRealtimeBranch(req) {
-  const url = new URL(req.url);
-  const branch = (url.searchParams.get('branch') || '').trim().toLowerCase();
-  return ZATIARAS_REALTIME_BRANCHES.has(branch) ? branch : null;
-}
-
-function zatiarasCookie(req, name) {
-  const cookie = req.headers.get('cookie') || '';
-  const target = name + '=';
-  for (const part of cookie.split(';')) {
-    const value = part.trim();
-    if (value.startsWith(target)) return decodeURIComponent(value.slice(target.length));
+// No dependency on generated variable names or SvelteKit's internal fetch formatting.
+export function renderRealtimeWorker() {
+	return `${interceptMarker}
+import adapter from './${adapterFile}';
+import { handleRealtimeRequest } from './${authFile}';
+export * from './${adapterFile}';
+export default {
+  ...adapter,
+  async fetch(request, env, context) {
+    const response = await handleRealtimeRequest(request, env);
+    if (response) return response;
+    return adapter.fetch(request, env, context);
   }
-  return '';
-}
-
-function zatiarasSessionBranch(sessionId) {
-  const separator = sessionId.indexOf('.');
-  if (separator <= 0) return null;
-  const branch = sessionId.slice(0, separator);
-  return ZATIARAS_REALTIME_BRANCHES.has(branch) ? branch : null;
-}
-
-function zatiarasDbForBranch(env, branch) {
-  if (branch === 'samarinda' || branch === 'samarinda2') return env.DB_SAMARINDA_GROUP || env.DB;
-  if (branch === 'balikpapan' || branch === 'balikpapan2') return env.DB_BALIKPAPAN_GROUP || env.DB;
-  if (branch === 'berau') return env.DB_BERAU_GROUP || env.DB;
-  return null;
-}
-
-async function zatiarasHasRealtimeSession(req, env, branch) {
-  const sessionId = zatiarasCookie(req, 'zatiaras_sid');
-  if (!sessionId || zatiarasSessionBranch(sessionId) !== branch) return false;
-
-  const db = zatiarasDbForBranch(env, branch);
-  if (!db) throw new Error('Database binding tidak tersedia');
-
-  const row = await db
-    .prepare(
-      'SELECT id FROM auth_sessions WHERE id = ? AND cabang_id = ? AND expires_at > ? LIMIT 1'
-    )
-    .bind(sessionId, branch, Date.now())
-    .first();
-  return Boolean(row);
-}
-
-async function zatiarasHandleRealtime(req, env) {
-  const url = new URL(req.url);
-  if (url.pathname !== '/api/realtime') return null;
-  if (req.method !== 'GET') {
-    return zatiarasRealtimeJson({ error: 'Method not allowed' }, 405);
-  }
-
-  const branch = zatiarasRealtimeBranch(req);
-  if (!branch) {
-    return zatiarasRealtimeJson({ error: 'Branch tidak valid' }, 400);
-  }
-
-  try {
-    const hasSession = await zatiarasHasRealtimeSession(req, env, branch);
-    if (!hasSession) return zatiarasRealtimeJson({ error: 'Login diperlukan' }, 401);
-  } catch (error) {
-    return zatiarasRealtimeJson({ error: error.message || 'Session realtime gagal' }, 503);
-  }
-
-  const hub = env.REALTIME_HUB;
-  if (!hub) {
-    return zatiarasRealtimeJson({ error: 'Realtime Durable Object binding tidak tersedia' }, 503);
-  }
-
-  const targetUrl = new URL(req.url);
-  targetUrl.pathname = '/connect';
-  targetUrl.search = '';
-  const id = hub.idFromName(branch);
-  return hub.get(id).fetch(new Request(targetUrl, req));
-}
+};
 `;
-
-async function main() {
-	let worker = await readFile(workerPath, 'utf8');
-	worker = patchWorkerText(worker);
-	await writeFile(workerPath, worker);
-	// Verifikasi pasca-tulis pada artifact sebenarnya (AUD-050): patch
-	// tepat sekali, hookup ada — bukan klaim dari log sukses semata.
-	verifyPatchedWorker(await readFile(workerPath, 'utf8'));
-	console.log('[durable-object-export] realtime intercept terverifikasi pada artifact');
 }
 
-/** Patch teks worker murni (diuji tanpa build): tepat-sekali + fail-closed. */
-export function patchWorkerText(worker) {
-	if (!worker.includes(interceptMarker)) {
-		const insertionPoint = 'var worker_default = {';
-		if (!worker.includes(insertionPoint)) {
-			throw new Error(`Could not find worker insertion point: ${insertionPoint}`);
-		}
-		worker = worker.replace(insertionPoint, `${interceptCode}\n${insertionPoint}`);
-	}
-
-	if (!worker.includes('const realtimeResponse = await zatiarasHandleRealtime(req, env2);')) {
-		const fetchInsertionPoint =
-			'await initialized;\n    let pragma = req.headers.get("cache-control") || "";';
-		if (!worker.includes(fetchInsertionPoint)) {
-			throw new Error(`Could not find realtime fetch insertion point`);
-		}
-		worker = worker.replace(
-			fetchInsertionPoint,
-			`await initialized;
-    const realtimeResponse = await zatiarasHandleRealtime(req, env2);
-    if (realtimeResponse) return realtimeResponse;
-    let pragma = req.headers.get("cache-control") || "";`
-		);
-	}
-	return worker;
-}
-
-/** Assert artifact ter-patch tepat sekali dengan hookup lengkap. */
 export function verifyPatchedWorker(worker) {
-	const markers = worker.split(interceptMarker).length - 1;
-	if (markers !== 1) throw new Error(`Intecept realtime muncul ${markers}x (harus 1)`);
-	if (!worker.includes('const realtimeResponse = await zatiarasHandleRealtime(req, env2);')) {
-		throw new Error('Hookup realtime hilang pada artifact');
-	}
-	if (!worker.includes('if (realtimeResponse) return realtimeResponse;')) {
-		throw new Error('Return realtime hilang pada artifact');
-	}
+	if (worker !== renderRealtimeWorker())
+		throw new Error('Realtime module wrapper contract mismatch');
 	return true;
 }
 
-const isCli =
-	process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
-if (isCli) {
+export function validateAdapterModule(worker) {
+	const ast = ts.createSourceFile(
+		'adapter.js',
+		worker,
+		ts.ScriptTarget.ESNext,
+		true,
+		ts.ScriptKind.JS
+	);
+	if (
+		ast.parseDiagnostics.length ||
+		!ast.statements.some(
+			(statement) =>
+				(ts.isExportAssignment(statement) && !statement.isExportEquals) ||
+				(ts.isExportDeclaration(statement) &&
+					statement.exportClause &&
+					ts.isNamedExports(statement.exportClause) &&
+					statement.exportClause.elements.some((element) => element.name.text === 'default')) ||
+				((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
+					statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword))
+		)
+	)
+		throw new Error('SvelteKit adapter must be valid ESM with a default export');
+	return true;
+}
+
+export async function compileRealtimeEntry() {
+	const built = await build({
+		root,
+		configFile: false,
+		publicDir: false,
+		logLevel: 'error',
+		resolve: { alias: { $lib: resolve(root, 'src/lib') } },
+		ssr: { noExternal: true },
+		build: {
+			ssr: resolve(root, 'src/lib/server/realtimeRequestHandler.ts'),
+			write: false,
+			minify: false,
+			rolldownOptions: { output: { codeSplitting: false } }
+		}
+	});
+	const bundles = Array.isArray(built) ? built : [built];
+	const chunks = bundles.flatMap((bundle) => ('output' in bundle ? bundle.output : []));
+	if (chunks.length !== 1 || chunks[0].type !== 'chunk') {
+		throw new Error('Canonical realtime entry must compile into one self-contained module');
+	}
+	return chunks[0].code;
+}
+
+export async function main(directory = output) {
+	const workerPath = resolve(directory, '_worker.js');
+	const worker = await readFile(workerPath, 'utf8');
+	let adapter = worker;
+	if (worker.includes(interceptMarker)) {
+		verifyPatchedWorker(worker);
+		adapter = await readFile(resolve(directory, adapterFile), 'utf8');
+	}
+	if (adapter.includes('ZATIARAS_REALTIME_WORKER_INTERCEPT')) {
+		throw new Error(
+			'Legacy session-only intercept refused; rebuild the untouched SvelteKit adapter first'
+		);
+	}
+	validateAdapterModule(adapter);
+	// Compilation failure leaves the existing entry untouched; build failures cannot authorize release.
+	const canonical = await compileRealtimeEntry();
+	await writeFile(resolve(directory, adapterFile), adapter);
+	await writeFile(resolve(directory, authFile), canonical);
+	await writeFile(workerPath, renderRealtimeWorker());
+	verifyPatchedWorker(await readFile(workerPath, 'utf8'));
+	console.log('[durable-object-export] canonical realtime module wrapper verified');
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
 	main().catch((error) => {
 		console.error('[durable-object-export] failed:', error);
-		process.exit(1);
+		process.exitCode = 1;
 	});
 }

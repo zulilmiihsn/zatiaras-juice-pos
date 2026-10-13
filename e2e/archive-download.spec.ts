@@ -65,18 +65,17 @@ async function closeOpenSession(page: Page) {
 	if (!list.ok()) return;
 	const body = (await list.json()) as unknown;
 	console.log(`PROBE sesi-list body=${JSON.stringify(body).slice(0, 200)}`);
-	const rows = body as Array<{ id?: string }>;
-	const active = Array.isArray(rows)
-		? rows[0]
-		: (rows as unknown as { data?: Array<{ id?: string }> })?.data?.[0];
+	type SessionRow = { id?: string; is_active?: boolean | number };
+	const rows = (
+		Array.isArray(body) ? body : ((body as { data?: SessionRow[] })?.data ?? [])
+	) as SessionRow[];
+	const active = rows.find((row) => row.is_active === true || row.is_active === 1);
 	if (!active?.id) return;
 	const patched = await csrfMutate(page, 'PATCH', '/api/sesi-toko', {
 		payload: { waktu_tutup: new Date().toISOString(), is_active: false },
 		where: { id: active.id }
 	});
-	console.log(
-		`PROBE sesi-patch status=${patched.status()} body=${(await patched.text()).slice(0, 200)}`
-	);
+	expect(patched.ok(), 'Close only the actual active fixture session').toBe(true);
 }
 
 // Tanam baris lama langsung via API agar eligible arsip.
@@ -108,7 +107,16 @@ test('archive retry download returns identical bytes', async ({ page }) => {
 	await seedOldRow(page, 'dl-seed-1', 12000);
 	await openArchiveConfirm(page);
 	const auto = page.waitForEvent('download', { timeout: 120000 });
+	const committed = page.waitForResponse(
+		(response) => response.url().endsWith('/api/archive') && response.request().method() === 'POST'
+	);
+	const nativeDownload = page.waitForResponse((response) =>
+		response.url().includes('/api/archive/download?')
+	);
 	await page.getByRole('button', { name: 'Ya, Lanjutkan' }).click();
+	const metadata = (await (await committed).json()) as Record<string, unknown>;
+	expect(Object.hasOwn(metadata, 'content')).toBe(false);
+	expect((await nativeDownload).status()).toBe(200);
 	await expect(page.getByText(/baris.*berhasil diarsipkan/).first()).toBeVisible({
 		timeout: 120000
 	});
@@ -150,12 +158,78 @@ test('failed download is labeled failed, not downloaded', async ({ page }) => {
 	await closeOpenSession(page);
 	await seedOldRow(page, 'dl-seed-3', 14000);
 	await openArchiveConfirm(page);
+	let initialDownloadAttempts = 0;
+	await page.route('**/api/archive/download?*', (route) => {
+		initialDownloadAttempts++;
+		return route.abort();
+	});
 	await page.getByRole('button', { name: 'Ya, Lanjutkan' }).click();
 	await expect(page.getByText(/baris.*berhasil diarsipkan/).first()).toBeVisible({
 		timeout: 120000
 	});
-	await page.route('**/api/archive/download?*', (route) => route.abort());
-	await page.getByRole('button', { name: /Unduh/ }).first().click();
 	await expect(page.getByText(/Unduhan arsip gagal/).first()).toBeVisible({ timeout: 30000 });
+	expect(initialDownloadAttempts).toBe(1);
+	await expect(page.getByText(/baris.*berhasil diarsipkan/).first()).not.toContainText('diunduh');
+	await page.getByRole('button', { name: /Unduh/ }).first().click();
+	await expect.poll(() => initialDownloadAttempts).toBe(2);
 	await expect(page.getByText('Unduhan selesai.')).toHaveCount(0);
+	await page.unroute('**/api/archive/download?*');
+	// HTTP 200 is not completion: the actual UI consumer must fail when the streamed body fails.
+	await page.evaluate(() => {
+		const original = window.fetch;
+		let failOnce = true;
+		window.fetch = async (input, init) => {
+			const url = input instanceof Request ? input.url : String(input);
+			if (failOnce && url.includes('/api/archive/download?')) {
+				failOnce = false;
+				// Disabled is set before awaited CSRF/headers; hold this response to expose that race.
+				await new Promise<void>((resolve) => {
+					window.addEventListener('zatiaras-test-r2-headers-release', () => resolve(), {
+						once: true
+					});
+					document.documentElement.dataset.archiveTailPhase = 'headers-held';
+				});
+				return new Response(
+					new ReadableStream<Uint8Array>({
+						start(controller) {
+							controller.enqueue(new TextEncoder().encode('{"partial":'));
+							window.addEventListener(
+								'zatiaras-test-r2-tail-failure',
+								() => {
+									document.documentElement.dataset.archiveTailPhase = 'errored';
+									controller.error(new Error('Synthetic R2 stream failure'));
+								},
+								{ once: true }
+							);
+							document.documentElement.dataset.archiveTailPhase = 'stream-ready';
+						}
+					}),
+					{ status: 200, headers: { 'Content-Type': 'application/json' } }
+				);
+			}
+			return original.call(window, input, init);
+		};
+	});
+	await page.getByRole('button', { name: /Unduh/ }).first().click();
+	await expect(page.getByRole('button', { name: 'Mengunduh…' })).toBeDisabled();
+	await expect
+		.poll(() => page.evaluate(() => document.documentElement.dataset.archiveTailPhase), {
+			timeout: 10000
+		})
+		.toBe('headers-held');
+	await expect(page.getByText('Unduhan selesai.')).toHaveCount(0);
+	await page.evaluate(() => window.dispatchEvent(new Event('zatiaras-test-r2-headers-release')));
+	await expect
+		.poll(() => page.evaluate(() => document.documentElement.dataset.archiveTailPhase), {
+			timeout: 10000
+		})
+		.toBe('stream-ready');
+	await page.evaluate(() => window.dispatchEvent(new Event('zatiaras-test-r2-tail-failure')));
+	await expect(page.getByText(/Unduhan arsip gagal/).first()).toBeVisible();
+	await expect(page.getByText('Unduhan selesai.')).toHaveCount(0);
+	const recovered = page.waitForEvent('download', { timeout: 60000 });
+	await page.getByRole('button', { name: /Unduh/ }).first().click();
+	const recoveredBytes = await readDownload(await recovered);
+	expect(JSON.parse(recoveredBytes).meta.branch).toBe('samarinda');
+	await expect(page.getByText('Unduhan selesai.')).toBeVisible();
 });

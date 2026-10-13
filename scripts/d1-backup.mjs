@@ -244,7 +244,8 @@ export function createRtkRunner({ spawn = spawnSync } = {}) {
 		// Machine-readable identity must not pass through pnpm lifecycle logs or RTK filters.
 		const result = spawn('rtk', ['proxy', process.execPath, WRANGLER_CLI, ...args.slice(3)], {
 			cwd,
-			env,
+			// SDK debug files otherwise retain the presigned full-database export URL.
+			env: { ...env, WRANGLER_WRITE_LOGS: 'false' },
 			shell: false,
 			encoding: 'utf8',
 			stdio: ['ignore', 'pipe', 'pipe'],
@@ -363,7 +364,13 @@ function exactManifestEntries(manifest) {
 
 export async function verifyManifest(
 	manifestPath,
-	{ repoRoot = REPO_ROOT, workspaceRoot = WORKSPACE_ROOT, configText, fs = {} } = {}
+	{
+		repoRoot = REPO_ROOT,
+		workspaceRoot = WORKSPACE_ROOT,
+		configText,
+		fs = {},
+		requireComplete = false
+	} = {}
 ) {
 	const canonicalManifest = await canonicalizeExternalPath(manifestPath, {
 		repoRoot,
@@ -372,6 +379,22 @@ export async function verifyManifest(
 		fs
 	});
 	const pathReadFile = fs.readFile ?? readFile;
+	const pathLstat = fs.lstat ?? lstat;
+	if (requireComplete) {
+		const complete = await pathLstat(join(dirname(canonicalManifest), 'COMPLETE')).catch(
+			() => null
+		);
+		if (!complete?.isFile() || complete.isSymbolicLink())
+			throw new Error('COMPLETE wajib file reguler sebelum recovery');
+		const failed = await pathLstat(join(dirname(canonicalManifest), 'FAILED.json')).catch(
+			(error) => {
+				if (error.code !== 'ENOENT') throw error;
+				return null;
+			}
+		);
+		if (failed)
+			throw new Error('Backup FAILED tidak boleh authorize recovery meskipun COMPLETE ada');
+	}
 	const manifest = JSON.parse(await pathReadFile(canonicalManifest, 'utf8'));
 	const shards = exactManifestEntries(manifest);
 	const configured = validateD1Config(
@@ -396,13 +419,24 @@ export async function verifyManifest(
 		) {
 			throw new Error(`Entry manifest tidak valid: ${entry.binding}`);
 		}
-		const sqlPath = join(dirname(canonicalManifest), entry.file);
+		const originalPath = join(dirname(canonicalManifest), entry.file);
+		const sqlPath = await canonicalizeExternalPath(originalPath, {
+			repoRoot,
+			workspaceRoot,
+			mustExist: true,
+			fs
+		});
+		if (
+			normalizeForCompare(dirname(sqlPath)) !== normalizeForCompare(dirname(canonicalManifest)) ||
+			(await pathLstat(originalPath)).isSymbolicLink()
+		)
+			throw new Error('File shard wajib reguler di root backup yang sama, tanpa symlink escape');
 		const verified = await verifySqlFile(sqlPath, fs);
 		if (verified.bytes !== entry.bytes || verified.sha256 !== entry.sha256) {
 			throw new Error(`Hash/readback shard tidak cocok: ${entry.binding}`);
 		}
 	}
-	return { manifestPath: canonicalManifest, shardCount: 3, verified: true };
+	return { manifestPath: canonicalManifest, manifest, shardCount: 3, verified: true };
 }
 
 export async function runBackup({

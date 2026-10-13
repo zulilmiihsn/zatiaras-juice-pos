@@ -1,6 +1,25 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { ownerUsernameForTest } from './helpers';
+import { csrfMutate, csrfPost, ownerUsernameForTest } from './helpers';
+
+const BEFORE_WITA_MIDNIGHT = '2026-07-01T15:59:50.000Z';
+const AFTER_WITA_MIDNIGHT = '2026-07-01T16:00:05.000Z';
+
+function isRecentCatatUrl(rawUrl: string): boolean {
+	const url = new URL(rawUrl);
+	return (
+		url.pathname === '/api/buku-kas' &&
+		url.searchParams.get('sumber') === 'catat' &&
+		url.searchParams.get('direction') === 'desc' &&
+		url.searchParams.get('limit') === '5'
+	);
+}
+
+function assertDayBounds(rawUrl: string, start: string, end: string) {
+	const params = new URL(rawUrl).searchParams;
+	expect(params.get('start')).toBe(start);
+	expect(params.get('end')).toBe(end);
+}
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -26,8 +45,7 @@ async function loginAsOwner(page: Page, title: string) {
 			response.url().endsWith('/api/veriflogin') && response.request().method() === 'POST'
 	);
 	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
-	const response = await loginResponse;
-	expect(response.ok()).toBe(true);
+	expect((await loginResponse).ok()).toBe(true);
 	await expect(page).toHaveURL(/\/$/);
 }
 
@@ -35,138 +53,158 @@ async function dismissWarningModal(page: Page): Promise<void> {
 	const modal = page.getByText('Tidak ada sesi toko aktif');
 	if ((await modal.count()) > 0) {
 		await page.keyboard.press('Escape');
-		await expect(modal)
-			.toBeHidden({ timeout: 5000 })
-			.catch(() => undefined);
+		await expect(modal).toBeHidden({ timeout: 5000 });
 	}
 }
 
 async function submitCatat(page: Page, nominal: string, nama: string): Promise<void> {
 	await page.locator('#nominal-input').fill(nominal);
 	await page.locator('#nama-input').fill(nama);
-	const submit = page.getByRole('button', { name: /Simpan Transaksi/ }).first();
-	await submit.click();
-	// Kompilasi dingin dev bisa lambat pada simpan pertama.
+	await page
+		.getByRole('button', { name: /Simpan Transaksi/ })
+		.first()
+		.click();
 	const snackbar = page.getByText('Transaksi berhasil dicatat!');
 	await expect(snackbar).toBeVisible({ timeout: 45000 });
 	await dismissWarningModal(page);
-	// Serialkan: snackbar hilang = simpan selesai + isSubmitting false.
-	// Tanpa ini klik berikut diam-diam diabaikan + snackbar basi lolos asersi.
+	// A stale success snackbar must not make an ignored second click appear successful.
 	await expect(snackbar).toBeHidden({ timeout: 10000 });
 }
 
-async function submitCatatAt(
-	page: Page,
-	timeHm: string,
-	nominal: string,
-	nama: string
-): Promise<void> {
-	await page.locator('#waktu-input').fill(timeHm);
-	await submitCatat(page, nominal, nama);
-}
+type LedgerRow = {
+	id: string;
+	sumber: string;
+	cabang_id: string;
+	nominal: number;
+	deskripsi: string;
+	waktu: string;
+};
 
-// AUD-027: enam baris hari ini (menit beda) + satu kemarin = lima terbaru hari ini.
+// The clock freezes Date only, not timers or the server's login/CSRF/expiry guards.
 test('recent card shows five newest rows of today only', async ({ page }) => {
+	await page.clock.setFixedTime(new Date(BEFORE_WITA_MIDNIGHT));
 	await loginAsOwner(page, test.info().title);
-	// Server DB dipakai bersama seluruh spec dalam satu run (mis. baris AI
-	// dari ai-category/ai-mutation juga "hari ini" dan menggeser 5-terbaru).
-	// Bersihkan ledger dulu agar himpunan terkontrol; DB fresh per run dan
-	// follower (dashboard label, hpp, kulakan, laporan-tax, pos+cleanup,
-	// stock, tax) tak bergantung pada baris ini.
-	// Server dev terisolasi kadang mereset koneksi antar-tes (ECONNRESET transien):
-	// coba ulang terbatas dengan jeda, gagal keras bila persisten.
-	async function apiJson<T>(method: 'get' | 'delete', url: string): Promise<T> {
-		let lastError: unknown = null;
-		for (let attempt = 0; attempt < 3; attempt++) {
-			try {
-				const res =
-					method === 'get'
-						? await page.request.get(url)
-						: await page.request.delete(url, { headers });
-				// HTTP error = jawaban pasti server (tanpa retry buta); hanya
-				// galat transport (ECONNRESET transien) yang dicoba ulang.
-				if (!res.ok()) throw new Error(`HTTP ${res.status()} untuk ${method} ${url}`);
-				return (await res.json()) as T;
-			} catch (error) {
-				if (error instanceof Error && error.message.startsWith('HTTP ')) throw error;
-				lastError = error;
-				await page.waitForTimeout(2000);
+	const cleanupId = 'owned-catat-cleanup-csrf';
+	const seed = await csrfPost(page, '/api/buku-kas', {
+		payload: {
+			id: cleanupId,
+			sumber: 'catat',
+			tipe: 'in',
+			jenis: 'pendapatan_usaha',
+			nominal: 1,
+			metode_bayar: 'tunai',
+			deskripsi: 'Owned cleanup fixture',
+			waktu: '2026-07-01T15:00:00.000Z'
+		}
+	});
+	expect(seed.ok()).toBe(true);
+	let rejectedCleanup = 0;
+	let cleanupAttempts = 0;
+	const realFetch = page.request.fetch.bind(page.request);
+	// APIRequestContext bypasses page.route: exercise a real rejection at the HTTP CSRF boundary.
+	page.request.fetch = async (url, options) => {
+		if (
+			typeof url === 'string' &&
+			options?.method === 'DELETE' &&
+			new URL(url, page.url()).searchParams.get('id') === cleanupId
+		) {
+			cleanupAttempts++;
+			if (rejectedCleanup === 0) {
+				rejectedCleanup++;
+				const response = await realFetch(url, {
+					...options,
+					headers: { ...options.headers, 'X-CSRF-Token': 'owned-invalid-token' }
+				});
+				expect(response.status()).toBe(403);
+				expect(((await response.json()) as { code?: string }).code).toBe('CSRF_INVALID');
+				return response;
 			}
 		}
-		throw lastError;
-	}
-	const csrf = (await apiJson<{ token?: string }>('get', '/api/csrf')) as { token?: string };
-	const headers = csrf.token ? { 'X-CSRF-Token': csrf.token } : {};
-	const existing = (await apiJson<Array<{ id?: string }>>(
-		'get',
-		'/api/buku-kas?limit=500'
-	)) as Array<{
-		id?: string;
-	}>;
-	console.log(`PROBE catat-cleanup rows=${existing.length}`);
-	for (const row of existing) {
-		if (!row.id) continue;
-		// Token CSRF sekali pakai: ambil baru tiap hapus (pola csrfPost).
-		const fresh = (await apiJson<{ token?: string }>('get', '/api/csrf')) as {
-			token?: string;
-		};
-		const del = await page.request.delete(`/api/buku-kas?id=${encodeURIComponent(row.id)}`, {
-			headers: fresh.token ? { 'X-CSRF-Token': fresh.token } : {}
-		});
-		console.log(`PROBE delete ${row.id} status=${del.status()}`);
-		if (!del.ok()) throw new Error(`Cleanup hapus gagal: HTTP ${del.status()}`);
+		return realFetch(url, options);
+	};
+	try {
+		// Only synthetic manual ledger rows in this run-owned D1; never delete POS history for setup.
+		const existingResponse = await page.request.get('/api/buku-kas?sumber=catat&limit=500');
+		expect(existingResponse.ok()).toBe(true);
+		const existing = (await existingResponse.json()) as LedgerRow[];
+		expect(Array.isArray(existing)).toBe(true);
+		for (const row of existing) {
+			expect(row.sumber).toBe('catat');
+			const response = await csrfMutate(
+				page,
+				'DELETE',
+				`/api/buku-kas?id=${encodeURIComponent(row.id)}`,
+				undefined
+			);
+			expect(response.ok()).toBe(true);
+		}
+		expect(rejectedCleanup).toBe(1);
+		expect(cleanupAttempts).toBe(2);
+		const removed = await page.request.get(`/api/buku-kas?id=${cleanupId}`);
+		expect(removed.ok()).toBe(true);
+		expect(await removed.json()).toEqual([]);
+	} finally {
+		page.request.fetch = realFetch;
 	}
 	await page.goto('/catat');
 	await expect(page.locator('#catat-form')).toBeVisible({ timeout: 30000 });
-	// Tunggu init klien (default tanggal terisi = hidrasi + state jalan).
-	await expect
-		.poll(() => page.locator('#tanggal-input').inputValue(), { timeout: 30000 })
-		.not.toBe('');
-
-	// Menit eksplisit berbeda agar urutan terbaru deterministik
-	// (tie-break id UUID tak mencerminkan resensi dalam semenit).
-	// Selalu dari jam WITA, bukan zona perangkat/Node.
-	const witaNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
-	const nowMin = witaNow.getHours() * 60 + witaNow.getMinutes();
-	const minutes = nowMin >= 40 ? [30, 24, 18, 12, 6, 1].map((d) => nowMin - d) : [1, 2, 3, 4, 5, 6];
-	const hm = (m: number) =>
-		`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-	const nominals = [1000, 2000, 3000, 4000, 5000, 6000];
-	for (let i = 0; i < 6; i++) {
-		await submitCatatAt(page, hm(minutes[i]), String(nominals[i]), `Uji Baru ${nominals[i]}`);
+	await expect(page.locator('#tanggal-input')).toHaveValue('2026-07-01');
+	for (let index = 0; index < 6; index++) {
+		await page.locator('#waktu-input').fill(`23:${String(index * 10).padStart(2, '0')}`);
+		await submitCatat(page, String((index + 1) * 1000), `Uji Baru ${(index + 1) * 1000}`);
 	}
-
-	// Satu baris kemarin via tanggal eksplisit (turun dari hari WITA kini).
-	const todayYmd = await page.locator('#tanggal-input').inputValue();
-	const [yy, mm, dd] = todayYmd.split('-').map(Number);
-	const yDate = new Date(Date.UTC(yy, mm - 1, dd - 1));
-	const pad = (v: number) => String(v).padStart(2, '0');
-	const ymd = `${yDate.getUTCFullYear()}-${pad(yDate.getUTCMonth() + 1)}-${pad(yDate.getUTCDate())}`;
-	await page.locator('#tanggal-input').fill(ymd);
+	await page.locator('#tanggal-input').fill('2026-06-30');
 	await submitCatat(page, '999999', 'Uji Kemarin Marker');
 
+	const recentResponse = page.waitForResponse(
+		(response) => response.request().method() === 'GET' && isRecentCatatUrl(response.url())
+	);
 	await page.reload();
-	const card = page.getByText('Riwayat Catatan Kas');
-	await expect(card).toBeVisible({ timeout: 30000 });
+	const response = await recentResponse;
+	expect(response.ok()).toBe(true);
+	assertDayBounds(response.url(), '2026-06-30T16:00:00.000Z', '2026-07-01T15:59:59.999Z');
+	const rows = (await response.json()) as LedgerRow[];
+	expect(rows.map((row) => row.nominal)).toEqual([6000, 5000, 4000, 3000, 2000]);
+	expect(rows.every((row) => row.sumber === 'catat' && row.cabang_id === 'samarinda')).toBe(true);
+	expect(rows.map((row) => new Date(row.waktu).toISOString())).toEqual(
+		[50, 40, 30, 20, 10].map((minute) => `2026-07-01T15:${minute}:00.000Z`)
+	);
 	const cardBox = page.locator('div.soft-float-card', { hasText: 'Riwayat Catatan Kas' });
 	await expect(cardBox.getByText('Uji Baru 6000').first()).toBeVisible({ timeout: 15000 });
 	await expect(cardBox.getByText('Uji Baru 3000').first()).toBeVisible();
 	await expect(cardBox.getByText('Uji Baru 1000')).toHaveCount(0);
 	await expect(cardBox.getByText('Uji Kemarin Marker')).toHaveCount(0);
-	// Urutan terbaru dulu (UI tampil 4 dari 5 hasil query).
+	// The card previews four; the actual bounded consumer above must still return all five.
 	const cardText = (await cardBox.innerText()).replace(/\s+/g, ' ');
 	expect(cardText.indexOf('Uji Baru 6000')).toBeLessThan(cardText.indexOf('Uji Baru 5000'));
 	expect(cardText.indexOf('Uji Baru 5000')).toBeLessThan(cardText.indexOf('Uji Baru 4000'));
 });
 
-// AUD-027: gagal query tampil sebagai error, bukan kosong valid + pulih via retry.
 test('recent card failure shows error state and recovers', async ({ page }) => {
+	await page.clock.setFixedTime(new Date(BEFORE_WITA_MIDNIGHT));
 	await loginAsOwner(page, test.info().title);
-	let failOnce = true;
+	const seed = await csrfPost(page, '/api/buku-kas', {
+		payload: {
+			id: 'owned-catat-recovery',
+			sumber: 'catat',
+			tipe: 'in',
+			jenis: 'pendapatan_usaha',
+			nominal: 7123,
+			metode_bayar: 'tunai',
+			deskripsi: 'Catat recovery marker',
+			waktu: '2026-07-01T15:55:00.000Z'
+		}
+	});
+	expect(seed.ok()).toBe(true);
+	let failedUrl = '';
 	await page.route('**/api/buku-kas?*', async (route) => {
-		if (route.request().method() === 'GET' && failOnce) {
-			failOnce = false;
-			await route.fulfill({ status: 500, json: { message: 'boom' } });
+		if (
+			route.request().method() === 'GET' &&
+			isRecentCatatUrl(route.request().url()) &&
+			!failedUrl
+		) {
+			failedUrl = route.request().url();
+			await route.fulfill({ status: 500, json: { message: 'Owned Catat consumer failure' } });
 			return;
 		}
 		await route.continue();
@@ -175,8 +213,51 @@ test('recent card failure shows error state and recovers', async ({ page }) => {
 	await expect(page.getByText('Gagal memuat aktivitas terbaru').first()).toBeVisible({
 		timeout: 30000
 	});
-	expect(await page.getByText('Belum Ada Catatan Manual').count()).toBe(0);
-
+	expect(isRecentCatatUrl(failedUrl)).toBe(true);
+	assertDayBounds(failedUrl, '2026-06-30T16:00:00.000Z', '2026-07-01T15:59:59.999Z');
+	await expect(page.getByText('Belum Ada Catatan Manual')).toHaveCount(0);
+	const recovery = page.waitForResponse(
+		(response) =>
+			response.request().method() === 'GET' &&
+			isRecentCatatUrl(response.url()) &&
+			response.status() === 200
+	);
 	await page.getByRole('button', { name: 'Muat ulang aktivitas' }).click();
+	const rows = (await (await recovery).json()) as LedgerRow[];
+	expect(rows[0].id).toBe('owned-catat-recovery');
+	expect(rows[0].nominal).toBe(7123);
 	await expect(page.getByText('Gagal memuat aktivitas terbaru')).toHaveCount(0, { timeout: 15000 });
+	await expect(page.getByText('Catat recovery marker').first()).toBeVisible();
+});
+
+test('recent card has a legitimate empty state just after WITA midnight', async ({ page }) => {
+	await page.clock.setFixedTime(new Date(AFTER_WITA_MIDNIGHT));
+	await loginAsOwner(page, test.info().title);
+	const seed = await csrfPost(page, '/api/buku-kas', {
+		payload: {
+			id: 'owned-catat-midnight',
+			sumber: 'catat',
+			tipe: 'in',
+			jenis: 'pendapatan_usaha',
+			nominal: 789,
+			metode_bayar: 'tunai',
+			deskripsi: 'Previous WITA day boundary',
+			waktu: '2026-07-01T15:59:59.999Z'
+		}
+	});
+	expect(seed.ok()).toBe(true);
+	const stored = await page.request.get('/api/buku-kas?id=owned-catat-midnight');
+	expect(stored.ok()).toBe(true);
+	expect(((await stored.json()) as LedgerRow[])[0].waktu).toBe('2026-07-01T15:59:59.999Z');
+	const recentResponse = page.waitForResponse(
+		(response) => response.request().method() === 'GET' && isRecentCatatUrl(response.url())
+	);
+	await page.goto('/catat');
+	const response = await recentResponse;
+	expect(response.status()).toBe(200);
+	assertDayBounds(response.url(), '2026-07-01T16:00:00.000Z', '2026-07-02T15:59:59.999Z');
+	expect(await response.json()).toEqual([]);
+	await expect(page.locator('#tanggal-input')).toHaveValue('2026-07-02');
+	await expect(page.getByText('Belum Ada Catatan Manual').first()).toBeVisible();
+	await expect(page.getByText('Gagal memuat aktivitas terbaru')).toHaveCount(0);
 });

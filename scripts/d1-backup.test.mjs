@@ -175,6 +175,29 @@ test('default child runner always uses RTK, shell false, and rejects unsafe D1 o
 	await runner(['pnpm', 'exec', 'wrangler', 'd1', 'info', 'db-1', '--config', 'x', '--json']);
 	assert.equal(spawned[0].command, 'rtk');
 	assert.equal(spawned[0].options.shell, false);
+	assert.equal(
+		spawned[0].options.env.WRANGLER_WRITE_LOGS,
+		'false',
+		'Wrangler disk logs must not persist presigned full-database download URLs'
+	);
+	await runner(
+		[
+			'pnpm',
+			'exec',
+			'wrangler',
+			'd1',
+			'export',
+			'db-1',
+			'--remote',
+			'--skip-confirmation',
+			'--output',
+			'private.sql'
+		],
+		{ env: { WRANGLER_WRITE_LOGS: 'true' } }
+	);
+	assert.equal(spawned[1].options.env.WRANGLER_WRITE_LOGS, 'false');
+	assert.equal(spawned[1].options.shell, false);
+	assert.equal(spawned[1].command, 'rtk');
 	await assert.rejects(
 		() =>
 			runner(['pnpm', 'exec', 'wrangler', 'd1', 'execute', 'db-1', '--command', 'DELETE FROM x']),
@@ -233,6 +256,33 @@ test('loaded secret values are absent from child argv and sanitized failures', a
 				'CLOUDFLARE_API_TOKEN'
 			]);
 		}
+	} finally {
+		await box.cleanup();
+	}
+});
+
+test('recovery COMPLETE must be a regular file and FAILED marker must veto it', async () => {
+	const box = await sandbox();
+	try {
+		const result = await runBackup({
+			outputDir: box.external,
+			repoRoot: box.repo,
+			workspaceRoot: box.workspace,
+			configText: CONFIG,
+			runner: fakeRunner().runner
+		});
+		const options = {
+			repoRoot: box.repo,
+			workspaceRoot: box.workspace,
+			configText: CONFIG,
+			requireComplete: true
+		};
+		await writeFile(join(result.runDir, 'FAILED.json'), '{"status":"FAILED"}');
+		await assert.rejects(verifyManifest(result.manifestPath, options), /FAILED/);
+		await rm(join(result.runDir, 'FAILED.json'));
+		await rm(join(result.runDir, 'COMPLETE'));
+		await mkdir(join(result.runDir, 'COMPLETE'));
+		await assert.rejects(verifyManifest(result.manifestPath, options), /COMPLETE.*reguler/);
 	} finally {
 		await box.cleanup();
 	}

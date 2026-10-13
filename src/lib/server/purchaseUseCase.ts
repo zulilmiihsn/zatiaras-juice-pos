@@ -4,17 +4,24 @@
  * Menggantikan tiga request terpisah di halaman stok (insert bahan_mutasi,
  * insert buku_kas, update bahan) yang bisa gagal parsial. Idempoten via
  * `bahan_mutasi.operation_key` (partial unique per cabang): retry dengan kunci
- * sama mengembalikan hasil lama tanpa mutasi kedua.
+ * sama hanya mengembalikan snapshot lama bila fingerprint immutable intent cocok.
  *
  * Tidak import SvelteKit. Error domain memakai PurchaseUseCaseError; route
  * memetakan ke kitError.
  */
+import { createHash } from 'node:crypto';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from './branchResolver';
 import { getRawDb } from './dataApiHelpers';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import { convertToBaseUnit } from '$lib/utils/unitConversion';
-import { validateManualLedgerRows, LedgerValidationError } from './ledgerValidation';
+import {
+	validateManualLedgerRows,
+	validateManualLedgerPatch,
+	validateLedgerNominal,
+	LedgerValidationError
+} from './ledgerValidation';
+import { decodeDecimalNumber } from '$lib/utils/currency';
 import { loadStockPolicy } from './stockPolicy';
 import { auditDataChange, publish } from './dataApiHelpers';
 
@@ -77,21 +84,126 @@ interface BahanRow {
 	stok_saat_ini: number | null;
 }
 
+interface PurchaseIntent {
+	bahan_id: string;
+	arah: 'tambah' | 'kurang';
+	jumlah: number;
+	satuan: string;
+	catatan: string | null;
+	kas: {
+		nominal: number;
+		metode_bayar: 'tunai' | 'non-tunai';
+		jenis: 'beban_usaha' | 'lainnya';
+		deskripsi: string | null;
+	} | null;
+	update_hpp: boolean;
+	hpp: { jumlah_beli: number; biaya_beli: number } | null;
+}
+
+function intentText(value: unknown, label: string): string | null {
+	if (value == null) return null;
+	if (typeof value !== 'string') fail(400, `${label} tidak valid`);
+	return value.trim() || null;
+}
+
+function purchaseQuantity(value: unknown): number {
+	const amount = decodeDecimalNumber(value);
+	if (amount === null || amount <= 0) fail(400, 'Jumlah harus angka lebih dari 0');
+	if (amount > 1e12) fail(400, 'Jumlah melebihi batas wajar');
+	return amount;
+}
+
+function normalizeIntent(input: PurchaseInput): PurchaseIntent {
+	if (typeof input.bahan_id !== 'string' || !input.bahan_id) fail(400, 'Bahan tidak valid');
+	if (input.arah !== 'tambah' && input.arah !== 'kurang')
+		fail(400, 'Arah harus tambah atau kurang');
+	if (typeof input.satuan !== 'string' || !input.satuan.trim())
+		fail(400, 'Satuan jumlah tidak valid');
+	if (input.update_hpp != null && typeof input.update_hpp !== 'boolean')
+		fail(400, 'Pilihan pembaruan HPP tidak valid');
+	if ((input.update_hpp === true || input.hpp != null) && input.arah !== 'tambah')
+		fail(400, 'Pembaruan HPP hanya untuk kulakan (tambah)');
+	let kas: PurchaseIntent['kas'] = null;
+	let hpp: PurchaseIntent['hpp'] = null;
+	try {
+		if (input.kas != null) {
+			if (typeof input.kas !== 'object' || Array.isArray(input.kas)) fail(400, 'Kas tidak valid');
+			const checked = validateManualLedgerPatch(
+				{
+					nominal: input.kas.nominal,
+					jenis: input.kas.jenis,
+					metode_bayar: input.kas.metode_bayar
+				},
+				{ tipe: 'out', jenis: 'beban_usaha' }
+			);
+			kas = {
+				nominal: checked.nominal as number,
+				metode_bayar: checked.metode_bayar as 'tunai' | 'non-tunai',
+				jenis: checked.jenis as 'beban_usaha' | 'lainnya',
+				deskripsi: intentText(input.kas.deskripsi, 'Deskripsi kas')
+			};
+		}
+		if (input.hpp != null) {
+			if (typeof input.hpp !== 'object' || Array.isArray(input.hpp)) fail(400, 'HPP tidak valid');
+			hpp = {
+				jumlah_beli: purchaseQuantity(input.hpp.jumlah_beli),
+				biaya_beli: validateLedgerNominal(input.hpp.biaya_beli)
+			};
+		}
+	} catch (error) {
+		if (error instanceof LedgerValidationError) fail(error.status, error.message);
+		throw error;
+	}
+	return {
+		bahan_id: input.bahan_id,
+		arah: input.arah,
+		jumlah: purchaseQuantity(input.jumlah),
+		satuan: input.satuan.trim().toLowerCase(),
+		catatan: intentText(input.catatan, 'Catatan')?.slice(0, 160) || null,
+		kas,
+		update_hpp: input.update_hpp === true,
+		hpp
+	};
+}
+
+interface ExistingPurchase {
+	id: string;
+	bahan_id: string;
+	delta_jumlah: number;
+	stok_setelah: number | null;
+	kas_id: string | null;
+	request_fingerprint: string | null;
+}
+
 async function findExistingByKey(
 	rawDb: D1Database,
-	branch: string,
+	branch: BranchContext,
 	operationKey: string
-): Promise<{ id: string; bahan_id: string; kas_id: string | null } | null> {
-	const row = (await rawDb
+): Promise<ExistingPurchase | null> {
+	return rawDb
 		.prepare(
-			`SELECT m.id AS id, m.bahan_id AS bahan_id,
-				(SELECT k.id FROM buku_kas k WHERE k.cabang_id = m.cabang_id AND k.idempotency_key = ? LIMIT 1) AS kas_id
-			 FROM bahan_mutasi m WHERE m.cabang_id = ? AND m.operation_key = ? LIMIT 1`
+			`SELECT id, bahan_id, delta_jumlah, stok_setelah, referensi_id AS kas_id, request_fingerprint
+		 FROM bahan_mutasi WHERE cabang_id = ? AND operation_key = ? LIMIT 1`
 		)
-		.bind(`purchase:${operationKey}`, branch, operationKey)
-		.first()) as { id?: string; bahan_id?: string; kas_id?: string | null } | null;
-	if (!row?.id || !row.bahan_id) return null;
-	return { id: row.id, bahan_id: row.bahan_id, kas_id: row.kas_id ?? null };
+		.bind(branch, operationKey)
+		.first<ExistingPurchase>();
+}
+
+function replayPurchase(row: ExistingPurchase, fingerprint: string): PurchaseResult {
+	// Histori tanpa intent tidak dapat dibuktikan setara; jangan menebak/backfill atau commit ulang.
+	if (!row.request_fingerprint)
+		fail(409, 'Kulakan lama belum memiliki fingerprint. Periksa riwayat sebelum melanjutkan.');
+	if (row.request_fingerprint !== fingerprint)
+		fail(409, 'Kunci kulakan sudah digunakan untuk permintaan berbeda. Periksa riwayat kulakan.');
+	return {
+		ok: true,
+		duplicate: true,
+		mutasi_id: row.id,
+		bahan_id: row.bahan_id,
+		delta_jumlah: row.delta_jumlah,
+		stok_setelah: row.stok_setelah,
+		kas_id: row.kas_id
+	};
 }
 
 export async function executePurchase(
@@ -101,12 +213,16 @@ export async function executePurchase(
 	platform: App.Platform | undefined,
 	input: PurchaseInput
 ): Promise<PurchaseResult> {
-	const bahanId = typeof input.bahan_id === 'string' && input.bahan_id ? input.bahan_id : null;
-	if (!bahanId) fail(400, 'Bahan tidak valid');
-	if (input.arah !== 'tambah' && input.arah !== 'kurang')
-		fail(400, 'Arah harus tambah atau kurang');
 	const operationKey = typeof input.operation_key === 'string' ? input.operation_key.trim() : '';
 	if (operationKey.length < 8) fail(400, 'operation_key tidak valid');
+	const intent = normalizeIntent(input);
+	// Intent tidak bergantung katalog/unit/yield saat retry. Hasil lama tetap snapshot commit.
+	const fingerprint = createHash('sha256')
+		.update(JSON.stringify({ version: 1, branch, ...intent }))
+		.digest('hex');
+	const done = await findExistingByKey(rawDb, branch, operationKey);
+	if (done) return replayPurchase(done, fingerprint);
+	const bahanId = intent.bahan_id;
 
 	const bahan = (await rawDb
 		.prepare(
@@ -125,12 +241,12 @@ export async function executePurchase(
 	}
 
 	// Konversi otoritatif di server (satuan valid + faktor sama dengan UI).
-	const amount = Number(input.jumlah);
+	const amount = intent.jumlah;
 	let baseQty = 0;
 	try {
 		baseQty = convertToBaseUnit(
 			amount,
-			String(input.satuan || ''),
+			intent.satuan,
 			bahan.satuan || 'gram',
 			Number(bahan.isi_per_kemasan) || 1
 		);
@@ -140,35 +256,22 @@ export async function executePurchase(
 	if (!Number.isFinite(baseQty) || baseQty <= 0) fail(400, 'Jumlah harus lebih dari 0');
 	if (baseQty > 1e12) fail(400, 'Jumlah melebihi batas wajar');
 
-	const delta = input.arah === 'tambah' ? baseQty : -baseQty;
-	const catatanRaw = typeof input.catatan === 'string' ? input.catatan.trim() : '';
+	const delta = intent.arah === 'tambah' ? baseQty : -baseQty;
 	const catatan =
-		catatanRaw.slice(0, 160) ||
-		(input.arah === 'tambah'
+		intent.catatan ||
+		(intent.arah === 'tambah'
 			? `Kulakan: ${bahan.nama || bahanId}`
 			: `Koreksi: ${bahan.nama || bahanId}`);
-
-	// Kas opsional: nominal <= 0 berarti tanpa kas (cermin UI). Negatif ditolak.
-	const kasNominal = input.kas == null ? 0 : Number(input.kas.nominal);
-	if (Number.isFinite(kasNominal) && kasNominal < 0) fail(400, 'Nominal kas tidak boleh negatif');
-	const withKas = input.kas != null && Number.isFinite(kasNominal) && kasNominal > 0;
-	if (input.update_hpp === true && input.arah !== 'tambah')
-		fail(400, 'Pembaruan HPP hanya untuk kulakan (tambah)');
-	// Tanpa kas, update_hpp diabaikan (cermin UI: blok HPP bersarang dalam blok kas).
-	const hppInput = input.hpp ?? null;
-	if (hppInput != null && input.arah !== 'tambah') fail(400, 'HPP eksplisit hanya untuk tambah');
-	let explicitHpp: { jumlah: number; biaya: number } | null = null;
-	if (hppInput != null) {
-		const jumlahBeli = Number(hppInput.jumlah_beli);
-		const biayaBeli = Number(hppInput.biaya_beli);
-		if (!Number.isFinite(jumlahBeli) || jumlahBeli <= 0) fail(400, 'Jumlah beli HPP tidak valid');
-		if (!Number.isFinite(biayaBeli) || biayaBeli < 0) fail(400, 'Biaya beli HPP tidak valid');
-		explicitHpp = { jumlah: jumlahBeli, biaya: biayaBeli };
-	}
+	// Kas nol tetap kompatibel sebagai tanpa kas, tetapi tipe/nominal harus valid dahulu.
+	const kasNominal = intent.kas?.nominal ?? 0;
+	const withKas = intent.kas !== null && kasNominal > 0;
+	const explicitHpp = intent.hpp
+		? { jumlah: intent.hpp.jumlah_beli, biaya: intent.hpp.biaya_beli }
+		: null;
 
 	let kasRow: Record<string, unknown> | null = null;
 	if (withKas) {
-		const kasInput = input.kas as PurchaseKasInput;
+		const kasInput = intent.kas!;
 		const now = new Date().toISOString();
 		const kasId = crypto.randomUUID();
 		let checked: Record<string, unknown>;
@@ -182,10 +285,7 @@ export async function executePurchase(
 					nominal: kasNominal,
 					waktu: now,
 					metode_bayar: kasInput.metode_bayar,
-					deskripsi:
-						typeof kasInput.deskripsi === 'string' && kasInput.deskripsi.trim()
-							? kasInput.deskripsi.trim()
-							: catatan
+					deskripsi: kasInput.deskripsi || catatan
 				}
 			]);
 		} catch (error) {
@@ -206,9 +306,7 @@ export async function executePurchase(
 	// atau dari input HPP eksplisit (jalur parse belanja).
 	let hppUpdate: { jumlah: number; biaya: number; satuan: number } | null = null;
 	const hppSource =
-		input.update_hpp === true && withKas
-			? { jumlah: baseQty, biaya: Math.round(kasNominal) }
-			: explicitHpp;
+		intent.update_hpp && withKas ? { jumlah: baseQty, biaya: kasNominal } : explicitHpp;
 	if (hppSource) {
 		const yieldFactor = Math.min(100, Math.max(1, Number(bahan.yield_persen) || 100)) / 100;
 		const netUsable = hppSource.jumlah * yieldFactor;
@@ -216,19 +314,6 @@ export async function executePurchase(
 			jumlah: hppSource.jumlah,
 			biaya: hppSource.biaya,
 			satuan: netUsable > 0 ? calculateEffectiveUnitCost(hppSource.biaya, netUsable) : 0
-		};
-	}
-
-	const done = await findExistingByKey(rawDb, branch as string, operationKey);
-	if (done) {
-		return {
-			ok: true,
-			duplicate: true,
-			mutasi_id: done.id,
-			bahan_id: done.bahan_id,
-			delta_jumlah: delta,
-			stok_setelah: null,
-			kas_id: done.kas_id
 		};
 	}
 
@@ -261,11 +346,11 @@ export async function executePurchase(
 			.prepare(
 				`INSERT INTO bahan_mutasi (
 					id, cabang_id, bahan_id, delta_jumlah, stok_setelah, sumber,
-					referensi_id, catatan, dibuat_oleh, operation_key, created_at
+					referensi_id, catatan, dibuat_oleh, operation_key, request_fingerprint, created_at
 				) VALUES (
 					?, ?, ?, ?,
 					(SELECT stok_saat_ini FROM bahan WHERE cabang_id = ? AND id = ?),
-					'manual', ?, ?, ?, ?, ?
+					'manual', ?, ?, ?, ?, ?, ?
 				)`
 			)
 			.bind(
@@ -279,6 +364,7 @@ export async function executePurchase(
 				catatan,
 				(session?.username as string) || (session?.userId as string) || null,
 				operationKey,
+				fingerprint,
 				now
 			)
 	];
@@ -314,25 +400,15 @@ export async function executePurchase(
 		// Balapan kirim ganda: kunci sama lolos cek awal, satu pemenang oleh unique index.
 		const message = error instanceof Error ? error.message : String(error);
 		if (/UNIQUE constraint failed/i.test(message)) {
-			const raced = await findExistingByKey(rawDb, branch as string, operationKey);
-			if (raced) {
-				return {
-					ok: true,
-					duplicate: true,
-					mutasi_id: raced.id,
-					bahan_id: raced.bahan_id,
-					delta_jumlah: delta,
-					stok_setelah: null,
-					kas_id: raced.kas_id
-				};
-			}
+			const raced = await findExistingByKey(rawDb, branch, operationKey);
+			if (raced) return replayPurchase(raced, fingerprint);
 		}
 		throw error;
 	}
 
 	const after = (await rawDb
-		.prepare(`SELECT stok_saat_ini AS stok FROM bahan WHERE cabang_id = ? AND id = ? LIMIT 1`)
-		.bind(branch as string, bahanId as string)
+		.prepare(`SELECT stok_setelah AS stok FROM bahan_mutasi WHERE cabang_id = ? AND id = ? LIMIT 1`)
+		.bind(branch, mutasiId)
 		.first()) as { stok?: number } | null;
 
 	await publish(platform, branch as string, 'bahan_mutasi', 'insert', { id: mutasiId });

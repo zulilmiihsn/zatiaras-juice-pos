@@ -1,5 +1,8 @@
 import type { AiRecommendation, AutoApplyResult } from '$lib/types/ai';
-import { validateRecommendation } from '$lib/utils/aiRecommendationSchema';
+import { AI_ACTION_LABEL, validateRecommendation } from '$lib/utils/aiRecommendationSchema';
+import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
+import { decodeDecimalNumber, normalizeMoney } from '$lib/utils/currency';
+import { getOfflineSessionRevision, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 import { resolveLedgerCategory } from '$lib/utils/ledgerCategory';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { userRole } from '$lib/stores/userRole.svelte';
@@ -24,6 +27,53 @@ interface UpdateTransactionData {
 	amount: number;
 	deskripsi: string;
 	category?: string;
+	revision: number;
+}
+
+export interface LedgerConsentBefore {
+	readonly id: string;
+	readonly revision: number;
+	readonly nominal: number;
+	readonly tipe: string;
+	readonly jenis: string;
+	readonly deskripsi: string;
+	readonly waktu: string;
+}
+
+export interface RecommendationConsent {
+	readonly recommendations: readonly AiRecommendation[];
+	readonly updates: Readonly<Record<string, LedgerConsentBefore>>;
+	readonly rejected: Readonly<Record<string, string>>;
+}
+
+function freezeConsent<T>(value: T): T {
+	if (value && typeof value === 'object') {
+		for (const child of Object.values(value)) freezeConsent(child);
+		Object.freeze(value);
+	}
+	return value;
+}
+
+function consentContext(): string {
+	const session = readOfflineSessionSnapshot();
+	if (
+		!session ||
+		typeof session.user.id !== 'string' ||
+		session.user.branch !== selectedBranch.value ||
+		!['pemilik', 'kasir', 'admin'].includes(String(session.user.role))
+	) {
+		throw new Error(
+			'Sesi atau cabang berubah. Muat ulang rekomendasi sebelum memberi persetujuan.'
+		);
+	}
+	return JSON.stringify([
+		selectedBranch.value,
+		selectedBranch.contextEpoch,
+		session.user.id,
+		session.user.role,
+		session.expiresAt,
+		getOfflineSessionRevision()
+	]);
 }
 
 interface CategoryData {
@@ -42,6 +92,87 @@ async function throwIfNotOk(res: Response, label: string): Promise<void> {
 
 export class AutoApplyService {
 	private static instance: AutoApplyService;
+	private readonly consents = new WeakMap<
+		RecommendationConsent,
+		{ context: string; active: boolean }
+	>();
+
+	async prepareRecommendations(
+		recommendations: readonly AiRecommendation[]
+	): Promise<RecommendationConsent> {
+		const context = consentContext();
+		const branch = selectedBranch.value;
+		if (recommendations.length > 50)
+			throw new Error('Terlalu banyak rekomendasi untuk satu persetujuan.');
+		const normalized: AiRecommendation[] = [];
+		const updates: Record<string, LedgerConsentBefore> = Object.create(null);
+		const rejected: Record<string, string> = Object.create(null);
+		const ids = new Set<string>();
+		for (const rec of recommendations) {
+			if (!rec.id || ids.has(rec.id))
+				throw new Error('Identitas rekomendasi tidak valid atau ganda.');
+			ids.add(rec.id);
+			const validation = validateRecommendation({ action: rec.action, data: rec.data });
+			if (!validation.ok) throw new Error(`Rekomendasi tidak valid: ${validation.reason}`);
+			const value = validation.value;
+			normalized.push({
+				...structuredClone(rec),
+				title: AI_ACTION_LABEL[value.kind],
+				deskripsi: value.kind === 'create_category' ? value.nama : value.deskripsi,
+				data: structuredClone(value)
+			});
+			if (value.kind !== 'update_transaction') continue;
+			if (value.type === 'penjualan') {
+				rejected[rec.id] = 'Koreksi penjualan POS wajib melalui alur POS, bukan update manual.';
+				continue;
+			}
+			const res = await apiFetch(
+				`/api/buku-kas?${new URLSearchParams({ branch, id: value.id, limit: '1' })}`
+			);
+			await throwIfNotOk(res, 'Gagal membaca transaksi sebelum persetujuan');
+			const rows: unknown = await res.json();
+			const row =
+				Array.isArray(rows) && rows.length === 1 ? (rows[0] as Record<string, unknown>) : null;
+			const revision = decodeLedgerRevision(row?.revision);
+			const amount = decodeDecimalNumber(row?.nominal);
+			if (
+				!row ||
+				row.id !== value.id ||
+				row.cabang_id !== branch ||
+				!['catat', 'stok'].includes(String(row.sumber)) ||
+				revision === null ||
+				amount === null ||
+				amount < 0 ||
+				amount > Number.MAX_SAFE_INTEGER ||
+				typeof row.deskripsi !== 'string' ||
+				typeof row.waktu !== 'string' ||
+				!['in', 'out'].includes(String(row.tipe)) ||
+				!['pendapatan_usaha', 'beban_usaha', 'lainnya'].includes(String(row.jenis))
+			) {
+				rejected[rec.id] =
+					'Target transaksi tidak tersedia atau bukan transaksi manual yang valid.';
+				continue;
+			}
+			updates[rec.id] = {
+				id: value.id,
+				revision,
+				nominal: normalizeMoney(amount),
+				tipe: String(row.tipe),
+				jenis: String(row.jenis),
+				deskripsi: row.deskripsi,
+				waktu: row.waktu
+			};
+		}
+		if (consentContext() !== context)
+			throw new Error('Konteks berubah saat membaca transaksi. Tinjau ulang rekomendasi.');
+		const consent = freezeConsent({ recommendations: normalized, updates, rejected });
+		this.consents.set(consent, { context, active: true });
+		return consent;
+	}
+
+	cancelConsent(consent: RecommendationConsent | null): void {
+		if (consent) this.consents.delete(consent);
+	}
 
 	public static getInstance(): AutoApplyService {
 		if (!AutoApplyService.instance) {
@@ -50,7 +181,10 @@ export class AutoApplyService {
 		return AutoApplyService.instance;
 	}
 
-	async applyRecommendations(recommendations: AiRecommendation[]): Promise<AutoApplyResult> {
+	async applyRecommendations(
+		recommendations: readonly AiRecommendation[],
+		consent?: RecommendationConsent
+	): Promise<AutoApplyResult> {
 		const result: AutoApplyResult = {
 			success: true,
 			appliedRecommendations: [],
@@ -59,18 +193,43 @@ export class AutoApplyService {
 		};
 
 		try {
+			const prepared = consent ? this.consents.get(consent) : undefined;
+			const checkConsent = () => {
+				if (
+					consent &&
+					(!prepared ||
+						this.consents.get(consent) !== prepared ||
+						!prepared.active ||
+						consentContext() !== prepared.context)
+				)
+					throw new Error(
+						'Persetujuan dibatalkan atau konteks berubah. Tinjau ulang sebelum menerapkan.'
+					);
+			};
+			checkConsent();
+			const inputs = consent ? consent.recommendations : recommendations;
+			if (inputs.some((r) => r.action === 'update_transaction') && !consent)
+				throw new Error('Update memerlukan target dan revisi yang ditinjau sebelum persetujuan.');
 			// Retry parsial aman: lewati ID yang sudah tercatat berhasil (persisted per cabang),
 			// hanya item gagal/unknown yang diulang. Dedup server via stable intent ID
 			// menutup retry ambigu (respons hilang sesudah commit).
-			const fresh = this.deduplicateRecommendations(recommendations).filter(
+			const fresh = this.deduplicateRecommendations(inputs).filter(
 				(r) => !this.isAlreadyApplied(r.id)
 			);
-			const skipped = recommendations.length - fresh.length;
+			const skipped = inputs.length - fresh.length;
 
 			for (const recommendation of fresh) {
 				try {
-					const note = await this.applySingleRecommendation(recommendation);
-					this.markApplied(recommendation.id);
+					checkConsent();
+					if (consent?.rejected[recommendation.id]) {
+						throw new Error(consent.rejected[recommendation.id]);
+					}
+					const branch = selectedBranch.value;
+					const note = await this.applySingleRecommendation(
+						recommendation,
+						consent?.updates[recommendation.id]
+					);
+					this.markApplied(recommendation.id, branch);
 					result.appliedRecommendations.push(recommendation.id);
 					if (note) result.message += (result.message ? ' ' : '') + note;
 				} catch (error) {
@@ -100,9 +259,9 @@ export class AutoApplyService {
 		return result;
 	}
 
-	private appliedKey(): string {
+	private appliedKey(capturedBranch?: string): string {
 		try {
-			const branch = String(selectedBranch.value || 'default').toLowerCase();
+			const branch = String(capturedBranch ?? selectedBranch.value ?? 'default').toLowerCase();
 			return `ai_applied_${branch}`;
 		} catch {
 			return 'ai_applied_default';
@@ -129,18 +288,22 @@ export class AutoApplyService {
 		}
 	}
 
-	private markApplied(id: string): void {
+	private markApplied(id: string, branch: string): void {
 		try {
-			const set = this.readApplied();
+			const raw: unknown = JSON.parse(localStorage.getItem(this.appliedKey(branch)) ?? '[]');
+			const set = new Set(
+				Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []
+			);
 			set.add(id);
-			localStorage.setItem(this.appliedKey(), JSON.stringify([...set].slice(-500)));
+			localStorage.setItem(this.appliedKey(branch), JSON.stringify([...set].slice(-500)));
 		} catch {
 			// Local applied-ID cache is best-effort; stable server idempotency keys prevent duplicates.
 		}
 	}
 
 	private async applySingleRecommendation(
-		recommendation: AiRecommendation
+		recommendation: AiRecommendation,
+		before?: LedgerConsentBefore
 	): Promise<string | void> {
 		// AUD-033: validasi skema yang sama dengan parse; field model di luar
 		// allowlist (id/branch/transaction_id/…) tak pernah sampai mutasi.
@@ -165,7 +328,9 @@ export class AutoApplyService {
 					recommendation.id
 				);
 			case 'update_transaction':
+				if (!before || before.id !== validated.id) throw new Error('Target update belum ditinjau.');
 				await this.updateTransaction({
+					revision: before.revision,
 					id: validated.id,
 					type: validated.type,
 					amount: validated.amount,
@@ -401,6 +566,7 @@ export class AutoApplyService {
 			throw new Error('Description transaksi tidak valid atau kosong');
 		const branch = selectedBranch.value;
 		const payload: Record<string, unknown> = {
+			revision: data.revision,
 			tipe: data.type === 'pemasukan' ? 'in' : 'out',
 			nominal: data.amount,
 			deskripsi: data.deskripsi
@@ -459,11 +625,13 @@ export class AutoApplyService {
 		await throwIfNotOk(res, 'Gagal membuat kategori');
 	}
 
-	private deduplicateRecommendations(recommendations: AiRecommendation[]): AiRecommendation[] {
+	private deduplicateRecommendations(
+		recommendations: readonly AiRecommendation[]
+	): AiRecommendation[] {
 		const seen = new Set<string>();
 		return recommendations.filter((rec) => {
 			const data = rec.data as Record<string, unknown>;
-			const key = `${rec.action}_${data?.amount}_${data?.type}_${data?.deskripsi}`;
+			const key = `${rec.action}_${rec.action === 'update_transaction' ? data?.id : ''}_${data?.amount}_${data?.type}_${data?.deskripsi}`;
 			if (seen.has(key)) return false;
 			seen.add(key);
 			return true;

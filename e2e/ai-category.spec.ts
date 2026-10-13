@@ -70,18 +70,18 @@ test('ai consent shows category and modal lands outside turnover', async ({ page
 	await expect(chatbox).toBeVisible({ timeout: 15000 });
 	await chatbox.fill('setor modal 75rb dan terima 30rb tunai');
 	await page.keyboard.press('Enter');
-	await expect(page.getByText('Catat setoran modal', { exact: true })).toBeVisible({
+	await expect(page.getByText('Buat transaksi', { exact: true }).first()).toBeVisible({
 		timeout: 30000
 	});
 
+	await expect(page.getByText('Catat setoran modal', { exact: true })).toHaveCount(0);
+	await expect(page.getByText('Rp 75.000', { exact: false }).first()).toBeVisible();
 	await expect(page.getByText('Lainnya (non-usaha)').first()).toBeVisible({ timeout: 10000 });
 	await expect(page.getByText('Perlu konfirmasi').first()).toBeVisible();
 
 	const terapkan = page.getByRole('button', { name: 'Terapkan Rekomendasi' });
 	await terapkan.scrollIntoViewIfNeeded();
-	// Klik langsung: tombol sahih namun tertutup overlay dashboard
-	// (kuirk layout pra-ada); handler Svelte tetap yang dieksekusi.
-	await terapkan.evaluate((el: HTMLElement) => el.click());
+	await terapkan.click();
 	// Ambigu ditolak (rincian alasan di result.errors, unit-cover);
 	// chat tampilkan hitungan gagal.
 	await expect(page.getByText(/gagal diterapkan/).first()).toBeVisible({

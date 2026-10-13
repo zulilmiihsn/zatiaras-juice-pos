@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { isRedirect } from '@sveltejs/kit';
+import { load as loadReport } from '../routes/laporan/+page.server';
+import { load as loadArchive } from '../routes/pengaturan/pemilik/arsip/+page.server';
 import { normalizeRole, VALID_ROLES } from '../lib/utils/roles';
 import { createTestD1 } from './helpers/testD1';
 import { createAuthSession, getAuthSession } from '../lib/server/sessionStore';
-import { branchContext } from '../lib/server/branchResolver';
+import { branchContext, normalizeBranch } from '../lib/server/branchResolver';
 
 // Kebijakan kanonik tunggal: tiga role valid, sisanya null.
 assert.deepEqual([...VALID_ROLES], ['pemilik', 'kasir', 'admin']);
@@ -15,6 +18,15 @@ assert.equal(normalizeRole('supervisor'), null);
 assert.equal(normalizeRole(''), null);
 assert.equal(normalizeRole(null), null);
 assert.equal(normalizeRole(undefined), null);
+
+for (const value of ['__proto__', 'constructor', 'toString']) {
+	assert.throws(
+		() => normalizeBranch(value),
+		(error: unknown) =>
+			Boolean(error && typeof error === 'object' && 'status' in error && error.status === 400),
+		`Inherited property ${value} is not a branch`
+	);
+}
 
 const { db, close } = await createTestD1();
 try {
@@ -31,6 +43,18 @@ try {
 			.run();
 	}
 
+	type ReadSession = Awaited<ReturnType<typeof getAuthSession>>;
+	const reportPage = async (session: ReadSession) =>
+		loadReport({ locals: { authSession: session } } as unknown as Parameters<typeof loadReport>[0]);
+	const archivePage = async (session: ReadSession) =>
+		loadArchive({ locals: { authSession: session } } as unknown as Parameters<
+			typeof loadArchive
+		>[0]);
+	const redirectedTo = (location: string) => (error: unknown) =>
+		isRedirect(error) && error.status === 303 && error.location === location;
+	await assert.rejects(reportPage(null), redirectedTo('/login?reason=unauthorized'));
+	await assert.rejects(archivePage(null), redirectedTo('/login?reason=unauthorized'));
+
 	// Tiga role valid konsisten: sesi dibuat dan dibaca kembali sama.
 	for (const role of ['pemilik', 'kasir', 'admin'] as const) {
 		await seedProfil(`role-${role}`, role);
@@ -43,6 +67,9 @@ try {
 		assert.equal(created.role, role);
 		const reread = await getAuthSession(platform, created.id);
 		assert.equal(reread?.role, role);
+		assert.deepEqual(await reportPage(reread), {});
+		if (role === 'pemilik') assert.deepEqual(await archivePage(reread), {});
+		else await assert.rejects(archivePage(reread), redirectedTo('/unauthorized'));
 	}
 
 	// Unknown fail-closed: sesi tak valid walau baris sesi ada.
@@ -55,7 +82,35 @@ try {
 	});
 	assert.equal(await getAuthSession(platform, weird.id), null);
 
-	console.log('role-contract-tests: kanonik tunggal, unknown fail-closed passed');
+	await assert.rejects(
+		archivePage(await getAuthSession(platform, weird.id)),
+		redirectedTo('/login?reason=unauthorized')
+	);
+
+	// The actual loader consumes current canonical authority, not the role cached at login.
+	await db
+		.prepare("UPDATE profil SET role='kasir' WHERE cabang_id='samarinda' AND id='role-pemilik'")
+		.run();
+	const ownerSession = await db
+		.prepare("SELECT id FROM auth_sessions WHERE cabang_id='samarinda' AND user_id='role-pemilik'")
+		.first<{ id: string }>();
+	assert.ok(ownerSession);
+	await assert.rejects(
+		archivePage(await getAuthSession(platform, ownerSession.id)),
+		redirectedTo('/unauthorized')
+	);
+	await db
+		.prepare("UPDATE auth_sessions SET expires_at=0 WHERE cabang_id='samarinda' AND id=?")
+		.bind(ownerSession.id)
+		.run();
+	await assert.rejects(
+		reportPage(await getAuthSession(platform, ownerSession.id)),
+		redirectedTo('/login?reason=unauthorized')
+	);
+
+	console.log(
+		'role-contract-tests: canonical authority + actual page loaders/no-session/owner/kasir/admin/unknown/live-role/expired passed'
+	);
 } finally {
 	await close();
 }

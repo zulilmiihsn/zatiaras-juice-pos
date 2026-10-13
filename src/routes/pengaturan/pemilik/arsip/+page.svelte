@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import Archive from '@lucide/svelte/icons/archive';
 	import Download from '@lucide/svelte/icons/download';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
-	import { userRole } from '$lib/stores/userRole.svelte';
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 
 	const currentYear = new Date().getFullYear();
@@ -26,10 +24,6 @@
 	} | null>(null);
 	let downloadState = $state<'idle' | 'downloading' | 'downloaded' | 'failed'>('idle');
 	let downloadMessage = $state('');
-
-	onMount(() => {
-		if (userRole.value !== 'pemilik') goto('/unauthorized');
-	});
 
 	function triggerBrowserDownload(content: string, filename: string) {
 		const blob = new Blob([content], { type: 'application/json' });
@@ -73,12 +67,12 @@
 			const data = await res.json();
 			if (!res.ok) throw new Error(data?.message || 'Gagal mengarsipkan');
 
-			// [CATATAN]: Unduh salinan ke perangkat owner (selain tersimpan di cloud).
-			if (data.content) {
-				triggerBrowserDownload(data.content, data.filename || 'arsip.json');
-				downloadState = 'downloaded';
-			}
 			result = data;
+			// Fresh single-part commits and retries use the same job-scoped download boundary.
+			// A body error must not turn a valid archive commit into a false download success.
+			if (data.job_id && !data.resumed) {
+				await downloadJob(data.job_id, data.filename || 'arsip.json');
+			}
 		} catch (e) {
 			result = { ok: false, count: 0, message: e instanceof Error ? e.message : 'Gagal' };
 		} finally {
@@ -174,8 +168,8 @@
 				{:else}
 					<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
 						<p class="mb-3 text-xs text-amber-800">
-							Yakin arsipkan transaksi <b>sebelum {beforeYear}</b>? File arsip akan otomatis
-							diunduh.
+							Yakin arsipkan transaksi <b>sebelum {beforeYear}</b>? Salinan arsip dapat diunduh
+							setelah tersimpan di cloud.
 						</p>
 						<div class="flex gap-2">
 							<button
@@ -205,7 +199,7 @@
 					>
 						<CheckCircle2 class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
 						<div class="text-sm text-emerald-800">
-							<b>{result.count} baris</b> berhasil diarsipkan{#if result.filename}
+							<b>{result.count} baris</b> berhasil diarsipkan{#if result.filename && downloadState === 'downloaded'}
 								& diunduh (<code class="text-xs">{result.filename}</code>)
 							{/if}. Salinan juga tersimpan di cloud. Database kini lebih lega.
 							{#if result.job_id}

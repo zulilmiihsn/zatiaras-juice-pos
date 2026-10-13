@@ -12,6 +12,7 @@ import {
 	deleteBukuKasByTransactionForBranch
 } from '$lib/server/services/bukuKasService';
 import { LedgerValidationError } from '$lib/server/ledgerValidation';
+import type { BranchContext } from '$lib/server/branchResolver';
 import type { RequestHandler } from './$types';
 
 /**
@@ -72,6 +73,22 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	return json(result.isPage ? result.page : result.rows);
 };
 
+function ledgerWriteRows(payload: unknown, branch: BranchContext): Record<string, unknown>[] {
+	const rows = Array.isArray(payload) ? payload : [payload];
+	if (!rows.length) throw kitError(400, 'Payload baris kas tidak valid');
+	for (const row of rows) {
+		if (!row || typeof row !== 'object' || Array.isArray(row))
+			throw kitError(400, 'Payload baris kas tidak valid');
+		const record = row as Record<string, unknown>;
+		// Old queues can omit identities, but a known conflict must not silently become a local write.
+		for (const field of ['cabang_id', 'branch']) {
+			if (field in record && record[field] !== undefined && record[field] !== branch)
+				throw kitError(403, 'Branch tidak sesuai session');
+		}
+	}
+	return rows as Record<string, unknown>[];
+}
+
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const branch = requireSessionBranch(locals);
 	const session = locals.authSession!;
@@ -79,10 +96,12 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');
+	if (body.branch !== undefined && body.branch !== branch)
+		throw kitError(403, 'Branch tidak sesuai session');
 
 	await requirePageAccessForBranch(platform, branch, session, 'catat');
 
-	const rows = payloadRows(body.payload, branch);
+	const rows = payloadRows(ledgerWriteRows(body.payload, branch), branch);
 
 	let result;
 	try {
@@ -106,6 +125,10 @@ export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 
 	await requirePageAccessForBranch(platform, branch, session, 'catat');
 
+	// A write remains scoped to the live session, never a model/body branch (including admin).
+	if (body.branch !== undefined && body.branch !== branch)
+		throw kitError(403, 'Branch tidak sesuai session');
+	ledgerWriteRows(body.payload, branch);
 	const rowId = String(body.where.id);
 	let result;
 	try {

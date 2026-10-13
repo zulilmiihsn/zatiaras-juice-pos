@@ -2,7 +2,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { CACHE_TTL_MS } from '$lib/constants/cache';
 import type { Product, Category, AddOn } from '$lib/types/product';
 import { smartCache, CACHE_KEYS } from '$lib/utils/cache';
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get as idbGet, set as idbSet, update as idbUpdate } from 'idb-keyval';
 import {
 	dbGet,
 	dbGetStrict,
@@ -46,9 +46,16 @@ export class ProductService {
 		return next;
 	}
 
-	private tableFlightAlive(key: string, generation: number, branch: string): boolean {
+	private tableFlightAlive(
+		key: string,
+		generation: number,
+		branch: string,
+		contextEpoch: number
+	): boolean {
 		return (
-			this.tableFlight.get(key) === generation && (selectedBranch.value || 'default') === branch
+			this.tableFlight.get(key) === generation &&
+			selectedBranch.contextEpoch === contextEpoch &&
+			(selectedBranch.value || 'default') === branch
 		);
 	}
 
@@ -56,9 +63,12 @@ export class ProductService {
 		// AUD-020: capture cabang sekali; fetch pakai cabang itu,
 		// namespace cache + request sama, commit tolak bila konteks pindah.
 		const branch = selectedBranch.value || 'default';
+		const contextEpoch = selectedBranch.contextEpoch;
 		const namespacedKey = `${cacheKey}_${branch}`;
 		const generation = this.beginTableFlight(namespacedKey);
-		const guard = () => this.tableFlightAlive(namespacedKey, generation, branch);
+		const guard = smartCache.createCommitGuard(namespacedKey, () =>
+			this.tableFlightAlive(namespacedKey, generation, branch, contextEpoch)
+		);
 		const offlineKey = `table:${offlineKeyPrefix}:${branch}`;
 		// IDB best-effort: gagal buka/baca tak boleh melumpuhkan pemuatan
 		// produk (jatuh ke network, bukan reject diam-diam).
@@ -79,13 +89,15 @@ export class ProductService {
 				guard
 			});
 			if (!guard()) return data || [];
-			await idbSet(
+			const snapshot: TableSnapshot = {
+				version: 1,
+				data: data || [],
+				updated_at: new Date().toISOString()
+			};
+			// Guard dibaca di transaksi IDB juga: branch/invalidate bisa berubah saat membuka store.
+			await idbUpdate<unknown>(
 				offlineKey,
-				{
-					version: 1,
-					data: data || [],
-					updated_at: new Date().toISOString()
-				} satisfies TableSnapshot,
+				(current) => (guard() ? snapshot : current),
 				catalogStore
 			);
 			return data || [];
@@ -160,12 +172,15 @@ export class ProductService {
 
 	async getIngredients(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
+		const contextEpoch = selectedBranch.contextEpoch;
 		const key = `ingredients_${branch}`;
 		if (forceRefresh) {
 			await smartCache.invalidate(key);
 		}
 		const generation = this.beginTableFlight(key);
-		const guard = () => this.tableFlightAlive(key, generation, branch);
+		const guard = smartCache.createCommitGuard(key, () =>
+			this.tableFlightAlive(key, generation, branch, contextEpoch)
+		);
 		return smartCache.get(key, async () => dbGet('bahan', {}, branch), {
 			ttl: CACHE_TTL_MS.SHORT,
 			backgroundRefresh: true,
@@ -180,9 +195,12 @@ export class ProductService {
 
 	async getHppSettings() {
 		const branch = selectedBranch.value || 'default';
+		const contextEpoch = selectedBranch.contextEpoch;
 		const key = `hpp_settings_${branch}`;
 		const generation = this.beginTableFlight(key);
-		const guard = () => this.tableFlightAlive(key, generation, branch);
+		const guard = smartCache.createCommitGuard(key, () =>
+			this.tableFlightAlive(key, generation, branch, contextEpoch)
+		);
 		const rows = await smartCache.get(key, async () => dbGet('hpp_settings', {}, branch), {
 			ttl: 180000,
 			backgroundRefresh: true,

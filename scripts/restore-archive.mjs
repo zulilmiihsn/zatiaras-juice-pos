@@ -1,331 +1,119 @@
-import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
 	parseRestoreArgs,
 	sha256Hex,
 	validateArchive,
 	buildRestoreChunks,
-	DEFAULT_RESTORE_CHUNK_ROWS,
-	diffAgainstExisting,
-	BK_FIELDS,
-	TK_FIELDS
+	DEFAULT_RESTORE_CHUNK_ROWS
 } from './restore-archive-lib.mjs';
+import { decodeDecimalNumber } from '../src/lib/utils/currency.ts';
+import { getBranchDbBinding, normalizeBranch } from '../src/lib/server/branchResolver.ts';
+import { wranglerInvocation } from './wrangler-cli.mjs';
 
-/** Query baca target via wrangler (bentuk eksekusi D1 proyek). Gagal -> null. */
-function queryTarget(sql) {
-	const out = spawnSync(
-		'npx',
-		[
-			'wrangler',
-			'd1',
-			'execute',
-			resolvedBinding,
-			isRemote ? '--remote' : '--local',
-			'--config=wrangler.pages.jsonc',
-			`--command=${sql}`,
-			'--json',
-			'--yes'
-		],
-		{ stdio: 'pipe', encoding: 'utf8', shell: process.platform === 'win32' }
-	);
-	if (out.status !== 0) return null;
+/** Never use local marker files as proof of a DB commit: job/digest/checkpoints live in the target DB. */
+export async function main(argv = process.argv.slice(2), deps = {}) {
+	const args = parseRestoreArgs(argv);
+	if (!args.file)
+		throw new Error(
+			'Usage: --file <archive.json> [--dry-run|--apply --expect-sha256 <approved-hash>] [--local|--remote] [--binding <BINDING>]'
+		);
+	const raw = readFileSync(args.file, 'utf8');
+	const sha256 = sha256Hex(raw);
+	if (args.expectSha256 && args.expectSha256 !== sha256)
+		throw new Error('CHECKSUM MISMATCH: source berbeda dari expected SHA-256');
+	let archive;
 	try {
-		const parsed = JSON.parse(out.stdout);
-		const first = Array.isArray(parsed) ? parsed[0] : parsed;
-		return first?.results ?? null;
+		archive = JSON.parse(raw);
 	} catch {
-		return null;
+		throw new Error('Format JSON tidak valid');
 	}
-}
-
-function chunked(rows, size) {
-	const out = [];
-	for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
-	return out;
-}
-
-function witaDate(waktu) {
-	try {
-		return new Date(new Date(waktu).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-	} catch {
-		return String(waktu || '').slice(0, 10);
-	}
-}
-
-/**
- * Validasi dan restore data arsip JSON ZatiarasPOS (ARC-002)
- *
- * Usage:
- *   node scripts/restore-archive.mjs --file <arsip.json> [--dry-run]
- *   node scripts/restore-archive.mjs --file <arsip.json> --apply [--local|--remote] [--binding DB_SAMARINDA_GROUP]
- */
-
-function argValue(name) {
-	const index = process.argv.indexOf(name);
-	return index >= 0 ? process.argv[index + 1] : null;
-}
-
-const args = parseRestoreArgs(process.argv);
-const isDryRun = !args.apply;
-const archiveFile = args.file;
-const isRemote = args.remote;
-
-if (!archiveFile) {
-	console.error(
-		'Usage: node scripts/restore-archive.mjs --file <path-to-archive.json> [--dry-run|--apply] [--remote|--local] [--binding <DB_BINDING>]'
-	);
-	process.exit(1);
-}
-
-if (!existsSync(archiveFile)) {
-	console.error(`File arsip tidak ditemukan: ${archiveFile}`);
-	process.exit(1);
-}
-
-const rawContent = readFileSync(archiveFile, 'utf8');
-const sha256 = sha256Hex(rawContent);
-
-let archive;
-try {
-	archive = JSON.parse(rawContent);
-} catch (err) {
-	console.error(`Format JSON tidak valid: ${err.message}`);
-	process.exit(1);
-}
-
-if (args.expectSha256 && args.expectSha256 !== sha256) {
-	console.error(`CHECKSUM MISMATCH: file ${sha256} != expected ${args.expectSha256}`);
-	process.exit(1);
-}
-
-const validation = validateArchive(archive);
-if (!validation.ok) {
-	for (const e of validation.errors) console.error(`ERROR: ${e}`);
-	process.exit(1);
-}
-
-const { meta, buku_kas, transaksi_kasir = [] } = archive;
-const schemaVersion = Number(meta.schema_version || 1);
-if (![1, 2, 3].includes(schemaVersion)) {
-	console.error(
-		`ERROR: Versi skema arsip tidak didukung: ${meta.schema_version} (didukung: 1, 2, 3)`
-	);
-	process.exit(1);
-}
-
-const archiveId = meta.archive_id || meta.id || 'unknown';
-const branch = meta.branch || 'samarinda';
-
-const BRANCH_TO_BINDING = {
-	samarinda: 'DB_SAMARINDA_GROUP',
-	samarinda2: 'DB_SAMARINDA_GROUP',
-	balikpapan: 'DB_BALIKPAPAN_GROUP',
-	balikpapan2: 'DB_BALIKPAPAN_GROUP',
-	berau: 'DB_BERAU_GROUP'
-};
-const resolvedBinding = argValue('--binding') || BRANCH_TO_BINDING[branch] || 'DB_SAMARINDA_GROUP';
-
-console.log('=== ZatiarasPOS Archive Validation ===');
-console.log(`Archive ID    : ${archiveId}`);
-console.log(`Schema Version: ${schemaVersion}`);
-console.log(`Branch        : ${branch}`);
-console.log(`Target Binding: ${resolvedBinding}`);
-console.log(`Before Year   : ${meta.before_year || 'unknown'}`);
-console.log(`Cutoff WITA   : ${meta.cutoff_wita || 'unknown'}`);
-console.log(`Exported At   : ${meta.exported_at || 'unknown'}`);
-console.log(`SHA-256       : ${sha256}`);
-console.log(`Buku Kas Rows : ${buku_kas.length} (expected: ${meta.counts?.buku_kas ?? '?'})`);
-console.log(
-	`Transaksi Qty : ${transaksi_kasir.length} (expected: ${meta.counts?.transaksi_kasir ?? '?'})`
-);
-
-if (meta.counts) {
-	if (meta.counts.buku_kas !== buku_kas.length) {
-		console.error(
-			`MISMATCH: Buku kas count (${buku_kas.length}) != metadata (${meta.counts.buku_kas})`
-		);
-		process.exit(1);
-	}
-	if (transaksi_kasir && meta.counts.transaksi_kasir !== transaksi_kasir.length) {
-		console.error(
-			`MISMATCH: Transaksi kasir count (${transaksi_kasir.length}) != metadata (${meta.counts.transaksi_kasir})`
-		);
-		process.exit(1);
-	}
-}
-
-// 1. Verify Unique IDs
-const bkIdSet = new Set();
-for (const r of buku_kas) {
-	if (!r.id || bkIdSet.has(r.id)) {
-		console.error(`ERROR: Duplikat atau ID tidak valid di buku_kas: ${r.id}`);
-		process.exit(1);
-	}
-	bkIdSet.add(r.id);
-}
-
-// 2. Verify Foreign Keys
-for (const t of transaksi_kasir) {
-	if (t.buku_kas_id && !bkIdSet.has(t.buku_kas_id)) {
-		console.error(
-			`ERROR: Orphan transaksi_kasir ${t.id} references missing buku_kas ${t.buku_kas_id}`
-		);
-		process.exit(1);
-	}
-}
-
-console.log('Integrity Check: PASSED (No duplicates, valid references, branch cocok)');
-
-if (isDryRun) {
+	const validation = validateArchive(archive);
+	if (!validation.ok) throw new Error(validation.errors.join('; '));
+	const binding = getBranchDbBinding(normalizeBranch(validation.branch));
+	if (args.binding && args.binding !== binding)
+		throw new Error('Binding tidak sesuai cabang archive');
+	const rows =
+		args.chunkRows == null ? DEFAULT_RESTORE_CHUNK_ROWS : decodeDecimalNumber(args.chunkRows);
+	if (rows === null || !Number.isSafeInteger(rows) || rows < 1)
+		throw new Error('Chunk rows tidak valid');
+	const planned = buildRestoreChunks(archive, { sha256 }, rows);
 	console.log(
-		'\n[DRY RUN]: Validation complete. 0 database mutations made. Pass --apply to restore.'
+		`Archive validated: ${planned.totalRows} rows; ${planned.chunks.length} bounded stages; one ${planned.final.statements.length}-statement atomic final. Target ${binding}; SHA-256 ${sha256}.`
 	);
-	process.exit(0);
-}
-
-console.log('\n[RESTORE]: Preflight target (konflik + agregat POS)...');
-
-const existingBk = new Map();
-const existingTk = new Map();
-// Baca preflight per 200 ID: jauh di bawah batas variabel SQLite (999),
-// 4x lebih sedikit subprocess wrangler dibanding 50.
-const READ_CHUNK = 200;
-for (const chunk of chunked(buku_kas, READ_CHUNK)) {
-	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
-	const rows = queryTarget(`SELECT id, ${BK_FIELDS.join(', ')} FROM buku_kas WHERE id IN (${ids})`);
-	if (!rows) {
-		console.error('Preflight gagal membaca target buku_kas. Hentikan apply.');
-		process.exit(1);
+	if (!args.apply) {
+		console.log('[DRY RUN]: Validation complete. 0 database mutations made.');
+		return planned;
 	}
-	for (const r of rows) existingBk.set(String(r.id), r);
-}
-for (const chunk of chunked(transaksi_kasir, READ_CHUNK)) {
-	const ids = chunk.map((r) => `'${String(r.id).replace(/'/g, "''")}'`).join(',');
-	const rows = queryTarget(
-		`SELECT id, ${TK_FIELDS.join(', ')} FROM transaksi_kasir WHERE id IN (${ids})`
-	);
-	if (!rows) {
-		console.error('Preflight gagal membaca target transaksi_kasir. Hentikan apply.');
-		process.exit(1);
+	if (!args.expectSha256)
+		throw new Error('Apply membutuhkan --expect-sha256 approved; dry-run dahulu');
+	const directory = mkdtempSync(join(tmpdir(), 'zatiaras-atomic-restore-'));
+	const spawn = deps.spawn ?? spawnSync;
+	function* phases() {
+		if (args.remote)
+			for (const chunk of planned.chunks) yield { name: `stage-${chunk.index}`, sql: chunk.sql };
+		yield { name: 'final-atomic', sql: planned.final.sql };
 	}
-	for (const r of rows) existingTk.set(String(r.id), r);
-}
-
-const bkDiff = diffAgainstExisting(buku_kas, existingBk, BK_FIELDS);
-const tkDiff = diffAgainstExisting(transaksi_kasir, existingTk, TK_FIELDS);
-if (bkDiff.conflict.length > 0 || tkDiff.conflict.length > 0) {
-	console.error(
-		`CONFLICT: ${bkDiff.conflict.length} buku_kas + ${tkDiff.conflict.length} transaksi_kasir memiliki ID sama dengan data berbeda. Apply dihentikan; tidak ada row ditimpa.`
-	);
-	for (const c of [...bkDiff.conflict, ...tkDiff.conflict].slice(0, 10))
-		console.error(` - ${c.id}`);
-	process.exit(1);
-}
-console.log(
-	`Preflight konflik: ${bkDiff.skip.length} identik dilewati, ${bkDiff.insert.length + tkDiff.insert.length} baru akan dimasukkan.`
-);
-
-// Preflight agregat nyata: snapshot POS butuh agregat harian target, bila hilang hentikan.
-const posDates = [
-	...new Set(buku_kas.filter((r) => String(r.sumber || '') === 'pos').map((r) => witaDate(r.waktu)))
-].filter(Boolean);
-if (posDates.length > 0) {
-	const inList = posDates.map((d) => `'${d}'`).join(',');
-	const aggRows = queryTarget(
-		`SELECT tanggal_penjualan FROM ringkasan_penjualan_harian WHERE cabang_id = '${branch.replace(/'/g, "''")}' AND tanggal_penjualan IN (${inList})`
-	);
-	if (!aggRows) {
-		console.error('Preflight agregat gagal dibaca. Hentikan apply.');
-		process.exit(1);
-	}
-	const have = new Set(aggRows.map((r) => String(r.tanggal_penjualan)));
-	const missing = posDates.filter((d) => !have.has(d));
-	if (missing.length > 0) {
-		console.error(
-			`Preflight agregat: target kehilangan agregat POS tanggal ${missing.slice(0, 10).join(', ')}. Hentikan apply sampai jalur rebuild teruji; laporan tak diklaim lengkap.`
-		);
-		process.exit(1);
-	}
-	console.log(`Preflight agregat: ${posDates.length} tanggal POS tercakup.`);
-}
-
-console.log('\n[RESTORE]: Generating bounded chunk transactions...');
-
-// Apply terbagi per chunk transaksi (AUD-043): tiap chunk BEGIN/COMMIT
-// sendiri berisi guard barisnya + insert idempoten + upsert aman-ulang.
-// Checkpoint per chunk membuat crash/resume idempoten; sumber arsip utuh.
-const chunkRows = Math.max(1, Number(argValue('--chunk-rows')) || DEFAULT_RESTORE_CHUNK_ROWS);
-const planned = buildRestoreChunks(archive, { sha256 }, chunkRows);
-const checkpointDir = join(tmpdir(), `restore-${sha256.slice(0, 12)}`);
-mkdirSync(checkpointDir, { recursive: true });
-const doneMarker = (index) => join(checkpointDir, `chunk-${index}.done`);
-const pending = planned.chunks.filter((c) => !existsSync(doneMarker(c.index)));
-
-console.log(
-	`Rencana ${planned.chunks.length} chunk x <=${chunkRows} baris (${planned.totalRows} baris); ${pending.length} pending, checkpoint ${checkpointDir}.`
-);
-
-if (isDryRun) {
-	for (const c of planned.chunks)
-		console.log(` - chunk ${c.index}: ${c.rows} baris, ${c.statements.length} statement`);
-	console.log(
-		'\n[DRY RUN]: Validation complete. 0 database mutations made. Pass --apply to restore.'
-	);
-	process.exit(0);
-}
-
-for (const c of pending) {
-	const tempSqlFile = join(
-		tmpdir(),
-		`restore-${planned.archiveId.slice(0, 8)}-c${c.index}-${Date.now()}.sql`
-	);
-	writeFileSync(tempSqlFile, c.sql, 'utf8');
-	console.log(`[RESTORE] chunk ${c.index}/${planned.chunks.length - 1}: ${c.rows} baris...`);
-
-	const wranglerArgs = [
-		'wrangler',
-		'd1',
-		'execute',
-		resolvedBinding,
-		isRemote ? '--remote' : '--local',
-		'--config=wrangler.pages.jsonc',
-		`--file=${tempSqlFile}`,
-		'--yes'
-	];
-
-	const result = spawnSync('npx', wranglerArgs, {
-		stdio: 'pipe',
-		encoding: 'utf8',
-		shell: process.platform === 'win32'
-	});
-
 	try {
-		unlinkSync(tempSqlFile);
+		if (!args.remote) {
+			// Reuse one workerd for all bounded stages instead of hundreds of Wrangler startups.
+			const getPlatformProxy = deps.getPlatformProxy ?? (await import('wrangler')).getPlatformProxy;
+			const proxy = await getPlatformProxy({
+				configPath: 'wrangler.pages.jsonc',
+				remoteBindings: false,
+				persist: args.persistTo ? { path: resolve(args.persistTo, 'v3') } : true
+			});
+			try {
+				for (const chunk of planned.chunks) {
+					await proxy.env[binding].batch(
+						chunk.statements.map((sql) => proxy.env[binding].prepare(sql))
+					);
+				}
+			} catch {
+				throw new Error(
+					'Staging gagal; live ledger belum difinalisasi. Ulangi source/digest/target sama.'
+				);
+			} finally {
+				await proxy.dispose();
+			}
+		}
+		for (const phase of phases()) {
+			const file = join(directory, `${phase.name}.sql`);
+			writeFileSync(file, phase.sql, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+			const invocation = wranglerInvocation([
+				'd1',
+				'execute',
+				binding,
+				args.remote ? '--remote' : '--local',
+				'--config',
+				'wrangler.pages.jsonc',
+				`--file=${file}`,
+				'--yes',
+				...(args.persistTo ? ['--persist-to', args.persistTo] : [])
+			]);
+			const result = spawn(invocation.command, invocation.args, invocation.options);
+			if (result.status !== 0 || result.error)
+				throw new Error(
+					`Restore ${phase.name} gagal; live ledger belum difinalisasi atau commit final ambigu. Ulangi sumber/digest/target sama; jangan ganti key atau partial apply.`
+				);
+			console.log(`[RESTORE] ${phase.name} committed.`);
+		}
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
+	console.log(
+		'RESTORE COMPLETED: one atomic live commit; target job/digest makes retry idempotent. Source archive retained.'
+	);
+	return planned;
+}
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+	try {
+		await main();
 	} catch (error) {
-		console.warn(
-			'WARNING: proses restore selesai, tetapi file SQL sementara gagal dihapus.',
-			error instanceof Error ? error.message : String(error)
-		);
+		console.error(`ERROR: ${error instanceof Error ? error.message : String(error)}`);
+		process.exitCode = 1;
 	}
-
-	if (result.status !== 0) {
-		console.error(`RESTORE CHUNK ${c.index} FAILED (exit code ${result.status}):`);
-		console.error(result.stderr || result.stdout);
-		console.error(
-			`Chunk 0..${c.index - 1} sudah commit dan idempoten; ulangi perintah sama untuk resume. Ledger utuh per chunk.`
-		);
-		process.exit(1);
-	}
-	writeFileSync(doneMarker(c.index), `${new Date().toISOString()} ok\n`, 'utf8');
 }
-
-console.log('✅ RESTORE COMPLETED SUCCESSFULLY!');
-console.log(
-	`- Dimasukkan ${bkDiff.insert.length} buku_kas + ${tkDiff.insert.length} transaksi_kasir`
-);
-console.log(
-	`- Dilewati identik ${bkDiff.skip.length + tkDiff.skip.length} (idempoten, apply kedua no-op)`
-);
-console.log(`- Marker archive_restore_${planned.archiveId} tercatat; sumber POS dipertahankan`);

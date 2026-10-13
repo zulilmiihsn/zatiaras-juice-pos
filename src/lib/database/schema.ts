@@ -345,7 +345,9 @@ export const bahanMutasi = sqliteTable(
 		dibuat_oleh: text('dibuat_oleh'),
 		created_at: text('created_at').default(now()),
 		/** Kunci idempotency perintah kulakan atomik (AUD-006). NULL untuk baris non-purchase. */
-		operation_key: text('operation_key')
+		operation_key: text('operation_key'),
+		/** Intent baru wajib dicocokkan saat replay; NULL hanya untuk histori lama/non-purchase. */
+		request_fingerprint: text('request_fingerprint')
 	},
 	(table) => [
 		index('idx_bahan_mutasi_branch_created').on(table.cabang_id, table.created_at),
@@ -641,6 +643,41 @@ export const archiveJobs = sqliteTable(
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [index('idx_archive_jobs_branch_status').on(table.cabang_id, table.status)]
+);
+
+export const archiveRestoreJobs = sqliteTable(
+	'archive_restore_jobs',
+	{
+		id: text('id').primaryKey().notNull(),
+		cabang_id: text('cabang_id').notNull(),
+		archive_id: text('archive_id').notNull(),
+		sha256: text('sha256').notNull(),
+		expected_bk: integer('expected_bk').notNull(),
+		expected_tk: integer('expected_tk').notNull(),
+		status: text('status').notNull(),
+		created_at: text('created_at').notNull(),
+		committed_at: text('committed_at')
+	},
+	(table) => [
+		uniqueIndex('archive_restore_jobs_branch_archive').on(table.cabang_id, table.archive_id)
+	]
+);
+
+export const archiveRestoreRows = sqliteTable(
+	'archive_restore_rows',
+	{
+		job_id: text('job_id')
+			.notNull()
+			.references(() => archiveRestoreJobs.id),
+		cabang_id: text('cabang_id').notNull(),
+		kind: text('kind').notNull(),
+		row_id: text('row_id').notNull(),
+		data_json: text('data_json').notNull()
+	},
+	(table) => [
+		primaryKey({ columns: [table.job_id, table.kind, table.row_id] }),
+		index('archive_restore_rows_branch_job').on(table.cabang_id, table.job_id, table.kind)
+	]
 );
 
 export const archiveJobItems = sqliteTable(

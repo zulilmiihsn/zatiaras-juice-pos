@@ -1,5 +1,10 @@
 import { browser } from '$app/environment';
-import { clear as clearCache, get as getCache, set as setCache, del as delCache } from 'idb-keyval';
+import {
+	clear as clearCache,
+	get as getCache,
+	update as updateCache,
+	del as delCache
+} from 'idb-keyval';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { cacheStore } from '$lib/utils/idbStores';
 import { CACHE_TTL_MS } from '$lib/constants/cache';
@@ -124,20 +129,23 @@ class MemoryCache {
 
 // [CATATAN]: IndexedDB cache (persistent storage)
 class IndexedDBCache {
-	async set<T>(key: string, data: T, ttl: number = CACHE_CONFIG.INDEXEDDB_TTL): Promise<void> {
+	async set<T>(
+		key: string,
+		data: T,
+		ttl: number = CACHE_CONFIG.INDEXEDDB_TTL,
+		guard?: () => boolean
+	): Promise<void> {
 		if (!browser) return;
 		try {
-			await setCache(
+			const entry: CacheEntry<T> = { data, timestamp: Date.now(), ttl };
+			await updateCache<CacheEntry<T> | undefined>(
 				key,
-				{
-					data,
-					timestamp: Date.now(),
-					ttl
-				},
+				(current) => (!guard || guard() ? entry : current),
 				cacheStore
 			);
-		} catch (error) {
-			// [CATATAN]: Silent error handling
+		} catch {
+			// Persistent cache is best-effort; a storage outage must not discard a valid network result.
+			return;
 		}
 	}
 
@@ -204,6 +212,13 @@ export class SmartCache {
 		return current.epoch === snapshot.epoch && current.global === snapshot.global;
 	}
 
+	/** Satu commit epoch dipakai juga oleh snapshot offline milik caller, bukan hanya cache internal. */
+	createCommitGuard(key: string, guard?: () => boolean): () => boolean {
+		this.keyRegistry.add(key);
+		const snapshot = this.commitSnapshot(key);
+		return () => this.canCommit(key, snapshot, guard);
+	}
+
 	private bumpCommitEpoch(key: string): void {
 		this.commitEpoch.set(key, (this.commitEpoch.get(key) ?? 0) + 1);
 	}
@@ -232,6 +247,7 @@ export class SmartCache {
 		} = {}
 	): Promise<T> {
 		const { ttl, backgroundRefresh = true, etag, forceRefresh = false, guard } = options;
+		this.keyRegistry.add(key);
 		this.stats.requests += 1;
 		const snapshot = this.commitSnapshot(key);
 
@@ -259,18 +275,18 @@ export class SmartCache {
 			const indexedDBData = await this.indexedDBCache.get<T>(key);
 			if (indexedDBData !== null) {
 				this.stats.indexedDBHits += 1;
-				// [CATATAN]: Store in memory cache for faster access
-				this.memoryCache.set(key, indexedDBData, ttl);
-
-				// [CATATAN]: Trigger background refresh if enabled
-				if (backgroundRefresh) {
-					this.scheduleBackgroundRefresh(
-						key,
-						async () => ({ data: await fetcher() }),
-						ttl,
-						undefined,
-						guard
-					);
+				// An IDB read begun before invalidate is an obsolete flight too, not a fresh memory hit.
+				if (this.canCommit(key, snapshot, guard)) {
+					this.memoryCache.set(key, indexedDBData, ttl);
+					if (backgroundRefresh) {
+						this.scheduleBackgroundRefresh(
+							key,
+							async () => ({ data: await fetcher() }),
+							ttl,
+							undefined,
+							guard
+						);
+					}
 				}
 
 				return indexedDBData;
@@ -287,7 +303,8 @@ export class SmartCache {
 
 		// [CATATAN]: Store in both caches
 		this.memoryCache.set(key, freshData, ttl);
-		await this.indexedDBCache.set(key, freshData, ttl);
+		await this.indexedDBCache.set(key, freshData, ttl, () => this.canCommit(key, snapshot, guard));
+		if (!this.canCommit(key, snapshot, guard)) return freshData;
 		this.keyRegistry.add(key);
 
 		// [CATATAN]: Update ETag if provided
@@ -311,6 +328,7 @@ export class SmartCache {
 	): Promise<T> {
 		const { ttl, backgroundRefresh = true, forceRefresh = false, guard } = options;
 		const currentETag = this.etagMap.get(key);
+		this.keyRegistry.add(key);
 		this.stats.requests += 1;
 		const snapshot = this.commitSnapshot(key);
 
@@ -340,7 +358,10 @@ export class SmartCache {
 
 		// [CATATAN]: Store data and ETag
 		this.memoryCache.set(key, result.data, ttl);
-		await this.indexedDBCache.set(key, result.data, ttl);
+		await this.indexedDBCache.set(key, result.data, ttl, () =>
+			this.canCommit(key, snapshot, guard)
+		);
+		if (!this.canCommit(key, snapshot, guard)) return result.data;
 		this.keyRegistry.add(key);
 
 		if (result.etag) {
@@ -376,12 +397,16 @@ export class SmartCache {
 			try {
 				// [CATATAN]: Jangan fetch jika offline
 				if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+				if (!this.canCommit(key, snapshot, guard)) return;
 				const result = await fetcher(etag);
 				if (etag && result.etag === etag) return;
 				if (!this.canCommit(key, snapshot, guard)) return;
 
 				this.memoryCache.set(key, result.data, ttl);
-				await this.indexedDBCache.set(key, result.data, ttl);
+				await this.indexedDBCache.set(key, result.data, ttl, () =>
+					this.canCommit(key, snapshot, guard)
+				);
+				if (!this.canCommit(key, snapshot, guard)) return;
 				this.keyRegistry.add(key);
 				if (result.etag) {
 					this.etagMap.set(key, result.etag);
@@ -389,7 +414,8 @@ export class SmartCache {
 			} catch (error) {
 				// [CATATAN]: Silent error handling
 			} finally {
-				this.backgroundRefreshMap.delete(key);
+				if (this.backgroundRefreshMap.get(key) === Number(refreshId))
+					this.backgroundRefreshMap.delete(key);
 			}
 		}, CACHE_CONFIG.BACKGROUND_REFRESH);
 		this.backgroundRefreshMap.set(key, Number(refreshId));
@@ -420,13 +446,15 @@ export class SmartCache {
 
 		await Promise.all(
 			keysToDelete.map(async (key) => {
+				// Invalidate before the first storage await; late responses must observe the new epoch.
+				this.bumpCommitEpoch(key);
 				this.memoryCache.delete(key);
-				await this.indexedDBCache.delete(key);
+				const refreshId = this.backgroundRefreshMap.get(key);
+				if (refreshId !== undefined) clearTimeout(refreshId);
 				this.backgroundRefreshMap.delete(key);
 				this.etagMap.delete(key);
-				this.keyRegistry.delete(key);
-				// AUD-020: gugurkan commit fetch yang masih terbang untuk key ini.
-				this.bumpCommitEpoch(key);
+				await this.indexedDBCache.delete(key);
+				// Keep known keys until clear: a newer cold flight may already be using this key.
 			})
 		);
 	}
@@ -436,9 +464,6 @@ export class SmartCache {
 		// AUD-020: gugurkan semua commit yang masih terbang.
 		this.commitGlobal += 1;
 		this.memoryCache.clear();
-		if (browser) {
-			await this.indexedDBCache.clear();
-		}
 
 		// [CATATAN]: Clear background refresh intervals
 		for (const refreshId of this.backgroundRefreshMap.values()) {
@@ -449,6 +474,8 @@ export class SmartCache {
 		// [CATATAN]: Clear ETags
 		this.etagMap.clear();
 		this.keyRegistry.clear();
+		// Clear synchronous registries first so this older clear cannot erase a newer flight's key.
+		if (browser) await this.indexedDBCache.clear();
 	}
 
 	// [CATATAN]: Get cache statistics

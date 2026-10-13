@@ -38,7 +38,8 @@ export async function publishBranchEvent(
 	table: RealtimeTable,
 	action: RealtimeAction,
 	extra: Partial<BranchEventPayload> = {},
-	timeoutMs: number = REALTIME_PUBLISH_TIMEOUT_MS
+	timeoutMs: number = REALTIME_PUBLISH_TIMEOUT_MS,
+	parentSignal?: AbortSignal
 ) {
 	const hub = env?.REALTIME_HUB as
 		| {
@@ -57,28 +58,42 @@ export async function publishBranchEvent(
 			...extra
 		};
 
-		const budget = Math.max(1, timeoutMs);
+		if (parentSignal?.aborted) return;
+		const budget = Number.isFinite(timeoutMs)
+			? Math.min(REALTIME_PUBLISH_TIMEOUT_MS, Math.max(1, timeoutMs))
+			: REALTIME_PUBLISH_TIMEOUT_MS;
 		const id = hub.idFromName(branchId);
 		const stub = hub.get(id);
-		// AbortSignal untuk fetch patuh; timer backstop untuk stub yang
-		// mengabaikan signal (tanpa ini balasan menggantung selamanya).
+		// One owned timer aborts actual I/O and also bounds signal-ignoring adapters.
+		const controller = new AbortController();
 		let timer: ReturnType<typeof setTimeout> | undefined;
+		let onParentAbort: (() => void) | undefined;
 		try {
+			const cancelled = new Promise<never>((_resolve, reject) => {
+				onParentAbort = () => {
+					controller.abort(parentSignal?.reason);
+					reject(controller.signal.reason);
+				};
+				parentSignal?.addEventListener('abort', onParentAbort, { once: true });
+				timer = setTimeout(() => {
+					controller.abort(new Error('realtime publish timeout'));
+					reject(controller.signal.reason);
+				}, budget);
+			});
 			await Promise.race([
+				cancelled,
 				stub.fetch(
 					new Request('https://realtime.local/publish', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify(payload),
-						signal: AbortSignal.timeout(budget)
+						signal: controller.signal
 					})
-				),
-				new Promise<never>((_, reject) => {
-					timer = setTimeout(() => reject(new Error('realtime publish timeout')), budget);
-				})
+				)
 			]);
 		} finally {
 			if (timer !== undefined) clearTimeout(timer);
+			if (onParentAbort) parentSignal?.removeEventListener('abort', onParentAbort);
 		}
 	} catch (error) {
 		console.warn('[realtime] Failed to publish branch event', error);

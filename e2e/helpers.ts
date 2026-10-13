@@ -25,13 +25,13 @@ export function ownerUsernameForTest(title: string): string {
 
 /**
  * Mutasi via page.request mengikuti kontrak aplikasi
- * (fetchWithCsrfRetry): token segar per percobaan + SATU retry bila
- * server menolak CSRF_INVALID (rotasi cookie antar GET/POST di jar bersama).
- * Tanpa retry, POST kedua+ flaky 403 di run cepat.
+ * (fetchWithCsrfRetry): baca endpoint tanpa cache per percobaan + SATU retry
+ * bila server menolak CSRF_INVALID. Cookie valid tetap stabil antar GET caller;
+ * cookie yang hilang/diubah tetap harus melalui guard, bukan bypass/extra retry.
  */
 export async function csrfMutate(
 	page: Page,
-	method: 'POST' | 'PATCH',
+	method: 'POST' | 'PATCH' | 'DELETE',
 	path: string,
 	data: unknown
 ) {
@@ -40,16 +40,11 @@ export async function csrfMutate(
 		const csrf = (await (await page.request.get(`/api/csrf?_=${Date.now()}`)).json()) as {
 			token?: string;
 		};
-		const res =
-			method === 'POST'
-				? await page.request.post(path, {
-						data,
-						headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
-					})
-				: await page.request.patch(path, {
-						data,
-						headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
-					});
+		const res = await page.request.fetch(path, {
+			method,
+			data,
+			headers: csrf.token ? { 'X-CSRF-Token': csrf.token } : {}
+		});
 		if (res.status() !== 403) return res;
 		// Baca sekali: body terkonsumsi di sini; status cukup untuk retry.
 		const retryable = (await res.text().catch(() => '')).includes('CSRF_INVALID');

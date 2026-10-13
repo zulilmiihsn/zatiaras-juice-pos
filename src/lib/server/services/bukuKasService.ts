@@ -6,7 +6,11 @@ import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHe
 import { toCursorPage } from '$lib/server/dataPagination';
 import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { containsPosLedger, POS_LEDGER_ROUTE_MESSAGE } from '$lib/server/ledgerPolicy';
-import { validateManualLedgerRows, validateManualLedgerPatch } from '$lib/server/ledgerValidation';
+import {
+	validateManualLedgerRows,
+	validateManualLedgerPatch,
+	validateExpectedLedgerRevision
+} from '$lib/server/ledgerValidation';
 import { newMutationToken, batchClaimChanges } from '$lib/server/ledgerCas';
 import { error as kitError } from '@sveltejs/kit';
 
@@ -135,7 +139,7 @@ export async function insertBukuKasRows(
 		if (!existing) newRows.push(row);
 	}
 	if (newRows.length === 0) {
-		return { ok: true, data: rows, duplicate: true };
+		return { ok: true, data: validRows, duplicate: true };
 	}
 
 	await db.insert(bukuKas).values(newRows as (typeof bukuKas.$inferInsert)[]);
@@ -155,7 +159,7 @@ export async function insertBukuKasRows(
 			transaction_id: newRows[0]?.transaction_id
 		}
 	);
-	return { ok: true, data: rows };
+	return { ok: true, data: validRows };
 }
 
 /**
@@ -339,6 +343,7 @@ export async function updateBukuKasRow(
 		return { ok: true };
 	}
 
+	const expectedRevision = validateExpectedLedgerRevision(payload.revision);
 	const manualPayload = validateManualLedgerPatch(
 		sanitizeUpdatePayload(payload as Partial<typeof bukuKas.$inferInsert>) as Record<
 			string,
@@ -348,11 +353,22 @@ export async function updateBukuKasRow(
 	);
 	for (const k of ['revision', 'mutation_token'])
 		delete (manualPayload as Record<string, unknown>)[k];
-	// Increment atomik satu statement (bukan snapshot+1) agar dua update tak berbagi versi.
-	await db
+	// Consent binds to the caller's displayed version, not the fresh SELECT above.
+	// RETURNING acknowledges this exact guarded write before any publication/audit side effect.
+	const updated = await db
 		.update(bukuKas)
 		.set({ ...manualPayload, revision: sql`revision + 1`, updated_at: new Date().toISOString() })
-		.where(and(eq(bukuKas.cabang_id, branch), eq(bukuKas.id, String(id))));
+		.where(
+			and(
+				eq(bukuKas.cabang_id, branch),
+				eq(bukuKas.id, String(id)),
+				eq(bukuKas.revision, expectedRevision),
+				sql`LOWER(COALESCE(${bukuKas.sumber}, '')) <> 'pos'`
+			)
+		)
+		.returning({ id: bukuKas.id });
+	if (updated.length !== 1)
+		throw kitError(409, 'Transaksi berubah bersamaan. Muat ulang lalu coba lagi.');
 	await publish(platform, branch, 'buku_kas', 'update', { id });
 	await auditDataChange(rawDb, branch, session, 'buku_kas', 'update', id, {
 		fields: Object.keys(payload)

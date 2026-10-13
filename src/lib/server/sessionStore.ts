@@ -5,7 +5,8 @@ import {
 	type BranchId
 } from '$lib/server/branchResolver';
 import { MS_PER_DAY } from '$lib/constants/time';
-import { normalizeRole } from '$lib/utils/roles';
+import { parseSessionBranch } from './authSessionReader';
+export { getAuthSession } from './authSessionReader';
 import { revokeNotificationSession } from '$lib/server/orderNotifications/useCase';
 
 export interface AuthSession {
@@ -24,18 +25,6 @@ const SESSION_TTL_MS = MS_PER_DAY;
 
 function buildSessionId(branch: BranchId): string {
 	return `${branch}.${crypto.randomUUID()}`;
-}
-
-function parseSessionBranch(sessionId: string | undefined): BranchId | null {
-	if (!sessionId) return null;
-	const separatorIndex = sessionId.indexOf('.');
-	if (separatorIndex <= 0) return null;
-
-	try {
-		return normalizeBranch(sessionId.slice(0, separatorIndex));
-	} catch {
-		return null;
-	}
 }
 
 function getSessionDb(platform: App.Platform | undefined, branch: BranchId) {
@@ -94,79 +83,6 @@ export async function createAuthSession(
 	await db.prepare('DELETE FROM auth_sessions WHERE expires_at <= ?').bind(now).run();
 
 	return session;
-}
-
-export async function getAuthSession(
-	platform: App.Platform | undefined,
-	sessionId: string | undefined
-): Promise<AuthSession | null> {
-	const branch = parseSessionBranch(sessionId);
-	if (!branch || !sessionId) {
-		return null;
-	}
-
-	const row = (await getSessionDb(platform, branch)
-		.prepare(
-			`SELECT
-				s.id,
-				s.cabang_id,
-				s.user_id,
-				p.username,
-				p.role,
-				s.created_at,
-				s.expires_at,
-				s.unlocked_pages,
-				s.unlock_expires_at
-			FROM auth_sessions s
-			INNER JOIN profil p
-				ON p.cabang_id = s.cabang_id AND p.id = s.user_id
-			WHERE s.id = ? AND s.expires_at > ?
-			LIMIT 1`
-		)
-		.bind(sessionId, Date.now())
-		.first()) as {
-		id: string;
-		cabang_id: BranchId;
-		user_id: string;
-		username: string;
-		role: string;
-		created_at: number;
-		expires_at: number;
-		unlocked_pages: string;
-		unlock_expires_at: number;
-	} | null;
-
-	if (!row) {
-		return null;
-	}
-
-	let unlockedPages: string[] = [];
-	try {
-		const parsed = JSON.parse(row.unlocked_pages || '[]') as unknown;
-		if (Array.isArray(parsed)) {
-			unlockedPages = parsed.filter((item): item is string => typeof item === 'string');
-		}
-	} catch {
-		unlockedPages = [];
-	}
-
-	// AUD-019: unknown role fail-closed (null sesi), bukan default kasir.
-	const normalizedRole = normalizeRole(row.role);
-	if (!normalizedRole) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		branch: row.cabang_id,
-		userId: row.user_id,
-		username: row.username,
-		role: normalizedRole,
-		createdAt: row.created_at,
-		expiresAt: row.expires_at,
-		unlockedPages,
-		unlockExpiresAt: Number(row.unlock_expires_at || 0)
-	};
 }
 
 export async function grantSessionPageUnlock(

@@ -89,11 +89,11 @@ try {
 			parts?: Array<{ key: string; checksum: string; count: number }>;
 		};
 		assert.equal(firstJson.parts?.length, expectedParts);
-		if (expectedParts === 1) {
-			assert.equal(typeof firstJson.content, 'string');
-		} else {
-			assert.equal(firstJson.content, undefined);
-		}
+		assert.equal(
+			Object.hasOwn(firstJson, 'content'),
+			false,
+			'All completed shapes are metadata-only'
+		);
 		for (const part of firstJson.parts || []) {
 			assert.ok(objects.has(part.key));
 		}

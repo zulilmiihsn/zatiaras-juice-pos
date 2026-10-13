@@ -1,6 +1,20 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Authentication Browser Flows', () => {
+	test('protects reports before client hydration even when JavaScript cannot run', async ({
+		browser,
+		baseURL
+	}) => {
+		const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+		try {
+			const page = await context.newPage();
+			await page.goto('/laporan');
+			await expect(page).toHaveURL(/\/login/);
+			await expect(page.locator('form')).toBeVisible();
+		} finally {
+			await context.close();
+		}
+	});
 	test('redirects unauthenticated user to /login', async ({ page }) => {
 		await page.goto('/pengaturan/pemilik/pajak');
 		await expect(page).toHaveURL(/\/login/);
