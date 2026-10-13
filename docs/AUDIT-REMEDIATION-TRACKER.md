@@ -22,10 +22,10 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      1 |
-| In progress  |      1 |
+| In progress  |      0 |
 | Blocked      |      4 |
 | Passed local |      0 |
-| Completed    |     57 |
+| Completed    |     58 |
 | **Total**    | **63** |
 
 **Completed 0 bukan berarti belum ada perbaikan.** Artinya belum ada task remediasi baru yang disahkan memenuhi seluruh DoD. `Pending` pada task dengan bukti baseline berarti acceptance kandidat terintegrasi belum dikonsolidasi, bukan kode lama hilang atau harus ditulis ulang.
@@ -185,7 +185,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-056](AUDIT-REMEDIATION-PLAN.md#aud-056) | Artifact metadata portable tanpa melemahkan hash | Clone bersih Windows/Linux + tamper ditolak             | Completed        | claude-opus-5.5 | TRK-082: artifact Ubuntu `e509a71` lolos verify di clone Windows; CRLF diberi diagnosis, tetap ditolak                                                             |
 | [x]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki  | Completed        | claude-opus-5.5 | TRK-090: `ca447e4` deploy 38468839308; setahun penuh lulus (arsip 65 panggilan/193 file, maks 5,3 s); UAT batch 8 lulus                                            |
 | [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                                | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
-| [ ]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Drill nyata 3 shard lulus; schema production diperbaiki | In progress      | claude-opus-5.5 | TRK-091: `f29372a`; drill + restore terisolasi + rollback lulus; menunggu target RPO/RTO pemilik                                                                   |
+| [x]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Drill nyata 3 shard lulus; schema production diperbaiki | Completed        | claude-opus-5.5 | TRK-092: drill nyata 3 shard + schema diperbaiki; RTO ≤1 jam / RPO backup sebelum deploy + harian disetujui                                                        |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                     | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
 | [ ]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Sebagian                                                | Blocked          | —               | §10: provider/model/quota/budget approval; local fixtures tetap boleh                                                                                              |
 | [ ]  | [AUD-062](AUDIT-REMEDIATION-PLAN.md#aud-062) | Printer fisik dan seluruh jalur reprint          | Belum terverifikasi                                     | Blocked          | —               | §10: supported printer/channel physical matrix                                                                                                                     |
@@ -1028,6 +1028,22 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
 - Tes: `test:d1-drill` 34/34, `test:d1-baseline` 5/5, `test:operations`, docs-drift, ESLint. Code review: 10 temuan ditindaklanjuti (DQS, provenance verify, meta fail-closed, flag per mode, helper bersama, runbook out-of-band hash). File drill/backup tetap di `D:/ZatiarasPOS-Backups` (di luar repo).
 - Sisa DoD: target RPO/RTO belum disetujui pemilik. AUD-059 naik **Blocked → In progress** dan menunggu keputusan target itu.
 - Status: **1 Pending (AUD-063) / 1 In progress (AUD-059) / 4 Blocked / 57 Completed**.
+
+### TRK-092 — 14 Oktober 2026: target RPO/RTO disetujui — AUD-059 Completed
+
+- Pemilik menyetujui ("Setuju") target usulan:
+  - **RTO ≤ 1 jam.** Terukur: backup 40 s, restore + verifikasi 15–23 s per shard (TRK-091).
+  - **RPO = data sejak backup terakhir.** Aturan: backup terverifikasi sebelum setiap deploy/migrasi, dan minimal harian saat toko beroperasi. Backup masih manual (`pnpm d1:backup`); jadwal otomatis belum ada dan menjadi tanggung jawab operator.
+- CI `f29372a` (38480525996) dibatalkan karena tergantikan push docs; CI `5a40581` (38482151482) yang memuat perubahan yang sama hijau.
+- DoD AUD-059 terpenuhi:
+  - semua shard tercakup;
+  - backup readback + restore nyata ke target terisolasi;
+  - migrasi aditif digladi lalu diterapkan, rollback dapat dieksekusi;
+  - tanpa kontaminasi tenant;
+  - identitas target, hash baseline, count, dan RPO/RTO aktual vs target tercatat (TRK-091);
+  - code review tanpa temuan terbuka;
+  - persetujuan pemilik.
+- Status: **1 Pending (AUD-063) / 0 In progress / 4 Blocked / 58 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
