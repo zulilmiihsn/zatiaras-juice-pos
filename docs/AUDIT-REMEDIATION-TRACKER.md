@@ -21,8 +21,8 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 
 | Status       | Jumlah |
 | ------------ | -----: |
-| Pending      |      3 |
-| In progress  |      0 |
+| Pending      |      2 |
+| In progress  |      1 |
 | Blocked      |      5 |
 | Passed local |      0 |
 | Completed    |     55 |
@@ -179,7 +179,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-050](AUDIT-REMEDIATION-PLAN.md#aud-050) | Binding realtime dan compiled artifact auth      | Current compiled4/full119 pass               | Completed        | claude-opus-5.5 | TRK-077: Origin guard + tes; CI compiled hijau; production 403/401; UAT perangkat lulus 13 Okt                                                                     |
 | [x]  | [AUD-051](AUDIT-REMEDIATION-PLAN.md#aud-051) | Retensi error/notifikasi dan drain audit outbox  | Current compiled2/full119 pass               | Completed        | claude-opus-5.5 | TRK-076: halaman retensi 5000 + karantina konflik sink 6393bd3; retention 12/12, scheduled-compiled CI hijau                                                       |
 | [x]  | [AUD-052](AUDIT-REMEDIATION-PLAN.md#aud-052) | Patch tiga advisory dependensi                   | Sesuai teknis                                | Completed        | claude-opus-5.5 | TRK-075: `pnpm audit` 0 advisory; CI 38332784400 hijau pada 39fc9d3                                                                                                |
-| [ ]  | [AUD-053](AUDIT-REMEDIATION-PLAN.md#aud-053) | Pisahkan tanggung jawab halaman/route besar      | Sebagian                                     | Pending          | —               | Correctness deps/review + historical process disposition                                                                                                           |
+| [ ]  | [AUD-053](AUDIT-REMEDIATION-PLAN.md#aud-053) | Pisahkan tanggung jawab halaman/route besar      | Slice 1/3 Stok live; Menu dan POS menyusul   | In progress      | claude-opus-5.5 | TRK-083: `965084e` deploy 38399041867; UAT batch 5 Stok menunggu pemilik                                                                                           |
 | [x]  | [AUD-054](AUDIT-REMEDIATION-PLAN.md#aud-054) | Tes/gate membuktikan behavior, bukan wiring      | Konsumen nyata; jalur/gate pengganti dihapus | Completed        | claude-opus-5.5 | TRK-082: restore via chunk CLI, mock fokus & Quality job dihapus; `e509a71`, CI 38387868694, deploy 38389626715                                                    |
 | [x]  | [AUD-055](AUDIT-REMEDIATION-PLAN.md#aud-055) | Docs semantik sinkron dengan implementasi        | Fix inti lokal                               | Completed        | claude-opus-5.5 | TRK-076: bcrypt/PBKDF2, FK D1, arsip v3, perintah d1:backup dicocokkan dengan kode; docs-drift lulus                                                               |
 | [x]  | [AUD-056](AUDIT-REMEDIATION-PLAN.md#aud-056) | Artifact metadata portable tanpa melemahkan hash | Clone bersih Windows/Linux + tamper ditolak  | Completed        | claude-opus-5.5 | TRK-082: artifact Ubuntu `e509a71` lolos verify di clone Windows; CRLF diberi diagnosis, tetap ditolak                                                             |
@@ -896,6 +896,24 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
 - `/code-review high` → 10 temuan, semuanya ditangani: tes konflik mengenai guard yang salah, retry tidak lagi menguji penulisan ulang, README/panduan basi, `test:static` tanpa audit, loop terap duplikat, oracle melemah, `.gitignore` laporan lama, JSDoc tertukar, staging setengah, dan file sampah `nul` (stderr `rg`) dihapus. Satu commit lokal sempat ikut membawa penghapusan file yang ter-stage; diperbaiki dengan `git reset --soft` sebelum push.
 - Ditunda ke AUD-057 (performa): pembacaan ulang data drill dan serialisasi berulang batch wipe.
 - Next: AUD-053 (alur kritis POS/Stok/Menu, UAT pemilik), lalu AUD-057 dengan budget di atas.
+
+### TRK-083 — 13 Oktober 2026: AUD-053 slice 1 (Stok), deploy 965084e
+
+- Owner: claude-opus-5.5. Base `4d1149f`; commit `965084e`; CI [38396902682](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38396902682) hijau; deploy [38399041867](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38399041867) sukses; smoke `/login`, `/stok`, `/api/csrf` 200. Tidak ada migrasi.
+- Status: 3 Pending / 0 In progress → **2 Pending / 1 In progress / 5 Blocked / 0 Passed local / 55 Completed**.
+- Satu kebijakan: `utils/bahanForm` (isi form edit, konversi satuan beli, yield, biaya per satuan, pratinjau = simpan) menggantikan dua salinan di `routes/stok` dan `bahanHppState` (Manajemen Menu).
+- Route tipis: `routes/stok/+page.svelte` 2110 → ±400 baris. State, perintah, dan lifecycle ada di `stores/stokState.svelte.ts` (setter hanya untuk 11 field yang di-bind). Dialog Bahan/Mutasi/Hapus ada di `components/stok/`.
+- Perilaku yang sengaja berubah (temuan `/code-review`; sebagian besar bug lama yang ikut terbawa saat kode dipindah):
+  - Yield hanya untuk tipe berat/unit, sesuai kontrol dialog. Dulu yield tersembunyi tetap diterapkan, sehingga HPP cairan/kemasan naik diam-diam.
+  - Aturan yield memakai `normalizeYieldPercent` kanonik.
+  - Form yield memakai titik desimal agar cocok dengan input number ("92,5" sebelumnya menjadi NaN).
+  - Simpan ulang tanpa mengubah field pembelian mempertahankan jumlah dasar tersimpan (10 pcs = 3,333 pack tidak lagi bergeser).
+  - Field jumlah beli kosong bila tak ada riwayat pembelian.
+  - Toast memakai `createToastManager`; dulu `show` tak pernah direset sehingga toast kedua tidak muncul.
+  - `closeDeleteConfirm` membersihkan target hapus; opsi kategori dihitung sekali per perubahan daftar.
+- Bukti lokal: check 0/0, ESLint, Prettier; unit `ingredient-yield` (kebijakan + regresi review), stores, service-pure, stock-*, maintainability, docs-drift. E2E stock-dialogs 5/5, kulakan 3/3, stock-policy 15/15, menu 7/7, a11y 2/2 (32/32, lalu 15/15 setelah perbaikan review).
+- `/code-review high` → 10 temuan, semuanya diperbaiki sebelum commit.
+- Next: UAT pemilik [batch 5](AUDIT-UAT-CHECKLIST.md); lalu slice 2 (Manajemen Menu) dan slice 3 (POS).
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
