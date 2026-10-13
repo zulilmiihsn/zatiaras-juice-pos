@@ -18,16 +18,25 @@ const contracts = new Map();
 const tableSql = `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*' ORDER BY name`;
 const schemaSql = `SELECT type,name,tbl_name,sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT GLOB '_cf_*' ORDER BY type,name`;
 const identifier = (value) => `"${String(value).replaceAll('"', '""')}"`;
+/** Shared with d1-live-baseline: captureDrillParity issues exactly these statement shapes. */
+export { tableSql as DRILL_TABLE_SQL, identifier as drillIdentifier };
 const fail = (name, detail) => {
 	throw new Error(`DRILL FAIL ${name}: ${detail}`);
 };
 
-function canonicalSql(sql) {
+export function canonicalSql(sql) {
 	// Whitespace/casing outside quoted values is irrelevant; literal defaults must stay exact.
+	// A backtick/bracket-quoted plain identifier is the same object as bare x (AUD-059: production
+	// DDL applied by hand differs from drizzle output only in this quoting). Double quotes stay
+	// exact: SQLite may read "x" as a string literal (DQS), e.g. DEFAULT "CURRENT_TIMESTAMP".
 	return (
 		String(sql).match(/'(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|\[[^\]]*\]|[\w]+|[^\s]/g) ?? []
 	)
-		.map((token) => (/^[\w]+$/.test(token) ? token.toLowerCase() : token))
+		.map((token) => {
+			const quoted = /^(?:`([A-Za-z_]\w*)`|\[([A-Za-z_]\w*)\])$/.exec(token);
+			if (quoted) return (quoted[1] ?? quoted[2]).toLowerCase();
+			return /^[\w]+$/.test(token) ? token.toLowerCase() : token;
+		})
 		.join(' ');
 }
 
@@ -171,6 +180,17 @@ export function loadDrillBaseline(file, approvedSha256, sourceBytes, binding, ex
 	return options;
 }
 
+/** .sql path, exact UTF-8 (no lossy rewrite), non-empty, no file/extension escapes. */
+export function decodeVerifiedSql(sqlFile, bytes) {
+	if (!String(sqlFile).endsWith('.sql')) throw new Error('File sumber harus .sql');
+	const sql = bytes.toString('utf8');
+	if (!Buffer.from(sql, 'utf8').equals(bytes))
+		throw new Error('Source bukan UTF-8 utuh; recovery ditolak tanpa rewrite bytes');
+	if (!sql.trim()) throw new Error('File sumber kosong. Hentikan.');
+	assertSafeDrillSql(sql);
+	return sql;
+}
+
 /** Shared immutable source boundary for destructive consumers; no target calls or mutation here. */
 export async function verifyRecoverySource(
 	{ binding, file, backupManifest, baselineFile, baselineSha256, expectedMigration },
@@ -184,15 +204,10 @@ export async function verifyRecoverySource(
 		if (!entry) throw new Error('Manifest tidak memuat shard target');
 		sqlFile = join(dirname(verified.manifestPath), entry.file);
 	} else sqlFile = await canonicalizeExternalPath(file, { mustExist: true });
-	if (!sqlFile.endsWith('.sql')) throw new Error('File sumber harus .sql');
 	const bytes = readFileSync(sqlFile);
 	if (entry && (bytes.byteLength !== entry.bytes || sha256(bytes) !== entry.sha256))
 		throw new Error('Source berubah setelah manifest verification');
-	const sql = bytes.toString('utf8');
-	if (!Buffer.from(sql, 'utf8').equals(bytes))
-		throw new Error('Source bukan UTF-8 utuh; recovery ditolak tanpa rewrite bytes');
-	if (!sql.trim()) throw new Error('File sumber kosong. Hentikan.');
-	assertSafeDrillSql(sql);
+	const sql = decodeVerifiedSql(sqlFile, bytes);
 	const reference = baselineFile
 		? await canonicalizeExternalPath(baselineFile, { mustExist: true })
 		: null;

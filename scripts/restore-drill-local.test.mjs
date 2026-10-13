@@ -7,6 +7,7 @@ import {
 	captureDrillParity,
 	assertDrillParity,
 	assertSafeDrillSql,
+	canonicalSql,
 	main
 } from './restore-drill-local.mjs';
 import { drillFixtureSql, drillFixtureBaselineOptions } from './test-fixtures/drill-dump.mjs';
@@ -609,4 +610,33 @@ await test('workerd D1 menegakkan FK yang dideklarasikan', async () => {
 	} finally {
 		await proxy.dispose();
 	}
+});
+
+test('canonicalSql: backtick/bracket identifiers equal bare ones; literals and DQS stay exact', () => {
+	// AUD-059: production DDL differs from drizzle only in backtick quoting/type casing.
+	assert.equal(
+		canonicalSql('CREATE INDEX idx_a ON auth_sessions("cabang_id",user_id)'),
+		canonicalSql('CREATE INDEX `idx_a` ON `auth_sessions`("cabang_id",`user_id`)')
+	);
+	assert.equal(
+		canonicalSql('CREATE TABLE t(idempotency_key TEXT, [b] int)'),
+		canonicalSql('CREATE TABLE `t`(`idempotency_key` text, b INT)')
+	);
+	assert.notEqual(
+		canonicalSql("CREATE TABLE t(a text DEFAULT 'X')"),
+		canonicalSql("CREATE TABLE t(a text DEFAULT 'x')")
+	);
+	assert.notEqual(
+		canonicalSql('CREATE INDEX i ON t(a,b)'),
+		canonicalSql('CREATE INDEX i ON t(a,c)')
+	);
+	// Double quotes may be a string literal (DQS): never equal to a keyword or bare identifier.
+	assert.notEqual(
+		canonicalSql('CREATE TABLE t(a text DEFAULT CURRENT_TIMESTAMP)'),
+		canonicalSql('CREATE TABLE t(a text DEFAULT "CURRENT_TIMESTAMP")')
+	);
+	assert.notEqual(
+		canonicalSql('CREATE TABLE t(a text DEFAULT "Active")'),
+		canonicalSql('CREATE TABLE t(a text DEFAULT "active")')
+	);
 });

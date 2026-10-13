@@ -98,6 +98,31 @@ CONFIRM_D1_RESTORE=<binding-nonprod> pnpm d1:restore -- --database <binding> --f
 
 DILARANG restore ke database production untuk sekadar test.
 
+**Trusted baseline dari DB live (AUD-059, terbukti 14 Oktober 2026).** Ambil baseline segera setelah backup, dalam jendela tanpa transaksi.
+
+- Alat ini hanya membaca: statement `SELECT`/`PRAGMA table_info` yang dibangun sendiri, dikirim dalam dua permintaan. Identitas shard diverifikasi lebih dulu.
+- Alat gagal bila remote melapor ada penulisan atau meta Wrangler tidak dikenali.
+- Bila ada penulisan antara backup dan capture, drill gagal tertutup. Ulangi backup dan capture.
+- **Catat SHA-256 yang tercetak di tempat terpisah (tracker) sebelum drill.** Hash itu menjadi acuan tepercaya untuk `--expect-baseline-sha256`; jangan menghitungnya ulang dari file baseline.
+- Batas: seluruh isi shard diambil dalam satu respons. Ini cukup untuk ukuran data saat ini (Samarinda ±23 ribu baris). Bila respons kelak gagal karena ukuran, capture perlu dipecah per tabel.
+
+```powershell
+node scripts/d1-live-baseline.mjs --shard <BINDING> --backup-manifest <manifest> --output <eksternal\baseline-x.json> --env-file .env
+```
+
+Restore terisolasi tanpa menyentuh production:
+
+1. Buat DB sementara `zatiaraspos-drill-<cabang>` (`wrangler d1 create`). Tulis config Wrangler terpisah di luar repo yang memuat DB itu.
+2. Jalankan `wrangler d1 execute <scratch> --remote --config <config> --file <backup.sql>`.
+3. Verifikasi. Alat meng-export DB scratch sendiri; hanya nama `zatiaraspos-drill-*` yang diterima:
+   `node scripts/d1-live-baseline.mjs --shard <BINDING> --backup-manifest <manifest> --verify-target <scratch> --target-config <config> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --env-file .env`.
+4. Hapus DB sementara (`wrangler d1 delete <scratch> -y`).
+
+Ukuran terakhir (14 Oktober 2026):
+
+- backup 3 shard: 40 detik;
+- restore + verifikasi per shard: 15–23 detik.
+
 ## 3. Schema diff production vs 30 migrasi
 
 ```powershell
