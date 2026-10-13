@@ -291,11 +291,13 @@ await test('apply one awaited file, all deletes scoped, late failure never claim
 	const f = await backupFixture();
 	try {
 		const applied = [];
+		const target = { ...f.counts };
 		const result = await wipeBranchHistory(
 			argsFor(f, true),
-			fakeExecutor(f.counts),
+			fakeExecutor(target),
 			async (binding, sql) => {
 				applied.push({ binding, sql });
+				for (const table of WIPE_TABLES) target[table] = 0;
 			}
 		);
 		assert.equal(applied.length, 1);
@@ -311,6 +313,11 @@ await test('apply one awaited file, all deletes scoped, late failure never claim
 		assert.ok(!/DELETE FROM \w+;/.test(applied[0].sql));
 		for (const table of WIPE_TABLES) assert.ok(applied[0].sql.includes(`WIPE_REMAIN:${table}`));
 		assert.ok(result.report.every((r) => r.after === 0));
+		// A file that "succeeds" but leaves rows (non-atomic remote execution) is read back and refused.
+		await assert.rejects(
+			wipeBranchHistory(argsFor(f, true), fakeExecutor({ ...f.counts }), async () => {}),
+			/Wipe tak konsisten/
+		);
 		await assert.rejects(
 			wipeBranchHistory(argsFor(f, true), fakeExecutor(f.counts), async () => {
 				throw new Error('injected apply failure');

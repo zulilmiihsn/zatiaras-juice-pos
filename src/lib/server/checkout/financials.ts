@@ -13,7 +13,8 @@ import {
 	normalizeMoney,
 	normalizeCost,
 	roundMoney,
-	sanitizeShortText
+	sanitizeShortText,
+	ITEM_OPTION_LIMITS
 } from '$lib/server/checkout/utils';
 
 interface ComputeItemParams {
@@ -53,9 +54,9 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 		nama: addOn.nama,
 		harga: normalizeMoney(addOn.harga)
 	}));
-	const gula = sanitizeShortText(item.gula, 24);
-	const es = sanitizeShortText(item.es, 24);
-	const catatan = sanitizeShortText(item.catatan, 160);
+	const gula = sanitizeShortText(item.gula, ITEM_OPTION_LIMITS.gula);
+	const es = sanitizeShortText(item.es, ITEM_OPTION_LIMITS.es);
+	const catatan = sanitizeShortText(item.catatan, ITEM_OPTION_LIMITS.catatan);
 
 	let productName: string;
 	let productPrice: number;

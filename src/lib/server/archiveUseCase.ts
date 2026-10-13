@@ -559,7 +559,7 @@ async function readArchiveChunk(
 	// both payload SELECTs, so no huge detail can arrive between the header/detail reads.
 	const guarded = `WITH selected AS MATERIALIZED (
 		SELECT bk.rowid AS row_key FROM buku_kas bk JOIN json_each(?) chosen
-		ON CAST(bk.rowid AS TEXT) = json_extract(chosen.value, '$.rowKey')
+		ON bk.rowid = CAST(json_extract(chosen.value, '$.rowKey') AS INTEGER)
 		WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
 		AND ${groupBytes} <= json_extract(chosen.value, '$.bytes')
 		AND ${detailCount} = json_extract(chosen.value, '$.detailCount'))`;

@@ -7,7 +7,13 @@
  */
 import { getD1Database, type BranchContext } from '../branchResolver';
 import { consumeRateLimit } from '../rateLimit';
-import { checkoutItemCountError, normalizeMoney, sanitizeShortText, uniqueStrings } from './utils';
+import {
+	checkoutItemCountError,
+	ITEM_OPTION_LIMITS,
+	normalizeMoney,
+	sanitizeShortText,
+	uniqueStrings
+} from './utils';
 import { getCheckoutCapabilities, loadAddOns, loadProducts } from './dataLoader';
 import { computeItemFinancials } from './financials';
 import type {
@@ -73,9 +79,9 @@ export async function buildPosQuote(
 				jumlah,
 				add_on_ids: uniqueStrings((item.add_on_ids ?? []).map(String)),
 				porsi: item.porsi ? sanitizeShortText(item.porsi, 20) : 'reguler',
-				gula: sanitizeShortText(item.gula, 30),
-				es: sanitizeShortText(item.es, 30),
-				catatan: sanitizeShortText(item.catatan, 240)
+				gula: sanitizeShortText(item.gula, ITEM_OPTION_LIMITS.gula),
+				es: sanitizeShortText(item.es, ITEM_OPTION_LIMITS.es),
+				catatan: sanitizeShortText(item.catatan, ITEM_OPTION_LIMITS.catatan)
 			},
 			productId: item.product_id ? String(item.product_id) : null,
 			addOnIds: uniqueStrings((item.add_on_ids ?? []).map((id) => String(id))),

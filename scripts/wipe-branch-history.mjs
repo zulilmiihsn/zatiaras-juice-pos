@@ -281,7 +281,23 @@ export async function wipeBranchHistory(args, execute, applyFile) {
 			((binding, sql) =>
 				withSqlSnapshot(sql, (file) => runWrangler(binding, [`--file=${file}`, '--yes'], args)))
 		)(binding, plan.sql);
-	// after=0 is the guarded point of commit, not a claim that concurrent future writes cannot occur.
+	// Remote file execution is not proven atomic, so the report reads the target back instead of
+	// asserting zero; any surviving row means a partial wipe that must be recovered from backup.
+	const after = new Map(counts);
+	if (args.apply) {
+		const recount = execute ? null : await targetCounts(binding, args.branch, args);
+		for (const table of WIPE_TABLES) {
+			const row = execute
+				? await execute(binding, countSql(table, args.branch).sql, [args.branch])
+				: recount.get(table);
+			after.set(table, row?.n);
+		}
+		const leftover = WIPE_TABLES.filter((table) => after.get(table) !== 0);
+		if (leftover.length)
+			throw new Error(
+				`Wipe tak konsisten (${leftover.join(', ')} masih berisi). Pulihkan dari backup ${args.backupManifest}.`
+			);
+	}
 	return {
 		branch: args.branch,
 		binding,
@@ -289,7 +305,7 @@ export async function wipeBranchHistory(args, execute, applyFile) {
 		report: WIPE_TABLES.map((table) => ({
 			table,
 			before: counts.get(table),
-			after: args.apply ? 0 : counts.get(table)
+			after: after.get(table)
 		}))
 	};
 }

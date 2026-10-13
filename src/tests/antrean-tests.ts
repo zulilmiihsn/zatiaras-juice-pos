@@ -10,6 +10,8 @@ import {
 import { GET as AntreanGet } from '../routes/api/antrean/+server';
 import { POST as AntreanStatusPost } from '../routes/api/antrean/status/+server';
 import { executeCheckout, CheckoutUseCaseError } from '../lib/server/checkout/checkoutUseCase';
+import { buildPosQuote } from '../lib/server/checkout/quoteUseCase';
+import { ITEM_OPTION_LIMITS } from '../lib/server/checkout/utils';
 import { getCheckoutCapabilities } from '../lib/server/checkout/dataLoader';
 import { filterQueueOrders } from '../lib/utils/orderQueueLocal';
 import { signPosPricingToken } from '../lib/server/posPricingToken';
@@ -360,6 +362,48 @@ try {
 		parallelResults.map((r) => r.data.nomor_harian).sort((a, b) => Number(a) - Number(b)),
 		[2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 	);
+
+	// Q04-text: long item options are truncated once, so receipt snapshot and detail row stay identical
+	// (restore validation requires exact equality between them).
+	const longSource = {
+		product_id: 'antrean-produk',
+		jumlah: 1,
+		gula: 'g'.repeat(40),
+		es: 'e'.repeat(40),
+		catatan: 'c'.repeat(300)
+	};
+	const longQuote = await buildPosQuote(
+		{ env: checkoutEnv } as App.Platform,
+		samarinda,
+		{ userId: 'owner-antrean', role: 'pemilik' },
+		{ items: [longSource] }
+	);
+	const longResult = await executeCheckout({
+		db,
+		branch: samarinda,
+		session: { userId: 'owner-antrean', username: 'owner', role: 'pemilik' },
+		platform: { env: checkoutEnv } as App.Platform,
+		rawBody: {
+			idempotency_key: 'antrean-checkout-long-text-0001',
+			metode_bayar: 'tunai',
+			cash_received: 15000,
+			items: [longSource],
+			quote_token: longQuote.quote_token
+		}
+	});
+	const longReceiptItem = decodeReceiptSnapshot(longResult.data.receipt)?.items[0];
+	const longDetail = (await db
+		.prepare(
+			`SELECT tk.gula, tk.es, tk.catatan FROM transaksi_kasir tk JOIN buku_kas bk
+			 ON bk.id = tk.buku_kas_id AND bk.cabang_id = tk.cabang_id
+			 WHERE bk.idempotency_key = ? AND bk.cabang_id = ?`
+		)
+		.bind('antrean-checkout-long-text-0001', 'samarinda')
+		.first()) as { gula: string; es: string; catatan: string } | null;
+	assert.equal(longDetail?.catatan.length, ITEM_OPTION_LIMITS.catatan);
+	assert.equal(longReceiptItem?.gula, longDetail?.gula);
+	assert.equal(longReceiptItem?.es, longDetail?.es);
+	assert.equal(longReceiptItem?.catatan, longDetail?.catatan);
 
 	// Q04d: counter terisolasi per cabang: cabang lain mulai dari 1 di tanggal sama.
 	await db.batch([

@@ -23,6 +23,9 @@ export function normalizePaymentMethod(value: unknown): 'tunai' | 'non-tunai' {
 	throw kitError(400, 'Metode pembayaran tidak valid');
 }
 
+/** One limit per item option: receipt snapshot and transaksi_kasir row must store identical text. */
+export const ITEM_OPTION_LIMITS = { gula: 24, es: 24, catatan: 160 } as const;
+
 export function sanitizeShortText(value: unknown, maxLength: number): string | null {
 	const text = String(value ?? '').trim();
 	if (!text) return null;
