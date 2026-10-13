@@ -1,6 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { attemptLogin } from '$lib/server/services/authService';
+import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
 
 /**
  * Login username+password.
@@ -23,7 +24,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			maxAge: 60 * 60 * 24
 		});
 		// A new session must not inherit a token minted for the previous user on this device.
-		cookies.delete('zatiaras_csrf', { path: '/' });
+		// Issue the fresh token here (not delete) so concurrent first /api/csrf calls all reuse it.
+		setCsrfCookie(cookies, newCsrfToken(), !dev);
 	}
 
 	return new Response(JSON.stringify(result.body), {
