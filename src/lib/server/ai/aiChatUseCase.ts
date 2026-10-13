@@ -22,6 +22,7 @@ import { resolveAiPeriod, hasPeriodQualifier, detectAiIntent } from '../aiPeriod
 import {
 	AI_STREAM_IDLE_MS,
 	AI_STREAM_TOTAL_MS,
+	AiGatewayError,
 	callAiChat,
 	publicAiErrorMessage,
 	publicAiErrorStatus,
@@ -45,6 +46,8 @@ export interface AiDeps {
 	apiKey: string;
 	model: string;
 	url: string;
+	/** AUD-034: putus klien membatalkan panggilan upstream yang sedang berjalan. */
+	clientSignal?: AbortSignal | null;
 }
 
 /** Bersihkan markdown code-fence atau teks percakapan dan ekstrak object JSON murni. */
@@ -396,13 +399,16 @@ export async function identifyDataRequirements(
 				maxTokens: 500,
 				temperature: 0.2,
 				model: deps.model,
-				errorLabel: 'AI 1 Error'
+				errorLabel: 'AI 1 Error',
+				clientSignal: deps.clientSignal ?? null
 			})) || '{}';
 
 		const cleanContent = extractJsonFromText(content);
 		const parsed: unknown = JSON.parse(cleanContent);
 		return parseDataRequirements(parsed, todayWita);
 	} catch (error) {
+		// Klien sudah pergi: jangan lanjut menyiapkan laporan untuk siapa pun.
+		if (deps.clientSignal?.aborted) throw error;
 		console.warn('[AI Chat] identifyDataRequirements gagal/timeout, fallback aman:', error);
 		return {
 			periode: { start: currentMonthStart, end: todayWita, type: 'monthly' },
@@ -453,6 +459,7 @@ export async function analyzeBusinessData(
 			temperature: 0.6,
 			model: deps.model,
 			errorLabel: 'AI 2 Error',
+			clientSignal: deps.clientSignal ?? null,
 			tools
 		})) || 'Maaf, tidak dapat menghasilkan jawaban.'
 	);
@@ -549,7 +556,8 @@ export async function analyzeTransactionText(
 			maxTokens: 1000,
 			temperature: 0.3,
 			model: deps.model,
-			errorLabel: 'AI 3 Error'
+			errorLabel: 'AI 3 Error',
+			clientSignal: deps.clientSignal ?? null
 		})) || '{}';
 
 	try {
@@ -915,7 +923,9 @@ export async function handleRegularChat(input: {
 	chatModel: string;
 	clientSignal: AbortSignal;
 }): Promise<RegularChatResult> {
-	const { platform, session, rawBody, deps, chatModel, clientSignal } = input;
+	const { platform, session, rawBody, chatModel, clientSignal } = input;
+	// AUD-034: semua panggilan upstream (non-stream maupun stream) ikut batal saat klien pergi.
+	const deps: AiDeps = { ...input.deps, clientSignal };
 	const fail = (status: number, body: Record<string, unknown>): RegularChatResult => ({
 		kind: 'json',
 		status,
@@ -1038,6 +1048,10 @@ export async function handleRegularChat(input: {
 			if (!upstreamRes.ok || !upstreamRes.body) {
 				// AUD-037: body provider tak tepercaya tak masuk log; status cukup.
 				console.error('[OpenRouter Stream Error]', upstreamRes.status);
+				// AUD-034: body respons gagal tidak dibaca; lepas koneksinya.
+				upstreamRes.body?.cancel().catch(() => {
+					// Best-effort.
+				});
 				return fail(502, {
 					success: false,
 					error: 'Asisten AI sementara tidak dapat merespons. Silakan coba lagi.'
@@ -1182,7 +1196,10 @@ export async function handleRegularChat(input: {
 		};
 	} catch (error) {
 		// AUD-037: log teredaksi; respons pesan tetap + status per kelas.
-		console.error('[AI Chat Error]', redactForLog(error));
+		// Putus klien bukan kegagalan provider: tidak dicatat sebagai error.
+		if (!(error instanceof AiGatewayError && error.code === 'CLIENT_ABORTED')) {
+			console.error('[AI Chat Error]', redactForLog(error));
+		}
 		return {
 			kind: 'json',
 			status: publicAiErrorStatus(error),

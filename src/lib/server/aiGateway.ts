@@ -6,7 +6,8 @@
  * - Tidak import SvelteKit, store, atau browser global. Murni fetch + timer.
  * - API key tidak pernah masuk pesan error.
  * - Tiap percobaan (primary, retry tanpa tools, tiap fallback) punya deadline
- *   respons awal sendiri; baca body non-stream ikut deadline via readJson.
+ *   respons awal sendiri; body non-stream dibaca via pumpAiStream (deadline,
+ *   abort klien, batas ukuran). Respons yang tak dipakai dibatalkan.
  * - Aliran stream diikat pumpAiStream (deadline total + idle + abort klien).
  * - Urutan fallback, retry tanpa tools, dan fallback `|| ''` dipertahankan
  *   dari perilaku route lama agar parity terjaga.
@@ -22,7 +23,12 @@ export interface AiTool {
 	[key: string]: unknown;
 }
 
-export type AiGatewayErrorCode = 'UPSTREAM_TIMEOUT' | 'UPSTREAM_ERROR' | 'INVALID_RESPONSE';
+export type AiGatewayErrorCode =
+	| 'UPSTREAM_TIMEOUT'
+	| 'UPSTREAM_ERROR'
+	| 'INVALID_RESPONSE'
+	/** Klien memutus permintaan; bukan kegagalan provider. */
+	| 'CLIENT_ABORTED';
 
 export class AiGatewayError extends Error {
 	readonly code: AiGatewayErrorCode;
@@ -65,6 +71,8 @@ export function publicAiErrorMessage(error: unknown): string {
 export function publicAiErrorStatus(error: unknown): number {
 	if (error instanceof AiGatewayError) {
 		if (error.code === 'UPSTREAM_TIMEOUT') return 504;
+		// Klien sudah pergi; status hanya untuk log akses (konvensi 499).
+		if (error.code === 'CLIENT_ABORTED') return 499;
 		return 502;
 	}
 	return 500;
@@ -101,6 +109,8 @@ export interface AiChatOptions {
 	tools?: AiTool[];
 	errorLabel: string;
 	timeoutMs?: number;
+	/** Anggaran total non-stream lintas retry/fallback (default AI_CALL_BUDGET_MS). */
+	budgetMs?: number;
 	/** Sinyal putus klien: diteruskan agar upstream ikut batal. */
 	clientSignal?: AbortSignal | null;
 }
@@ -111,10 +121,11 @@ export const AI_FALLBACK_MODELS = [
 	'nvidia/nemotron-3.5-lightning:free',
 	'inclusionai/ling-3.0-flash-fin:free'
 ];
-// AUD-034: deadline body/stream. attemptPost hanya membatasi respons awal
-// (headers); baca body + aliran stream diikat deadline sendiri agar
-// stall tak gantung worker selamanya.
-export const AI_BODY_TIMEOUT_MS = 60_000;
+// AUD-034: deadline body/stream. Body non-stream dibaca lewat pump yang sama
+// dengan stream (deadline, abort klien, reader dibatalkan) dan dibatasi ukuran.
+export const AI_BODY_MAX_BYTES = 1_000_000;
+// Anggaran total satu panggilan non-stream lintas retry/fallback.
+export const AI_CALL_BUDGET_MS = 60_000;
 export const AI_STREAM_TOTAL_MS = 120_000;
 export const AI_STREAM_IDLE_MS = 30_000;
 
@@ -168,6 +179,8 @@ async function attemptPost(
 	fetchImpl: FetchImpl,
 	clientSignal?: AbortSignal | null
 ): Promise<Response> {
+	// Klien sudah pergi: tak ada panggilan upstream baru.
+	if (clientSignal?.aborted) throw clientAborted(errorLabel);
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 	const onClientAbort = () => controller.abort();
@@ -184,6 +197,7 @@ async function attemptPost(
 		});
 	} catch (error) {
 		if (isAbortError(error)) {
+			if (clientSignal?.aborted) throw clientAborted(errorLabel);
 			throw new AiGatewayError('UPSTREAM_TIMEOUT', `${errorLabel}: upstream timeout`);
 		}
 		throw error;
@@ -209,23 +223,86 @@ function extractContent(data: unknown): string | null {
 	return typeof content === 'string' ? content : null;
 }
 
-async function readJson(
-	response: Response,
-	errorLabel: string,
-	timeoutMs: number = AI_BODY_TIMEOUT_MS
-): Promise<unknown> {
-	// AUD-034: body stall ikut deadline (bukan cuma headers).
-	const timeout = new Promise<never>((_, reject) => {
-		setTimeout(
-			() => reject(new AiGatewayError('UPSTREAM_TIMEOUT', `${errorLabel}: upstream timeout`)),
-			timeoutMs
-		);
+function clientAborted(errorLabel: string): AiGatewayError {
+	return new AiGatewayError('CLIENT_ABORTED', `${errorLabel}: klien membatalkan permintaan`);
+}
+
+/** Lepas koneksi respons yang tidak dipakai (retry/fallback/error) agar tak menggantung. */
+function discardBody(response: Response): void {
+	if (response.bodyUsed || response.body?.locked) return;
+	response.body?.cancel().catch(() => {
+		// Best-effort: koneksi upstream dilepas sebisanya.
 	});
+}
+
+type JsonAttempt = { ok: true; data: unknown } | { ok: false; status: number };
+
+/**
+ * Satu percobaan non-stream end-to-end (AUD-034) dengan satu deadline absolut:
+ * respons awal paling lama timeoutMs, sisa waktu untuk body lewat pumpAiStream
+ * (reader dibatalkan saat timeout/putus klien), batas ukuran, dan parse JSON.
+ * Respons gagal dibatalkan.
+ */
+async function attemptJson(
+	url: string,
+	apiKey: string,
+	headerTitle: string,
+	body: string,
+	timeoutMs: number,
+	errorLabel: string,
+	fetchImpl: FetchImpl,
+	clientSignal: AbortSignal | null,
+	deadline: number
+): Promise<JsonAttempt> {
+	const timeout = () => new AiGatewayError('UPSTREAM_TIMEOUT', `${errorLabel}: upstream timeout`);
+	if (Date.now() >= deadline) throw timeout();
+	const response = await attemptPost(
+		url,
+		apiKey,
+		headerTitle,
+		body,
+		Math.min(timeoutMs, deadline - Date.now()),
+		errorLabel,
+		fetchImpl,
+		clientSignal
+	);
+	if (!response.ok) {
+		discardBody(response);
+		return { ok: false, status: response.status };
+	}
+	const invalid = () =>
+		new AiGatewayError('INVALID_RESPONSE', `${errorLabel}: respons upstream tidak valid`);
+	if (!response.body) throw invalid();
+	const remaining = deadline - Date.now();
+	if (remaining <= 0) {
+		discardBody(response);
+		throw timeout();
+	}
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	const outcome = await pumpAiStream(response.body.getReader(), {
+		totalMs: remaining,
+		idleMs: remaining,
+		errorLabel,
+		clientSignal,
+		onChunk: (value) => {
+			size += value.byteLength;
+			chunks.push(value);
+			return size > AI_BODY_MAX_BYTES;
+		}
+	});
+	if (outcome === 'aborted') throw clientAborted(errorLabel);
+	if (size > AI_BODY_MAX_BYTES) throw invalid();
+	const bytes = new Uint8Array(size);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
 	try {
-		return (await Promise.race([response.json(), timeout])) as unknown;
-	} catch (error) {
-		if (error instanceof AiGatewayError) throw error;
-		throw new AiGatewayError('INVALID_RESPONSE', `${errorLabel}: respons upstream tidak valid`);
+		return { ok: true, data: JSON.parse(new TextDecoder().decode(bytes)) as unknown };
+	} catch {
+		throw invalid();
 	}
 }
 
@@ -244,64 +321,42 @@ export async function callAiChat(
 	const timeoutMs = opts.timeoutMs ?? OPENROUTER_TIMEOUT_MS;
 	const useTools = hasTools(opts.tools);
 	const fallbacks = (opts.fallbacks ?? AI_FALLBACK_MODELS).filter((m) => m !== opts.model);
-
-	let response = await attemptPost(
-		url,
-		apiKey,
-		opts.title,
-		chatPayload(opts.model, messages, opts, useTools, false),
-		timeoutMs,
-		opts.errorLabel,
-		fetchImpl,
-		opts.clientSignal ?? null
-	);
-
-	// Jika gagal saat menyertakan tools, coba ulang tanpa tools.
-	if (!response.ok && useTools) {
-		response = await attemptPost(
+	const clientSignal = opts.clientSignal ?? null;
+	// Satu deadline per percobaan (respons awal + body) dan satu anggaran untuk
+	// seluruh rantai retry/fallback.
+	const callDeadline = Date.now() + (opts.budgetMs ?? Math.max(AI_CALL_BUDGET_MS, timeoutMs));
+	const attempt = (model: string, withTools: boolean, title: string) =>
+		attemptJson(
 			url,
 			apiKey,
-			`${opts.title} (No Tools)`,
-			chatPayload(opts.model, messages, opts, false, false),
+			title,
+			chatPayload(model, messages, opts, withTools, false),
 			timeoutMs,
 			opts.errorLabel,
 			fetchImpl,
-			opts.clientSignal ?? null
+			clientSignal,
+			Math.min(Date.now() + 2 * timeoutMs, callDeadline)
 		);
+
+	let result = await attempt(opts.model, useTools, opts.title);
+
+	// Jika gagal saat menyertakan tools, coba ulang tanpa tools.
+	if (!result.ok && useTools) {
+		result = await attempt(opts.model, false, `${opts.title} (No Tools)`);
 	}
 
-	if (!response.ok) {
+	if (!result.ok) {
 		for (const [index, model] of fallbacks.entries()) {
 			const isLast = index === fallbacks.length - 1;
 			try {
-				let fallbackRes = await attemptPost(
-					url,
-					apiKey,
-					`${opts.title} (Fallback ${model})`,
-					chatPayload(model, messages, opts, useTools, false),
-					timeoutMs,
-					opts.errorLabel,
-					fetchImpl,
-					opts.clientSignal ?? null
-				);
-				if (!fallbackRes.ok && useTools) {
-					fallbackRes = await attemptPost(
-						url,
-						apiKey,
-						`${opts.title} (Fallback ${model} No Tools)`,
-						chatPayload(model, messages, opts, false, false),
-						timeoutMs,
-						opts.errorLabel,
-						fetchImpl,
-						opts.clientSignal ?? null
-					);
+				let fallback = await attempt(model, useTools, `${opts.title} (Fallback ${model})`);
+				if (!fallback.ok && useTools) {
+					fallback = await attempt(model, false, `${opts.title} (Fallback ${model} No Tools)`);
 				}
-				if (fallbackRes.ok) {
-					// AUD-034: body ikut deadline; timeout/invalid ikut semantik catch lama.
-					const data = await readJson(fallbackRes, opts.errorLabel, timeoutMs);
-					return extractContent(data) ?? '';
-				}
+				if (fallback.ok) return extractContent(fallback.data) ?? '';
 			} catch (error) {
+				// Klien sudah pergi: jangan memanggil model berikutnya.
+				if (clientSignal?.aborted) throw error;
 				// Timeout pada fallback terakhir diteruskan apa adanya agar
 				// diagnosis benar; selain itu lanjut seperti perilaku lama.
 				if (error instanceof AiGatewayError && error.code === 'UPSTREAM_TIMEOUT' && isLast) {
@@ -311,13 +366,13 @@ export async function callAiChat(
 				break;
 			}
 		}
-		throw new AiGatewayError('UPSTREAM_ERROR', `${opts.errorLabel}: ${response.status}`, {
-			status: response.status,
+		throw new AiGatewayError('UPSTREAM_ERROR', `${opts.errorLabel}: ${result.status}`, {
+			status: result.status,
 			model: opts.model
 		});
 	}
 
-	const content = extractContent(await readJson(response, opts.errorLabel, timeoutMs));
+	const content = extractContent(result.data);
 	if (content === null) {
 		throw new AiGatewayError(
 			'INVALID_RESPONSE',
@@ -405,6 +460,9 @@ export async function pumpAiStream(
 	};
 	if (opts.clientSignal) {
 		if (opts.clientSignal.aborted) {
+			// Klien pergi sebelum pompa mulai: upstream tetap harus dilepas.
+			onClientAbort();
+			reader.releaseLock();
 			return 'aborted';
 		}
 		opts.clientSignal.addEventListener('abort', onClientAbort, { once: true });
@@ -436,7 +494,13 @@ export async function pumpAiStream(
 			if (read.done) return 'done';
 			armIdle();
 			const stop = opts.onChunk(read.value);
-			if (stop === true) return 'done';
+			if (stop === true) {
+				// Sisa aliran tidak dibaca lagi: lepas koneksi upstream.
+				reader.cancel().catch(() => {
+					// Best-effort.
+				});
+				return 'done';
+			}
 		}
 	} finally {
 		if (totalTimer) clearTimeout(totalTimer);
@@ -481,6 +545,8 @@ export async function requestAiStreamResilient(
 	let lastError: unknown = null;
 
 	for (const [index, model] of models.entries()) {
+		// Klien sudah pergi: jangan memanggil model berikutnya.
+		if (opts.clientSignal?.aborted) break;
 		const baseTitle = index === 0 ? opts.title : `${opts.title} (Fallback ${model})`;
 		const noToolsTitle =
 			index === 0 ? `${opts.title} (No Tools)` : `${opts.title} (Fallback ${model} No Tools)`;
@@ -493,6 +559,7 @@ export async function requestAiStreamResilient(
 				fetchImpl
 			);
 			if (!response.ok && useTools) {
+				discardBody(response);
 				response = await requestAiStream(
 					apiKey,
 					url,
@@ -507,6 +574,8 @@ export async function requestAiStreamResilient(
 					fetchImpl
 				);
 			}
+			// Hanya respons terakhir yang dikembalikan; sisanya dilepas.
+			if (lastResponse) discardBody(lastResponse);
 			lastResponse = response;
 			if (response.ok && response.body) return response;
 		} catch (error) {

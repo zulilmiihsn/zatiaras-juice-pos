@@ -1,6 +1,10 @@
 import { formatRupiah } from '$lib/utils/currency';
 import { branchContext, normalizeBranch } from '$lib/server/branchResolver';
-import { buildLaporanAggregate } from '$lib/server/reportQueries';
+import {
+	buildCanonicalFacts,
+	buildLaporanAggregate,
+	canonicalProductName
+} from '$lib/server/reportQueries';
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import type { D1Database } from '@cloudflare/workers-types';
 
@@ -11,7 +15,7 @@ export interface FormattedMonth {
 	pengeluaran: number;
 	laba: number;
 	transaksi: number;
-	paymentMethods: Record<string, { jumlah: number; nominal: number }>;
+	paymentMethods: Record<string, { nominal: number }>;
 	topProducts: { id: string; nama: string; totalTerjual: number; totalPendapatan: number }[];
 }
 
@@ -49,13 +53,15 @@ export interface ServerReportData {
 	};
 	startDate?: string;
 	endDate?: string;
-	pembayaran?: Record<string, { jumlah: number; nominal: number }>;
+	pembayaran?: Record<string, { nominal: number }>;
 	jamRamai?: string[];
 	products?: { id: string; nama: string; harga: number }[];
 	categories?: { id: string; nama: string }[];
 	addons?: { id: string; nama: string; harga: number }[];
 	specificProduct?: { nama: string; harga: number; id: string } | null;
 	produkTerlaris?: { nama: string; totalTerjual: number; totalPendapatan: number }[];
+	/** Rentang menyentuh data terarsip: jam ramai, margin, selera, omzet shift hanya data aktif. */
+	rincianDetailAktifSaja?: { arsipSebelum: string };
 	analytics?: {
 		avgTransactionsPerDay?: number;
 		avgRevenuePerDay?: number;
@@ -113,15 +119,37 @@ export interface ReportSqlResult {
 
 // [CATATAN]: Ekspresi SQL untuk ekstrak tanggal, bulan, dan jam WITA secara konsisten
 const WITA_DATE = "date(CASE WHEN waktu LIKE '%Z' THEN datetime(waktu, '+8 hours') ELSE waktu END)";
-const WITA_MONTH =
-	"strftime('%Y-%m', CASE WHEN waktu LIKE '%Z' THEN datetime(waktu, '+8 hours') ELSE waktu END)";
 const WITA_HOUR =
 	"strftime('%H', CASE WHEN waktu LIKE '%Z' THEN datetime(waktu, '+8 hours') ELSE waktu END)";
 
 const BK_WITA_DATE =
 	"date(CASE WHEN bk.waktu LIKE '%Z' THEN datetime(bk.waktu, '+8 hours') ELSE bk.waktu END)";
-const BK_WITA_MONTH =
-	"strftime('%Y-%m', CASE WHEN bk.waktu LIKE '%Z' THEN datetime(bk.waktu, '+8 hours') ELSE bk.waktu END)";
+const PAYMENT_LABELS: Record<string, string> = {
+	tunai: 'Tunai (Cash)',
+	'non-tunai': 'Non-tunai (QRIS/transfer)',
+	lainnya: 'Lainnya'
+};
+
+const NON_CASH_METHODS = new Set(['non-tunai', 'nontunai', 'qris', 'transfer', 'debit']);
+
+/** Bucket metode bayar laporan: POS hanya memisah tunai/non-tunai. */
+function paymentBucket(metode: string | null): string {
+	const value = (metode ?? '').trim().toLowerCase();
+	// 'cash' = nilai tunai lama (lihat DetailTransaksiModal); nilai tak dikenal tidak ditebak.
+	if (value === 'tunai' || value === 'cash') return 'tunai';
+	if (NON_CASH_METHODS.has(value)) return 'non-tunai';
+	return 'lainnya';
+}
+
+function formatPayments(payments: Record<string, { nominal: number }>): string[] {
+	const total = Object.values(payments).reduce((sum, p) => sum + p.nominal, 0);
+	return Object.entries(payments)
+		.sort(([, a], [, b]) => b.nominal - a.nominal)
+		.map(([method, p]) => {
+			const share = total > 0 ? Math.round((p.nominal / total) * 1000) / 10 : 0;
+			return `${PAYMENT_LABELS[method] || method}: Rp ${formatRupiah(p.nominal)} (${share}%)`;
+		});
+}
 
 /**
  * Tarik data agregasi laporan langsung lewat SQL engine Cloudflare D1.
@@ -141,20 +169,15 @@ export async function fetchReportDataSql(
 	} catch {
 		stockMonitoringPaused = false;
 	}
-	// AUD-030: inti finansial (pendapatan/pengeluaran/hasData) berasal
-	// agregat kanonik aktif + arsip, bukan hanya buku_kas aktif.
-	// Rincian bulanan/harian/produk tetap baca aktif (tercatat di batas bukti).
+	// AUD-030: seluruh fakta finansial (ringkasan, bulanan, harian, pembayaran,
+	// produk) berasal dari sumber kanonik yang sama dengan laporan: ringkasan
+	// POS harian + produk harian (bertahan setelah arsip), buku_kas manual aktif,
+	// dan ringkasan kas arsip manual. Gagal sumber merambat sebagai error.
 	const branchId = branchContext(normalizeBranch(requestedBranch));
 	// [CATATAN]: Eksekusi semua kueri agregasi secara paralel dalam 1 batch Promise
 	const [
-		summaryRes,
-		monthlyRes,
-		monthlyPaymentsRes,
-		monthlyProductsRes,
-		dailyRes,
-		paymentRes,
+		canonicalFacts,
 		hourRes,
-		topProductsRes,
 		stokKritisRes,
 		totalBahanRes,
 		marginProdukRes,
@@ -163,144 +186,13 @@ export async function fetchReportDataSql(
 		sesiSummaryRes,
 		latestSesiRes,
 		canonicalAggregate,
-		archiveTxRes
+		archiveCoverageRes
 	] = await Promise.all([
-		// 1. Ringkasan Finansial
-		rawDb
-			.prepare(
-				`SELECT
-					COALESCE(SUM(CASE WHEN tipe = 'in' THEN nominal ELSE 0 END), 0) AS pendapatan,
-					COALESCE(SUM(CASE WHEN tipe = 'out' THEN nominal ELSE 0 END), 0) AS pengeluaran,
-					COUNT(DISTINCT CASE WHEN sumber = 'pos' AND transaction_id IS NOT NULL THEN transaction_id END) AS totalTransaksiPos,
-					COUNT(DISTINCT transaction_id) AS totalTransaksi,
-					COUNT(*) AS totalRecords
-				FROM buku_kas
-				WHERE cabang_id = ? AND ${WITA_DATE} >= ? AND ${WITA_DATE} <= ?`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.first() as Promise<{
-			pendapatan?: number;
-			pengeluaran?: number;
-			totalTransaksiPos?: number;
-			totalTransaksi?: number;
-			totalRecords?: number;
-		} | null>,
+		// 1. AUD-030: fakta harian/pembayaran/produk kanonik (aktif + arsip),
+		// pemilik aturan tunggal di reportQueries.
+		buildCanonicalFacts(rawDb, branchId, startYmd, endYmd),
 
-		// 2. Agregasi Bulanan
-		rawDb
-			.prepare(
-				`SELECT
-					${WITA_MONTH} AS bulan,
-					COALESCE(SUM(CASE WHEN tipe = 'in' THEN nominal ELSE 0 END), 0) AS pemasukan,
-					COALESCE(SUM(CASE WHEN tipe = 'out' THEN nominal ELSE 0 END), 0) AS pengeluaran,
-					COUNT(DISTINCT CASE WHEN sumber = 'pos' AND transaction_id IS NOT NULL THEN transaction_id END) AS transaksi
-				FROM buku_kas
-				WHERE cabang_id = ? AND ${WITA_DATE} >= ? AND ${WITA_DATE} <= ?
-				GROUP BY ${WITA_MONTH}
-				ORDER BY bulan ASC`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				bulan: string;
-				pemasukan: number;
-				pengeluaran: number;
-				transaksi: number;
-			}>;
-		}>,
-
-		// 3. Metode Pembayaran per Bulan
-		rawDb
-			.prepare(
-				`SELECT
-					${WITA_MONTH} AS bulan,
-					COALESCE(NULLIF(metode_bayar, ''), 'lainnya') AS metode,
-					COUNT(*) AS jumlah,
-					COALESCE(SUM(nominal), 0) AS nominal
-				FROM buku_kas
-				WHERE cabang_id = ? AND ${WITA_DATE} >= ? AND ${WITA_DATE} <= ? AND tipe = 'in'
-				GROUP BY ${WITA_MONTH}, COALESCE(NULLIF(metode_bayar, ''), 'lainnya')`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				bulan: string;
-				metode: string;
-				jumlah: number;
-				nominal: number;
-			}>;
-		}>,
-
-		// 4. Produk Terlaris per Bulan
-		rawDb
-			.prepare(
-				`SELECT
-					${BK_WITA_MONTH} AS bulan,
-					COALESCE(NULLIF(tk.nama_produk, ''), NULLIF(tk.nama_kustom, ''), NULLIF(p.nama, ''), 'Produk') AS nama,
-					COALESCE(tk.produk_id, 'custom') AS id,
-					SUM(tk.jumlah) AS totalTerjual,
-					SUM(COALESCE(tk.nominal, tk.jumlah * COALESCE(tk.harga, 0))) AS totalPendapatan
-				FROM transaksi_kasir tk
-				JOIN buku_kas bk ON tk.buku_kas_id = bk.id AND tk.cabang_id = bk.cabang_id
-				LEFT JOIN produk p ON tk.produk_id = p.id
-				WHERE tk.cabang_id = ? AND ${BK_WITA_DATE} >= ? AND ${BK_WITA_DATE} <= ?
-				GROUP BY 1, 2, 3
-				ORDER BY bulan ASC, totalTerjual DESC`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				bulan: string;
-				nama: string;
-				id: string;
-				totalTerjual: number;
-				totalPendapatan: number;
-			}>;
-		}>,
-
-		// 5. Performa Harian
-		rawDb
-			.prepare(
-				`SELECT
-					${WITA_DATE} AS tanggal,
-					COUNT(DISTINCT CASE WHEN sumber = 'pos' AND transaction_id IS NOT NULL THEN transaction_id ELSE id END) AS count,
-					COALESCE(SUM(CASE WHEN tipe = 'in' THEN nominal ELSE 0 END), 0) AS revenue
-				FROM buku_kas
-				WHERE cabang_id = ? AND ${WITA_DATE} >= ? AND ${WITA_DATE} <= ? AND tipe = 'in'
-				GROUP BY ${WITA_DATE}
-				ORDER BY tanggal ASC`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				tanggal: string;
-				count: number;
-				revenue: number;
-			}>;
-		}>,
-
-		// 6. Rincian Pembayaran Keseluruhan
-		rawDb
-			.prepare(
-				`SELECT
-					COALESCE(NULLIF(metode_bayar, ''), 'lainnya') AS metode,
-					COUNT(*) AS jumlah,
-					COALESCE(SUM(nominal), 0) AS nominal
-				FROM buku_kas
-				WHERE cabang_id = ? AND ${WITA_DATE} >= ? AND ${WITA_DATE} <= ? AND tipe = 'in'
-				GROUP BY COALESCE(NULLIF(metode_bayar, ''), 'lainnya')
-				ORDER BY nominal DESC`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				metode: string;
-				jumlah: number;
-				nominal: number;
-			}>;
-		}>,
-
-		// 7. Pola Jam Ramai (Top 3)
+		// 2. Pola Jam Ramai (Top 3) — butuh detail transaksi aktif.
 		rawDb
 			.prepare(
 				`SELECT
@@ -319,32 +211,6 @@ export async function fetchReportDataSql(
 				jam: string;
 				jumlah: number;
 				nominal: number;
-			}>;
-		}>,
-
-		// 8. Top 10 Produk Keseluruhan Periode
-		rawDb
-			.prepare(
-				`SELECT
-					COALESCE(NULLIF(tk.nama_produk, ''), NULLIF(tk.nama_kustom, ''), NULLIF(p.nama, ''), 'Produk') AS nama,
-					COALESCE(tk.produk_id, 'custom') AS id,
-					SUM(tk.jumlah) AS totalTerjual,
-					SUM(COALESCE(tk.nominal, tk.jumlah * COALESCE(tk.harga, 0))) AS totalPendapatan
-				FROM transaksi_kasir tk
-				JOIN buku_kas bk ON tk.buku_kas_id = bk.id AND tk.cabang_id = bk.cabang_id
-				LEFT JOIN produk p ON tk.produk_id = p.id
-				WHERE tk.cabang_id = ? AND ${BK_WITA_DATE} >= ? AND ${BK_WITA_DATE} <= ?
-				GROUP BY 1, 2
-				ORDER BY totalTerjual DESC
-				LIMIT 10`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all() as Promise<{
-			results?: Array<{
-				nama: string;
-				id: string;
-				totalTerjual: number;
-				totalPendapatan: number;
 			}>;
 		}>,
 
@@ -523,16 +389,18 @@ export async function fetchReportDataSql(
 		// 17. AUD-030: agregat kanonik (aktif + arsip) sebagai otoritas inti.
 		buildLaporanAggregate(rawDb, branchId, startYmd, endYmd),
 
-		// 18. AUD-030: hitung transaksi arsip dari tabel ringkasan kanonik.
+		// 18. AUD-030: batas arsip selesai. Rincian jam/margin/selera butuh detail
+		// item yang tidak tersisa di tabel aktif setelah arsip.
 		rawDb
 			.prepare(
-				`SELECT COALESCE(SUM(jumlah_transaksi), 0) AS arsipTransaksi
-				 FROM ringkasan_kas_arsip_harian
-				 WHERE cabang_id = ? AND tanggal_wita >= ? AND tanggal_wita <= ?`
+				`SELECT MAX(before_year) AS beforeYear
+				 FROM archive_jobs
+				 WHERE cabang_id = ? AND status = 'completed'`
 			)
-			.bind(requestedBranch, startYmd, endYmd)
+			.bind(branchId)
 			.first()
-			.catch(() => null) as Promise<{ arsipTransaksi?: number } | null>
+			// Hanya anotasi cakupan, bukan angka uang: gagal baca = tanpa catatan.
+			.catch(() => null) as Promise<{ beforeYear?: number | null } | null>
 	]);
 
 	// [CATATAN]: Format stok bahan & bahan kritis
@@ -609,76 +477,109 @@ export async function fetchReportDataSql(
 	// (semua income + YTD=0) dihapus; config dibaca kanonik (fail-closed sama).
 	const pajak = canonicalAggregate.summary.pajak;
 	const labaBersih = canonicalAggregate.summary.labaBersih;
-	const totalTransaksi =
-		(summaryRes?.totalTransaksiPos || summaryRes?.totalTransaksi || 0) +
-		(archiveTxRes?.arsipTransaksi || 0);
+
+	const dailyFacts = canonicalFacts.daily.map((d) => ({
+		tanggal: d.tanggal,
+		pemasukan: Number(d.pemasukan) || 0,
+		pengeluaran: Number(d.pengeluaran) || 0,
+		transaksi: Number(d.transaksi) || 0
+	}));
+	// Transaksi penjualan: POS + pemasukan usaha manual (modal/lainnya tidak dihitung).
+	const totalTransaksi = dailyFacts.reduce((sum, d) => sum + d.transaksi, 0);
+
+	// [CATATAN]: Pembayaran per bulan dan keseluruhan, metode dinormalisasi
+	// ke bucket laporan (tunai / non-tunai / lainnya). POS dari ringkasan harian.
+	const monthlyPaymentsMap: Record<string, Record<string, { nominal: number }>> = {};
+	const pembayaran: Record<string, { nominal: number }> = {};
+	const addPayment = (bulan: string, metode: string, value: unknown) => {
+		const nominal = Number(value) || 0;
+		if (nominal === 0) return;
+		const month = (monthlyPaymentsMap[bulan] ??= {});
+		month[metode] = { nominal: (month[metode]?.nominal ?? 0) + nominal };
+		pembayaran[metode] = { nominal: (pembayaran[metode]?.nominal ?? 0) + nominal };
+	};
+	for (const d of canonicalFacts.daily) {
+		addPayment(d.tanggal.slice(0, 7), 'tunai', d.posTunai);
+		addPayment(d.tanggal.slice(0, 7), 'non-tunai', d.posNonTunai);
+	}
+	for (const row of canonicalFacts.manualPayments) {
+		addPayment(row.bulan, paymentBucket(row.metode), row.nominal);
+	}
+
+	// [CATATAN]: Produk per bulan dan keseluruhan, varian ukuran digabung
+	// seperti laporan kanonik.
+	type ProductFact = { id: string; nama: string; totalTerjual: number; totalPendapatan: number };
+	const addProduct = (map: Map<string, ProductFact>, nama: string, qty: number, gross: number) => {
+		const current = map.get(nama) ?? { id: nama, nama, totalTerjual: 0, totalPendapatan: 0 };
+		current.totalTerjual += qty;
+		current.totalPendapatan += gross;
+		map.set(nama, current);
+	};
+	const byTerjual = (a: ProductFact, b: ProductFact) =>
+		b.totalTerjual - a.totalTerjual || b.totalPendapatan - a.totalPendapatan;
+	const monthlyProducts = new Map<string, Map<string, ProductFact>>();
+	const periodProducts = new Map<string, ProductFact>();
+	for (const row of canonicalFacts.products) {
+		const nama = canonicalProductName(row.nama);
+		const qty = Number(row.totalTerjual) || 0;
+		const gross = Number(row.totalPendapatan) || 0;
+		if (!monthlyProducts.has(row.bulan)) monthlyProducts.set(row.bulan, new Map());
+		addProduct(monthlyProducts.get(row.bulan)!, nama, qty, gross);
+		addProduct(periodProducts, nama, qty, gross);
+	}
 
 	// [CATATAN]: Format data bulanan
-	const monthlyPaymentsMap: Record<
+	const monthlyTotals = new Map<
 		string,
-		Record<string, { jumlah: number; nominal: number }>
-	> = {};
-	for (const row of monthlyPaymentsRes?.results || []) {
-		if (!monthlyPaymentsMap[row.bulan]) monthlyPaymentsMap[row.bulan] = {};
-		monthlyPaymentsMap[row.bulan][row.metode] = {
-			jumlah: row.jumlah,
-			nominal: row.nominal
-		};
+		{ pemasukan: number; pengeluaran: number; transaksi: number }
+	>();
+	for (const d of dailyFacts) {
+		const bulan = d.tanggal.slice(0, 7);
+		const current = monthlyTotals.get(bulan) ?? { pemasukan: 0, pengeluaran: 0, transaksi: 0 };
+		current.pemasukan += d.pemasukan;
+		current.pengeluaran += d.pengeluaran;
+		current.transaksi += d.transaksi;
+		monthlyTotals.set(bulan, current);
 	}
-
-	const monthlyProductsMap: Record<
-		string,
-		Array<{ id: string; nama: string; totalTerjual: number; totalPendapatan: number }>
-	> = {};
-	for (const row of monthlyProductsRes?.results || []) {
-		if (!monthlyProductsMap[row.bulan]) monthlyProductsMap[row.bulan] = [];
-		if (monthlyProductsMap[row.bulan].length < 3) {
-			monthlyProductsMap[row.bulan].push({
-				id: row.id,
-				nama: row.nama,
-				totalTerjual: row.totalTerjual,
-				totalPendapatan: row.totalPendapatan
-			});
-		}
-	}
-
-	const requestedMonthlyData: FormattedMonth[] = (monthlyRes?.results || []).map((m) => {
-		const [year, month] = m.bulan.split('-');
+	const requestedMonthlyData: FormattedMonth[] = [...monthlyTotals.entries()].map(([bulan, m]) => {
+		const [year, month] = bulan.split('-');
 		const dateObj = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
 		const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 		return {
-			month: m.bulan,
+			month: bulan,
 			monthName,
 			pemasukan: m.pemasukan,
 			pengeluaran: m.pengeluaran,
 			laba: m.pemasukan - m.pengeluaran,
 			transaksi: m.transaksi,
-			paymentMethods: monthlyPaymentsMap[m.bulan] || {},
-			topProducts: monthlyProductsMap[m.bulan] || []
+			paymentMethods: monthlyPaymentsMap[bulan] || {},
+			topProducts: [...(monthlyProducts.get(bulan)?.values() ?? [])].sort(byTerjual).slice(0, 3)
 		};
 	});
 
-	// [CATATAN]: Format performa harian & statistik
-	const dailyList = (dailyRes?.results || []).map((d) => {
-		const parts = d.tanggal.split('-');
-		const dateObj = new Date(
-			parseInt(parts[0], 10),
-			parseInt(parts[1], 10) - 1,
-			parseInt(parts[2], 10)
-		);
-		const formattedDate = dateObj.toLocaleDateString('id-ID', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'long'
+	// [CATATAN]: Format performa harian & statistik (hari dengan pemasukan).
+	const dailyList = dailyFacts
+		.filter((d) => d.pemasukan > 0 || d.transaksi > 0)
+		.map((d) => {
+			const parts = d.tanggal.split('-');
+			const dateObj = new Date(
+				parseInt(parts[0], 10),
+				parseInt(parts[1], 10) - 1,
+				parseInt(parts[2], 10)
+			);
+			const formattedDate = dateObj.toLocaleDateString('id-ID', {
+				weekday: 'long',
+				day: 'numeric',
+				month: 'long'
+			});
+			return {
+				date: d.tanggal,
+				formattedDate,
+				count: d.transaksi,
+				revenue: d.pemasukan,
+				avgTicket: d.transaksi > 0 ? d.pemasukan / d.transaksi : 0
+			};
 		});
-		return {
-			date: d.tanggal,
-			formattedDate,
-			count: d.count,
-			revenue: d.revenue,
-			avgTicket: d.count > 0 ? d.revenue / d.count : 0
-		};
-	});
 
 	const totalDays = dailyList.length;
 	const avgTransactionsPerDay =
@@ -711,25 +612,19 @@ export async function fetchReportDataSql(
 		}
 	}
 
-	// [CATATAN]: Format rincian pembayaran
-	const pembayaran: Record<string, { jumlah: number; nominal: number }> = {};
-	for (const p of paymentRes?.results || []) {
-		pembayaran[p.metode] = {
-			jumlah: p.jumlah,
-			nominal: p.nominal
-		};
-	}
-
 	// [CATATAN]: Format jam ramai
 	const jamRamai = (hourRes?.results || []).map((h) => `${h.jam}:00 (${h.jumlah} trx)`);
 
 	// [CATATAN]: Format produk terlaris
-	const produkTerlaris = (topProductsRes?.results || []).map((p) => ({
-		id: p.id,
-		nama: p.nama,
-		totalTerjual: p.totalTerjual,
-		totalPendapatan: p.totalPendapatan
-	}));
+	const produkTerlaris = [...periodProducts.values()].sort(byTerjual).slice(0, 10);
+
+	// AUD-030: rentang yang menyentuh data terarsip — rincian berbasis detail
+	// item hanya mencakup transaksi yang belum diarsipkan.
+	const beforeYear = Number(archiveCoverageRes?.beforeYear);
+	const arsipSebelum =
+		Number.isInteger(beforeYear) && startYmd < `${beforeYear}-01-01`
+			? `${beforeYear}-01-01`
+			: undefined;
 
 	const serverReportData: ServerReportData = {
 		summary: {
@@ -758,7 +653,8 @@ export async function fetchReportDataSql(
 		stokBahan,
 		marginProduk,
 		seleraKonsumen,
-		sesiToko
+		sesiToko,
+		...(arsipSebelum ? { rincianDetailAktifSaja: { arsipSebelum } } : {})
 	};
 
 	return {
@@ -810,17 +706,7 @@ Bulan ${month.monthName} (${month.month}):
 - Pengeluaran: Rp ${formatRupiah(month.pengeluaran)}
 - Laba: Rp ${formatRupiah(month.laba)}
 - Total Transaksi: ${month.transaksi}
-- Metode Pembayaran: ${Object.entries(month.paymentMethods)
-				.map(([method, data]) => {
-					const methodLabels: Record<string, string> = {
-						tunai: 'Tunai (Cash)',
-						qris: 'QRIS (Digital Payment)',
-						lainnya: 'Lainnya'
-					};
-					const label = methodLabels[method] || method;
-					return `${label}: ${data.jumlah} trx (Rp ${formatRupiah(data.nominal)})`;
-				})
-				.join(', ')}
+- Metode Pembayaran: ${formatPayments(month.paymentMethods).join(', ') || '-'}
 - Top 3 Produk Terlaris: ${month.topProducts.map((p) => `${p.nama} (${p.totalTerjual} terjual, Rp ${formatRupiah(p.totalPendapatan)})`).join(', ')}
 `
 		)
@@ -829,20 +715,17 @@ Bulan ${month.monthName} (${month.month}):
 
 === RINCIAN PEMBAYARAN ===
 ${
-	Object.entries(serverReportData.pembayaran || {})
-		.map(([k, v]) => {
-			const methodLabels: Record<string, string> = {
-				tunai: 'Tunai (Cash)',
-				qris: 'QRIS (Digital Payment)',
-				lainnya: 'Lainnya'
-			};
-			const label = methodLabels[k] || k;
-			return `- ${label}: ${v.jumlah} trx, Rp ${formatRupiah(v.nominal)}`;
-		})
+	formatPayments(serverReportData.pembayaran || {})
+		.map((line) => `- ${line}`)
 		.join('\n') || '- (tidak ada)'
 }
 
-=== POLA WAKTU ===
+${
+	serverReportData.rincianDetailAktifSaja
+		? `CATATAN CAKUPAN: transaksi sebelum ${serverReportData.rincianDetailAktifSaja.arsipSebelum} sudah diarsipkan. Ringkasan, data bulanan, harian, pembayaran, dan produk terlaris sudah mencakup arsip; jam ramai, margin HPP per menu, selera konsumen, dan rata-rata omzet per shift hanya dari transaksi yang belum diarsipkan.
+`
+		: ''
+}=== POLA WAKTU ===
 Jam Ramai (Top 3):
 ${(serverReportData.jamRamai || []).map((s, i) => `- ${i + 1}. ${s}`).join('\n') || '- (tidak ada)'}
 

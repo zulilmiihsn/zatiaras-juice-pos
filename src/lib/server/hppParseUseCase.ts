@@ -38,6 +38,8 @@ export interface HppParseDeps {
 	platform?: App.Platform;
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
+	/** AUD-034/035: putus klien membatalkan panggilan upstream. */
+	clientSignal?: AbortSignal | null;
 }
 
 /**
@@ -104,7 +106,7 @@ export async function parseHppText(deps: HppParseDeps): Promise<HppParsedPurchas
 				fallbacks: [],
 				errorLabel: 'HPP Parse Error',
 				timeoutMs: deps.timeoutMs,
-				clientSignal: null
+				clientSignal: deps.clientSignal ?? null
 			},
 			deps.fetchImpl ?? fetch
 		);

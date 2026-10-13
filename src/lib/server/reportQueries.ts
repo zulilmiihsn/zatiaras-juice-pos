@@ -44,6 +44,119 @@ export type LaporanAggregate = {
 	};
 };
 
+/** Nama produk laporan: varian ukuran digabung (laporan, dashboard, konteks AI). */
+export function canonicalProductName(name: unknown, fallback = 'Item'): string {
+	return String(name || fallback)
+		.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
+		.trim();
+}
+
+// Aturan kanonik tunggal: baris buku_kas manual (bukan POS) dan tanggal WITA-nya.
+// POS dibaca dari ringkasan harian, yang bertahan setelah transaksi diarsipkan.
+const MANUAL_ROW = "(sumber IS NULL OR sumber != 'pos')";
+const MANUAL_WITA_DATE = "date(datetime(waktu, '+8 hours'))";
+
+export interface CanonicalFacts {
+	/** Per hari: transaksi = POS + pemasukan usaha manual (aktif + arsip). */
+	daily: Array<{
+		tanggal: string;
+		pemasukan: number;
+		pengeluaran: number;
+		transaksi: number;
+		posTunai: number;
+		posNonTunai: number;
+	}>;
+	/** Pemasukan manual (aktif + arsip) per bulan x metode bayar mentah. */
+	manualPayments: Array<{ bulan: string; metode: string | null; nominal: number }>;
+	/** Produk POS per bulan x nama mentah (aktif + terarsip). */
+	products: Array<{ bulan: string; nama: string; totalTerjual: number; totalPendapatan: number }>;
+}
+
+/**
+ * Fakta rincian (harian, pembayaran, produk) dari sumber yang sama dengan
+ * buildLaporanAggregate (AUD-030). Gagal sumber merambat sebagai error.
+ */
+export async function buildCanonicalFacts(
+	rawDb: D1Database,
+	branch: BranchId,
+	startDate: string,
+	endDate: string
+): Promise<CanonicalFacts> {
+	const range = [branch, startDate, endDate];
+	const [daily, payments, products] = await Promise.all([
+		rawDb
+			.prepare(
+				`SELECT tanggal,
+					COALESCE(SUM(pemasukan), 0) AS pemasukan,
+					COALESCE(SUM(pengeluaran), 0) AS pengeluaran,
+					COALESCE(SUM(transaksi), 0) AS transaksi,
+					COALESCE(SUM(pos_tunai), 0) AS posTunai,
+					COALESCE(SUM(pos_nontunai), 0) AS posNonTunai
+				FROM (
+					SELECT tanggal_penjualan AS tanggal, penjualan_kotor AS pemasukan, 0 AS pengeluaran,
+						jumlah_transaksi AS transaksi, penjualan_tunai AS pos_tunai,
+						penjualan_nontunai AS pos_nontunai
+					FROM ringkasan_penjualan_harian
+					WHERE cabang_id = ? AND tanggal_penjualan >= ? AND tanggal_penjualan <= ?
+					UNION ALL
+					SELECT ${MANUAL_WITA_DATE},
+						CASE WHEN tipe = 'in' THEN nominal ELSE 0 END,
+						CASE WHEN tipe = 'out' THEN nominal ELSE 0 END,
+						CASE WHEN tipe = 'in' AND jenis = 'pendapatan_usaha' THEN 1 ELSE 0 END,
+						0, 0
+					FROM buku_kas
+					WHERE cabang_id = ? AND ${MANUAL_ROW}
+						AND ${MANUAL_WITA_DATE} >= ? AND ${MANUAL_WITA_DATE} <= ?
+					UNION ALL
+					SELECT tanggal_wita,
+						CASE WHEN tipe = 'in' THEN total_nominal ELSE 0 END,
+						CASE WHEN tipe = 'out' THEN total_nominal ELSE 0 END,
+						CASE WHEN tipe = 'in' AND jenis = 'pendapatan_usaha' THEN jumlah_transaksi ELSE 0 END,
+						0, 0
+					FROM ringkasan_kas_arsip_harian
+					WHERE cabang_id = ? AND tanggal_wita >= ? AND tanggal_wita <= ?
+				)
+				GROUP BY tanggal
+				ORDER BY tanggal ASC`
+			)
+			.bind(...range, ...range, ...range)
+			.all() as Promise<{ results?: CanonicalFacts['daily'] }>,
+		rawDb
+			.prepare(
+				`SELECT substr(tanggal, 1, 7) AS bulan, metode, COALESCE(SUM(nominal), 0) AS nominal
+				FROM (
+					SELECT ${MANUAL_WITA_DATE} AS tanggal, metode_bayar AS metode, nominal
+					FROM buku_kas
+					WHERE cabang_id = ? AND ${MANUAL_ROW} AND tipe = 'in'
+						AND ${MANUAL_WITA_DATE} >= ? AND ${MANUAL_WITA_DATE} <= ?
+					UNION ALL
+					SELECT tanggal_wita, metode_bayar, total_nominal
+					FROM ringkasan_kas_arsip_harian
+					WHERE cabang_id = ? AND tipe = 'in' AND tanggal_wita >= ? AND tanggal_wita <= ?
+				)
+				GROUP BY 1, 2`
+			)
+			.bind(...range, ...range)
+			.all() as Promise<{ results?: CanonicalFacts['manualPayments'] }>,
+		rawDb
+			.prepare(
+				`SELECT substr(tanggal_penjualan, 1, 7) AS bulan, nama_produk AS nama,
+					COALESCE(SUM(jumlah), 0) AS totalTerjual,
+					COALESCE(SUM(penjualan_kotor), 0) AS totalPendapatan
+				FROM penjualan_produk_harian
+				WHERE cabang_id = ? AND tanggal_penjualan >= ? AND tanggal_penjualan <= ?
+				GROUP BY 1, 2`
+			)
+			.bind(...range)
+			.all() as Promise<{ results?: CanonicalFacts['products'] }>
+	]);
+	return {
+		daily: daily.results || [],
+		manualPayments: payments.results || [],
+		products: products.results || []
+	};
+}
+
 /**
  * Menyusun laporan ter-agregasi untuk rentang tanggal WITA dari tabel harian
  * (daily_sales_summary + daily_product_sales) + entri manual buku_kas.
@@ -95,9 +208,9 @@ export async function buildLaporanAggregate(
 					deskripsi, metode_bayar, nama_pelanggan
 				 FROM buku_kas
 				 WHERE cabang_id = ?
-					AND (sumber IS NULL OR sumber != 'pos')
-					AND date(datetime(waktu, '+8 hours')) >= ?
-					AND date(datetime(waktu, '+8 hours')) <= ?
+					AND ${MANUAL_ROW}
+					AND ${MANUAL_WITA_DATE} >= ?
+					AND ${MANUAL_WITA_DATE} <= ?
 				 ORDER BY waktu DESC`
 				)
 				.bind(branch, startDate, endDate)
@@ -127,9 +240,7 @@ export async function buildLaporanAggregate(
 	const transactions: Array<Record<string, unknown>> = [];
 	const groupedProducts = new Map<string, { cash: number; nonCash: number }>();
 	for (const p of productRows) {
-		const name = String(p.nama_produk || 'Item')
-			.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
-			.trim();
+		const name = canonicalProductName(p.nama_produk);
 		const current = groupedProducts.get(name) || { cash: 0, nonCash: 0 };
 		current.cash += Number(p.cash || 0);
 		current.nonCash += Number(p.non_cash || 0);
@@ -231,8 +342,8 @@ export async function buildLaporanAggregate(
 					`SELECT COALESCE(SUM(nominal),0) AS total
 					 FROM buku_kas
 					 WHERE cabang_id = ? AND tipe = 'in' AND jenis = 'pendapatan_usaha'
-						AND (sumber IS NULL OR sumber != 'pos')
-						AND date(datetime(waktu, '+8 hours')) >= ? AND date(datetime(waktu, '+8 hours')) <= ?`
+						AND ${MANUAL_ROW}
+						AND ${MANUAL_WITA_DATE} >= ? AND ${MANUAL_WITA_DATE} <= ?`
 				)
 				.bind(branch, from, to)
 				.first() as Promise<{ total?: number }>,

@@ -323,7 +323,9 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 		fetchImpl
 	).catch((e) => e);
 	assert.ok(error instanceof AiGatewayError);
-	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	// Putus klien dibedakan dari timeout provider.
+	assert.equal(error.code, 'CLIENT_ABORTED');
+	assert.equal(publicAiErrorStatus(error), 499);
 	noKeyLeak(error);
 }
 
@@ -378,6 +380,214 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(redactForLog(new Error('x'.repeat(2000))).length <= 500);
 	// Non-error ikut teredaksi.
 	assert.ok(!redactForLog('token sk-abcdef12345 끝').includes('sk-abcdef12345'));
+}
+
+// AUD-034 / F-034: resource upstream dilepas, bukan hanya respons dibatasi.
+const encoder = new TextEncoder();
+function tracked(chunks: string[], close: boolean) {
+	const state = { cancelled: false };
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+			if (close) controller.close();
+		},
+		cancel() {
+			state.cancelled = true;
+		}
+	});
+	return { stream, state };
+}
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+// 21. Headers 200 + body macet: body dibatalkan, bukan sekadar respons 504.
+{
+	const body = tracked([], false);
+	const { fetchImpl } = scripted([new Response(body.stream, { status: 200 })]);
+	const started = Date.now();
+	const error = await callAiChat(KEY, URL, MESSAGES, { ...BASE, timeoutMs: 50 }, fetchImpl).catch(
+		(e) => e
+	);
+	await settle();
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
+	assert.equal(body.state.cancelled, true);
+	assert.ok(Date.now() - started < 5000);
+}
+
+// 22. Tetesan lambat melewati deadline body: timeout + body dibatalkan.
+{
+	const state = { cancelled: false };
+	const stream = new ReadableStream<Uint8Array>({
+		async start(controller) {
+			for (let i = 0; i < 20 && !state.cancelled; i++) {
+				try {
+					controller.enqueue(encoder.encode(' '));
+				} catch {
+					return;
+				}
+				await new Promise((resolve) => setTimeout(resolve, 20));
+			}
+		},
+		cancel() {
+			state.cancelled = true;
+		}
+	});
+	const { fetchImpl } = scripted([new Response(stream, { status: 200 })]);
+	const error = await callAiChat(KEY, URL, MESSAGES, { ...BASE, timeoutMs: 100 }, fetchImpl).catch(
+		(e) => e
+	);
+	await settle();
+	assert.equal(error?.code, 'UPSTREAM_TIMEOUT');
+	assert.equal(state.cancelled, true);
+}
+
+// 23. JSON terpotong -> INVALID_RESPONSE tanpa bocor key.
+{
+	const body = tracked(['{"choices":[{"message":{"content":"ha'], true);
+	const { fetchImpl } = scripted([new Response(body.stream, { status: 200 })]);
+	const error = await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl).catch((e) => e);
+	assert.equal(error?.code, 'INVALID_RESPONSE');
+	noKeyLeak(error);
+}
+
+// 24. Body melampaui batas ukuran -> INVALID_RESPONSE + body dibatalkan.
+{
+	const huge = JSON.stringify({ choices: [{ message: { content: 'x'.repeat(1_100_000) } }] });
+	const body = tracked([huge.slice(0, 600_000), huge.slice(600_000)], false);
+	const { fetchImpl } = scripted([new Response(body.stream, { status: 200 })]);
+	const error = await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl).catch((e) => e);
+	await settle();
+	assert.equal(error?.code, 'INVALID_RESPONSE');
+	assert.equal(body.state.cancelled, true);
+}
+
+// 25. Klien putus saat body dibaca: body dibatalkan, tidak lanjut ke fallback.
+{
+	const body = tracked([], false);
+	const client = new AbortController();
+	const { fetchImpl, calls } = scripted([
+		new Response(body.stream, { status: 200 }),
+		okContent('tidak boleh dipanggil')
+	]);
+	const pending = callAiChat(
+		KEY,
+		URL,
+		MESSAGES,
+		{ ...BASE, timeoutMs: 5000, clientSignal: client.signal },
+		fetchImpl
+	).catch((e) => e);
+	await settle();
+	client.abort();
+	const error = await pending;
+	await settle();
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(body.state.cancelled, true);
+	assert.equal(calls.length, 1);
+}
+
+// 26. Primary gagal lalu klien putus: fallback tidak memanggil upstream.
+{
+	const client = new AbortController();
+	const { fetchImpl, calls } = scripted([
+		async () => {
+			client.abort();
+			return status(500);
+		},
+		okContent('tidak boleh dipanggil')
+	]);
+	const error = await callAiChat(
+		KEY,
+		URL,
+		MESSAGES,
+		{ ...BASE, clientSignal: client.signal },
+		fetchImpl
+	).catch((e) => e);
+	assert.ok(error instanceof AiGatewayError);
+	assert.equal(calls.length, 1);
+}
+
+// 27. Respons gagal yang dibuang (retry/fallback) dibatalkan; fallback sah tetap jalan.
+{
+	const failed = tracked(['rate limited'], false);
+	const { fetchImpl } = scripted([new Response(failed.stream, { status: 429 }), okContent('ok')]);
+	assert.equal(await callAiChat(KEY, URL, MESSAGES, BASE, fetchImpl), 'ok');
+	await settle();
+	assert.equal(failed.state.cancelled, true);
+}
+
+// 28. Stream tangguh: respons gagal dibuang dibatalkan; klien putus menghentikan rantai.
+{
+	const failed = tracked(['err'], false);
+	const good = tracked(['data: [DONE]\n\n'], true);
+	const { fetchImpl } = scripted([
+		new Response(failed.stream, { status: 503 }),
+		new Response(good.stream, { status: 200 })
+	]);
+	const response = await requestAiStreamResilient(KEY, URL, MESSAGES, BASE, fetchImpl);
+	await settle();
+	assert.equal(response.status, 200);
+	assert.equal(failed.state.cancelled, true);
+
+	const client = new AbortController();
+	const chain = scripted([
+		async () => {
+			client.abort();
+			return status(503);
+		},
+		new Response('x', { status: 200 })
+	]);
+	await requestAiStreamResilient(
+		KEY,
+		URL,
+		MESSAGES,
+		{ ...BASE, clientSignal: client.signal },
+		chain.fetchImpl
+	).catch((e) => e);
+	assert.equal(chain.calls.length, 1);
+}
+
+// 29. Pump: klien sudah putus sebelum mulai, atau onChunk berhenti -> upstream dibatalkan.
+{
+	const early = tracked(['data: x\n\n'], false);
+	const client = new AbortController();
+	client.abort();
+	const outcome = await pumpAiStream(early.stream.getReader(), {
+		errorLabel: 'AI Stream Error',
+		clientSignal: client.signal,
+		onChunk: () => {}
+	});
+	await settle();
+	assert.equal(outcome, 'aborted');
+	assert.equal(early.state.cancelled, true);
+
+	const rest = tracked(['data: [DONE]\n\n', 'data: sisa\n\n'], false);
+	const stopped = await pumpAiStream(rest.stream.getReader(), {
+		errorLabel: 'AI Stream Error',
+		onChunk: () => true
+	});
+	await settle();
+	assert.equal(stopped, 'done');
+	assert.equal(rest.state.cancelled, true);
+}
+
+// 30. Anggaran rantai non-stream: fallback berhenti saat anggaran habis.
+{
+	const { fetchImpl, calls } = scripted([
+		status(500),
+		(signal) => hang(signal),
+		(signal) => hang(signal)
+	]);
+	const started = Date.now();
+	const error = await callAiChat(
+		KEY,
+		URL,
+		MESSAGES,
+		{ ...BASE, fallbacks: ['fb-1', 'fb-2'], timeoutMs: 50, budgetMs: 30 },
+		fetchImpl
+	).catch((e) => e);
+	assert.equal(error?.code, 'UPSTREAM_TIMEOUT');
+	assert.equal(calls.length, 2);
+	assert.ok(Date.now() - started < 1000);
 }
 
 console.log('ai-gateway-tests: all assertions passed');

@@ -54,7 +54,8 @@ export const POST: RequestHandler = async (event) => {
 		const deps = {
 			apiKey: getOpenRouterApiKey(event.platform) || '',
 			model: MODEL,
-			url: OPENROUTER_API_URL
+			url: OPENROUTER_API_URL,
+			clientSignal: event.request.signal
 		};
 		const result = await handleAnalyzeTransaction(event.platform, branch, body, deps);
 		return json(result.body, { status: result.status });

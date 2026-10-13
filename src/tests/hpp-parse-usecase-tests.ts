@@ -131,6 +131,35 @@ try {
 		assert.equal(fetched, false);
 	}
 
+	// 6. AUD-034/035: klien putus saat body dibaca -> upstream dilepas segera,
+	// respons aman UPSTREAM_ERROR (bukan menunggu deadline).
+	{
+		const state = { cancelled: false };
+		const body = new ReadableStream<Uint8Array>({
+			cancel() {
+				state.cancelled = true;
+			}
+		});
+		const client = new AbortController();
+		const fetchImpl = scripted(() => new Response(body, { status: 200 }));
+		const pending = parseHppText({
+			...base,
+			session: { ...session, userId: 'rl-disconnect' },
+			timeoutMs: 10_000,
+			clientSignal: client.signal,
+			fetchImpl
+		}).catch((e) => e);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		client.abort();
+		const started = Date.now();
+		const error = await pending;
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		assert.ok(error instanceof HppParseError);
+		assert.equal(error.code, 'UPSTREAM_ERROR');
+		assert.equal(state.cancelled, true);
+		assert.ok(Date.now() - started < 2000);
+	}
+
 	console.log('hpp-parse-usecase-tests: gateway, rate-limit, kontrak passed');
 } finally {
 	await close();

@@ -28,7 +28,8 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			session: { userId: session.userId, role: session.role, branch: session.branch ?? '' },
 			text,
 			apiKey,
-			platform
+			platform,
+			clientSignal: request.signal
 		});
 		return json({ ok: true, source: 'ai', items });
 	} catch (error) {

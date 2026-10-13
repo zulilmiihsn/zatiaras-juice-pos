@@ -3,6 +3,7 @@ import { dailySalesSummary, bukuKas } from '$lib/database/schema';
 import type { BranchContext, BranchId, DrizzleDb } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
 import { getDb, getRawDb } from '$lib/server/dataApiHelpers';
+import { canonicalProductName } from '$lib/server/reportQueries';
 
 /** Konversi timestamp ISO ke tanggal WITA 'YYYY-MM-DD' (zona Asia/Makassar). */
 function witaDate(ts: string): string {
@@ -91,9 +92,7 @@ export async function getBestSellersSummary(
 
 	return ((rows.results || []) as Array<Record<string, unknown>>).map((row) => ({
 		...row,
-		nama_produk: String(row.nama_produk || '')
-			.replace(/\s*\((?:Jumbo|Reguler)\)/gi, '')
-			.trim()
+		nama_produk: canonicalProductName(row.nama_produk, '')
 	}));
 }
 
