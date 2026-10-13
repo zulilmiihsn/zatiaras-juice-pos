@@ -188,7 +188,7 @@
 							</button>
 						{/if}
 
-						<!-- Standard Numerical Presets based on s.mutasiType -->
+						<!-- Standard Numerical Presets based on mutasiType -->
 						{#if s.mutasiType === 'tambah'}
 							{#each [1, 2, 5, 10, 20] as val}
 								<button
