@@ -25,7 +25,7 @@ Jangan menempel password, cookie, atau data pelanggan ke chat/repo. Tangkapan la
 
 ## Batch 4 — suara Antrean dan fokus dialog, 13 Oktober 2026
 
-Berlaku setelah deploy `b354e9c`. Untuk keyboard, pakai laptop/PC atau keyboard Bluetooth di tablet.
+Berlaku pada deploy `9d25d05` (memuat perbaikan `b354e9c`), sudah live 13 Oktober 2026. Untuk keyboard, pakai laptop/PC atau keyboard Bluetooth di tablet.
 
 | Kartu   | Langkah                                                                                                                                                                                                     | Hasil yang diharapkan                                                                                                                          | Hasil |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
