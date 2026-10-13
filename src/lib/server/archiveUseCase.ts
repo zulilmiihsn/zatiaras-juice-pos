@@ -557,8 +557,11 @@ async function readArchiveChunk(
 	if (selected.length === 0) return { bukuKas: [], transaksiKasir: [], hasMore: false };
 	// Materialize only the guarded locators, not fields. The same D1 transaction owns
 	// both payload SELECTs, so no huge detail can arrive between the header/detail reads.
+	// AUD-057: CROSS JOIN memaksa SQLite memulai dari baris terpilih (<= limit)
+	// lalu lookup per rowid/indeks. Dengan JOIN biasa planner memindai semua
+	// baris terkualifikasi cabang di tiap chunk (O(n) per chunk, O(n^2) per tahun).
 	const guarded = `WITH selected AS MATERIALIZED (
-		SELECT bk.rowid AS row_key FROM buku_kas bk JOIN json_each(?) chosen
+		SELECT bk.rowid AS row_key FROM json_each(?) chosen CROSS JOIN buku_kas bk
 		ON bk.rowid = CAST(json_extract(chosen.value, '$.rowKey') AS INTEGER)
 		WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
 		AND ${groupBytes} <= json_extract(chosen.value, '$.bytes')
@@ -568,15 +571,15 @@ async function readArchiveChunk(
 		rawDb
 			.prepare(
 				`${guarded} SELECT ${[...ARCHIVE_BUKU_KAS_FIELDS, 'revision'].map((f) => `bk.${f}`).join(', ')}
-			FROM buku_kas bk JOIN selected ON bk.rowid = selected.row_key
+			FROM selected CROSS JOIN buku_kas bk ON bk.rowid = selected.row_key
 			WHERE bk.cabang_id = ? ORDER BY bk.waktu ASC, bk.id ASC`
 			)
 			.bind(selection, branch, cutoff, ...cursorBinds, branch),
 		rawDb
 			.prepare(
 				`${guarded} SELECT ${ARCHIVE_TRANSAKSI_KASIR_FIELDS.map((f) => `tk.${f}`).join(', ')}
-			FROM transaksi_kasir tk JOIN buku_kas bk ON bk.id = tk.buku_kas_id AND bk.cabang_id = tk.cabang_id
-			JOIN selected ON bk.rowid = selected.row_key
+			FROM selected CROSS JOIN buku_kas bk ON bk.rowid = selected.row_key
+			CROSS JOIN transaksi_kasir tk ON tk.buku_kas_id = bk.id AND tk.cabang_id = bk.cabang_id
 			WHERE tk.cabang_id = ? ORDER BY tk.id ASC`
 			)
 			.bind(selection, branch, cutoff, ...cursorBinds, branch)

@@ -176,22 +176,23 @@ Keputusan dan batas: [ADR 0004](docs/adr/0004-antrean-notifications.md). Realtim
 
 ## 6. Entry Point & Lokasi Uji (Test Entry Points)
 
-| Kategori Pengujian                 | Perintah                                                                                | File Skrip Utama                                 |
-| :--------------------------------- | :-------------------------------------------------------------------------------------- | :----------------------------------------------- |
-| **Tipe Data & Diagnostik Svelte**  | `pnpm check`                                                                            | `svelte-check`                                   |
-| **Formatting & Linting**           | `pnpm lint`                                                                             | `.prettierrc`, `eslint.config.js`                |
-| **Unit & Hardening Test**          | `pnpm test:unit`                                                                        | `src/tests/*-tests.ts`                           |
-| **Kalkulasi Yield & HPP**          | `pnpm test:yield`                                                                       | `src/tests/ingredient-yield-tests.ts`            |
-| **Kalkulasi Pajak PP 55/2022**     | `pnpm test:tax`                                                                         | `src/tests/tax-calculation-tests.ts`             |
-| **Aksesibilitas & Focus Trap**     | `pnpm test:a11y`                                                                        | `src/tests/a11y-focus-tests.ts`                  |
-| **Realtime Fanout Multi-Sub**      | `pnpm test:realtime`                                                                    | `src/tests/realtime-fanout-tests.ts`             |
-| **Matriks Integritas Migrasi**     | `pnpm test:migration-matrix`                                                            | `src/tests/migration-matrix-tests.ts`            |
-| **Operasi D1 Backup & UAT Safety** | `pnpm test:operations`                                                                  | `scripts/d1-backup.test.mjs`                     |
-| **Playwright Browser E2E**         | `pnpm test:e2e:pos`                                                                     | `e2e/pos.spec.ts`                                |
-| **Notifikasi Antrean SQLite/D1**   | `rtk pnpm test:antrean-notifications` / `rtk pnpm test:antrean-notifications -- --d1`   | `src/tests/antrean-notification-tests.ts`        |
-| **Notifikasi Antrean Browser**     | `rtk pnpm exec node scripts/run-playwright-local.mjs e2e/antrean-notifications.spec.ts` | `e2e/antrean-notifications.spec.ts`              |
-| **Gate Statis (sama dengan CI)**   | `pnpm test:static`                                                                      | `svelte-check`, ESLint, Prettier                 |
-| **Production Build**               | `pnpm build`                                                                            | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
+| Kategori Pengujian                    | Perintah                                                                                | File Skrip Utama                                 |
+| :------------------------------------ | :-------------------------------------------------------------------------------------- | :----------------------------------------------- |
+| **Tipe Data & Diagnostik Svelte**     | `pnpm check`                                                                            | `svelte-check`                                   |
+| **Formatting & Linting**              | `pnpm lint`                                                                             | `.prettierrc`, `eslint.config.js`                |
+| **Unit & Hardening Test**             | `pnpm test:unit`                                                                        | `src/tests/*-tests.ts`                           |
+| **Kalkulasi Yield & HPP**             | `pnpm test:yield`                                                                       | `src/tests/ingredient-yield-tests.ts`            |
+| **Kalkulasi Pajak PP 55/2022**        | `pnpm test:tax`                                                                         | `src/tests/tax-calculation-tests.ts`             |
+| **Aksesibilitas & Focus Trap**        | `pnpm test:a11y`                                                                        | `src/tests/a11y-focus-tests.ts`                  |
+| **Realtime Fanout Multi-Sub**         | `pnpm test:realtime`                                                                    | `src/tests/realtime-fanout-tests.ts`             |
+| **Matriks Integritas Migrasi**        | `pnpm test:migration-matrix`                                                            | `src/tests/migration-matrix-tests.ts`            |
+| **Operasi D1 Backup & UAT Safety**    | `pnpm test:operations`                                                                  | `scripts/d1-backup.test.mjs`                     |
+| **Playwright Browser E2E**            | `pnpm test:e2e:pos`                                                                     | `e2e/pos.spec.ts`                                |
+| **Notifikasi Antrean SQLite/D1**      | `rtk pnpm test:antrean-notifications` / `rtk pnpm test:antrean-notifications -- --d1`   | `src/tests/antrean-notification-tests.ts`        |
+| **Notifikasi Antrean Browser**        | `rtk pnpm exec node scripts/run-playwright-local.mjs e2e/antrean-notifications.spec.ts` | `e2e/antrean-notifications.spec.ts`              |
+| **Gate Statis (sama dengan CI)**      | `pnpm test:static`                                                                      | `svelte-check`, ESLint, Prettier                 |
+| **Budget Performa (manual, AUD-057)** | `pnpm test:perf-budget` (setahun ±45 menit; `PERF_DAYS=30` untuk sampel)                | `src/tests/perf-budget-tests.ts`                 |
+| **Production Build**                  | `pnpm build`                                                                            | `vite.config.ts`, `@sveltejs/adapter-cloudflare` |
 
 ---
 

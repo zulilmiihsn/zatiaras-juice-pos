@@ -417,6 +417,52 @@ try {
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
 	assert.equal(await ledgerTotal(), 7000);
 
+	// AUD-057: payload chunk wajib dimulai dari baris terpilih (json_each/selected)
+	// lalu lookup per rowid. Rencana yang memindai semua baris cabang per chunk
+	// membuat arsip setahun O(n^2) (44 s per panggilan pada 15.000 transaksi).
+	{
+		await resetAll();
+		await seedHeaders(120, { prefix: 'plan' });
+		const captured: Array<{ sql: string; binds: unknown[] }> = [];
+		function capture(statement: D1PreparedStatement, sql: string): D1PreparedStatement {
+			return new Proxy(statement, {
+				get(target, key) {
+					if (key === 'bind')
+						return (...values: unknown[]) => {
+							if (sql.trimStart().startsWith('WITH selected AS MATERIALIZED'))
+								captured.push({ sql, binds: values });
+							return capture(target.bind(...values), sql);
+						};
+					const value = Reflect.get(target, key);
+					return typeof value === 'function' ? value.bind(target) : value;
+				}
+			});
+		}
+		const planned = new Proxy(db, {
+			get(target, key) {
+				if (key === 'prepare') return (query: string) => capture(target.prepare(query), query);
+				const value = Reflect.get(target, key);
+				return typeof value === 'function' ? value.bind(target) : value;
+			}
+		}) as D1Database;
+		await runArchive(planned, storage, branch, 2025, { chunkHeaders: 50, maxChunks: 1 });
+		assert.equal(captured.length, 2, 'Satu query header + satu query detail per chunk');
+		for (const { sql, binds } of captured) {
+			const plan = (
+				await db
+					.prepare(`EXPLAIN QUERY PLAN ${sql}`)
+					.bind(...binds)
+					.all<{ detail: string }>()
+			).results.map((row) => row.detail);
+			const firstAccess = plan.find((line) => !line.startsWith('MATERIALIZE'));
+			assert.match(firstAccess ?? '', /^SCAN chosen/, plan.join(' | '));
+			assert.ok(
+				!plan.some((line) => /((?:cabang_id=?))$|^SCAN (?:bk|tk)|BLOOM FILTER/.test(line)),
+				`Rencana memindai seluruh cabang: ${plan.join(' | ')}`
+			);
+		}
+	}
+
 	console.log(
 		'archive-chunk-tests: compact preread/growth/fanout/binary/tenant/UTF8/NULL/HPP/later-part + indivisible byte cap/multi-chunk/crash-resume/partial passed'
 	);
