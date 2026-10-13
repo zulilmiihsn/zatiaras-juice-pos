@@ -3,6 +3,8 @@ import test from 'node:test';
 import worker from '../lib/server/realtimeWorker.js';
 import { createTestD1 } from './helpers/testD1';
 import { flushAuditLogOutbox as flushCanonicalOutbox } from '../lib/server/auditLog';
+import { RETENTION_ROWS_PER_TABLE } from '../lib/server/technicalRetention';
+import { AUDIT_SINK_CONFLICT_ATTEMPTS } from '../lib/server/auditDrain';
 
 const NOW = Date.UTC(2026, 6, 3, 3);
 const RECENT = '2026-07-02T00:00:00.000Z';
@@ -449,6 +451,27 @@ await test('canonical drain races/replay, changed source and conflicting sink pr
 			await f.sam.prepare("SELECT action FROM audit_logs WHERE id='sink-conflict'").first('action'),
 			'DIFFERENT_INTENT'
 		);
+		const conflictPayload = await f.sam
+			.prepare("SELECT payload FROM audit_log_outbox WHERE id='sink-conflict'")
+			.first('payload');
+		// Deterministic conflict stops retrying once confirmed; exact bytes move to quarantine, sink untouched.
+		for (let attempt = 1; attempt < AUDIT_SINK_CONFLICT_ATTEMPTS; attempt++)
+			assert.equal(await flushAuditLogOutbox(f.sam, 'samarinda'), 0);
+		assert.equal(await count(f.sam, 'audit_log_outbox'), 1);
+		assert.equal(await flushAuditLogOutbox(f.sam, 'samarinda'), 0);
+		assert.equal(await count(f.sam, 'audit_log_outbox'), 0);
+		assert.equal(
+			await f.sam
+				.prepare(
+					"SELECT payload FROM audit_log_quarantine WHERE id='sink-conflict' AND reason='AUDIT_SINK_CONFLICT'"
+				)
+				.first('payload'),
+			conflictPayload
+		);
+		assert.equal(
+			await f.sam.prepare("SELECT action FROM audit_logs WHERE id='sink-conflict'").first('action'),
+			'DIFFERENT_INTENT'
+		);
 	} finally {
 		await f.close();
 	}
@@ -497,15 +520,12 @@ await test('quarantine failure/oversize/old event retain exact bytes; bounded de
 					.bind(`original-250-${i}`, 'samarinda', payload(`original-250-${i}`), RECENT, RECENT)
 			)
 		);
-		await f.sam.batch(
-			Array.from({ length: 135 }, (_, i) =>
-				f.sam
-					.prepare(
-						"INSERT INTO error_events(id,cabang_id,source,message,created_at) VALUES(?,'samarinda','owned','marker',?)"
-					)
-					.bind(`bounded-${i}`, OLD)
+		await f.sam
+			.prepare(
+				"INSERT INTO error_events(id,cabang_id,source,message,created_at) WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i + 1 < ?) SELECT 'bounded-' || i, 'samarinda', 'owned', 'marker', ? FROM n"
 			)
-		);
+			.bind(RETENTION_ROWS_PER_TABLE + 35, OLD)
+			.run();
 		await tick(f.env);
 		assert.equal(await count(f.sam, 'audit_logs'), 250);
 		assert.equal(

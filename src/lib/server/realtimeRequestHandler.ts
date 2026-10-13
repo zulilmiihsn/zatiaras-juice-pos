@@ -44,6 +44,9 @@ export async function handleRealtimeRequest(
 	const url = new URL(request.url);
 	if (url.pathname !== '/api/realtime') return null;
 	if (request.method !== 'GET') return realtimeJson('Method not allowed', 405);
+	// Browsers always send Origin on WebSocket handshakes; a foreign page must not ride the session cookie.
+	const origin = request.headers.get('origin');
+	if (origin !== null && origin !== url.origin) return realtimeJson('Origin tidak diizinkan', 403);
 	try {
 		const session = await getAuthSession({ env } as App.Platform, sessionCookie(request));
 		const branch = requireSessionBranch(

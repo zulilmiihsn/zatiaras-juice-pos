@@ -22,6 +22,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			secure: !dev,
 			maxAge: 60 * 60 * 24
 		});
+		// A new session must not inherit a token minted for the previous user on this device.
+		cookies.delete('zatiaras_csrf', { path: '/' });
 	}
 
 	return new Response(JSON.stringify(result.body), {

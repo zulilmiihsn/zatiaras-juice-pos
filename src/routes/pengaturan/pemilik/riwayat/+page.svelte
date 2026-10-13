@@ -152,14 +152,27 @@
 			newMethod === 'qris' || newMethod === 'non-tunai' ? 'non-tunai' : 'tunai';
 		if (currentNormalized === targetNormalized) return;
 
+		// Baris POS di-guard server dengan revisi saat ini; baris manual wajib membawa revisi yang tampil (CAS).
+		const isPos = selectedTransaksi.sumber === 'pos';
+		if (!isPos && selectedTransaksi.revision == null) {
+			toastManager.showToastNotification(
+				'Data transaksi usang. Muat ulang lalu coba lagi.',
+				'error'
+			);
+			return;
+		}
+		const payload = isPos
+			? { metode_bayar: targetNormalized }
+			: { metode_bayar: targetNormalized, revision: selectedTransaksi.revision };
+
 		loading = true;
 		try {
-			await transactionService.updateRows(
-				'buku_kas',
-				{ metode_bayar: targetNormalized },
-				{ id: selectedTransaksi.id }
-			);
-			selectedTransaksi = { ...selectedTransaksi, metode_bayar: targetNormalized };
+			await transactionService.updateRows('buku_kas', payload, { id: selectedTransaksi.id });
+			selectedTransaksi = {
+				...selectedTransaksi,
+				metode_bayar: targetNormalized,
+				revision: isPos ? selectedTransaksi.revision : (selectedTransaksi.revision ?? 0) + 1
+			};
 			toastManager.showToastNotification('Jenis pembayaran berhasil diubah.', 'success');
 			await fetchTransaksiHariIni();
 		} catch (e) {

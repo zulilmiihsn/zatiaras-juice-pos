@@ -5,6 +5,9 @@ export const AUDIT_PAGE_ROWS = 100;
 export const AUDIT_MAX_PAYLOAD_BYTES = 65536;
 const DOCUMENT_BYTES = 262144;
 const RETENTION_MS = 90 * 86400000;
+// A sink row with the same id but different values never converges; stop retrying it after a few
+// confirmations so it cannot spend the shared cron budget for 90 days. Transient outages keep retrying.
+export const AUDIT_SINK_CONFLICT_ATTEMPTS = 3;
 export interface AuditBudget {
 	remaining: number;
 	used: number;
@@ -22,6 +25,7 @@ interface OutboxRow {
 	payload: string | null;
 	payload_bytes: number;
 	attempt_count: number;
+	last_error: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -210,7 +214,7 @@ export async function drainAuditOutbox(
 			const result = await db
 				.prepare(
 					`SELECT id,cabang_id,CASE WHEN length(CAST(payload AS BLOB))<=? THEN payload ELSE NULL END AS payload,
-			length(CAST(payload AS BLOB)) AS payload_bytes,attempt_count,created_at,updated_at FROM audit_log_outbox
+			length(CAST(payload AS BLOB)) AS payload_bytes,attempt_count,last_error,created_at,updated_at FROM audit_log_outbox
 			WHERE cabang_id=? AND (created_at>? OR (created_at=? AND id>?)) ${opts.ids ? 'AND id IN(SELECT value FROM json_each(?))' : ''}
 			${opts.dueOnly ? 'AND (attempt_count=0 OR julianday(updated_at) IS NULL OR julianday(updated_at)<=julianday(?) - MIN(3600000,120000*attempt_count)/86400000.0)' : ''}
 			ORDER BY created_at,id LIMIT ?`
@@ -237,13 +241,19 @@ export async function drainAuditOutbox(
 		afterId = rows.at(-1)!.id;
 		const valid: Snapshot[] = [],
 			poison: Snapshot[] = [],
-			ageReview: Snapshot[] = [];
+			ageReview: Snapshot[] = [],
+			sinkConflict: Snapshot[] = [];
 		for (const row of rows) {
 			try {
 				if (row.payload === null || !Number.isFinite(eventTime(row.created_at)))
 					throw new Error('AUDIT_INVALID_SOURCE');
 				const values = auditValues(parseAuditPayload(row.payload, branch));
 				if (eventTime(row.created_at) < now - RETENTION_MS) ageReview.push(row);
+				else if (
+					row.last_error === 'AUDIT_SINK_CONFLICT' &&
+					row.attempt_count >= AUDIT_SINK_CONFLICT_ATTEMPTS
+				)
+					sinkConflict.push(row);
 				else valid.push({ ...row, values });
 			} catch {
 				poison.push(
@@ -268,6 +278,15 @@ export async function drainAuditOutbox(
 				budget,
 				stamp,
 				'AUDIT_RETENTION_REVIEW'
+			);
+		for (const group of documents(sinkConflict))
+			report.quarantined += await quarantine(
+				db,
+				branch,
+				group,
+				budget,
+				stamp,
+				'AUDIT_SINK_CONFLICT'
 			);
 		for (const group of documents(valid))
 			report.delivered += await deliver(db, branch, group, budget, stamp);

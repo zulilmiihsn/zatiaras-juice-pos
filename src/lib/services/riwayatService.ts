@@ -6,6 +6,7 @@
  */
 import { getTodayWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import { transactionService } from '$lib/services/transactionService';
+import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
 import type { BukuKasRecord, HistoryItem } from '$lib/types/laporan';
 
 /** Preset rentang Riwayat. Default 'hari-ini' = perilaku lama. */
@@ -45,7 +46,8 @@ function toHistoryItem(t: BukuKasRecord): HistoryItem {
 		tipe: t.tipe || (t as unknown as Record<string, string>).type,
 		sumber: t.sumber || 'catat',
 		metode_bayar: t.metode_bayar || 'tunai',
-		nama_pelanggan: t.nama_pelanggan || ''
+		nama_pelanggan: t.nama_pelanggan || '',
+		revision: decodeLedgerRevision(t.revision)
 	};
 }
 

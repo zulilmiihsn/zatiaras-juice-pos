@@ -35,7 +35,7 @@
 		URL.revokeObjectURL(url);
 	}
 
-	async function downloadJob(jobId: string, filename: string) {
+	async function downloadJob(jobId: string, filename: string): Promise<boolean> {
 		downloadState = 'downloading';
 		downloadMessage = '';
 		try {
@@ -46,9 +46,11 @@
 			if (!res.ok) throw new Error('Unduhan arsip gagal. Coba lagi.');
 			triggerBrowserDownload(await res.text(), filename);
 			downloadState = 'downloaded';
+			return true;
 		} catch {
 			downloadState = 'failed';
 			downloadMessage = 'Unduhan arsip gagal. Coba lagi.';
+			return false;
 		}
 	}
 
@@ -68,10 +70,13 @@
 			if (!res.ok) throw new Error(data?.message || 'Gagal mengarsipkan');
 
 			result = data;
-			// Fresh single-part commits and retries use the same job-scoped download boundary.
+			// Every fresh part uses the same job-scoped download boundary as manual retry, so a
+			// multi-part archive leaves a complete local copy rather than only part 1.
 			// A body error must not turn a valid archive commit into a false download success.
-			if (data.job_id && !data.resumed) {
-				await downloadJob(data.job_id, data.filename || 'arsip.json');
+			if (!data.resumed && Array.isArray(data.parts)) {
+				for (const part of data.parts as Array<{ jobId: string; filename: string }>) {
+					if (!(await downloadJob(part.jobId, part.filename || 'arsip.json'))) break;
+				}
 			}
 		} catch (e) {
 			result = { ok: false, count: 0, message: e instanceof Error ? e.message : 'Gagal' };
@@ -201,6 +206,8 @@
 						<div class="text-sm text-emerald-800">
 							<b>{result.count} baris</b> berhasil diarsipkan{#if result.filename && downloadState === 'downloaded'}
 								& diunduh (<code class="text-xs">{result.filename}</code>)
+							{:else if result.parts && result.parts.length > 1 && downloadState === 'downloaded'}
+								& diunduh ({result.parts.length} bagian)
 							{/if}. Salinan juga tersimpan di cloud. Database kini lebih lega.
 							{#if result.job_id}
 								<div class="mt-2 flex flex-wrap items-center gap-2">

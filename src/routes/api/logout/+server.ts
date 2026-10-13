@@ -9,6 +9,8 @@ export const POST: RequestHandler = async ({ cookies, platform }) => {
 	cookies.delete('zatiaras_sid', {
 		path: '/'
 	});
+	// Session boundary rotates the double-submit token; the next /api/csrf issues a fresh one.
+	cookies.delete('zatiaras_csrf', { path: '/' });
 
 	return json({ success: true });
 };

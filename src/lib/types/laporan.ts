@@ -38,6 +38,7 @@ export interface BukuKasRecord {
 	idempotency_key?: string | null;
 	nama?: string;
 	nama_pelanggan?: string;
+	revision?: number | null;
 }
 
 /**
@@ -57,6 +58,8 @@ export interface HistoryItem {
 	sumber: string;
 	metode_bayar: string;
 	nama_pelanggan: string;
+	/** Versi baris yang ditampilkan; wajib dikirim saat PATCH baris manual (CAS). */
+	revision?: number | null;
 	receipt_snapshot?: string | null;
 	cash_received?: number | null;
 	change?: number | null;

@@ -103,6 +103,8 @@ export async function loginWithUsername(username: string, password: string, bran
 		reportApiFailure(result, res.status, '/api/veriflogin');
 		throw new Error(getApiErrorMessage(result, res.status, 'Login gagal'));
 	}
+	// Server rotated the CSRF cookie with the new session; drop the pre-login token.
+	clearCsrfTokenCache();
 
 	// [CATATAN]: Jika peran adalah 'kasir', ambil pengaturan keamanan
 	if (result.user.role === 'kasir') {

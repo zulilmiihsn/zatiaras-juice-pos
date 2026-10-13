@@ -255,6 +255,15 @@ async function sourceTests() {
 			try {
 				assert.equal((await handler(f.request('samarinda2'), f.env)).status, 403);
 				assert.equal(f.visits.length, 0);
+				// Cross-site WebSocket hijacking: a valid session cookie from a foreign page never reaches the DO.
+				const foreign = f.request();
+				foreign.headers.set('Origin', 'https://attacker.invalid');
+				assert.equal((await handler(foreign, f.env)).status, 403);
+				const sameOrigin = f.request();
+				sameOrigin.headers.set('Origin', 'https://local.invalid');
+				assert.equal((await handler(sameOrigin, f.env)).status, 200);
+				assert.deepEqual(f.visits, ['samarinda']);
+				f.visits.length = 0;
 				f.sqlite.exec("UPDATE profil SET role=' ADMIN '");
 				assert.equal((await getAuthSession({ env: f.env }, f.sid)).role, 'admin');
 				assert.equal((await handler(f.request('berau'), f.env)).status, 200);
