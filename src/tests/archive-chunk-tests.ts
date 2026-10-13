@@ -457,7 +457,7 @@ try {
 			const firstAccess = plan.find((line) => !line.startsWith('MATERIALIZE'));
 			assert.match(firstAccess ?? '', /^SCAN chosen/, plan.join(' | '));
 			assert.ok(
-				!plan.some((line) => /((?:cabang_id=?))$|^SCAN (?:bk|tk)|BLOOM FILTER/.test(line)),
+				!plan.some((line) => /\(cabang_id=\?\)$|^SCAN (?:bk|tk)\b|BLOOM FILTER/.test(line)),
 				`Rencana memindai seluruh cabang: ${plan.join(' | ')}`
 			);
 		}
