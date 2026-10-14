@@ -165,18 +165,23 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
 
 ## 5. Pengujian
 
-| Perintah                              | Cakupan                                           |
-| ------------------------------------- | ------------------------------------------------- |
-| `pnpm check` / `pnpm lint`            | Tipe, Prettier, ESLint                            |
-| `pnpm test:unit`                      | Seluruh `src/tests/*-tests.ts` (SQLite in-memory) |
-| `pnpm exec tsx src/tests/<file> --d1` | Tes yang mendukung D1/workerd lokal               |
-| `pnpm test:operations`                | Skrip backup/restore/wipe/rilis                   |
-| `pnpm test:e2e:all`                   | Playwright, server dan D1 terisolasi per run      |
-| `pnpm test:release`                   | Gate rilis penuh                                  |
+| Perintah                              | Cakupan                                                   |
+| ------------------------------------- | --------------------------------------------------------- |
+| `pnpm check` / `pnpm lint`            | Tipe, Prettier, ESLint                                    |
+| `pnpm test:unit`                      | Seluruh `src/tests/*-tests.ts` paralel (SQLite in-memory) |
+| `pnpm test:coverage`                  | `test:unit` + laporan coverage `src/lib`                  |
+| `pnpm exec tsx src/tests/<file> --d1` | Tes yang mendukung D1/workerd lokal                       |
+| `pnpm test:operations`                | Skrip backup/restore/wipe/rilis                           |
+| `pnpm test:e2e:all`                   | Playwright, server dan D1 terisolasi per run              |
+| `pnpm test:release`                   | Gate rilis penuh                                          |
 
-Menambah tes: buat `src/tests/<domain>-tests.ts`, daftarkan `test:<domain>` di
-`package.json`, tambahkan ke rantai `test:unit`, dan tambahkan langkah di
-`.github/workflows/ci.yml`. Tes harus deterministik: tanpa produksi, tanpa model
+`test:unit` memakai test runner bawaan Node (`node --test`, paralel 4) atas semua
+`src/tests/*-tests.ts`; `pnpm test:coverage` menambah laporan coverage `src/lib`.
+Benchmark manual (`*.bench.ts`) tidak ikut.
+
+Menambah tes: buat `src/tests/<domain>-tests.ts` (otomatis ikut `test:unit`), daftarkan
+`test:<domain>` di `package.json`, dan tambahkan langkahnya di `.github/workflows/ci.yml`.
+`test:docs-drift` gagal bila salah satu terlewat. Tes harus deterministik: tanpa produksi, tanpa model
 berbayar, waktu dibekukan bila relevan. Reproduksi bug dengan tes yang gagal dulu.
 
 ## 6. Jebakan umum

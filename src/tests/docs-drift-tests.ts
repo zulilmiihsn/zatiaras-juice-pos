@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const ROOT = process.cwd();
@@ -89,23 +89,41 @@ for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/deploy.ym
 	assert.equal(ci.split('run: pnpm check').length - 1, 1, 'CI wajib check tepat sekali');
 }
 
-// Rantai suite wajib hidup: tiap entri test:unit/test:operations
-// adalah script package.json yang target file-nya ada — tanpa entri mati,
-// tanpa hitungan suite lawas yang di-pin.
-for (const chain of ['test:unit', 'test:operations']) {
-	const entries = String(pkg.scripts[chain] ?? '')
+// Rantai test:operations wajib hidup: tiap entri adalah script yang target file-nya ada.
+{
+	const entries = String(pkg.scripts['test:operations'] ?? '')
 		.split('&&')
 		.map((s) => s.trim().replace(/^pnpm\s+/, ''));
-	assert.ok(entries.length > 0, `rantai ${chain} kosong`);
+	assert.ok(entries.length > 0, 'rantai test:operations kosong');
 	for (const name of entries) {
 		const command = pkg.scripts[name];
-		assert.ok(command, `rantai ${chain} memanggil script hilang: ${name}`);
+		assert.ok(command, `rantai test:operations memanggil script hilang: ${name}`);
 		const file = command
 			.split('&&')
 			.map((s) => s.trim())
 			.map((s) => s.match(/^(?:tsx|node --test)\s+(\S+)/)?.[1])
 			.find(Boolean);
 		if (file) assert.ok(existsSync(join(ROOT, file)), `target suite hilang: ${file}`);
+	}
+}
+
+// test:unit menjalankan semua src/tests/*-tests.ts lewat glob. Agar tiap suite tetap
+// bisa dijalankan sendiri dan terlihat di CI, setiap file wajib punya script test:*
+// yang menunjuknya, dan script itu wajib dipanggil di workflow CI.
+{
+	assert.match(pkg.scripts['test:unit'] ?? '', /--test\b.*src\/tests\/\*-tests\.ts/);
+	const ci = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+	const suites = readdirSync(join(ROOT, 'src/tests')).filter((f) => f.endsWith('-tests.ts'));
+	assert.ok(suites.length > 0, 'tidak ada suite unit');
+	for (const suite of suites) {
+		const script = Object.entries(pkg.scripts).find(
+			([name, command]) => name.startsWith('test:') && command.includes(`src/tests/${suite}`)
+		)?.[0];
+		assert.ok(script, `${suite} belum punya script test:* di package.json`);
+		assert.ok(
+			new RegExp(`pnpm ${script}(?![\\w:-])`).test(ci) || ci.includes(`src/tests/${suite}`),
+			`${script} (${suite}) tidak dijalankan di CI`
+		);
 	}
 }
 

@@ -225,6 +225,18 @@ jobs:
       - name: Run Markdown Render Suite
         run: pnpm test:markdown
 
+      - name: Run Auth, PIN, and Signing Key Suites
+        run: |
+          pnpm test:auth-service
+          pnpm test:pin-service
+          pnpm test:signing-key
+
+      - name: Run Stock Cache, Mutation Frequency, and Text Format Suites
+        run: |
+          pnpm test:stock-policy-cache
+          pnpm test:mutation-frequency
+          pnpm test:text-format
+
       - name: Run Antrean Suite
         run: pnpm test:antrean
 

@@ -260,8 +260,8 @@ UI -> store/service -> route HTTP (auth + parse + respons)
   tanggal mengambang (bekukan `now`), tanpa hash atas output locale-dependent.
 - Baris DB dari SQLite adalah null-prototype: normalisasi sebelum `deepEqual`.
 - Dilarang menurunkan assertion, menambah skip, atau retry buta agar hijau.
-- File baru: `src/tests/<domain>-tests.ts` + script `test:<domain>` di
-  `package.json` + rantai `test:unit` + step CI.
+- File baru: `src/tests/<domain>-tests.ts` (otomatis ikut `test:unit`) + script
+  `test:<domain>` di `package.json` + step CI. `test:docs-drift` menjaga keduanya.
 
 ## 7. Aturan commit/PR/rilis (tanpa pengecualian)
 
