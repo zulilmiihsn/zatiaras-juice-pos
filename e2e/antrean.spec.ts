@@ -1809,11 +1809,16 @@ test('latest status from another tab survives a committed request with a lost re
 				'Sebagian status belum tersinkron. Tekan Sinkronkan status untuk mencoba lagi.'
 			)
 		).toBeVisible();
-		const finalIntentCount = await page.evaluate(async () => {
-			const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
-			return (await local.loadStatusIntents('samarinda')).length;
-		});
-		expect(finalIntentCount).toBe(0);
+		// Intent cleanup in shared IndexedDB is async after both responses; the contract is that
+		// the superseded intent eventually drains (a single read raced it on CI, run 38488492850).
+		await expect
+			.poll(() =>
+				page.evaluate(async () => {
+					const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
+					return (await local.loadStatusIntents('samarinda')).length;
+				})
+			)
+			.toBe(0);
 	} catch (error) {
 		hasFailure = true;
 		primaryFailure = error;
