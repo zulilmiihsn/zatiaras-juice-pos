@@ -3,8 +3,7 @@
  *
  * Dipakai operator SEBELUM menambah constraint/uniqueness: bila detector
  * menemukan baris, migrasi enforcement harus berhenti dan data diperbaiki
- * manual (jangan dedup/hapus otomatis). Lihat ENGINEERING-IMPROVEMENT-PLAN
- * Fase 5 dan DEVELOPER-GUIDE §9.
+ * manual (jangan dedup/hapus otomatis). Lihat docs/adr/0003-foreign-keys.md.
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from './branchResolver';

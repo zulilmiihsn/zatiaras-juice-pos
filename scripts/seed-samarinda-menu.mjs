@@ -1,6 +1,6 @@
 /**
  * Seeding data menu resmi Zatiaras Juice cabang Samarinda
- * Sumber: [ZATIARAS] Daftar Menu, 18_06_2026.pdf & [ZATIARAS] SOP Porsi, 18_06_2026.pdf
+ * Sumber: docs/reference/daftar-menu-2026-06-18.pdf & docs/reference/sop-porsi-2026-06-18.pdf
  *
  * Penggunaan:
  *   node scripts/seed-samarinda-menu.mjs          # Seed ke local D1

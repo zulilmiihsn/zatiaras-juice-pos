@@ -26,28 +26,20 @@ kontrak dedup per `(cabang_id, table, id)` sebelum implementasi.
 
 ## Audit bukan invalidasi realtime umum
 
-Remediasi AUD-049 (10 Oktober 2026) menempatkan intent audit checkout dalam
-`audit_log_outbox` pada batch D1 yang sama dengan transaksi/stok/event Antrean.
-Identitas intent terikat sale yang menang; replay tidak membuat intent kedua.
-Outbox unavailable menggagalkan business batch, bukan sale sah tanpa audit.
-Delivery audit diserahkan ke drain terjadwal; outage sink setelah commit tidak
-menghapus intent atau menuntut pembayaran ulang. Ini tidak mengubah keputusan
-best-effort fanout katalog di atas, dan tidak membackfill audit legacy tebakan.
-Remediasi lokal AUD-051 memakai canonical audit envelope/drain dan guarded
-sink/quarantine+exact-source-delete dalam satu batch. Source time/zero/actor/metadata
-terpelihara; source invalid/oversize/too-old masuk quarantine, transient outage tetap
-outbox. Audit drain minute/daily, retention90hari hanya daily; retry eligible
-2min×attempt capped60min, bounded isolation/rotating shard priority. Default40SQL
-maintenance (daily reserve32), higher1–900 hanya dengan approved quota; tidak
-menghitung relay/provider sebagai tersertifikasi. Registry foreign tombstones
-held sampai cross-shard atomic/owner-ADR tersedia. Actual local compiled scheduled
-controller dan synthetic backlog bukan staging/approved-volume/memory/CI sign-off;
-full acceptance AUD-051 tetap terbuka.
+Intent audit checkout ditulis ke `audit_log_outbox` dalam batch D1 yang sama dengan
+transaksi, stok, dan event Antrean. Replay idempoten tidak membuat intent kedua.
+Outbox yang tidak tersedia menggagalkan checkout (503), bukan menghasilkan penjualan
+tanpa audit.
 
-Realtime checkout menggunakan execution context bila tersedia; fallback
-menunggu hanya dalam budget. Publisher memakai satu owned abort timer dan
-parent cancellation, dibersihkan pada success/error/deadline. SQLite/workerd
-serta imported actual handler tests bukan staging/compiled Worker sign-off.
+Pengiriman audit adalah tugas drain terjadwal di Worker realtime (`auditDrain.ts`,
+cron tiap menit; retensi teknis 90 hari hanya pada cron harian). Sink dan hapus sumber
+berada dalam satu batch; sumber rusak, terlalu besar, atau terlalu tua masuk karantina.
+Gangguan sink sesudah commit tidak menghapus intent dan tidak menuntut pembayaran ulang.
+Default anggaran 40 statement SQL per tick; `AUDIT_MAINTENANCE_QUERY_BUDGET` (1–900)
+hanya dinaikkan setelah volume disetujui.
+
+Realtime checkout memakai execution context bila tersedia; tanpa itu publish ditunggu
+hanya dalam batas waktu dan dibatalkan sesudahnya.
 
 ## Pengecualian spesifik: notifikasi kedatangan Antrean
 

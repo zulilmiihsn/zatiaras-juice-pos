@@ -1,6 +1,6 @@
 /**
  * Seeding master data bahan baku dan resep (SOP Porsi) Zatiaras Juice cabang Samarinda
- * Sumber: [ZATIARAS] Daftar Menu, 18_06_2026.pdf & [ZATIARAS] SOP Porsi, 18_06_2026.pdf
+ * Sumber: docs/reference/daftar-menu-2026-06-18.pdf & docs/reference/sop-porsi-2026-06-18.pdf
  *
  * Menghubungkan seluruh 95 menu resmi Samarinda dan 7 extras ke resep bahan baku D1.
  *

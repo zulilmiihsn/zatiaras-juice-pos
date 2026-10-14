@@ -158,8 +158,8 @@ Bagian ini WAJIB dibaca sebelum mengubah kode. Tujuannya: fitur baru tidak
 merusak kontrak uang/data/cabang, arsitektur tetap modular monolith, dan
 setiap perubahan meninggalkan bukti verifikasi.
 
-Dokumen pendamping: `DEVELOPER-GUIDE.md` (domain), `docs/adr/` (keputusan),
-`docs/OPERATOR-RUNBOOK.md` (rilis), `ENGINEERING-IMPROVEMENT-PLAN.md` (status).
+Dokumen pendamping: `README.md` (ringkasan), `DEVELOPER-GUIDE.md` (arsitektur, alur,
+konvensi), `docs/adr/` (keputusan), `docs/OPERATOR-RUNBOOK.md` (operasi produksi).
 
 ## 1. Perintah proyek (selalu pakai prefix `rtk`)
 
@@ -212,6 +212,7 @@ UI -> store/service -> route HTTP (auth + parse + respons)
 | Pajak     | `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts`          | PP 55/2022, YTD 500jt                                                 |
 | Laporan   | `src/lib/server/reportQueries.ts`                                  | agregasi + paritas arsip                                              |
 | Tenant    | `src/lib/server/branchResolver.ts`, `apiAuth.ts`                   | `BranchContext`, session scope                                        |
+| Akses     | `src/lib/server/pageAccess.ts`                                     | kunci PIN halaman kasir, juga untuk endpoint data                     |
 | Kesehatan | `src/lib/server/dataHealth.ts`                                     | detector orphan/stok negatif                                          |
 | Offline   | `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts` | replay idempoten                                                      |
 | Uang      | `src/lib/utils/currency.ts`, `checkout/utils.ts`                   | `normalizeMoney`, `roundMoney`                                        |
@@ -247,7 +248,10 @@ UI -> store/service -> route HTTP (auth + parse + respons)
 - Tanpa migrasi destruktif tanpa preflight + backup + panduan rollback.
 - Pesan error Indonesia untuk user; log teknis boleh Inggris.
 - Komentar menjelaskan KENAPA, bukan mengulang kode. Hapus komentar basi
-  yang disentuh perubahanmu.
+  yang disentuh perubahanmu. Jangan menulis ID tiket/sprint/audit di kode;
+  riwayat ada di git.
+- Input form cukup dirapikan (`trimInput`); jangan memfilter teks dengan
+  blocklist di klien.
 
 ## 6. Aturan test
 

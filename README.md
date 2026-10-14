@@ -1,147 +1,78 @@
-<!-- generated-by: gsd-doc-writer -->
-
 # ZatiarasPOS
 
-ZatiarasPOS adalah aplikasi point of sale internal multi-cabang untuk kasir, pemilik, dan pengelola operasional Zatiaras.
+Aplikasi point of sale internal Zatiaras untuk kasir dan pemilik di lima cabang
+(Samarinda, Samarinda 2, Balikpapan, Balikpapan 2, Berau). Berjalan sebagai PWA di
+Cloudflare Pages dan tetap bisa mencatat penjualan tunai saat offline.
 
-## Fitur saat ini
+## Fitur
 
-- POS tunai dan non-tunai dengan sesi buka/tutup toko, struk, item tambahan, dan item kustom khusus pemilik.
-- Antrean pesanan per cabang: satu transaksi menjadi satu kartu dengan status Belum selesai/Selesai plus Buka lagi bila salah tekan; tersedia di navbar dan tetap bisa dibuka offline di device kios.
-- Nomor pesanan harian pada modal sukses, kartu Antrean, struk, dan riwayat: `001`–`999` per cabang per tanggal WITA, reset tiap tanggal baru (di atas 999 lanjut `1000+` tanpa memblokir penjualan). Nomor dialokasi atomik di server sehingga dua kasir yang membayar bersamaan tidak pernah kembar; retry memakai nomor yang sama. Transaksi offline menampilkan "menunggu sinkronisasi" sampai replay commit menerbitkan nomor resmi; cetak ulang selalu memuat nomor resmi. `transaction_id` UUID tetap menjadi identitas internal. Transaksi lama sebelum fitur ini tidak punya nomor.
-- Di Antrean, tab Belum selesai menampilkan rincian item langsung agar mudah disiapkan, dengan tanggal "Hari ini" untuk pesanan pada hari WITA yang sama atau tanggal lengkap untuk pesanan lebih lama. Tab Selesai menampilkan nama, nomor, tanggal/jam WITA, jumlah gelas, total, dan status sinkronisasi; tombol Lihat detail membuka rincian item dalam dialog. Kolom pencarian menyaring nama pelanggan atau nomor pesanan pada daftar yang sudah dimuat (tetap berfungsi offline); dibuka lewat tombol kaca pembesar di header. Menutup pencarian ikut menghapus kata kunci.
-- Status Antrean yang belum dikonfirmasi server tetap terlihat dengan label **Belum tersinkron**. Saat online, pemulihan berjalan pada halaman dibuka, koneksi pulih, sesi diperbarui, checkout selesai, atau fokus kembali; operator juga dapat menekan **Sinkronkan status**. Tidak ada polling status otomatis. Hitungan cache/offline diberi label belum terkonfirmasi dan bukan klaim jumlah server.
-- Endpoint Antrean hanya menerima role `kasir` dan `pemilik`; izin `admin` pada modul lain tidak diperluas atau diubah.
-- Notifikasi pesanan baru pada perangkat lain di cabang yang sama: banner persisten dan tiga chime sekitar setiap 5 detik setelah audio browser diizinkan. Membuka Antrean yang terlihat menghentikannya pada seluruh tab profil itu, bukan perangkat lain; checkout dari profil asal tidak membunyikan alarm sendiri.
-- `/pengaturan/antrean` menyediakan sakelar suara perangkat, Tes suara, dan aktivasi Web Push melalui izin pengguna. Push memakai pesan generik saat aplikasi tertutup; suara, Focus/DND, dan pengiriman di latar dikendalikan OS/browser, bukan jaminan alarm berulang. iOS/iPadOS memerlukan PWA Home Screen pada versi yang mendukung.
-- Katalog produk, kategori, bahan, resep, HPP, stok, dan mutasi bahan.
-- Buku kas, riwayat transaksi, dashboard, serta laporan harian dan rentang tanggal berbasis WITA.
-- Isolasi data per cabang dan kontrol akses untuk peran `kasir` serta `pemilik`.
-- PWA menyimpan navigasi `/pos` dan `/antrean` untuk pemulihan offline; respons API privat tidak dicache. Mode transaksi POS tetap terbatas pada katalog tersimpan dan antrean IndexedDB, sedangkan Antrean offline hanya menampilkan proyeksi lokal perangkat dan cache yang diberi label belum terkonfirmasi.
-- Monitoring stok opsional per cabang. Pemilik dapat menonaktifkan monitoring lewat `/pengaturan/pemilik/stok`; POS tetap berjualan tanpa memeriksa atau mengurangi stok, sedangkan resep dan HPP tetap dihitung. Aktivasi ulang wajib rekonsiliasi fisik.
-- Notifikasi perubahan per cabang melalui WebSocket. Klien memuat ulang data terkait ketika menerima event; jalur ini bukan pengganti penyimpanan transaksi di D1.
+- **POS**: tunai dan non-tunai, porsi biasa/jumbo, tambahan, gula/es/catatan, item
+  kustom (khusus pemilik), struk browser dan ESC/POS.
+- **Sesi toko**: buka/tutup toko dengan modal awal dan ringkasan laci per shift.
+- **Antrean pesanan**: satu transaksi satu kartu (Belum selesai/Selesai), nomor
+  pesanan harian `001`–`999+` per cabang per tanggal WITA, notifikasi pesanan baru
+  di perangkat lain (banner, suara, Web Push).
+- **Katalog**: produk, kategori, tambahan, bahan, resep, HPP, kulakan bahan.
+- **Stok**: mutasi bahan/produk, rekonsiliasi fisik, monitoring stok opsional per cabang.
+- **Keuangan**: buku kas manual, riwayat, dashboard, laporan harian/rentang berbasis
+  WITA, pajak (PPh Final UMKM dan pajak daerah), ekspor PDF.
+- **Arsip**: memindahkan transaksi lama ke R2 dengan ringkasan harian agar laporan tetap sama.
+- **Asisten AI**: analisis laporan dan pencatatan lewat OpenRouter (hanya model gratis).
+- **Keamanan**: peran `kasir`/`pemilik`, kunci PIN per halaman untuk kasir, isolasi data per cabang.
 
-## Arsitektur ringkas
+## Arsitektur
 
-| Bagian   | Implementasi                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------- |
-| Aplikasi | Svelte 5, SvelteKit 2, TypeScript, Tailwind CSS 4, Vite 6                                       |
-| Runtime  | Cloudflare Pages melalui `@sveltejs/adapter-cloudflare`                                         |
-| Database | Cloudflare D1 dengan tiga binding grup: Samarinda, Balikpapan, dan Berau                        |
-| Aset     | Cloudflare R2 melalui binding `STORAGE`                                                         |
-| Realtime | Worker `zatiaraspos-realtime` dan `RealtimeDurableObject`                                       |
-| Skema    | Drizzle ORM; sumber skema ada di `src/lib/database/schema.ts` dan SQL migrasi ada di `drizzle/` |
+| Bagian   | Teknologi                                                              |
+| -------- | ---------------------------------------------------------------------- |
+| Aplikasi | Svelte 5 (runes), SvelteKit 2, TypeScript, Tailwind CSS 4, Vite 8      |
+| Runtime  | Cloudflare Pages (`@sveltejs/adapter-cloudflare`)                      |
+| Database | Cloudflare D1, tiga shard: Samarinda, Balikpapan, Berau (Drizzle ORM)  |
+| Berkas   | Cloudflare R2 (`STORAGE`): gambar menu dan arsip                       |
+| Realtime | Worker `zatiaraspos-realtime` + Durable Object `RealtimeDurableObject` |
+| Offline  | Service worker kustom (`src/sw.ts`), IndexedDB untuk antrean transaksi |
 
-Checkout menghitung ulang nilai transaksi di server, memakai token harga bertanda tangan, dan menyimpan transaksi secara idempoten. Pada skema terkini, checkout juga memperbarui `ringkasan_penjualan_harian` dan `penjualan_produk_harian`; nilai buku kas disimpan pada `buku_kas.nominal`.
-
-Autentikasi memakai cookie sesi `httpOnly`, pemeriksaan peran di endpoint, perlindungan CSRF untuk mutasi API, dan rate limit untuk jalur sensitif. Daftar ini mencatat kontrol yang ada di kode, bukan sertifikasi atau jaminan keamanan menyeluruh.
-
-Notifikasi Antrean pada source ini memerlukan migrasi `0037_antrean_notifications.sql` pada tiga shard, pasangan VAPID yang sama pada Pages/Worker realtime, dan cron relay. Daftar fitur bukan catatan deployment. Ikuti [runbook aktivasi notifikasi](docs/OPERATOR-RUNBOOK.md#10a1-notifikasi-pesanan-baru) sebelum mengaktifkan perangkat.
+Detail alur, konvensi, dan peta modul ada di [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).
 
 ## Prasyarat
 
-- Node.js 24.20.x dan pnpm 11.24.0. Versi runtime dikunci melalui `.node-version`, `engines`, dan `packageManager`.
-- Wrangler tersedia dari dependency proyek setelah instalasi.
-- Kredensial Cloudflare hanya diperlukan untuk operasi remote, backup, dan deployment.
-
-## Instalasi
-
-```bash
-git clone https://github.com/zulilmiihsn/zatiaraspos.git
-cd zatiaraspos
-pnpm install
-```
+- Node.js 24.20 (lihat `.node-version`) dan pnpm 11.24 (lihat `packageManager`).
+- Kredensial Cloudflare hanya untuk operasi remote (backup, migrasi, deploy).
 
 ## Mulai cepat
 
-1. Salin contoh environment dan isi minimal `POS_PRICE_SIGNING_KEY` dengan nilai acak sepanjang sedikitnya 32 karakter. `OPENROUTER_API_KEY` hanya diperlukan untuk fitur AI.
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-2. Siapkan D1 lokal. Perintah ini menerapkan migrasi ke binding lokal Samarinda dan memuat seed UAT.
-
-   ```bash
-   pnpm d1:setup:local
-   ```
-
-3. Jalankan server pengembangan.
-
-   ```bash
-   pnpm dev
-   ```
-
-4. Buka URL lokal yang dicetak Vite, lalu masuk dengan profil dari seed UAT.
-
-## Contoh alur penggunaan
-
-### Transaksi kasir
-
-1. Pilih cabang dan masuk sebagai kasir.
-2. Buka sesi toko dengan modal awal.
-3. Buka `/pos`, pilih produk, tentukan metode bayar, lalu selesaikan transaksi.
-4. Hasil transaksi masuk ke buku kas dan riwayat; stok atau bahan dikurangi hanya jika pelacakannya aktif.
-
-### Pengelolaan oleh pemilik
-
-1. Masuk sebagai pemilik.
-2. Kelola produk, bahan, resep, HPP, dan pengaturan dari `/pengaturan`.
-3. Tinjau performa di dashboard atau buka `/laporan` untuk rentang tanggal yang dipilih.
-
-## Migrasi D1
-
-Perubahan skema dimulai dari `src/lib/database/schema.ts`. Buat file SQL Drizzle, tinjau SQL yang dihasilkan, lalu terapkan file tersebut dengan Wrangler. `drizzle-kit generate` tidak mengubah database.
-
 ```bash
-pnpm exec drizzle-kit generate
+pnpm install
+cp .env.example .env.local   # isi POS_PRICE_SIGNING_KEY (>= 32 karakter acak)
+pnpm d1:setup:local          # migrasi + seed UAT ke D1 lokal Samarinda
+pnpm dev
 ```
 
-Untuk database lokal, jalankan migrasi terhadap binding yang sedang diuji. Setup lokal bawaan hanya menyiapkan grup Samarinda.
+`OPENROUTER_API_KEY` hanya perlu untuk fitur AI. Masuk memakai akun dari seed UAT.
 
-```bash
-pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --local --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
-```
+## Perintah penting
 
-Sebelum migrasi remote, buat backup tiga shard ke direktori absolut di luar repository/workspace.
+| Perintah            | Fungsi                                                       |
+| ------------------- | ------------------------------------------------------------ |
+| `pnpm check`        | Pemeriksaan TypeScript/Svelte                                |
+| `pnpm lint`         | Prettier + ESLint                                            |
+| `pnpm test:unit`    | Seluruh tes unit/integrasi (SQLite lokal)                    |
+| `pnpm test:all`     | Tes operasional + gate statis + `test:unit`                  |
+| `pnpm test:e2e:all` | Seluruh tes browser Playwright di lingkungan terisolasi      |
+| `pnpm test:release` | `test:all`, build produksi, smoke compiled, lalu seluruh E2E |
+| `pnpm build`        | Build produksi ke `.svelte-kit/cloudflare`                   |
 
-```bash
-pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
-```
+Daftar lengkap ada di `package.json` (`test:*`, `d1:*`, `deploy:*`).
 
-Terapkan file SQL yang sama secara manual ke ketiga binding remote. Ganti `NNNN_nama_migrasi.sql` dengan file baru yang sudah ditinjau.
+## Rilis dan operasi
 
-```bash
-pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
-pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
-pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama_migrasi.sql --yes
-```
+Deploy produksi lewat workflow GitHub **Deploy** dari artifact CI yang sudah
+terverifikasi, bukan dari laptop. Migrasi D1 tidak ikut deploy dan diterapkan manual
+per shard sesudah backup. Langkah lengkap (backup, restore, migrasi, deploy,
+rollback, wipe data uji) ada di [docs/OPERATOR-RUNBOOK.md](docs/OPERATOR-RUNBOOK.md).
 
-Migrasi produksi tidak dijalankan otomatis oleh build atau deploy. Catat hasil tiap binding sebelum melanjutkan deployment.
+## Dokumentasi
 
-## Pengujian
-
-| Perintah            | Cakupan                                                                                                  |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| `pnpm check`        | Sinkronisasi SvelteKit dan pemeriksaan TypeScript/Svelte                                                 |
-| `pnpm lint`         | Pemeriksaan Prettier dan ESLint                                                                          |
-| `pnpm test:unit`    | Regresi hardening, state store, offline POS, integritas POS, keluaran struk, dan pengelompokan laporan   |
-| `pnpm test:all`     | Self-test operasional, gate statis (`test:static`: check, lint, audit), lalu seluruh `test:unit`         |
-| `pnpm test:release` | `test:all`, build produksi, lalu seluruh Playwright E2E lokal                                            |
-| `pnpm test:e2e:all` | Seluruh tes browser terisolasi (D1/config/port/password unik per run, tanpa menyentuh `.wrangler/state`) |
-
-Suite lokal khusus juga tersedia untuk checkout, CSP, CSRF, workflow akhir, rate limit, dan load test. Lihat seluruh script `test:*` di `package.json`; beberapa suite menyiapkan D1 lokal dan dapat membuat serta membersihkan data UAT.
-
-## Build dan deployment
-
-```bash
-RELEASE_COMMIT_SHA=<40-char-sha> pnpm deploy:preflight
-RELEASE_COMMIT_SHA=<40-char-sha> pnpm deploy:verify
-pnpm deploy:all
-```
-
-`deploy:preflight` adalah gerbang rilis: menolak working tree kotor, mewajibkan `RELEASE_COMMIT_SHA` sama dengan HEAD pada branch `main`/`release/*`, menjalankan `deploy:check` + full `test:release` (`test:all`, build, seluruh E2E), lalu menulis `build-artifacts.json` berisi SHA commit, versi Node/pnpm, checksum tiga config Wrangler, checksum manifest migrasi, dan SHA-256 **seluruh** file `.svelte-kit/cloudflare`. `deploy:verify` memeriksa ulang manifest tanpa membangun ulang; gagal bila satu file berubah, ada file tak tercatat, config/migrasi berubah, atau SHA tidak cocok.
-
-`deploy:all` = preflight + deploy Worker realtime + deploy Pages. Perintah ini tidak menerapkan migrasi D1 dan tidak boleh dipakai tanpa `RELEASE_COMMIT_SHA`. Deploy produksi resmi lewat workflow **Deploy** (`workflow_dispatch`, environment `production`): unduh artifact CI `release-<sha>`, verifikasi manifest, lalu deploy Pages dari artifact tersebut tanpa rebuild; Worker realtime dibundle Wrangler dari checkout SHA yang sama pada runner CI. Workflow mewajibkan SHA input sama dengan HEAD `main`; rollback kode melalui revert commit rilis, CI/artifact baru, dan workflow yang sama, bukan dispatch SHA historis. Rollback aplikasi tidak mengembalikan schema D1 (ikuti runbook migrasi/restore).
-
-Panduan arsitektur, konvensi teknis, dan runbook operasional tersedia di [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md).
+- [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md): arsitektur, alur kritis, konvensi, pengujian.
+- [docs/OPERATOR-RUNBOOK.md](docs/OPERATOR-RUNBOOK.md): prosedur operasi produksi.
+- [docs/adr/](docs/adr/): catatan keputusan arsitektur.
+- [AGENTS.md](AGENTS.md): aturan untuk agen AI (Codex/Claude) di repo ini.

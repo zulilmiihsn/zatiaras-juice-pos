@@ -11,7 +11,9 @@
 -- Idempoten kecuali 2x ALTER TABLE buku_kas: pastikan kolom revision /
 -- mutation_token BELUM ada (PRAGMA table_info) atau comment 2 baris itu bila
 -- retry sesudah sukses parsial. Kegagalan lain gagal keras (PK), bukan korup diam.
--- Verifikasi sesudah apply: pakai query di docs/OPERATOR-RUNBOOK.md §3.
+-- Verifikasi sesudah apply (per shard): tabel archive_jobs, archive_job_items,
+-- pos_void_markers, audit_log_quarantine ada; PRAGMA table_info(buku_kas) memuat
+-- revision dan mutation_token; jumlah baris pengaturan sama dengan sebelum apply.
 
 -- 1. Tabel arsip (salinan 0027_archive_jobs).
 CREATE TABLE IF NOT EXISTS `archive_jobs` (

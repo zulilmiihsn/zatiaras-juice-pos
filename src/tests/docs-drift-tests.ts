@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const ROOT = process.cwd();
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
@@ -45,8 +45,15 @@ function checkPnpmTokens(source: string, text: string) {
 	}
 }
 
-for (const doc of ['README.md', 'DEVELOPER-GUIDE.md', 'ENGINEERING-IMPROVEMENT-PLAN.md']) {
-	checkPnpmTokens(doc, readFileSync(join(ROOT, doc), 'utf8'));
+const DOCS = ['README.md', 'DEVELOPER-GUIDE.md', 'AGENTS.md', 'docs/OPERATOR-RUNBOOK.md'];
+for (const doc of DOCS) {
+	const text = readFileSync(join(ROOT, doc), 'utf8');
+	checkPnpmTokens(doc, text);
+	// Tautan relatif antar dokumen wajib menunjuk file/folder yang ada.
+	for (const m of text.matchAll(/\]\((?!https?:|#|mailto:)([^)#\s]+)/g)) {
+		const target = join(ROOT, dirname(doc), m[1]);
+		assert.ok(existsSync(target), `${doc} menautkan ${m[1]} yang tidak ada`);
+	}
 }
 
 // Workflow: `run: pnpm <script>` harus ada; `pnpm exec <bin>` harus terinstal.
@@ -70,10 +77,10 @@ for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/deploy.ym
 	}
 }
 
-// Job CI wajib ada (gate Fase 1-3).
+// Job CI wajib ada.
 {
 	const ci = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
-	// AUD-054: job `quality` dihapus; ia mengulang check/lint/build job static dan build.
+	// Job `quality` dihapus; ia mengulang check/lint/build job static dan build.
 	for (const job of ['static:', 'operations:', 'unit:', 'e2e:', 'build:']) {
 		assert.ok(ci.includes(`\n  ${job}`), `job CI hilang: ${job}`);
 	}
@@ -82,7 +89,7 @@ for (const workflow of ['.github/workflows/ci.yml', '.github/workflows/deploy.ym
 	assert.equal(ci.split('run: pnpm check').length - 1, 1, 'CI wajib check tepat sekali');
 }
 
-// Rantai suite wajib hidup (AUD-054): tiap entri test:unit/test:operations
+// Rantai suite wajib hidup: tiap entri test:unit/test:operations
 // adalah script package.json yang target file-nya ada — tanpa entri mati,
 // tanpa hitungan suite lawas yang di-pin.
 for (const chain of ['test:unit', 'test:operations']) {
@@ -102,5 +109,5 @@ for (const chain of ['test:unit', 'test:operations']) {
 	}
 }
 
-console.log('docs-drift-tests: README/DEVELOPER-GUIDE/plan/workflows sinkron dengan package.json');
+console.log('docs-drift-tests: dokumen, tautan, dan workflow sinkron dengan package.json');
 process.exit(0);

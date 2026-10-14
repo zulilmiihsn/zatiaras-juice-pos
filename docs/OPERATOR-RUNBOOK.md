@@ -1,451 +1,185 @@
-# Runbook Operator Rilis Produksi — ZatiarasPOS
+# Runbook Operator — ZatiarasPOS
 
-Dokumen eksekusi Fase 7. Jangan ada langkah yang dilewati. Setiap trigger
-stop = hentikan rollout, lindungi backup, ikuti rollback. Dilarang SQL
-spontan di production.
+Prosedur operasi produksi: backup, restore, migrasi, deploy, rollback, dan operasi
+cabang. Jalankan dari working tree bersih. Semua perintah remote memerlukan
+`.env` berisi kredensial Cloudflare (lihat `.env.example`).
 
-## 0. Prasyarat go/no-go
+## 0. Aturan dasar
 
-- [ ] CI hijau pada SHA rilis (5 job + E2E), link run tercatat.
-- [ ] Artifact `release-<sha>` ter-upload + manifest cocok (`deploy:verify`).
-- [ ] `RELEASE_COMMIT_SHA` = HEAD = SHA artifact = SHA deploy.
-- [ ] Maintenance window, operator, approver, dan kanal komunikasi insiden siap.
-- [ ] Tidak ada sesi kasir aktif / antrean offline pending pada cabang target
-      untuk operasi yang mensyaratkannya (arsip, migrasi destruktif).
+- Backup dan verifikasi **sebelum** migrasi, deploy yang mengubah perilaku data, wipe,
+  atau restore.
+- Satu shard sekali jalan. Berhenti pada kegagalan pertama; jangan mengulang perintah
+  secara buta.
+- Deploy hanya lewat workflow GitHub **Deploy** dari artifact CI. Jangan deploy output
+  build dari laptop.
+- Rollback aplikasi tidak mengembalikan schema D1.
+- Simpan backup di luar repository, di media berbeda dari sumber.
 
-### Snapshot schema production dan handoff operator — 12 Oktober 2026
-
-Pemilik mengambil alih full-browser/UAT manual; agen tidak mengulang suite penuh otomatis selama handoff [plan §6.4–6.6](AUDIT-REMEDIATION-PLAN.md). Spec terarah/invariant lokal tetap diuji. Manual pass bukan command/CI otomatis pass; artifact/SHA/review/backup/rollback go/no-go di atas tidak dihapus. Target akhir production tanpa staging disetujui, bukan izin menguji wipe/restore pada live data.
-
-Read-only aggregate yang disetujui pemilik pada ketiga D1 (36SELECT sukses, masing-masing rows_written0/changed_dbfalse) menemukan `d1_migrations` kosong; kolom `bahan_mutasi.request_fingerprint` dan tabel `archive_restore_jobs`/`archive_restore_rows` belum tersedia. **Jangan rollout kode yang membutuhkan0041/0042 tanpa preflight schema aktual, verified currentbackup/readback, compatibility/rollback dan explicit approval per shard.** Jangan mengarang history atau mengisi migrationledger berdasarkan tebakan bahwa “schema terlihat terbaru”. Existing trusted-baseline/drill memerlukan contract schema/ledger yang benar-benar cocok; source/currentmigration list saja bukan proof production. Stop bila contract tidak cocok, buat disposition ter-review—bukan bypass validation atau rerun seluruh historicalDDL.
-
-Metrik volume hanya9ledger/14detail di Samarinda pada delapan tabel yang ditargetkan; physical3DB≈9.81MB termasukindex/overhead/freepages. Ini bukan fullinventory/backup/R2/performance/billing proof atau representatif satu tahun operasi. Approved workload/growth/headroom serta biaya actual bulanan masih perlu operator. Batas operasional pemilik Rp50.000/bulan, platform Android/Windows; printerthermalBluetooth dan businessUAT oleh pemilik. Jangan mengirim credential/customerbody/privateexports kechat/repo; jangan paidprovider call tanpa scopedbudget/modelapproval.
-
-### Backup production: izin export tidak menghapus gate availability
-
-Persetujuan pemilik12Oktober2026 mencakup export backup lengkap3D1 ke `D:/ZatiarasPOS-Backups/` dan checksum/readback, bukan migration/restore/wipe/deploy. Exporter Wrangler yang terpasang memperingatkan D1 sementara tidak melayani query selama export. **Konfirmasi tidak ada transaksi kasir aktif dan explicit window/jeda layanan serial per shard dulu.** Flag `--skip-confirmation` bukan authorization window. Jangan menyimpulkan idle dari jumlah ledger/session atau waktu; bila window belum dikonfirmasi, export ditahan dan tidak ada COMPLETE baru yang boleh diklaim.
-
-Dump penuh dapat memuat data pelanggan dan credential/auth state: hanya lokasi privat di luar repo/workspace dengan akses terbatas, tanpa isi dump/presigned download URL/secret di chat/log/repo. Simpan original verifiedbytes dan setiapFAILED; checksum/COMPLETE tidak sendiri membuktikan trusted source-completeness, actualschema contract, recoverability atau rollback approval. Readback yang gagal/hasil ambigu bukan alasan retry/destructiveapply otomatis.
-
-Billing snapshot: owner melaporkan dashboardRp0; CFbillingAPI menolak credential proyek403, sehingga invoice/usage tidak independentverified. OpenRouter key lokal monthlyusage0USD/historical0.049USD/limitnull; deployedkeyequivalence tidakverified dan capRp50k/bulan belum disetel. MetadataGET tidak inference dan tidak mengizinkan topup/upgrade/modelcall berbayar. Jangan menganggap angka0 ataufree_tier sebagai jaminan biaya keseluruhan/future.
-
-### Backup aktual12Oktober2026 dan perlindungan log exporter
-
-Setelah pemilik mengonfirmasi serialwindow, backup3D1 selesai pada12:43UTC di `D:/ZatiarasPOS-Backups/backup-2026-10-12T12-42-36-766Z-eafa8157-9ee5-4f16-88ae-06b718069446/`. FileSQL3+manifest+COMPLETE verified(readback/SHA-256/UTF8/noFAILED) dan nativeWindowsACL hanyaowner/SYSTEM/Admin. Tiga postexportSELECT1 sukses pada12:56UTC; jangan menafsirkan waktu command sebagai actualdowntime atau probe sebagai fullbusinesssmoke. Ini serialsnapshot, bukan atomiccrossshard atau independentlyapprovedcompleteness/recoverydrill. Dump asli tetap privat dan tidak diubah; migration0041/0042 serta actualschema/rollback/review gates belum diselesaikan.
-
-Wrangler otomatis menulis presignedURL export ke debuglog disk meskipun stdout tidak diprint oleh wrapper. Nativebackup runner kini **memaksa `WRANGLER_WRITE_LOGS=false`**, termasuk bila caller mengisi true; gunakan canonicalrunner, jangan bypass dengan manualCLI yang mengaktifkan logging. SupportedSDKswitch diverifikasi dengan nativeSDKlogcontrol dan unitbefore-red/after-green; tidak mem-patchSDK ataufakeglobals. Actualbackup tadi predatesfix—jangan mengklaimpatchedrunner sudahdiexerciseproductionexport. Enam log yang terbukti milik run ini sudah disanitasi URLs(readback/pre-posthash retained); rawURLs tidak disimpan sebagai evidence. Jangan menyunting/deleting log historical/unrelated secara massal atau mengulangexport hanya untuk membuktikan fix.
-
-COMPLETE/checksum bukan approval recovery. Sebelum SQLtarget/drill, kumpulkan sourceboundfullinventory/schema contract yang independentlyapproved; emptyd1migrationledger tidak boleh ditebak/backfill. Tidak ada productionrestore/wipe/migration/deploy permission dari backupwindow ini.
-
-### Gate browser lokal sebelum kandidat disahkan
-
-`rtk pnpm test:e2e:all` tanpa argumen menjalankan seluruh inventory canonical CI-a/b/c, fresh owned D1/server/browser per cohort. Port listening belum application-ready: launcher menunggu anonymous loopback `/login` HTTP200 HTML/form sebelum Playwright, memakai sisa total startup120s yang sama; body/redirect/status/budget failure menggagalkan startup, bukan menaikkan deadline/retry. Startup ini warming SSR/emulator, bukan approved cold/warm performance evidence. Adapter dev memakai lazy single-flight emulation agar cold concurrent requests tidak membuka proxy bersaing pada SQLite yang sama. Launcher menolak missing/duplicate/unknown spec sebelum startup; semua cohort dicoba dan satu failure membuat aggregate exit nonzero. Login/IP/user/CSRF guard tetap aktif. Selection CLI eksplisit berscope satu environment dan tidak menggantikan full gate. Artifact/report dipisah per invocation/cohort di ignored `test-results/isolated-<uuid>/` serta `playwright-report/isolated-<uuid>/`; archive failure evidence sebelum cleanup manual, jangan memasukkannya/credential ke repo.
-
-Keberhasilan lokal Windows bukan pinned Node/Ubuntu, compiled Worker, CI same-SHA atau go/no-go produksi. Unit native child cleanup hanya membuktikan lifecycle yang benar-benar diuji; interruption/hard-kill tetap perlu gate terpisah. Tidak ada langkah ini yang mengizinkan production export/mutation/release.
-
-### Gate realtime compiled — lokal, bukan approval staging
-
-Sesudah `rtk pnpm build`, jalankan `rtk pnpm test:realtime-compiled`. Gate ini juga berada setelah build pada `test:release` dan sebelum manifest/upload artifact CI. `test:realtime-artifact` hanya generator/source consumer dan tidak menggantikan smoke compiled.
-
-Wrapper ESM menjaga adapter SvelteKit asli dan memakai reader live profile/session/branch kanonik. Unknown/deleted/wrong-branch profile, expired/revoked/mismatched-prefix session dan ordinary foreign branch ditolak; admin cross-branch tetap kebijakan kanonik. Missing binding/DB outage fail closed dengan respons aman. Realtime DO mengakui peer close agar disconnect/reconnect tidak meninggalkan socket closing.
-
-Smoke menjalankan entry Pages built yang dibundel dengan **Worker dry-run privat** di actual workerd, tiga D1 disposable dan real external DO class. Ini **bukan Pages dry-run/deploy**, actual staging binding/deploy sequence, scheduled audit drain, device/browser atau compiled memory acceptance. Hash artifact dan close/runtime/state cleanup ada di log; tidak memakai produksi, real credentials atau model berbayar. CI step baru harus lulus pada SHA kandidat yang sama; source-stable working tree lokal belum provenance release.
-
-Operator tetap memerlukan approved staging target, deployment IDs/config/SHA yang cocok dan websocket negative/positive smoke pada binding staging sebenarnya sebelum AUD-050 dapat ditutup. Jangan dispatch production untuk mengganti bukti yang belum tersedia.
-
-### Gate scheduled audit backend — bukan staging cron approval
-
-Jalankan `rtk pnpm test:scheduled-worker`, `rtk pnpm exec tsx src/tests/retention-tests.ts --d1` dan `rtk pnpm test:scheduled-compiled`. Last gate membundel **actual backend Worker source** lewat private Wrangler Worker dry-run, lalu actual workerd scheduled controller dengan43migrations×3D1disposable; source handler/SQLite dan Pages DO-only smoke tidak menggantikannya. Release chain dan CI compiled scheduled smoke berada sebelum manifest/upload; remote CI belum disahkan hanya karena YAML/source lokal benar.
-
-Policy: audit drain pada minute/daily cron existing, retention hanya daily03:00UTC. Event time/zero/actor/metadata asli dan exact-source guarded transaction terpelihara; poison/oversize/too-old source masuk quarantine, transient outage retained. Retry scheduled `min(60min,2min×attempt_count)`; manual same-consumer recovery dapat dilakukan setelah read-only diagnosis/repair dengan target approved. Jangan delete pending intent/quarantine conflict atau retry sale dengan key baru.
-
-Default **40 SQL statements audit+retention/tick**, reserve32 untuk daily maintenance, page100/cap1000rows per shard dibagi siblings; rotating priority dan bounded isolation. Override `AUDIT_MAINTENANCE_QUERY_BUDGET` integer1–900 membutuhkan approved platform quota/volume dan relay/provider budget terpisah; invalid setting fallback40/report. **Owned synthetic budget900 bukan production plan acceptance**. Monitor aggregate selected/delivered/quarantined/retained/queries/exhausted/missingBindings; no payload/provider credential diagnostics.
-
-Retention90hari dan100rows/table/branch/tick, exact cutoff retained, active/pending/leased/live POS references protected. Foreign registry tombstones sengaja ditahan karena tidak ada cross-shard atomic destructive guard; cleanup completeness memerlukan owner/ADR, bukan penghapusan setelah advisory read. Approved backlog/growth/cold-warm/memory/latency/quota, actual staging cron/config/binding/deploy SHA/sequence, verified backend uploaded artifact, pinned Node/Ubuntu/CI/reviewer tetap prerequisite AUD-051. Local dry-run/scheduled controller tidak memberi izin deploy atau destructive maintenance produksi. Tidak ada migrasi baru untuk perubahan ini.
-
-## 1. Backup tiga shard (wajib pertama)
+## 1. Backup tiga shard
 
 ```powershell
 pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
 pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
 ```
 
-Syarat lulus: file `COMPLETE` terbit, ketiga binding
-(`DB_SAMARINDA_GROUP`, `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`) verified.
-Simpan backup di media berbeda dari source. Jangan hapus sebelum retention berakhir.
+Lulus bila file `COMPLETE` terbit dan ketiga binding (`DB_SAMARINDA_GROUP`,
+`DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`) terverifikasi. Durasi terakhir: sekitar 40 detik
+untuk tiga shard.
 
-Adapter backup menjalankan Wrangler terpasang melalui `rtk proxy` agar output
-identitas `--json` tidak tercampur filter RTK atau lifecycle pnpm. Validasi tiga
-identitas shard, hash/readback, dan penolakan operasi di luar allowlist tetap wajib.
+## 2. Restore
 
-## 2. Restore drill (tanpa DB non-production: drill lokal)
+### 2.1 Baseline tepercaya dari DB live
 
-Tanpa database non-production, buktikan dump sesuai trusted reference secara lokal
-(read-only, in-memory; `--d1` opsional memakai workerd disposable, bukan remote):
-
-```powershell
-rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_berau_group.sql" --shard DB_BERAU_GROUP --expect-baseline "<trusted-inventory-berau.json>" --expect-baseline-sha256 <APPROVED_SHA_BERAU>
-rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_balikpapan_group.sql" --shard DB_BALIKPAPAN_GROUP --expect-baseline "<trusted-inventory-balikpapan.json>" --expect-baseline-sha256 <APPROVED_SHA_BALIKPAPAN>
-rtk pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP --expect-baseline "<trusted-inventory-samarinda.json>" --expect-baseline-sha256 <APPROVED_SHA_SAMARINDA>
-```
-
-Syarat lulus: tiap file PASS schema/domain/baseline dengan binding/name/ID, exact migration, source bytes/SHA dan all-table counts/field hashes sesuai inventory yang disetujui. Backup historis perlu `--expect-migration <nama.sql>` yang tepat. COMPLETE/export hash saja tidak membuktikan tidak ada source rows hilang. Inventory/approved hash diambil dari trusted source dan dicatat terpisah, bukan dibuat ulang dari kandidat SQL. Lihat recovery gate §4. Bila tidak ada reference tepercaya, berhenti; jangan menambahkan bypass.
-Bila ada DB non-production **dan approval target/operator**, drill penuh ke sana:
-
-```powershell
-CONFIRM_D1_RESTORE=<binding-nonprod> pnpm d1:restore -- --database <binding> --file <backup.sql>
-```
-
-DILARANG restore ke database production untuk sekadar test.
-
-**Trusted baseline dari DB live (AUD-059, terbukti 14 Oktober 2026).** Ambil baseline segera setelah backup, dalam jendela tanpa transaksi.
-
-- Alat ini hanya membaca: statement `SELECT`/`PRAGMA table_info` yang dibangun sendiri, dikirim dalam dua permintaan. Identitas shard diverifikasi lebih dulu.
-- Alat gagal bila remote melapor ada penulisan atau meta Wrangler tidak dikenali.
-- Bila ada penulisan antara backup dan capture, drill gagal tertutup. Ulangi backup dan capture.
-- **Catat SHA-256 yang tercetak di tempat terpisah (tracker) sebelum drill.** Hash itu menjadi acuan tepercaya untuk `--expect-baseline-sha256`; jangan menghitungnya ulang dari file baseline.
-- Batas: seluruh isi shard diambil dalam satu respons. Ini cukup untuk ukuran data saat ini (Samarinda ±23 ribu baris). Bila respons kelak gagal karena ukuran, capture perlu dipecah per tabel.
+Ambil segera setelah backup, saat tidak ada transaksi. Alat ini hanya membaca dan gagal
+tertutup bila ada penulisan di antara backup dan capture.
 
 ```powershell
 node scripts/d1-live-baseline.mjs --shard <BINDING> --backup-manifest <manifest> --output <eksternal\baseline-x.json> --env-file .env
 ```
 
-Restore terisolasi tanpa menyentuh production:
+Catat SHA-256 yang dicetak di tempat terpisah. Nilai itu dipakai sebagai
+`--expect-baseline-sha256`; jangan menghitung ulang dari file baseline.
 
-1. Buat DB sementara `zatiaraspos-drill-<cabang>` (`wrangler d1 create`). Tulis config Wrangler terpisah di luar repo yang memuat DB itu.
-2. Jalankan `wrangler d1 execute <scratch> --remote --config <config> --file <backup.sql>`.
-3. Verifikasi. Alat meng-export DB scratch sendiri; hanya nama `zatiaraspos-drill-*` yang diterima:
-   `node scripts/d1-live-baseline.mjs --shard <BINDING> --backup-manifest <manifest> --verify-target <scratch> --target-config <config> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --env-file .env`.
-4. Hapus DB sementara (`wrangler d1 delete <scratch> -y`).
-
-Ukuran terakhir (14 Oktober 2026):
-
-- backup 3 shard: 40 detik;
-- restore + verifikasi per shard: 15–23 detik.
-
-## 3. Schema diff production vs 30 migrasi
+### 2.2 Drill lokal (tanpa menyentuh produksi)
 
 ```powershell
-node scripts/migrate-production.mjs
+pnpm d1:restore:drill --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP --expect-baseline "<baseline-samarinda.json>" --expect-baseline-sha256 <SHA>
 ```
 
-Syarat lulus lokal: 30/30 checksum cocok (sudah hijau di CI via migration-matrix).
-Lalu bandingkan schema aktual tiap shard remote sebelum apply. Status 23 Sep 2026:
-production 0/30 applied (dibangun di luar rantai) — DILARANG `d1:migrate:live`
-rantai penuh (rename/drop/rebuild buta). Gunakan rekonsiliasi §4.
+Ulangi untuk `db_balikpapan_group.sql` dan `db_berau_group.sql`. Tambahkan `--d1` untuk
+menguji di workerd disposable. Backup lama memerlukan `--expect-migration <nama.sql>`.
 
-## 4. Rekonsiliasi production per shard (remote live, satu shard sekali jalan)
+### 2.3 Drill ke database sementara
 
-Hanya `scripts/reconcile-prod-0030.sql` (aditif + rebuild pengaturan preserving,
-terverifikasi 11/11 pada salinan backup ketiga shard). Per shard, berurutan,
-verifikasi di antara shard:
-
-```powershell
-pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
-pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
-pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file scripts/reconcile-prod-0030.sql --yes
-```
-
-Verifikasi tiap shard sesudah apply:
-
-```sql
-SELECT name FROM sqlite_master WHERE type = 'table'
-  AND name IN ('archive_jobs','archive_job_items','pos_void_markers','audit_log_quarantine');
-PRAGMA table_info(buku_kas); -- wajib ada revision, mutation_token
-PRAGMA table_info(pengaturan); -- id wajib TEXT
-SELECT COUNT(*) FROM pengaturan; -- sama dengan sebelum apply
-```
-
-Berhenti di shard pertama yang gagal; JANGAN lanjut atau rerun buta (2x ALTER
-TABLE gagal bila kolom sudah ada — comment 2 baris itu bila retry terverifikasi).
-Rollback dry-run: `rtk node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest-COMPLETE> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run`
-atau `--file <abs-path.sql>` eksplisit. Parser memakai **`--shard <BINDING>`**, bukan `--shard=<BINDING>`. CLI memverifikasi manifest kanonik + COMPLETE, trust anchors baseline dan drill sumber sebelum mutasi; usage salah/non-drill exit nonzero; default dry-run nol mutasi. `--live`/`--apply` hanya setelah approval spesifik, bukan dari contoh ini.
-Jangan mencari `backups/` di repo. Rollback Pages TIDAK mengembalikan schema D1.
-
-**Recovery gate setelah audit dibuka ulang (2026-10-09):**
-
-- `rtk pnpm d1:restore:drill --file <abs-path.sql> --shard <BINDING> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash>` memeriksa semua tabel/kolom/index/trigger aplikasi dari migrasi terverifikasi dan ledger `d1_migrations`, bukan hanya dua tabel POS. Default target adalah schema kandidat saat ini. Untuk backup sebelum 0041 gunakan target historis eksplisit, misalnya `--expect-migration 0040_profil_unique_username.sql`; schema dan ledger harus sama persis dengan target itu. Tidak ada auto-upgrade atau penulisan ulang data backup.
-- Tambahan `--d1` menyalin sumber yang lulus SQLite ke workerd **disposable** (`persist:false`), menjalankan checker async aktual, lalu membandingkan count dan hash semua field tiap tabel (termasuk financial, receipt, idempotency). Tidak menghubungi DB production dan tidak menghapus state development. SQLite/workerd fixture bukan bukti staging restore, largest workload, atau RPO/RTO.
-- Rollback CLI memakai Node + bin paket Wrangler, tanpa shell/npx.cmd; path dengan spasi/`&` tetap satu argumen. `--expect-migration` juga tersedia untuk preflight sumber rollback historis. Apply memakai **snapshot OS-temp private dari bytes UTF-8 yang sudah diverifikasi**, bukan membuka ulang path sumber mutable; snapshot dibersihkan pada success/nonzero/throw, source tetap ada. Failed/ambiguous result bukan izin retry buta: cek target dan operator lebih dahulu. `--persist-to <owned-local-root>` tersedia hanya untuk rehearsal lokal terisolasi. Windows local CLI late-failure/schema+all-field rollback/parity telah diuji synthetic; Ubuntu/approved staging/hard interruption belum. Default tetap dry-run; perubahan ini bukan izin `--apply`/`--live`.
-- Preflight bisnis JSON/SQL kini satu validator canonical: angka mesin, rupiah/quantity/revision safe integer, timestamp kalender, tipe field, JSON snapshot, dan receipt item/total/header/cash-change consistency. NULL legacy tidak diganti data katalog. Malformed/fractional nominal rupiah ditolak, bukan di-round otomatis. Jika backup legacy ditolak, pertahankan sumber/checksum dan lakukan review ADR/owner; jangan mengedit data agar PASS tanpa artifact/approval baru.
-- **Perbaikan invariant lokal 10 Oktober 2026:** mismatch nominal/jumlah/identitas yang diketahui antara header–detail–receipt kini ditolak sebelum JSON SQL generation dan oleh SQL drill. Subtotal harga×qty, harga dasar+add-on, receipt line/add-on one-to-one serta explicit HPP/add-on shapes diperiksa; known values menggunakan BigInt untuk rupiah. Missing optional legacy identity tidak diinvent atau disamakan dengan conflicting known ID. Supported HPP shapes adalah legacy `{total}` dan checkout `{nominal_hpp,...}`; base-recipe HPP dapat lebih kecil dari detail karena topping. NULL legacy tetap unknown. Corrupt source tidak memulai disposable D1 maupun rollback spawn; actual workerd post-copy corruption juga ditolak dalam tes. Lihat Follow-up Batch 4 / Tracker TRK-004 untuk batas bukti.
-- **Baseline eksternal kini wajib:** format `zatiaraspos-drill-baseline-v1` memuat `database:{binding,name,id}`, `migration`, `source:{bytes,sha256}`, dan `tables:{<name>:{count,sha256}}` untuk seluruh tabel termasuk `d1_migrations`. Hash field menggunakan canonical serializer `captureDrillParity`, termasuk BLOB; bukan `COUNT(*)` saja. Inventory berasal dari sumber otoritatif yang diketahui lengkap dan review operator; source bytes/hash ditambahkan setelah export. Approved SHA-256 baseline dicatat terpisah. **Dilarang membuat ulang inventory dari candidate dump rusak lalu menyebutnya expected baseline.** Helper fixture hanya untuk data synthetic, bukan pembuat baseline production. Backup lama tanpa trusted reference belum dapat disertifikasi lengkap; berhenti untuk inventory/approval, bukan bypass flags. Baseline/source/identity/migration salah ditolak sebelum disposable copy atau rollback spawn; canonical identity juga harus cocok config.
-- **Wipe backup gate (AUD-044):** manifest dan tiap shard harus canonical external regular files, identitas config/bytes/SHA benar, `COMPLETE` file reguler (bukan directory/symlink), dan tidak ada `FAILED.json`. COMPLETE/checksum saja tidak authorize wipe: SQL sumber harus lulus full schema/domain serta approved external baseline yang sama dengan drill. `rtk node scripts/wipe-branch-history.mjs --branch samarinda --backup-manifest <external-manifest.json> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run` adalah contoh **read-only**, bukan approval. Semua source/baseline/budget checks dilakukan sebelum target calls. Apply harus `--confirm <branch>` sama persis juga pada actual API, tidak hanya parser.
-- **Wipe atomic safety (AUD-045):** quiesce target dengan approval operator sebelum eksekusi. Satu file atomic memeriksa arsip/restore intent, ordered columns, count dan **seluruh fields rows branch terhadap backup**, lalu menghapus 15 tabel anak-dulu dan memeriksa hasil nol di batch yang sama. Perubahan field/count sejak backup ditolak, termasuk race setelah preflight; catalog/settings/profiles/audit dan sibling branch tidak dihapus. Backup maupun target yang mempunyai archive/restore intent memerlukan review deliberatif, bukan bypass. Limits implementasi: 90,000 byte per statement dan 1,000 statements; oversized row/operation = `WIPE_BUDGET_BLOCKED` untuk ADR/owner, bukan multi-call delete. Limits ini bukan approved production largest/memory budget. Laporan `after=0` adalah titik guarded commit, bukan jaminan tidak ada write baru sesudahnya. Lost response/interrupt memerlukan read-only target verification; stale retry dengan backup lama fail-closed, jangan menerbitkan baseline baru dari target ambigu. Stock reconciliation fisik, katalog verification dan smoke tetap wajib; tidak merekonstruksi stok dari histori yang dihapus. SQLite/workerd late middle/end failure/concurrent intent/sibling dan actual owned local CLI rollback lulus synthetic; remote/Ubuntu/hard interruption/operator acceptance tetap belum.
-- **AUD-042/046 parent masih terbuka:** baseline dan financial core lulus focused tests lokal, tetapi full semantic/caller/card review, source inventory real yang disetujui, same-candidate CI/reviewer belum disahkan. Parity saja tetap bukan completeness. PASS dengan approved inventory adalah bukti sesuai reference tersebut, bukan izin destructive recovery atau bukti RPO/RTO.
-- **Restore staging/atomic final lokal:** `rtk node scripts/restore-archive.mjs --file <archive.json> --dry-run` memvalidasi seluruh sumber dan semua SQL budgets, tanpa DB mutation. Apply memerlukan approved `--expect-sha256` serta approval target terpisah. Migrasi additive `0042_archive_restore_staging.sql` wajib tersedia pada target restore; belum diterapkan ke development persistent/production. Staging private/checkpoint terikat source digest; live ledger belum berubah. Final **15 statement dalam satu Wrangler file/atomic D1 batch**, bukan live commit tiap chunk. Local staging memakai satu workerd, remote staging masih file per phase; largest remote/Ubuntu/staging acceptance belum terbukti. CLI mempertahankan source, membersihkan hanya OS-temp SQL miliknya; commit ambigu di-retry dengan source/digest/target sama. Checkpoint OS `.done` lama bukan bukti commit.
-- **Archive byte cap/streaming lokal (AUD-039/040):** tiap snapshot ≤1,000,000 byte, termasuk satu header beserta semua details. Group yang tidak dapat diperkecil ditolak **413 sebelum seal/R2 put/delete**, lease dilepas dan source group utuh untuk review operator; jangan memangkas histori agar lolos. Ini bukan rollback whole archival run: parts sebelumnya dapat sudah completed sesuai kontrak segmented archive. HTTP download completed session-branch job meneruskan R2 stream; tidak memanggil `arrayBuffer()`/`text()` untuk buffering server. Initial missing/failed R2 read/body = 502; error/cancel setelah headers terjadi pada stream dan client harus retry, bukan melabeli sukses. SQLite/workerd handler dan browser failure/recovery lulus lokal; largest compiled-memory/real R2/operator masih perlu bukti.
-- **AUD-043 serta operational rollback belum closed:** SQLite/workerd/actual local CLI menguji incomplete staging, crash/resume, late conflict, late rollback, concurrent final dan retry; synthetic 22k/44k rows bukan persetujuan largest real target atau compiled Worker memory. Individual staged row/statement melebihi 90,000-byte SQL budget ditolak `RESTORE_BUDGET_BLOCKED`; jangan partial apply atau memperkecil acceptance fixture. Production recovery hanya setelah approval target, budget/legacy/platform/staging evidence dan artifact terverifikasi sesuai follow-up.
-
-**Audit/realtime checkout lokal (AUD-049):** intent audit disimpan bersama stock/cash/order/event commit di outbox existing0018; tidak diperlukan migrasi baru. Missing outbox schema menolak checkout503, bukan silent sale tanpa audit. Sink gagal setelah commit tidak membatalkan sale; intent menunggu scheduled drain, jangan retry dengan key baru/backfill legacy intent tebakan. Execution context menahan lifecycle publish tanpa menahan respons; fallback signal-aware bounded. New caller tidak memakai post-commit `appendAuditLog` sebagai satu-satunya durability. SQLite/workerd/imported-handler failure/replay/concurrency/drain/cancel tests lokal tidak mengesahkan compiled Worker/staging/Node24/Ubuntu atau throughput/poison/retention AUD-051. Outbox dapat menunggu cron; pantau backlog sesuai approval operator, jangan hapus pending intent agar health terlihat hijau.
-
-## 5. Deploy aplikasi (workflow Deploy, bukan dari laptop)
-
-> Insiden 26 Sep 2026: rantai `pnpm build; wrangler pages deploy` men-deploy
-> worker baru dengan aset basi saat build parsial — seluruh JS/CSS 404 di
-> production. Jangan pernah rantai build+deploy dengan `;`. Selalu: hapus
-> `.svelte-kit`, build penuh sampai `✔ done`, verifikasi isi
-> `.svelte-kit/cloudflare/_app/immutable`, baru deploy; lalu verifikasi tiap
-> aset rujukan HTML balas 200 dengan MIME benar.
-> Artifact CI juga wajib memuat `.svelte-kit/cloudflare-tmp` dan
-> `.svelte-kit/output/server`; `_worker.js` merujuk kedua direktori itu.
-> Manifest rilis memverifikasi checksum ketiga root sebelum Pages deploy.
-
-1. GitHub Actions → Deploy → `workflow_dispatch`, isi SHA + `dry_run=true` +
-   `ci_run_id` (ID angka CI run hijau pemilik artifact, misal dari URL run CI).
-2. Verifikasi manifest lulus, lalu dispatch ulang `dry_run=false` (butuh
-   approval environment `production`).
-3. Catat deployment ID Worker realtime + Pages; keduanya wajib memakai SHA sama.
-
-Akhir baris (AUD-056): `.gitattributes` memaksa LF, jadi checkout bersih
-Windows maupun Linux menghasilkan byte yang sama dan artifact CI lolos
-`--verify-only` di keduanya (bukti 13 Oktober 2026: clone bersih Windows,
-`core.autocrlf=true`, memverifikasi artifact Ubuntu `f8103fd`). Checkout Windows
-lama dari sebelum aturan itu bisa masih menyimpan CRLF. Verifikasi tetap gagal
-pada hash byte persis, tetapi pesannya menyebut "Hanya beda akhir baris CRLF".
-Perbaiki dengan checkout ulang setelah memastikan tak ada perubahan lokal:
-`git rm --cached -r . && git reset --hard`. Manifest rilis hanya dibuat di CI,
-bukan dari workstation.
-
-Workflow saat ini menolak SHA historis bila HEAD `main` sudah bergerak. Rollback
-kode normal: revert commit rilis yang relevan, tunggu CI/artifact SHA baru hijau,
-lalu ulangi dry-run dan deploy di atas. Ini membutuhkan CI, bukan rollback instan.
-Untuk pemulihan darurat, operator/approver boleh memilih deployment Pages dan
-versi Worker sebelumnya yang telah terverifikasi di Cloudflare; catat kedua ID
-sebelum rollout. Jangan rebuild/deploy artifact workstation atau restore D1 untuk
-sekadar rollback aplikasi. Mengamati ID deployment bukan bukti uji rollback.
-
-## 6. Smoke per cabang target (OPS-T01–T11)
-
-Login valid/invalid, role/PIN + elevasi, buka/tutup sesi, checkout tunai dan
-non-tunai (cocokkan total/cash/change/ledger/stok/summary/receipt), offline
-replay satu kali tanpa duplikat, void + ubah metode (CAS/stok/summary/audit),
-pajak YTD + PDF + paritas arsip, archive preview→finalisasi→parity, restore
-drill conflict fail-closed, realtime dua browser per group cabang.
-
-## 7. Printer fisik (OPS-T12–T13, perangkat yang dipakai operasional)
-
-Browser: layout, topping, subtotal, nama numerik (`123`), reprint receipt lama.
-ESC/POS USB/network: encoding, cut, koneksi gagal + retry + fallback.
-Satu jalur gagal = release ditahan untuk cabang tersebut.
-
-## 8. Monitoring (OPS-T14)
-
-Snapshot error rate/latency/audit sebelum vs sesudah deploy, tanpa data sensitif.
-Batas: melewati baseline yang disetujui = trigger rollback.
-
-## 9. Stop/rollback trigger
-
-Checksum backup/artifact mismatch; schema drift; migrasi satu shard gagal;
-login/isolasi cabang gagal; selisih uang/pajak/stok/summary/receipt; replay
-duplikat; realtime lintas cabang; artifact SHA tak terbukti.
-
-## 10. Toggle monitoring stok (operasi cabang)
-
-- Perubahan mode hanya oleh pemilik cabang lewat `/pengaturan/pemilik/stok`.
-  Rollout gate berbasis D1 (`stock_feature_rollout`, feature `stock_monitoring`)
-  membatasi cabang yang tombolnya aktif. Jangan pakai env var: env dashboard
-  tidak sampai ke runtime Pages. Ubah via SQL per shard, tanpa redeploy:
-  `UPDATE stock_feature_rollout SET branches = '<cabang>' WHERE feature = 'stock_monitoring'`.
-- Sebelum menonaktifkan: pastikan antrean offline semua perangkat cabang kosong
-  (perangkat online + replay selesai). Sistem tidak dapat membuktikan IndexedDB
-  kosong; antrean sisa akan dikarantina dan butuh persetujuan pemilik (HTTP 428).
-- Aktivasi ulang wajib rekonsiliasi fisik di halaman yang sama: mulai job, isi
-  seluruh item, simpan, selesaikan review antrean, lalu finalisasi. Tanpa ini
-  server menolak (409).
-- Rollback aplikasi ke versi lama DILARANG selama ada cabang `ignored`: aplikasi
-  lama tidak mengenal policy dan akan mengurangi stok lagi. Kembalikan semua
-  cabang ke `tracked` dulu (via versi baru + rekonsiliasi), baru rollback.
-
-## 10a. Antrean pesanan (operasi cabang)
-
-- Migrasi status Antrean bersifat aditif pada `buku_kas` dan wajib schema-first:
-  backup dan verifikasi tiga shard, terapkan file migrasi baru per binding,
-  verifikasi kolom, baru deploy aplikasi. Rollback aplikasi tidak mengembalikan
-  schema; kolom boleh tetap ada dan transaksi versi lama berstatus legacy.
-- Arsip menolak cutoff yang masih memuat pesanan `pending` (409) baik sebelum
-  upload maupun pada klaim finalisasi. Selesaikan atau tunggu pesanan beres
-  sebelum mengarsipkan; pesanan `done` tetap bisa diarsipkan seperti biasa.
-- Smoke kios memakai transaksi disposable: checkout kasir, Lihat Antrean dari modal sukses, Selesai, reload, Buka lagi, badge/navbar menunjukkan sumber hitung yang benar, lalu void cleanup oleh pemilik.
-- Smoke offline/failure hanya pada UAT atau D1 terisolasi: muat dua halaman Antrean, putuskan jaringan, reload; kartu dan badge harus menunjukkan cache perangkat, bukan jumlah server. Tandai status saat offline, tutup tab, pulihkan koneksi, lalu buka Antrean lagi; status harus pulih dari intent tersimpan.
-- Simulasikan status gagal di UAT dan koneksi pulih: kartu lokal harus tetap berlabel **Belum tersinkron** sampai tombol **Sinkronkan status** berhasil; jangan menyimpulkan antrean kosong dari cache atau jumlah yang belum diketahui.
-
-### 10a.1 Notifikasi pesanan baru
-
-Source fitur ini bukan catatan deployment. Tidak ada perubahan uang/stok atau status persiapan; jangan memakai notifikasi sebagai bukti pembayaran, pesanan selesai, atau operator telah mendengar.
-
-**Prasyarat schema/config**
-
-1. Ikuti backup tiga shard, verifikasi manifest, dan restore drill §1–2. Production dibangun melalui schema manual; `wrangler d1 migrations list` dapat menampilkan seluruh histori lama sebagai pending meskipun schema operasional sudah ada. **Jangan jalankan `wrangler d1 migrations apply` atau migrator penuh**: itu mencoba mengulang migrasi historis.
-2. Verifikasi kolom prerequisite secara read-only, lalu terapkan **hanya** `0037_antrean_notifications.sql`, satu shard per command, berurutan. File ini aditif; jangan rerun bila ada shard gagal—periksa ulang tabel sebelum tindakan:
+1. Buat DB `zatiaraspos-drill-<cabang>` (`wrangler d1 create`) dan config Wrangler
+   terpisah di luar repo.
+2. `wrangler d1 execute <scratch> --remote --config <config> --file <backup.sql>`.
+3. Verifikasi (hanya menerima nama `zatiaraspos-drill-*`):
    ```powershell
-   rtk pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
-   rtk pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
-   rtk pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/0037_antrean_notifications.sql --yes
+   node scripts/d1-live-baseline.mjs --shard <BINDING> --backup-manifest <manifest> --verify-target <scratch> --target-config <config> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --env-file .env
    ```
-   Sesudah setiap apply, pastikan tiga tabel notifikasi dan keempat indeks
-   (`idx_notification_devices_branch`, `idx_notification_device_endpoint`,
-   `idx_notification_events_branch`, `idx_notification_delivery_due`) tersedia;
-   registry hanya dipakai pada `DB_SAMARINDA_GROUP`, event/delivery pada shard cabang.
-   Hentikan rollout pada kegagalan pertama.
-3. Simpan `VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` sebagai **GitHub Environment secrets** `production`; simpan subject sebagai environment variable `VAPID_SUBJECT`. Deploy workflow yang sudah memverifikasi artifact menyalin ketiganya ke secret store kedua runtime setelah approval environment, tanpa mencatat nilainya di log/argv/repo. Jangan melakukan `wrangler secret put` manual yang dapat membuat Worker version di luar release workflow. Subject contact cabang ini: `https://github.com/zulilmiihsn/zatiaras-juice-pos/issues` (issue tracker repository operator).
-4. Jalankan `rtk pnpm deploy:check -- --require-antrean-push` di preflight aman. Gate membuktikan config/keypair, bukan penerimaan handset.
-5. Deploy Pages dan Worker dari SHA/artifact yang disetujui. Pastikan cron `* * * * *` aktif untuk pemulihan delivery dan cron cleanup harian tetap terpisah. Jangan deploy output workstation atau mengubah production untuk smoke palsu.
+4. Hapus DB sementara: `wrangler d1 delete <scratch> -y`.
 
-**Aktivasi perangkat**
+Durasi terakhir: 15–23 detik per shard. Target pemulihan: RTO ≤ 1 jam; RPO = data
+sejak backup terakhir.
 
-1. Login exact role kasir/pemilik pada cabang benar. Pada iOS/iPadOS yang mendukung, install PWA Home Screen dahulu. Terima update `/sw.js` melalui prompt aplikasi; tutup/reload tab lama bila diminta, lalu warm `/pos` dan `/antrean`.
-2. Buka Pengaturan > Antrean. Sound default ON hanya preferensi. Tekan **Tes suara** dan pastikan status audio benar-benar siap; verifikasi volume perangkat, Focus/DND, mute, dan speaker fisik.
-3. Pastikan **Service worker: Siap**. Worker lama tanpa handler push menahan aktivasi; terima update aplikasi lalu muat ulang, bukan membuat registrasi kedua atau melewati prompt. Tekan **Aktifkan notifikasi perangkat** melalui gesture, beri izin OS/browser, lalu periksa izin, subscription server, dan readiness terpisah. Permission denied diperbaiki melalui pengaturan browser; jangan mengulang prompt otomatis. HTTPS/localhost dan SW aktif diperlukan.
-4. Sound OFF menghentikan chime profil itu pada semua tab, tetapi banner dan push silent tetap boleh muncul. Profil/browser lain tidak ikut berubah. Data browser dibersihkan berarti identitas baru; aktivasi dapat melepas native subscription lama dan membuat yang baru.
+### 2.4 Restore sungguhan
 
-**Smoke penerimaan (UAT atau transaksi operasional sah)**
-
-- A checkout; B/C dengan akun sama/cabang sama menerima banner, A dan tab A lain tidak. B pada halaman lain mempunyai satu loop tiga chime sekitar 5 detik setelah izin audio, bukan satu loop per pesanan.
-- B membuka Antrean **terlihat dan lolos akses/PIN**: semua tab B berhenti/banner hilang/notifikasi ditutup; C tetap belum melihat. Tab Antrean tersembunyi bukan ACK. Keluar halaman tidak menghidupkan event lama; order baru sesudahnya boleh memanggil lagi.
-- OFF pada B tersimpan setelah reload dan semua tab B berhenti; C dan peringatan stok tidak berubah. Warm/reload offline `/pos` dan `/antrean`, satu SW/manifest, nol respons API privat dalam CacheStorage.
-- Tutup receiver PWA dan kunci **HP fisik yang dipakai kasir**. Buktikan encrypted Web Push provider nyata muncul dan klik menuju Antrean melewati auth/PIN normal. Catat OS/browser, instalasi, permission, Focus/DND, jaringan, hasil tampilan dan suara operator. Smoke sintetis/desktop/workerd/provider 201 tidak menggantikan bukti ini. Tidak ada jaminan alarm berulang/custom sound saat tertutup atau membangunkan orang.
-
-**Batas bukti implementasi lokal (bukan rilis)**
-
-- Smoke actual Chrome `154.0.8037.58`, tiga profil kasir pada cabang sama, memakai D1/Pages/Worker realtime terisolasi dan checkout nyata fixture. A serta tab A lain tetap tenang; B/C mempunyai banner dan AudioContext `running`, tiga nada dengan interval sekitar 5 detik. Antrean terlihat pada B menghapus alarm seluruh tab B; C tetap berbunyi dan order tetap belum selesai.
-- Worker published lama benar-benar dipasang: capability tidak tersedia dan aktivasi push ditahan. Tombol **Perbarui aplikasi** menerima worker waiting; setelah reload readiness menjadi Siap dengan satu registrasi, tanpa cutover otomatis sebelum klik.
-- Subscription native ke `fcm.googleapis.com` berhasil diaktifkan. Checkout kedua ketika C tidak mempunyai client aplikasi (browser tetap berjalan, tab `about:blank`) menghasilkan notifikasi generik yang teramati melalui API notifikasi native worker. Tidak ada injeksi event push untuk bukti ini. Deaktivasi lewat UI berhasil melepas subscription native.
-- Navigasi warm offline POS menampilkan produk tersimpan; Antrean menampilkan dua pesanan tersimpan belum selesai. Satu SW, satu manifest pada dokumen, nol entri `/api/` di CacheStorage. Banner 320 px tidak overflow dan CTA setinggi 44 px.
-- Bukti desktop tersebut **tidak** membuktikan tampilan/suara OS, klik notifikasi pada handset, browser benar-benar dihentikan, Focus/DND, atau baterai HP kasir. UAT HP fisik di atas tetap wajib. Tidak ada deployment, mutasi data production, CI remote, commit, atau push dari smoke ini.
-
-**Diagnosis/stop/rollback**
-
-- Banner/audio hilang setelah login/logout/expiry/rebind adalah lifecycle yang disengaja; masuk/aktifkan ulang pada scope sah. Baseline baru tidak memutar histori. Bila audio diblokir, gunakan Tes suara/gesture; jangan menganggap boolean ON sebagai bukti bunyi.
-- Subscription 404/410 dilepas; aktivasi ulang lewat UI. Timeout/429/5xx dipulihkan relay dengan lease 60 detik, maksimal 8 attempt, backoff 30 detik–1 jam dan timeout provider 15 detik. Provider 201 hanya accepted, bukan dibaca/didengar.
-- Inspeksi agregat state delivery (`pending`, `leased`, `sent`, `cancelled`, `failed`) dan usia `next_attempt_at` per cabang melalui tooling berizin; jangan dump token, endpoint, encryption key, atau payload pelanggan. Lease macet pulih setelah expiry. Investigasi konfigurasi/cron/provider sebelum tindakan; tidak menghapus/replay checkout untuk memperbaiki delivery. Pending event/delivery tidak dipangkas otomatis; pantau pertumbuhan metadata.
-- Salah scope, alarm asal, private API dicache, secret bocor, schema satu shard gagal, atau bukti finansial berubah = STOP. Untuk menghentikan push, nonaktifkan pengiriman/config pada **kedua runtime** melalui proses rilis berizin; jangan menghapus ledger atau tabel notifikasi. Rollback Pages/Worker bersama mengikuti provenance/revert di atas, biarkan schema aditif. Versi lama tidak menangkap event baru; ini penghentian fitur, bukan retry pembayaran.
-- Push yang sudah in-flight tidak dapat ditarik kembali. Generic content dan dedup/seen state membatasi race; tidak menjanjikan zero-flash OS notice. Roll-forward dapat memulihkan pending delivery, sehingga tinjau usia/backlog sebelum mengaktifkan kembali.
-
-## 10b. Wipe riwayat pra-operasional (satu cabang sekali jalan)
-
-Mengosongkan data transaksi uji agar operasional mulai dari nol. Destruktif:
-rollback satu-satunya adalah restore dari backup langkah 1.
+Destruktif. Hanya dengan persetujuan pemilik untuk target yang disebut eksplisit:
 
 ```powershell
-rtk pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
-rtk pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
-rtk pnpm d1:wipe-history --branch <samarinda|balikpapan|berau> --backup-manifest <output-dir>\<run-id>\manifest.sha256.json --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --dry-run
-# Hanya setelah approval destructive target dan maintenance window terpisah:
-rtk pnpm d1:wipe-history --branch <cabang> --backup-manifest <manifest> --expect-baseline <approved-inventory.json> --expect-baseline-sha256 <approved-hash> --apply --confirm <cabang>
+CONFIRM_D1_RESTORE=<binding> pnpm d1:restore -- --database <binding> --file <backup.sql>
 ```
 
-Expected inventory harus independen/approved sesuai §4, bukan diturunkan dari
-candidate export. Default LOCAL; operasi remote menambahkan `--live` hanya
-setelah approval spesifik. Rehearsal memakai `--local --persist-to <owned-root>`.
-Contoh flags wipe tidak memakai separator `--` tambahan sebelum `--branch`.
+Restore arsip R2 memakai `node scripts/restore-archive.mjs --file <archive.json> --dry-run`
+dulu; apply memerlukan `--expect-sha256` yang disetujui.
 
-Syarat lulus per cabang: tiap tabel `before -> 0` pada titik commit, tanpa error; script berhenti
-total bila arsip berisi atau verifikasi nol gagal. Setelah wipe: hitung fisik
-stok + rekonsiliasi finalisasi per cabang (level stok tak bisa direkonstruksi
-dari mutasi yang dihapus), verifikasi katalog/pengaturan utuh, smoke checkout
-satu kali. Katalog, pengaturan, policy aktif, dan audit log dipertahankan.
+## 3. Migrasi schema
 
-Catatan dari wipe live Samarinda (14 Oktober 2026, TRK-099):
+Migrasi tidak pernah ikut deploy. Untuk setiap file baru di `drizzle/`:
 
-- Riwayat rekonsiliasi stok (`stock_reconciliations`/`_items`) juga dipertahankan, karena trigger migrasi 0032 membuatnya permanen.
-- File wipe tidak memakai `BEGIN`/`COMMIT`, karena D1 remote menolak transaksi eksplisit. Eksekusi `--file` D1 sudah atomik: dua percobaan yang gagal tidak menghapus apa pun.
-- Dry-run remote (`--live --dry-run`) hanya membaca jumlah baris.
+1. Backup dan verifikasi (§1).
+2. Tinjau isi SQL. Pastikan aditif atau punya rencana rollback.
+3. Terapkan per shard, berurutan, verifikasi di antara shard:
+   ```powershell
+   pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
+   pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
+   pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
+   ```
+4. Verifikasi tabel/kolom baru dengan `SELECT`/`PRAGMA table_info` per shard.
+5. Baru deploy aplikasi yang membutuhkan schema itu.
 
-## 11. Release record (wajib diisi tiap rilis)
+Rollback schema memakai `node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run`
+(default dry-run; `--live --apply` hanya dengan persetujuan).
 
-Commit SHA, artifact SHA + checksum manifest, link CI, manifest backup +
-hasil verify/restore drill, diff schema + hasil migrasi per shard, checklist
-smoke per cabang/perangkat, deployment IDs + waktu, snapshot monitoring,
-keputusan go/no-go + nama approver.
+## 4. Deploy aplikasi
 
-### 11.1 Rilis hardening Antrean — 3 Oktober 2026
+1. Pastikan CI hijau pada commit HEAD `main`. Workflow Deploy menolak SHA selain HEAD.
+2. GitHub Actions → **Deploy** → `workflow_dispatch` dengan SHA, `ci_run_id` (run CI hijau
+   pemilik artifact), dan `dry_run=true`.
+3. Bila verifikasi manifest lulus, jalankan lagi dengan `dry_run=false` (perlu approval
+   environment `production`).
+4. Catat deployment ID Worker realtime dan Pages; keduanya harus dari SHA yang sama.
+5. Smoke (§5).
 
-- **Source SHA production:** `47781c903814cece3fff867a0097b2586872bdbf`.
-- **CI:** [37121261849](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37121261849), sukses pada SHA tersebut. Gate lokal `check`, `test:release` (termasuk E2E **64/64**), `lint`, `deploy:check`, dan `git diff --check` exit 0. Antrean dan restore apply juga lulus pada workerd D1 terisolasi dengan `--d1`; bukan restore production.
-- **Artifact CI:** `release-47781c903814cece3fff867a0097b2586872bdbf`, ID `11273119483`, digest GitHub `sha256:2d143286654a6a0cf5e2aa1403503d5549566add66dddb318da69555ee8bf635`. SHA-256 berkas `build-artifacts.json`: `9bda82c9e84b08852228506a1318f93034d32ed69a88b95c41abad843cbe4a1e`. Manifest mencatat 169 file Pages; checksum tiga runtime root diverifikasi. Builder CI Node `v24.20.0`, pnpm `11.24.0`.
-- **Dry-run:** [37121891389](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37121891389), verifikasi provenance lulus; job deploy dilewati sesuai `dry_run=true`.
-- **Deploy:** [37122002582](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37122002582), job production sukses **2026-10-03 12:11:15 UTC**. Pages berasal dari artifact CI tanpa rebuild workstation. Worker realtime dibundle Wrangler di runner CI dari checkout SHA yang sama, bukan klaim checksum byte Worker identik dengan bundle Pages.
-- **Provider:** Pages `2a06d56a-5fc7-4a01-90b6-aeb65229c9ea` (source `47781c9`), URL tetap <https://zatiaraspos.pages.dev>; versi Worker realtime `27708e94-b75d-4142-9453-c2a397cd4be6`.
-- **Approver/window:** pengguna/pemilik dalam percakapan rilis menyetujui production dan menyatakan “Sekarang, saya approver”. Inspeksi awal menemukan satu sesi toko aktif di Samarinda; tidak ada operasi destruktif atau migrasi yang diperlukan.
-- **Backup:** `D:/ZatiarasPOS-Backups/backup-2026-10-03T08-57-56-390Z-8eff3846-978e-4d74-9db0-60848477b49c/manifest.sha256.json`, penanda `COMPLETE`, verify manifest tiga shard exit 0. Restore drill lokal: Samarinda 35 tabel/22.714 baris, Balikpapan 34/1.656, Berau 34/826; ketiganya exit 0. Backup dipertahankan di luar workspace.
-- **Schema:** kolom preparation/nomor, tabel `pos_nomor_harian`, indeks nomor, dan trigger pasangan nomor/tanggal sudah ada pada ketiga shard. Tidak ada migration apply, backfill, restore, atau perubahan uang/stok/pesanan uji di production.
-- **Smoke otomatis production:** login owner dan Antrean scope Samarinda HTTP 200; anonim 401, cabang lain 403. Sebanyak **61 asset** cocok byte-for-byte dengan artifact CI; **59 JS/CSS** rujukan mempunyai HTTP 200/MIME benar. Tampilan aktual 390×844 tanpa overflow. Cache service worker memuat tepat satu manifest dan nol API privat; tidak ada page error/HTTP 5xx tak diharapkan selama smoke. Login/logout hanya memakai sesi autentikasi smoke sendiri.
-- **Smoke operator:** pengguna memilih **“Lulus seluruh smoke”** untuk perangkat Samarinda: kios/PWA setelah menutup tab lama, reload offline setelah warm-up dan kembali online, serta cetak/reprint struk operasional yang sah dengan nomor/tanggal/nominal/kembalian sesuai snapshot. Ini pernyataan operator, bukan observasi printer/kios fisik oleh agen. Tidak ada bukti smoke fisik cabang lain.
-- **Monitoring:** snapshot 10 menit saat smoke: Samarinda 53 request, HTTP 5xx 0, error 0, rata-rata 55,57 ms; Balikpapan/Berau masing-masing 0 request/error, sehingga 5xx/latensi bernilai `NULL`. Baseline sebelumnya tanpa trafik; angka ini bukan bukti statistik performa stabil dan mencakup request smoke.
-- **Rollback reference:** Pages sebelumnya `684af3a4-1703-4c18-b4b6-4dcc66a54250` (source `fca84a0`); Worker sebelumnya `82cf1d06-209a-465c-852e-5b5bc15df338`. ID diamati sebelum rollout; rollback tidak dijalankan atau diklaim teruji.
-- **Keputusan:** GO; gate teknis dan pernyataan smoke operator Samarinda lulus. Catatan sesudah deployment adalah dokumentasi saja; SHA source production di atas tetap menjadi acuan artifact dan provenance.
+Commit dokumentasi yang di-push sesudah CI membuat SHA lama gagal "Assert Release SHA";
+deploy HEAD terbaru dengan run CI miliknya.
 
-### 11.2 Rilis notifikasi Antrean — 5 Oktober 2026
+Jangan merangkai build dan deploy manual dari laptop: build parsial pernah menghasilkan
+worker baru dengan aset basi (semua JS/CSS 404). Artifact CI memuat seluruh
+`.svelte-kit/cloudflare`, `.svelte-kit/cloudflare-tmp`, dan `.svelte-kit/output/server`.
 
-- **Source SHA production:** `0379aef59a2fae874232a87ca86f20124ed33703`.
-- **CI:** [37252955380](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37252955380), sukses pada SHA tersebut; seluruh gate workflow lulus, E2E **70/70**.
-- **Artifact CI:** `release-0379aef59a2fae874232a87ca86f20124ed33703`, ID `11321887511`, digest GitHub `sha256:000de5278416c3e8146eca28ce72b932351cdd193d5448b77fa0766ce8a09171`. SHA-256 `build-artifacts.json`: `858a89c78add6d25adbfebede615b398d6ebb6f8440c2347e2743f08a0f56a6d`; manifest CI mencatat 171 file Pages, Node `v24.20.0`, pnpm `11.24.0`.
-- **Dry-run:** [37253565957](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37253565957), provenance artifact exact-SHA lulus; deploy dilewati.
-- **Deploy:** [37253739521](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37253739521), job production sukses pada **2026-10-05 02:02:45 UTC**. Artifact Pages diverifikasi sebelum deploy; provisioning secret VAPID, deploy Worker, dan deploy Pages lulus. Catatan ini pasca-deploy; sumber runtime tetap SHA di atas.
-- **Runtime:** Pages deployment `f703b8f3-cac7-4f4f-98c6-66205ad52090` (`main`, source `0379aef`), URL <https://zatiaraspos.pages.dev>. Worker deployment `adf5e8e6-e044-49f3-9d7c-0fa11e2e423e`, version `7f425301-ab62-462b-8f92-6506fa22b5b5`. Konfigurasi Worker memuat cron delivery `* * * * *` dan cleanup harian `0 3 * * *`.
-- **Secret push:** GitHub Environment `production` menyediakan secret `VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY`, serta variable `VAPID_SUBJECT`; kedua runtime Cloudflare menerima secret names tersebut tanpa nilai dicatat di repo/log. Job provisioning lulus.
-- **Approver/window:** pemilik secara eksplisit meminta commit, push, dan deploy production melalui percakapan ini. Keputusan GO terbatas pada deployment; UAT handset tetap wajib.
-- **Backup:** `D:/ZatiarasPOS-Backups/backup-2026-10-05T00-43-44-733Z-b766172c-15c2-406d-b54e-45b4b91b8e30/manifest.sha256.json`; verify manifest tiga shard dan ketiga local restore drill exit 0. Backup berada di luar workspace.
-- **Schema:** setelah read-only preflight, diterapkan hanya `0037_antrean_notifications.sql` secara berurutan; tidak menjalankan migrator historis. Samarinda `DB_SAMARINDA_GROUP`, bookmark `00000310-00000005-000050fb-764afa4d76ec82898ffe6ec24ae1d241`; Balikpapan `DB_BALIKPAPAN_GROUP`, bookmark `000000b8-00000006-000050fb-e07ed4d5eb66f55e7b727c4cd328c238`; Berau `DB_BERAU_GROUP`, bookmark `000000ba-00000006-000050fb-d77e734e30931dddba7bd88c36a4eb82`. Read-only post-apply checks verified tiga tabel notifikasi dan empat indeks pada tiap shard, `changed_db=false`, `rows_written=0`. Tidak ada perubahan transaksi, uang, atau stok.
-- **Smoke read-only:** Chrome desktop 1280×900 membuka halaman login production tanpa sesi; `/`, `/login`, manifest, `/sw.js`, dan `/_app/version.json` HTTP 200, tanpa overflow. Dari 98 resource requests: 94 HTTP 200, dua 304, satu 401 anonim pada `/api/pengaturan/stok` (auth guard), dan satu stylesheet Google Fonts diblokir allowlist browser smoke. Setelah reload ada satu service worker aktif dan mengontrol halaman; precache berisi 159 entry dan nol URL `/api/`. Tidak dilakukan login, checkout, aktivasi push, atau mutasi production.
-- **Monitoring snapshot:** browser smoke di atas; tidak diambil agregat Cloudflare atau baseline trafik. Status tersebut bukan UAT provider/handset dan tidak membuktikan push diterima operator.
-- **UAT operator:** belum dijalankan pada HP fisik. Ikuti checklist **Aktivasi perangkat** dan **Smoke penerimaan** §10a.1; verifikasi suara, izin OS, push saat PWA tertutup, dan klik notifikasi yang melewati auth/PIN.
-- **Rollback reference:** Pages sebelum rilis `2a06d56a-5fc7-4a01-90b6-aeb65229c9ea` (source `47781c9`); Worker version `27708e94-b75d-4142-9453-c2a397cd4be6`, deployment `95e16dd4-2a3a-4de5-8e1b-fb1200e93dae`. Schema aditif dipertahankan; rollback tidak dijalankan atau diklaim teruji.
+Verifikasi artifact membandingkan hash byte. Checkout Windows lama yang masih CRLF gagal
+dengan pesan "Hanya beda akhir baris CRLF"; perbaiki dengan checkout ulang setelah
+memastikan tidak ada perubahan lokal: `git rm --cached -r . && git reset --hard`.
 
-### 11.3 Rilis remediasi audit — 8 Oktober 2026
+**Rollback kode**: revert commit rilis, tunggu CI hijau, lalu deploy seperti di atas.
+Darurat: pilih deployment Pages dan versi Worker sebelumnya di dashboard Cloudflare
+dan catat ID-nya.
 
-- **Source SHA production:** `e5cee57bd78f9df793bb74f095bcb04ff5288bdf`.
-- **CI:** [37740742752](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37740742752), sukses pada SHA tersebut: Static, Operations (53 tes), Unit (semua suite incl. workerd), Quality, E2E A 36/36 + B 36/36 + C 35/35 (**107/107**, state untouched), Build + manifest + artifact.
-- **Artifact CI:** `release-e5cee57bd78f9df793bb74f095bcb04ff5288bdf`, ID `11534335417`, digest GitHub `sha256:fe81902e67167e839c2ed8514ea2ceda9ea1182c00bee8cc1b84ede373d6bfea`.
-- **Dry-run:** [37758689739](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37758689739), provenance lulus; deploy dilewati.
-- **Deploy:** [37759141703](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37759141703), job production sukses. VAPID provisioned ke Worker + Pages (3 secret), Worker realtime versi `3e9662f2` (cron `* * * * *` + `0 3 * * *`), Pages deployment `5e382f2b` (`https://5e382f2b.zatiaraspos.pages.dev`, alias utama ikut).
-- **Approver/window:** pemilik menyetujui seluruh operasi + UAT fisik via percakapan (tercatat agen). Tanpa sesi kasir aktif yang menghalangi; tidak ada operasi destruktif.
-- **Backup:** `D:/ZatiarasPOS-Backups/backup-2026-10-08T08-57-16-589Z-316594cc-b6cb-4c99-af08-9682eff6e987/manifest.sha256.json`, penanda `COMPLETE`, verify tiga shard exit 0. Restore drill: Balikpapan 38 tabel/1656 baris PASS, Berau 38/826 PASS, Samarinda GAGAL pada 1 orphan legacy (`bahan_mutasi` `1100f28c-…` → `bahan` `1560832e-…` hilang, cabang samarinda; 0 orphan transaksi, 0 stok negatif). Tanpa perbaikan otomatis — keputusan pemilik.
-- **Schema:** preflight duplikat sesi/username bersih 3 shard; terapkan `0038_purchase_operation_key`, `0039_sesi_toko_single_active`, `0040_profil_unique_username` berurutan per shard, verifikasi 3 indeks tiap shard. Bookmark akhir Samarinda `00000488-…-…83b3`, Balikpapan `…5d8035b2…`, Berau `…5bad03f9…` (lengkap di log agen). Tanpa baris bisnis tersentuh.
-- **Smoke read-only production:** `/`, `/login` deployment + alias HTTP 200; Worker `/health` 200. Tanpa login/checkout/mutasi production oleh agen (tanpa kredensial prod; UAT fisik oleh pemilik, dinyatakan aman).
-- **AI provider smoke:** 1 request sintetis non-pelanggan: HTTP 200, model free, cost 0, 20 token.
-- **Monitoring:** snapshot jendela deploy tidak diambil (trafik rendah); bukan bukti statistik.
-- **Rollback reference:** revert commit rilis + redeploy via workflow yang sama; schema aditif 0038–0040 dipertahankan (forward-fix, bukan drop); backup § di atas retensi operator.
-- **Keputusan:** GO oleh pemilik; UAT fisik + smoke operator dinyatakan lulus oleh pemilik.
+## 5. Smoke per cabang
 
-### 11.4 Rilis final 053 + tutup audit — 8 Oktober 2026
+Login valid/invalid; kunci PIN; buka/tutup sesi; checkout tunai dan non-tunai (total,
+kembalian, ledger, stok, ringkasan, struk); satu replay offline tanpa duplikat; void dan
+ubah metode bayar; laporan dan pajak; realtime di dua browser; cetak struk di printer
+yang dipakai cabang.
 
-- **Source SHA production:** `e6d5cfd459badeaee2daed38f15eea6b94ba02bd` (menggantikan §11.3).
-- **CI:** [37773610638](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37773610638) sukses penuh (Static, Operations, Unit, Quality, E2E 107/107, Build + manifest + artifact).
-- **Deploy:** [37775714332](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37775714332) sukses dari artifact CI. Worker versi `3b160dc1`, Pages `425aa793` (`https://425aa793.zatiaraspos.pages.dev`).
-- **Isi rilis:** AUD-053 slice 2–7 (util stok/pos teruji, hapus 3 handler mati, dialog hapus generik, route laporan tipis allowlist 28→27) + E2E menu +1.
-- **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
-- **Approver:** pemilik. Rollback: revert + redeploy via workflow; schema sesi ini tanpa migrasi baru (aditif 0038–0040 dari §11.3 dipertahankan).
-- **Status audit:** `docs/AUDIT-REMEDIATION-PLAN.md` 63/63 Completed; rencana DITUTUP.
+## 6. Pemicu stop/rollback
 
-### 11.5 Pembersihan data uji oleh pemilik — 8 Oktober 2026
+Checksum backup/artifact tidak cocok; schema berbeda antar shard; migrasi satu shard
+gagal; login atau isolasi cabang gagal; selisih uang/pajak/stok/ringkasan/struk; replay
+duplikat; event realtime lintas cabang.
 
-- **Aksi:** pemilik menghapus sendiri baris-baris uji September ("Es Teh UAT" dkk,
-  termasuk orphan `bahan_mutasi` `1100f28c-…`) langsung di D1 production, di luar
-  aplikasi (aplikasi tidak punya endpoint hapus-mutasi; tanpa audit trail di DB).
-  Agen TIDAK menjalankan DELETE apa pun.
-- **Verifikasi pasca-hapus (read-only):** yatim `bahan_mutasi` = 0 di ketiga shard;
-  Samarinda mutasi=0/kasir=4, Balikpapan mutasi=0/kasir=0, Berau mutasi=0/kasir=0;
-  data operasional + katalog utuh.
-- **Bukti/rollback:** backup COMPLETE §11.3 menyimpan keadaan pra-hapus (hash cocok).
-- **Aturan ke depan:** hapus data production langsung dilarang tanpa backup dulu +
-  catat di sini (ID, alasan, approver) — pelajaran dari §11.5.
+## 7. Monitoring stok per cabang
 
-### 11.6 Rilis sinkronisasi pasca-tutup — 8 Oktober 2026
+- Diubah pemilik di `/pengaturan/pemilik/stok`. Cabang yang boleh memakai fitur diatur
+  di tabel `stock_feature_rollout` (tanpa redeploy):
+  `UPDATE stock_feature_rollout SET branches = '<cabang>' WHERE feature = 'stock_monitoring'`.
+- Sebelum menonaktifkan, pastikan antrean offline semua perangkat cabang kosong. Sisa
+  antrean akan dikarantina (428) dan perlu persetujuan pemilik.
+- Mengaktifkan ulang wajib rekonsiliasi fisik di halaman yang sama sampai finalisasi.
+- Jangan rollback ke versi aplikasi yang belum mengenal kebijakan stok selama ada cabang
+  `ignored`.
 
-- **Source SHA production:** `8d4ddf52311f753583dbd29ade4b6ce5567d0a75` (menggantikan §11.4).
-- **CI:** [37797201831](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37797201831) sukses penuh.
-- **Deploy:** [37800599684](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37800599684) sukses dari artifact CI. Worker versi `014250c8`, Pages `6d88709c` (`https://6d88709c.zatiaraspos.pages.dev`).
-- **Isi rilis:** refactor dashboard 4 route (allowlist 27→23) + docs 11.5/pasca-tutup. Tanpa migrasi schema baru.
-- **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
-- **Approver:** pemilik. Prod kini = main = keadaan rencana tertutup. TUNTAS.
+## 8. Antrean dan notifikasi push
 
-### 11.7 Rilis debt habis (allowlist 0 + modal menu) — 9 Oktober 2026
+- Prasyarat: migrasi `0037_antrean_notifications.sql` di tiga shard; secret
+  `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, dan variabel `VAPID_SUBJECT` di GitHub
+  Environment `production` (workflow Deploy menyalinnya ke Pages dan Worker realtime);
+  cron `* * * * *` aktif di Worker realtime.
+- Cek config: `pnpm deploy:check -- --require-antrean-push`.
+- Aktivasi perangkat: login kasir/pemilik, (iOS: pasang PWA di Home Screen), buka
+  Pengaturan → Antrean, tekan **Tes suara**, pastikan service worker **Siap**, lalu
+  **Aktifkan notifikasi perangkat**.
+- Arsip menolak cutoff yang masih memuat pesanan Belum selesai.
+- Menghentikan push: nonaktifkan config di kedua runtime lewat rilis; jangan menghapus
+  tabel notifikasi atau ledger. Push yang sudah terkirim tidak bisa ditarik.
 
-- **Source SHA production:** `0c3268bbb54a5b74f3ce6b279c8d5d7902a88625` (menggantikan §11.6).
-- **CI:** [37900524468](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37900524468) sukses penuh.
-- **Deploy:** [37903196792](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/37903196792) sukses dari artifact CI. Worker versi `8d306e90`, Pages `44848f1e` (`https://44848f1e.zatiaraspos.pages.dev`).
-- **Isi rilis:** allowlist route DB 28→0 (semua route tipis via BranchContext) + 6 modal menu terekstrak (halaman 1951→396) + E2E menu 2→7 + tes pin/auth baru. Tanpa migrasi schema baru.
-- **Smoke:** `/`, `/login`, worker `/health` HTTP 200 pasca-deploy.
-- **Approver:** pemilik. Prod kini = main. Debt TUNTAS: allowlist KOSONG, modal selesai.
+## 9. Wipe riwayat transaksi uji (satu cabang)
+
+Destruktif; rollback satu-satunya adalah restore dari backup.
+
+```powershell
+pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
+pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
+pnpm d1:wipe-history --branch <cabang> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run
+# Sesudah persetujuan pemilik:
+pnpm d1:wipe-history --branch <cabang> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --live --apply --confirm <cabang>
+```
+
+- Default lokal; `--live` untuk remote. `--apply` wajib disertai `--confirm` dengan nama
+  cabang yang sama.
+- Tabel yang dihapus: lihat `WIPE_TABLES` di `scripts/wipe-branch-history.mjs`. Katalog,
+  pengaturan, kebijakan stok, log audit, dan riwayat rekonsiliasi stok dipertahankan.
+- Skrip membaca ulang jumlah baris tiap tabel sesudah apply; sisa baris berarti wipe
+  sebagian dan harus dipulihkan dari backup.
+- Sesudahnya: hitung fisik stok dan finalisasi rekonsiliasi bila monitoring stok aktif,
+  periksa katalog/pengaturan, dan lakukan satu smoke checkout.
+
+## 10. Rotasi kredensial
+
+`pnpm security:rotate-production -- --live --output-dir <ABSOLUTE_PATH_OUTSIDE_WORKSPACE> --env-file .env`
+membuat password baru untuk akun kasir dan pemilik di semua cabang dan menulis file serah
+terima di luar repo. Verifikasi file itu dengan `--live --verify-handoff <file>`. Untuk kunci harga POS,
+isi `POS_PRICE_SIGNING_KEY_PREVIOUS`/`_PREVIOUS_ID` dengan kunci lama agar antrean offline
+yang masih membawa token lama tetap terverifikasi, lalu hapus setelah antrean kosong.
