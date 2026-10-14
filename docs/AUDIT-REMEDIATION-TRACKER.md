@@ -21,8 +21,8 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 
 | Status       | Jumlah |
 | ------------ | -----: |
-| Pending      |      1 |
-| In progress  |      0 |
+| Pending      |      0 |
+| In progress  |      1 |
 | Blocked      |      0 |
 | Passed local |      0 |
 | Completed    |     62 |
@@ -189,7 +189,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Ditutup keputusan pemilik (waiver); push tertutup belum terbukti | Completed        | claude-opus-5.5 | TRK-097: waiver pemilik; 0 subscription push di production per 14 Okt                                                                                              |
 | [x]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak               | Completed        | claude-opus-5.5 | TRK-094: `ae0c037` deploy 38488281061; budget Rp 0; UAT batch 9 lulus                                                                                              |
 | [x]  | [AUD-062](AUDIT-REMEDIATION-PLAN.md#aud-062) | Printer fisik dan seluruh jalur reprint          | Semua channel printer diuji pemilik                              | Completed        | claude-opus-5.5 | TRK-096: UAT fisik pemilik ("semua printer sudah")                                                                                                                 |
-| [ ]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Tidak sesuai                                                     | Pending          | —               | ALL: final same-candidate gate/approval/artifact/sign-off                                                                                                          |
+| [ ]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Gate final hijau (CI 38493735546, E2E 136/136)                   | In progress      | claude-opus-5.5 | TRK-098: laporan akhir + batasan; menunggu sign-off pemilik                                                                                                        |
 
 ## 5. Blocker eksternal yang harus disiapkan
 
@@ -1124,6 +1124,42 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
 - Bukti yang tercatat (TRK-096, query read-only production 14 Okt): 0 perangkat dengan subscription Web Push, `delivered_cursor` 0 di ketiga shard. Notifikasi/suara saat halaman Antrean terbuka sudah lulus (UAT batch 4). VAPID ter-provision (runbook §11).
 - **Risiko yang diterima pemilik:** push saat aplikasi tertutup belum pernah terbukti di HP sungguhan. Bila fitur ini dipakai, jalankan UAT batch 10. Agen dapat memverifikasi subscription dan `delivered_cursor` dengan query read-only yang sama.
 - Status: **1 Pending (AUD-063) / 0 In progress / 0 Blocked / 62 Completed**.
+
+### TRK-098 — 14 Oktober 2026: AUD-063 laporan akhir dan gate final (menunggu sign-off pemilik)
+
+DoD mengikuti §6.13. Laporan ini memuat bukti dan batasan yang diketahui, bukan skor.
+
+**Bukti gate final**
+
+- Kartu: 62 kartu lain **Completed**, diverifikasi dari tabel §4 (62 baris `[x]`, 1 Pending = AUD-063). AUD-060 ditutup atas waiver pemilik (TRK-097).
+- Flaky ditemukan dan diperbaiki, bukan di-skip:
+  - CI 38488492850 (commit docs) gagal pada `antrean.spec.ts:1678`.
+  - Penyebab: asersi membaca intent lokal sekali, balapan dengan pembersihan async di IndexedDB yang dipakai bersama dua tab.
+  - Perbaikan `b4893c7`: `expect.poll` (tetap gagal bila intent tak pernah habis); lokal 3× berulang lulus.
+- **CI final pada kandidat `b4893c7`:** [38493735546](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38493735546) hijau di semua job (Static, Operations, Unit, E2E, Build). **E2E penuh 136 tes (37 + 4 + 47 + 48): semua lulus, 0 gagal, 0 skip, 0 flaky.**
+- Runtime production: `ae0c037`, dideploy dari artifact CI 38486313075 lewat workflow deploy (bukan build workstation), deploy [38488281061](https://github.com/zulilmiihsn/zatiaras-juice-pos/actions/runs/38488281061), Pages deployment `0b9b71e6`. Commit sesudahnya hanya docs dan tes E2E, tanpa perubahan runtime.
+- Smoke production 14 Okt: `/`, `/login`, `/api/csrf`, `/sw.js`, `/_app/version.json` 200; Worker realtime `/health` 200; `/api/aichat` tanpa sesi 403.
+- Rollback:
+  - Pages sebelumnya `5454a512` (`ca447e4`); perubahan schema sejak itu hanya aditif (2 index + ledger), jadi kompatibel mundur.
+  - Rollback schema digladi di D1 terisolasi (TRK-091).
+  - Restore backup terbukti di 3 shard, RTO terukur jauh di bawah target 1 jam (TRK-091/092).
+- Data: inventaris 5 cabang 0 baris bermasalah, sign-off pemilik (TRK-095/096). Backup terakhir `backup-2026-10-13T22-10-54-666Z-c3ebb491…` lulus drill penuh.
+- UAT pemilik: batch 1–9 lulus; batch 10 (push) di-waive.
+
+**Batasan yang diketahui (diterima atau perlu diingat sebelum go-live)**
+
+1. **Push saat aplikasi tertutup belum terbukti** (AUD-060 waiver): 0 subscription Web Push di production. Jalankan UAT batch 10 bila fitur dipakai.
+2. **Backup masih manual.** RPO bergantung pada disiplin: backup terverifikasi sebelum setiap deploy/migrasi dan minimal harian saat operasi (TRK-092). Belum ada jadwal otomatis.
+3. **AI gratis (Rp 0):** kualitas dan ketersediaan bergantung pada model `:free` OpenRouter yang berubah-ubah (ganti lewat env `AI_MODEL`). Pencarian web dimatikan. Stream kosong dan timeout primary non-stream tidak memicu fallback (TRK-093).
+4. **Arsip:** bila koneksi putus tepat setelah server commit, bagian dari panggilan itu tidak terunduh lokal (salinan R2 tetap ada). Cabang pesan `interrupted` di halaman belum punya E2E khusus (TRK-089).
+5. **Stok bahan masih nilai seed**; monitoring stok belum aktif. Saat diaktifkan, aplikasi memaksa hitung fisik (TRK-095).
+6. **Printer** (AUD-062): bukti berupa pernyataan UAT pemilik; invariant cetak dicakup tes otomatis.
+7. **Data uji di production:** production masih berfungsi sebagai staging (Samarinda memuat 9 transaksi uji). Sebelum go-live, putuskan pembersihannya (`d1:wipe-history` dengan backup lebih dulu).
+8. **Capture baseline live** mengambil seluruh shard dalam satu respons; cukup untuk data sekarang, perlu dipecah per tabel bila data membesar (runbook §2).
+9. **File mati** `src/lib/config/env.ts` masih ada (penghapusan diblokir classifier; tidak dipakai, tanpa model berbayar).
+
+- AUD-063 **Pending → In progress**; menunggu sign-off akhir pemilik atas laporan ini.
+- Status: **0 Pending / 1 In progress (AUD-063) / 0 Blocked / 62 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
