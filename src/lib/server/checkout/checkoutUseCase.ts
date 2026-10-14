@@ -602,6 +602,9 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const transactionId = crypto.randomUUID();
 	const bukuKasId = crypto.randomUUID();
 	const createdAt = new Date().toISOString();
+	// Jam bisnis transaksi. Replay offline memakai queued_at yang sudah dibatasi umur
+	// maksimal dan jendela sesi, agar penjualan 23.50 tetap masuk laporan hari itu.
+	const soldAt = isOfflineReplay ? new Date(Number(body.queued_at)).toISOString() : createdAt;
 	const stockDeductions: StockDeductions = new Map();
 	const ingredientDeductions: IngredientDeductions = new Map();
 
@@ -644,7 +647,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 				totalAmount,
 				cashReceived,
 				paymentMethod,
-				committedAt: createdAt,
+				committedAt: soldAt,
 				customerName,
 				settings: receiptSettings
 			})
@@ -652,7 +655,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 
 	// Nomor antrean harian dialokasi paling akhir sebelum commit: request yang
 	// gagal validasi di atas tidak menghabiskan nomor.
-	const salesDate = formatDateYmdWita(createdAt);
+	const salesDate = formatDateYmdWita(soldAt);
 	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
 
 	const currentCatalogTotal = normalizedInputs.reduce((sum, item) => {
@@ -710,6 +713,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		bukuKasId,
 		transactionId,
 		createdAt,
+		soldAt,
 		idSesiToko,
 		idempotencyKey,
 		nomorHarian,

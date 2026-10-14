@@ -25,6 +25,12 @@ interface BuildStatementsParams {
 	bukuKasId: string;
 	transactionId: string;
 	createdAt: string;
+	/**
+	 * Jam transaksi terjadi: `buku_kas.waktu` dan `transaksi_kasir.created_at`, dasar
+	 * laporan per tanggal. Default `createdAt` (jam commit); replay offline memakai
+	 * `queued_at` yang sudah divalidasi. Mutasi stok dan `updated_at` tetap jam commit.
+	 */
+	soldAt?: string;
 	idSesiToko: string | null;
 	idempotencyKey: string;
 	/** Nomor antrean harian (opsional = NULL untuk pemanggil legacy/test). */
@@ -55,6 +61,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 		bukuKasId,
 		transactionId,
 		createdAt,
+		soldAt = createdAt,
 		idSesiToko,
 		idempotencyKey,
 		nomorHarian = null,
@@ -111,7 +118,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 			.bind(
 				bukuKasId,
 				branch,
-				createdAt,
+				soldAt,
 				totalAmount,
 				totalQty,
 				deskripsi,
@@ -214,7 +221,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 						item.nominal,
 						item.harga,
 						item.transaction_id,
-						createdAt,
+						soldAt,
 						createdAt
 					);
 			}
@@ -246,7 +253,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 					item.snapshot_hpp,
 					item.nominal_hpp,
 					item.transaction_id,
-					createdAt,
+					soldAt,
 					createdAt
 				);
 		}),

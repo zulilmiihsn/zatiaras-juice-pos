@@ -79,6 +79,10 @@ UI (src/routes, src/lib/components)
 - Server memverifikasi token harga pada waktu `queued_at`, tetapi `queued_at` berasal
   dari perangkat sehingga dibatasi: replay lebih tua dari 3 hari ditolak 409, dan
   `queued_at` wajib berada di jendela buka–tutup sesi yang dirujuk (toleransi 15 menit).
+- Replay tercatat pada jam transaksi (`queued_at`): `buku_kas.waktu`,
+  `transaksi_kasir.created_at`, tanggal ringkasan harian, dan nomor harian memakai tanggal
+  itu, sehingga penjualan 23.50 tetap masuk laporan hari tersebut. `created_at` buku kas,
+  `updated_at`, dan mutasi stok memakai jam commit server.
 - Replay yang melewati perubahan kebijakan stok dikarantina (HTTP 428) sampai pemilik
   menyetujui di `/pengaturan/pemilik/stok`.
 - Klien mengklasifikasi kegagalan: 401/403 `auth`, 4xx konflik permanen, 429 dan 5xx

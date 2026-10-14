@@ -21,6 +21,7 @@ import { GET as CATALOG_GET } from '../routes/api/pos/catalog/+server';
 import { GET as REVIEWS_GET } from '../routes/api/pengaturan/stok/offline-reviews/+server';
 import { PUT as REVIEW_PUT } from '../routes/api/pengaturan/stok/offline-reviews/[idempotency_key]/+server';
 import { createTestD1 } from './helpers/testD1';
+import { formatDateYmdWita } from '../lib/utils/dateTime';
 
 const { db, close } = await createTestD1();
 const samarinda = branchContext('samarinda');
@@ -469,6 +470,25 @@ try {
 				)
 				.first<string>('id_sesi_toko'),
 			'sesi-tutup'
+		);
+		// Waktu bisnis = jam transaksi di perangkat, bukan jam sinkron; jam commit tetap tercatat.
+		const soldAtIso = new Date(closedOpenAt + hour).toISOString();
+		const ledger = await guardDb
+			.prepare(
+				"SELECT waktu, created_at, tanggal_nomor FROM buku_kas WHERE idempotency_key = 'offline-guard-in-window'"
+			)
+			.first<{ waktu: string; created_at: string; tanggal_nomor: string }>();
+		assert.equal(ledger?.waktu, soldAtIso);
+		assert.ok(Date.parse(String(ledger?.created_at)) > closedCloseAt, 'created_at = jam commit');
+		assert.equal(ledger?.tanggal_nomor, formatDateYmdWita(soldAtIso));
+		assert.equal(inWindow.data.tanggal_nomor, formatDateYmdWita(soldAtIso));
+		assert.equal(
+			await guardDb
+				.prepare(
+					"SELECT created_at FROM transaksi_kasir WHERE buku_kas_id = (SELECT id FROM buku_kas WHERE idempotency_key = 'offline-guard-in-window')"
+				)
+				.first<string>('created_at'),
+			soldAtIso
 		);
 	} finally {
 		await guardHarness.close();
