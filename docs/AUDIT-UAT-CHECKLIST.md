@@ -90,3 +90,14 @@ Berlaku pada deploy `ae0c037`. AI kini hanya memakai model gratis OpenRouter; pe
 | AUD-061 | **Laporan → Asisten AI**: tanyakan "Berapa total penjualan bulan ini?".                                                                       | Jawaban muncul bertahap (stream) dan masuk akal; bukan gelembung kosong atau pesan error.                                            | Lulus (14 Okt) |
 | AUD-061 | Tanyakan sesuatu yang biasanya memicu pencarian web, misalnya "cari tren minuman jus terbaru di internet".                                    | Tetap ada jawaban; tidak ada lencana pencarian web.                                                                                  | Lulus (14 Okt) |
 | AUD-061 | **Pengaturan → Pemilik → Manajemen Menu → Bahan**, isi kolom cerita belanja AI: "beli gula pasir 2 kg 30rb, susu kental manis 3 kaleng 36rb". | Muncul 2 bahan: gula pasir 2.000 gram (Rp 15/gram) dan susu kental manis 3 pcs (Rp 12.000/pcs). Batalkan bila tidak ingin menyimpan. | Lulus (14 Okt) |
+
+## Batch 10 — AUD-060 push saat aplikasi tertutup, 14 Oktober 2026
+
+Data production per 14 Oktober belum memuat satu pun perangkat dengan izin push aktif. Ulangi langkah ini di HP kasir/pemilik yang sebenarnya; agen dapat memastikan hasilnya dari data (subscription + `delivered_cursor`).
+
+| Kartu   | Langkah                                                                                                                                     | Hasil yang diharapkan                                                                 | Hasil |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----- |
+| AUD-060 | Di HP, login, buka **Pengaturan → Antrean**, tekan **Aktifkan notifikasi perangkat**, lalu pilih **Izinkan** pada pertanyaan browser/OS.    | Status perangkat menyatakan push aktif (bukan hanya suara); tidak ada pesan error.    |       |
+| AUD-060 | Tutup aplikasi/tab sepenuhnya di HP itu (bukan hanya pindah halaman). Dari perangkat lain, buat satu transaksi POS uji di cabang yang sama. | Dalam ±1 menit notifikasi pesanan muncul di HP walau aplikasi tertutup; hanya sekali. |       |
+| AUD-060 | Ketuk notifikasi itu.                                                                                                                       | Aplikasi terbuka ke Antrean (melewati login/PIN bila perlu) dan pesanan terlihat.     |       |
+| AUD-060 | Buat transaksi uji di **cabang lain**.                                                                                                      | HP tadi **tidak** menerima notifikasi untuk cabang lain.                              |       |
