@@ -46,12 +46,38 @@ const IMMUTABLE_UPDATE_KEYS = ['cabang_id', 'id'] as const;
 
 /**
  * Buang kunci scoping immutable dari payload UPDATE. WAJIB dipakai di semua PATCH
- * sebelum `.set()` agar `cabang_id`/`id` tidak bisa ditimpa caller (lihat P0-3 audit).
+ * sebelum `.set()` agar `cabang_id`/`id` tidak bisa ditimpa caller.
  */
 export function sanitizeUpdatePayload<T extends Record<string, unknown>>(payload: T): Partial<T> {
 	const clean: Record<string, unknown> = { ...payload };
 	for (const key of IMMUTABLE_UPDATE_KEYS) delete clean[key];
 	return clean as Partial<T>;
+}
+
+const CATALOG_NAME_MAX = 120;
+
+/**
+ * Validasi field katalog (produk/kategori/tambahan) di server. UI sudah memvalidasi,
+ * tetapi route menerima JSON langsung: harga wajib rupiah >= 0 dan nama teks wajar.
+ */
+export function assertCatalogFields(
+	row: Record<string, unknown>,
+	options: { requireName: boolean }
+): void {
+	if (options.requireName || Object.hasOwn(row, 'nama')) {
+		const nama = typeof row.nama === 'string' ? row.nama.trim() : '';
+		if (!nama || nama.length > CATALOG_NAME_MAX) {
+			throw kitError(400, `Nama wajib diisi (maksimal ${CATALOG_NAME_MAX} karakter)`);
+		}
+	}
+	for (const key of ['harga', 'harga_jumbo']) {
+		if (!Object.hasOwn(row, key)) continue;
+		const value = row[key];
+		if (key === 'harga_jumbo' && value === null) continue;
+		if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+			throw kitError(400, `Field ${key} harus angka rupiah >= 0`);
+		}
+	}
 }
 
 type ResourceContext = {

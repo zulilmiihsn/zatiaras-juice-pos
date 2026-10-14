@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { error as kitError } from '@sveltejs/kit';
 import { tambahan } from '$lib/database/schema';
-import { makeResourceRoute } from '$lib/server/resourceRouteHelpers';
+import { assertCatalogFields, makeResourceRoute } from '$lib/server/resourceRouteHelpers';
 
 /**
  * /api/tambahan — CRUD ekstra tenant-scoped.
@@ -17,10 +17,12 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 			.orderBy(desc(tambahan.created_at))
 			.limit(limit),
 	insert: async ({ db }, rows) => {
+		for (const row of rows) assertCatalogFields(row, { requireName: true });
 		await db.insert(tambahan).values(rows as (typeof tambahan.$inferInsert)[]);
 	},
 	update: async ({ db, branch }, body) => {
 		if (!body.where?.id) throw kitError(400, 'Payload / id tidak valid');
+		assertCatalogFields(body.payload as Record<string, unknown>, { requireName: false });
 		await db
 			.update(tambahan)
 			.set(body.payload as Partial<typeof tambahan.$inferInsert>)

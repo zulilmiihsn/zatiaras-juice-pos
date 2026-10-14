@@ -6,10 +6,11 @@
  * ke HTTP. Seluruh validasi, quote offline/online, idempotency, stok/HPP,
  * batch atomik, audit, dan realtime publish tinggal di sini.
  *
- * Tidak import SvelteKit runtime. Error domain memakai CheckoutUseCaseError
+ * Tidak import SvelteKit runtime. Error domain memakai CheckoutDomainError
  * yang membawa status HTTP; route memetakan ke kitError/json.
  */
 import type { D1Database } from '@cloudflare/workers-types';
+import { formatDateYmdWita } from '$lib/utils/dateTime';
 import { getD1Database, type BranchContext } from '../branchResolver';
 import { publishBranchEvent } from '../realtimePublisher';
 import { settlePostCommitEffects } from '../postCommit';
@@ -24,17 +25,18 @@ import {
 	normalizePaymentMethod,
 	sanitizeShortText,
 	uniqueStrings,
-	getWitaSalesDate,
 	normalizeMoney,
 	summarizeD1Meta,
 	CHECKOUT_WINDOW_MS,
 	CHECKOUT_MAX_PER_WINDOW,
-	checkoutItemCountError
+	checkoutItemCountError,
+	CheckoutDomainError,
+	OFFLINE_REPLAY_MAX_AGE_MS
 } from './utils';
 import {
 	getCheckoutCapabilities,
 	getActiveSessionId,
-	getSessionIdById,
+	getReplaySessionId,
 	getExistingByIdempotency,
 	loadProducts,
 	loadReceiptSettingsSnapshot,
@@ -62,13 +64,10 @@ import {
 } from '$lib/server/stockOfflineReview';
 import type { InventoryApplication, StockReplayDisposition } from './types';
 
-export class CheckoutUseCaseError extends Error {
-	readonly status: number;
-
+export class CheckoutUseCaseError extends CheckoutDomainError {
 	constructor(status: number, message: string) {
-		super(message);
+		super(status, message);
 		this.name = 'CheckoutUseCaseError';
-		this.status = status;
 	}
 }
 
@@ -267,6 +266,9 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		const queuedAt = Number(body.queued_at);
 		if (!Number.isFinite(queuedAt) || queuedAt > Date.now() + 30_000) {
 			fail(409, 'Waktu antrean transaksi offline tidak valid');
+		}
+		if (queuedAt < Date.now() - OFFLINE_REPLAY_MAX_AGE_MS) {
+			fail(409, 'Transaksi offline terlalu lama tersimpan dan perlu ditinjau pemilik');
 		}
 		try {
 			if (body.quote_token) {
@@ -568,7 +570,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const isOfflineReplay = mode === 'offline_replay';
 	const [idSesiToko, productsById, addOnsById] = await Promise.all([
 		isOfflineReplay
-			? getSessionIdById(db, branch, body.store_session_id)
+			? getReplaySessionId(db, branch, body.store_session_id, Number(body.queued_at))
 			: getActiveSessionId(db, branch),
 		loadProducts(db, branch, productIds, stockTrackingAvailable, ingredientTrackingAvailable, {
 			allowInactive: isOfflineReplay,
@@ -583,7 +585,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		fail(
 			409,
 			isOfflineReplay
-				? 'Sesi toko transaksi offline tidak valid'
+				? 'Sesi toko transaksi offline tidak valid atau waktu transaksi di luar jam sesi'
 				: 'Kasir tidak boleh transaksi saat toko tutup'
 		);
 	}
@@ -650,7 +652,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 
 	// Nomor antrean harian dialokasi paling akhir sebelum commit: request yang
 	// gagal validasi di atas tidak menghabiskan nomor.
-	const salesDate = getWitaSalesDate(createdAt);
+	const salesDate = formatDateYmdWita(createdAt);
 	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
 
 	const currentCatalogTotal = normalizedInputs.reduce((sum, item) => {

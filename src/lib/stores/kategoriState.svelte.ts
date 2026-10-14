@@ -107,7 +107,6 @@ export function createKategoriState(deps: KategoriDeps) {
 	async function doDeleteKategori() {
 		if (kategoriIdToDelete !== null) {
 			try {
-				await kategoriCrud.clearProducts(kategoriIdToDelete);
 				await kategoriCrud.remove(kategoriIdToDelete);
 				showDeleteKategoriModal = false;
 				kategoriIdToDelete = null;

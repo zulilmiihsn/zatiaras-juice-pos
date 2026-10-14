@@ -1,7 +1,7 @@
 import { error as kitError } from '@sveltejs/kit';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { produk } from '$lib/database/schema';
-import { makeResourceRoute } from '$lib/server/resourceRouteHelpers';
+import { produk, resepProduk } from '$lib/database/schema';
+import { assertCatalogFields, makeResourceRoute } from '$lib/server/resourceRouteHelpers';
 
 function rejectDirectStockWrite(row: Record<string, unknown>): void {
 	if (Object.hasOwn(row, 'stok') || Object.hasOwn(row, 'lacak_stok')) {
@@ -25,6 +25,7 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 			.limit(limit),
 	insert: async ({ db }, rows) => {
 		rows.forEach(rejectDirectStockWrite);
+		for (const row of rows) assertCatalogFields(row, { requireName: true });
 		await db.insert(produk).values(rows as (typeof produk.$inferInsert)[]);
 	},
 	update: async ({ db, branch }, body) => {
@@ -38,6 +39,7 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 		}
 		const payload = body.payload as Partial<typeof produk.$inferInsert>;
 		rejectDirectStockWrite(payload);
+		assertCatalogFields(payload, { requireName: false });
 
 		if (productIds?.length && id == null) {
 			await db
@@ -70,6 +72,12 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 		return { entityId: id, publishExtra: { id } };
 	},
 	remove: async ({ db, branch }, id) => {
-		await db.delete(produk).where(and(eq(produk.cabang_id, branch), eq(produk.id, id)));
+		// Resep ikut terhapus dalam satu batch; resep yatim membuat bahannya tak bisa dihapus.
+		await db.batch([
+			db
+				.delete(resepProduk)
+				.where(and(eq(resepProduk.cabang_id, branch), eq(resepProduk.produk_id, id))),
+			db.delete(produk).where(and(eq(produk.cabang_id, branch), eq(produk.id, id)))
+		]);
 	}
 });

@@ -1,5 +1,4 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { error as kitError } from '@sveltejs/kit';
 import type { BranchContext, BranchId } from '$lib/server/branchResolver';
 import type {
 	ProductRow,
@@ -7,10 +6,16 @@ import type {
 	AddOnRow,
 	CheckoutCapabilities
 } from '$lib/server/checkout/types';
-import { chunks, IN_QUERY_CHUNK_SIZE, assertActive } from '$lib/server/checkout/utils';
+import {
+	chunks,
+	IN_QUERY_CHUNK_SIZE,
+	assertActive,
+	CheckoutDomainError,
+	OFFLINE_REPLAY_CLOCK_SKEW_MS
+} from '$lib/server/checkout/utils';
 import type { ReceiptSnapshotSettings } from '$lib/utils/receiptSnapshot';
 
-// [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
+// ── Capability detection ────────────────────────────────────────────────────
 
 async function tableNames(db: D1Database, names: string[]): Promise<Set<string>> {
 	const placeholders = names.map(() => '?').join(',');
@@ -89,7 +94,7 @@ export async function loadReceiptSettingsSnapshot(
 	}
 }
 
-// [CATATAN]: ── Session lookup ──────────────────────────────────────────────────────────
+// ── Session lookup ──────────────────────────────────────────────────────────
 
 export async function getActiveSessionId(db: D1Database, branch: BranchId): Promise<string | null> {
 	const row = (await db
@@ -105,25 +110,38 @@ export async function getActiveSessionId(db: D1Database, branch: BranchId): Prom
 	return row?.id ?? null;
 }
 
-export async function getSessionIdById(
+/**
+ * Sesi untuk replay offline: boleh sudah ditutup (shift bisa tutup sebelum
+ * perangkat sinkron), tetapi `queuedAt` wajib berada di dalam jendela buka–tutup
+ * sesi itu. Tanpa ini replay bisa ditempel ke shift lama mana pun.
+ */
+export async function getReplaySessionId(
 	db: D1Database,
 	branch: BranchId,
-	sessionId: unknown
+	sessionId: unknown,
+	queuedAt: number
 ): Promise<string | null> {
 	if (typeof sessionId !== 'string' || !sessionId.trim()) return null;
 	const row = (await db
 		.prepare(
-			`SELECT id
+			`SELECT id, waktu_buka, waktu_tutup
 			 FROM sesi_toko
 			 WHERE cabang_id = ? AND id = ?
 			 LIMIT 1`
 		)
 		.bind(branch, sessionId.trim())
-		.first()) as { id: string } | null;
-	return row?.id ?? null;
+		.first()) as { id: string; waktu_buka: string; waktu_tutup: string | null } | null;
+	if (!row) return null;
+	const opened = Date.parse(row.waktu_buka);
+	const closed = row.waktu_tutup ? Date.parse(row.waktu_tutup) : Number.POSITIVE_INFINITY;
+	if (!Number.isFinite(opened) || Number.isNaN(closed)) return null;
+	const inWindow =
+		queuedAt >= opened - OFFLINE_REPLAY_CLOCK_SKEW_MS &&
+		queuedAt <= closed + OFFLINE_REPLAY_CLOCK_SKEW_MS;
+	return inWindow ? row.id : null;
 }
 
-// [CATATAN]: ── Idempotency check ───────────────────────────────────────────────────────
+// ── Idempotency check ───────────────────────────────────────────────────────
 
 export async function getExistingByIdempotency(
 	db: D1Database,
@@ -156,7 +174,7 @@ export async function getExistingByIdempotency(
 	} | null;
 }
 
-// [CATATAN]: ── Product loading ─────────────────────────────────────────────────────────
+// ── Product loading ─────────────────────────────────────────────────────────
 
 export async function loadProducts(
 	db: D1Database,
@@ -190,14 +208,14 @@ export async function loadProducts(
 	const products = new Map(rows.map((product) => [String(product.id), product]));
 	for (const productId of productIds) {
 		const product = products.get(productId) ?? options.fallbackProducts?.get(productId);
-		if (!product) throw kitError(404, `Produk tidak ditemukan: ${productId}`);
+		if (!product) throw new CheckoutDomainError(404, `Produk tidak ditemukan: ${productId}`);
 		products.set(productId, product);
 		if (!options.allowInactive) assertActive(product, product.nama);
 	}
 	return products;
 }
 
-// [CATATAN]: ── Recipe loading ──────────────────────────────────────────────────────────
+// ── Recipe loading ──────────────────────────────────────────────────────────
 
 export async function loadRecipesByProduct(
 	db: D1Database,
@@ -230,7 +248,7 @@ export async function loadRecipesByProduct(
 	return grouped;
 }
 
-// [CATATAN]: ── Add-on loading ──────────────────────────────────────────────────────────
+// ── Add-on loading ──────────────────────────────────────────────────────────
 
 export async function loadAddOns(
 	db: D1Database,
@@ -264,7 +282,7 @@ export async function loadAddOns(
 	const addOns = new Map(rows.map((addOn) => [String(addOn.id), addOn]));
 	for (const id of ids) {
 		const addOn = addOns.get(id) ?? options.fallbackAddOns?.get(id);
-		if (!addOn) throw kitError(404, 'Tambahan tidak ditemukan');
+		if (!addOn) throw new CheckoutDomainError(404, 'Tambahan tidak ditemukan');
 		addOns.set(id, addOn);
 		if (!options.allowInactive) assertActive(addOn, addOn.nama);
 	}

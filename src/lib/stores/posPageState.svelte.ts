@@ -1,4 +1,4 @@
-// AUD-053: state UI, perintah, dan lifecycle halaman POS (sebelumnya inline di
+// State UI, perintah, dan lifecycle halaman POS (sebelumnya inline di
 // routes/pos/+page.svelte). Data katalog/keranjang tetap di store pos/cart.
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
@@ -16,7 +16,7 @@ import { realtimeManager } from '$lib/realtime/realtimeManager';
 import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
 import { debounce, fuzzySearch } from '$lib/utils/performance';
 import { securityUtils } from '$lib/utils/security';
-import { validateNumber, sanitizeInput } from '$lib/utils/validation';
+import { validateNumber, trimInput } from '$lib/utils/validation';
 import { ICE_OPTIONS, SUGAR_OPTIONS } from '$lib/utils/orderDetails';
 import { POS_SKELETON } from '$lib/constants/ui';
 import type { Ingredient } from '$lib/types/product';
@@ -100,7 +100,7 @@ export function createPosPageState() {
 		}
 	}
 
-	// [CATATAN]: Kategori & Produk
+	// Kategori & Produk
 	let selectedCategory = $state('all');
 	const categories = $derived(
 		[...(pos.kategoriData || [])].sort((a, b) =>
@@ -112,7 +112,7 @@ export function createPosPageState() {
 
 	const categoryMap = $derived(new Map(categories.map((c) => [String(c.id), c.nama || ''])));
 
-	// [CATATAN]: Jenis gula dan es
+	// Jenis gula dan es
 	const sugarOptions = SUGAR_OPTIONS;
 	const iceOptions = ICE_OPTIONS;
 
@@ -127,7 +127,7 @@ export function createPosPageState() {
 
 	let imageError = $state<Record<string, boolean>>({});
 
-	// [CATATAN]: Search produk dengan debounce
+	// Search produk dengan debounce
 	let search = $state('');
 	const debouncedSearch = debounce((value: string) => {
 		search = value;
@@ -137,7 +137,7 @@ export function createPosPageState() {
 		debouncedSearch(value);
 	}
 
-	// [CATATAN]: Memoized computed values
+	// Memoized computed values
 	const totalItems = $derived(cart.totalItems);
 	const totalHarga = $derived(cart.totalHarga);
 
@@ -154,7 +154,7 @@ export function createPosPageState() {
 	const currentItemUnitPrice = $derived(currentBasePrice + currentAddOnsTotal);
 	const currentItemTotalPrice = $derived(currentItemUnitPrice * jumlah);
 
-	// [CATATAN]: Memoized filtered products
+	// Memoized filtered products
 	const filteredProducts = $derived(
 		(() => {
 			let filtered = products;
@@ -281,25 +281,25 @@ export function createPosPageState() {
 		}
 	}
 
-	// [CATATAN]: Optimized cart operations
+	// Optimized cart operations
 	function addToCart() {
 		if (pos.isCatalogExpired) {
 			showErrorNotif('Katalog POS kedaluwarsa. Hubungkan perangkat lalu muat ulang menu.');
 			return;
 		}
-		// [CATATAN]: Blokir kasir jika sesi toko belum dibuka
+		// Blokir kasir jika sesi toko belum dibuka
 		if (currentUserRole === 'kasir' && !sesiAktif) {
 			showErrorNotif('Toko belum dibuka. Silakan buka toko terlebih dahulu!');
 			return;
 		}
-		// [CATATAN]: Validate quantity
+		// Validate quantity
 		const qtyValidation = validateNumber(jumlah, { required: true, min: 1, max: 99 });
 		if (!qtyValidation.isValid) {
 			showErrorNotif(qtyValidation.errors.join(', '));
 			return;
 		}
 
-		// [CATATAN]: Strict Stock Validation saat memasukkan ke keranjang (Unit & Bahan Resep)
+		// Strict Stock Validation saat memasukkan ke keranjang (Unit & Bahan Resep)
 		if (strictStockMode && selectedProduct) {
 			const avail = getProductStockAvailability(
 				selectedProduct,
@@ -328,28 +328,14 @@ export function createPosPageState() {
 			}
 		}
 
-		// [CATATAN]: Check rate limiting
+		// Check rate limiting
 		if (!securityUtils.checkFormRateLimit('pos_add_to_cart')) {
 			showErrorNotif('Terlalu banyak item ditambahkan. Silakan tunggu sebentar.');
 			return;
 		}
 
-		// [CATATAN]: Sanitize inputs
-		const sanitizedSugar = sanitizeInput(selectedSugar);
-		const sanitizedIce = sanitizeInput(selectedIce);
-
-		// [CATATAN]: Check for suspicious activity
-		const allInputs = `${selectedProduct?.nama}${sanitizedSugar}${sanitizedIce}${jumlah}`;
-		if (securityUtils.detectSuspiciousActivity('pos_add_to_cart', allInputs)) {
-			showErrorNotif('Aktivitas mencurigakan terdeteksi. Silakan coba lagi.');
-			securityUtils.logSecurityEvent('suspicious_cart_activity', {
-				product: selectedProduct?.nama,
-				jumlah,
-				gula: sanitizedSugar,
-				es: sanitizedIce
-			});
-			return;
-		}
+		const trimmedSugar = trimInput(selectedSugar);
+		const trimmedIce = trimInput(selectedIce);
 
 		if (selectedProduct) {
 			const addOnsSelected = addOns.filter((a: PosAddOn) => selectedAddOns.includes(a.id));
@@ -357,13 +343,13 @@ export function createPosPageState() {
 				selectedProduct,
 				addOnsSelected,
 				selectedPorsi,
-				sanitizedSugar,
-				sanitizedIce,
+				trimmedSugar,
+				trimmedIce,
 				jumlah,
 				selectedNote
 			);
 
-			// [CATATAN]: Log successful add to cart
+			// Log successful add to cart
 			securityUtils.logSecurityEvent('product_added_to_cart', {
 				product: selectedProduct.nama,
 				porsi: selectedPorsi,

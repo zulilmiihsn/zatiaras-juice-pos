@@ -1,4 +1,4 @@
-// [CATATAN]: Validation utilities untuk sistem POS Zatiaras
+// Validation utilities untuk sistem POS Zatiaras
 
 export interface ValidationRule {
 	required?: boolean;
@@ -15,20 +15,15 @@ export interface ValidationResult {
 	errors: string[];
 }
 
-// [CATATAN]: Sanitasi input untuk mencegah XSS dan injection
-export function sanitizeInput(input: string): string {
-	if (typeof input !== 'string') return '';
-
-	return input
-		.trim()
-		.replace(/[<>]/g, '') // Remove potential HTML tags
-		.replace(/javascript:/gi, '') // Remove javascript: protocol
-		.replace(/on\w+=/gi, '') // Remove event handlers
-		.replace(/script/gi, '') // Remove script tags
-		.replace(/iframe/gi, ''); // Remove iframe tags
+/**
+ * Rapikan input teks form. Sengaja bukan filter XSS: Svelte meng-escape output,
+ * dan filter blocklist dulu merusak teks sah ("subscription" menjadi "subion").
+ */
+export function trimInput(input: unknown): string {
+	return typeof input === 'string' ? input.trim() : '';
 }
 
-// [CATATAN]: Validasi nomor (untuk harga, quantity, dll)
+// Validasi nomor (untuk harga, quantity, dll)
 export function validateNumber(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -60,7 +55,7 @@ export function validateNumber(value: unknown, rules: ValidationRule = {}): Vali
 	return { isValid: errors.length === 0, errors };
 }
 
-// [CATATAN]: Validasi teks
+// Validasi teks
 export function validateText(value: unknown, rules: ValidationRule = {}): ValidationResult {
 	const errors: string[] = [];
 
@@ -97,15 +92,15 @@ export function validateText(value: unknown, rules: ValidationRule = {}): Valida
 	return { isValid: errors.length === 0, errors };
 }
 
-// [CATATAN]: Validasi password (simplified - untuk demo)
-export function validatePasswordDemo(password: string): ValidationResult {
+/** Validasi form login; kebijakan password sebenarnya ditegakkan server. */
+export function validateLoginPassword(password: string): ValidationResult {
 	return validateText(password, {
 		required: true,
 		minLength: 6
 	});
 }
 
-// [CATATAN]: Validasi pemasukan/pengeluaran
+// Validasi pemasukan/pengeluaran
 export function validateIncomeExpense(data: {
 	nominal?: unknown;
 	jenis?: unknown;
@@ -113,7 +108,7 @@ export function validateIncomeExpense(data: {
 }): ValidationResult {
 	const errors: string[] = [];
 
-	// [CATATAN]: Validasi nominal
+	// Validasi nominal
 	const amountValidation = validateNumber(data.nominal, {
 		required: true,
 		min: 0
@@ -122,12 +117,12 @@ export function validateIncomeExpense(data: {
 		errors.push(`Nominal: ${amountValidation.errors.join(', ')}`);
 	}
 
-	// [CATATAN]: Validasi jenis
+	// Validasi jenis
 	if (!data.jenis) {
 		errors.push('Jenis harus dipilih');
 	}
 
-	// [CATATAN]: Validasi deskripsi
+	// Validasi deskripsi
 	const descriptionValidation = validateText(data.deskripsi, {
 		required: true,
 		minLength: 3,
@@ -140,7 +135,7 @@ export function validateIncomeExpense(data: {
 	return { isValid: errors.length === 0, errors };
 }
 
-// [CATATAN]: Validasi waktu
+// Validasi waktu
 export function validateTime(time: string): ValidationResult {
 	const errors: string[] = [];
 
@@ -159,7 +154,7 @@ export function validateTime(time: string): ValidationResult {
 	return { isValid: true, errors: [] };
 }
 
-// ── Schema Runtime Validators (DEBT-001) ──────────────────────────────────
+// ── Schema Runtime Validators ──────────────────────────────────
 
 export interface RuntimeValidation<T> {
 	success: boolean;

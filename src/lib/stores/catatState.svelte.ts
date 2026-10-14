@@ -2,7 +2,7 @@ import {
 	validateNumber,
 	validateText,
 	validateTime,
-	sanitizeInput,
+	trimInput,
 	validateIncomeExpense
 } from '$lib/utils/validation';
 import { securityUtils } from '$lib/utils/security';
@@ -82,7 +82,7 @@ export function createCatatState() {
 		}
 	});
 
-	// AUD-026: default SELALU dari instant sekarang dalam WITA,
+	// Default SELALU dari instant sekarang dalam WITA,
 	// bukan zona perangkat. witaToUtcISO di saveTransaksi sudah kanonik.
 	function getLocalDateString() {
 		return getTodayWita();
@@ -97,7 +97,7 @@ export function createCatatState() {
 	}
 
 	async function loadRecentTransactions() {
-		// AUD-027: lima terbaru HARI WITA (batas UTC + terbaru dulu),
+		// Lima terbaru HARI WITA (batas UTC + terbaru dulu),
 		// bukan lima tertua global. Gagal query = state error, bukan kosong valid.
 		try {
 			isLoadingRecent = true;
@@ -269,34 +269,25 @@ export function createCatatState() {
 			error = 'Terlalu banyak submission. Silakan tunggu sebentar.';
 			return;
 		}
-		const sanitizedDate = sanitizeInput(date);
-		const sanitizedTime = sanitizeInput(time);
-		const sanitizedNominal = sanitizeInput(nominal);
-		let sanitizedJenis = sanitizeInput(jenis);
-		if (!sanitizedJenis) {
-			sanitizedJenis = mode === 'pemasukan' ? 'pendapatan_usaha' : 'beban_usaha';
+		const trimmedDate = trimInput(date);
+		const trimmedTime = trimInput(time);
+		const trimmedNominal = trimInput(nominal);
+		let trimmedJenis = trimInput(jenis);
+		if (!trimmedJenis) {
+			trimmedJenis = mode === 'pemasukan' ? 'pendapatan_usaha' : 'beban_usaha';
 		}
-		const sanitizedNamaJenis = sanitizeInput(namaJenis);
-		const sanitizedNama = sanitizeInput(nama);
-		const sanitizedPaymentMethod = sanitizeInput(paymentMethod);
-		const timeValidation = validateTime(sanitizedTime);
-		const nominalValidation = validateNumber(sanitizedNominal, { required: true, min: 0 });
-		const jenisValidation = validateText(sanitizedJenis, { required: true });
-		const namaValidation = validateText(sanitizedNama, {
+		const trimmedNamaJenis = trimInput(namaJenis);
+		const trimmedNama = trimInput(nama);
+		const trimmedPaymentMethod = trimInput(paymentMethod);
+		const timeValidation = validateTime(trimmedTime);
+		const nominalValidation = validateNumber(trimmedNominal, { required: true, min: 0 });
+		const jenisValidation = validateText(trimmedJenis, { required: true });
+		const namaValidation = validateText(trimmedNama, {
 			required: true,
 			minLength: 2,
 			maxLength: 100
 		});
-		const paymentMethodValidation = validateText(sanitizedPaymentMethod, { required: true });
-		const allInputs = `${sanitizedDate}${sanitizedTime}${sanitizedNominal}${sanitizedJenis}${sanitizedNamaJenis}${sanitizedNama}${sanitizedPaymentMethod}`;
-		if (securityUtils.detectSuspiciousActivity('catat_form', allInputs)) {
-			error = 'Input mencurigakan terdeteksi. Silakan coba lagi.';
-			securityUtils.logSecurityEvent('suspicious_input_blocked', {
-				form: 'catat',
-				inputs: { date: sanitizedDate, time: sanitizedTime, nominal: sanitizedNominal }
-			});
-			return;
-		}
+		const paymentMethodValidation = validateText(trimmedPaymentMethod, { required: true });
 		const errors = [];
 		if (!timeValidation.isValid) errors.push(`Waktu: ${timeValidation.errors.join(', ')}`);
 		if (!nominalValidation.isValid) errors.push(`Nominal: ${nominalValidation.errors.join(', ')}`);
@@ -304,8 +295,8 @@ export function createCatatState() {
 		if (!namaValidation.isValid) errors.push(`Nama: ${namaValidation.errors.join(', ')}`);
 		if (!paymentMethodValidation.isValid)
 			errors.push(`Metode Pembayaran: ${paymentMethodValidation.errors.join(', ')}`);
-		if (sanitizedJenis === 'lainnya') {
-			const namaJenisValidation = validateText(sanitizedNamaJenis, {
+		if (trimmedJenis === 'lainnya') {
+			const namaJenisValidation = validateText(trimmedNamaJenis, {
 				required: true,
 				minLength: 2,
 				maxLength: 50
@@ -319,12 +310,12 @@ export function createCatatState() {
 			return;
 		}
 		const dataToValidate = {
-			nominal: parseFloat(sanitizedNominal.replace(/\D/g, '')),
-			deskripsi: sanitizedNama,
-			transaction_date: sanitizedDate,
-			transaction_time: sanitizedTime,
-			metode_bayar: sanitizedPaymentMethod,
-			jenis: sanitizedJenis
+			nominal: parseFloat(trimmedNominal.replace(/\D/g, '')),
+			deskripsi: trimmedNama,
+			transaction_date: trimmedDate,
+			transaction_time: trimmedTime,
+			metode_bayar: trimmedPaymentMethod,
+			jenis: trimmedJenis
 		};
 		const completeValidation = validateIncomeExpense(dataToValidate);
 		if (!completeValidation.isValid) {

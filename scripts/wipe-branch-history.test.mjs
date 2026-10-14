@@ -131,11 +131,14 @@ await test('delete children precedes parents', () => {
 	])
 		assert.ok(WIPE_TABLES.indexOf(a) < WIPE_TABLES.indexOf(b));
 });
-await test('no wiped table is protected by a BEFORE DELETE trigger in the migrations', () => {
+await test('no wiped table is protected by a DELETE trigger in the migrations', () => {
 	// Live wipe 14 Okt 2026 failed atomically on STOCK_RECONCILIATION_ITEMS_IMMUTABLE (0032).
+	// BEFORE dan AFTER DELETE sama-sama bisa RAISE(ABORT); nama tabel boleh berprefiks main.
 	const guarded = loadDrillContract()
 		.objects.filter((object) => object.key.startsWith('trigger:'))
-		.map((object) => /before delete on [`"]?(\w+)/.exec(object.sql)?.[1])
+		.map((object) =>
+			/(?:before|after) delete on [`"]?(?:main\.)?[`"]?(\w+)/i.exec(object.sql)?.[1]?.toLowerCase()
+		)
 		.filter(Boolean);
 	assert.ok(guarded.includes('stock_reconciliation_items'), 'contract exposes delete guards');
 	for (const table of WIPE_TABLES) assert.ok(!guarded.includes(table), table);
@@ -545,7 +548,7 @@ await test('actual owned local CLI dry-run and immutable atomic wipe with litera
 			timeout: 120000
 		});
 		assert.equal(applied.status, 0, applied.stderr);
-		assert.match(applied.stdout, /SELESAI pada titik commit/);
+		assert.match(applied.stdout, /SELESAI: semua tabel target terbaca ulang 0/);
 		const query = wranglerInvocation([
 			'd1',
 			'execute',

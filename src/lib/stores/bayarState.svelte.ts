@@ -1,5 +1,5 @@
 import { goto } from '$app/navigation';
-import { validateNumber, sanitizeInput } from '$lib/utils/validation';
+import { validateNumber } from '$lib/utils/validation';
 import { buildCartItemKey } from '$lib/utils/cartKey';
 import { securityUtils } from '$lib/utils/security';
 import { userRole } from '$lib/stores/userRole.svelte';
@@ -405,23 +405,11 @@ export function createBayarState() {
 			showErrorNotif('Terlalu banyak transaksi. Silakan tunggu sebentar.');
 			return;
 		}
-		const sanitizedCashReceived = sanitizeInput(cashReceived);
-		const sanitizedPaymentMethod = sanitizeInput(paymentMethod);
-		const allInputs = `${sanitizedCashReceived}${sanitizedPaymentMethod}${totalHarga}`;
-		if (securityUtils.detectSuspiciousActivity('payment_completion', allInputs)) {
-			showErrorNotif('Aktivitas pembayaran mencurigakan terdeteksi. Silakan coba lagi.');
-			securityUtils.logSecurityEvent('suspicious_payment_activity', {
-				cashReceived: sanitizedCashReceived,
-				paymentMethod: sanitizedPaymentMethod,
-				totalHarga
-			});
-			return;
-		}
 		if (await catatTransaksiKeLaporan()) {
 			securityUtils.logSecurityEvent('payment_completed', {
-				paymentMethod: sanitizedPaymentMethod,
+				paymentMethod,
 				totalAmount: totalHarga,
-				cashReceived: parseInt(sanitizedCashReceived),
+				cashReceived: parseInt(cashReceived.trim()),
 				change: kembalian,
 				itemsCount: cart.length,
 				queuedOffline: transactionQueuedOffline

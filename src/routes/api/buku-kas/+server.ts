@@ -3,7 +3,10 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { payloadRows } from '$lib/server/dataApiHelpers';
 import { decodeDataCursor, parseDataLimit } from '$lib/server/dataPagination';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
-import { requirePageAccessForBranch } from '$lib/server/pageAccess';
+import {
+	requirePageAccessForBranch,
+	requireSessionReadAccessForBranch
+} from '$lib/server/pageAccess';
 import {
 	getBukuKasListForBranch,
 	insertBukuKasRowsForBranch,
@@ -18,7 +21,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/buku-kas — Resource route controller untuk tabel `buku_kas`.
  * Menangani HTTP auth, validasi request, dan delegasi ke bukuKasService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
@@ -27,9 +30,11 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const idSesiToko = url.searchParams.get('id_sesi_toko');
 	const sumber = url.searchParams.get('sumber');
 
-	// [CATATAN]: Jika query buku_kas untuk shift kasir (hitung laci kasir), bypass cek halaman catat.
-	// Jika query pos (grafik omzet mingguan dashboard), izinkan jika halaman beranda atau catat terbuka.
-	if (!idSesiToko) {
+	// Laci shift berjalan selalu terbaca kasir; shift lain mengikuti kunci halaman catat.
+	// Query pos (grafik omzet mingguan dashboard) cukup dengan beranda atau catat terbuka.
+	if (idSesiToko) {
+		await requireSessionReadAccessForBranch(platform, branch, session, idSesiToko, 'catat');
+	} else {
 		if (sumber === 'pos') {
 			const isUnlocked =
 				session.role !== 'kasir' ||

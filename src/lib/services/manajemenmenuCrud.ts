@@ -81,8 +81,6 @@ export function createKategoriCrud() {
 			id
 				? transactionService.updateRows('kategori', { nama: name }, { id: String(id) })
 				: transactionService.insertRows('kategori', { nama: name }),
-		clearProducts: (id: string | number) =>
-			transactionService.updateRows('produk', { kategori_id: null }, { kategori_id: String(id) }),
 		remove: (id: string | number) => transactionService.deleteRows('kategori', { id: String(id) })
 	};
 }
@@ -139,7 +137,7 @@ export function createHppState() {
 			return data.items || [];
 		},
 		async savePurchasedItem(item: HppParsedItem, existing?: Ingredient) {
-			// Satu perintah kulakan atomik (AUD-006): mutasi + HPP satu batch.
+			// Satu perintah kulakan atomik: mutasi + HPP satu batch.
 			// qty parse dianggap satuan dasar (cermin perilaku lama): kirim dalam
 			// satuan dasar bahan agar konversi server identitas.
 			if (existing) {

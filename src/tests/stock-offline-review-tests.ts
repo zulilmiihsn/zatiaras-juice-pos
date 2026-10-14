@@ -386,6 +386,94 @@ try {
 		await replayHarness.close();
 	}
 
+	// queued_at berasal dari perangkat: replay terlalu tua dan replay di luar jam sesi ditolak.
+	const guardHarness = await createTestD1(false);
+	try {
+		const guardDb = guardHarness.db;
+		const guardEnv = {
+			POS_PRICE_SIGNING_KEY: '0123456789abcdef0123456789abcdef'
+		} as App.Platform['env'];
+		const guardPlatform = { env: guardEnv } as App.Platform;
+		const kasir = { userId: 'kasir-1', username: 'kasir', role: 'kasir' };
+		const hour = 60 * 60 * 1000;
+		const closedOpenAt = Date.now() - 10 * hour;
+		const closedCloseAt = Date.now() - 6 * hour;
+		await guardDb
+			.prepare(
+				`INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok, lacak_bahan, is_active)
+				 VALUES ('p-guard', 'samarinda', 'Produk Guard', 10000, 0, 0, 0, 1)`
+			)
+			.run();
+		await guardDb
+			.prepare(
+				`INSERT INTO sesi_toko (id, cabang_id, kas_awal, waktu_buka, waktu_tutup, is_active, created_at, updated_at)
+				 VALUES ('sesi-tutup', 'samarinda', 0, ?, ?, 0, ?, ?)`
+			)
+			.bind(
+				new Date(closedOpenAt).toISOString(),
+				new Date(closedCloseAt).toISOString(),
+				new Date(closedOpenAt).toISOString(),
+				new Date(closedCloseAt).toISOString()
+			)
+			.run();
+		const guardReplay = async (key: string, queuedAt: number) =>
+			executeCheckout({
+				db: guardDb,
+				branch: samarinda,
+				session: kasir,
+				platform: guardPlatform,
+				rawBody: {
+					idempotency_key: key,
+					mode: 'offline_replay',
+					queued_at: queuedAt,
+					metode_bayar: 'tunai',
+					cash_received: 10000,
+					store_session_id: 'sesi-tutup',
+					items: [
+						{
+							product_id: 'p-guard',
+							jumlah: 1,
+							product_price_token: await signPosPricingToken(guardEnv, {
+								kind: 'catalog_product',
+								branch: 'samarinda',
+								data: { id: 'p-guard', nama: 'Produk Guard', harga: 10000 },
+								ttlMs: MS_PER_DAY,
+								now: queuedAt
+							})
+						}
+					]
+				}
+			});
+		const rejectedWith = (status: number, pattern: RegExp) => (error: unknown) =>
+			error instanceof CheckoutUseCaseError &&
+			error.status === status &&
+			pattern.test(error.message);
+
+		// Token katalog lama tetap "berlaku" pada queued_at mundur; batas umur menolaknya.
+		await assert.rejects(
+			guardReplay('offline-guard-old', Date.now() - 4 * MS_PER_DAY),
+			rejectedWith(409, /terlalu lama/)
+		);
+		// Sesi sudah tutup, tetapi queued_at sesudah jam tutup: tidak boleh ditempel ke shift itu.
+		await assert.rejects(
+			guardReplay('offline-guard-after-close', Date.now() - 2 * hour),
+			rejectedWith(409, /di luar jam sesi/)
+		);
+		// Transaksi yang memang terjadi di dalam shift tetap tersinkron walau shift sudah tutup.
+		const inWindow = await guardReplay('offline-guard-in-window', closedOpenAt + hour);
+		assert.equal(inWindow.idempotent, false);
+		assert.equal(
+			await guardDb
+				.prepare(
+					"SELECT id_sesi_toko FROM buku_kas WHERE idempotency_key = 'offline-guard-in-window'"
+				)
+				.first<string>('id_sesi_toko'),
+			'sesi-tutup'
+		);
+	} finally {
+		await guardHarness.close();
+	}
+
 	console.log(
 		'stock-offline-review-tests: epoch, quarantine, approval, triggers, catalog, routes passed'
 	);

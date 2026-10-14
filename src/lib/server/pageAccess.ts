@@ -63,6 +63,28 @@ export async function requirePageAccess(
 	throw kitError(403, 'PIN_REQUIRED');
 }
 
+/**
+ * Laci shift yang sedang berjalan selalu boleh dibaca kasir (buka/tutup toko).
+ * Sesi lain adalah riwayat omzet, jadi mengikuti kunci halaman yang sama dengan
+ * dashboard/laporan; tanpa ini kunci PIN bisa dilewati lewat endpoint sebelah.
+ */
+export async function requireSessionReadAccessForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	session: AuthSession,
+	sesiTokoId: string,
+	page: ProtectedPage
+): Promise<void> {
+	if (session.role === 'pemilik' || session.role === 'admin') return;
+	const rawDb = getRawDb(platform, branch);
+	const active = await rawDb
+		.prepare('SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND id = ? AND is_active = 1 LIMIT 1')
+		.bind(branch, sesiTokoId)
+		.first();
+	if (active) return;
+	await requirePageAccess(rawDb, session, page);
+}
+
 // KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
 // boundary server agar route tidak masuk allowlist import DB langsung.
 export function requirePageAccessForBranch(

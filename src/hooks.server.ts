@@ -7,17 +7,7 @@ import {
 	recordRequestMetric
 } from '$lib/server/observability';
 import { isCsrfProtectedRequest } from '$lib/server/csrfPolicy';
-
-function constantTimeEqual(left: string, right: string): boolean {
-	let mismatch = left.length ^ right.length;
-	const length = Math.max(left.length, right.length);
-
-	for (let index = 0; index < length; index++) {
-		mismatch |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
-	}
-
-	return mismatch === 0;
-}
+import { constantTimeEqual } from '$lib/server/secureCompare';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	if (building || event.url.pathname === '/offline') {
@@ -96,7 +86,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
 
 	if (event.url.pathname.startsWith('/api/')) {
-		await recordRequestMetric(event.platform, observedBranch, {
+		const metric = recordRequestMetric(event.platform, observedBranch, {
 			method: event.request.method,
 			path: event.url.pathname,
 			status: response.status,
@@ -104,6 +94,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 			dbMeta: response.headers.get('x-d1-meta'),
 			session: event.locals.authSession
 		});
+		// Metrik tak boleh menambah latensi respons; runtime menunggunya sesudah respons terkirim.
+		if (event.platform?.context) event.platform.context.waitUntil(metric);
+		else await metric;
 	}
 
 	return response;

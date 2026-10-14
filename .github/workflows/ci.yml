@@ -178,6 +178,9 @@ jobs:
       - name: Run Menu Atomic Suite
         run: pnpm test:menu-atomic
 
+      - name: Run Catalog Route Suite
+        run: pnpm test:catalog-routes
+
       - name: Run External Branch Seed Validation Suite
         run: pnpm test:seed-external-branches
 
@@ -215,6 +218,9 @@ jobs:
           pnpm test:stock-reconciliation
           pnpm test:stock-offline-review
           pnpm test:stock-write-guards
+
+      - name: Run Page Lock Suite
+        run: pnpm test:page-lock
 
       - name: Run Antrean Suite
         run: pnpm test:antrean

@@ -82,7 +82,7 @@ export async function updateBahanRow(
 	payload: Record<string, unknown>
 ) {
 	const safePayload = sanitizeUpdatePayload(payload);
-	// Saldo bukan metadata (AUD-009): PATCH tak boleh menulis stok_saat_ini —
+	// Saldo bukan metadata: PATCH tak boleh menulis stok_saat_ini —
 	// form basi akan menghapus mutasi checkout bersamaan. Saldo eksplisit hanya
 	// lewat mutasi atomik / purchase / rekonsiliasi. Stok awal tetap via create.
 	if ('stok_saat_ini' in safePayload) {
@@ -173,8 +173,13 @@ export async function deleteBahanRow(
 	platform: App.Platform | undefined,
 	id: string
 ) {
+	// Hanya resep milik produk yang masih ada; resep yatim dari hapus produk lama tak memblokir.
 	const used = await rawDb
-		.prepare(`SELECT id FROM resep_produk WHERE cabang_id = ? AND bahan_id = ? LIMIT 1`)
+		.prepare(
+			`SELECT rp.id FROM resep_produk rp
+			 JOIN produk p ON p.cabang_id = rp.cabang_id AND p.id = rp.produk_id
+			 WHERE rp.cabang_id = ? AND rp.bahan_id = ? LIMIT 1`
+		)
 		.bind(branch, id)
 		.first();
 	if (used) throw kitError(409, 'Bahan masih dipakai di resep menu');

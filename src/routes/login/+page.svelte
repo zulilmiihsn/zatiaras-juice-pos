@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { loginWithUsername } from '$lib/auth/auth';
-	import { validateText, validatePasswordDemo, sanitizeInput } from '$lib/utils/validation';
+	import { validateText, validateLoginPassword, trimInput } from '$lib/utils/validation';
 	import { securityUtils } from '$lib/utils/security';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import type { BranchType } from '$lib/stores/selectedBranch.svelte';
@@ -26,7 +26,7 @@
 	let hydrated = $state(false);
 	let errorMessage = $state('');
 
-	// [CATATAN]: Form validation
+	// Form validation
 	let usernameError = $state('');
 	let passwordError = $state('');
 
@@ -35,7 +35,7 @@
 		selectedBranch.value = branch as BranchType;
 	});
 
-	// [CATATAN]: Validate form
+	// Validate form
 	function validateForm(): boolean {
 		let isValid = true;
 		const usernameValidation = validateText(username, {
@@ -45,7 +45,7 @@
 		});
 		usernameError = usernameValidation.errors.join(', ');
 		if (!usernameValidation.isValid) isValid = false;
-		const passwordValidation = validatePasswordDemo(password);
+		const passwordValidation = validateLoginPassword(password);
 		passwordError = passwordValidation.errors.join(', ');
 		if (!passwordValidation.isValid) isValid = false;
 		return isValid;
@@ -65,25 +65,14 @@
 			errorTimeout = setTimeout(() => (showErrorModal = false), 1200);
 			return;
 		}
-		const sanitizedUsername = sanitizeInput(username);
-		// Password dikirim apa adanya (tanpa sanitizeInput): pola HTML/SQL adalah
+		const trimmedUsername = trimInput(username);
+		// Password dikirim apa adanya (tanpa trimInput): pola HTML/SQL adalah
 		// karakter sah dalam password. Rate limit + panjang tetap berlaku.
 		// Aturan tepi: password di-trim di create/change/verify agar konsisten
 		// dengan kredensial tersimpan (terdokumentasi di server).
-		if (securityUtils.detectSuspiciousActivity('login', sanitizedUsername)) {
-			errorMessage = 'Aktivitas mencurigakan terdeteksi. Silakan coba lagi.';
-			securityUtils.logSecurityEvent('login_attempt_blocked', {
-				username: sanitizedUsername,
-				reason: 'suspicious_activity'
-			});
-			showErrorModal = true;
-			if (errorTimeout) clearTimeout(errorTimeout);
-			errorTimeout = setTimeout(() => (showErrorModal = false), 1200);
-			return;
-		}
 		isLoading = true;
 		try {
-			await loginWithUsername(sanitizedUsername, password, branch);
+			await loginWithUsername(trimmedUsername, password, branch);
 			showSuccessModal = true;
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			// Navigasi wajib await: relogin harus tiba di `/` atau gagal eksplisit,
@@ -92,7 +81,7 @@
 		} catch (e: unknown) {
 			errorMessage = e instanceof Error ? e.message : 'Login gagal';
 			securityUtils.logSecurityEvent('login_failed', {
-				username: sanitizedUsername,
+				username: trimmedUsername,
 				reason: 'invalid_credentials'
 			});
 			showErrorModal = true;
@@ -128,7 +117,7 @@
 			errorMessage = reasonMessages[reason];
 		}
 
-		// [CATATAN]: Jika sudah login, redirect ke dashboard
+		// Jika sudah login, redirect ke dashboard
 		if (await isAuthenticated()) {
 			goto('/');
 			return;

@@ -31,9 +31,10 @@ export const WIPE_TABLES = Object.freeze([
 	'offline_stock_reviews',
 	'stock_policy_transitions'
 ]);
-// stock_reconciliations/_items sengaja TIDAK dihapus: migrasi 0032 memasang trigger
-// BEFORE DELETE (STOCK_RECONCILIATION_ITEMS_IMMUTABLE) sehingga riwayat rekonsiliasi permanen,
-// seperti audit. Dulu tercantum di sini dan membuat wipe live gagal-atomik (14 Okt 2026).
+// stock_reconciliations/_items sengaja TIDAK dihapus. Item dilindungi trigger 0032
+// `trg_stock_reconciliation_item_delete_guard` (RAISE STOCK_RECONCILIATION_ITEMS_IMMUTABLE);
+// header tidak punya trigger/FK, tetapi dipertahankan agar item tidak yatim. Dulu tercantum di
+// sini dan membuat wipe live gagal-atomik (14 Okt 2026).
 export const ARCHIVE_GUARD_TABLES = Object.freeze([
 	'archive_jobs',
 	'archive_job_items',
@@ -316,7 +317,7 @@ export function formatReport({ branch, apply, report }) {
 		`${apply ? 'WIPE' : 'DRY-RUN'} cabang ${branch}:`,
 		...report.map((row) => `  - ${row.table}: ${row.before} -> ${row.after}`),
 		apply
-			? 'SELESAI pada titik commit. Wajib stock reconciliation, katalog verification dan smoke operator.'
+			? 'SELESAI: semua tabel target terbaca ulang 0. Wajib stock reconciliation, katalog verification dan smoke operator.'
 			: 'DRY-RUN selesai tanpa menghapus. Apply perlu --confirm cabang dan approval operator.'
 	].join('\n');
 }

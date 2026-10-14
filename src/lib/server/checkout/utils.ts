@@ -1,13 +1,30 @@
-import { error as kitError } from '@sveltejs/kit';
-import { roundMoney } from '$lib/utils/currency';
-
 // Pertahankan import existing checkout; policy angka murni kanonik berada di currency.
 export { normalizeMoney, normalizeCost, roundMoney } from '$lib/utils/currency';
+
+/** Error domain checkout/quote yang membawa status HTTP; route memetakannya ke respons. */
+export class CheckoutDomainError extends Error {
+	readonly status: number;
+
+	constructor(status: number, message: string) {
+		super(message);
+		this.name = 'CheckoutDomainError';
+		this.status = status;
+	}
+}
 
 export const IN_QUERY_CHUNK_SIZE = 80;
 export const CHECKOUT_WINDOW_MS = 60 * 1000;
 export const CHECKOUT_MAX_PER_WINDOW = 30;
 export const CHECKOUT_MAX_LINE_ITEMS = 100;
+
+/**
+ * Batas umur replay offline. `queued_at` berasal dari perangkat, jadi tanpa batas
+ * bawah token harga katalog (TTL 1 hari) bisa dipakai ulang selamanya dengan
+ * `queued_at` yang dimundurkan. Replay lebih tua dari ini ditahan untuk pemilik.
+ */
+export const OFFLINE_REPLAY_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+/** Toleransi jam perangkat terhadap waktu buka/tutup sesi (keduanya juga jam perangkat). */
+export const OFFLINE_REPLAY_CLOCK_SKEW_MS = 15 * 60 * 1000;
 
 export function checkoutItemCountError(items: unknown): string | null {
 	if (!Array.isArray(items) || items.length === 0) return 'Item transaksi kosong';
@@ -20,7 +37,7 @@ export function checkoutItemCountError(items: unknown): string | null {
 export function normalizePaymentMethod(value: unknown): 'tunai' | 'non-tunai' {
 	if (value === 'qris' || value === 'non-tunai') return 'non-tunai';
 	if (value === 'tunai') return 'tunai';
-	throw kitError(400, 'Metode pembayaran tidak valid');
+	throw new CheckoutDomainError(400, 'Metode pembayaran tidak valid');
 }
 
 /** One limit per item option: receipt snapshot and transaksi_kasir row must store identical text. */
@@ -36,15 +53,6 @@ export function uniqueStrings(values: Array<string | null | undefined>): string[
 	return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-export function getWitaSalesDate(value: string): string {
-	return new Intl.DateTimeFormat('sv-SE', {
-		timeZone: 'Asia/Makassar',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit'
-	}).format(new Date(value));
-}
-
 export function chunks<T>(values: T[], size: number): T[][] {
 	const result: T[][] = [];
 	for (let index = 0; index < values.length; index += size) {
@@ -55,7 +63,7 @@ export function chunks<T>(values: T[], size: number): T[][] {
 
 export function assertActive(row: { is_active: number | boolean | null }, label: string) {
 	if (row.is_active === false || row.is_active === 0) {
-		throw kitError(409, `${label} tidak aktif`);
+		throw new CheckoutDomainError(409, `${label} tidak aktif`);
 	}
 }
 
@@ -83,6 +91,6 @@ export function summarizeD1Meta(results: unknown): string | null {
 	}
 
 	if (!hasMeta) return null;
-	summary.duration_ms = roundMoney(summary.duration_ms);
+	summary.duration_ms = Math.round(summary.duration_ms * 100) / 100;
 	return JSON.stringify(summary);
 }

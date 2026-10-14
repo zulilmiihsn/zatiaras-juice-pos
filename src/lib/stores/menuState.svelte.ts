@@ -166,7 +166,7 @@ export function createMenuState(deps: MenuDeps) {
 				harga: parseRupiah(menuForm.harga),
 				harga_jumbo: menuForm.harga_jumbo ? parseRupiah(menuForm.harga_jumbo) : null,
 				// Edit tak mengirim saldo: server mengabaikan stok basi form agar
-				// checkout bersamaan tak tertimpa (AUD-008). Stok awal hanya saat buat.
+				// checkout bersamaan tak tertimpa. Stok awal hanya saat buat.
 				...(!editMenuId
 					? {
 							stok:
@@ -286,8 +286,9 @@ export function createMenuState(deps: MenuDeps) {
 		if (menuIdToDelete !== null) {
 			try {
 				const menu = menus.find((m) => m.id === menuIdToDelete);
-				await deleteMenuImage(menu?.gambar);
 				await menuCrud.remove(menuIdToDelete);
+				// Sesudah produk terhapus: hapus produk yang gagal tak boleh menghilangkan gambarnya.
+				await deleteMenuImage(menu?.gambar);
 				deps.showNotif('Menu berhasil dihapus!', 'success');
 			} catch (error) {
 				deps.showNotif('Gagal menghapus menu: ' + ErrorHandler.extractErrorMessage(error), 'error');

@@ -2,7 +2,10 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { payloadRows } from '$lib/server/dataApiHelpers';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
-import { requirePageAccessForBranch } from '$lib/server/pageAccess';
+import {
+	requirePageAccessForBranch,
+	requireSessionReadAccessForBranch
+} from '$lib/server/pageAccess';
 import { parseDataLimit } from '$lib/server/dataPagination';
 import {
 	getSesiTokoListForBranch,
@@ -15,13 +18,14 @@ import type { RequestHandler } from './$types';
 /**
  * /api/sesi-toko — Resource route controller untuk tabel `sesi_toko` (buka/tutup toko).
  * Menangani HTTP auth, validasi request, dan delegasi ke sesiTokoService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	if (url.searchParams.get('summary') === '1' || url.searchParams.get('summary') === 'true') {
 		const sid = url.searchParams.get('id');
 		if (!sid) throw kitError(400, 'id sesi diperlukan');
+		await requireSessionReadAccessForBranch(platform, branch, locals.authSession!, sid, 'beranda');
 		const summary = await getSesiSummaryForBranch(platform, branch, sid);
 		if (!summary) throw kitError(404, 'Sesi tidak ditemukan');
 		return json(summary);

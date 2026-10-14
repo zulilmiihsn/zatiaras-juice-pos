@@ -2,6 +2,7 @@ import { json, error as kitError } from '@sveltejs/kit';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import { decodeDataCursor, parseDataLimit } from '$lib/server/dataPagination';
 import { parseBody, type WriteBody } from '$lib/server/resourceRouteHelpers';
+import { requirePageAccessForBranch } from '$lib/server/pageAccess';
 import {
 	listTransaksiKasirForBranch,
 	voidTransaksiKasirForBranch
@@ -11,7 +12,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/transaksi-kasir — Resource route controller untuk tabel `transaksi_kasir`.
  * Menangani HTTP auth, validasi request, dan delegasi ke transaksiKasirService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
@@ -27,6 +28,11 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 		transactionId: url.searchParams.get('transaction_id'),
 		bukuKasIds: url.searchParams.get('buku_kas_ids')?.split(',').filter(Boolean) || null
 	};
+	// Lookup per transaksi (cetak ulang struk) bebas; daftar rentang adalah data omzet
+	// dashboard dan mengikuti kunci halaman beranda.
+	if (!filter.transactionId && !filter.bukuKasIds?.length) {
+		await requirePageAccessForBranch(platform, branch, locals.authSession!, 'beranda');
+	}
 
 	const result = await listTransaksiKasirForBranch(
 		platform,
@@ -47,7 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await parseBody<WriteBody>(request);
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');
 
-	// [CATATAN]: Blokir: transaksi POS harus lewat /api/pos/transaction (yang juga maintain agregat harian).
+	// Blokir: transaksi POS harus lewat /api/pos/transaction (yang juga maintain agregat harian).
 	throw kitError(409, 'Transaksi POS harus lewat /api/pos/transaction');
 };
 
