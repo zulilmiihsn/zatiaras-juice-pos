@@ -22,8 +22,8 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      1 |
-| In progress  |      0 |
-| Blocked      |      4 |
+| In progress  |      1 |
+| Blocked      |      3 |
 | Passed local |      0 |
 | Completed    |     58 |
 | **Total**    | **63** |
@@ -187,7 +187,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                                | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
 | [x]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Drill nyata 3 shard lulus; schema production diperbaiki | Completed        | claude-opus-5.5 | TRK-092: drill nyata 3 shard + schema diperbaiki; RTO ≤1 jam / RPO backup sebelum deploy + harian disetujui                                                        |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                     | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
-| [ ]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Sebagian                                                | Blocked          | —               | §10: provider/model/quota/budget approval; local fixtures tetap boleh                                                                                              |
+| [ ]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak      | In progress      | claude-opus-5.5 | TRK-093: `ae0c037` deploy 38488281061; budget Rp 0; menunggu UAT batch 9                                                                                           |
 | [ ]  | [AUD-062](AUDIT-REMEDIATION-PLAN.md#aud-062) | Printer fisik dan seluruh jalur reprint          | Belum terverifikasi                                     | Blocked          | —               | §10: supported printer/channel physical matrix                                                                                                                     |
 | [ ]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Tidak sesuai                                            | Pending          | —               | ALL: final same-candidate gate/approval/artifact/sign-off                                                                                                          |
 
@@ -1044,6 +1044,37 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
   - code review tanpa temuan terbuka;
   - persetujuan pemilik.
 - Status: **1 Pending (AUD-063) / 0 In progress / 4 Blocked / 58 Completed**.
+
+### TRK-093 — 14 Oktober 2026: AUD-061 provider AI nyata, budget Rp 0 (model gratis OpenRouter)
+
+- Owner: claude-opus-5.5. Keputusan pemilik: budget Rp 0, hanya model gratis OpenRouter. Commit `ae0c037`; CI 38486313075 hijau; deploy 38488281061 sukses (smoke `/login`, `/api/csrf` 200; `/api/aichat` tanpa sesi 403).
+- **Temuan dari uji live** (key lokal; hanya payload non-sensitif tanpa data pelanggan):
+  1. HPP parse memakai `deepseek/deepseek-chat` (berbayar).
+  2. Fitur web search mengirim tool `openrouter:web_search`, yang ditagih per pencarian walau modelnya `:free`.
+  3. Router `openrouter/free` memilih model acak, termasuk `nemotron-3.5-content-safety:free` yang menjawab "User Safety: safe".
+  4. Model reasoning gratis menghabiskan `max_tokens` untuk berpikir lalu mengembalikan `content: null`. Chat non-stream jadi `INVALID_RESPONSE` dan HPP "tidak menemukan bahan".
+  5. Fallback `inclusionai/ling-3.0-flash-fin:free` sudah dihapus OpenRouter.
+- **Perbaikan:**
+  - `chatPayload` adalah titik tunggal penegakan: model non-`:free` dan tool `openrouter:*` ditolak sebelum request (`PAID_AI_REFUSED`, 500). Penolakan tidak pernah ditelan fallback, AI-1, maupun HPP.
+  - Default `nvidia/nemotron-3-super-120b-a12b:free`; fallback `nvidia/nemotron-3.5-lightning:free` dan `google/gemma-4-31b-it:free`.
+  - `reasoning: {enabled:false}` dikirim di setiap request.
+  - Override env `AI_MODEL`/`OPENROUTER_MODEL`: kandidat `:free` pertama yang dipakai, berlaku untuk chat dan HPP.
+  - Respons 200 dengan konten null/kosong kini memicu fallback. Error akhir deterministik: status HTTP primary (parity), lalu status fallback bila primary kosong, lalu `INVALID_RESPONSE`. Dulu fallback kosong menghasilkan `''`, yaitu gelembung jawaban kosong.
+  - Web search dimatikan; lencana `webSearch` di UI selalu false (jujur).
+  - Field config mati `MODEL: deepseek` dihapus.
+- **Bukti live dengan konfigurasi final** (sebelum ronde review terakhir, yang hanya mengubah jalur error dan tercakup tes unit):
+  - Non-stream menjawab "SIAP" dalam 542 ms; stream selesai dalam 622 ms.
+  - Cancel: `aborted` setelah 1 chunk. Timeout terbatas: `UPSTREAM_TIMEOUT` dalam 7 ms. Model berbayar: ditolak dalam 0 ms tanpa request (saat itu bernama `PAID_MODEL_REFUSED`, kini `PAID_AI_REFUSED`).
+  - HPP: "gula pasir 2 kg 30rb, SKM 3 kaleng 36rb" menjadi 2.000 g @ Rp 15 dan 3 pcs @ Rp 12.000, dalam 1,1 s.
+  - Usage key OpenRouter sebelum = sesudah (`usage` 0.049 kumulatif lama, `usage_daily` 0, free tier). Biaya uji: **Rp 0**.
+- Malformed, rate-limit, timeout, kosong, dan tool/model berbayar dibuktikan lewat injeksi di `ai-gateway-tests` (tes baru: 8, 8b, budget, `''`, 429).
+- Code review 2 ronde, 20 temuan. Ditindaklanjuti kecuali yang dicatat sebagai sisa risiko di bawah.
+- **Sisa risiko (diterima, perilaku lama di luar cakupan):**
+  - Stream 200 yang hanya berisi delta kosong tidak memicu fallback. Risikonya turun karena reasoning dimatikan; terbukti live.
+  - Timeout atau kegagalan transport pada primary non-stream tidak mencoba fallback.
+  - HPP kini bisa memakai rantai 3 model, jadi kasus terburuk menunggu hingga 60 s.
+  - Daftar model gratis OpenRouter berubah-ubah. Ganti lewat env `AI_MODEL` (`:free`) tanpa deploy, atau ubah `DEFAULT_AI_MODEL`.
+- AUD-061 **Blocked → In progress**; menunggu UAT pemilik batch 9.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
