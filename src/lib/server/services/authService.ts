@@ -16,6 +16,9 @@ import { normalizeRole } from '$lib/utils/roles';
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_IP_ATTEMPTS = 60;
 const LOGIN_MAX_USER_ATTEMPTS = 15;
+// Hash bcrypt acak (cost sama dengan akun asli) untuk username yang tidak ada: tanpa ini
+// akun tak dikenal dijawab jauh lebih cepat dan waktu respons membocorkan username.
+const DUMMY_PASSWORD_HASH = '$2b$10$CeSt4rbeplb5tITzm7q3Q.VdQQGwdiX/HaLHVpSnZeVlEVVPBqxCS';
 
 async function hashIdentifier(value: string): Promise<string> {
 	const bytes = new TextEncoder().encode(value);
@@ -150,7 +153,12 @@ export async function attemptLogin(
 			.where(and(eq(profil.cabang_id, branchId), eq(profil.username, username)))
 			.get();
 
+		// Aturan tepi spasi (terdokumentasi): password di-trim di
+		// create/change/verify agar konsisten dengan hash tersimpan.
+		// Pola HTML/SQL di DALAM password tidak diubah/ditolak.
+		const passwordTrimmed = typeof password === 'string' ? password.trim() : String(password);
 		if (!user) {
+			await bcrypt.compare(passwordTrimmed, DUMMY_PASSWORD_HASH);
 			await appendAuditLog(rawDb, branchId, {
 				action: 'login.failed',
 				entityType: 'profil',
@@ -171,10 +179,6 @@ export async function attemptLogin(
 				username
 			};
 		}
-		// Aturan tepi spasi (terdokumentasi): password di-trim di
-		// create/change/verify agar konsisten dengan hash tersimpan.
-		// Pola HTML/SQL di DALAM password tidak diubah/ditolak.
-		const passwordTrimmed = typeof password === 'string' ? password.trim() : (password as string);
 		const match = await bcrypt.compare(passwordTrimmed, user.password);
 		if (!match) {
 			await appendAuditLog(rawDb, branchId, {

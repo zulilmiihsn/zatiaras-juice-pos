@@ -209,4 +209,38 @@ async function seedPengaturan(
 	}
 }
 
+// Login ulang membuat sesi baru; kuota tebakan PIN tetap dihitung per akun, dan tiap
+// tebakan salah tercatat di audit untuk pemilik.
+{
+	const { db, close } = await createTestD1();
+	try {
+		await seedPengaturan(db, null, await hashPin('2580'));
+		const platform = { env: { DB_SAMARINDA_GROUP: db } };
+		const guess = (sessionNo: number) =>
+			verifyPinForBranch(
+				platform as never,
+				branch,
+				{ ...sessionFor('kasir', `brute-${sessionNo}`), userId: 'user-brute' },
+				'9999',
+				'laporan'
+			);
+		const statuses: number[] = [];
+		for (let attempt = 0; attempt < 21; attempt++) {
+			// Lima tebakan per sesi: di bawah batas per sesi (10), jadi hanya batas akun yang menahan.
+			const result = await guess(Math.floor(attempt / 5));
+			statuses.push(result.ok ? 200 : result.status);
+		}
+		assert.deepEqual(statuses.slice(0, 20), Array(20).fill(403));
+		assert.equal(statuses[20], 429);
+		assert.equal(
+			await db
+				.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'pin.failed'")
+				.first<number>('n'),
+			20
+		);
+	} finally {
+		await close();
+	}
+}
+
 console.log('pin-service: ok');

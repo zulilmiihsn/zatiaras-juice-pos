@@ -39,6 +39,42 @@ function asRecord(row: unknown): ManualLedgerRow {
 	return row as ManualLedgerRow;
 }
 
+/**
+ * Kolom yang boleh diisi pencatatan kas manual. Kolom POS, antrean, nomor harian,
+ * idempotency, dan arsip milik server; meneruskan payload mentah membuka mass assignment.
+ */
+const MANUAL_LEDGER_INSERT_COLUMNS = [
+	'id',
+	'cabang_id',
+	'waktu',
+	'tipe',
+	'jenis',
+	'sumber',
+	'nominal',
+	'deskripsi',
+	'nama_pelanggan',
+	'metode_bayar',
+	'id_sesi_toko',
+	'transaction_id'
+] as const;
+const MANUAL_LEDGER_PATCH_COLUMNS = [
+	'waktu',
+	'tipe',
+	'jenis',
+	'sumber',
+	'nominal',
+	'deskripsi',
+	'nama_pelanggan',
+	'metode_bayar',
+	'revision'
+] as const;
+
+function pickColumns(row: ManualLedgerRow, columns: readonly string[]): ManualLedgerRow {
+	const picked: ManualLedgerRow = {};
+	for (const column of columns) if (Object.hasOwn(row, column)) picked[column] = row[column];
+	return picked;
+}
+
 /** Nominal rupiah: finite, >= 0, dalam rentang aman; desimal dibulatkan. */
 export function validateLedgerNominal(value: unknown): number {
 	const decoded = decodeMoneyAmount(value);
@@ -111,7 +147,7 @@ export function validateManualLedgerRows(rows: unknown): ManualLedgerRow[] {
 		const jenis = validateLedgerJenis(row.jenis);
 		checkJenisPairing(tipe, jenis);
 		return {
-			...row,
+			...pickColumns(row, MANUAL_LEDGER_INSERT_COLUMNS),
 			nominal: validateLedgerNominal(row.nominal),
 			tipe,
 			jenis,
@@ -131,7 +167,7 @@ export function validateManualLedgerPatch(
 	payload: ManualLedgerRow,
 	existing: { tipe?: unknown; jenis?: unknown }
 ): ManualLedgerRow {
-	const out: ManualLedgerRow = { ...payload };
+	const out: ManualLedgerRow = pickColumns(payload, MANUAL_LEDGER_PATCH_COLUMNS);
 	if ('nominal' in payload) out.nominal = validateLedgerNominal(payload.nominal);
 	let tipe = existing.tipe;
 	let jenis = existing.jenis;

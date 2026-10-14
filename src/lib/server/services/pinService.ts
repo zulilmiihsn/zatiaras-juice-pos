@@ -12,6 +12,10 @@ export type SessionUser = App.Locals['authSession'];
 
 const PIN_WINDOW_MS = 5 * 60 * 1000;
 const PIN_MAX_ATTEMPTS = 10;
+// Batas per sesi saja bisa dilewati dengan login ulang (sesi baru, kuota baru).
+// Batas per akun membuat tebak 10.000 PIN butuh ratusan jam, bukan sekitar satu jam.
+const PIN_USER_WINDOW_MS = 60 * 60 * 1000;
+const PIN_USER_MAX_ATTEMPTS = 20;
 const UNLOCK_TTL_MS = 15 * 60 * 1000;
 const PIN_CHANGE_WINDOW_MS = 15 * 60 * 1000;
 const PIN_CHANGE_MAX_ATTEMPTS = 5;
@@ -50,7 +54,17 @@ export async function verifyPinForBranch(
 		PIN_WINDOW_MS,
 		platform
 	);
-	if (!rateLimit.available) {
+	const userLimit = rateLimit.allowed
+		? await consumeRateLimit(
+				rawDb,
+				branch,
+				`pin:user:${session.userId}`,
+				PIN_USER_MAX_ATTEMPTS,
+				PIN_USER_WINDOW_MS,
+				platform
+			)
+		: rateLimit;
+	if (!rateLimit.available || !userLimit.available) {
 		return {
 			ok: false,
 			message: 'Verifikasi PIN sementara tidak tersedia',
@@ -58,12 +72,12 @@ export async function verifyPinForBranch(
 			retryAfterSeconds: 5
 		};
 	}
-	if (!rateLimit.allowed) {
+	if (!rateLimit.allowed || !userLimit.allowed) {
 		return {
 			ok: false,
 			message: 'Terlalu banyak percobaan PIN',
 			status: 429,
-			retryAfterSeconds: rateLimit.retryAfterSeconds
+			retryAfterSeconds: Math.max(rateLimit.retryAfterSeconds, userLimit.retryAfterSeconds)
 		};
 	}
 
@@ -79,6 +93,13 @@ export async function verifyPinForBranch(
 		? await verifyPinHash(pin, settings.pin_hash)
 		: constantTimeEqual(pin, settings.pin || '');
 	if (!valid) {
+		// Jejak untuk pemilik bila ada yang mencoba menebak PIN.
+		await appendAuditLog(rawDb, branch, {
+			action: 'pin.failed',
+			entityType: 'pengaturan',
+			session,
+			metadata: { page }
+		});
 		return { ok: false, message: 'PIN salah', status: 403 };
 	}
 	if (!settings.pin_hash && settings.pin) {

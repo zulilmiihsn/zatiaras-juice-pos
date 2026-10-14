@@ -129,6 +129,44 @@ await test('decimal string range/sign cannot round invalid source into a valid b
 	assert.equal(normalizeCost(6000.0625), 6000.0625);
 });
 
+await test('manual ledger only accepts manual columns (no mass assignment of server columns)', () => {
+	const [row] = validateManualLedgerRows([
+		{
+			id: 'm-1',
+			tipe: 'out',
+			jenis: 'beban_usaha',
+			sumber: 'catat',
+			nominal: 5000,
+			waktu: '2026-10-14T01:00:00.000Z',
+			metode_bayar: 'tunai',
+			deskripsi: 'Es batu',
+			id_sesi_toko: 'sesi-1',
+			transaction_id: 'ai-manual-1',
+			nomor_harian: 7,
+			preparation_state: 'done',
+			restored_from_archive: 1,
+			idempotency_key: 'pos-key',
+			receipt_snapshot: '{}'
+		}
+	]);
+	assert.equal(row.id_sesi_toko, 'sesi-1');
+	assert.equal(row.transaction_id, 'ai-manual-1');
+	for (const column of [
+		'nomor_harian',
+		'preparation_state',
+		'restored_from_archive',
+		'idempotency_key',
+		'receipt_snapshot'
+	])
+		assert.equal(Object.hasOwn(row, column), false, column);
+
+	const patch = validateManualLedgerPatch(
+		{ nominal: 6000, idempotency_key: 'x', stock_policy_mode: 'ignored' },
+		{ tipe: 'out', jenis: 'beban_usaha' }
+	);
+	assert.deepEqual(Object.keys(patch), ['nominal']);
+});
+
 const { db, close } = await createTestD1();
 const platform = {
 	env: { DB_SAMARINDA_GROUP: db, DB_BALIKPAPAN_GROUP: db, DB_BERAU_GROUP: db }
