@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Destructive pre-operational cleanup, NOT void/migration. Source inventory + confirmation are mandatory.
- * Catalog/settings/profiles/policy/audit are retained; stock needs an approved physical reconciliation.
+ * Catalog/settings/profiles/policy/audit and immutable stock reconciliations are retained;
+ * stock needs an approved physical reconciliation.
  * Dry-run/local by default. Remote requires --live. All live deletion belongs to ONE guarded file batch.
  */
 import { spawnSync } from 'node:child_process';
@@ -28,10 +29,11 @@ export const WIPE_TABLES = Object.freeze([
 	'pos_nomor_harian',
 	'sesi_toko',
 	'offline_stock_reviews',
-	'stock_reconciliation_items',
-	'stock_reconciliations',
 	'stock_policy_transitions'
 ]);
+// stock_reconciliations/_items sengaja TIDAK dihapus: migrasi 0032 memasang trigger
+// BEFORE DELETE (STOCK_RECONCILIATION_ITEMS_IMMUTABLE) sehingga riwayat rekonsiliasi permanen,
+// seperti audit. Dulu tercantum di sini dan membuat wipe live gagal-atomik (14 Okt 2026).
 export const ARCHIVE_GUARD_TABLES = Object.freeze([
 	'archive_jobs',
 	'archive_job_items',
@@ -213,12 +215,12 @@ export function buildWipeSql(branch, source) {
 	)
 		throw new Error('WIPE_BUDGET_BLOCKED: atomic budget, perlu ADR/owner; jangan partial wipe');
 	return {
-		sql: [
-			'-- ZatiarasPOS Wipe Branch History (atomic)',
-			'BEGIN TRANSACTION;',
-			...statements,
-			'COMMIT;'
-		].join('\n'),
+		// D1 remote menolak BEGIN/COMMIT di file ("use state.storage.transaction()"); eksekusi
+		// --file D1 sudah atomik sendiri (gagal = kembali ke state awal), dibuktikan live 14 Okt 2026.
+		// Guard memicu error, jadi kegagalan mana pun membatalkan seluruh file.
+		sql: ['-- ZatiarasPOS Wipe Branch History (atomic per D1 file execution)', ...statements].join(
+			'\n'
+		),
 		statements,
 		branch,
 		tables: [...WIPE_TABLES]

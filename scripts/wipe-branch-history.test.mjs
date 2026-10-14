@@ -15,7 +15,12 @@ import {
 	WIPE_MAX_SQL_BYTES
 } from './wipe-branch-history.mjs';
 import { drillFixtureSql, drillFixtureBaselineOptions } from './test-fixtures/drill-dump.mjs';
-import { drillDatabaseIdentity, captureDrillParity, copyToD1 } from './restore-drill-local.mjs';
+import {
+	drillDatabaseIdentity,
+	captureDrillParity,
+	copyToD1,
+	loadDrillContract
+} from './restore-drill-local.mjs';
 import { wranglerInvocation } from './wrangler-cli.mjs';
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const SQL = drillFixtureSql();
@@ -122,10 +127,18 @@ await test('delete children precedes parents', () => {
 	for (const [a, b] of [
 		['transaksi_kasir', 'buku_kas'],
 		['produk_mutasi', 'buku_kas'],
-		['bahan_mutasi', 'buku_kas'],
-		['stock_reconciliation_items', 'stock_reconciliations']
+		['bahan_mutasi', 'buku_kas']
 	])
 		assert.ok(WIPE_TABLES.indexOf(a) < WIPE_TABLES.indexOf(b));
+});
+await test('no wiped table is protected by a BEFORE DELETE trigger in the migrations', () => {
+	// Live wipe 14 Okt 2026 failed atomically on STOCK_RECONCILIATION_ITEMS_IMMUTABLE (0032).
+	const guarded = loadDrillContract()
+		.objects.filter((object) => object.key.startsWith('trigger:'))
+		.map((object) => /before delete on [`"]?(\w+)/.exec(object.sql)?.[1])
+		.filter(Boolean);
+	assert.ok(guarded.includes('stock_reconciliation_items'), 'contract exposes delete guards');
+	for (const table of WIPE_TABLES) assert.ok(!guarded.includes(table), table);
 });
 await test('full verified backup needs COMPLETE and exact branch identity', async () => {
 	const f = await backupFixture();
@@ -302,8 +315,8 @@ await test('apply one awaited file, all deletes scoped, late failure never claim
 		);
 		assert.equal(applied.length, 1);
 		assert.equal(applied[0].binding, 'DB_SAMARINDA_GROUP');
-		assert.ok(applied[0].sql.includes('BEGIN TRANSACTION;'));
-		assert.ok(applied[0].sql.endsWith('COMMIT;'));
+		// D1 remote rejects explicit transactions in --file (live 14 Okt 2026).
+		assert.doesNotMatch(applied[0].sql, /\bBEGIN\b|\bCOMMIT\b|\bSAVEPOINT\b/i);
 		assert.deepEqual(
 			[...applied[0].sql.matchAll(/DELETE FROM (\w+) WHERE cabang_id = 'samarinda';/g)].map(
 				(m) => m[1]
