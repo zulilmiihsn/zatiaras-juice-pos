@@ -29,7 +29,6 @@ const TENANT_TABLES = new Set([
 	'ringkasan_penjualan_harian',
 	'penjualan_produk_harian',
 	'auth_sessions',
-	'antrean_offline',
 	'antrean_notification_events',
 	'antrean_notification_deliveries',
 	'audit_logs',

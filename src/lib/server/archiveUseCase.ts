@@ -179,7 +179,7 @@ export interface ArchiveChunkCursor {
 	id: string;
 }
 
-/** Pra-kondisi konflik sebelum klaim (sesi/queue/antrean). Per chunk. */
+/** Pra-kondisi konflik sebelum klaim (sesi aktif, pesanan Antrean). Per chunk. */
 async function assertArchivePreconditions(
 	rawDb: D1Database,
 	branch: BranchContext,
@@ -196,19 +196,9 @@ async function assertArchivePreconditions(
 			'Konflik arsip: Sesi toko masih aktif di cabang ini. Tutup sesi kasir terlebih dahulu.'
 		);
 	}
-	const pendingPre = (await rawDb
-		.prepare(
-			`SELECT count(*) as cnt FROM antrean_offline WHERE cabang_id = ? AND status IN ('pending', 'syncing')`
-		)
-		.bind(branch)
-		.first()
-		.catch(() => null)) as { cnt?: number } | null;
-	if (pendingPre && Number(pendingPre.cnt) > 0) {
-		throw new ArchiveUseCaseError(
-			409,
-			`Konflik arsip: Ada ${pendingPre.cnt} transaksi offline yang belum tersinkronisasi. Selesaikan sinkronisasi terlebih dahulu.`
-		);
-	}
+	// Antrean transaksi offline ada di IndexedDB perangkat, tidak terlihat server. Replay yang
+	// tiba sesudah arsip tetap aman: barisnya di bawah cutoff dan ikut terarsip pada panggilan
+	// berikutnya karena runArchive menghitung ulang baris yang memenuhi syarat.
 	const pendingOrdersPre = (await rawDb
 		.prepare(
 			`SELECT count(*) as cnt FROM buku_kas
@@ -552,7 +542,7 @@ export async function runArchive(
 				hasMore: boolean;
 		  }
 	> {
-		// Pra-kondisi segar per chunk (sesi/queue/antrean).
+		// Pra-kondisi segar per chunk (sesi aktif, pesanan Antrean).
 		await assertArchivePreconditions(rawDb, branch, cutoff);
 
 		// Baca chunk dulu (tanpa job): kosong = selesai tanpa job sampah.

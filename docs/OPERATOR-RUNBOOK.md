@@ -76,18 +76,28 @@ dulu; apply memerlukan `--expect-sha256` yang disetujui.
 
 ## 3. Migrasi schema
 
-Migrasi tidak pernah ikut deploy. Untuk setiap file baru di `drizzle/`:
+Migrasi tidak pernah ikut deploy. Tabel `d1_migrations` di ketiga shard produksi mencatat
+migrasi yang sudah diterapkan (0000–0042 per 14 Oktober 2026), jadi jalur utama memakai
+ledger itu:
 
 1. Backup dan verifikasi (§1).
-2. Tinjau isi SQL. Pastikan aditif atau punya rencana rollback.
-3. Terapkan per shard, berurutan, verifikasi di antara shard:
+2. Tinjau isi SQL migrasi baru. Pastikan aditif atau punya rencana rollback.
+3. Validasi urutan dan checksum semua migrasi terhadap `drizzle/meta` (tanpa menyentuh DB):
    ```powershell
-   pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
-   pnpm exec wrangler d1 execute DB_BALIKPAPAN_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
-   pnpm exec wrangler d1 execute DB_BERAU_GROUP --remote --config wrangler.pages.jsonc --file drizzle/NNNN_nama.sql --yes
+   node scripts/migrate-production.mjs
    ```
-4. Verifikasi tabel/kolom baru dengan `SELECT`/`PRAGMA table_info` per shard.
-5. Baru deploy aplikasi yang membutuhkan schema itu.
+   Tanpa `--apply` skrip hanya memvalidasi. `pnpm d1:migrate` menerapkan ke D1 lokal.
+4. Terapkan migrasi yang belum tercatat ke ketiga shard, berurutan, berhenti di kegagalan pertama:
+   ```powershell
+   pnpm d1:migrate:live
+   ```
+5. Verifikasi tabel/kolom baru dengan `SELECT`/`PRAGMA table_info` per shard, dan pastikan
+   `SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 1` menunjuk migrasi terbaru.
+6. Baru deploy aplikasi yang membutuhkan schema itu.
+
+Jangan menerapkan file migrasi dengan `wrangler d1 execute --file`: cara itu tidak mencatat ke
+`d1_migrations`, sehingga `d1:migrate:live` berikutnya akan mencoba menerapkannya ulang.
+Bila terpaksa (darurat), catat nama file itu ke `d1_migrations` di shard yang sama sesudahnya.
 
 Rollback schema memakai `node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run`
 (default dry-run; `--live --apply` hanya dengan persetujuan).
