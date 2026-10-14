@@ -7,7 +7,7 @@ import { decodeReceiptSnapshot } from '../src/lib/utils/receiptSnapshot.ts';
 
 /**
  * Kontrak versi snapshot arsip. Writer kanonik
- * (src/lib/server/archiveUseCase.ts ARCHIVE_SCHEMA_VERSION) hanya emit
+ * (src/lib/server/archiveSnapshot.ts ARCHIVE_SCHEMA_VERSION) hanya emit
  * versi terbaru. Decoder menerima 1-3; versi lebih baru DITOLAK sebelum
  * apply agar field baru (preparation/provenance/nomor/struk) tak hilang
  * diam-diam. Decoder era v2 (daftar [1, 2]) menolak v3 lewat gerbang sama.
@@ -18,7 +18,7 @@ export const SUPPORTED_ARCHIVE_VERSIONS = [1, 2, 3];
  * Peta field per versi: required harus ada; defaulted diisi seperti
  * fieldValue() bila arsip lama tak punya (tanpa mengarang histori).
  * Daftar kolom kanonik = BK_FIELDS/TK_FIELDS di bawah; exporter
- * (ARCHIVE_*_FIELDS di archiveUseCase.ts) disamakan via tes.
+ * (ARCHIVE_*_FIELDS di archiveSnapshot.ts) disamakan via tes.
  */
 export const ARCHIVE_VERSION_CONTRACT = {
 	1: {

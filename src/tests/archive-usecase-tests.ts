@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto';
 import {
 	buildArchiveSnapshot,
 	summarizeManualRows,
-	validateArchiveYear,
 	ArchiveUseCaseError
-} from '$lib/server/archiveUseCase';
+} from '$lib/server/archiveSnapshot';
+import { validateArchiveYear } from '$lib/server/archiveUseCase';
 
 // validateArchiveYear: batas kontrak route lama.
 assert.throws(

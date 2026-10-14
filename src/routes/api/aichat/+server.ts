@@ -8,7 +8,7 @@ import {
 	checkAiChatRateLimit,
 	handleAnalyzeTransaction,
 	handleRegularChat
-} from '$lib/server/ai/aiChatUseCase';
+} from '$lib/server/ai/aiChatHandlers';
 
 // OpenRouter / AI Model configuration (env). Daftar fallback model,
 // timeout, dan retry dimiliki $lib/server/aiGateway; orkestrasi AI di aiChatUseCase.

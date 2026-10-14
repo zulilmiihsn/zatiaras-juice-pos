@@ -5,7 +5,7 @@ import {
 	ARCHIVE_SCHEMA_VERSION,
 	ARCHIVE_TRANSAKSI_KASIR_FIELDS,
 	buildArchiveSnapshot
-} from '../lib/server/archiveUseCase';
+} from '../lib/server/archiveSnapshot';
 import {
 	ARCHIVE_VERSION_CONTRACT,
 	BK_FIELDS,

@@ -3,15 +3,17 @@ import {
 	extractJsonFromText,
 	fastResolveRequirements,
 	formatDateForAI,
+	recentContextForAi1,
+	sanitizeChatHistory,
+	toYMDWita
+} from '$lib/server/ai/chatText';
+import {
 	getBusinessMemory,
 	parseMemoryCommand,
-	recentContextForAi1,
 	runMemoryAction,
-	sanitizeChatHistory,
 	saveBusinessMemoryNote,
-	clearBusinessMemory,
-	toYMDWita
-} from '$lib/server/ai/aiChatUseCase';
+	clearBusinessMemory
+} from '$lib/server/ai/businessMemory';
 import { branchContext } from '$lib/server/branchResolver';
 import { createTestD1 } from './helpers/testD1';
 

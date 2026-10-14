@@ -204,18 +204,18 @@ UI -> store/service -> route HTTP (auth + parse + respons)
 
 ## 3. Peta modul (mulai dari sini, bukan grep buta)
 
-| Area      | File                                                               | Isi                                                                   |
-| --------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| POS       | `src/lib/server/checkout/`                                         | loader, financials, fingerprint, statement builder, `checkoutUseCase` |
-| Arsip     | `src/lib/server/archiveService.ts` + `archiveUseCase.ts`           | klaim/lease/guard + orkestrasi                                        |
-| AI        | `src/lib/server/ai/`                                               | gateway, use case, prompts, reportData                                |
-| Pajak     | `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts`          | PP 55/2022, YTD 500jt                                                 |
-| Laporan   | `src/lib/server/reportQueries.ts`                                  | agregasi + paritas arsip                                              |
-| Tenant    | `src/lib/server/branchResolver.ts`, `apiAuth.ts`                   | `BranchContext`, session scope                                        |
-| Akses     | `src/lib/server/pageAccess.ts`                                     | kunci PIN halaman kasir, juga untuk endpoint data                     |
-| Kesehatan | `src/lib/server/dataHealth.ts`                                     | detector orphan/stok negatif                                          |
-| Offline   | `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts` | replay idempoten                                                      |
-| Uang      | `src/lib/utils/currency.ts`, `checkout/utils.ts`                   | `normalizeMoney`, `roundMoney`                                        |
+| Area      | File                                                                            | Isi                                                                   |
+| --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| POS       | `src/lib/server/checkout/`                                                      | loader, financials, fingerprint, statement builder, `checkoutUseCase` |
+| Arsip     | `src/lib/server/archiveService.ts` + `archiveUseCase.ts` + `archiveSnapshot.ts` | klaim/lease/guard + orkestrasi + kontrak snapshot                     |
+| AI        | `src/lib/server/ai/`                                                            | gateway, use case, prompts, reportData                                |
+| Pajak     | `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts`                       | PP 55/2022, YTD 500jt                                                 |
+| Laporan   | `src/lib/server/reportQueries.ts`                                               | agregasi + paritas arsip                                              |
+| Tenant    | `src/lib/server/branchResolver.ts`, `apiAuth.ts`                                | `BranchContext`, session scope                                        |
+| Akses     | `src/lib/server/pageAccess.ts`                                                  | kunci PIN halaman kasir, juga untuk endpoint data                     |
+| Kesehatan | `src/lib/server/dataHealth.ts`                                                  | detector orphan/stok negatif                                          |
+| Offline   | `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts`              | replay idempoten                                                      |
+| Uang      | `src/lib/utils/currency.ts`, `checkout/utils.ts`                                | `normalizeMoney`, `roundMoney`                                        |
 
 ## 4. Kontrak yang TIDAK BOLEH dilanggar
 

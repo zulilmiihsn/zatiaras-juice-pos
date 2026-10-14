@@ -38,19 +38,19 @@ UI (src/routes, src/lib/components)
   (dijaga `test:tenant-scope`).
 - Kode domain tidak mengimpor route, store Svelte, atau global browser.
 
-| Area               | Lokasi                                                                                       |
-| ------------------ | -------------------------------------------------------------------------------------------- |
-| Checkout POS       | `src/lib/server/checkout/` (`checkoutUseCase.ts`, loader, statement builder)                 |
-| Auth dan sesi      | `src/hooks.server.ts`, `src/lib/server/{apiAuth,sessionStore,pageAccess}.ts`                 |
-| Resource CRUD      | `src/lib/server/resourceRouteHelpers.ts` (`makeResourceRoute`)                               |
-| Ledger dan stok    | `src/lib/server/services/`, `purchaseUseCase.ts`, `stockReconciliation.ts`                   |
-| Antrean/notifikasi | `src/lib/server/orderQueue/`, `src/lib/server/orderNotifications/`                           |
-| Arsip/restore      | `src/lib/server/archiveUseCase.ts`, `archiveService.ts`, `scripts/restore-archive.mjs`       |
-| Laporan dan pajak  | `src/lib/server/reportQueries.ts`, `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts` |
-| AI                 | `src/lib/server/aiGateway.ts`, `src/lib/server/ai/`                                          |
-| Offline            | `src/sw.ts`, `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts`              |
-| Realtime           | `src/lib/server/realtimeWorker.js`, `realtimeDurableObject.js`, `src/lib/realtime/`          |
-| Skema              | `src/lib/database/schema.ts`, migrasi SQL di `drizzle/`                                      |
+| Area               | Lokasi                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Checkout POS       | `src/lib/server/checkout/` (`checkoutUseCase.ts`, loader, statement builder)                                 |
+| Auth dan sesi      | `src/hooks.server.ts`, `src/lib/server/{apiAuth,sessionStore,pageAccess}.ts`                                 |
+| Resource CRUD      | `src/lib/server/resourceRouteHelpers.ts` (`makeResourceRoute`)                                               |
+| Ledger dan stok    | `src/lib/server/services/`, `purchaseUseCase.ts`, `stockReconciliation.ts`                                   |
+| Antrean/notifikasi | `src/lib/server/orderQueue/`, `src/lib/server/orderNotifications/`                                           |
+| Arsip/restore      | `src/lib/server/archiveUseCase.ts`, `archiveSnapshot.ts`, `archiveService.ts`, `scripts/restore-archive.mjs` |
+| Laporan dan pajak  | `src/lib/server/reportQueries.ts`, `src/lib/tax/engine.ts`, `src/lib/services/taxService.ts`                 |
+| AI                 | `src/lib/server/aiGateway.ts`, `src/lib/server/ai/`                                                          |
+| Offline            | `src/sw.ts`, `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts`                              |
+| Realtime           | `src/lib/server/realtimeWorker.js`, `realtimeDurableObject.js`, `src/lib/realtime/`                          |
+| Skema              | `src/lib/database/schema.ts`, migrasi SQL di `drizzle/`                                                      |
 
 ## 3. Alur kritis
 

@@ -222,6 +222,9 @@ jobs:
       - name: Run Page Lock Suite
         run: pnpm test:page-lock
 
+      - name: Run Markdown Render Suite
+        run: pnpm test:markdown
+
       - name: Run Antrean Suite
         run: pnpm test:antrean
 
