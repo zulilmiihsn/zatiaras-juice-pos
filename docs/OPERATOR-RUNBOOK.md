@@ -346,6 +346,12 @@ stok + rekonsiliasi finalisasi per cabang (level stok tak bisa direkonstruksi
 dari mutasi yang dihapus), verifikasi katalog/pengaturan utuh, smoke checkout
 satu kali. Katalog, pengaturan, policy aktif, dan audit log dipertahankan.
 
+Catatan dari wipe live Samarinda (14 Oktober 2026, TRK-099):
+
+- Riwayat rekonsiliasi stok (`stock_reconciliations`/`_items`) juga dipertahankan, karena trigger migrasi 0032 membuatnya permanen.
+- File wipe tidak memakai `BEGIN`/`COMMIT`, karena D1 remote menolak transaksi eksplisit. Eksekusi `--file` D1 sudah atomik: dua percobaan yang gagal tidak menghapus apa pun.
+- Dry-run remote (`--live --dry-run`) hanya membaca jumlah baris.
+
 ## 11. Release record (wajib diisi tiap rilis)
 
 Commit SHA, artifact SHA + checksum manifest, link CI, manifest backup +

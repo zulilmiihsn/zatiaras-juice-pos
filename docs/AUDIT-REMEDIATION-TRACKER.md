@@ -22,10 +22,10 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      0 |
-| In progress  |      1 |
+| In progress  |      0 |
 | Blocked      |      0 |
 | Passed local |      0 |
-| Completed    |     62 |
+| Completed    |     63 |
 | **Total**    | **63** |
 
 **Completed 0 bukan berarti belum ada perbaikan.** Artinya belum ada task remediasi baru yang disahkan memenuhi seluruh DoD. `Pending` pada task dengan bukti baseline berarti acceptance kandidat terintegrasi belum dikonsolidasi, bukan kode lama hilang atau harus ditulis ulang.
@@ -189,7 +189,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Ditutup keputusan pemilik (waiver); push tertutup belum terbukti | Completed        | claude-opus-5.5 | TRK-097: waiver pemilik; 0 subscription push di production per 14 Okt                                                                                              |
 | [x]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak               | Completed        | claude-opus-5.5 | TRK-094: `ae0c037` deploy 38488281061; budget Rp 0; UAT batch 9 lulus                                                                                              |
 | [x]  | [AUD-062](AUDIT-REMEDIATION-PLAN.md#aud-062) | Printer fisik dan seluruh jalur reprint          | Semua channel printer diuji pemilik                              | Completed        | claude-opus-5.5 | TRK-096: UAT fisik pemilik ("semua printer sudah")                                                                                                                 |
-| [ ]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Gate final hijau (CI 38493735546, E2E 136/136)                   | In progress      | claude-opus-5.5 | TRK-098: laporan akhir + batasan; menunggu sign-off pemilik                                                                                                        |
+| [x]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Gate final hijau (CI 38493735546, E2E 136/136)                   | Completed        | claude-opus-5.5 | TRK-099: sign-off pemilik atas laporan akhir TRK-098                                                                                                               |
 
 ## 5. Blocker eksternal yang harus disiapkan
 
@@ -1160,6 +1160,21 @@ DoD mengikuti §6.13. Laporan ini memuat bukti dan batasan yang diketahui, bukan
 
 - AUD-063 **Pending → In progress**; menunggu sign-off akhir pemilik atas laporan ini.
 - Status: **0 Pending / 1 In progress (AUD-063) / 0 Blocked / 62 Completed**.
+
+### TRK-099 — 14 Oktober 2026: sign-off pemilik — AUD-063 Completed; data uji production dibersihkan
+
+- Pemilik menyetujui laporan akhir TRK-098 beserta batasannya: "Ya saya setuju". **AUD-063 Completed. Seluruh 63 temuan audit selesai** (AUD-060 lewat waiver, TRK-097).
+- Atas permintaan pemilik ("bersihkan data uji"), riwayat transaksi uji cabang Samarinda dihapus dengan prosedur runbook §10b:
+  - Backup `backup-2026-10-14T01-39-29-280Z-da51a215…` (COMPLETE). Baseline live Samarinda SHA-256 `35513c6b899d22ccd5aaa8d37341a0f58809b35653198eae67da9be23642e383` (40 tabel, 23.580 baris).
+  - Dry-run remote read-only, lalu apply `--live --confirm samarinda`.
+  - Hasil: `transaksi_kasir` 14→0, `buku_kas` 9→0, `ringkasan_penjualan_harian` 3→0, `penjualan_produk_harian` 11→0, `pos_nomor_harian` 2→0, `sesi_toko` 1→0, `stock_policy_transitions` 1→0; tabel lain sudah 0.
+  - Verifikasi read-only sesudahnya: katalog Samarinda utuh (121 produk, 64 bahan, 644 resep, 6 kategori, 2 akun, pengaturan); cabang Samarinda 2 tidak tersentuh; smoke `/login`, `/api/csrf` 200. Balikpapan/Berau tidak memiliki riwayat transaksi.
+  - Rollback: restore dari backup di atas (terbukti TRK-091).
+- **Dua bug di alat wipe ditemukan saat eksekusi live** (keduanya gagal atomik, production utuh, terverifikasi read-only sebelum mencoba lagi):
+  1. `WIPE_TABLES` memuat `stock_reconciliation_items`/`stock_reconciliations`, padahal trigger 0032 `STOCK_RECONCILIATION_ITEMS_IMMUTABLE` melarang penghapusan. Kini dipertahankan sebagai riwayat permanen. Tes regresi baru: tidak ada tabel wipe yang dilindungi trigger `BEFORE DELETE` di migrasi.
+  2. File wipe dibungkus `BEGIN TRANSACTION … COMMIT`, yang ditolak D1 remote. Eksekusi `--file` D1 sudah atomik, jadi pembungkus dibuang; tes "late failure" lokal membuktikan tetap atomik. Seluruh guard pra-hapus dibuktikan lolos di D1 secara read-only.
+- Sisa data uji yang sengaja dipertahankan: riwayat rekonsiliasi stok (5 job Samarinda, 1 draft Samarinda 2, permanen by design), log audit/metrik/error, dan 6 event notifikasi lama. Draft rekonsiliasi dapat dibatalkan dari UI saat monitoring stok diaktifkan.
+- Status: **0 Pending / 0 In progress / 0 Blocked / 63 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
