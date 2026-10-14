@@ -76,9 +76,9 @@ function parseMutation<T extends DataRecord>(
 	};
 }
 
-// [CATATAN]: ─── Table → per-resource URL map ────────────────────────────────────────
-// [CATATAN]: Resource route RESTful pengganti god endpoint /api/data.
-// [CATATAN]: Tambahkan entry di sini saat tabel baru ditambahkan.
+// ─── Table → per-resource URL map ────────────────────────────────────────
+// Resource route RESTful pengganti god endpoint /api/data.
+// Tambahkan entry di sini saat tabel baru ditambahkan.
 
 const READ_ROUTES = {
 	produk: '/api/produk',
@@ -92,7 +92,7 @@ const READ_ROUTES = {
 	transaksi_kasir: '/api/transaksi-kasir',
 	sesi_toko: '/api/sesi-toko',
 	pengaturan: '/api/pengaturan',
-	// [CATATAN]: Virtual reads (aggregate/dashboard)
+	// Virtual reads (aggregate/dashboard)
 	dashboard_stats: '/api/dashboard/stats',
 	weekly_income_summary: '/api/dashboard/weekly',
 	best_sellers_summary: '/api/dashboard/best-sellers',
@@ -117,7 +117,7 @@ const WRITE_ROUTES = {
 export type ReadResource = keyof typeof READ_ROUTES;
 export type WriteResource = keyof typeof WRITE_ROUTES;
 
-// [CATATAN]: ─── GET helpers ──────────────────────────────────────────────────────────
+// ─── GET helpers ──────────────────────────────────────────────────────────
 
 /**
  * Ambil data dari per-resource GET route.
@@ -131,7 +131,7 @@ export async function dbGet<T extends DataRecord = DataRecord>(
 ): Promise<T[]> {
 	const url = READ_ROUTES[table];
 	if (!url) throw new Error(`[dataApiClient] dbGet: unknown table "${table}"`);
-	// AUD-020: cabang eksplisit hasil capture sekali di caller.
+	// Cabang eksplisit hasil capture sekali di caller.
 	// Tanpa argumen, fallback malas ke cabang aktif (perilaku lama).
 	const qs = new URLSearchParams({ branch: branch ?? currentBranch(), ...params }).toString();
 	// Tanpa no-store, browser boleh menyajikan respons GET heuristik basi
@@ -184,7 +184,7 @@ export async function dbGetAll<T extends DataRecord = DataRecord>(
 	return rows;
 }
 
-// [CATATAN]: ─── POST (write) helper ───────────────────────────────────────────────────
+// ─── POST (write) helper ───────────────────────────────────────────────────
 
 /**
  * Kirim operasi tulis ke per-resource RESTful route.
@@ -227,7 +227,7 @@ export async function dbPost<T extends DataRecord = DataRecord>(
 		return parseMutation<T>(await response.json(), `PATCH ${table}`);
 	}
 
-	// [CATATAN]: action === 'delete' — where clause lewat query param (seperti di route DELETE handler).
+	// action === 'delete' — where clause lewat query param (seperti di route DELETE handler).
 	const qs = new URLSearchParams({ branch: currentBranch(), ...where }).toString();
 	const response = await fetchWithCsrfRetry(`${url}?${qs}`, { method: 'DELETE' });
 	if (!response.ok) throw await parseError(response, `DELETE ${table}`);

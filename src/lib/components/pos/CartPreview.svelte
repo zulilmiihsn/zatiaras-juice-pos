@@ -1,13 +1,13 @@
 <script lang="ts">
-	// [CATATAN]: Svelte Transitions & Animations
+	// Svelte Transitions & Animations
 	import { scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 
-	// [CATATAN]: Icons
+	// Icons
 	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 
-	// [CATATAN]: Utils & Types
+	// Utils & Types
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { CartItem } from '$lib/types/cart';
 
@@ -23,7 +23,7 @@
 </script>
 
 {#if cart.length > 0}
-	<!-- [CATATAN]: Floating Glass Cart Pill (Tersusun rapi di pojok kanan bawah, serasi dengan branding Zatiaras) -->
+	<!-- Floating Glass Cart Pill (Tersusun rapi di pojok kanan bawah, serasi dengan branding Zatiaras) -->
 	<aside
 		aria-label="Keranjang Belanja"
 		class="z-fab pointer-events-none fixed right-3.5 bottom-[76px] sm:right-6 md:hidden"

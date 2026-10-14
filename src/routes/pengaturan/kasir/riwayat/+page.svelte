@@ -36,7 +36,7 @@
 		{ value: 'qris', label: 'QRIS/Non-Tunai' }
 	];
 
-	// [CATATAN]: Toast management
+	// Toast management
 	const toastManager = createToastManager();
 	onDestroy(() => toastManager.dispose());
 
@@ -89,7 +89,7 @@
 		showDetailModal = true;
 	}
 
-	// [CATATAN]: Guard: hanya kasir yang boleh akses
+	// Guard: hanya kasir yang boleh akses
 	onMount(() => {
 		if (userRole.value !== 'kasir') {
 			goto('/unauthorized');

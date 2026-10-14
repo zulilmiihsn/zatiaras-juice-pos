@@ -7,7 +7,7 @@ import {
 	witaToUtcRange
 } from '../lib/utils/dateTime';
 
-// AUD-026: default Catat harus dari instant sekarang dalam WITA,
+// Default Catat harus dari instant sekarang dalam WITA,
 // bukan zona perangkat. Bekukan instant di batas sensitif.
 const RealDate = Date;
 
@@ -71,7 +71,7 @@ for (const instant of [
 	}
 }
 
-// AUD-027: batas hari WITA tepat di UTC untuk filter aktivitas.
+// Batas hari WITA tepat di UTC untuk filter aktivitas.
 assert.deepEqual(witaToUtcRange('2026-10-01'), {
 	startUtc: '2026-09-30T16:00:00.000Z',
 	endUtc: '2026-10-01T15:59:59.999Z'

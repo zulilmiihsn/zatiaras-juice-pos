@@ -6,7 +6,7 @@ import type { RequestHandler } from './$types';
 /**
  * Verifikasi PIN kasir untuk buka halaman terkunci.
  * Route hanya auth + parsing + response; logika di pinService.
- * Route tipis (AUD-053): DB di service via BranchContext.
+ * Route tipis: DB di service via BranchContext.
  */
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = requireAuthSession(locals);

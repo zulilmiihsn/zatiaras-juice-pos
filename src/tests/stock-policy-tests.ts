@@ -739,7 +739,7 @@ try {
 			0
 		);
 
-		// AUD-012: void kalah CAS harus 409 tanpa side effect, bukan raw constraint failure.
+		// Void kalah CAS harus 409 tanpa side effect, bukan raw constraint failure.
 		// Produk_mutasi loser-safe via INSERT..SELECT..WHERE EXISTS, bukan VALUES ELSE 0.
 		const aud012Sale = await checkoutProduct('checkout-product', 10_000, 'aud-012-loser-1');
 		const aud012Tx = aud012Sale.data.transaction_id as string;

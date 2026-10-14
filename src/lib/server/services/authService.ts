@@ -36,8 +36,8 @@ export interface LoginAttemptResult {
 }
 
 /**
- * Login username+password. Pesan publik seragam anti-enumeration (AUD-016);
- * alasan rinci hanya di audit log. Unknown role fail-closed (AUD-019).
+ * Login username+password. Pesan publik seragam anti-enumeration;
+ * alasan rinci hanya di audit log. Unknown role fail-closed.
  * Route hanya parsing body mentah, set cookie, dan Response.
  */
 export async function attemptLogin(
@@ -159,7 +159,7 @@ export async function attemptLogin(
 				metadata: { reason: 'user_not_found', username }
 			});
 
-			// Pesan publik seragam anti-enumeration (AUD-016).
+			// Pesan publik seragam anti-enumeration.
 			// Alasan rinci hanya di audit log server.
 			return {
 				status: 401,
@@ -171,7 +171,7 @@ export async function attemptLogin(
 				username
 			};
 		}
-		// [CATATAN]: Aturan tepi spasi (terdokumentasi): password di-trim di
+		// Aturan tepi spasi (terdokumentasi): password di-trim di
 		// create/change/verify agar konsisten dengan hash tersimpan.
 		// Pola HTML/SQL di DALAM password tidak diubah/ditolak.
 		const passwordTrimmed = typeof password === 'string' ? password.trim() : (password as string);
@@ -196,8 +196,8 @@ export async function attemptLogin(
 			};
 		}
 
-		// [CATATAN]: Role user dari database wajib lolos kebijakan kanonik
-		// (AUD-019). Unknown fail-closed tanpa sesi, pesan publik seragam
+		// Role user dari database wajib lolos kebijakan kanonik.
+		// Unknown fail-closed tanpa sesi, pesan publik seragam
 		// anti-enumeration; alasan rinci hanya di audit log.
 		const normalizedRole = normalizeRole(user.role);
 		if (!normalizedRole) {
@@ -240,7 +240,7 @@ export async function attemptLogin(
 			metadata: { username: user.username }
 		});
 
-		// [CATATAN]: Sukses login
+		// Sukses login
 		return {
 			status: 200,
 			body: {

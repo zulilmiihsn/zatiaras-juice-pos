@@ -23,10 +23,10 @@ export class AiAnalysisService {
 	 */
 	async analyzeTransaction(text: string): Promise<TransactionAnalysis> {
 		try {
-			// [CATATAN]: Get current branch from store
+			// Get current branch from store
 			const currentBranch = selectedBranch.value || 'default';
 
-			// [CATATAN]: Kirim ke backend AI untuk analisis
+			// Kirim ke backend AI untuk analisis
 			const response = await fetchWithCsrfRetry('/api/aichat?action=analyze', {
 				method: 'POST',
 				headers: {
@@ -60,7 +60,7 @@ export class AiAnalysisService {
 		const detectedTransactions: DetectedTransaction[] = [];
 		const recommendations: AiRecommendation[] = [];
 
-		// [CATATAN]: Parse detected transactions
+		// Parse detected transactions
 		if (data.transactions && Array.isArray(data.transactions)) {
 			data.transactions.forEach((tx: Record<string, unknown>) => {
 				detectedTransactions.push({
@@ -74,7 +74,7 @@ export class AiAnalysisService {
 			});
 		}
 
-		// [CATATAN]: Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
+		// Generate recommendations - hanya jika AI tidak mengirim rekomendasi langsung
 		const aiRecs = data.recommendations as Array<Record<string, unknown>>;
 		if (!aiRecs || aiRecs.length === 0) {
 			detectedTransactions.forEach((tx, index) => {
@@ -87,7 +87,7 @@ export class AiAnalysisService {
 						products: tx.products || [] // Include products data
 					};
 
-					// AUD-033: samakan gerbang validasi dengan rekomendasi model.
+					// Samakan gerbang validasi dengan rekomendasi model.
 					if (
 						!validateRecommendation({ action: 'create_transaction', data: recommendationData }).ok
 					)
@@ -103,12 +103,12 @@ export class AiAnalysisService {
 				}
 			});
 		} else {
-			// [CATATAN]: Gunakan rekomendasi dari AI langsung
+			// Gunakan rekomendasi dari AI langsung
 			aiRecs.forEach((rec: Record<string, unknown>, index: number) => {
-				// [CATATAN]: Jika AI tidak mengirim data, gunakan detected transactions
+				// Jika AI tidak mengirim data, gunakan detected transactions
 				let recommendationData = (rec.data as Record<string, unknown>) || {};
 
-				// [CATATAN]: Jika data kosong, coba ambil dari detected transactions
+				// Jika data kosong, coba ambil dari detected transactions
 				if (!recommendationData.type && detectedTransactions.length > 0) {
 					const tx = detectedTransactions[index] || detectedTransactions[0];
 					recommendationData = {
@@ -120,7 +120,7 @@ export class AiAnalysisService {
 					};
 				}
 
-				// AUD-033: validasi skema runtime; rekomendasi malformed
+				// Validasi skema runtime; rekomendasi malformed
 				// dibuang sebelum sampai consent/apply.
 				const action = (rec.action as unknown as string) || 'create_transaction';
 				const title =
@@ -227,7 +227,7 @@ export class AiAnalysisService {
 			response += '\n';
 		});
 
-		// [CATATAN]: Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
+		// Hanya tampilkan rekomendasi jika ada transaksi yang teridentifikasi
 		if (analysis.recommendations.length > 0) {
 			response += '\nRekomendasi saya:\n';
 			analysis.recommendations.forEach((rec, index) => {

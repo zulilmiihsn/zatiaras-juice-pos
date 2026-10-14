@@ -1,4 +1,4 @@
-import { error as kitError } from '@sveltejs/kit';
+import { CheckoutDomainError } from './utils';
 import type {
 	NormalizedItemInput,
 	ComputedTransactionItem,
@@ -97,7 +97,7 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 				recipe = allRecipes;
 			}
 			if (!recipe.length) {
-				throw kitError(409, `Resep bahan belum diatur untuk ${productName}`);
+				throw new CheckoutDomainError(409, `Resep bahan belum diatur untuk ${productName}`);
 			}
 			const hppIngredients = recipe.map((ingredient) => {
 				const deductionQty = Number(
@@ -143,10 +143,10 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 	} else {
 		productName = sanitizeShortText(item.nama_kustom, 80) ?? 'Item Custom';
 		productPrice = normalizeMoney(item.custom_price);
-		if (productPrice <= 0) throw kitError(400, 'Harga custom item tidak valid');
+		if (productPrice <= 0) throw new CheckoutDomainError(400, 'Harga custom item tidak valid');
 	}
 
-	// [CATATAN]: Pengurangan stok bahan & perhitungan HPP untuk topping/ekstra
+	// Pengurangan stok bahan & perhitungan HPP untuk topping/ekstra
 	if (ingredientTrackingAvailable && addOns.length > 0) {
 		for (const addOn of addOns) {
 			const row = addOnsById.get(String(addOn.id));

@@ -1,4 +1,4 @@
-// [CATATAN]: Performance utilities
+// Performance utilities
 export function debounce<T extends (...args: never[]) => unknown>(
 	func: T,
 	wait: number
@@ -24,7 +24,7 @@ export function throttle<T extends (...args: never[]) => unknown>(
 	};
 }
 
-// [CATATAN]: Cart calculations (without memoization)
+// Cart calculations (without memoization)
 export const calculateCartTotal = <T>(cart: T[]) => {
 	let items = 0;
 	let total = 0;
@@ -47,11 +47,11 @@ export const calculateCartTotal = <T>(cart: T[]) => {
 	return { items, total };
 };
 
-// [CATATAN]: Fuzzy search dengan hasil lebih relevan
+// Fuzzy search dengan hasil lebih relevan
 export function fuzzySearch<T>(query: string, items: T[], key: string = 'nama'): T[] {
 	if (!query.trim()) return items;
 	const searchTerm = query.toLowerCase();
-	// [CATATAN]: Cari di name dan kategori (jika ada)
+	// Cari di name dan kategori (jika ada)
 	return items
 		.map((item) => {
 			const record = item as Record<string, unknown>;

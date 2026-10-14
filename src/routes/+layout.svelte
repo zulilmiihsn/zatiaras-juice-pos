@@ -9,7 +9,6 @@
 	import { navigating } from '$app/stores';
 	import Download from '@lucide/svelte/icons/download';
 	import { posGridView } from '$lib/stores/posGridView.svelte';
-	import { auth } from '$lib/auth/auth';
 	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
@@ -32,7 +31,7 @@
 	let showPendingTransactions = $state(false);
 	onDestroy(() => layoutSt.dispose());
 
-	// [CATATAN]: ── Navigasi & View Transitions ──────────────────────────────────────────
+	// ── Navigasi & View Transitions ──────────────────────────────────────────
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
 
@@ -56,7 +55,7 @@
 		showNav = !(noNavRoutes.includes(path) || path.startsWith('/pengaturan'));
 	});
 
-	// [CATATAN]: ── PIN Modal ─────────────────────────────────────────────────────────────
+	// ── PIN Modal ─────────────────────────────────────────────────────────────
 	let showPinModal = $state(false);
 	let currentLockedPage = $state<'beranda' | 'laporan' | 'pengaturan' | 'catat'>('beranda');
 	let pinUnlockedForCurrentPage = false;
@@ -107,7 +106,7 @@
 				if (!settingsEqual(securitySettings.value, next)) setSecuritySettings(next);
 			}
 		} catch {
-			// [CATATAN]: no-op
+			// no-op
 		} finally {
 			if (gen === securityRequestGen) isLoadingSecuritySettings = false;
 			if (securityRefreshQueued) {
@@ -316,7 +315,7 @@
 
 {#if showNav}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">
-		<!-- [CATATAN]: Tanpa overflow-y-auto: container ini tidak pernah overflow
+		<!-- Tanpa overflow-y-auto: container ini tidak pernah overflow
 			(min-h induk tak terbatas) sehingga ia menjadi scroll container mati yang
 			mematahkan position:sticky turunan (sticky mengacu padanya, bukan viewport). -->
 		<div class="min-h-0 flex-1">

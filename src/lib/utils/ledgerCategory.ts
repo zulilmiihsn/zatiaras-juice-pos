@@ -1,4 +1,4 @@
-// Kebijakan kategori ledger kanonik (AUD-032).
+// Kebijakan kategori ledger kanonik.
 // Arah saja (pemasukan/pengeluaran) TIDAK menentukan jenis usaha.
 // Non-operasional (modal/prive/pinjaman) -> 'lainnya' agar tak masuk
 // omzet usaha kena pajak. Ambigu -> konfirmasi eksplisit, bukan default diam.

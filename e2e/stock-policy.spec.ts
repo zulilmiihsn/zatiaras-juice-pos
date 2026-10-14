@@ -281,7 +281,7 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(dialog.getByRole('button', { name: 'Simpan progres' })).toBeVisible();
 	});
 
-	// AUD-053 review: input number menyimpan angka; simpan dulu melempar
+	// Input number menyimpan angka; simpan dulu melempar
 	// "trim is not a function" sehingga hitungan ketik manual tak pernah tersimpan.
 	test('typed reconciliation count saves through PUT', async ({ page }) => {
 		await mockOwnerSession(page);

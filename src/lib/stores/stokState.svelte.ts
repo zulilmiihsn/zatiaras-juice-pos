@@ -1,4 +1,4 @@
-// AUD-053: state, perintah, dan lifecycle halaman Stok (sebelumnya inline di
+// State, perintah, dan lifecycle halaman Stok (sebelumnya inline di
 // routes/stok/+page.svelte). Halaman hanya merender; komponen dialog menerima `s`.
 import { productService } from '$lib/services/productService';
 import { transactionService } from '$lib/services/transactionService';
@@ -82,7 +82,7 @@ export function createStokState() {
 	});
 
 	// Load Data
-	// AUD-021: generasi per load. Hanya request terkini boleh commit data,
+	// Generasi per load. Hanya request terkini boleh commit data,
 	// tampilkan error, atau finalize loading. Request basi yang selesai
 	// belakangan diabaikan diam-diam.
 	let bahanLoadGeneration = 0;
@@ -137,7 +137,7 @@ export function createStokState() {
 
 	async function handleSaveBahan(e: SubmitEvent) {
 		e.preventDefault();
-		// AUD-053: kebijakan payload sama dengan Manajemen Menu (utils/bahanForm).
+		// Kebijakan payload sama dengan Manajemen Menu (utils/bahanForm).
 		const built = buildBahanPayload(bahanForm, Boolean(editBahanId), editingBahan);
 		if (!built.ok) {
 			notify(built.error, 'error');
@@ -271,7 +271,7 @@ export function createStokState() {
 		return getCompatibleUnits(selectedBahanForMutasi.satuan || 'gram');
 	});
 
-	// Preset "Kulakan Terakhir" (AUD-007): tersimpan dalam satuan dasar,
+	// Preset "Kulakan Terakhir": tersimpan dalam satuan dasar,
 	// wajib dikonversi balik ke satuan beli untuk label + isian. Tanpa ini
 	// 1000 gram tersimpan tampil/diisi sebagai 1000 kg (= 1.000.000 gram).
 	const terakhirKulakanPreset = $derived.by(() => {
@@ -550,10 +550,10 @@ export function createStokState() {
 	}
 
 	// Lifecycle
-	// AUD-022: setup sinkron sebelum await apa pun agar resolving
+	// Setup sinkron sebelum await apa pun agar resolving
 	// tak mendaftarkan subscription sesudah destroy. Handler window
 	// bernama agar bisa dilepas; destroy menaikkan generasi load
-	// (batalkan commit in-flight AUD-021).
+	// (batalkan commit in-flight).
 	let offStokBus: (() => void) | null = null;
 	let stokRealtimeDisposers: Array<() => void> = [];
 	let stokMounted = false;

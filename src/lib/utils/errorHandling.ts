@@ -58,7 +58,7 @@ export class ErrorHandler {
 		}
 
 		if (error && typeof error === 'object') {
-			// [CATATAN]: API errors may be plain objects with a message field.
+			// API errors may be plain objects with a message field.
 			if ('message' in error && typeof error.message === 'string') {
 				return error.message;
 			}
@@ -117,7 +117,7 @@ export class ErrorHandler {
 	static formatForUser(error: unknown): string {
 		const message = this.extractErrorMessage(error);
 
-		// [CATATAN]: Map common error messages to user-friendly versions
+		// Map common error messages to user-friendly versions
 		const userFriendlyMessages: Record<string, string> = {
 			'Failed to fetch': 'Gagal mengambil data dari server',
 			'Network Error': 'Koneksi internet bermasalah',

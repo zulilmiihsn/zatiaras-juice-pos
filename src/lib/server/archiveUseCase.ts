@@ -74,11 +74,11 @@ export interface ArchiveSnapshot {
 	total: number;
 }
 
-/** Versi skema snapshot kanonik. Writer hanya emit versi ini (AUD-041). */
+/** Versi skema snapshot kanonik. Writer hanya emit versi ini. */
 export const ARCHIVE_SCHEMA_VERSION = 3;
 
 /**
- * Kolom ledger yang masuk snapshot (AUD-041). Sama dengan BK_FIELDS/
+ * Kolom ledger yang masuk snapshot. Sama dengan BK_FIELDS/
  * TK_FIELDS di scripts/restore-archive-lib.mjs (disamakan via tes,
  * bukan import, agar bundle worker tak menarik node:crypto).
  * `revision` hanya untuk manifest, bukan isi snapshot.
@@ -151,7 +151,7 @@ export function validateArchiveYear(year: number): void {
 
 /**
  * Rakit snapshot arsip dari baris yang sudah dibaca. Murni kecuali `now`.
- * Baris diproyeksikan ke kontrak kolom eksplisit (AUD-041): kolom di luar
+ * Baris diproyeksikan ke kontrak kolom eksplisit: kolom di luar
  * kontrak (revision/token operasional, updated_at, kolom masa depan) tak
  * masuk snapshot. `revision` hanya dipakai manifest klaim/idempotency.
  */
@@ -163,7 +163,7 @@ export function buildArchiveSnapshot(input: {
 	bukuKas: ArchiveRow[];
 	transaksiKasir: Array<Record<string, unknown>>;
 	now?: Date;
-	/** Nomor part chunk (AUD-039). null = objek tunggal dengan key legacy. */
+	/** Nomor part chunk. null = objek tunggal dengan key legacy. */
 	partSuffix?: number | null;
 }): ArchiveSnapshot {
 	const { branch, year, cutoffWita, archiveJobId, bukuKas, transaksiKasir } = input;
@@ -340,7 +340,7 @@ export async function previewArchive(
 }
 
 /**
- * Budget chunk arsip (AUD-039, AUD-057 terukur): maksimal 1000 header per
+ * Budget chunk arsip: maksimal 1000 header per
  * chunk, snapshot ≤2MB per objek R2, maksimal 3 chunk per panggilan Worker
  * (recall melanjutkan otomatis karena row terarsip hilang dari eligibility).
  * ID per chunk dikirim sebagai satu parameter JSON (json_each), jadi ukuran
@@ -386,7 +386,7 @@ export type ArchiveResult =
 			parts: ArchivePart[];
 			remaining: number;
 			message: string;
-			/** Alasan chunk berikutnya gagal setelah bagian lain commit (AUD-057). */
+			/** Alasan chunk berikutnya gagal setelah bagian lain commit. */
 			interrupted?: string;
 	  };
 
@@ -571,7 +571,7 @@ async function readArchiveChunk(
 	if (selected.length === 0) return { bukuKas: [], transaksiKasir: [], hasMore: false };
 	// Materialize only the guarded locators, not fields. The same D1 transaction owns
 	// both payload SELECTs, so no huge detail can arrive between the header/detail reads.
-	// AUD-057: CROSS JOIN memaksa SQLite memulai dari baris terpilih (<= limit)
+	// CROSS JOIN memaksa SQLite memulai dari baris terpilih (<= limit)
 	// lalu lookup per rowid/indeks. Dengan JOIN biasa planner memindai semua
 	// baris terkualifikasi cabang di tiap chunk (O(n) per chunk, O(n^2) per tahun).
 	const guarded = `WITH selected AS MATERIALIZED (
@@ -620,7 +620,7 @@ async function readArchiveChunk(
  * atomik di bawah klaim finalisasi. Ledger tidak pernah terhapus tanpa
  * snapshot terverifikasi.
  *
- * AUD-039: driver chunk — tiap chunk adalah job sendiri (klaim, snapshot
+ * Driver chunk — tiap chunk adalah job sendiri (klaim, snapshot
  * satu objek R2, readback, finalisasi atomik). Recall melanjutkan otomatis.
  */
 export async function runArchive(
@@ -645,7 +645,7 @@ export async function runArchive(
 		};
 	}
 
-	// AUD-039: driver chunk. Tiap chunk = satu job (klaim, snapshot satu
+	// Driver chunk. Tiap chunk = satu job (klaim, snapshot satu
 	// objek R2, readback, finalisasi atomik). Recall melanjutkan otomatis
 	// karena row terarsip hilang dari eligibility. Dibatasi per panggilan
 	// agar invocasi worker tetap bounded; sisa dilaporkan via 'partial'.
@@ -929,7 +929,7 @@ export async function runArchive(
 			const jobGuard = `EXISTS (SELECT 1 FROM archive_jobs WHERE id = ? AND owner_token = ? AND status = 'finalizing')`;
 
 			// 1. Ringkasan arsip manual, ID deterministik job+dimensi (retry tidak ganda).
-			// AUD-057: satu statement per chunk (JSON), bukan satu INSERT per grup, agar
+			// Satu statement per chunk (JSON), bukan satu INSERT per grup, agar
 			// batch atomik tak membengkak saat chunk berisi ribuan baris manual.
 			const summaryRows = [...manualSummaries.values()].map((s) => ({
 				id: deterministicSummaryId(archiveJobId, s.tanggal_wita, s.tipe, s.jenis, s.metode_bayar),

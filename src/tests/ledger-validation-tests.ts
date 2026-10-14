@@ -31,7 +31,7 @@ function rejects(_fn: () => unknown, _pattern: RegExp) {
 	);
 }
 
-// Nominal invalid ditolak — tidak pernah dikoersi menjadi 0 (AUD-005).
+// Nominal invalid ditolak — tidak pernah dikoersi menjadi 0.
 rejects(() => validateManualLedgerRows([validRow({ nominal: 'not-a-number' })]), /Nominal/);
 rejects(() => validateManualLedgerRows([validRow({ nominal: -5000 })]), /negatif/);
 rejects(() => validateManualLedgerRows([validRow({ nominal: Number.NaN })]), /Nominal/);

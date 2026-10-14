@@ -3,7 +3,7 @@ import { GET } from '../routes/api/archive/download/+server';
 import { POST } from '../routes/api/archive/+server';
 import { createTestD1 } from './helpers/testD1';
 
-// AUD-040: unduhan dari identitas job terverifikasi, bukan key arbitrer.
+// Unduhan dari identitas job terverifikasi, bukan key arbitrer.
 const { db, close } = await createTestD1();
 try {
 	const objects = new Map<string, string>([['arsip/samarinda/2025/f.json', '{"arsip":1}']]);

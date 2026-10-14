@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Rollback migrasi / restore darurat per shard D1 (AUD-047).
+ * Rollback migrasi / restore darurat per shard D1.
  *
  * Sumber backup EKSPLISIT dari root backup eksternal terverifikasi
  * (di luar repo/workspace): --file langsung, atau --backup-manifest

@@ -44,7 +44,7 @@ assert.equal(convertToBaseUnit(1, 'pcs', 'pack', 50), 0.02);
 assert.equal(convertToBaseUnit(1, 'pack', 'pcs', 50), 50);
 assert.equal(convertToBaseUnit(2, 'sachet', 'pack', 20), 0.1);
 
-// AUD-053: kebijakan form bahan tunggal (Stok + Manajemen Menu).
+// Kebijakan form bahan tunggal (Stok + Manajemen Menu).
 {
 	const created = buildBahanPayload(
 		{
@@ -132,7 +132,7 @@ assert.equal(convertToBaseUnit(2, 'sachet', 'pack', 20), 0.1);
 	}
 }
 
-// Review AUD-053: yield hanya untuk berat/unit; pratinjau = payload; tanpa geser.
+// Review yield hanya untuk berat/unit; pratinjau = payload; tanpa geser.
 {
 	const cairan = buildBahanPayload(
 		{

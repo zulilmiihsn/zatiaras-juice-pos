@@ -29,7 +29,7 @@ export type AiGatewayErrorCode =
 	| 'INVALID_RESPONSE'
 	/** Klien memutus permintaan; bukan kegagalan provider. */
 	| 'CLIENT_ABORTED'
-	/** AUD-061: budget pemilik Rp 0; model/tool berbayar ditolak sebelum request. */
+	/** Budget pemilik Rp 0; model/tool berbayar ditolak sebelum request. */
 	| 'PAID_AI_REFUSED';
 
 export class AiGatewayError extends Error {
@@ -51,7 +51,7 @@ export class AiGatewayError extends Error {
 }
 
 /**
- * Pesan publik tetap per kelas error (AUD-037). Teks mentah provider/
+ * Pesan publik tetap per kelas error. Teks mentah provider/
  * Error tak pernah jadi respons publik. Kode respons tetap dalam
  * registry kontrak (SERVER_ERROR); status membedakan retryability
  * (504 timeout, 502 upstream, 500 tak dikenal) — UI memperlakukan
@@ -90,7 +90,7 @@ const SENSITIVE_LOG_PATTERNS = [
 ];
 
 /**
- * Redaksi untuk log server (AUD-037): pola kredensial disamarkan,
+ * Redaksi untuk log server: pola kredensial disamarkan,
  * panjang dibatasi. Pesan error mentah tak boleh lolos utuh ke log.
  */
 export function redactForLog(value: unknown, maxLength = 500): string {
@@ -122,7 +122,7 @@ export interface AiChatOptions {
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const OPENROUTER_TIMEOUT_MS = 25_000;
 /**
- * AUD-061 (uji live 14 Okt 2026): budget AI pemilik Rp 0, jadi hanya model `:free`
+ * Budget AI pemilik Rp 0, jadi hanya model `:free`
  * spesifik. Router `openrouter/free` tidak dipakai karena memilih model acak, termasuk
  * model content-safety yang menjawab "User Safety: safe". ling-3.0-flash-fin:free sudah
  * dihapus OpenRouter. Daftar gratis berubah-ubah: cek ulang saat model hilang.
@@ -163,7 +163,7 @@ export function resolveAiModel(...candidates: Array<string | undefined>): string
 export function isBudgetRefusal(error: unknown): boolean {
 	return error instanceof AiGatewayError && error.code === 'PAID_AI_REFUSED';
 }
-// AUD-034: deadline body/stream. Body non-stream dibaca lewat pump yang sama
+// Deadline body/stream. Body non-stream dibaca lewat pump yang sama
 // dengan stream (deadline, abort klien, reader dibatalkan) dan dibatasi ukuran.
 export const AI_BODY_MAX_BYTES = 1_000_000;
 // Anggaran total satu panggilan non-stream lintas retry/fallback.
@@ -207,7 +207,7 @@ function chatPayload(
 		messages,
 		max_tokens: opts.maxTokens,
 		temperature: opts.temperature,
-		// AUD-061: model reasoning gratis menghabiskan max_tokens untuk berpikir lalu
+		// Model reasoning gratis menghabiskan max_tokens untuk berpikir lalu
 		// mengembalikan content null. Matikan reasoning agar token dipakai untuk jawaban.
 		reasoning: { enabled: false }
 	};
@@ -292,7 +292,7 @@ function discardBody(response: Response): void {
 type JsonAttempt = { ok: true; data: unknown } | { ok: false; status: number };
 
 /**
- * Satu percobaan non-stream end-to-end (AUD-034) dengan satu deadline absolut:
+ * Satu percobaan non-stream end-to-end dengan satu deadline absolut:
  * respons awal paling lama timeoutMs, sisa waktu untuk body lewat pumpAiStream
  * (reader dibatalkan saat timeout/putus klien), batas ukuran, dan parse JSON.
  * Respons gagal dibatalkan.
@@ -399,7 +399,7 @@ export async function callAiChat(
 		result = await attempt(opts.model, false, `${opts.title} (No Tools)`);
 	}
 
-	// AUD-061: respons 200 tanpa konten (null/kosong, mis. model kehabisan token) juga
+	// Respons 200 tanpa konten (null/kosong, mis. model kehabisan token) juga
 	// dicoba di fallback. Error akhir deterministik: status HTTP primary bila primary gagal HTTP
 	// (parity); bila primary kosong, status HTTP fallback pertama (mis. 429 kuota gratis);
 	// selain itu INVALID_RESPONSE.
@@ -485,7 +485,7 @@ export async function requestAiStream(
 }
 
 /**
- * Pompa stream upstream dengan deadline total + idle (AUD-034).
+ * Pompa stream upstream dengan deadline total + idle.
  * - Selesai upstream atau onChunk minta berhenti -> 'done'.
  * - Putus klien -> batalkan reader, kembalikan 'aborted' (tanpa lempar).
  * - Deadline total/idle -> batalkan reader, lempar UPSTREAM_TIMEOUT.

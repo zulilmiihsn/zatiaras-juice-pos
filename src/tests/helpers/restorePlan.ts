@@ -14,7 +14,7 @@ export function applyRestoreFinal(db: D1Database, plan: RestorePlan, extra: stri
 }
 
 /**
- * AUD-054: terapkan rencana restore persis seperti CLI produksi
+ * Terapkan rencana restore persis seperti CLI produksi
  * (`scripts/restore-archive.mjs`): staging per chunk, lalu satu batch final atomik.
  */
 export async function applyRestorePlan(db: D1Database, plan: RestorePlan) {

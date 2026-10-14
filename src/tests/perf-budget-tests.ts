@@ -14,7 +14,7 @@ import { buildRestoreChunks, sqlVal } from '../../scripts/restore-archive-lib.mj
 import { cutoffForYear } from '../lib/server/archiveService';
 import { CHECKOUT_MAX_PER_WINDOW } from '../lib/server/checkout/utils';
 
-// AUD-057: budget performa pemilik (TRK-082) pada kode produksi asli di atas
+// Budget performa pemilik (TRK-082) pada kode produksi asli di atas
 // workerd D1 (--d1) atau SQLite, dengan data setahun satu cabang.
 // Budget: checkout POS < 2 s; laporan setahun < 5 s; arsip dan restore setahun
 // selesai tanpa timeout (tiap panggilan Worker di bawah batas CPU 30 s).

@@ -4,7 +4,7 @@ import { fetchReportDataSql } from '../lib/server/ai/reportData';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 import { branchContext } from '../lib/server/branchResolver';
 
-// AUD-030: inti finansial AI reuse agregat kanonik aktif + arsip.
+// Inti finansial AI reuse agregat kanonik aktif + arsip.
 const { db, close } = await createTestD1();
 try {
 	const day = '2026-09-10';
@@ -95,7 +95,7 @@ try {
 	await close();
 }
 
-// AUD-030 / F-030: rincian bulanan, harian, pembayaran, dan produk memakai fakta
+// / F-030: rincian bulanan, harian, pembayaran, dan produk memakai fakta
 // kanonik yang sama dengan ringkasan. POS terarsip = buku_kas/transaksi_kasir
 // sudah hilang, ringkasan harian + produk harian tetap ada.
 const detailDb = await createTestD1();
@@ -280,7 +280,7 @@ try {
 	await detailDb.close();
 }
 
-// AUD-031: pajak AI = omzet usaha + YTD before + segmentasi tahun kanonik.
+// Pajak AI = omzet usaha + YTD before + segmentasi tahun kanonik.
 const taxDb = await createTestD1();
 try {
 	const taxSettings = {
@@ -412,7 +412,7 @@ try {
 	await modalDb.close();
 }
 
-// AUD-038: sesi terkini ikut periode WITA, bukan hari ini.
+// Sesi terkini ikut periode WITA, bukan hari ini.
 // Sesi lama buka 22:00 WITA 1 Agu tutup 01:00 WITA 2 Agu (lintas midnight
 // ikut periode bukanya); sesi aktif hari ini kas 999999 di luar rentang.
 const sesiDb = await createTestD1();

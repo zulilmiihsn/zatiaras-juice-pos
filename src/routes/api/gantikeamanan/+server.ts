@@ -5,7 +5,7 @@ import { changeCredentials } from '$lib/server/services/credentialService';
  * Ganti username/password akun cabang + cabut sesi user.
  * Route hanya gate role, parsing body, dan Response.
  * Seluruh kebijakan (rate-limit, race unik, audit) di credentialService.
- * Route tipis (AUD-053): DB di service via BranchContext.
+ * Route tipis: DB di service via BranchContext.
  */
 export const POST: RequestHandler = async ({ request, getClientAddress, locals, platform }) => {
 	const requesterRole = locals.authSession?.role;

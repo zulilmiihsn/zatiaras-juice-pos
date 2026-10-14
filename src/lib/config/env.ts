@@ -1,14 +1,14 @@
-// [CATATAN]: Environment configuration
+// Environment configuration
 export const config = {
-	// [CATATAN]: Environment
+	// Environment
 	NODE_ENV: import.meta.env.MODE || 'development',
 
-	// [CATATAN]: API Endpoints
+	// API Endpoints
 	OPENROUTER_API_URL: 'https://openrouter.ai/api/v1/chat/completions',
 
-	// [CATATAN]: Model AI hanya di $lib/server/aiGateway (DEFAULT_AI_MODEL, AUD-061: gratis saja).
+	// Model AI hanya di $lib/server/aiGateway (DEFAULT_AI_MODEL, gratis saja).
 
-	// [CATATAN]: Request configuration
+	// Request configuration
 	MAX_TOKENS: 2000,
 	TEMPERATURE: 0.7
 };

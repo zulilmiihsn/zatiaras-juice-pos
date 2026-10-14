@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/bahan — Resource route controller untuk tabel `bahan` (bahan baku & stok).
  * Menangani HTTP auth, validasi request, dan delegasi ke bahanService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

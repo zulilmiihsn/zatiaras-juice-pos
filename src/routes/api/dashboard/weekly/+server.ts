@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/dashboard/weekly — Ringkasan pemasukan harian untuk grafik mingguan.
  * Menggantikan dispatch dari /api/data?table=weekly_income_summary.
- * Route tipis (AUD-053): auth + parse + respons; SQL di dashboardQueries via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di dashboardQueries via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

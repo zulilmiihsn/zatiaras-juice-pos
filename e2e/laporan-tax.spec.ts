@@ -56,7 +56,7 @@ async function fireTaxEvent(page: Page): Promise<void> {
 	});
 }
 
-// AUD-028: sesudah ganti filter berkali-kali, satu event pajak = satu refresh.
+// Sesudah ganti filter berkali-kali, satu event pajak = satu refresh.
 // Kunci perilaku (lolos di lama via runtuh timer, wajib tetap 1 di baru).
 test('one tax event triggers one logical refresh', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
@@ -75,7 +75,7 @@ test('one tax event triggers one logical refresh', async ({ page }) => {
 	expect(calls()).toBe(settled + 1);
 });
 
-// AUD-028: state mati tak reload saat event pajak datang.
+// State mati tak reload saat event pajak datang.
 test('destroyed report ignores tax events', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
 	await page.goto('/laporan');

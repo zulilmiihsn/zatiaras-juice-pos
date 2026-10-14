@@ -5,7 +5,7 @@
 	import { createOrderQueueState } from '$lib/stores/orderQueueState.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
-	import { isTodayWita } from '$lib/utils/dateTime';
+	import { isTodayWita, WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Check from '@lucide/svelte/icons/check';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
@@ -59,7 +59,7 @@
 			return new Intl.DateTimeFormat('id-ID', {
 				hour: '2-digit',
 				minute: '2-digit',
-				timeZone: 'Asia/Makassar'
+				timeZone: WITA_TIME_ZONE
 			}).format(date);
 		} catch {
 			return '--:--';
@@ -73,7 +73,7 @@
 			day: 'numeric',
 			month: 'short',
 			year: 'numeric',
-			timeZone: 'Asia/Makassar'
+			timeZone: WITA_TIME_ZONE
 		}).format(date);
 	}
 

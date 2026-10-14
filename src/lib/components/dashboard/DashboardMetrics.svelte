@@ -12,7 +12,7 @@
 		jamRamai = '' as string
 	} = $props();
 
-	// [CATATAN]: Lazy load icons
+	// Lazy load icons
 	let ShoppingBag = $state<IconComponent | null>(null);
 	let TrendingUp = $state<IconComponent | null>(null);
 	let Wallet = $state<IconComponent | null>(null);

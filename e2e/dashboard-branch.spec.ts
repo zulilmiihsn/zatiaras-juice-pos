@@ -30,7 +30,7 @@ async function loginBranch(page: Page, branch: string, username: string) {
 	await expect(page).toHaveURL(/\/$/);
 }
 
-// AUD-029: label header ikut cabang sesi terautentikasi, semua cabang + alias.
+// Label header ikut cabang sesi terautentikasi, semua cabang + alias.
 for (const [branch, username, label] of [
 	['samarinda', 'pemilik', 'Samarinda'],
 	['berau', 'owner-e2e', 'Berau'],
@@ -44,7 +44,7 @@ for (const [branch, username, label] of [
 	});
 }
 
-// AUD-029: tak ada campuran — sesi berau tak boleh tulis Samarinda.
+// Tak ada campuran — sesi berau tak boleh tulis Samarinda.
 test('berau session never shows Samarinda label', async ({ page }) => {
 	await loginBranch(page, 'berau', 'owner-e2e');
 	await expect(page.getByText('Berau', { exact: true }).first()).toBeVisible({ timeout: 30000 });

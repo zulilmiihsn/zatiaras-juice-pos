@@ -66,21 +66,21 @@
 
 		let kas: BukuKasRecord[] = Array.isArray(kasRaw) ? kasRaw : [];
 
-		// [CATATAN]: Penjualan tunai (semua pemasukan tunai)
+		// Penjualan tunai (semua pemasukan tunai)
 		const penjualanTunai = kas
 			.filter((t) => t.tipe === 'in' && t.metode_bayar === 'tunai')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
-		// [CATATAN]: Pengeluaran tunai
+		// Pengeluaran tunai
 		const pengeluaranTunai = kas
 			.filter((t) => t.tipe === 'out' && t.metode_bayar === 'tunai')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
 		const modalAwalValue = sesiAktif.kas_awal || 0;
-		// [CATATAN]: Total penjualan = semua pemasukan (in)
+		// Total penjualan = semua pemasukan (in)
 		const totalPenjualan = kas
 			.filter((t) => t.tipe === 'in')
 			.reduce((a, b) => a + (b.nominal || 0), 0);
 
-		// [CATATAN]: Uang kasir = modal awal + pemasukan tunai - pengeluaran tunai
+		// Uang kasir = modal awal + pemasukan tunai - pengeluaran tunai
 		const uangKasir = modalAwalValue + penjualanTunai - pengeluaranTunai;
 
 		ringkasanTutup = {

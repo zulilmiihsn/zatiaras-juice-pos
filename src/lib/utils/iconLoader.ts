@@ -68,13 +68,13 @@ class IconLoader {
 		const iconPromise = iconLoader().then((module) => module.default);
 		this.cache[iconName] = iconPromise;
 
-		// [CATATAN]: Mark as loaded when resolved
+		// Mark as loaded when resolved
 		iconPromise
 			.then(() => {
 				this.loadedIcons.add(iconName);
 			})
 			.catch(() => {
-				// [CATATAN]: Remove from cache if loading fails
+				// Remove from cache if loading fails
 				delete this.cache[iconName];
 			});
 
@@ -113,15 +113,15 @@ class IconLoader {
 	}
 }
 
-// [CATATAN]: Export singleton instance
+// Export singleton instance
 export const iconLoader = IconLoader.getInstance();
 
-// [CATATAN]: Route-specific icon mappings for better code splitting
+// Route-specific icon mappings for better code splitting
 export const ROUTE_ICONS = {
-	// [CATATAN]: Sesuaikan dengan ikon nyata yang dipakai per halaman
+	// Sesuaikan dengan ikon nyata yang dipakai per halaman
 	dashboard: ['wallet', 'shopping-bag', 'coins', 'users', 'clock', 'trending-up'],
 	pos: [
-		// [CATATAN]: Ikon inti POS (antisipasi)
+		// Ikon inti POS (antisipasi)
 		'shopping-cart',
 		'credit-card',
 		'receipt',
@@ -129,19 +129,19 @@ export const ROUTE_ICONS = {
 	],
 	laporan: ['filter'],
 	catat: [
-		// [CATATAN]: Saat ini banyak pakai SVG inline; siapkan ikon umum jika nanti dipakai
+		// Saat ini banyak pakai SVG inline; siapkan ikon umum jika nanti dipakai
 		'edit-3',
 		'plus-circle',
 		'minus-circle',
 		'save'
 	],
-	// [CATATAN]: Preload ikon umum untuk halaman pengaturan dan subroutes-nya
+	// Preload ikon umum untuk halaman pengaturan dan subroutes-nya
 	pengaturan: [
 		'settings',
 		'user',
 		'shield',
 		'printer',
-		// [CATATAN]: Ikon yang digunakan di halaman pengaturan utama
+		// Ikon yang digunakan di halaman pengaturan utama
 		'log-out',
 		'palette',
 		'database',
@@ -151,7 +151,7 @@ export const ROUTE_ICONS = {
 		'crown',
 		'credit-card',
 		'arrow-left',
-		// [CATATAN]: Ikon yang digunakan di halaman pemilik dan subroutes
+		// Ikon yang digunakan di halaman pemilik dan subroutes
 		'utensils',
 		'refresh-cw',
 		'trash'

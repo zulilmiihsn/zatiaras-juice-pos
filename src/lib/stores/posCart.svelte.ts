@@ -66,11 +66,11 @@ export function createPosCart() {
 			};
 			localStorage.setItem(key, JSON.stringify(envelope));
 		} catch {
-			// [CATATAN]: Abaikan jika kuota penyimpanan penuh
+			// Abaikan jika kuota penyimpanan penuh
 		}
 	}
 
-	// [CATATAN]: Derived calculations otomatis (Svelte 5 Runes)
+	// Derived calculations otomatis (Svelte 5 Runes)
 	const cartTotal = $derived(calculateCartTotal(cart));
 	const totalItems = $derived(cartTotal.items);
 	const totalHarga = $derived(cartTotal.total);

@@ -84,7 +84,7 @@ function summarizeWindow(cutoff: number, branch: string | null) {
 		if (event.receivedAt < cutoff) {
 			break;
 		}
-		// AUD-018: ringkasan terikat tenant; admin (branch null) melihat global.
+		// Ringkasan terikat tenant; admin (branch null) melihat global.
 		if (branch !== null && event.branch !== branch) {
 			continue;
 		}
@@ -271,7 +271,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const windowHours = toWindowHours(url.searchParams.get('windowHours'));
 	const windowMs = windowHours * 60 * 60 * 1000;
 	const cutoff = Date.now() - windowMs;
-	// AUD-018: pemilik hanya cabangnya; admin global.
+	// Pemilik hanya cabangnya; admin global.
 	const scopeBranch =
 		locals.authSession.role === 'admin' ? null : (locals.authSession.branch ?? '');
 	const summary = summarizeWindow(cutoff, scopeBranch);

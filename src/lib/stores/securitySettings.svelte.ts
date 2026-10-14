@@ -5,7 +5,7 @@ interface SecuritySettings {
 	pinConfigured?: boolean;
 }
 
-// [CATATAN]: Initialize store with data from localStorage if available
+// Initialize store with data from localStorage if available
 const initialValue = browser
 	? (() => {
 			try {
@@ -33,7 +33,7 @@ export const securitySettings = new SecuritySettingsState();
 
 export function setSecuritySettings(settings: SecuritySettings) {
 	securitySettings.value = settings;
-	// [CATATAN]: Persist to localStorage
+	// Persist to localStorage
 	if (browser) {
 		try {
 			localStorage.setItem(
@@ -51,7 +51,7 @@ export function setSecuritySettings(settings: SecuritySettings) {
 
 export function clearSecuritySettings() {
 	securitySettings.value = null;
-	// [CATATAN]: Clear from localStorage
+	// Clear from localStorage
 	if (browser) {
 		try {
 			localStorage.removeItem('zatiaras_security_settings');

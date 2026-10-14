@@ -65,7 +65,7 @@ function isValidImageBytes(buffer: ArrayBuffer, mimeType: string): boolean {
 }
 
 export async function POST({ request, platform, locals }) {
-	// [CATATAN]: Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	// Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
 	const branch = requireSessionBranch(locals);
 	const session = requireAuthSession(locals);
 	requireAnyRole(session.role, ['pemilik', 'admin']);
@@ -116,7 +116,7 @@ export async function POST({ request, platform, locals }) {
 }
 
 export async function DELETE({ request, platform, locals }) {
-	// [CATATAN]: Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
+	// Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
 	const branch = requireSessionBranch(locals);
 	const session = requireAuthSession(locals);
 	requireAnyRole(session.role, ['pemilik', 'admin']);

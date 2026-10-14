@@ -26,7 +26,7 @@
 	} | null>(null);
 	let downloadState = $state<'idle' | 'downloading' | 'downloaded' | 'failed'>('idle');
 	let downloadMessage = $state('');
-	// AUD-057: arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri.
+	// Arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri.
 	let progress = $state('');
 	const MAX_ARCHIVE_CALLS = 500;
 	// Navigasi keluar menghentikan loop: tak ada POST/unduhan baru di halaman lain.

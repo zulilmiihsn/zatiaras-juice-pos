@@ -189,7 +189,7 @@ export function readManifest(path = MANIFEST_PATH) {
 }
 
 /**
- * AUD-056: diagnosis saja, bukan pelonggaran. Bila file sumber berbeda hanya
+ * Diagnosis saja, bukan pelonggaran. Bila file sumber berbeda hanya
  * karena CRLF (checkout Windows lama sebelum `.gitattributes eol=lf`), pesan
  * menyebut penyebab dan perbaikannya; verifikasi tetap gagal (hash byte persis).
  */

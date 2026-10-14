@@ -31,13 +31,13 @@
 		if (src) {
 			img.src = src;
 			img.onload = () => {
-				// [CATATAN]: Hitung minZoom agar gambar fit (bukan cover) di frame crop
+				// Hitung minZoom agar gambar fit (bukan cover) di frame crop
 				const scaleX = cropSize / img.width;
 				const scaleY = cropSize / img.height;
 				minZoom = Math.max(scaleX, scaleY);
 				maxZoom = Math.max(4, minZoom * 2);
 				zoom = minZoom;
-				// [CATATAN]: Offset agar gambar tengah di frame crop
+				// Offset agar gambar tengah di frame crop
 				offset.x = 0;
 				offset.y = 0;
 				lastOffset.x = 0;
@@ -49,10 +49,10 @@
 	});
 
 	function updatePreview() {
-		// [CATATAN]: Perhitungan crop area yang benar
+		// Perhitungan crop area yang benar
 		const drawW = img.width * zoom;
 		const drawH = img.height * zoom;
-		// [CATATAN]: Rumus baru: posisi crop frame terhadap gambar
+		// Rumus baru: posisi crop frame terhadap gambar
 		const sx = ((csize - cropSize) / 2 - offset.x + (drawW - csize) / 2) / zoom;
 		const sy = ((csize - cropSize) / 2 - offset.y + (drawH - csize) / 2) / zoom;
 		const temp = document.createElement('canvas');
@@ -70,10 +70,10 @@
 		const ctx = canvasEl.getContext('2d');
 		if (ctx) {
 			ctx.clearRect(0, 0, csize, csize);
-			// [CATATAN]: Hitung ukuran gambar setelah zoom
+			// Hitung ukuran gambar setelah zoom
 			const drawW = img.width * zoom;
 			const drawH = img.height * zoom;
-			// [CATATAN]: Pusatkan gambar di canvas + offset
+			// Pusatkan gambar di canvas + offset
 			const centerX = csize / 2 + offset.x;
 			const centerY = csize / 2 + offset.y;
 			ctx.save();
@@ -82,7 +82,7 @@
 			ctx.clip();
 			ctx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
 			ctx.restore();
-			// [CATATAN]: Overlay gelap di luar area crop
+			// Overlay gelap di luar area crop
 			ctx.save();
 			ctx.globalAlpha = 0.5;
 			ctx.fillStyle = '#000';
@@ -91,7 +91,7 @@
 			ctx.rect((csize - cropSize) / 2, (csize - cropSize) / 2, cropSize, cropSize);
 			ctx.fill('evenodd');
 			ctx.restore();
-			// [CATATAN]: Border crop
+			// Border crop
 			ctx.strokeStyle = '#ff5fa2';
 			ctx.lineWidth = 2;
 			ctx.strokeRect((csize - cropSize) / 2, (csize - cropSize) / 2, cropSize, cropSize);
@@ -123,7 +123,7 @@
 		const dy = pos.y - startY;
 		offset.x = lastOffset.x + dx;
 		offset.y = lastOffset.y + dy;
-		// [CATATAN]: Batasan agar cropper tidak keluar area crop
+		// Batasan agar cropper tidak keluar area crop
 		const drawW = img.width * zoom;
 		const drawH = img.height * zoom;
 		const _minX = (cropSize - drawW) / 2;
@@ -150,7 +150,7 @@
 	}
 
 	function handleOk() {
-		// [CATATAN]: preview sudah selalu update, cukup dispatch
+		// preview sudah selalu update, cukup dispatch
 		if (onDone) onDone({ cropped: preview });
 		open = false;
 	}
@@ -163,7 +163,7 @@
 
 	$effect(() => {
 		if (canvasEl && open) {
-			// [CATATAN]: Jika canvasEl berubah, detach dari yang lama
+			// Jika canvasEl berubah, detach dari yang lama
 			if (lastCanvasEl && lastCanvasEl !== canvasEl) {
 				lastCanvasEl.removeEventListener('touchstart', onPointerDown);
 				lastCanvasEl.removeEventListener('touchmove', onPointerMove);

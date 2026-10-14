@@ -107,7 +107,7 @@ async function spaGoStok(page: Page): Promise<void> {
 	await page.waitForTimeout(500);
 }
 
-// AUD-022: halaman mati tak boleh bereaksi; mount ulang tak gandakan request.
+// Halaman mati tak boleh bereaksi; mount ulang tak gandakan request.
 test('destroyed stock page ignores events and remount stays single', async ({ page }) => {
 	await mockSession(page);
 	const { calls } = await installBahanCounter(page);
@@ -137,7 +137,7 @@ test('destroyed stock page ignores events and remount stays single', async ({ pa
 	expect(calls()).toBe(beforeEvent + 1);
 });
 
-// AUD-022: pergi saat load pending -> resolving tak daftarkan subscription.
+// Pergi saat load pending -> resolving tak daftarkan subscription.
 test('leaving during pending load registers nothing', async ({ page }) => {
 	await mockSession(page);
 	const { release, calls } = await installBahanHold(page);

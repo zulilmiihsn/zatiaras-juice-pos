@@ -72,7 +72,7 @@
 		});
 	});
 
-	// [CATATAN]: Reactive statement untuk mengontrol body scroll
+	// Reactive statement untuk mengontrol body scroll
 	$effect(() => {
 		if (isOpen && typeof document !== 'undefined') {
 			document.body.classList.add('modal-open');
@@ -126,7 +126,7 @@
 			consent = prepared;
 			currentAnalysis = { ...analysis, recommendations: [...prepared.recommendations] };
 
-			// [CATATAN]: Generate response
+			// Generate response
 			const responseText = aiAnalysisService.generateResponseText(currentAnalysis);
 
 			const aiMessage: AiChatMessage = {
@@ -138,7 +138,7 @@
 
 			messages = [...messages, aiMessage];
 
-			// [CATATAN]: Tampilkan rekomendasi jika ada
+			// Tampilkan rekomendasi jika ada
 			if (analysis.recommendations.length > 0) {
 				showRecommendations = true;
 			}
@@ -162,7 +162,7 @@
 		const ownedGeneration = generation;
 		const ownedConsent = consent;
 		isLoading = true;
-		// [CATATAN]: Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
+		// Tahan rekomendasi terlihat sampai selesai; jangan sembunyikan dulu agar UX jelas proses sedang berlangsung
 
 		try {
 			const result = await autoApplyService.applyRecommendations(
@@ -179,7 +179,7 @@
 			};
 
 			messages = [...messages, resultMessage];
-			// [CATATAN]: Jika sukses, barulah kosongkan analisis dan rekomendasi
+			// Jika sukses, barulah kosongkan analisis dan rekomendasi
 			if (result.success) {
 				autoApplyService.cancelConsent(ownedConsent);
 				consent = null;
@@ -188,13 +188,13 @@
 				appliedSinceOpen = true;
 			}
 
-			// [CATATAN]: Dispatch event untuk refresh data di parent
+			// Dispatch event untuk refresh data di parent
 			if (onRecommendationsApplied) onRecommendationsApplied({ result });
 
-			// [CATATAN]: Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
+			// Broadcast global event agar halaman lain bisa dengar (laporan/riwayat)
 			if (result.success && typeof window !== 'undefined') {
 				window.dispatchEvent(new CustomEvent('ai-recommendations-applied', { detail: result }));
-				// [CATATAN]: Panggil API refresher global bila tersedia, agar update benar-benar segera
+				// Panggil API refresher global bila tersedia, agar update benar-benar segera
 				refreshBus.emit('laporan');
 				refreshBus.emit('riwayat');
 			}
@@ -220,11 +220,11 @@
 	}
 
 	function closeModal() {
-		// [CATATAN]: Reset chat state saat modal ditutup
+		// Reset chat state saat modal ditutup
 		if (appliedSinceOpen && typeof window !== 'undefined') {
-			// [CATATAN]: Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
+			// Pastikan broadcast sekali lagi saat ditutup jika sebelumnya berhasil menerapkan
 			window.dispatchEvent(new CustomEvent('ai-recommendations-applied'));
-			// [CATATAN]: Trigger refresh di background saat modal ditutup
+			// Trigger refresh di background saat modal ditutup
 			refreshBus.emit('laporan');
 			refreshBus.emit('riwayat');
 		}

@@ -104,7 +104,7 @@ async function doubleRefresh(page: Page, calls: () => number): Promise<void> {
 	await refreshViaSaleEvent(page);
 }
 
-// AUD-021: load lama yang selesai belakangan tak boleh menimpa load baru.
+// Load lama yang selesai belakangan tak boleh menimpa load baru.
 test('stale stock load cannot overwrite newer data', async ({ page }) => {
 	await mockSession(page);
 	const { gate, calls } = await installBahanGate(page);
@@ -123,7 +123,7 @@ test('stale stock load cannot overwrite newer data', async ({ page }) => {
 	expect(calls()).toBeGreaterThanOrEqual(3);
 });
 
-// AUD-021: failure basi tak boleh tampilkan error untuk view baru.
+// Failure basi tak boleh tampilkan error untuk view baru.
 test('stale stock failure cannot raise error for newer view', async ({ page }) => {
 	await mockSession(page);
 	const { gate, calls } = await installBahanGate(page);

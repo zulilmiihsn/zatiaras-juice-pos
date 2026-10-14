@@ -9,10 +9,10 @@ import {
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/bahan/purchase — perintah kulakan atomik (AUD-006).
+ * POST /api/bahan/purchase — perintah kulakan atomik.
  * Satu request menggantikan tiga tulis terpisah (mutasi + kas + HPP).
  * Idempoten via operation_key. Pemilik saja, ikut stock policy.
- * Route tipis (AUD-053): DB di use case via BranchContext.
+ * Route tipis: DB di use case via BranchContext.
  */
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const branch = requireSessionBranch(locals);

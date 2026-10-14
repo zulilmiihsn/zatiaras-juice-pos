@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
  * /api/reports/aggregate — Laporan ter-agregasi dari tabel harian + buku_kas manual.
  * Menggantikan dispatch dari /api/data?table=laporan_aggregate.
  * Mengembalikan LaporanAggregate (summary, pemasukanUsaha, pemasukanLain, bebanUsaha, bebanLain, transactions).
- * Route tipis (AUD-053): auth + parse + respons; SQL di reportQueries via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di reportQueries via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

@@ -74,7 +74,7 @@ export interface CanonicalFacts {
 
 /**
  * Fakta rincian (harian, pembayaran, produk) dari sumber yang sama dengan
- * buildLaporanAggregate (AUD-030). Gagal sumber merambat sebagai error.
+ * buildLaporanAggregate. Gagal sumber merambat sebagai error.
  */
 export async function buildCanonicalFacts(
 	rawDb: D1Database,
@@ -322,7 +322,7 @@ export async function buildLaporanAggregate(
 	const totalPengeluaran = manualExpense;
 	const labaKotor = totalPemasukan - totalPengeluaran;
 
-	// [CATATAN]: Pajak via mesin kanonik + config persisted (v2 atau legacy).
+	// Pajak via mesin kanonik + config persisted (v2 atau legacy).
 	// Omzet usaha = POS + manual usaha aktif + arsip manual (F12, tanpa ganda).
 	// Rentang lintas tahun dipecah per tahun pajak; threshold reset tiap Januari.
 	async function turnoverBetween(from: string, to: string): Promise<number> {

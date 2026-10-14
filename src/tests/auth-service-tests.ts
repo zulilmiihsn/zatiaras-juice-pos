@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { attemptLogin } from '../lib/server/services/authService';
 import { createTestD1 } from './helpers/testD1';
 
-// AUD-053 auth boundary: kontrak negatif login seragam + sukses sesi,
+// auth boundary: kontrak negatif login seragam + sukses sesi,
 // lewat service yang dipakai route tipis.
 async function seedProfil(
 	db: { prepare: (sql: string) => { bind: (...a: unknown[]) => { run: () => Promise<unknown> } } },

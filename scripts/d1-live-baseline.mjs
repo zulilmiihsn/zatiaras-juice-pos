@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AUD-059: trusted drill baseline from the LIVE production shard (read-only), and verification
+ * Trusted drill baseline from the LIVE production shard (read-only), and verification
  * of an isolated restore target against that baseline.
  *
  *   capture:  --shard <BINDING> --backup-manifest <manifest> --output <external.json> [--env-file .env]

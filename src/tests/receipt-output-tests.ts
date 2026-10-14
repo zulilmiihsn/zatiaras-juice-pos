@@ -64,7 +64,7 @@ const sale = buildSaleReceiptHtml({
 
 const count = (s: string, sub: string) => s.split(sub).length - 1;
 
-// AUD-014: the committed receipt snapshot wins over later catalog, ledger, and settings values.
+// The committed receipt snapshot wins over later catalog, ledger, and settings values.
 {
 	const snapshot = JSON.stringify({
 		schema_version: 1,

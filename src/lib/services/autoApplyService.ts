@@ -305,7 +305,7 @@ export class AutoApplyService {
 		recommendation: AiRecommendation,
 		before?: LedgerConsentBefore
 	): Promise<string | void> {
-		// AUD-033: validasi skema yang sama dengan parse; field model di luar
+		// Validasi skema yang sama dengan parse; field model di luar
 		// allowlist (id/branch/transaction_id/…) tak pernah sampai mutasi.
 		const validation = validateRecommendation({
 			action: recommendation.action,
@@ -362,9 +362,9 @@ export class AutoApplyService {
 		}
 
 		const branch = selectedBranch.value;
-		// [CATATAN]: 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
+		// 'penjualan' sudah ditangani & return di atas, jadi sisanya cuma pemasukan/pengeluaran
 		const tipe = data.type === 'pemasukan' ? 'in' : 'out';
-		// AUD-032: arah saja tak menentukan jenis usaha. Ambigu = tolak
+		// Arah saja tak menentukan jenis usaha. Ambigu = tolak
 		// eksplisit agar pemilik konfirmasi manual, bukan default diam.
 		const resolved = resolveLedgerCategory({
 			type: data.type,
@@ -571,7 +571,7 @@ export class AutoApplyService {
 			nominal: data.amount,
 			deskripsi: data.deskripsi
 		};
-		// AUD-032/033: kategori model wajib valid; absen = jangan sentuh
+		// Kategori model wajib valid; absen = jangan sentuh
 		// jenis existing (bukan default diam / mentah ke server).
 		if (data.category !== undefined) {
 			const resolved = resolveLedgerCategory({

@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
 /**
  * Preview arsip transaksi lama (sebelum tahun tertentu) tanpa mutasi data.
  * Route hanya auth + parsing + response; logika di archiveUseCase.
- * Route tipis (AUD-053): SQL di use case via BranchContext.
+ * Route tipis: SQL di use case via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals);

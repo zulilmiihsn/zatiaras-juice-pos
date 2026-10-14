@@ -69,7 +69,7 @@ async function dialogHasFocus(page: Page, labelledby: string): Promise<boolean> 
 	}, labelledby);
 }
 
-// AUD-024 desktop: dialog Tambah Bahan bernama + keyboard penuh.
+// Dialog Tambah Bahan bernama + keyboard penuh.
 test('bahan dialog is named and keyboard safe', async ({ page }) => {
 	await mockSession(page);
 	await gotoHydrated(page, '/stok', 'text=Gula Uji');
@@ -100,7 +100,7 @@ test('bahan dialog is named and keyboard safe', async ({ page }) => {
 	).toContain('Tambah Bahan');
 });
 
-// AUD-024 mobile: dialog Mutasi keyboard + preview + Escape dari input.
+// Dialog Mutasi keyboard + preview + Escape dari input.
 test('mutasi dialog keeps preview and closes from input via Escape', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await mockSession(page);
@@ -121,7 +121,7 @@ test('mutasi dialog keeps preview and closes from input via Escape', async ({ pa
 	await expect(dialog).toBeHidden({ timeout: 10000 });
 });
 
-// AUD-024 mobile: dialog Hapus Batal/konfirmasi via keyboard.
+// Dialog Hapus Batal/konfirmasi via keyboard.
 test('delete dialog confirms and cancels via keyboard', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await mockSession(page);
@@ -164,7 +164,7 @@ async function captureBahanWrites(page: Page): Promise<Array<{ method: string; u
 	return writes;
 }
 
-// AUD-024: dialog Tambah Bahan dikirim penuh via keyboard (Enter dari input).
+// Dialog Tambah Bahan dikirim penuh via keyboard (Enter dari input).
 test('bahan dialog submits from keyboard and restores focus', async ({ page }) => {
 	await mockSession(page);
 	const writes = await captureBahanWrites(page);
@@ -189,7 +189,7 @@ test('bahan dialog submits from keyboard and restores focus', async ({ page }) =
 		.toContain('Tambah Bahan');
 });
 
-// AUD-024: konfirmasi hapus via keyboard mengirim tepat satu penghapusan.
+// Konfirmasi hapus via keyboard mengirim tepat satu penghapusan.
 test('delete dialog confirms from keyboard', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await mockSession(page);

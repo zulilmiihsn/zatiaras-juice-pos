@@ -78,7 +78,7 @@
 			}
 		} catch {
 			pengaturanId = null;
-			// [CATATAN]: loadFromLocal();
+			// loadFromLocal();
 		}
 
 		// Load Printer Connection Config
@@ -196,7 +196,7 @@
 		}
 	}
 
-	// [CATATAN]: Toast management
+	// Toast management
 	const toastManager = createToastManager();
 
 	onMount(async () => {

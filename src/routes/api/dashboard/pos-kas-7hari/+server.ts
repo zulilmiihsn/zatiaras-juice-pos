@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/dashboard/pos-kas-7hari — Header transaksi POS 7 hari terakhir.
  * Menggantikan dispatch dari /api/data?table=pos_kas_7hari.
- * Route tipis (AUD-053): auth + parse + respons; SQL di dashboardQueries via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di dashboardQueries via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

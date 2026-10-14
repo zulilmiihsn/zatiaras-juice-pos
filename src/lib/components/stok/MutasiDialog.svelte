@@ -15,7 +15,7 @@
 	let { s }: { s: StokState } = $props();
 </script>
 
-<!-- Modal Mutasi Cepat (+ Kulakan / - Koreksi) (AUD-024: AppModal kanonik) -->
+<!-- Modal Mutasi Cepat (+ Kulakan / - Koreksi) -->
 {#if s.showMutasiModal && s.selectedBahanForMutasi}
 	<AppModal
 		open={s.showMutasiModal}

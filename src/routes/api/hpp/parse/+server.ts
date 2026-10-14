@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			apiKey,
 			platform,
 			clientSignal: request.signal,
-			// AUD-061: override sama dengan /api/aichat; hanya model :free yang dipakai.
+			// Override sama dengan /api/aichat; hanya model :free yang dipakai.
 			model: resolveAiModel(
 				(platform?.env as Record<string, unknown> | undefined)?.AI_MODEL as string | undefined,
 				(platform?.env as Record<string, unknown> | undefined)?.OPENROUTER_MODEL as

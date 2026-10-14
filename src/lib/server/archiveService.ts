@@ -182,7 +182,7 @@ export async function sealManifestItems(
 	rows: Array<{ id: string; transaction_id?: string | null; revision?: number | null }>
 ): Promise<void> {
 	if (!rows.length) return;
-	// AUD-057: satu statement untuk seluruh chunk (JSON), bukan satu INSERT per baris.
+	// Satu statement untuk seluruh chunk (JSON), bukan satu INSERT per baris.
 	// Revision sudah divalidasi bilangan bulat oleh buildArchiveSnapshot (422).
 	const items = rows.map((r) => ({
 		id: String(r.id),

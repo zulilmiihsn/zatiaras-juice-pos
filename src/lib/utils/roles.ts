@@ -1,4 +1,4 @@
-// Kebijakan role kanonik tunggal (AUD-019).
+// Kebijakan role kanonik tunggal.
 // Dipakai login, session store, dan store UI agar konsisten:
 // valid `pemilik`/`kasir`/`admin`, unknown fail-closed (null),
 // bukan default diam ke otoritas mana pun.

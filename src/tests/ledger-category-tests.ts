@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { LEDGER_JENIS_LABEL, resolveLedgerCategory } from '../lib/utils/ledgerCategory';
 
-// AUD-032: arah saja tak menentukan jenis usaha.
+// Arah saja tak menentukan jenis usaha.
 assert.deepEqual(Object.keys(LEDGER_JENIS_LABEL).sort(), [
 	'beban_usaha',
 	'lainnya',

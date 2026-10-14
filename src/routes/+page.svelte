@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { auth } from '$lib/auth/auth';
 	import { browser } from '$app/environment';
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
 	import { branchLabel } from '$lib/utils/branches';
@@ -8,7 +7,6 @@
 	import { realtimeManager } from '$lib/realtime/realtimeManager';
 	import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import { getNowWita } from '$lib/utils/dateTime';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
 	import { securitySettings } from '$lib/stores/securitySettings.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
@@ -47,7 +45,7 @@
 	} from '$lib/types';
 	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
 
-	// [CATATAN]: Lazy load icons — assigned in onMount, consumed by DashboardMetrics via svelte:component
+	// Lazy load icons — assigned in onMount, consumed by DashboardMetrics via svelte:component
 	let Wallet = $state<IconComponent | null>(null);
 	let ShoppingBag = $state<IconComponent | null>(null);
 	let Coins = $state<IconComponent | null>(null);
@@ -60,14 +58,9 @@
 
 	const dashboard = createDashboardState();
 
-	// [CATATAN]: Subscribe ke store
-	let currentUserRole = $state('');
+	const currentUserRole = $derived(userRole.value || '');
 
-	$effect(() => {
-		currentUserRole = userRole.value || '';
-	});
-
-	// AUD-029: label dari profil terautentikasi, bukan tebakan UI.
+	// Label dari profil terautentikasi, bukan tebakan UI.
 	// Profil belum ada (loading/ganti sesi) = placeholder netral.
 	const headerBranchLabel = $derived.by(() => {
 		const branch = (userProfile.value as { branch?: unknown } | null)?.branch;
@@ -76,11 +69,11 @@
 
 	onMount(async () => {
 		void stockPolicyState.refresh();
-		// [CATATAN]: Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
+		// Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
 		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			// [CATATAN]: non-blocking
+			// non-blocking
 			loadRouteIcons('dashboard');
-			// [CATATAN]: anticipatory preload ke rute yang sering dituju berikutnya
+			// anticipatory preload ke rute yang sering dituju berikutnya
 			setTimeout(() => loadRouteIcons('pos'), 0);
 			setTimeout(() => loadRouteIcons('laporan'), 0);
 		});
@@ -99,7 +92,7 @@
 		Clock = icons[4].default;
 		TrendingUp = icons[5].default;
 
-		// [CATATAN]: Jika role belum ada di store, validasi dari session backend.
+		// Jika role belum ada di store, validasi dari session backend.
 		if (!currentUserRole) {
 			const res = await fetch('/api/session');
 			if (res.ok) {
@@ -108,11 +101,6 @@
 			}
 		}
 	});
-
-	// [CATATAN]: Manual refresh function (for testing)
-	async function refreshDashboardData() {
-		await dashboard.refreshDashboardData();
-	}
 
 	let modalAwal = $state<number | null>(null);
 
@@ -128,23 +116,11 @@
 		return rounded.toString();
 	}
 
-	function getLast7DaysLabelsWITA() {
-		const hari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-		const todayWITA = getTodayWitaDate();
-		let labels = [];
-		for (let i = 6; i >= 0; i--) {
-			const d = new Date(todayWITA);
-			d.setDate(todayWITA.getDate() - i);
-			labels.push(hari[d.getDay()]);
-		}
-		return labels;
-	}
-
-	// [CATATAN]: Toast notification — use shared createToastManager
+	// Toast notification — use shared createToastManager
 	const toastManager = createToastManager();
 	onDestroy(() => toastManager.dispose());
 
-	// [CATATAN]: Shim for local callers that expect showToastNotification(msg, type)
+	// Shim for local callers that expect showToastNotification(msg, type)
 	function showToastNotification(
 		message: string,
 		type: 'success' | 'error' | 'warning' | 'info' = 'success'
@@ -154,7 +130,7 @@
 
 	let showTokoModal = $state(false);
 	let isBukaToko = $state(true); // true: buka toko, false: tutup toko
-	// [CATATAN]: Verifikasi PIN untuk aksi kasir (buka/tutup)
+	// Verifikasi PIN untuk aksi kasir (buka/tutup)
 	let showActionPinModal = $state(false);
 	let modalAwalInput = $state('');
 	let pinInputToko = $state('');
@@ -267,7 +243,7 @@
 	});
 
 	async function handleOpenTokoModal() {
-		// [CATATAN]: Jika kasir, cek apakah PIN sudah dikonfigurasi.
+		// Jika kasir, cek apakah PIN sudah dikonfigurasi.
 		// Jika belum disetup pemilik, auto-bypass agar kasir bisa langsung buka/tutup sesi kios.
 		if (currentUserRole === 'kasir') {
 			let isPinSet = securitySettings.value?.pinConfigured;
@@ -293,14 +269,14 @@
 				return;
 			}
 		}
-		// [CATATAN]: Non-kasir atau PIN belum disetup langsung buka modal (auto-bypass)
+		// Non-kasir atau PIN belum disetup langsung buka modal (auto-bypass)
 		cekSesiToko().then(() => {
 			isBukaToko = !tokoAktifLocal;
 			showTokoModal = true;
 		});
 	}
 
-	// [CATATAN]: Pending action setelah PIN benar
+	// Pending action setelah PIN benar
 	let pendingAction = $state<(() => void) | null>(null);
 
 	function handleActionPinSuccess() {
@@ -318,7 +294,7 @@
 	let topbarRef = $state<HTMLDivElement | null>(null);
 	let sentinelRef = $state<HTMLDivElement | null>(null);
 	onMount(() => {
-		// [CATATAN]: Observer untuk sticky topbar
+		// Observer untuk sticky topbar
 		if (sentinelRef && topbarRef) {
 			const observer = new window.IntersectionObserver(
 				(entries) => {
@@ -329,20 +305,6 @@
 			observer.observe(sentinelRef);
 		}
 	});
-
-	// [CATATAN]: Fungsi untuk mendapatkan tanggal hari ini WITA (tanpa jam)
-	function getTodayWitaDate() {
-		// [CATATAN]: Ambil waktu sekarang di Asia/Makassar (WITA)
-		const witaString = getNowWita();
-		const witaDate = new Date(witaString);
-		witaDate.setHours(0, 0, 0, 0); // Set ke jam 00:00:00
-		return witaDate;
-	}
-
-	// [CATATAN]: Inisialisasi range 7 hari terakhir berdasarkan hari WITA
-	const todayWitaDate = getTodayWitaDate();
-	const sevenDaysAgoWita = new Date(todayWitaDate);
-	sevenDaysAgoWita.setDate(todayWitaDate.getDate() - 6); // 6 hari ke belakang + hari ini = 7 hari
 </script>
 
 <!-- PinModal removed -->

@@ -9,6 +9,7 @@ import { getD1Database, type BranchContext } from '../branchResolver';
 import { consumeRateLimit } from '../rateLimit';
 import {
 	checkoutItemCountError,
+	CheckoutDomainError,
 	ITEM_OPTION_LIMITS,
 	normalizeMoney,
 	sanitizeShortText,
@@ -29,13 +30,10 @@ export const QUOTE_TTL_MS = 5 * 60 * 1000;
 const QUOTE_RATE_LIMIT = 60;
 const QUOTE_RATE_WINDOW_MS = 60 * 1000;
 
-export class QuoteUseCaseError extends Error {
-	readonly status: number;
-
+export class QuoteUseCaseError extends CheckoutDomainError {
 	constructor(status: number, message: string) {
-		super(message);
+		super(status, message);
 		this.name = 'QuoteUseCaseError';
-		this.status = status;
 	}
 }
 

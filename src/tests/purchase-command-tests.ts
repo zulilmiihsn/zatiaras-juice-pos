@@ -5,7 +5,7 @@ import { executePurchase, PurchaseUseCaseError } from '../lib/server/purchaseUse
 import { POST as PURCHASE } from '../routes/api/bahan/purchase/+server';
 import { createTestD1 } from './helpers/testD1';
 
-// Perintah kulakan atomik (AUD-006): satu batch untuk mutasi + kas + HPP,
+// Perintah kulakan atomik: satu batch untuk mutasi + kas + HPP,
 // idempoten via operation_key, ikut stock policy.
 
 const { db, close } = await createTestD1();

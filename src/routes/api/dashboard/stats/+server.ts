@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
  * /api/dashboard/stats — Statistik dashboard dari tabel ringkasan harian.
  * Menggantikan dispatch dari /api/data?table=dashboard_stats.
  * Mengembalikan { summary: [...] } (array daily_sales_summary rows).
- * Route tipis (AUD-053): auth + parse + respons; SQL di dashboardQueries via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di dashboardQueries via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

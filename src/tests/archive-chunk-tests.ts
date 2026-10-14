@@ -10,8 +10,8 @@ import {
 } from '../lib/server/archiveUseCase';
 import { branchContext } from '../lib/server/branchResolver';
 
-// AUD-039: chunk arsip bounded + resume tanpa OOM/duplikasi/kehilangan.
-// AUD-057: ID chunk lewat json_each, jadi jumlah header tak dibatasi bind-param.
+// Chunk arsip bounded + resume tanpa OOM/duplikasi/kehilangan.
+// ID chunk lewat json_each, jadi jumlah header tak dibatasi bind-param.
 assert.ok(ARCHIVE_CHUNK_HEADERS >= 500, 'Setahun tak boleh kembali ke ribuan file kecil');
 assert.ok(ARCHIVE_CHUNK_MAX_BYTES <= 2_000_000);
 assert.ok(ARCHIVE_MAX_CHUNKS_PER_CALL >= 1);
@@ -271,7 +271,7 @@ try {
 		.prepare("UPDATE buku_kas SET deskripsi=? WHERE id='later-1'")
 		.bind('ü🧾'.repeat(400000))
 		.run();
-	// AUD-057: bagian yang sudah commit di panggilan yang sama tetap dilaporkan.
+	// Bagian yang sudah commit di panggilan yang sama tetap dilaporkan.
 	const later = (await runArchive(db, storage, branch, 2025)) as Extract<
 		ArchiveResult,
 		{ kind: 'partial' }
@@ -393,7 +393,7 @@ try {
 			};
 		}
 	};
-	// Part-1 sudah commit: dilaporkan sebagai partial berisi part-1 + alasan gagal (AUD-057).
+	// Part-1 sudah commit: dilaporkan sebagai partial berisi part-1 + alasan gagal.
 	const flakyResult = (await runArchive(db, flaky, branch, 2025, {
 		chunkHeaders: 2,
 		maxChunks: ARCHIVE_MAX_CHUNKS_PER_CALL
@@ -425,7 +425,7 @@ try {
 	}
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
 
-	// AUD-057: banyak grup ringkasan manual dalam satu chunk tetap satu batch kecil
+	// Banyak grup ringkasan manual dalam satu chunk tetap satu batch kecil
 	// (dulu satu INSERT per grup: 1000 header manual = ±1000 statement per batch).
 	await resetAll();
 	const summaryDays = 120;
@@ -471,7 +471,7 @@ try {
 	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
 	assert.equal(await ledgerTotal(), 7000);
 
-	// AUD-057: payload chunk wajib dimulai dari baris terpilih (json_each/selected)
+	// Payload chunk wajib dimulai dari baris terpilih (json_each/selected)
 	// lalu lookup per rowid. Rencana yang memindai semua baris cabang per chunk
 	// membuat arsip setahun O(n^2) (44 s per panggilan pada 15.000 transaksi).
 	{

@@ -1,9 +1,9 @@
-// [CATATAN]: ─── Offline sync ─────────────────────────────────────────────────────────────
+// ─── Offline sync ─────────────────────────────────────────────────────────────
 //
-// [CATATAN]: Subsistem sinkronisasi transaksi offline: replay antrian pending ke server
-// [CATATAN]: (idempoten via idempotency_key), single-flight, backoff, klasifikasi gagal.
-// [CATATAN]: Dipisah dari dataService agar tanggung jawab jelas. Listener window di akhir
-// [CATATAN]: mendaftar otomatis saat modul ini dimuat (di-load via re-export di dataService).
+// Subsistem sinkronisasi transaksi offline: replay antrian pending ke server
+// (idempoten via idempotency_key), single-flight, backoff, klasifikasi gagal.
+// Dipisah dari dataService agar tanggung jawab jelas. Listener window di akhir
+// mendaftar otomatis saat modul ini dimuat (di-load via re-export di dataService).
 
 import {
 	getPendingTransactions,

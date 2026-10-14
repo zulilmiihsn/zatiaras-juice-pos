@@ -146,7 +146,7 @@ test('config berubah setelah manifest ditolak (REL-T06)', () => {
 	}
 });
 
-// AUD-056: journal migrasi CRLF (checkout Windows lama) tetap ditolak, dengan
+// Journal migrasi CRLF (checkout Windows lama) tetap ditolak, dengan
 // diagnosis jelas; perubahan isi substantif tidak diberi diagnosis CRLF.
 test('journal CRLF ditolak dengan diagnosis, perubahan isi tanpa diagnosis', () => {
 	const fx = fixture();

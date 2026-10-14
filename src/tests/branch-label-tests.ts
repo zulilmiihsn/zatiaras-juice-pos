@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { branchLabel } from '../lib/utils/branches';
 
-// AUD-029: lima cabang + alias konsisten; unknown netral (bukan nama salah).
+// Lima cabang + alias konsisten; unknown netral (bukan nama salah).
 assert.equal(branchLabel('samarinda'), 'Samarinda');
 assert.equal(branchLabel('berau'), 'Berau');
 assert.equal(branchLabel('balikpapan'), 'Balikpapan');

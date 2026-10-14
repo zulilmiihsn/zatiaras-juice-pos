@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import { WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';
 	import { formatRupiah } from '$lib/utils/currency';
@@ -62,7 +63,7 @@
 		return new Intl.DateTimeFormat('id-ID', {
 			dateStyle: 'medium',
 			timeStyle: 'short',
-			timeZone: 'Asia/Makassar'
+			timeZone: WITA_TIME_ZONE
 		}).format(date);
 	}
 

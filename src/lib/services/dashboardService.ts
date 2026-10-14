@@ -6,7 +6,8 @@ import {
 	getLastDaysYmdWita,
 	getMonthEndYmd,
 	getTodayWita,
-	witaToUtcRange
+	witaToUtcRange,
+	WITA_TIME_ZONE
 } from '$lib/utils/dateTime';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { dbGet } from '$lib/services/dataApiClient';
@@ -102,7 +103,7 @@ async function getJamRamaiMingguan(): Promise<string> {
 
 	const kas = await getCachedPosKas7Hari();
 	const witaHour = new Intl.DateTimeFormat('en-US', {
-		timeZone: 'Asia/Makassar',
+		timeZone: WITA_TIME_ZONE,
 		hour: '2-digit',
 		hour12: false
 	});
@@ -482,11 +483,10 @@ export class DashboardService {
 					sumber: 'pos',
 					tipe: 'in'
 				});
-				const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Makassar' });
 				for (const t of rows) {
 					const d = new Date(String(t.waktu ?? ''));
 					if (isNaN(d.getTime())) continue;
-					const tanggal = fmt.format(d);
+					const tanggal = formatDateYmdWita(d);
 					if (tanggal in perHari) perHari[tanggal] += numberField(t, 'nominal');
 				}
 

@@ -33,7 +33,7 @@
 		bebanLainTunai: BukuKasRecord[];
 	} = $props();
 
-	// [CATATAN]: Local states for accordions
+	// Local states for accordions
 	let showPemasukan = $state(true);
 	let showPendapatanUsaha = $state(true);
 	let showPemasukanLain = $state(true);
@@ -41,7 +41,7 @@
 	let showBebanUsaha = $state(true);
 	let showBebanLain = $state(true);
 
-	// [CATATAN]: Track expanded items
+	// Track expanded items
 	let expandedItems = $state(new Set<string>());
 
 	function toggleExpand(name: string) {

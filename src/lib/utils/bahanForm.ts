@@ -1,4 +1,4 @@
-// AUD-053: kebijakan tunggal form bahan (Stok dan Manajemen Menu).
+// Kebijakan tunggal form bahan (Stok dan Manajemen Menu).
 // Murni: tanpa store/fetch, sehingga kedua halaman memakai aturan yang sama
 // untuk mengisi form, mengonversi satuan beli, yield, dan biaya per satuan.
 
@@ -165,8 +165,8 @@ export function previewBahanCost(
 
 /**
  * Payload simpan bahan. Jumlah beli disimpan dalam satuan dasar; biaya per
- * satuan = biaya beli / (jumlah dasar x yield). Edit tidak mengirim saldo stok
- * (AUD-009): stok awal hanya saat membuat bahan.
+ * satuan = biaya beli / (jumlah dasar x yield). Edit tidak mengirim saldo stok;
+ * stok awal hanya saat membuat bahan.
  */
 export function buildBahanPayload(
 	form: BahanForm,

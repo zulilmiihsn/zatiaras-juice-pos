@@ -1,6 +1,12 @@
 import { onMount, onDestroy } from 'svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
-import { getTodayWita, getNowWita, addDaysYmd, getMonthEndYmd } from '$lib/utils/dateTime';
+import {
+	getTodayWita,
+	getNowWita,
+	addDaysYmd,
+	getMonthEndYmd,
+	WITA_TIME_ZONE
+} from '$lib/utils/dateTime';
 import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
@@ -215,7 +221,7 @@ export function createLaporanState() {
 				if (laporanAlive) await scheduleLaporanRefresh(220);
 			})
 		];
-		// AUD-028: handler bernama — lepas sebelum daftar ulang agar
+		// Handler bernama — lepas sebelum daftar ulang agar
 		// satu event pajak = satu refresh logis, bukan menumpuk.
 		if (typeof window !== 'undefined') {
 			if (taxSettingsHandler) {
@@ -341,7 +347,7 @@ export function createLaporanState() {
 					day: 'numeric',
 					month: 'long',
 					year: 'numeric',
-					timeZone: 'Asia/Makassar'
+					timeZone: WITA_TIME_ZONE
 				});
 			}
 		} catch {

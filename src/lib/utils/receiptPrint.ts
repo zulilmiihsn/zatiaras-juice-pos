@@ -50,7 +50,7 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
 	alamat: 'Jl. Contoh Alamat No. 123, Kota',
 	telepon: '0812-3456-7890',
 	instagram: '@zatiarasjuice',
-	// [CATATAN]: Newline asli '\n' (bukan literal '\\n') — dirender via white-space:pre-line.
+	// Newline asli '\n' (bukan literal '\\n') — dirender via white-space:pre-line.
 	ucapan: 'Terima kasih sudah ngejus di\nZatiaras Juice!'
 };
 
@@ -101,7 +101,7 @@ export async function loadReceiptSettings(): Promise<ReceiptSettings | null> {
 			return rows[0] as unknown as ReceiptSettings;
 		}
 	} catch {
-		// [CATATAN]: abaikan, jatuh ke localStorage
+		// abaikan, jatuh ke localStorage
 	}
 	const local =
 		typeof localStorage !== 'undefined' ? localStorage.getItem('pengaturan_struk') : null;

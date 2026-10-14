@@ -71,7 +71,7 @@ try {
 		409
 	);
 
-	// AUD-008: form basi tak menimpa saldo. Buka (stok 3) -> checkout susutkan
+	// Form basi tak menimpa saldo. Buka (stok 3) -> checkout susutkan
 	// jadi 1 -> simpan metadata dengan stok tangkapan 3: saldo tetap 1.
 	await db.prepare(`UPDATE produk SET stok = 1 WHERE id = 'guard-product'`).run();
 	const staleSave = (await ProductSave(
@@ -90,7 +90,7 @@ try {
 	);
 	await db.prepare(`UPDATE produk SET stok = 3, nama = 'Guard' WHERE id = 'guard-product'`).run();
 
-	// AUD-009: PATCH metadata bahan menolak field saldo; mutasi bersamaan utuh.
+	// PATCH metadata bahan menolak field saldo; mutasi bersamaan utuh.
 	await db.prepare(`UPDATE bahan SET stok_saat_ini = 7 WHERE id = 'guard-bahan'`).run();
 	await expectStatus(
 		() =>

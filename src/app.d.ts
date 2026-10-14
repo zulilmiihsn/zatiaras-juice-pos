@@ -23,8 +23,8 @@ declare global {
 				DB_BALIKPAPAN_GROUP?: D1Database;
 				DB_BERAU_GROUP?: D1Database;
 				STORAGE?: R2Bucket;
-				// [CATATAN]: DurableObjectNamespace dibiarkan longgar: tipe Cloudflare-nya menyeret
-				// [CATATAN]: signature fetch/Request CF yang bentrok dengan DOM Request di publisher.
+				// DurableObjectNamespace dibiarkan longgar: tipe Cloudflare-nya menyeret
+				// signature fetch/Request CF yang bentrok dengan DOM Request di publisher.
 				REALTIME_HUB?: {
 					idFromName(nama: string): unknown;
 					get(id: unknown): { fetch(request: Request): Promise<Response> };
@@ -42,7 +42,7 @@ declare global {
 		}
 	}
 
-	// [CATATAN]: Declare pwa-install web component
+	// Declare pwa-install web component
 	namespace JSX {
 		interface IntrinsicElements {
 			'pwa-install': unknown;

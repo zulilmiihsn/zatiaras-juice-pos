@@ -1,4 +1,4 @@
-// AUD-053: state, perintah, dan lifecycle halaman Pengaturan Pemilik > Stok
+// State, perintah, dan lifecycle halaman Pengaturan Pemilik > Stok
 // (kebijakan monitoring, notifikasi, rekonsiliasi). Halaman hanya merender.
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';

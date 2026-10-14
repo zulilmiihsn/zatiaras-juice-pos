@@ -133,7 +133,7 @@ const numberedArchive: RestoreArchive = {
 	]
 };
 
-// Reproduced AUD-042: valid JSON is not a valid receipt or a valid business row.
+// Reproduced valid JSON is not a valid receipt or a valid business row.
 const beforeMalformedPreflight = await snapshotRestoreState();
 for (const change of [
 	{ receipt_snapshot: 'null' },
@@ -957,7 +957,7 @@ try {
 			}),
 		/Pasangan policy/
 	);
-	// AUD-042: preflight seluruh field bisnis — invalid = zero live-ledger changes.
+	// Preflight seluruh field bisnis — invalid = zero live-ledger changes.
 	for (const [name, mutate, pattern] of [
 		['not-a-date', { waktu: 'not-a-date' }, /Waktu/],
 		['credit', { tipe: 'credit' }, /Tipe/],

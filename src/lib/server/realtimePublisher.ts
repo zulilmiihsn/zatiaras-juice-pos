@@ -26,7 +26,7 @@ export interface BranchEventPayload {
 }
 
 /**
- * Budget pengiriman realtime per event (AUD-049): DO hang tak boleh
+ * Budget pengiriman realtime per event: DO hang tak boleh
  * menahan respons checkout. Abort membersihkan upstream; gagal = warn
  * best-effort, commit utama tetap sah (ADR 0002).
  */

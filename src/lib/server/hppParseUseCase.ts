@@ -43,14 +43,14 @@ export interface HppParseDeps {
 	platform?: App.Platform;
 	fetchImpl?: typeof fetch;
 	timeoutMs?: number;
-	/** AUD-034/035: putus klien membatalkan panggilan upstream. */
+	/** Putus klien membatalkan panggilan upstream. */
 	clientSignal?: AbortSignal | null;
-	/** AUD-061: override model terkonfigurasi (hanya `:free` yang dipakai). */
+	/** Override model terkonfigurasi (hanya `:free` yang dipakai). */
 	model?: string;
 }
 
 /**
- * Parse cerita belanja via gateway AI kanonik (AUD-035).
+ * Parse cerita belanja via gateway AI kanonik.
  * Batas laju per-user menolak SEBELUM upstream; timeout/malformed
  * ikut kontrak gateway; hasil malformed = EMPTY_RESULT (422 di route).
  */
@@ -109,7 +109,7 @@ export async function parseHppText(deps: HppParseDeps): Promise<HppParsedPurchas
 				title: 'Zatiaras POS - HPP Parse',
 				maxTokens: 800,
 				temperature: 0.1,
-				// AUD-061: budget AI Rp 0 (dulu deepseek/deepseek-chat berbayar).
+				// Budget AI Rp 0 (dulu deepseek/deepseek-chat berbayar).
 				model: resolveAiModel(deps.model),
 				errorLabel: 'HPP Parse Error',
 				timeoutMs: deps.timeoutMs,

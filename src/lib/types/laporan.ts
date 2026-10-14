@@ -5,7 +5,7 @@
  */
 
 // ============================================================================
-// [CATATAN]: 📒 BUKU KAS RECORD
+// 📒 BUKU KAS RECORD
 // ============================================================================
 
 /**
@@ -27,7 +27,7 @@ export interface BukuKasRecord {
 	id_sesi_toko?: string;
 	cabang_id?: string;
 	user_id?: string;
-	// [CATATAN]: Fields dari join transaksi_kasir
+	// Fields dari join transaksi_kasir
 	ref_transaksi_kasir_id?: string;
 	nama_produk?: string;
 	produk_detail?: string;
@@ -69,7 +69,7 @@ export interface HistoryItem {
 }
 
 // ============================================================================
-// [CATATAN]: 📈 LAPORAN SUMMARY
+// 📈 LAPORAN SUMMARY
 // ============================================================================
 
 /**
@@ -91,7 +91,7 @@ export interface LaporanSummary {
 }
 
 // ============================================================================
-// [CATATAN]: 🧾 RECEIPT SETTINGS
+// 🧾 RECEIPT SETTINGS
 // ============================================================================
 
 /**
@@ -118,7 +118,7 @@ export interface ReceiptSettings {
 }
 
 // ============================================================================
-// [CATATAN]: 📊 REPORT FILTER
+// 📊 REPORT FILTER
 // ============================================================================
 
 export type FilterType = 'harian' | 'mingguan' | 'bulanan' | 'tahunan';
@@ -129,7 +129,7 @@ export interface ReportDateRange {
 }
 
 // ============================================================================
-// [CATATAN]: 💹 DASHBOARD STATS
+// 💹 DASHBOARD STATS
 // ============================================================================
 
 export interface TopUsedIngredient {

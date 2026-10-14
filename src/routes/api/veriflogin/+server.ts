@@ -7,7 +7,7 @@ import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
  * Login username+password.
  * Route hanya parsing body, set cookie sesi, dan Response.
  * Seluruh kebijakan (rate-limit, enumeration, role, audit) di authService.
- * Route tipis (AUD-053): DB di service via BranchContext.
+ * Route tipis: DB di service via BranchContext.
  */
 export const POST: RequestHandler = async ({ request, getClientAddress, cookies, platform }) => {
 	const clientIp = getClientAddress();

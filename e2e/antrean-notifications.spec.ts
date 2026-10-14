@@ -295,7 +295,7 @@ test('Antrean sound preference persists across tabs and devices remain independe
 	}
 });
 
-// AUD-003: preferensi suara milik profil browser; reload saat verifikasi sesi
+// Preferensi suara milik profil browser; reload saat verifikasi sesi
 // notifikasi gagal tidak boleh menampilkan default "aktif".
 test('Antrean sound switch keeps the stored preference when notification session check fails after reload', async ({
 	browser,

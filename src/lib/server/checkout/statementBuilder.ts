@@ -194,7 +194,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				])
 			: []),
 
-		// [CATATAN]: ── transaksi_kasir inserts ────────────────────────────────────────────
+		// ── transaksi_kasir inserts ────────────────────────────────────────────
 		...items.map((item) => {
 			if (!transactionSnapshotAvailable) {
 				return db
@@ -251,7 +251,7 @@ export function buildCheckoutStatements(params: BuildStatementsParams): D1Prepar
 				);
 		}),
 
-		// [CATATAN]: ── ringkasan_penjualan_harian + penjualan_produk_harian ──────────────
+		// ── ringkasan_penjualan_harian + penjualan_produk_harian ──────────────
 		...(salesSummaryAvailable
 			? [
 					db

@@ -6,8 +6,8 @@ export const load: PageServerLoad = ({ locals }) => {
 		throw redirect(302, '/login');
 	}
 
-	// [CATATAN]: `admin` adalah operator platform lintas-cabang. `pemilik` tetap tenant-owner
-	// [CATATAN]: dan tidak boleh membaca observability tenant lain.
+	// `admin` adalah operator platform lintas-cabang. `pemilik` tetap tenant-owner
+	// dan tidak boleh membaca observability tenant lain.
 	if (locals.authSession.role !== 'admin') {
 		throw kitError(403, 'Monitoring hanya untuk administrator platform');
 	}

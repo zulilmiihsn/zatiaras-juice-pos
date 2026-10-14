@@ -18,7 +18,7 @@ import { applyRestorePlan } from './helpers/restorePlan';
 import { createTestD1 } from './helpers/testD1';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 
-// AUD-041: kontrak versi snapshot + decoder.
+// Kontrak versi snapshot + decoder.
 assert.equal(ARCHIVE_SCHEMA_VERSION, 3);
 assert.deepEqual(SUPPORTED_ARCHIVE_VERSIONS, [1, 2, 3]);
 assert.ok(

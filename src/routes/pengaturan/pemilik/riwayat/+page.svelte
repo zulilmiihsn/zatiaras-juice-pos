@@ -42,7 +42,7 @@
 		{ value: 'qris', label: 'QRIS/Non-Tunai' }
 	];
 
-	// [CATATAN]: Toast management
+	// Toast management
 	const toastManager = createToastManager();
 	onDestroy(() => toastManager.dispose());
 
@@ -94,7 +94,7 @@
 	async function deleteTransaksi() {
 		if (!transaksiToDelete) return;
 
-		// [CATATAN]: Cek permission dulu
+		// Cek permission dulu
 		if (!canDeleteTransaction()) {
 			toastManager.showToastNotification(
 				'Anda tidak memiliki izin untuk menghapus transaksi',
@@ -107,16 +107,16 @@
 
 		try {
 			if (transaksiToDelete.sumber === 'catat') {
-				// [CATATAN]: Untuk transaksi manual/catat, hapus dari buku_kas saja
+				// Untuk transaksi manual/catat, hapus dari buku_kas saja
 				await transactionService.deleteRows('buku_kas', { id: transaksiToDelete.id });
 			} else if (transaksiToDelete.sumber === 'pos') {
-				// [CATATAN]: Transaksi POS: satu call atomik. Server (DELETE /api/transaksi-kasir)
-				// [CATATAN]: reverse ringkasan + restore stok produk/bahan + hapus transaksi_kasir
-				// [CATATAN]: DAN buku_kas dalam satu batch. Jangan panggil buku_kas terpisah.
+				// Transaksi POS: satu call atomik. Server (DELETE /api/transaksi-kasir)
+				// reverse ringkasan + restore stok produk/bahan + hapus transaksi_kasir
+				// DAN buku_kas dalam satu batch. Jangan panggil buku_kas terpisah.
 				const transactionId = transaksiToDelete.transaction_id || transaksiToDelete.id;
 				await transactionService.deleteRows('transaksi_kasir', { transaction_id: transactionId });
 			} else {
-				// [CATATAN]: Fallback: hapus berdasarkan ID langsung
+				// Fallback: hapus berdasarkan ID langsung
 				await transactionService.deleteRows('buku_kas', { id: transaksiToDelete.id });
 			}
 
@@ -203,7 +203,7 @@
 		}
 	}
 
-	// [CATATAN]: Cek role sebelum delete
+	// Cek role sebelum delete
 	function canDeleteTransaction() {
 		const currentRole = userRole.value;
 		return currentRole === 'pemilik';
@@ -218,14 +218,14 @@
 		}
 		await fetchTransaksiHariIni();
 		Trash = (await import('@lucide/svelte/icons/trash')).default;
-		// [CATATAN]: pollingInterval = setInterval(fetchTransaksiHariIni, 5000); // HAPUS polling otomatis
-		// [CATATAN]: Dengarkan event global agar riwayat auto-refresh ketika rekomendasi AI diterapkan
+		// pollingInterval = setInterval(fetchTransaksiHariIni, 5000); // HAPUS polling otomatis
+		// Dengarkan event global agar riwayat auto-refresh ketika rekomendasi AI diterapkan
 		aiHandler = async () => {
 			await fetchTransaksiHariIni();
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('ai-recommendations-applied', aiHandler);
-			// [CATATAN]: Ekspor refresher global untuk dipanggil langsung
+			// Ekspor refresher global untuk dipanggil langsung
 			offRiwayat = refreshBus.on('riwayat', async () => {
 				await fetchTransaksiHariIni();
 			});
@@ -236,7 +236,7 @@
 		if (typeof window !== 'undefined') {
 			document.body.classList.remove('hide-nav');
 		}
-		// [CATATAN]: clearInterval(pollingInterval); // HAPUS polling otomatis
+		// clearInterval(pollingInterval); // HAPUS polling otomatis
 		if (typeof window !== 'undefined' && aiHandler) {
 			window.removeEventListener('ai-recommendations-applied', aiHandler);
 			if (offRiwayat) offRiwayat();

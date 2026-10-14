@@ -4,7 +4,7 @@ import { hashPin } from '../lib/server/pinHash';
 import { changePinForBranch, verifyPinForBranch } from '../lib/server/services/pinService';
 import { createTestD1 } from './helpers/testD1';
 
-// AUD-053 pin boundary: negatif rate-limit/PIN lama/PIN sama/belum-konfigurasi
+// pin boundary: negatif rate-limit/PIN lama/PIN sama/belum-konfigurasi
 // + migrasi legacy + sukses, lewat service yang dipakai route tipis.
 const branch = branchContext('samarinda');
 

@@ -9,22 +9,22 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { cacheStore } from '$lib/utils/idbStores';
 import { CACHE_TTL_MS } from '$lib/constants/cache';
 
-// [CATATAN]: Cache configuration
+// Cache configuration
 const CACHE_CONFIG = {
-	// [CATATAN]: Memory cache TTL (in milliseconds)
+	// Memory cache TTL (in milliseconds)
 	MEMORY_TTL: CACHE_TTL_MS.SHORT,
-	// [CATATAN]: IndexedDB cache TTL (in milliseconds)
+	// IndexedDB cache TTL (in milliseconds)
 	INDEXEDDB_TTL: CACHE_TTL_MS.STANDARD,
-	// [CATATAN]: Background refresh interval (in milliseconds)
+	// Background refresh interval (in milliseconds)
 	BACKGROUND_REFRESH: CACHE_TTL_MS.BACKGROUND_REFRESH,
-	// [CATATAN]: Stale-while-revalidate window (in milliseconds)
+	// Stale-while-revalidate window (in milliseconds)
 	STALE_WHILE_REVALIDATE: CACHE_TTL_MS.STALE_WHILE_REVALIDATE,
-	// [CATATAN]: Cache size limits
+	// Cache size limits
 	MAX_MEMORY_ENTRIES: 100,
 	MAX_INDEXEDDB_ENTRIES: 1000
 };
 
-// [CATATAN]: Cache entry interface
+// Cache entry interface
 interface CacheEntry<T> {
 	data: T;
 	timestamp: number;
@@ -33,18 +33,18 @@ interface CacheEntry<T> {
 	etag?: string;
 }
 
-// [CATATAN]: Memory cache (fastest access)
+// Memory cache (fastest access)
 class MemoryCache {
 	private cache = new Map<string, CacheEntry<unknown>>();
 	private cleanupTimeout: number | null = null;
 
 	constructor() {
-		// [CATATAN]: Schedule cleanup only when needed
+		// Schedule cleanup only when needed
 		this.scheduleCleanup();
 	}
 
 	set<T>(key: string, data: T, ttl: number = CACHE_CONFIG.MEMORY_TTL): void {
-		// [CATATAN]: Remove oldest entries if cache is full
+		// Remove oldest entries if cache is full
 		if (this.cache.size >= CACHE_CONFIG.MAX_MEMORY_ENTRIES) {
 			const oldestKey = this.cache.keys().next().value || '';
 			this.cache.delete(oldestKey);
@@ -56,7 +56,7 @@ class MemoryCache {
 			ttl
 		});
 
-		// [CATATAN]: Schedule cleanup if not already scheduled
+		// Schedule cleanup if not already scheduled
 		if (!this.cleanupTimeout) {
 			this.scheduleCleanup();
 		}
@@ -66,7 +66,7 @@ class MemoryCache {
 		const entry = this.cache.get(key);
 		if (!entry) return null;
 
-		// [CATATAN]: Check if expired
+		// Check if expired
 		if (Date.now() - entry.timestamp > entry.ttl) {
 			this.cache.delete(key);
 			return null;
@@ -110,7 +110,7 @@ class MemoryCache {
 				this.cleanup();
 				this.cleanupTimeout = null;
 
-				// [CATATAN]: Schedule next cleanup only if cache has entries
+				// Schedule next cleanup only if cache has entries
 				if (this.cache.size > 0) {
 					this.scheduleCleanup();
 				}
@@ -127,7 +127,7 @@ class MemoryCache {
 	}
 }
 
-// [CATATAN]: IndexedDB cache (persistent storage)
+// IndexedDB cache (persistent storage)
 class IndexedDBCache {
 	async set<T>(
 		key: string,
@@ -154,7 +154,7 @@ class IndexedDBCache {
 		try {
 			const entry = await getCache(key, cacheStore);
 			if (!entry) return null;
-			// [CATATAN]: Check if expired
+			// Check if expired
 			if (Date.now() - entry.timestamp > entry.ttl) {
 				await delCache(key, cacheStore);
 				return null;
@@ -170,29 +170,29 @@ class IndexedDBCache {
 		try {
 			await delCache(key, cacheStore);
 		} catch (error) {
-			// [CATATAN]: Silent error handling
+			// Silent error handling
 		}
 	}
 
 	async clear(): Promise<void> {
 		if (!browser) return;
-		// [CATATAN]: Hapus seluruh data cache IndexedDB
+		// Hapus seluruh data cache IndexedDB
 		try {
 			await clearCache(cacheStore);
 		} catch (error) {
-			// [CATATAN]: Silent error handling
+			// Silent error handling
 		}
 	}
 }
 
-// [CATATAN]: Smart cache manager with real-time capabilities
+// Smart cache manager with real-time capabilities
 export class SmartCache {
 	private memoryCache: MemoryCache;
 	private indexedDBCache: IndexedDBCache;
 	private backgroundRefreshMap = new Map<string, number>();
 	private etagMap = new Map<string, string>();
 	private keyRegistry = new Set<string>();
-	// AUD-020: epoch commit per key + global. Naik tiap invalidate/clear.
+	// Epoch commit per key + global. Naik tiap invalidate/clear.
 	// Commit (foreground maupun background refresh) hanya jalan bila epoch
 	// tak berubah sejak fetch dimulai — respons basi tak bangkitkan cache.
 	private commitEpoch = new Map<string, number>();
@@ -234,7 +234,7 @@ export class SmartCache {
 		this.indexedDBCache = new IndexedDBCache();
 	}
 
-	// [CATATAN]: Main cache get method with stale-while-revalidate
+	// Main cache get method with stale-while-revalidate
 	async get<T>(
 		key: string,
 		fetcher: () => Promise<T>,
@@ -251,12 +251,12 @@ export class SmartCache {
 		this.stats.requests += 1;
 		const snapshot = this.commitSnapshot(key);
 
-		// [CATATAN]: Check memory cache first (fastest)
+		// Check memory cache first (fastest)
 		if (!forceRefresh) {
 			const memoryData = this.memoryCache.get<T>(key);
 			if (memoryData !== null) {
 				this.stats.memoryHits += 1;
-				// [CATATAN]: Trigger background refresh if enabled
+				// Trigger background refresh if enabled
 				if (backgroundRefresh) {
 					this.scheduleBackgroundRefresh(
 						key,
@@ -270,7 +270,7 @@ export class SmartCache {
 			}
 		}
 
-		// [CATATAN]: Check IndexedDB cache
+		// Check IndexedDB cache
 		if (!forceRefresh) {
 			const indexedDBData = await this.indexedDBCache.get<T>(key);
 			if (indexedDBData !== null) {
@@ -293,21 +293,21 @@ export class SmartCache {
 			}
 		}
 
-		// [CATATAN]: Fetch fresh data
+		// Fetch fresh data
 		this.stats.networkFetches += 1;
 		const freshData = await fetcher();
 
-		// AUD-020: skip commit bila guard/epoch gugur (cabang pindah atau
+		// Skip commit bila guard/epoch gugur (cabang pindah atau
 		// invalidate susul). Data tetap dikembalikan ke pemanggil.
 		if (!this.canCommit(key, snapshot, guard)) return freshData;
 
-		// [CATATAN]: Store in both caches
+		// Store in both caches
 		this.memoryCache.set(key, freshData, ttl);
 		await this.indexedDBCache.set(key, freshData, ttl, () => this.canCommit(key, snapshot, guard));
 		if (!this.canCommit(key, snapshot, guard)) return freshData;
 		this.keyRegistry.add(key);
 
-		// [CATATAN]: Update ETag if provided
+		// Update ETag if provided
 		if (etag) {
 			this.etagMap.set(key, etag);
 		}
@@ -315,7 +315,7 @@ export class SmartCache {
 		return freshData;
 	}
 
-	// [CATATAN]: Get data with ETag support for conditional requests
+	// Get data with ETag support for conditional requests
 	async getWithETag<T>(
 		key: string,
 		fetcher: (etag?: string) => Promise<{ data: T; etag?: string }>,
@@ -332,7 +332,7 @@ export class SmartCache {
 		this.stats.requests += 1;
 		const snapshot = this.commitSnapshot(key);
 
-		// [CATATAN]: Check if we have cached data and ETag
+		// Check if we have cached data and ETag
 		if (!forceRefresh && currentETag) {
 			const cachedData = this.memoryCache.get<T>(key) || (await this.indexedDBCache.get<T>(key));
 			if (cachedData !== null) {
@@ -341,7 +341,7 @@ export class SmartCache {
 				} else {
 					this.stats.indexedDBHits += 1;
 				}
-				// [CATATAN]: Trigger background refresh with ETag
+				// Trigger background refresh with ETag
 				if (backgroundRefresh) {
 					this.scheduleBackgroundRefresh(key, fetcher, ttl, currentETag, guard);
 				}
@@ -349,14 +349,14 @@ export class SmartCache {
 			}
 		}
 
-		// [CATATAN]: Fetch fresh data with ETag
+		// Fetch fresh data with ETag
 		this.stats.networkFetches += 1;
 		const result = await fetcher(currentETag);
 
-		// AUD-020: skip commit bila guard/epoch gugur.
+		// Skip commit bila guard/epoch gugur.
 		if (!this.canCommit(key, snapshot, guard)) return result.data;
 
-		// [CATATAN]: Store data and ETag
+		// Store data and ETag
 		this.memoryCache.set(key, result.data, ttl);
 		await this.indexedDBCache.set(key, result.data, ttl, () =>
 			this.canCommit(key, snapshot, guard)
@@ -371,7 +371,7 @@ export class SmartCache {
 		return result.data;
 	}
 
-	// [CATATAN]: Background refresh scheduling
+	// Background refresh scheduling
 	private scheduleBackgroundRefresh<T>(
 		key: string,
 		fetcher: (etag?: string) => Promise<{ data: T; etag?: string }>,
@@ -379,23 +379,23 @@ export class SmartCache {
 		etag?: string,
 		guard?: () => boolean
 	): void {
-		// [CATATAN]: Already scheduled, skip to avoid refresh storms
+		// Already scheduled, skip to avoid refresh storms
 		if (this.backgroundRefreshMap.has(key)) {
 			return;
 		}
 
-		// [CATATAN]: Jangan schedule refresh jika offline
+		// Jangan schedule refresh jika offline
 		if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
-		// AUD-020: epoch saat schedule; commit refresh gugur bila guard
+		// Epoch saat schedule; commit refresh gugur bila guard
 		// atau invalidate susul (respons basi tak timpa cache segar).
 		const snapshot = this.commitSnapshot(key);
 		if (guard && !guard()) return;
 
-		// [CATATAN]: Schedule new refresh
+		// Schedule new refresh
 		const refreshId = setTimeout(async () => {
 			try {
-				// [CATATAN]: Jangan fetch jika offline
+				// Jangan fetch jika offline
 				if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 				if (!this.canCommit(key, snapshot, guard)) return;
 				const result = await fetcher(etag);
@@ -412,7 +412,7 @@ export class SmartCache {
 					this.etagMap.set(key, result.etag);
 				}
 			} catch (error) {
-				// [CATATAN]: Silent error handling
+				// Silent error handling
 			} finally {
 				if (this.backgroundRefreshMap.get(key) === Number(refreshId))
 					this.backgroundRefreshMap.delete(key);
@@ -421,7 +421,7 @@ export class SmartCache {
 		this.backgroundRefreshMap.set(key, Number(refreshId));
 	}
 
-	// [CATATAN]: Invalidate cache entries
+	// Invalidate cache entries
 	async invalidate(pattern: string | RegExp): Promise<void> {
 		const keysToDelete: string[] = [];
 
@@ -459,26 +459,26 @@ export class SmartCache {
 		);
 	}
 
-	// [CATATAN]: Clear all caches
+	// Clear all caches
 	async clear(): Promise<void> {
-		// AUD-020: gugurkan semua commit yang masih terbang.
+		// Gugurkan semua commit yang masih terbang.
 		this.commitGlobal += 1;
 		this.memoryCache.clear();
 
-		// [CATATAN]: Clear background refresh intervals
+		// Clear background refresh intervals
 		for (const refreshId of this.backgroundRefreshMap.values()) {
 			clearTimeout(refreshId);
 		}
 		this.backgroundRefreshMap.clear();
 
-		// [CATATAN]: Clear ETags
+		// Clear ETags
 		this.etagMap.clear();
 		this.keyRegistry.clear();
 		// Clear synchronous registries first so this older clear cannot erase a newer flight's key.
 		if (browser) await this.indexedDBCache.clear();
 	}
 
-	// [CATATAN]: Get cache statistics
+	// Get cache statistics
 	getStats(): {
 		memorySize: number;
 		registeredKeys: number;
@@ -512,38 +512,38 @@ export class SmartCache {
 		this.stats.requests = 0;
 	}
 
-	// [CATATAN]: Destroy cache instance
+	// Destroy cache instance
 	destroy(): void {
 		this.memoryCache.destroy();
 		this.clear();
 	}
 }
 
-// [CATATAN]: Global cache instance
+// Global cache instance
 export const smartCache = new SmartCache();
 
-// [CATATAN]: Cache keys for different data types
+// Cache keys for different data types
 export const CACHE_KEYS = {
-	// [CATATAN]: Dashboard data
+	// Dashboard data
 	DASHBOARD_STATS: 'dashboard_stats',
 	BEST_SELLERS: 'best_sellers',
 	WEEKLY_INCOME: 'weekly_income',
 
-	// [CATATAN]: POS data
+	// POS data
 	PRODUCTS: 'products',
 	CATEGORIES: 'categories',
 	ADDONS: 'addons',
 
-	// [CATATAN]: Reports
+	// Reports
 	DAILY_REPORT: 'daily_report',
 	WEEKLY_REPORT: 'weekly_report',
 	MONTHLY_REPORT: 'monthly_report',
 
-	// [CATATAN]: User data
+	// User data
 	USER_PROFILE: 'user_profile',
 	USER_ROLE: 'user_role',
 
-	// [CATATAN]: Settings
+	// Settings
 	SECURITY_SETTINGS: 'security_settings',
 	PENGATURAN: 'pengaturan'
 } as const;
@@ -552,9 +552,9 @@ function branchCacheKey(key: string): string {
 	return `${selectedBranch.value || 'default'}:${key}`;
 }
 
-// [CATATAN]: Cache utilities for specific data types
+// Cache utilities for specific data types
 export class CacheUtils {
-	// [CATATAN]: Dashboard data caching
+	// Dashboard data caching
 	static async getDashboardStats<T>(fetcher: () => Promise<T>): Promise<T> {
 		return smartCache.get(branchCacheKey(CACHE_KEYS.DASHBOARD_STATS), fetcher, {
 			ttl: CACHE_TTL_MS.SHORT,
@@ -562,7 +562,7 @@ export class CacheUtils {
 		});
 	}
 
-	// [CATATAN]: POS data caching
+	// POS data caching
 	static async getProducts<T>(fetcher: () => Promise<T[]>) {
 		return smartCache.get(branchCacheKey(CACHE_KEYS.PRODUCTS), fetcher, {
 			ttl: CACHE_TTL_MS.STANDARD,
@@ -570,7 +570,7 @@ export class CacheUtils {
 		});
 	}
 
-	// [CATATAN]: Report data caching with ETag support
+	// Report data caching with ETag support
 	static async getReportData(
 		key: string,
 		dateRange: string,
@@ -596,7 +596,7 @@ export class CacheUtils {
 	}
 
 	static async invalidateReportData(): Promise<void> {
-		// [CATATAN]: Invalidate specific report keys instead of using regex
+		// Invalidate specific report keys instead of using regex
 		await smartCache.invalidate(branchCacheKey('daily_report'));
 		await smartCache.invalidate(branchCacheKey('weekly_report'));
 		await smartCache.invalidate(branchCacheKey('monthly_report'));

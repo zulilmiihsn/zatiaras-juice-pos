@@ -328,9 +328,9 @@ export const resepProduk = sqliteTable(
 	]
 );
 
-// [CATATAN]: Ledger append-only: tidak punya updated_at karena baris koreksi ditulis sebagai mutasi baru.
-// [CATATAN]: stok_setelah nullable dan tanpa FK dipertahankan untuk kompatibilitas data D1 lama; service
-// [CATATAN]: wajib menjaga bahan_id tetap dalam cabang yang sama sampai migrasi constraint terjadwal.
+// Ledger append-only: tidak punya updated_at karena baris koreksi ditulis sebagai mutasi baru.
+// stok_setelah nullable dan tanpa FK dipertahankan untuk kompatibilitas data D1 lama; service
+// wajib menjaga bahan_id tetap dalam cabang yang sama sampai migrasi constraint terjadwal.
 export const bahanMutasi = sqliteTable(
 	'bahan_mutasi',
 	{
@@ -344,7 +344,7 @@ export const bahanMutasi = sqliteTable(
 		catatan: text('catatan'),
 		dibuat_oleh: text('dibuat_oleh'),
 		created_at: text('created_at').default(now()),
-		/** Kunci idempotency perintah kulakan atomik (AUD-006). NULL untuk baris non-purchase. */
+		/** Kunci idempotency perintah kulakan atomik. NULL untuk baris non-purchase. */
 		operation_key: text('operation_key'),
 		/** Intent baru wajib dicocokkan saat replay; NULL hanya untuk histori lama/non-purchase. */
 		request_fingerprint: text('request_fingerprint')
@@ -763,8 +763,8 @@ export const dailySalesSummary = sqliteTable(
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [
-		// [CATATAN]: Unique index melindungi satu summary per cabang/tanggal. Index range lama
-		// [CATATAN]: dipertahankan sampai migrasi produksi eksplisit dapat menghapusnya dengan aman.
+		// Unique index melindungi satu summary per cabang/tanggal. Index range lama
+		// dipertahankan sampai migrasi produksi eksplisit dapat menghapusnya dengan aman.
 		uniqueIndex('idx_daily_sales_branch_date').on(table.cabang_id, table.tanggal_penjualan),
 		index('idx_daily_sales_branch_date_range').on(table.cabang_id, table.tanggal_penjualan)
 	]
@@ -839,7 +839,7 @@ export const sesiToko = sqliteTable(
 	(table) => [
 		index('idx_sesi_toko_branch_active').on(table.cabang_id, table.is_active),
 		index('idx_sesi_toko_branch_opening').on(table.cabang_id, table.waktu_buka),
-		// Satu sesi aktif per cabang (AUD-010). Baris nonaktif/NULL tak dibatasi.
+		// Satu sesi aktif per cabang. Baris nonaktif/NULL tak dibatasi.
 		uniqueIndex('idx_sesi_toko_branch_single_active')
 			.on(table.cabang_id)
 			.where(sql`${table.is_active} = 1`)

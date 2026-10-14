@@ -1,7 +1,5 @@
-import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import { setUserRole, clearUserRole } from '$lib/stores/userRole.svelte';
-type BranchKey = string;
 import { setSecuritySettings, clearSecuritySettings } from '$lib/stores/securitySettings.svelte';
 import { clearCsrfTokenCache, fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { getApiErrorMessage, reportApiFailure } from '$lib/utils/errorHandling';
@@ -12,48 +10,15 @@ import {
 } from './offlineSession';
 import { clearOrderNotificationRegistration } from '$lib/services/orderNotificationService';
 
-// [CATATAN]: Session store
-export const session = writable<{
-	isAuthenticated: boolean;
-	user: unknown;
-	token: unknown;
-	expiresAt?: number;
-}>({
-	isAuthenticated: false,
-	user: null,
-	token: null
-});
-
-if (typeof window !== 'undefined') {
-	const saved = readOfflineSessionSnapshot();
-	if (saved) session.set(saved);
-}
-
-// [CATATAN]: Authentication functions
+/**
+ * Sesi klien hanya cermin snapshot lokal untuk UI/offline. Otoritas tetap cookie sesi
+ * `zatiaras_sid` yang diperiksa server di setiap request.
+ */
 export const auth = {
-	// [CATATAN]: Check if user is authenticated
-	isAuthenticated(): boolean {
-		const currentSession = get(session) as {
-			role?: string;
-			id?: string;
-			isAuthenticated?: boolean;
-		} | null;
-		return Boolean(currentSession?.isAuthenticated);
+	getCurrentUser(): Record<string, unknown> | null {
+		return browser ? (readOfflineSessionSnapshot()?.user ?? null) : null;
 	},
 
-	// [CATATAN]: Get current user
-	getCurrentUser() {
-		const currentSession = get(session);
-		return currentSession?.user || null;
-	},
-
-	// [CATATAN]: Check if user has specific role
-	hasRole(role: string): boolean {
-		const user = this.getCurrentUser();
-		return (user as { role?: string })?.role === role;
-	},
-
-	// [CATATAN]: Logout function
 	async logout() {
 		if (browser) {
 			clearOfflineSessionSnapshot();
@@ -71,28 +36,16 @@ export const auth = {
 			} catch {
 				// Offline logout still clears local credentials; the server session expires independently.
 			}
-		}
-
-		// [CATATAN]: Clear session store
-		session.set({
-			isAuthenticated: false,
-			user: null,
-			token: null
-		});
-
-		// [CATATAN]: Clear localStorage
-		if (typeof window !== 'undefined') {
 			localStorage.removeItem('selectedBranch');
 		}
 
-		// [CATATAN]: Clear user role and profile
 		clearUserRole();
 		clearSecuritySettings();
 		clearCsrfTokenCache();
 	}
 };
 
-export async function loginWithUsername(username: string, password: string, branch: BranchKey) {
+export async function loginWithUsername(username: string, password: string, branch: string) {
 	const res = await fetchWithCsrfRetry('/api/veriflogin', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -106,7 +59,7 @@ export async function loginWithUsername(username: string, password: string, bran
 	// Server rotated the CSRF cookie with the new session; drop the pre-login token.
 	clearCsrfTokenCache();
 
-	// [CATATAN]: Jika peran adalah 'kasir', ambil pengaturan keamanan
+	// Kunci halaman PIN hanya berlaku untuk kasir.
 	if (result.user.role === 'kasir') {
 		try {
 			const qs = new URLSearchParams({ branch }).toString();
@@ -129,25 +82,13 @@ export async function loginWithUsername(username: string, password: string, bran
 		clearSecuritySettings();
 	}
 
-	// [CATATAN]: Set user role dan profile ke store SETELAH security settings
+	// Peran diset SETELAH security settings agar guard halaman tidak membaca kunci kosong.
 	setUserRole(result.user.role, result.user);
 
-	// [CATATAN]: Tidak perlu reset/fetch cache apapun
-
-	// [CATATAN]: Simpan session ke store dan localStorage
-	const sessionData = {
-		isAuthenticated: true,
-		user: result.user,
-		token: null,
-		expiresAt: Number(result.session?.expiresAt)
-	};
-	session.set(sessionData);
-
-	// [CATATAN]: Simpan ke localStorage untuk persistensi setelah refresh
-	if (typeof window !== 'undefined') {
+	if (browser) {
 		// Only an explicit session transition invalidates concurrent validators, not a routine refresh.
 		clearOfflineSessionSnapshot();
-		persistOfflineSessionSnapshot(result.user, sessionData.expiresAt);
+		persistOfflineSessionSnapshot(result.user, Number(result.session?.expiresAt));
 		localStorage.setItem('selectedBranch', branch);
 		window.dispatchEvent(new CustomEvent('auth-session-refreshed'));
 	}

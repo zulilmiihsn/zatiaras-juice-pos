@@ -42,7 +42,7 @@ async function focusedLabel(page: Page): Promise<string> {
 	return page.evaluate(() => (document.activeElement as HTMLElement)?.textContent?.trim() ?? '');
 }
 
-// AUD-023: AppModal logout — initial focus, Tab trap, Escape, restore.
+// AppModal logout — initial focus, Tab trap, Escape, restore.
 test('logout modal traps focus and restores trigger', async ({ page }) => {
 	await loginAsOwner(page);
 	await page.goto('/pengaturan');
@@ -81,7 +81,7 @@ test('logout modal traps focus and restores trigger', async ({ page }) => {
 	expect(await page.evaluate(() => document.querySelector('[inert]') !== null)).toBe(false);
 });
 
-// AUD-023: modalSheet keranjang — trap + Escape + restore.
+// ModalSheet keranjang — trap + Escape + restore.
 // Pil keranjang hanya tampil di viewport mobile (md:hidden).
 test('cart sheet traps focus and restores trigger', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -134,7 +134,7 @@ test('cart sheet traps focus and restores trigger', async ({ page }) => {
 	expect(restoredAria).toBe(triggerAria);
 });
 
-// AUD-023: kontrak kebijakan kanonik pada DOM browser nyata — panel tanpa
+// Kontrak kebijakan kanonik pada DOM browser nyata — panel tanpa
 // focusable, Escape nested hanya menutup dialog teratas, inert dialog nested
 // dilepas saat ditutup, restore ke pemicu atau dialog tersisa.
 test('modalFocus handles empty panels, nested Escape, inert cleanup and restore', async ({

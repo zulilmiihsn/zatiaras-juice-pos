@@ -110,7 +110,7 @@ test('Kulakan satu perintah mencatat stok, kas, dan HPP sekaligus', async ({ pag
 	);
 	expect(bahanAfter.find((b) => b.id === bahanId)?.stok_saat_ini).toBe(2000);
 
-	// Edit metadata bahan tanpa menyentuh saldo: stok tetap 2000 (AUD-009).
+	// Edit metadata bahan tanpa menyentuh saldo: stok tetap 2000.
 	await page.locator('button:visible', { hasText: 'Ubah' }).first().click();
 	await expect(page.getByRole('heading', { name: 'Edit Bahan Baku' })).toBeVisible();
 	const editSaved = page.waitForResponse(

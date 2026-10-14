@@ -15,7 +15,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/resep-produk — Resource route controller untuk tabel `resep_produk`.
  * Menangani HTTP auth, validasi request, dan delegasi ke resepService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

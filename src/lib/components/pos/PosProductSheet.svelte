@@ -44,7 +44,7 @@
 
 	<div class="addon-list addon-modal-content min-h-0 flex-1 space-y-4 overflow-y-auto py-3.5 pb-4">
 		{#if s.selectedProduct && s.selectedProduct.tipe === 'minuman'}
-			<!-- [CATATAN]: Ukuran Porsi -->
+			<!-- Ukuran Porsi -->
 			<div>
 				<div
 					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
@@ -90,7 +90,7 @@
 				</div>
 			</div>
 
-			<!-- [CATATAN]: Jenis Gula -->
+			<!-- Jenis Gula -->
 			<div>
 				<div
 					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
@@ -112,7 +112,7 @@
 				</div>
 			</div>
 
-			<!-- [CATATAN]: Jenis Es -->
+			<!-- Jenis Es -->
 			<div>
 				<div
 					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
@@ -135,7 +135,7 @@
 			</div>
 		{/if}
 
-		<!-- [CATATAN]: Tambahan (Ekstra) -->
+		<!-- Tambahan (Ekstra) -->
 		<div>
 			<div
 				class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
@@ -196,7 +196,7 @@
 			{/if}
 		</div>
 
-		<!-- [CATATAN]: Catatan -->
+		<!-- Catatan -->
 		<div>
 			<div
 				class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
@@ -223,7 +223,7 @@
 
 	{#snippet footer()}
 		<div class="flex items-center gap-3">
-			<!-- [CATATAN]: Stepper Quantity -->
+			<!-- Stepper Quantity -->
 			<div
 				class="flex items-center rounded-full border border-slate-200/80 bg-slate-100/90 p-1 shadow-2xs"
 			>
@@ -248,7 +248,7 @@
 				</button>
 			</div>
 
-			<!-- [CATATAN]: Big CTA Add Button -->
+			<!-- Big CTA Add Button -->
 			<button
 				type="button"
 				class="flex min-h-[48px] flex-1 cursor-pointer items-center justify-between rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"

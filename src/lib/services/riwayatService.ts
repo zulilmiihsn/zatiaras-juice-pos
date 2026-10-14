@@ -34,7 +34,7 @@ export interface RiwayatFilter {
 function toHistoryItem(t: BukuKasRecord): HistoryItem {
 	return {
 		id: t.id,
-		// [CATATAN]: Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
+		// Utamakan ref_transaksi_kasir_id (untuk cetak ulang/delete POS), fallback transaction_id
 		transaction_id: t.ref_transaksi_kasir_id || t.transaction_id,
 		nomor_harian: t.nomor_harian ?? null,
 		tanggal_nomor: t.tanggal_nomor ?? null,

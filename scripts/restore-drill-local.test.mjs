@@ -613,7 +613,7 @@ await test('workerd D1 menegakkan FK yang dideklarasikan', async () => {
 });
 
 test('canonicalSql: backtick/bracket identifiers equal bare ones; literals and DQS stay exact', () => {
-	// AUD-059: production DDL differs from drizzle only in backtick quoting/type casing.
+	// Production DDL differs from drizzle only in backtick quoting/type casing.
 	assert.equal(
 		canonicalSql('CREATE INDEX idx_a ON auth_sessions("cabang_id",user_id)'),
 		canonicalSql('CREATE INDEX `idx_a` ON `auth_sessions`("cabang_id",`user_id`)')

@@ -48,7 +48,7 @@ export class SaveAtomicError extends Error {
 /**
  * Simpan produk + resep atomik (produk insert/update + hapus resep lama +
  * insert resep baru dalam satu batch). Saldo edit TIDAK PERNAH ditulis dari
- * payload form (AUD-008).
+ * payload form.
  */
 export async function saveProductAtomic(
 	rawDb: D1Database,
@@ -78,7 +78,7 @@ export async function saveProductAtomic(
 			? Math.max(0, Number(prod.harga_jumbo))
 			: null;
 	// Stok awal hanya untuk produk baru. Pada edit, saldo TIDAK PERNAH ditulis
-	// dari payload form (AUD-008): checkout bersamaan bisa menurunkannya
+	// dari payload form: checkout bersamaan bisa menurunkannya
 	// sesudah form dibuka; penyesuaian disengaja lewat rekonsiliasi/ledger.
 	let stok =
 		prod.stok !== null && prod.stok !== undefined && Number.isFinite(Number(prod.stok))

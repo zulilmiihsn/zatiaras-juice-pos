@@ -1,19 +1,10 @@
 import { and, eq, gte, lte, asc } from 'drizzle-orm';
+import { formatDateYmdWita } from '$lib/utils/dateTime';
 import { dailySalesSummary, bukuKas } from '$lib/database/schema';
 import type { BranchContext, BranchId, DrizzleDb } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
 import { getDb, getRawDb } from '$lib/server/dataApiHelpers';
 import { canonicalProductName } from '$lib/server/reportQueries';
-
-/** Konversi timestamp ISO ke tanggal WITA 'YYYY-MM-DD' (zona Asia/Makassar). */
-function witaDate(ts: string): string {
-	return new Intl.DateTimeFormat('sv-SE', {
-		timeZone: 'Asia/Makassar',
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit'
-	}).format(new Date(ts));
-}
 
 /**
  * Statistik dashboard untuk rentang, dari ringkasan harian
@@ -27,8 +18,8 @@ export async function getDashboardStats(
 	startTime: string,
 	endTime: string
 ): Promise<Record<string, unknown>> {
-	const startDate = witaDate(startTime);
-	const endDate = witaDate(endTime);
+	const startDate = formatDateYmdWita(startTime);
+	const endDate = formatDateYmdWita(endTime);
 	const summary = await db
 		.select()
 		.from(dailySalesSummary)
@@ -50,8 +41,8 @@ export async function getWeeklyIncomeSummary(
 	startTime: string,
 	endTime: string
 ): Promise<unknown[]> {
-	const startDate = witaDate(startTime);
-	const endDate = witaDate(endTime);
+	const startDate = formatDateYmdWita(startTime);
+	const endDate = formatDateYmdWita(endTime);
 	return db
 		.select()
 		.from(dailySalesSummary)
@@ -72,8 +63,8 @@ export async function getBestSellersSummary(
 	startTime: string,
 	endTime: string
 ): Promise<unknown[]> {
-	const startDate = witaDate(startTime);
-	const endDate = witaDate(endTime);
+	const startDate = formatDateYmdWita(startTime);
+	const endDate = formatDateYmdWita(endTime);
 	const rows = await rawDb
 		.prepare(
 			`SELECT produk_id,

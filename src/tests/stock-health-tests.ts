@@ -8,7 +8,7 @@ import {
 	countCategory
 } from '../lib/utils/stockHealth.js';
 
-// AUD-053 slice 1: kebijakan tampilan stok terpusat, perilaku identik pindahan.
+// Kebijakan tampilan stok terpusat, perilaku identik pindahan.
 const bahan = (over: Record<string, unknown> = {}) => ({
 	stok_saat_ini: 10,
 	ambang_stok: 5,

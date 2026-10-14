@@ -141,7 +141,7 @@ for (const q of [
 }
 console.log('ai-period-tests: composite qualifiers and analyzer fallbacks passed');
 
-// AUD-036: tanggal/bulan masa depan tahun berjalan ditolak (tanpa query
+// Tanggal/bulan masa depan tahun berjalan ditolak (tanpa query
 // historis); hari ini, kemarin, kabisat, lintas batas tetap konsisten.
 // ref '2026-09-15': 31 Des 2026 dan Des 2026 masa depan -> null.
 const refFuture = '2026-09-15';

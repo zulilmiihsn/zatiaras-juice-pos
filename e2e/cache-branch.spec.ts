@@ -96,7 +96,7 @@ async function readOfflineProducts(page: Page, branch: string): Promise<unknown>
 	}, branch);
 }
 
-// AUD-020: respons cabang lama yang tiba belakangan tak boleh menimpa cache cabang baru.
+// Respons cabang lama yang tiba belakangan tak boleh menimpa cache cabang baru.
 test('late samarinda response cannot overwrite berau cache', async ({ page }) => {
 	await mockSession(page);
 	await page.goto('/login');

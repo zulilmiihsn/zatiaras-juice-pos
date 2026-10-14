@@ -6,7 +6,7 @@
 	let { s }: { s: StokState } = $props();
 </script>
 
-<!-- Modal Konfirmasi Hapus (AUD-024: AppModal kanonik) -->
+<!-- Modal Konfirmasi Hapus -->
 <AppModal
 	open={s.showDeleteModal}
 	labelledby="stok-hapus-title"

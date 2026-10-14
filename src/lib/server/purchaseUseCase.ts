@@ -1,5 +1,5 @@
 /**
- * Perintah kulakan atomik (AUD-006): mutasi stok + kas + HPP dalam SATU batch D1.
+ * Perintah kulakan atomik: mutasi stok + kas + HPP dalam SATU batch D1.
  *
  * Menggantikan tiga request terpisah di halaman stok (insert bahan_mutasi,
  * insert buku_kas, update bahan) yang bisa gagal parsial. Idempoten via

@@ -117,7 +117,7 @@ export interface ReportSqlResult {
 	serverReportData: ServerReportData;
 }
 
-// [CATATAN]: Ekspresi SQL untuk ekstrak tanggal, bulan, dan jam WITA secara konsisten
+// Ekspresi SQL untuk ekstrak tanggal, bulan, dan jam WITA secara konsisten
 const WITA_DATE = "date(CASE WHEN waktu LIKE '%Z' THEN datetime(waktu, '+8 hours') ELSE waktu END)";
 const WITA_HOUR =
 	"strftime('%H', CASE WHEN waktu LIKE '%Z' THEN datetime(waktu, '+8 hours') ELSE waktu END)";
@@ -169,12 +169,12 @@ export async function fetchReportDataSql(
 	} catch {
 		stockMonitoringPaused = false;
 	}
-	// AUD-030: seluruh fakta finansial (ringkasan, bulanan, harian, pembayaran,
+	// Seluruh fakta finansial (ringkasan, bulanan, harian, pembayaran,
 	// produk) berasal dari sumber kanonik yang sama dengan laporan: ringkasan
 	// POS harian + produk harian (bertahan setelah arsip), buku_kas manual aktif,
 	// dan ringkasan kas arsip manual. Gagal sumber merambat sebagai error.
 	const branchId = branchContext(normalizeBranch(requestedBranch));
-	// [CATATAN]: Eksekusi semua kueri agregasi secara paralel dalam 1 batch Promise
+	// Eksekusi semua kueri agregasi secara paralel dalam 1 batch Promise
 	const [
 		canonicalFacts,
 		hourRes,
@@ -188,7 +188,7 @@ export async function fetchReportDataSql(
 		canonicalAggregate,
 		archiveCoverageRes
 	] = await Promise.all([
-		// 1. AUD-030: fakta harian/pembayaran/produk kanonik (aktif + arsip),
+		// 1. fakta harian/pembayaran/produk kanonik (aktif + arsip),
 		// pemilik aturan tunggal di reportQueries.
 		buildCanonicalFacts(rawDb, branchId, startYmd, endYmd),
 
@@ -357,7 +357,7 @@ export async function fetchReportDataSql(
 			.first()
 			.catch(() => null) as Promise<{ totalSesi?: number; avgOmzetPerSesi?: number } | null>,
 
-		// 16. AUD-038: sesi terkini DALAM periode WITA yang diminta
+		// 16. sesi terkini DALAM periode WITA yang diminta
 		// (semantik bukaan sama dengan ringkasan shift; shift lintas
 		// tengah malam ikut periode bukanya). Di luar periode = tak ada
 		// sesiTerakhir (diexclude), bukan sesi live hari ini.
@@ -386,10 +386,10 @@ export async function fetchReportDataSql(
 			isActive?: number;
 		} | null>,
 
-		// 17. AUD-030: agregat kanonik (aktif + arsip) sebagai otoritas inti.
+		// 17. agregat kanonik (aktif + arsip) sebagai otoritas inti.
 		buildLaporanAggregate(rawDb, branchId, startYmd, endYmd),
 
-		// 18. AUD-030: batas arsip selesai. Rincian jam/margin/selera butuh detail
+		// 18. batas arsip selesai. Rincian jam/margin/selera butuh detail
 		// item yang tidak tersisa di tabel aktif setelah arsip.
 		rawDb
 			.prepare(
@@ -403,7 +403,7 @@ export async function fetchReportDataSql(
 			.catch(() => null) as Promise<{ beforeYear?: number | null } | null>
 	]);
 
-	// [CATATAN]: Format stok bahan & bahan kritis
+	// Format stok bahan & bahan kritis
 	const stokBahan = {
 		totalItem: stockMonitoringPaused ? 0 : totalBahanRes?.totalItem || 0,
 		totalAsetStok: stockMonitoringPaused ? 0 : Math.round(totalBahanRes?.totalAsetStok || 0),
@@ -418,7 +418,7 @@ export async function fetchReportDataSql(
 		monitoringPaused: stockMonitoringPaused
 	};
 
-	// [CATATAN]: Format HPP & margin produk
+	// Format HPP & margin produk
 	const marginProduk = (marginProdukRes?.results || []).map((m) => ({
 		nama: m.nama,
 		omzet: Math.round(m.omzet),
@@ -427,7 +427,7 @@ export async function fetchReportDataSql(
 		marginPersen: m.marginPersen
 	}));
 
-	// [CATATAN]: Format selera konsumen (gula & es)
+	// Format selera konsumen (gula & es)
 	const seleraKonsumen = {
 		gula: (seleraGulaRes?.results || []).map((g) => ({
 			level: g.level,
@@ -439,7 +439,7 @@ export async function fetchReportDataSql(
 		}))
 	};
 
-	// [CATATAN]: Format ringkasan sesi / shift toko
+	// Format ringkasan sesi / shift toko
 	const sesiToko = {
 		totalSesi: sesiSummaryRes?.totalSesi || 0,
 		avgOmzetPerSesi: Math.round(sesiSummaryRes?.avgOmzetPerSesi || 0),
@@ -453,7 +453,7 @@ export async function fetchReportDataSql(
 			: undefined
 	};
 
-	// AUD-030: hasData + inti finansial dari agregat kanonik
+	// HasData + inti finansial dari agregat kanonik
 	// (aktif + arsip). Arsip saja tetap terbaca; gagal sumber
 	// merambat sebagai error (kanonik tanpa catch), bukan NO_DATA.
 	const totalRecords = canonicalAggregate.transactions.length;
@@ -472,7 +472,7 @@ export async function fetchReportDataSql(
 	const pengeluaran = canonicalAggregate.summary.pengeluaran;
 	const labaKotor = pendapatan - pengeluaran;
 
-	// AUD-031: pajak + laba bersih dari mesin kanonik (omzet usaha,
+	// Pajak + laba bersih dari mesin kanonik (omzet usaha,
 	// YTD before, segmentasi tahun pajak). Duplikasi lokal bermasalah
 	// (semua income + YTD=0) dihapus; config dibaca kanonik (fail-closed sama).
 	const pajak = canonicalAggregate.summary.pajak;
@@ -487,7 +487,7 @@ export async function fetchReportDataSql(
 	// Transaksi penjualan: POS + pemasukan usaha manual (modal/lainnya tidak dihitung).
 	const totalTransaksi = dailyFacts.reduce((sum, d) => sum + d.transaksi, 0);
 
-	// [CATATAN]: Pembayaran per bulan dan keseluruhan, metode dinormalisasi
+	// Pembayaran per bulan dan keseluruhan, metode dinormalisasi
 	// ke bucket laporan (tunai / non-tunai / lainnya). POS dari ringkasan harian.
 	const monthlyPaymentsMap: Record<string, Record<string, { nominal: number }>> = {};
 	const pembayaran: Record<string, { nominal: number }> = {};
@@ -506,7 +506,7 @@ export async function fetchReportDataSql(
 		addPayment(row.bulan, paymentBucket(row.metode), row.nominal);
 	}
 
-	// [CATATAN]: Produk per bulan dan keseluruhan, varian ukuran digabung
+	// Produk per bulan dan keseluruhan, varian ukuran digabung
 	// seperti laporan kanonik.
 	type ProductFact = { id: string; nama: string; totalTerjual: number; totalPendapatan: number };
 	const addProduct = (map: Map<string, ProductFact>, nama: string, qty: number, gross: number) => {
@@ -528,7 +528,7 @@ export async function fetchReportDataSql(
 		addProduct(periodProducts, nama, qty, gross);
 	}
 
-	// [CATATAN]: Format data bulanan
+	// Format data bulanan
 	const monthlyTotals = new Map<
 		string,
 		{ pemasukan: number; pengeluaran: number; transaksi: number }
@@ -557,7 +557,7 @@ export async function fetchReportDataSql(
 		};
 	});
 
-	// [CATATAN]: Format performa harian & statistik (hari dengan pemasukan).
+	// Format performa harian & statistik (hari dengan pemasukan).
 	const dailyList = dailyFacts
 		.filter((d) => d.pemasukan > 0 || d.transaksi > 0)
 		.map((d) => {
@@ -612,13 +612,13 @@ export async function fetchReportDataSql(
 		}
 	}
 
-	// [CATATAN]: Format jam ramai
+	// Format jam ramai
 	const jamRamai = (hourRes?.results || []).map((h) => `${h.jam}:00 (${h.jumlah} trx)`);
 
-	// [CATATAN]: Format produk terlaris
+	// Format produk terlaris
 	const produkTerlaris = [...periodProducts.values()].sort(byTerjual).slice(0, 10);
 
-	// AUD-030: rentang yang menyentuh data terarsip — rincian berbasis detail
+	// Rentang yang menyentuh data terarsip — rincian berbasis detail
 	// item hanya mencakup transaksi yang belum diarsipkan.
 	const beforeYear = Number(archiveCoverageRes?.beforeYear);
 	const arsipSebelum =

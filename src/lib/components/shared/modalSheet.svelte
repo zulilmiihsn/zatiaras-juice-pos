@@ -28,7 +28,7 @@
 		header
 	}: ModalSheetProps = $props();
 
-	// AUD-023: id judul unik per instance agar sheet bertumpuk tidak
+	// Id judul unik per instance agar sheet bertumpuk tidak
 	// saling meminjam nama; header kustom memakai `label`.
 	const uid = $props.id();
 	const titleId = `${uid}-title`;
@@ -49,7 +49,7 @@
 		onClose?.();
 	}
 
-	// [CATATAN]: Gesture swipe-down untuk menutup bottom sheet pada perangkat sentuh
+	// Gesture swipe-down untuk menutup bottom sheet pada perangkat sentuh
 	let startY = 0;
 	let currentY = 0;
 	let sheet: HTMLDivElement | undefined = $state();
@@ -92,7 +92,7 @@
 	}
 
 	function focusTrap(node: HTMLElement) {
-		// AUD-023: delegasi ke kebijakan kanonik tunggal.
+		// Delegasi ke kebijakan kanonik tunggal.
 		return modalFocus(node, { onEscape: close });
 	}
 </script>
@@ -104,7 +104,7 @@
 		transition:fade={{ duration: 220 }}
 		onclick={(e) => e.target === e.currentTarget && close()}
 		onkeydown={(e) => {
-			// AUD-025: hanya backdrop itu sendiri; Escape di panel milik action
+			// Hanya backdrop itu sendiri; Escape di panel milik action
 			// modalFocus (tanpa double-close).
 			if (e.key === 'Escape' && e.target === e.currentTarget) close();
 		}}

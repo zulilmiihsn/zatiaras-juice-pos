@@ -103,15 +103,15 @@ export function createDashboardState() {
 
 	async function loadDashboardData() {
 		try {
-			// [CATATAN]: Load dashboard stats dengan cache
+			// Load dashboard stats dengan cache
 			const dashboardStats = await dashboardService.getDashboardStats();
 
-			// [CATATAN]: Load best sellers dengan cache
+			// Load best sellers dengan cache
 			isLoadingBestSellers = true;
 			const nextBestSellers = await dashboardService.getBestSellers();
 			isLoadingBestSellers = false;
 
-			// [CATATAN]: Load weekly income dengan cache
+			// Load weekly income dengan cache
 			const weeklyData = await dashboardService.getWeeklyIncome();
 			applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
 			await reportCacheMetrics('dashboard');
@@ -201,7 +201,7 @@ export function createDashboardState() {
 		weeklyMax = 1;
 		bestSellers = [];
 		isLoadingDashboard = true;
-		// [CATATAN]: Async dalam effect: jalankan via fire-and-forget
+		// Async dalam effect: jalankan via fire-and-forget
 		(async () => {
 			await cacheOrchestrator.invalidateDashboardCaches();
 			await loadDashboardData();

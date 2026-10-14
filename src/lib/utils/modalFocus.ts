@@ -1,4 +1,4 @@
-// Kebijakan fokus modal kanonik tunggal (AUD-023).
+// Kebijakan fokus modal kanonik tunggal.
 // Dipakai AppModal + modalSheet: initial focus, Tab trap,
 // Escape, background inert, restore trigger, cleanup.
 // Tanpa dependensi Svelte/store agar bisa dipakai action murni.

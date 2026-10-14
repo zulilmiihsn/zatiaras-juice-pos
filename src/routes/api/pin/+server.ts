@@ -6,7 +6,7 @@ import type { RequestHandler } from './$types';
 /**
  * Ganti PIN cabang (pemilik).
  * Route hanya auth + parsing + response; logika di pinService.
- * Route tipis (AUD-053): DB di service via BranchContext.
+ * Route tipis: DB di service via BranchContext.
  */
 export const PATCH: RequestHandler = async ({ request, platform, locals }) => {
 	const session = requireAuthSession(locals);

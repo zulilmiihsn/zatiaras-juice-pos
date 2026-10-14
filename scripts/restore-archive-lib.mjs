@@ -6,7 +6,7 @@ import { decodeReceiptSnapshot } from '../src/lib/utils/receiptSnapshot.ts';
 /** @typedef {{meta: {schema_version?: number, archive_id?: string, id?: string, branch?: string, counts?: {buku_kas: number, transaksi_kasir: number}}, buku_kas: Row[], transaksi_kasir?: Row[]}} Archive */
 
 /**
- * Kontrak versi snapshot arsip (AUD-041). Writer kanonik
+ * Kontrak versi snapshot arsip. Writer kanonik
  * (src/lib/server/archiveUseCase.ts ARCHIVE_SCHEMA_VERSION) hanya emit
  * versi terbaru. Decoder menerima 1-3; versi lebih baru DITOLAK sebelum
  * apply agar field baru (preparation/provenance/nomor/struk) tak hilang
@@ -801,7 +801,7 @@ export function diffAgainstExisting(snapshotRows, existingById, fields) {
 }
 
 /**
- * Rencana restore murni (AUD-043): validasi penuh seluruh arsip sebelum SQL
+ * Rencana restore murni: validasi penuh seluruh arsip sebelum SQL
  * apa pun dirakit. Satu-satunya perakit SQL adalah buildRestoreChunks.
  */
 /** @param {Archive} archive @param {{sha256?: string, now?: string}} opts */

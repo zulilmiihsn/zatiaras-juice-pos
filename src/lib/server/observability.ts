@@ -12,7 +12,7 @@ export function branchFromObservation(
 	session: ObservationSession,
 	fallback?: unknown
 ): BranchId | null {
-	// AUD-017: telemetri anonim tak boleh pilih tenant via ?branch=.
+	// Telemetri anonim tak boleh pilih tenant via ?branch=.
 	// Sesi ada = cabang sesi otoritas (fallback diabaikan).
 	// Tanpa sesi = null (drop, tak tulis ke tabel tenant mana pun).
 	// Tanpa default samarinda: trafik anonim bukan data cabang.
@@ -91,7 +91,7 @@ export async function recordErrorEvent(
 			)
 			.run();
 	} catch {
-		// [CATATAN]: Observability must never become outage source.
+		// Observability must never become outage source.
 	}
 }
 
@@ -140,7 +140,7 @@ export async function recordRequestMetric(
 			)
 			.run();
 	} catch {
-		// [CATATAN]: Ignore until migrations are applied.
+		// Ignore until migrations are applied.
 	}
 }
 

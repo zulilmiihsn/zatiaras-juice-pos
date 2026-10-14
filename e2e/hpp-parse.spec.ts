@@ -39,7 +39,7 @@ async function csrfPost(page: Page, path: string, data: unknown) {
 	});
 }
 
-// AUD-035: kontrak HTTP tanpa provider key — anonim ditolak, kasir ditolak,
+// Kontrak HTTP tanpa provider key — anonim ditolak, kasir ditolak,
 // pemilik tanpa key dapat 503 yang jujur (bukan gantung/timeout mentah).
 test('hpp parse auth and safe-failure contracts hold', async ({ page, browser }) => {
 	// Token CSRF sahih tapi tanpa sesi = 401 auth (bukan tembus).
@@ -87,7 +87,7 @@ test('hpp parse auth and safe-failure contracts hold', async ({ page, browser })
 	expect(JSON.stringify(body).includes('OPENROUTER_API_KEY')).toBe(false);
 });
 
-// AUD-035: bukti wiring rute — rentetan cepat menyentuh 429 SEBELUM upstream.
+// Bukti wiring rute — rentetan cepat menyentuh 429 SEBELUM upstream.
 // Tanpa limit rute (kode lama), semua 502 tanpa satu pun 429.
 // 25x (bukan 21 pas): satu galat transien tak boleh menggeser bukti limit 20.
 test('hpp parse rate limit rejects burst before upstream', async ({ page }) => {

@@ -1,4 +1,4 @@
-// Peta label cabang kanonik tunggal (AUD-029).
+// Peta label cabang kanonik tunggal.
 // Dipakai semua permukaan yang menampilkan nama cabang agar konsisten
 // dengan sesi terautentikasi, bukan tebakan UI. Unknown -> null
 // (pemanggil tampilkan placeholder netral, jangan nama cabang salah).

@@ -165,7 +165,7 @@ if (realtimeBinding?.script_name !== realtimeConfig.name) {
 	);
 }
 
-// Paritas shard D1 lintas config (AUD-050): Pages, app intent, dan Worker
+// Paritas shard D1 lintas config: Pages, app intent, dan Worker
 // realtime WAJIB menunjuk database_id yang sama — drift diam-diam berarti
 // cabang baca shard berbeda antara runtime.
 const realtimeIds = new Map(

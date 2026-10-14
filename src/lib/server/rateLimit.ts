@@ -15,7 +15,7 @@ function rateLimitId(branch: BranchId, identifier: string) {
 }
 
 /**
- * Budget fetch rate-limit DO (AUD-049): DO hang tak boleh menahan
+ * Budget fetch rate-limit DO: DO hang tak boleh menahan
  * checkout/login. Timeout kembalikan null agar fallback D1 jalan;
  * stub abaikan-signal ditangani timer backstop + cleanup.
  */

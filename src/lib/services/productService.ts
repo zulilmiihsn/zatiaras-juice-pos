@@ -36,7 +36,7 @@ export class ProductService {
 		return ProductService.instance;
 	}
 
-	// AUD-020: generasi per key. Hanya flight terkini boleh commit;
+	// Generasi per key. Hanya flight terkini boleh commit;
 	// commit gugur bila cabang pindah atau flight baru susul.
 	private tableFlight = new Map<string, number>();
 
@@ -60,7 +60,7 @@ export class ProductService {
 	}
 
 	private async getCachedTable(table: ReadResource, cacheKey: string, offlineKeyPrefix: string) {
-		// AUD-020: capture cabang sekali; fetch pakai cabang itu,
+		// Capture cabang sekali; fetch pakai cabang itu,
 		// namespace cache + request sama, commit tolak bila konteks pindah.
 		const branch = selectedBranch.value || 'default';
 		const contextEpoch = selectedBranch.contextEpoch;

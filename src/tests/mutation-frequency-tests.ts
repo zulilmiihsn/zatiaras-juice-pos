@@ -6,7 +6,7 @@ import {
 	type FrequencyStorage
 } from '../lib/utils/mutationFrequency.js';
 
-// AUD-053 slice 2: ranking preset kulakan pindah ke util teruji, perilaku identik.
+// Ranking preset kulakan pindah ke util teruji, perilaku identik.
 const memoryStorage = (
 	initial: Record<string, string> = {}
 ): FrequencyStorage & {

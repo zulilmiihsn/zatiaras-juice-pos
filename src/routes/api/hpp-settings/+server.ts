@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
  * Menggantikan dispatch dari /api/data?table=hpp_settings.
  * Invariant: upsert via `ON CONFLICT(id) DO UPDATE` dengan id tetap `${branch}:default`.
  * RBAC: pemilik (owner) untuk upsert. GET boleh untuk semua yang login.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

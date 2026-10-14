@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
  * Route hanya auth cabang, role, parsing body, panggil service,
  * dan petakan hasil/error ke HTTP. Seluruh validasi + batch atomik
  * di productAtomicService.
- * Route tipis (AUD-053): DB di service via BranchContext.
+ * Route tipis: DB di service via BranchContext.
  */
 export const POST: RequestHandler = async ({ request, platform, locals, url }) => {
 	const body = await parseBody<SaveAtomicBody>(request);

@@ -117,7 +117,7 @@ function chime() {
 	}
 }
 async function loadLocal(): Promise<void> {
-	// AUD-003: suara adalah preferensi profil browser, bukan bagian sesi
+	// Suara adalah preferensi profil browser, bukan bagian sesi
 	// tervalidasi; dibaca sebelum guard scope agar reload offline atau
 	// validasi sesi yang gagal tidak menampilkan default `true`. Kegagalan
 	// baca suara tidak boleh menghentikan pembersihan konteks di bawah.

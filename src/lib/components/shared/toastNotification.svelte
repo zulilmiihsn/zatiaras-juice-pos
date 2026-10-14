@@ -36,7 +36,7 @@
 		}
 	});
 
-	// [CATATAN]: Bersihkan timer saat komponen di-unmount
+	// Bersihkan timer saat komponen di-unmount
 	onDestroy(() => {
 		if (timeoutId) clearTimeout(timeoutId);
 	});

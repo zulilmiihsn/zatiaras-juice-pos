@@ -1,4 +1,4 @@
-// Skema runtime rekomendasi AI kanonik tunggal (AUD-033).
+// Skema runtime rekomendasi AI kanonik tunggal.
 // Dipakai parse (aiAnalysisService) dan apply (autoApplyService) agar sama.
 // Prinsip: allowlist field per action; ID/branch/immutable tak pernah
 // menjadi otoritas dari model; ambigu merambat ke kebijakan kategori,

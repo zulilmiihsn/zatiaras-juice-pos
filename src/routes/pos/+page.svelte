@@ -33,11 +33,11 @@
 		>
 			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
 			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
-				<!-- [CATATAN]: Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
+				<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
 				<div class="sticky top-0 z-30 bg-[#faf7f8]">
-					<!-- [CATATAN]: Fluid Wave Header for POS -->
+					<!-- Fluid Wave Header for POS -->
 					<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-						<!-- [CATATAN]: Ambient background blur shapes -->
+						<!-- Ambient background blur shapes -->
 						<div
 							class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
 						></div>
@@ -45,7 +45,7 @@
 							class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
 						></div>
 
-						<!-- [CATATAN]: Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
+						<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
 						<div class="relative z-10 flex w-full items-center gap-2.5">
 							<div class="relative flex-1">
 								<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
@@ -61,7 +61,7 @@
 								/>
 							</div>
 
-							<!-- [CATATAN]: Button Toggle Tampilan Grid / List -->
+							<!-- Button Toggle Tampilan Grid / List -->
 							<button
 								type="button"
 								aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
@@ -78,12 +78,12 @@
 						</div>
 					</div>
 
-					<!-- [CATATAN]: Low Stock Alert Banner -->
+					<!-- Low Stock Alert Banner -->
 					{#if !stockPolicyState.ignored}
 						<LowStockAlertBanner lowStockItems={s.lowStockIngredients} />
 					{/if}
 
-					<!-- [CATATAN]: Category Filter Pills -->
+					<!-- Category Filter Pills -->
 					<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">
 						<button
 							class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
@@ -100,7 +100,7 @@
 								></div>
 							{/each}
 						{:else if (s.categories ?? []).length === 0}
-							<!-- [CATATAN]: Button Custom Item di samping 'Semua' jika tidak ada kategori -->
+							<!-- Button Custom Item di samping 'Semua' jika tidak ada kategori -->
 							<button
 								class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 								type="button"
@@ -120,7 +120,7 @@
 									onclick={() => s.handleSelectCategory(c.id)}>{c.nama}</button
 								>
 							{/each}
-							<!-- [CATATAN]: Button Custom Item di paling kanan -->
+							<!-- Button Custom Item di paling kanan -->
 							<button
 								class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 								type="button"

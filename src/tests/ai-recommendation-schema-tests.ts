@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { AI_ACTION_LABEL, validateRecommendation } from '../lib/utils/aiRecommendationSchema';
 
-// AUD-033: skema runtime kanonik — allowlist action + field, ID/branch
+// Skema runtime kanonik — allowlist action + field, ID/branch
 // model tak pernah otoritas, ambigu/invalid ditolak sebelum consent/apply.
 assert.deepEqual(Object.keys(AI_ACTION_LABEL).sort(), [
 	'create_category',

@@ -91,7 +91,7 @@ const MOCK_ANALYSIS = {
 	]
 };
 
-// AUD-033: mutasi sembunyi diblokir; valid terapkan sekali; consent tampilkan
+// Mutasi sembunyi diblokir; valid terapkan sekali; consent tampilkan
 // nilai tervalidasi (bukan teks model).
 test('malicious recommendations cannot mutate, valid applies once', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);

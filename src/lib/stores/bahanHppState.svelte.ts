@@ -203,7 +203,7 @@ export function createBahanHppState(config: BahanHppConfig) {
 	}
 
 	async function saveBahan() {
-		// AUD-053: kebijakan payload sama dengan halaman Stok (utils/bahanForm).
+		// Kebijakan payload sama dengan halaman Stok (utils/bahanForm).
 		const built = buildBahanPayload(bahanForm, Boolean(editBahanId), editingBahan);
 		if (!built.ok) {
 			config.showNotif(built.error, 'warning');

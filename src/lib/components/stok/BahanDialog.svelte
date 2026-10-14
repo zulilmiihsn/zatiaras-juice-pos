@@ -11,7 +11,7 @@
 	let { s }: { s: StokState } = $props();
 </script>
 
-<!-- Modal Tambah / Edit Bahan (AUD-024: AppModal kanonik) -->
+<!-- Modal Tambah / Edit Bahan -->
 <AppModal
 	open={s.showBahanModal}
 	labelledby="stok-bahan-title"

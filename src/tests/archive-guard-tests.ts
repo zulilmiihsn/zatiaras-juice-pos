@@ -83,7 +83,7 @@ try {
 		assert.equal(await db.prepare('SELECT status FROM archive_jobs').first('status'), 'completed');
 		const retry = (await (await archive()).json()) as { resumed?: boolean };
 		assert.equal(retry.resumed, true);
-		// AUD-039/057: satu objek R2 per ARCHIVE_CHUNK_HEADERS header.
+		// Satu objek R2 per ARCHIVE_CHUNK_HEADERS header.
 		const expectedParts = Math.max(1, Math.ceil(count / ARCHIVE_CHUNK_HEADERS));
 		assert.equal(objects.size, expectedParts);
 		const firstJson = (await first.json()) as {

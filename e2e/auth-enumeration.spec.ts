@@ -14,7 +14,7 @@ function readUatPassword(): string {
 	return password;
 }
 
-// AUD-016: respons publik login seragam anti-enumeration.
+// Respons publik login seragam anti-enumeration.
 // Username tak ada vs password salah harus identik status/code/message.
 test('login failures share one public contract', async ({ page }) => {
 	await page.goto('/login');
@@ -52,7 +52,7 @@ test('valid login still succeeds after uniform failure contract', async ({ page 
 	expect(((await ok.json()) as { success: boolean }).success).toBe(true);
 });
 
-// AUD-019: tiga role valid konsisten; unknown fail-closed tanpa sesi.
+// Tiga role valid konsisten; unknown fail-closed tanpa sesi.
 test('role contract stays consistent across login, session and monitoring', async ({ page }) => {
 	await page.goto('/login');
 	await expect(page.locator('form')).toBeVisible({ timeout: 30_000 });

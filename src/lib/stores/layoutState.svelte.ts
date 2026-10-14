@@ -14,7 +14,7 @@ import type { Workbox } from 'workbox-window';
 import { createToastManager } from '$lib/utils/ui';
 
 export function createLayoutState() {
-	// [CATATAN]: ── Offline / pending sync ────────────────────────────────────────────────
+	// ── Offline / pending sync ────────────────────────────────────────────────
 	let hasPrefetchedMenu = false;
 	let hasPrefetchedOwnerInsights = false;
 	let isOffline = $state(typeof navigator !== 'undefined' ? !navigator.onLine : false);

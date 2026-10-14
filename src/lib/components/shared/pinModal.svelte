@@ -89,7 +89,7 @@
 		}
 	}
 
-	// [CATATAN]: Cleanup on component destroy
+	// Cleanup on component destroy
 	onDestroy(() => {
 		if (errorTimeout) clearTimeout(errorTimeout);
 	});

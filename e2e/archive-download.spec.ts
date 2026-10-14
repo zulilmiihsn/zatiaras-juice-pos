@@ -99,7 +99,7 @@ async function seedOldRow(page: Page, id: string, nominal: number) {
 	).toBe(true);
 }
 
-// AUD-040: arsip -> unduh otomatis -> unduh ulang byte-identik (retry
+// Arsip -> unduh otomatis -> unduh ulang byte-identik (retry
 // sesudah respons hilang). Gagal unduh berlabel gagal, bukan selesai.
 test('archive retry download returns identical bytes', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
@@ -234,7 +234,7 @@ test('failed download is labeled failed, not downloaded', async ({ page }) => {
 	await expect(page.getByText('Unduhan selesai.')).toBeVisible();
 });
 
-// AUD-057: arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri
+// Arsip setahun butuh beberapa panggilan; halaman melanjutkan sendiri
 // sampai selesai dan mengunduh tiap bagian (respons server dimock, tanpa mutasi).
 test('archive auto-continues partial calls and downloads every part', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
@@ -286,7 +286,7 @@ test('archive auto-continues partial calls and downloads every part', async ({ p
 	await expect(page.getByText('(4 bagian, dikirim ke unduhan browser)')).toBeVisible();
 });
 
-// AUD-057: error di tengah loop tetap melaporkan bagian yang sudah terarsip.
+// Error di tengah loop tetap melaporkan bagian yang sudah terarsip.
 test('archive mid-loop failure keeps archived parts visible', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
 	let calls = 0;

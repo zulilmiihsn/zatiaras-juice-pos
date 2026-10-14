@@ -16,7 +16,7 @@ import { createEkstraState } from '$lib/stores/ekstraState.svelte';
 import { createBahanHppState } from '$lib/stores/bahanHppState.svelte';
 
 export function createManajemenmenuState() {
-	// [CATATAN]: ── Shared notif ──────────────────────────────────────────────────────────
+	// ── Shared notif ──────────────────────────────────────────────────────────
 	let showNotifModal = $state(false);
 	let notifModalMsg = $state('');
 	let notifModalType = $state('warning');
@@ -30,14 +30,14 @@ export function createManajemenmenuState() {
 
 	const toastManager = createToastManager();
 
-	// [CATATAN]: ── Late-binding cross-domain deps ────────────────────────────────────────
+	// ── Late-binding cross-domain deps ────────────────────────────────────────
 	const deps = {
 		afterUpdate: async () => {},
 		fetchRecipes: async () => {},
 		fetchMenus: async () => {}
 	};
 
-	// [CATATAN]: ── Sub-stores ────────────────────────────────────────────────────────────
+	// ── Sub-stores ────────────────────────────────────────────────────────────
 	const menuSt = createMenuState({
 		showNotif,
 		afterUpdate: () => deps.afterUpdate(),
@@ -57,7 +57,7 @@ export function createManajemenmenuState() {
 	});
 	const bahanHppSt = createBahanHppState({ showNotif });
 
-	// [CATATAN]: ── Wire deps after all sub-stores created ────────────────────────────────
+	// ── Wire deps after all sub-stores created ────────────────────────────────
 	deps.afterUpdate = async () => {
 		try {
 			await cacheOrchestrator.clearAllCaches();
@@ -72,7 +72,7 @@ export function createManajemenmenuState() {
 	deps.fetchRecipes = () => bahanHppSt.fetchRecipes();
 	deps.fetchMenus = () => menuSt.fetchMenus();
 
-	// [CATATAN]: ── Cross-domain derived ──────────────────────────────────────────────────
+	// ── Cross-domain derived ──────────────────────────────────────────────────
 	const filteredMenus = $derived(
 		(() => {
 			const keyword = menuSt.searchKeyword.trim().toLowerCase();
@@ -100,7 +100,7 @@ export function createManajemenmenuState() {
 		}))
 	);
 
-	// [CATATAN]: ── Notif auto-dismiss ────────────────────────────────────────────────────
+	// ── Notif auto-dismiss ────────────────────────────────────────────────────
 	$effect(() => {
 		if (showNotifModal) {
 			const timeout = setTimeout(() => {
@@ -110,7 +110,7 @@ export function createManajemenmenuState() {
 		}
 	});
 
-	// [CATATAN]: ── Branch-reactive loading ───────────────────────────────────────────────
+	// ── Branch-reactive loading ───────────────────────────────────────────────
 	$effect(() => {
 		const _branch = selectedBranch.value;
 		if (typeof window !== 'undefined') {
@@ -127,9 +127,9 @@ export function createManajemenmenuState() {
 		}
 	});
 
-	// [CATATAN]: ── Public API (identical surface to original) ────────────────────────────
+	// ── Public API (identical surface to original) ────────────────────────────
 	return {
-		// [CATATAN]: ── Menu ──────────────────────────────────────────────────────────────
+		// ── Menu ──────────────────────────────────────────────────────────────
 		get menus() {
 			return menuSt.menus;
 		},
@@ -230,7 +230,7 @@ export function createManajemenmenuState() {
 		setTrackStock: menuSt.setTrackStock,
 		setTrackIngredients: menuSt.setTrackIngredients,
 
-		// [CATATAN]: ── Kategori ──────────────────────────────────────────────────────────
+		// ── Kategori ──────────────────────────────────────────────────────────
 		get kategoriList() {
 			return kategoriSt.kategoriList;
 		},
@@ -281,7 +281,7 @@ export function createManajemenmenuState() {
 		cancelDeleteKategori: kategoriSt.cancelDeleteKategori,
 		toggleMenuInKategoriRealtime: kategoriSt.toggleMenuInKategoriRealtime,
 
-		// [CATATAN]: ── Ekstra ────────────────────────────────────────────────────────────
+		// ── Ekstra ────────────────────────────────────────────────────────────
 		get ekstraList() {
 			return ekstraSt.ekstraList;
 		},
@@ -316,7 +316,7 @@ export function createManajemenmenuState() {
 		doDeleteEkstra: ekstraSt.doDeleteEkstra,
 		cancelDeleteEkstra: ekstraSt.cancelDeleteEkstra,
 
-		// [CATATAN]: ── Bahan + HPP ───────────────────────────────────────────────────────
+		// ── Bahan + HPP ───────────────────────────────────────────────────────
 		get bahanList() {
 			return bahanHppSt.bahanList;
 		},
@@ -408,7 +408,7 @@ export function createManajemenmenuState() {
 		getBahanName: bahanHppSt.getBahanName,
 		getBahanUnit: bahanHppSt.getBahanUnit,
 
-		// [CATATAN]: ── Shared ────────────────────────────────────────────────────────────
+		// ── Shared ────────────────────────────────────────────────────────────
 		get showNotifModal() {
 			return showNotifModal;
 		},

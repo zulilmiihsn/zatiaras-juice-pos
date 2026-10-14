@@ -10,7 +10,7 @@ import {
 	handleRegularChat
 } from '$lib/server/ai/aiChatUseCase';
 
-// [CATATAN]: OpenRouter / AI Model configuration (env). Daftar fallback model,
+// OpenRouter / AI Model configuration (env). Daftar fallback model,
 // timeout, dan retry dimiliki $lib/server/aiGateway; orkestrasi AI di aiChatUseCase.
 // Env dibaca di route (modul use case bebas $env agar suite unit tsx jalan).
 const OPENROUTER_API_URL = env.AI_BASE_URL || 'https://openrouter.ai/api/v1/chat/completions';
@@ -32,9 +32,9 @@ function getOpenRouterModel(platform: App.Platform | undefined): string {
 	);
 }
 
-// [CATATAN]: POST Endpoint Utama /api/aichat
+// POST Endpoint Utama /api/aichat
 // Route hanya auth + rate-limit + parsing + response; orkestrasi AI di aiChatUseCase.
-// Route tipis (AUD-053): DB + provider di use case via BranchContext.
+// Route tipis: DB + provider di use case via BranchContext.
 export const POST: RequestHandler = async (event) => {
 	const { url } = event;
 	const session = requireAuthSession(event.locals);

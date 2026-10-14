@@ -126,7 +126,7 @@ export async function insertBukuKasRows(
 	}
 
 	// Validasi seluruh batch sebelum tulis apa pun: satu baris invalid
-	// menolak seluruh batch tanpa mutasi (AUD-005). Tanpa fallback 0.
+	// menolak seluruh batch tanpa mutasi. Tanpa fallback 0.
 	const validRows = validateManualLedgerRows(rows);
 
 	// Dedup by id

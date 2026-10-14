@@ -1,4 +1,4 @@
-// AUD-053: state, perintah, dan lifecycle halaman Pengaturan Pemilik > Keamanan
+// State, perintah, dan lifecycle halaman Pengaturan Pemilik > Keamanan
 // (kredensial pemilik/kasir, PIN, halaman terkunci). Halaman hanya merender.
 import { goto } from '$app/navigation';
 import { userRole, userProfile } from '$lib/stores/userRole.svelte';
@@ -14,7 +14,7 @@ export function createSecuritySettingsState() {
 	let pemilikChangeMode = $state<'all' | 'username' | 'password'>('all');
 	let kasirChangeMode = $state<'all' | 'username' | 'password'>('all');
 
-	// [CATATAN]: ─── State Kredensial Pemilik ──────────────────────────────────────────
+	// ─── State Kredensial Pemilik ──────────────────────────────────────────
 	let oldUsername = $state('pemilik');
 	let newUsername = $state('');
 	let oldPassword = $state('');
@@ -28,7 +28,7 @@ export function createSecuritySettingsState() {
 	let showNewPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
-	// [CATATAN]: ─── State Kredensial Kasir ────────────────────────────────────────────
+	// ─── State Kredensial Kasir ────────────────────────────────────────────
 	let kasirOldUsername = $state('kasir');
 	let kasirNewUsername = $state('');
 	let kasirOldPassword = $state('');
@@ -42,7 +42,7 @@ export function createSecuritySettingsState() {
 	let showKasirNewPassword = $state(false);
 	let showKasirConfirmPassword = $state(false);
 
-	// [CATATAN]: ─── State PIN & Proteksi Halaman ──────────────────────────────────────
+	// ─── State PIN & Proteksi Halaman ──────────────────────────────────────
 	let oldPin = $state('');
 	let newPin = $state('');
 	let confirmPin = $state('');

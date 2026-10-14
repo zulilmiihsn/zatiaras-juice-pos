@@ -79,7 +79,7 @@ export async function getSesiSummary(rawDb: D1Database, branch: string, sessionI
 }
 
 /**
- * Membuka toko: tepat satu sesi aktif per cabang (AUD-010).
+ * Membuka toko: tepat satu sesi aktif per cabang.
  * Atomic via INSERT ... WHERE NOT EXISTS dalam satu statement — dua buka
  * bersamaan menghasilkan tepat satu pemenang; yang kalah 409 tanpa mutasi.
  * Retry id sama mengembalikan duplikat stabil.

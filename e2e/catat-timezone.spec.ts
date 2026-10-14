@@ -61,7 +61,7 @@ async function expectWitaDefaults(page: Page) {
 	expect(Math.abs(toMin(actual) - toMin(expected.time))).toBeLessThanOrEqual(2);
 }
 
-// AUD-026: default Catat ikut WITA walau zona perangkat asing.
+// Default Catat ikut WITA walau zona perangkat asing.
 test.describe('catat defaults on UTC-11 device', () => {
 	test.use({ timezoneId: 'Pacific/Midway' });
 

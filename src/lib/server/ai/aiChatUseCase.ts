@@ -47,7 +47,7 @@ export interface AiDeps {
 	apiKey: string;
 	model: string;
 	url: string;
-	/** AUD-034: putus klien membatalkan panggilan upstream yang sedang berjalan. */
+	/** Putus klien membatalkan panggilan upstream yang sedang berjalan. */
 	clientSignal?: AbortSignal | null;
 }
 
@@ -781,7 +781,7 @@ export async function prepareReportAnalysis(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Orkestrasi HTTP route (AUD-053): auth/rate-limit + dispatch + bangun payload.
+// Orkestrasi HTTP route: auth/rate-limit + dispatch + bangun payload.
 // Route hanya teruskan parameter (termasuk kredensial provider dari env),
 // kembalikan json/stream. Seluruh SQL, provider AI, dan shaping tinggal di sini.
 // Modul ini TIDAK import $env agar suite unit tsx tetap jalan.
@@ -848,7 +848,7 @@ export async function checkAiChatPageAccess(
 	await requirePageAccess(db, session, 'laporan');
 }
 
-// [CATATAN]: Analisis Transaksi Teks Kasir
+// Analisis Transaksi Teks Kasir
 export async function handleAnalyzeTransaction(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
@@ -915,7 +915,7 @@ export type RegularChatResult =
 	| { kind: 'json'; status: number; body: Record<string, unknown> }
 	| { kind: 'stream'; stream: ReadableStream<Uint8Array> };
 
-// [CATATAN]: Chat Laporan Finansial (Streaming SSE + SQL Agregasi + Multi-Turn)
+// Chat Laporan Finansial (Streaming SSE + SQL Agregasi + Multi-Turn)
 export async function handleRegularChat(input: {
 	platform: App.Platform | undefined;
 	session: AiSession;
@@ -925,7 +925,7 @@ export async function handleRegularChat(input: {
 	clientSignal: AbortSignal;
 }): Promise<RegularChatResult> {
 	const { platform, session, rawBody, chatModel, clientSignal } = input;
-	// AUD-034: semua panggilan upstream (non-stream maupun stream) ikut batal saat klien pergi.
+	// Semua panggilan upstream (non-stream maupun stream) ikut batal saat klien pergi.
 	const deps: AiDeps = { ...input.deps, clientSignal };
 	const fail = (status: number, body: Record<string, unknown>): RegularChatResult => ({
 		kind: 'json',
@@ -1030,12 +1030,12 @@ export async function handleRegularChat(input: {
 			sanitizedHistory
 		} = pipeline;
 
-		// AUD-061: budget AI Rp 0 — tool openrouter:web_search ditagih per pencarian, jadi
+		// Budget AI Rp 0 — tool openrouter:web_search ditagih per pencarian, jadi
 		// pencarian web dimatikan; shouldSearchWeb tetap dipakai untuk memilih prompt.
 		const searchTools: AiTool[] | undefined = undefined;
 		const webSearchUsed = Boolean(searchTools);
 
-		// [CATATAN]: 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream.
+		// 1. Jika streaming diaktifkan (default) -> kembalikan SSE stream.
 		// Retry tanpa tools + fallback model ditangani aiGateway (dengan timeout).
 		if (stream !== false) {
 			const upstreamRes = await requestAiStreamResilient(apiKey, deps.url, fullMessages, {
@@ -1049,9 +1049,9 @@ export async function handleRegularChat(input: {
 			});
 
 			if (!upstreamRes.ok || !upstreamRes.body) {
-				// AUD-037: body provider tak tepercaya tak masuk log; status cukup.
+				// Body provider tak tepercaya tak masuk log; status cukup.
 				console.error('[OpenRouter Stream Error]', upstreamRes.status);
-				// AUD-034: body respons gagal tidak dibaca; lepas koneksinya.
+				// Body respons gagal tidak dibaca; lepas koneksinya.
 				upstreamRes.body?.cancel().catch(() => {
 					// Best-effort.
 				});
@@ -1103,7 +1103,7 @@ export async function handleRegularChat(input: {
 					const reader = upstreamRes.body!.getReader();
 					let buffer = '';
 
-					// AUD-034: baca upstream lewat pump berdeadline (total +
+					// Baca upstream lewat pump berdeadline (total +
 					// idle) + abort putus klien; reader selalu dilepas.
 					try {
 						const outcome = await pumpAiStream(reader, {
@@ -1145,7 +1145,7 @@ export async function handleRegularChat(input: {
 						}
 						safeClose();
 					} catch (err: unknown) {
-						// AUD-037: pesan publik tetap per kelas; teks mentah
+						// Pesan publik tetap per kelas; teks mentah
 						// (SQL/skema/endpoint/kredensial) tak pernah ke SSE.
 						safeEnqueue(
 							encoder.encode(
@@ -1160,7 +1160,7 @@ export async function handleRegularChat(input: {
 			return { kind: 'stream', stream: sseStream };
 		}
 
-		// [CATATAN]: 2. Jika streaming dinonaktifkan (fallback non-streaming response)
+		// 2. Jika streaming dinonaktifkan (fallback non-streaming response)
 		const answer = await analyzeBusinessData(
 			cleanQ,
 			reportContext,
@@ -1198,7 +1198,7 @@ export async function handleRegularChat(input: {
 			}
 		};
 	} catch (error) {
-		// AUD-037: log teredaksi; respons pesan tetap + status per kelas.
+		// Log teredaksi; respons pesan tetap + status per kelas.
 		// Putus klien bukan kegagalan provider: tidak dicatat sebagai error.
 		if (!(error instanceof AiGatewayError && error.code === 'CLIENT_ABORTED')) {
 			console.error('[AI Chat Error]', redactForLog(error));

@@ -3,7 +3,7 @@ import { createTestD1 } from './helpers/testD1';
 import { HppParseError, parseHppText } from '../lib/server/hppParseUseCase';
 import type { D1Database } from '@cloudflare/workers-types';
 
-// AUD-035: semua provider request lewat gateway; rate limit tolak sebelum
+// Semua provider request lewat gateway; rate limit tolak sebelum
 // upstream; kontrak 4 desimal HPP utuh; tanpa panggilan berbayar di tes.
 const { db, close } = await createTestD1();
 try {
@@ -131,7 +131,7 @@ try {
 		assert.equal(fetched, false);
 	}
 
-	// 6. AUD-034/035: klien putus saat body dibaca -> upstream dilepas segera,
+	// 6. klien putus saat body dibaca -> upstream dilepas segera,
 	// respons aman UPSTREAM_ERROR (bukan menunggu deadline).
 	{
 		const state = { cancelled: false };

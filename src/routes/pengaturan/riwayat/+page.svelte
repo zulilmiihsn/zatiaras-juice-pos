@@ -16,7 +16,7 @@
 	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
 	import RiwayatTransactionCard from '$lib/components/riwayat/RiwayatTransactionCard.svelte';
 
-	// [CATATAN]: ─── State ─────────────────────────────────────────────────────────────
+	// ─── State ─────────────────────────────────────────────────────────────
 	let transaksiHariIni = $state<HistoryItem[]>([]);
 	let loading = $state(true);
 	let loadingMore = $state(false);
@@ -31,7 +31,7 @@
 	const toastManager = createToastManager();
 	onDestroy(() => toastManager.dispose());
 
-	// [CATATAN]: ─── Helpers ───────────────────────────────────────────────────────────
+	// ─── Helpers ───────────────────────────────────────────────────────────
 	async function fetchTransaksiHariIni() {
 		loading = true;
 		nextCursor = null;
@@ -82,7 +82,7 @@
 		showDetailModal = true;
 	}
 
-	// [CATATAN]: ─── Cetak struk ──────────────────────────────────────────────────────
+	// ─── Cetak struk ──────────────────────────────────────────────────────
 	async function printStruk() {
 		if (!selectedTransaksi) return;
 
@@ -97,7 +97,7 @@
 		}
 	}
 
-	// [CATATAN]: ─── Lifecycle ────────────────────────────────────────────────────────
+	// ─── Lifecycle ────────────────────────────────────────────────────────
 	onMount(async () => {
 		if (typeof window !== 'undefined') {
 			document.body.classList.add('hide-nav');

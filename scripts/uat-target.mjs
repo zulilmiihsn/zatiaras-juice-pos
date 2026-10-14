@@ -1,5 +1,5 @@
 /**
- * Guard URL target UAT bermutasi (AUD-048) — dipakai bersama CLI UAT lokal.
+ * Guard URL target UAT bermutasi — dipakai bersama CLI UAT lokal.
  *
  * Prefix `startsWith('http://localhost')` menerima `localhost.audit.invalid`,
  * `127.0.0.1.evil`, dan userinfo (`http://127.0.0.1@evil/`) sebagai "lokal"

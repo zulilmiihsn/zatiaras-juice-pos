@@ -26,7 +26,7 @@ const fail = (name, detail) => {
 
 export function canonicalSql(sql) {
 	// Whitespace/casing outside quoted values is irrelevant; literal defaults must stay exact.
-	// A backtick/bracket-quoted plain identifier is the same object as bare x (AUD-059: production
+	// A backtick/bracket-quoted plain identifier is the same object as bare x (production
 	// DDL applied by hand differs from drizzle output only in this quoting). Double quotes stay
 	// exact: SQLite may read "x" as a string literal (DQS), e.g. DEFAULT "CURRENT_TIMESTAMP".
 	return (

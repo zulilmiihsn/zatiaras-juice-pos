@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { gotoHydrated } from './helpers';
 
-// AUD-053: halaman Pengaturan Pemilik > Keamanan setelah dipecah ke store +
+// Halaman Pengaturan Pemilik > Keamanan setelah dipecah ke store +
 // kartu. Mock jaringan; tidak ada kredensial atau PIN nyata yang diubah.
 async function mockOwner(page: Page) {
 	const writes: Array<{ method: string; url: string; body: unknown }> = [];

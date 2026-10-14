@@ -128,7 +128,7 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 							)
 					)
 				);
-				// AUD-029: satu pemilik tiap cabang non-samarinda untuk label E2E.
+				// Satu pemilik tiap cabang non-samarinda untuk label E2E.
 				// Tiap baris masuk shard cabangnya sendiri (login query shard itu).
 				// Aditif per-run, unik per (cabang, username), tak menyentuh seed lain.
 				for (const [binding, id, cabang] of [
@@ -147,7 +147,7 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 						.bind(id, cabang, 'pemilik', 'owner-e2e', passwordHash, `UAT E2E owner-e2e ${cabang}`)
 						.run();
 				}
-				// AUD-019: satu admin + satu role tak dikenal untuk kontrak role E2E.
+				// Satu admin + satu role tak dikenal untuk kontrak role E2E.
 				// Aditif per-run, username unik, tak menyentuh seed lain.
 				await db.batch(
 					[

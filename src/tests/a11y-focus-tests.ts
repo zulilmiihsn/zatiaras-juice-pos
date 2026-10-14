@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { trapFocusStep } from '../lib/utils/modalFocus';
 
-// AUD-023/054: matematika trap kebijakan kanonik nyata (dipakai modalFocus action).
+// Matematika trap kebijakan kanonik nyata (dipakai modalFocus action).
 // Mock focus manager terpisah dihapus: ia hanya menguji dirinya sendiri. Perilaku
 // DOM nyata (fokus awal, Tab/Shift+Tab, Escape nested, inert, restore) dibuktikan
 // e2e/modal-focus.spec.ts terhadap modalFocus asli di browser.

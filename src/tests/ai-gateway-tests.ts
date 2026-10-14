@@ -138,7 +138,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(!('tools' in bodyOf(calls[1])));
 }
 
-// 8. Primary 500 + fallback tanpa konten -> UPSTREAM_ERROR 500 (AUD-061: dulu '' = gelembung
+// 8. Primary 500 + fallback tanpa konten -> UPSTREAM_ERROR 500 (dulu '' = gelembung
 // jawaban kosong; status primary tetap dilaporkan secara deterministik).
 {
 	const { fetchImpl } = scripted([
@@ -150,7 +150,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(error?.status, 500);
 }
 
-// 8b. AUD-061: primary 200 tanpa konten (model kehabisan token) -> fallback dipakai.
+// 8b. primary 200 tanpa konten (model kehabisan token) -> fallback dipakai.
 {
 	const { fetchImpl, calls } = scripted([
 		new Response(
@@ -224,7 +224,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(error.code, 'UPSTREAM_TIMEOUT');
 }
 
-// 13. AUD-034: headers cepat tapi body macet -> UPSTREAM_TIMEOUT, tanpa bocor key.
+// 13. headers cepat tapi body macet -> UPSTREAM_TIMEOUT, tanpa bocor key.
 {
 	const stalled = new Response(new ReadableStream(), { status: 200 });
 	const { fetchImpl } = scripted([stalled]);
@@ -238,7 +238,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(Date.now() - started < 5000);
 }
 
-// 14. AUD-034: stream tanpa chunk melewati idle -> TIMEOUT + reader dibatalkan.
+// 14. stream tanpa chunk melewati idle -> TIMEOUT + reader dibatalkan.
 {
 	let cancelled = false;
 	const idle = new ReadableStream({
@@ -260,7 +260,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(Date.now() - started < 5000);
 }
 
-// 15. AUD-034: tetesan lambat melewati total -> TIMEOUT walau chunk datang.
+// 15. tetesan lambat melewati total -> TIMEOUT walau chunk datang.
 {
 	const trickle = new ReadableStream({
 		async start(controller) {
@@ -283,7 +283,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(seen.length, 1);
 }
 
-// 16. AUD-034: putus klien -> 'aborted' diam-diam + upstream dibatalkan.
+// 16. putus klien -> 'aborted' diam-diam + upstream dibatalkan.
 {
 	let cancelled = false;
 	const infinite = new ReadableStream({
@@ -304,7 +304,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(cancelled, true);
 }
 
-// 17. AUD-034: onChunk minta berhenti -> 'done', lock dilepas.
+// 17. onChunk minta berhenti -> 'done', lock dilepas.
 {
 	const two = new ReadableStream({
 		start(controller) {
@@ -328,7 +328,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(chunks.length, 1);
 }
 
-// 18. AUD-034: attempt dibatalkan klien sejak awal -> TIMEOUT tanpa fetch gantung.
+// 18. attempt dibatalkan klien sejak awal -> TIMEOUT tanpa fetch gantung.
 {
 	const client = new AbortController();
 	client.abort();
@@ -352,7 +352,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	noKeyLeak(error);
 }
 
-// 19. AUD-037: pesan publik tetap per kelas; teks mentah tak bocor.
+// 19. pesan publik tetap per kelas; teks mentah tak bocor.
 {
 	assert.equal(
 		publicAiErrorMessage(new AiGatewayError('UPSTREAM_TIMEOUT', 'x')),
@@ -376,7 +376,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.equal(publicAiErrorStatus(new Error('boom')), 500);
 }
 
-// 20. AUD-037: injeksi SQL/skema/endpoint/kredensial tak muncul di publik/log.
+// 20. injeksi SQL/skema/endpoint/kredensial tak muncul di publik/log.
 {
 	const injected = [
 		"error near SELECT * FROM profil WHERE password='x'",
@@ -405,7 +405,7 @@ const noKeyLeak = (error: unknown) => assert.ok(!String((error as Error)?.messag
 	assert.ok(!redactForLog('token sk-abcdef12345 끝').includes('sk-abcdef12345'));
 }
 
-// AUD-034 / F-034: resource upstream dilepas, bukan hanya respons dibatasi.
+// / F-034: resource upstream dilepas, bukan hanya respons dibatasi.
 const encoder = new TextEncoder();
 function tracked(chunks: string[], close: boolean) {
 	const state = { cancelled: false };
@@ -613,7 +613,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 	assert.ok(Date.now() - started < 1000);
 }
 
-// AUD-061: budget AI pemilik Rp 0 — hanya model gratis, ditolak sebelum request keluar.
+// Budget AI pemilik Rp 0 — hanya model gratis, ditolak sebelum request keluar.
 {
 	// Router gratis memilih model acak (termasuk content-safety): tidak diizinkan.
 	assert.equal(isFreeModel('openrouter/free'), false);
@@ -660,7 +660,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 	}
 }
 
-// AUD-061 review: tool berbayar, konten '', dan penolakan budget yang tak boleh tertelan.
+// Tool berbayar, konten '', dan penolakan budget yang tak boleh tertelan.
 {
 	let fetched = 0;
 	const counting = (async () => {

@@ -54,7 +54,7 @@ async function openCashSheet(page: Page) {
 	return sheet;
 }
 
-// AUD-025: Enter di input kasir tak boleh buang sheet; nilai utuh.
+// Enter di input kasir tak boleh buang sheet; nilai utuh.
 test('enter in cash input keeps sheet and value', async ({ page }) => {
 	await loginAsOwner(page);
 	const sheet = await openCashSheet(page);

@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from '$lib/server/branchResolver';
 
-// [CATATAN]: ── Input types ─────────────────────────────────────────────────────────────
+// ── Input types ─────────────────────────────────────────────────────────────
 
 export interface PosTransactionItemInput {
 	product_id?: string | null;
@@ -35,7 +35,7 @@ export interface PosTransactionInput {
 	stock_policy_revision_at_queue?: number | null;
 }
 
-// [CATATAN]: ── DB row types ────────────────────────────────────────────────────────────
+// ── DB row types ────────────────────────────────────────────────────────────
 
 export interface ProductRow {
 	id: string;
@@ -74,7 +74,7 @@ export interface AddOnRow {
 	bahan_biaya_per_satuan?: number | null;
 }
 
-// [CATATAN]: ── Capability detection ────────────────────────────────────────────────────
+// ── Capability detection ────────────────────────────────────────────────────
 
 export interface CheckoutCapabilities {
 	stockTrackingAvailable: boolean;
@@ -86,7 +86,7 @@ export interface CheckoutCapabilities {
 	nomorHarianAvailable: boolean;
 }
 
-// [CATATAN]: ── Intermediate computation types ──────────────────────────────────────────
+// ── Intermediate computation types ──────────────────────────────────────────
 
 export interface NormalizedItemInput {
 	source: PosTransactionItemInput;
@@ -144,7 +144,7 @@ export type InventoryApplication = 'apply' | 'skip_policy_ignored' | 'skip_recon
 export type StockReplayDisposition =
 	'normal' | 'stale_to_ignored' | 'owner_approved_current' | 'owner_approved_after_recount';
 
-// [CATATAN]: ── Context passed through the checkout pipeline ────────────────────────────
+// ── Context passed through the checkout pipeline ────────────────────────────
 
 export interface CheckoutContext {
 	db: D1Database;

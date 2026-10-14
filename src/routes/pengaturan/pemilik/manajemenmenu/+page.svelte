@@ -25,7 +25,7 @@
 		type UnitCategory
 	} from '$lib/utils/unitConversion';
 
-	// [CATATAN]: Sub Komponen Tab
+	// Sub Komponen Tab
 	import MenuTab from '$lib/components/pengaturan/manajemenmenu/MenuTab.svelte';
 	import KategoriTab from '$lib/components/pengaturan/manajemenmenu/KategoriTab.svelte';
 	import EkstraTab from '$lib/components/pengaturan/manajemenmenu/EkstraTab.svelte';
@@ -37,7 +37,7 @@
 	import BahanFormModal from '$lib/components/pengaturan/manajemenmenu/BahanFormModal.svelte';
 	import MutasiBahanModal from '$lib/components/pengaturan/manajemenmenu/MutasiBahanModal.svelte';
 
-	// [CATATAN]: Modal
+	// Modal
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import CropperDialog from '$lib/components/shared/cropperDialog.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';

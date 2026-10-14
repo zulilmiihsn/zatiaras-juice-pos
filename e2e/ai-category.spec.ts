@@ -57,7 +57,7 @@ const MOCK_ANALYSIS = {
 	]
 };
 
-// AUD-032: consent tampilkan kategori; modal jadi Lainnya di ledger;
+// Consent tampilkan kategori; modal jadi Lainnya di ledger;
 // ambigu ditolak eksplisit, bukan default usaha.
 test('ai consent shows category and modal lands outside turnover', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);

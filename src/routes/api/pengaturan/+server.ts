@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
 /**
  * /api/pengaturan — Resource route controller untuk tabel `pengaturan` (1 row per cabang).
  * Menangani HTTP auth, validasi request, dan delegasi ke pengaturanService.
- * Route tipis (AUD-053): auth + parse + respons; SQL di service via BranchContext.
+ * Route tipis: auth + parse + respons; SQL di service via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));

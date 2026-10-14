@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { resolveUatTarget, uatFetch } from './uat-target.mjs';
 
 // Validasi target DULU: lookalike/userinfo/skema ditolak sebelum
-// password .env dibaca atau satu pun fetch dilakukan (AUD-048).
+// password .env dibaca atau satu pun fetch dilakukan.
 const { baseUrl, local: localTarget } = resolveUatTarget(
 	process.argv[2] || 'http://127.0.0.1:5173',
 	{

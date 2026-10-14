@@ -4,11 +4,11 @@ import { ArchiveUseCaseError, downloadArchiveForBranch } from '$lib/server/archi
 import type { RequestHandler } from './$types';
 
 /**
- * Unduh objek arsip R2 milik cabang aktif (AUD-040).
+ * Unduh objek arsip R2 milik cabang aktif.
  * Lookup dari identitas job terverifikasi (id + cabang + completed),
  * BUKAN key R2 arbitrer — traversal/cabang silang ditolak 404.
  * Retry unduhan tak mengarsip/menghapus apa pun.
- * Route tipis (AUD-053): SQL + R2 di use case via BranchContext.
+ * Route tipis: SQL + R2 di use case via BranchContext.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const branch = requireSessionBranch(locals);

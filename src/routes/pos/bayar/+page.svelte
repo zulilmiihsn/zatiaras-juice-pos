@@ -47,9 +47,9 @@
 </script>
 
 <main class="page-content min-h-[100dvh] flex-1 overflow-y-auto bg-[#faf7f8] pb-28">
-	<!-- [CATATAN]: Fluid Wave Header for Payment -->
+	<!-- Fluid Wave Header for Payment -->
 	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- [CATATAN]: Ambient background blur shapes -->
+		<!-- Ambient background blur shapes -->
 		<div
 			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
 		></div>
@@ -64,7 +64,7 @@
 			<p class="text-xs font-medium text-white/80">Selesaikan transaksi kasir dan cetak struk</p>
 		</div>
 
-		<!-- [CATATAN]: Hero Total Card Floating on Wave -->
+		<!-- Hero Total Card Floating on Wave -->
 		<div
 			class="relative z-10 mx-auto max-w-sm rounded-full border border-white/40 bg-white/25 px-6 py-2.5 text-center text-white shadow-sm backdrop-blur-xl sm:max-w-md md:max-w-lg md:py-3.5"
 		>
@@ -116,7 +116,7 @@
 						</div>
 					{/if}
 
-					<!-- [CATATAN]: 1. Nama Pelanggan (Soft Float Card) -->
+					<!-- 1. Nama Pelanggan (Soft Float Card) -->
 					<div class="soft-float-card p-4 transition-all duration-200 md:p-5">
 						<label
 							class="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-500 uppercase md:text-sm"
@@ -135,7 +135,7 @@
 						/>
 					</div>
 
-					<!-- [CATATAN]: 2. Pesanan Ringkasan (Glassmorphic Card) -->
+					<!-- 2. Pesanan Ringkasan (Glassmorphic Card) -->
 					<div class="glass-card rounded-[28px] p-4.5 shadow-lg md:p-6">
 						<div class="mb-3 flex items-center justify-between">
 							<div
@@ -206,7 +206,7 @@
 
 				<!-- Right Column: Payment Method & Action Buttons (col-span-5) -->
 				<div class="flex flex-col gap-3.5 md:sticky md:top-6 md:col-span-5">
-					<!-- [CATATAN]: 3. Metode Pembayaran (Pill Buttons) -->
+					<!-- 3. Metode Pembayaran (Pill Buttons) -->
 					<div class="soft-float-card p-4.5 md:p-5">
 						<div class="mb-3 text-xs font-bold tracking-wider text-slate-500 uppercase md:text-sm">
 							Pilih Metode Pembayaran
@@ -245,7 +245,7 @@
 						</div>
 					</div>
 
-					<!-- [CATATAN]: 4. Konfirmasi & Batalkan Buttons -->
+					<!-- 4. Konfirmasi & Batalkan Buttons -->
 					<div class="mt-1 flex flex-col gap-2.5">
 						<button
 							class="w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-4 text-base font-bold text-white shadow-xl shadow-pink-500/25 transition-all duration-200 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"

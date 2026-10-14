@@ -1,10 +1,12 @@
+import { WITA_TIME_ZONE } from '$lib/utils/dateTime';
+
 export const REPORT_YEAR_MIN = 2020;
 
 /** Tahun WITA (Asia/Makassar) saat ini. Fallback tanggal lokal bila Intl gagal. */
 export function getWitaYear(ref: Date = new Date()): number {
 	try {
 		const parts = new Intl.DateTimeFormat('en-CA', {
-			timeZone: 'Asia/Makassar',
+			timeZone: WITA_TIME_ZONE,
 			year: 'numeric'
 		}).formatToParts(ref);
 		const y = Number(parts.find((p) => p.type === 'year')?.value);

@@ -1,5 +1,5 @@
 /**
- * Presentasi kesehatan stok murni (AUD-053 slice 1).
+ * Presentasi kesehatan stok murni.
  *
  * Dipindah verbatim dari `src/routes/stok/+page.svelte` tanpa ubah perilaku:
  * satu kebijakan tampilan untuk badge/bar/kartu, predikat low-stock tunggal

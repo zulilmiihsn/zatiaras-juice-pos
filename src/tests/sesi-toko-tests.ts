@@ -8,7 +8,7 @@ import {
 } from '../routes/api/sesi-toko/+server';
 import { createTestD1 } from './helpers/testD1';
 
-// Satu sesi aktif per cabang (AUD-010): buka atomik, kalah 409, retry stabil.
+// Satu sesi aktif per cabang: buka atomik, kalah 409, retry stabil.
 
 const { db, close } = await createTestD1();
 const drizzleDb = drizzle(db);
