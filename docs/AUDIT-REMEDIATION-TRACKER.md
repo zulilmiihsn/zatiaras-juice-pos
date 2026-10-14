@@ -22,8 +22,8 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      1 |
-| In progress  |      0 |
-| Blocked      |      3 |
+| In progress  |      1 |
+| Blocked      |      2 |
 | Passed local |      0 |
 | Completed    |     59 |
 | **Total**    | **63** |
@@ -184,7 +184,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [x]  | [AUD-055](AUDIT-REMEDIATION-PLAN.md#aud-055) | Docs semantik sinkron dengan implementasi        | Fix inti lokal                                          | Completed        | claude-opus-5.5 | TRK-076: bcrypt/PBKDF2, FK D1, arsip v3, perintah d1:backup dicocokkan dengan kode; docs-drift lulus                                                               |
 | [x]  | [AUD-056](AUDIT-REMEDIATION-PLAN.md#aud-056) | Artifact metadata portable tanpa melemahkan hash | Clone bersih Windows/Linux + tamper ditolak             | Completed        | claude-opus-5.5 | TRK-082: artifact Ubuntu `e509a71` lolos verify di clone Windows; CRLF diberi diagnosis, tetap ditolak                                                             |
 | [x]  | [AUD-057](AUDIT-REMEDIATION-PLAN.md#aud-057) | Budget performa pada runtime nyata               | Laporan/checkout setahun lulus; arsip O(n²) diperbaiki  | Completed        | claude-opus-5.5 | TRK-090: `ca447e4` deploy 38468839308; setahun penuh lulus (arsip 65 panggilan/193 file, maks 5,3 s); UAT batch 8 lulus                                            |
-| [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                                | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
+| [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | 0 baris bermasalah di 5 cabang (backup)                 | In progress      | claude-opus-5.5 | TRK-095: inventaris read-only dari backup; menunggu sign-off data pemilik                                                                                          |
 | [x]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Drill nyata 3 shard lulus; schema production diperbaiki | Completed        | claude-opus-5.5 | TRK-092: drill nyata 3 shard + schema diperbaiki; RTO ≤1 jam / RPO backup sebelum deploy + harian disetujui                                                        |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                     | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
 | [x]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak      | Completed        | claude-opus-5.5 | TRK-094: `ae0c037` deploy 38488281061; budget Rp 0; UAT batch 9 lulus                                                                                              |
@@ -1086,6 +1086,25 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
   - key hanya secret server, tanpa data pelanggan dalam uji;
   - CI 38486313075 hijau, code review ditindaklanjuti, UAT pemilik lulus.
 - Status: **1 Pending (AUD-063) / 0 In progress / 3 Blocked / 59 Completed**.
+
+### TRK-095 — 14 Oktober 2026: AUD-058 inventaris data aktual (read-only, dari backup) + catatan bukti AUD-060
+
+- Owner: claude-opus-5.5. Persetujuan pemilik: "Iya boleh" untuk memeriksa backup lokal tanpa mengubah data.
+- Sumber: backup `backup-2026-10-13T22-10-54-666Z-c3ebb491…` (COMPLETE, lulus drill penuh TRK-091). Pemeriksaan dijalankan in-memory; tidak ada koneksi maupun mutasi ke production.
+- Laporan per cabang (hanya ID dan hitungan, tanpa nama/data pelanggan): `D:/ZatiarasPOS-Backups/aud058/inventory-2026-10-14.json` (di luar repo).
+- Pemeriksaan per cabang:
+  - validator bisnis ledger dan detail (`validateBukuKasBusiness`/`validateTransaksiKasirBusiness`);
+  - relasi header–detail–struk;
+  - tanggal tidak valid, `tipe` di luar in/out, detail yatim, POS tanpa snapshot struk;
+  - sesi toko aktif ganda, username ganda;
+  - nilai stok/biaya/harga tidak valid;
+  - resep yatim atau jumlah ≤ 0;
+  - paritas `ringkasan_penjualan_harian` vs ledger POS per tanggal WITA.
+- **Hasil: 0 baris bermasalah di kelima cabang** (samarinda, samarinda2, balikpapan, balikpapan2, berau). Drill TRK-091 juga meloloskan counter, nominal, dan struk di ketiga shard.
+- Catatan info (bukan kerusakan): stok bahan di semua cabang adalah nilai seed awal (10.000/100/50…), tanpa mutasi maupun rekonsiliasi final. Kebijakan stok `ignored` (Samarinda) atau belum ada (Balikpapan/Berau), jadi stok belum dipantau. Mengaktifkan monitoring memaksa hitung fisik (alur rekonsiliasi AUD-053), sehingga nilai seed tergantikan. Tidak ada perbaikan otomatis.
+- AUD-058 **Blocked → In progress**: menunggu data sign-off pemilik (DoD: sign-off data wajib walau 0 baris terdampak).
+- **AUD-060 (catatan bukti):** pemilik menyatakan push dan printer sudah diperiksa. Namun backup production hari ini menunjukkan satu-satunya perangkat notifikasi (Samarinda) **tanpa subscription Web Push** (`delivered_cursor` 0, event terakhir 9 Okt), dan Balikpapan/Berau tanpa perangkat. Push saat aplikasi tertutup belum pernah teraktivasi di production, jadi AUD-060 belum dapat ditutup dari data ini. Menunggu klarifikasi pemilik. AUD-062 (printer) tidak meninggalkan jejak data dan menunggu rincian channel yang diuji.
+- Status: **1 Pending (AUD-063) / 1 In progress (AUD-058) / 2 Blocked / 59 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
