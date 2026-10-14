@@ -22,10 +22,10 @@ Snapshot terkini: **13 Oktober 2026, 00:30 UTC** (pembukaan 05:39 UTC). Owner pe
 | Status       | Jumlah |
 | ------------ | -----: |
 | Pending      |      1 |
-| In progress  |      1 |
+| In progress  |      0 |
 | Blocked      |      3 |
 | Passed local |      0 |
-| Completed    |     58 |
+| Completed    |     59 |
 | **Total**    | **63** |
 
 **Completed 0 bukan berarti belum ada perbaikan.** Artinya belum ada task remediasi baru yang disahkan memenuhi seluruh DoD. `Pending` pada task dengan bukti baseline berarti acceptance kandidat terintegrasi belum dikonsolidasi, bukan kode lama hilang atau harus ditulis ulang.
@@ -187,7 +187,7 @@ Langkah dan exit criteria lengkap ada di [plan §6.3](AUDIT-REMEDIATION-PLAN.md#
 | [ ]  | [AUD-058](AUDIT-REMEDIATION-PLAN.md#aud-058) | Inventaris/rekonsiliasi data terdampak aktual    | Sebagian                                                | Blocked          | —               | §10: approved data inventory/target; local fixtures tetap boleh                                                                                                    |
 | [x]  | [AUD-059](AUDIT-REMEDIATION-PLAN.md#aud-059) | Backup/restore/migrasi/rollback shard nyata      | Drill nyata 3 shard lulus; schema production diperbaiki | Completed        | claude-opus-5.5 | TRK-092: drill nyata 3 shard + schema diperbaiki; RTO ≤1 jam / RPO backup sebelum deploy + harian disetujui                                                        |
 | [ ]  | [AUD-060](AUDIT-REMEDIATION-PLAN.md#aud-060) | Web Push dan realtime perangkat nyata            | Belum terverifikasi                                     | Blocked          | —               | §10: operator/device push matrix                                                                                                                                   |
-| [ ]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak      | In progress      | claude-opus-5.5 | TRK-093: `ae0c037` deploy 38488281061; budget Rp 0; menunggu UAT batch 9                                                                                           |
+| [x]  | [AUD-061](AUDIT-REMEDIATION-PLAN.md#aud-061) | AI provider nyata dengan budget/approval         | Uji live gratis lulus; model/tool berbayar ditolak      | Completed        | claude-opus-5.5 | TRK-094: `ae0c037` deploy 38488281061; budget Rp 0; UAT batch 9 lulus                                                                                              |
 | [ ]  | [AUD-062](AUDIT-REMEDIATION-PLAN.md#aud-062) | Printer fisik dan seluruh jalur reprint          | Belum terverifikasi                                     | Blocked          | —               | §10: supported printer/channel physical matrix                                                                                                                     |
 | [ ]  | [AUD-063](AUDIT-REMEDIATION-PLAN.md#aud-063) | Final release gate dan sign-off                  | Tidak sesuai                                            | Pending          | —               | ALL: final same-candidate gate/approval/artifact/sign-off                                                                                                          |
 
@@ -1075,6 +1075,17 @@ Prasyarat lain yang harus direkam saat dibutuhkan: largest archive size/growth d
   - HPP kini bisa memakai rantai 3 model, jadi kasus terburuk menunggu hingga 60 s.
   - Daftar model gratis OpenRouter berubah-ubah. Ganti lewat env `AI_MODEL` (`:free`) tanpa deploy, atau ubah `DEFAULT_AI_MODEL`.
 - AUD-061 **Blocked → In progress**; menunggu UAT pemilik batch 9.
+
+### TRK-094 — 14 Oktober 2026: UAT batch 9 lulus — AUD-061 Completed
+
+- Pemilik menjalankan UAT batch 9 di production pada deploy `ae0c037` ("sudah ku UAT, mantap"): Asisten AI Laporan, pertanyaan pemicu web search tanpa lencana web, dan parse cerita belanja HPP. Ketiga langkah Lulus.
+- DoD AUD-061 terpenuhi:
+  - happy path provider nyata dan pembatalan/timeout terbatas sesuai kontrak (TRK-093, live);
+  - malformed/rate/timeout dibuktikan lewat injeksi;
+  - biaya Rp 0 tercatat;
+  - key hanya secret server, tanpa data pelanggan dalam uji;
+  - CI 38486313075 hijau, code review ditindaklanjuti, UAT pemilik lulus.
+- Status: **1 Pending (AUD-063) / 0 In progress / 3 Blocked / 59 Completed**.
 
 ### Template entry berikutnya — jangan dihitung sebagai pekerjaan selesai
 
