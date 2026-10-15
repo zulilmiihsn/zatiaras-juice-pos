@@ -1,0 +1,44 @@
+{
+	// Pages STAGING. Dipakai lewat `wrangler pages deploy --cwd staging`; config produksi
+	// (wrangler.jsonc di root) tidak tersentuh. ID diisi oleh `node scripts/staging.mjs setup`.
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "zatiaraspos-staging",
+	"compatibility_date": "2026-06-29",
+	"compatibility_flags": ["nodejs_compat"],
+	"pages_build_output_dir": "../.svelte-kit/cloudflare",
+
+	"d1_databases": [
+		{
+			"binding": "DB_SAMARINDA_GROUP",
+			"database_name": "zatiaras-samarinda-group-staging",
+			"database_id": "STAGING_ID_DB_SAMARINDA_GROUP"
+		},
+		{
+			"binding": "DB_BALIKPAPAN_GROUP",
+			"database_name": "zatiaras-balikpapan-group-staging",
+			"database_id": "STAGING_ID_DB_BALIKPAPAN_GROUP"
+		},
+		{
+			"binding": "DB_BERAU_GROUP",
+			"database_name": "zatiaras-berau-group-staging",
+			"database_id": "STAGING_ID_DB_BERAU_GROUP"
+		}
+	],
+
+	"r2_buckets": [
+		{
+			"binding": "STORAGE",
+			"bucket_name": "zatiaras-assets-staging"
+		}
+	],
+
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "REALTIME_HUB",
+				"class_name": "RealtimeDurableObject",
+				"script_name": "zatiaraspos-realtime-staging"
+			}
+		]
+	}
+}

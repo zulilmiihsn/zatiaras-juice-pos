@@ -127,6 +127,46 @@ memastikan tidak ada perubahan lokal: `git rm --cached -r . && git reset --hard`
 Darurat: pilih deployment Pages dan versi Worker sebelumnya di dashboard Cloudflare
 dan catat ID-nya.
 
+## 4a. Staging
+
+Staging memakai resource terpisah yang semuanya berakhiran `-staging`: tiga D1
+(`zatiaras-*-group-staging`), bucket R2 `zatiaras-assets-staging`, Worker
+`zatiaraspos-realtime-staging`, dan proyek Pages `zatiaraspos-staging`
+(`https://zatiaraspos-staging.pages.dev`). Config-nya ada di `staging/`; config produksi tidak
+dipakai. `test:staging` gagal bila config staging menunjuk resource produksi.
+
+**Setup sekali jalan (pemilik akun Cloudflare):**
+
+1. Buat resource dan isi ID D1 ke `staging/*.jsonc` (idempoten, aman diulang):
+   ```powershell
+   pnpm staging:setup
+   ```
+   Commit perubahan `staging/*.jsonc` yang dihasilkan.
+2. Isi data. Pilihan A, salinan produksi: ambil backup (§1), lalu muat tiap shard ke D1 staging
+   yang masih kosong:
+   ```powershell
+   pnpm exec wrangler d1 execute DB_SAMARINDA_GROUP --remote --config staging/wrangler.realtime.jsonc --file <output-dir><run-id>db_samarinda_group.sql --yes
+   ```
+   Ulangi untuk `DB_BALIKPAPAN_GROUP` dan `DB_BERAU_GROUP`. Akun dan katalog ikut tersalin, jadi
+   login staging sama dengan produksi. Pilihan B, database kosong: `pnpm d1:migrate:staging`, lalu
+   seed UAT `scripts/seed-uat-samarinda.sql` ke `DB_SAMARINDA_GROUP` dengan perintah yang sama.
+3. Secret Pages staging (kunci harga berbeda dari produksi):
+   ```powershell
+   pnpm exec wrangler pages secret put POS_PRICE_SIGNING_KEY --project-name zatiaraspos-staging
+   ```
+   `OPENROUTER_API_KEY` opsional, dengan cara yang sama.
+4. GitHub → Settings → Environments → buat environment `staging` (tanpa reviewer). Secret
+   `CLOUDFLARE_API_TOKEN` level repository sudah cukup; VAPID staging opsional.
+
+**Setiap rilis:**
+
+1. Migrasi baru ke staging dulu: `pnpm d1:migrate:staging`.
+2. Workflow **Deploy** dengan `target=staging` (dry-run tidak perlu; artifact diverifikasi di job
+   verify). SHA tetap harus HEAD `main` dengan CI hijau.
+3. Smoke di staging (§5). Bila lolos, migrasi produksi (§3) dan Deploy `target=production`.
+
+Staging berbagi kuota akun Cloudflare dengan produksi; pantau pemakaian D1/Workers di dashboard.
+
 ## 5. Smoke per cabang
 
 Login valid/invalid; kunci PIN; buka/tutup sesi; checkout tunai dan non-tunai (total,

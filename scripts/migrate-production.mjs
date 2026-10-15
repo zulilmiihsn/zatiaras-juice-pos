@@ -73,6 +73,11 @@ try {
 	// 5. Dry-run or check arguments
 	const isApply = process.argv.includes('--apply');
 	const isLive = process.argv.includes('--live');
+	// Default produksi; staging memakai staging/wrangler.realtime.jsonc (D1 berakhiran -staging).
+	const configIndex = process.argv.indexOf('--config');
+	const configPath = configIndex === -1 ? 'wrangler.pages.jsonc' : process.argv[configIndex + 1];
+	if (!configPath || configPath.startsWith('--'))
+		throw new Error('--config wajib diikuti path file');
 
 	if (!isApply) {
 		console.log(
@@ -82,7 +87,7 @@ try {
 	}
 
 	console.log(
-		`🚀 Executing migrations across production shards (${isLive ? 'REMOTE LIVE' : 'LOCAL'})...`
+		`🚀 Executing migrations across shards in ${configPath} (${isLive ? 'REMOTE LIVE' : 'LOCAL'})...`
 	);
 	const shards = ['DB_SAMARINDA_GROUP', 'DB_BALIKPAPAN_GROUP', 'DB_BERAU_GROUP'];
 
@@ -90,12 +95,9 @@ try {
 		console.log(`Applying migrations to ${shard}...`);
 		const liveFlag = isLive ? '--remote' : '--local';
 		try {
-			execSync(
-				`npx wrangler d1 migrations apply ${shard} ${liveFlag} --config wrangler.pages.jsonc`,
-				{
-					stdio: 'inherit'
-				}
-			);
+			execSync(`npx wrangler d1 migrations apply ${shard} ${liveFlag} --config ${configPath}`, {
+				stdio: 'inherit'
+			});
 		} catch (execErr) {
 			console.error(
 				`💥 First-fail-stop: Migration execution failed on shard ${shard}. Halting remaining shards.`

@@ -1,0 +1,50 @@
+{
+	// Worker realtime STAGING: Durable Object hub + cron relay/audit/alert untuk D1 staging.
+	// ID diisi oleh `node scripts/staging.mjs setup`. migrations_dir dipakai d1:migrate:staging.
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "zatiaraspos-realtime-staging",
+	"main": "../src/lib/server/realtimeWorker.js",
+	"compatibility_date": "2026-06-29",
+	"compatibility_flags": ["nodejs_compat"],
+
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "REALTIME_HUB",
+				"class_name": "RealtimeDurableObject"
+			}
+		]
+	},
+
+	"d1_databases": [
+		{
+			"binding": "DB_SAMARINDA_GROUP",
+			"database_name": "zatiaras-samarinda-group-staging",
+			"database_id": "STAGING_ID_DB_SAMARINDA_GROUP",
+			"migrations_dir": "../drizzle"
+		},
+		{
+			"binding": "DB_BALIKPAPAN_GROUP",
+			"database_name": "zatiaras-balikpapan-group-staging",
+			"database_id": "STAGING_ID_DB_BALIKPAPAN_GROUP",
+			"migrations_dir": "../drizzle"
+		},
+		{
+			"binding": "DB_BERAU_GROUP",
+			"database_name": "zatiaras-berau-group-staging",
+			"database_id": "STAGING_ID_DB_BERAU_GROUP",
+			"migrations_dir": "../drizzle"
+		}
+	],
+
+	"triggers": {
+		"crons": ["* * * * *", "0 3 * * *"]
+	},
+
+	"migrations": [
+		{
+			"tag": "v1_realtime_hub",
+			"new_sqlite_classes": ["RealtimeDurableObject"]
+		}
+	]
+}

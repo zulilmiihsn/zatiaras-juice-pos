@@ -13,6 +13,14 @@ on:
       ci_run_id:
         description: ID angka CI run hijau pemilik artifact (lihat URL run CI)
         required: true
+      target:
+        description: Lingkungan tujuan (staging dipakai untuk uji sebelum produksi)
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
 
 jobs:
   verify:
@@ -48,12 +56,12 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
   deploy:
-    name: Deploy to Production
+    name: Deploy to ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [verify]
     if: inputs.dry_run == 'false'
-    environment: production
+    environment: ${{ inputs.target }}
     permissions:
       actions: read
       contents: read
@@ -94,6 +102,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Provision Antrean VAPID secrets
+        if: inputs.target == 'production'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
@@ -105,11 +114,41 @@ jobs:
           node -e 'process.stdout.write(JSON.stringify({VAPID_PUBLIC_KEY:process.env.VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY:process.env.VAPID_PRIVATE_KEY,VAPID_SUBJECT:process.env.VAPID_SUBJECT}))' | pnpm exec wrangler pages secret bulk --project-name zatiaraspos
 
       - name: Deploy Realtime Worker
+        if: inputs.target == 'production'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm deploy:realtime
 
       - name: Deploy Pages
+        if: inputs.target == 'production'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm deploy:pages
+
+      # Staging: resource berakhiran -staging (staging/*.jsonc); push opsional bila secret ada.
+      - name: Provision staging VAPID secrets
+        if: inputs.target == 'staging'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: |
+          if [ -z "$VAPID_PUBLIC_KEY" ] || [ -z "$VAPID_PRIVATE_KEY" ] || [ -z "$VAPID_SUBJECT" ]; then
+            echo "VAPID staging belum diatur; push dinonaktifkan di staging."
+            exit 0
+          fi
+          node -e 'process.stdout.write(JSON.stringify({VAPID_PUBLIC_KEY:process.env.VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY:process.env.VAPID_PRIVATE_KEY,VAPID_SUBJECT:process.env.VAPID_SUBJECT}))' | pnpm exec wrangler secret bulk --config staging/wrangler.realtime.jsonc
+          node -e 'process.stdout.write(JSON.stringify({VAPID_PUBLIC_KEY:process.env.VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY:process.env.VAPID_PRIVATE_KEY,VAPID_SUBJECT:process.env.VAPID_SUBJECT}))' | pnpm exec wrangler pages secret bulk --project-name zatiaraspos-staging
+
+      - name: Deploy Staging Realtime Worker
+        if: inputs.target == 'staging'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm deploy:staging:realtime
+
+      - name: Deploy Staging Pages
+        if: inputs.target == 'staging'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm deploy:staging:pages
