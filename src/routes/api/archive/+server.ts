@@ -1,4 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import {
 	ArchiveUseCaseError,
@@ -39,7 +40,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = (await request.json().catch(() => null)) as { before_year?: number } | null;
+	const body = (await parseBody(request)) as { before_year?: number } | null;
 	const year = Number(body?.before_year);
 
 	try {

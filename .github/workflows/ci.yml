@@ -225,6 +225,9 @@ jobs:
       - name: Run Markdown Render Suite
         run: pnpm test:markdown
 
+      - name: Run Request Body Suite
+        run: pnpm test:request-body
+
       - name: Run Auth, PIN, and Signing Key Suites
         run: |
           pnpm test:auth-service

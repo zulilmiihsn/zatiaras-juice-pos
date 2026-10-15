@@ -1,4 +1,5 @@
 import { error as kitError, json } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { verifyPinForBranch } from '$lib/server/services/pinService';
 import type { RequestHandler } from './$types';
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const branch = requireSessionBranch(locals);
 	if (session.role !== 'kasir') throw kitError(403, 'Verifikasi PIN hanya untuk kasir');
 
-	const body = (await request.json().catch(() => null)) as { pin?: unknown; page?: unknown } | null;
+	const body = (await parseBody(request)) as { pin?: unknown; page?: unknown } | null;
 	const pin = typeof body?.pin === 'string' ? body.pin : '';
 
 	const result = await verifyPinForBranch(platform, branch, session, pin, body?.page);

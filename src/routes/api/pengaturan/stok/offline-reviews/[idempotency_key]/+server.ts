@@ -1,4 +1,5 @@
 import { error as kitError, json } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { branchStockRolloutAllows } from '$lib/server/stockPolicy';
 import { resolveBranchOfflineReview } from '$lib/server/stockOfflineReview';
@@ -9,7 +10,7 @@ const FIELDS = new Set(['branch', 'expected_revision', 'action']);
 export const PUT: RequestHandler = async ({ request, platform, locals, params }) => {
 	const session = requireAuthSession(locals);
 	if (session.role !== 'pemilik') throw kitError(403, 'Role tidak memiliki akses');
-	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+	const body = (await parseBody(request)) as Record<string, unknown> | null;
 	if (!body || typeof body !== 'object' || Array.isArray(body)) {
 		throw kitError(400, 'Body review replay tidak valid');
 	}

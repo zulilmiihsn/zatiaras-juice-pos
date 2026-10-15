@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { uploadToR2, deleteFromR2 } from '$lib/server/s3Client';
 import { requireAuthSession, requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
@@ -122,7 +123,7 @@ export async function DELETE({ request, platform, locals }) {
 	requireAnyRole(session.role, ['pemilik', 'admin']);
 
 	try {
-		const { key } = (await request.json()) as { key: string };
+		const { key } = ((await readJsonBody(request)) ?? {}) as { key?: unknown };
 
 		if (!isPublicProductImageKey(key)) {
 			return json({ error: 'Invalid product image key' }, { status: 400 });
@@ -145,6 +146,7 @@ export async function DELETE({ request, platform, locals }) {
 		await deleteFromR2(key, bucket);
 		return json({ success: true });
 	} catch (err) {
+		if (err instanceof RequestBodyError) return bodyErrorResponse(err);
 		console.error('[upload] Delete error:', err);
 		return json({ error: 'Delete failed' }, { status: 500 });
 	}

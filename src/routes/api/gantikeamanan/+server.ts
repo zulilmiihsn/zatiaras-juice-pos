@@ -1,4 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
+import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { changeCredentials } from '$lib/server/services/credentialService';
 
 /**
@@ -20,16 +21,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 
 	let rawBody: unknown;
 	try {
-		rawBody = await request.json();
-	} catch {
-		return new Response(
-			JSON.stringify({
-				success: false,
-				code: 'SERVER_ERROR',
-				message: 'Terjadi error pada server.'
-			}),
-			{ status: 500 }
-		);
+		rawBody = await readJsonBody(request);
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
 	}
 
 	const result = await changeCredentials({

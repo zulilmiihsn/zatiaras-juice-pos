@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
@@ -32,6 +33,19 @@ function getOpenRouterModel(platform: App.Platform | undefined): string {
 	);
 }
 
+/** Body chat AI; error dipetakan ke bentuk respons AI (`error` + `code`). */
+async function readAiBody(request: Request): Promise<unknown> {
+	try {
+		return await readJsonBody(request);
+	} catch (cause) {
+		if (!(cause instanceof RequestBodyError)) throw cause;
+		return json(
+			{ success: false, error: cause.message, code: cause.code },
+			{ status: cause.status }
+		);
+	}
+}
+
 // POST Endpoint Utama /api/aichat
 // Route hanya auth + rate-limit + parsing + response; orkestrasi AI di aiChatUseCase.
 // Route tipis: DB + provider di use case via BranchContext.
@@ -47,7 +61,8 @@ export const POST: RequestHandler = async (event) => {
 
 	const action = url.searchParams.get('action');
 	if (action === 'analyze') {
-		const body = await event.request.json().catch(() => null);
+		const body = await readAiBody(event.request);
+		if (body instanceof Response) return body;
 		// Analisis teks kasir: tanpa gate halaman laporan (dipakai kasir).
 		const deps = {
 			apiKey: getOpenRouterApiKey(event.platform) || '',
@@ -60,7 +75,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	await checkAiChatPageAccess(event.platform, branch, session);
-	const body = await event.request.json().catch(() => null);
+	const body = await readAiBody(event.request);
+	if (body instanceof Response) return body;
 	const result = await handleRegularChat({
 		platform: event.platform,
 		session,

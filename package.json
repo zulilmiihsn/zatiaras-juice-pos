@@ -130,6 +130,7 @@
 		"test:mutation-frequency": "tsx src/tests/mutation-frequency-tests.ts",
 		"test:text-format": "tsx src/tests/text-format-tests.ts",
 		"test:markdown": "tsx src/tests/markdown-render-tests.ts",
+		"test:request-body": "tsx src/tests/request-body-tests.ts",
 		"test:pin-service": "tsx src/tests/pin-service-tests.ts",
 		"test:auth-service": "tsx src/tests/auth-service-tests.ts"
 	},

@@ -160,6 +160,13 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
   jalur best-effort dengan alasan tertulis.
 - **Input**: rapikan dengan `trimInput`. Jangan memfilter teks dengan blocklist; Svelte
   sudah meng-escape output dan server tidak memercayai klien.
+- **Body request API**: baca hanya lewat `readJsonBody` (`$lib/server/requestBody`), atau
+  `parseBody` untuk route tier A. JSON rusak dijawab 400 `INVALID_JSON`, body di atas
+  1 MB dijawab 413 `PAYLOAD_TOO_LARGE`. Jangan memanggil `request.json()` langsung.
+- **Payload tulis**: teruskan ke DB hanya kolom yang diizinkan (`pickColumns` di
+  `$lib/server/payloadFields`), dan baca angka dengan `finiteNumber` agar input bukan angka
+  ditolak 400, bukan menjadi `NaN`. Kolom milik server (revisi, nomor harian, biaya per
+  satuan, status antrean) tidak pernah diambil dari payload.
 - **Komentar**: jelaskan kenapa, bukan apa. Jangan menulis ID tiket/sprint di kode;
   riwayat ada di git.
 

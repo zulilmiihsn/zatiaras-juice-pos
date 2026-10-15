@@ -1,4 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { executeCheckoutForBranch } from '$lib/server/checkout/checkoutUseCase';
 import { CheckoutDomainError } from '$lib/server/checkout/utils';
@@ -15,7 +16,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['kasir', 'pemilik']);
 
-	const rawBody = await request.json().catch(() => null);
+	const rawBody = await parseBody(request);
 	try {
 		const result = await executeCheckoutForBranch(
 			platform,

@@ -1,4 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { env } from '$env/dynamic/private';
 import { requireAnyRole, requireAuthSession } from '$lib/server/apiAuth';
 import { HppParseError, hppBranchDb, parseHppText } from '$lib/server/hppParseUseCase';
@@ -8,7 +9,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const session = requireAuthSession(locals);
 	requireAnyRole(session.role, ['pemilik']);
-	const body = (await request.json().catch(() => null)) as { text?: string } | null;
+	const body = (await parseBody(request)) as { text?: string } | null;
 	const text = String(body?.text || '').trim();
 	if (!text) return json({ ok: true, source: 'ai', items: [] });
 

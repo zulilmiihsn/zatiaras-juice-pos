@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import type { RequestHandler } from './$types';
 
 const WINDOW_MS = 5 * 60 * 1000;
@@ -180,12 +181,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals }
 
 	let payload: { page?: unknown; timestamp?: unknown; stats?: unknown };
 	try {
-		payload = await request.json();
-	} catch {
-		return json(
-			{ success: false, code: 'INVALID_JSON', message: 'Format data tidak valid' },
-			{ status: 400 }
-		);
+		payload = (await readJsonBody(request)) as typeof payload;
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
 	}
 
 	const normalizedPage = typeof payload.page === 'string' ? payload.page.trim().toLowerCase() : '';

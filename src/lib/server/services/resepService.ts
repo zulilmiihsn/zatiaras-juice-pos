@@ -4,6 +4,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from '$lib/server/branchResolver';
 import { getDb, getRawDb, publish, auditDataChange } from '$lib/server/dataApiHelpers';
 import { error as kitError } from '@sveltejs/kit';
+import { finiteNumber } from '$lib/server/payloadFields';
 
 export type Database = ReturnType<typeof getDb>;
 export type SessionUser = App.Locals['authSession'];
@@ -28,6 +29,80 @@ export async function getResepList(
 		.limit(limit);
 }
 
+const RECIPE_PORSI = new Set(['reguler', 'jumbo']);
+
+type RecipeRow = {
+	id: string;
+	produk_id: string;
+	bahan_id: string;
+	porsi: string;
+	jumlah_per_item: number;
+	satuan_resep: string | null;
+	jumlah_dasar_per_item: number;
+};
+
+/**
+ * Normalisasi baris resep dari klien: hanya kolom resep, jumlah wajib angka positif, porsi
+ * reguler/jumbo. Bahan dan produk wajib milik cabang yang sama; samarinda dan samarinda2
+ * berbagi satu shard, jadi ID cabang lain bisa saja ada di database yang sama.
+ */
+async function normalizeRecipeRows(
+	rawDb: D1Database,
+	branch: string,
+	payload: Array<Record<string, unknown>>,
+	productId?: string
+): Promise<RecipeRow[]> {
+	const rows = payload.map((row): RecipeRow => {
+		const jumlah = finiteNumber(row.jumlah_per_item);
+		const dasar = finiteNumber(row.jumlah_dasar_per_item);
+		const porsi =
+			row.porsi == null || row.porsi === '' ? 'reguler' : String(row.porsi).trim().toLowerCase();
+		const produkId = String(row.produk_id ?? productId ?? '').trim();
+		const bahanId = String(row.bahan_id ?? '').trim();
+		if (
+			!produkId ||
+			!bahanId ||
+			(productId !== undefined && produkId !== productId) ||
+			jumlah === null ||
+			jumlah <= 0 ||
+			!RECIPE_PORSI.has(porsi)
+		) {
+			throw kitError(400, 'Resep bahan tidak valid');
+		}
+		return {
+			id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
+			produk_id: produkId,
+			bahan_id: bahanId,
+			porsi,
+			jumlah_per_item: jumlah,
+			satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
+			// Jumlah dasar kosong/0 memakai jumlah resep (perilaku lama).
+			jumlah_dasar_per_item: dasar !== null && dasar > 0 ? dasar : jumlah
+		};
+	});
+	if (rows.length === 0) return rows;
+	const owned = await rawDb
+		.prepare(
+			`SELECT
+				(SELECT COUNT(DISTINCT id) FROM bahan WHERE cabang_id = ? AND id IN (SELECT value FROM json_each(?))) AS bahan,
+				(SELECT COUNT(DISTINCT id) FROM produk WHERE cabang_id = ? AND id IN (SELECT value FROM json_each(?))) AS produk`
+		)
+		.bind(
+			branch,
+			JSON.stringify([...new Set(rows.map((row) => row.bahan_id))]),
+			branch,
+			JSON.stringify([...new Set(rows.map((row) => row.produk_id))])
+		)
+		.first<{ bahan: number; produk: number }>();
+	if (
+		Number(owned?.bahan) !== new Set(rows.map((row) => row.bahan_id)).size ||
+		Number(owned?.produk) !== new Set(rows.map((row) => row.produk_id)).size
+	) {
+		throw kitError(400, 'Produk atau bahan resep tidak ditemukan di cabang ini');
+	}
+	return rows;
+}
+
 /**
  * Menyisipkan komposisi resep bahan untuk produk.
  */
@@ -39,22 +114,13 @@ export async function insertResepRows(
 	platform: App.Platform | undefined,
 	payload: Array<Record<string, unknown>>
 ) {
-	const rows = payload.map((row) => ({
+	const rows = (await normalizeRecipeRows(rawDb, branch, payload)).map((row) => ({
 		...row,
-		id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
-		produk_id: String(row.produk_id || ''),
-		bahan_id: String(row.bahan_id || ''),
-		porsi: row.porsi ? String(row.porsi).trim().toLowerCase() : 'reguler',
-		jumlah_per_item: Number(row.jumlah_per_item || 0),
-		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
-		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
+		cabang_id: branch
 	}));
+	if (rows.length === 0) throw kitError(400, 'Resep bahan tidak valid');
 
-	if (rows.some((row) => !row.produk_id || !row.bahan_id || row.jumlah_per_item <= 0)) {
-		throw kitError(400, 'Resep bahan tidak valid');
-	}
-
-	await db.insert(resepProduk).values(rows as (typeof resepProduk.$inferInsert)[]);
+	await db.insert(resepProduk).values(rows);
 	await publish(platform, branch, 'resep_produk', 'insert', {
 		id: rows[0]?.id,
 		transaction_id: rows[0]?.produk_id as string | undefined
@@ -78,22 +144,7 @@ export async function replaceResepForProduct(
 	productId: string,
 	payload: Array<Record<string, unknown>>
 ) {
-	const rows = payload.map((row) => ({
-		...row,
-		id: typeof row.id === 'string' && row.id ? row.id : crypto.randomUUID(),
-		produk_id: String(row.produk_id || productId),
-		bahan_id: String(row.bahan_id || ''),
-		porsi: row.porsi ? String(row.porsi).trim().toLowerCase() : 'reguler',
-		jumlah_per_item: Number(row.jumlah_per_item || 0),
-		satuan_resep: row.satuan_resep ? String(row.satuan_resep).trim() : null,
-		jumlah_dasar_per_item: Number(row.jumlah_dasar_per_item ?? row.jumlah_per_item ?? 0)
-	}));
-
-	if (
-		rows.some((row) => row.produk_id !== productId || !row.bahan_id || row.jumlah_per_item <= 0)
-	) {
-		throw kitError(400, 'Resep bahan tidak valid');
-	}
+	const rows = await normalizeRecipeRows(rawDb, branch, payload, productId);
 
 	const now = new Date().toISOString();
 	const statements = [
@@ -112,10 +163,10 @@ export async function replaceResepForProduct(
 					branch,
 					productId,
 					row.bahan_id,
-					row.porsi || 'reguler',
+					row.porsi,
 					row.jumlah_per_item,
-					row.satuan_resep || null,
-					row.jumlah_dasar_per_item || row.jumlah_per_item,
+					row.satuan_resep,
+					row.jumlah_dasar_per_item,
 					now,
 					now
 				)

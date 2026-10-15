@@ -1,4 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
+import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { dev } from '$app/environment';
 import { attemptLogin } from '$lib/server/services/authService';
 import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
@@ -11,8 +12,13 @@ import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
  */
 export const POST: RequestHandler = async ({ request, getClientAddress, cookies, platform }) => {
 	const clientIp = getClientAddress();
-	// Tanpa catch: JSON rusak = 500 SERVER_ERROR seperti semula (kontrak error).
-	const body = await request.json();
+	let body: unknown;
+	try {
+		body = await readJsonBody(request);
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
+	}
 	const result = await attemptLogin(platform, body, clientIp);
 
 	if (result.sessionId) {

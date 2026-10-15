@@ -1,4 +1,5 @@
 import { error as kitError, json } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	branchStockRolloutAllows,
@@ -76,7 +77,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	const session = requireAuthSession(locals);
 	requireExactRole(session.role, ['pemilik']);
-	const parsed = parsePutBody(await request.json().catch(() => null));
+	const parsed = parsePutBody(await parseBody(request));
 	const branch = requireSessionBranch(locals, parsed.branch);
 	if (!(await branchStockRolloutAllows(platform, branch))) {
 		throw kitError(403, 'Perubahan monitoring stok belum tersedia untuk cabang ini');

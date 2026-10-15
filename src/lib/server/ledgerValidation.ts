@@ -12,6 +12,7 @@
 
 import { decodeMoneyAmount, normalizeMoney } from '$lib/utils/currency';
 import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
+import { pickColumns } from './payloadFields';
 
 export class LedgerValidationError extends Error {
 	readonly status: number;
@@ -68,12 +69,6 @@ const MANUAL_LEDGER_PATCH_COLUMNS = [
 	'metode_bayar',
 	'revision'
 ] as const;
-
-function pickColumns(row: ManualLedgerRow, columns: readonly string[]): ManualLedgerRow {
-	const picked: ManualLedgerRow = {};
-	for (const column of columns) if (Object.hasOwn(row, column)) picked[column] = row[column];
-	return picked;
-}
 
 /** Nominal rupiah: finite, >= 0, dalam rentang aman; desimal dibulatkan. */
 export function validateLedgerNominal(value: unknown): number {

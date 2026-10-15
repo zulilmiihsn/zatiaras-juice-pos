@@ -7,14 +7,48 @@ import { sanitizeUpdatePayload } from '$lib/server/resourceRouteHelpers';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import { error as kitError } from '@sveltejs/kit';
+import { finiteNumber, pickColumns } from '$lib/server/payloadFields';
 
 export type Database = ReturnType<typeof getDb>;
 export type SessionUser = App.Locals['authSession'];
 
 function nonNegativeNumber(value: unknown, label: string): number {
-	const parsed = Number(value ?? 0);
-	if (!Number.isFinite(parsed) || parsed < 0) throw kitError(400, `${label} tidak valid`);
+	const parsed = value == null ? 0 : finiteNumber(value);
+	if (parsed === null || parsed < 0) throw kitError(400, `${label} tidak valid`);
 	return parsed;
+}
+
+/** Yield 1–100%; kosong = 100, bukan angka = ditolak (dulu diam-diam menjadi NaN). */
+function yieldPercent(value: unknown): number {
+	if (value == null || value === '') return 100;
+	const parsed = finiteNumber(value);
+	if (parsed === null) throw kitError(400, 'Yield tidak valid');
+	return Math.min(100, Math.max(1, parsed));
+}
+
+/** Kolom bahan yang boleh diisi form; biaya per satuan dihitung server. */
+const BAHAN_INPUT_COLUMNS = [
+	'id',
+	'cabang_id',
+	'nama',
+	'satuan',
+	'tipe_satuan',
+	'isi_per_kemasan',
+	'satuan_beli',
+	'kategori',
+	'stok_saat_ini',
+	'ambang_stok',
+	'yield_persen',
+	'jumlah_beli_terakhir',
+	'biaya_beli_terakhir',
+	'is_active'
+] as const;
+
+function bahanName(value: unknown): string {
+	const nama = typeof value === 'string' ? value.trim() : '';
+	if (!nama || nama.length > 120)
+		throw kitError(400, 'Nama bahan wajib diisi (maksimal 120 karakter)');
+	return nama;
 }
 
 /**
@@ -43,10 +77,10 @@ export async function insertBahanRows(
 	const rows = payload.map((row) => {
 		const purchaseQuantity = nonNegativeNumber(row.jumlah_beli_terakhir, 'Jumlah porsi');
 		const purchaseCost = nonNegativeNumber(row.biaya_beli_terakhir, 'Biaya beli');
-		const yieldVal =
-			row.yield_persen != null ? Math.min(100, Math.max(1, Number(row.yield_persen))) : 100;
+		const yieldVal = yieldPercent(row.yield_persen);
 		return {
-			...row,
+			...pickColumns(row, BAHAN_INPUT_COLUMNS),
+			nama: bahanName(row.nama),
 			satuan: row.satuan || 'gram',
 			tipe_satuan: row.tipe_satuan ? String(row.tipe_satuan).trim() : 'berat',
 			isi_per_kemasan: nonNegativeNumber(row.isi_per_kemasan, 'Isi kemasan') || 1,
@@ -81,7 +115,7 @@ export async function updateBahanRow(
 	id: string,
 	payload: Record<string, unknown>
 ) {
-	const safePayload = sanitizeUpdatePayload(payload);
+	const safePayload = sanitizeUpdatePayload(pickColumns(payload, BAHAN_INPUT_COLUMNS));
 	// Saldo bukan metadata: PATCH tak boleh menulis stok_saat_ini —
 	// form basi akan menghapus mutasi checkout bersamaan. Saldo eksplisit hanya
 	// lewat mutasi atomik / purchase / rekonsiliasi. Stok awal tetap via create.
@@ -99,6 +133,13 @@ export async function updateBahanRow(
 		.get();
 	if (!current) throw kitError(404, 'Bahan tidak ditemukan');
 
+	if ('nama' in safePayload) safePayload.nama = bahanName(safePayload.nama);
+	if ('biaya_beli_terakhir' in safePayload) {
+		safePayload.biaya_beli_terakhir = nonNegativeNumber(
+			safePayload.biaya_beli_terakhir,
+			'Biaya beli'
+		);
+	}
 	if ('kategori' in safePayload && safePayload.kategori !== undefined) {
 		safePayload.kategori = safePayload.kategori
 			? String(safePayload.kategori).trim()
@@ -128,10 +169,7 @@ export async function updateBahanRow(
 			: null;
 	}
 	if ('yield_persen' in safePayload && safePayload.yield_persen !== undefined) {
-		const parsedYield = Number(safePayload.yield_persen);
-		safePayload.yield_persen = Number.isFinite(parsedYield)
-			? Math.min(100, Math.max(1, parsedYield))
-			: 100;
+		safePayload.yield_persen = yieldPercent(safePayload.yield_persen);
 	}
 
 	const costInputsChanged = ['jumlah_beli_terakhir', 'biaya_beli_terakhir', 'yield_persen'].some(

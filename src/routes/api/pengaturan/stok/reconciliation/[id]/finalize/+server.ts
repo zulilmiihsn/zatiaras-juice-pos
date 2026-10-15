@@ -1,4 +1,5 @@
 import { error as kitError, json } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	mapReconciliationError,
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request, params, platform, locals }
 	const session = requireAuthSession(locals);
 	requireReconciliationOwner(session.role);
 	if (!params.id?.trim()) throw kitError(400, 'ID job rekonsiliasi wajib diisi');
-	const body = parseFinalizeReconciliationBody(await request.json().catch(() => null));
+	const body = parseFinalizeReconciliationBody(await parseBody(request));
 	const branch = requireSessionBranch(locals, body.branch);
 	await requireReconciliationRollout(platform, branch);
 	try {

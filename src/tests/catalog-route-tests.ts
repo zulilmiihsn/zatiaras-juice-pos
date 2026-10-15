@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { DELETE as PRODUK_DELETE, PATCH as PRODUK_PATCH } from '../routes/api/produk/+server';
 import { DELETE as KATEGORI_DELETE } from '../routes/api/kategori/+server';
-import { DELETE as BAHAN_DELETE } from '../routes/api/bahan/+server';
+import { DELETE as BAHAN_DELETE, POST as BAHAN_POST } from '../routes/api/bahan/+server';
+import { PUT as RESEP_PUT } from '../routes/api/resep-produk/+server';
 import { POST as TAMBAHAN_POST } from '../routes/api/tambahan/+server';
 import { createTestD1 } from './helpers/testD1';
 
@@ -38,11 +39,12 @@ async function del(handler: (event: never) => unknown, id: string): Promise<numb
 async function write(
 	handler: (event: never) => unknown,
 	method: string,
-	body: unknown
+	body: unknown,
+	query = ''
 ): Promise<number> {
 	try {
 		const response = (await handler({
-			url: new URL('http://localhost/api/x'),
+			url: new URL(`http://localhost/api/x${query}`),
 			request: new Request('http://localhost/api/x', { method, body: JSON.stringify(body) }),
 			platform: { env: { DB_SAMARINDA_GROUP: db } },
 			locals: { authSession: owner }
@@ -70,6 +72,10 @@ try {
 		db.prepare(
 			"INSERT INTO bahan (id, cabang_id, nama, satuan) VALUES ('b-yatim', 'samarinda', 'Jeruk', 'gram')"
 		),
+		// samarinda2 berbagi shard dengan samarinda: ID-nya ada di database yang sama.
+		db.prepare(
+			"INSERT INTO bahan (id, cabang_id, nama, satuan) VALUES ('b-s2', 'samarinda2', 'Susu', 'ml')"
+		),
 		db.prepare(
 			`INSERT INTO resep_produk (id, cabang_id, produk_id, bahan_id, jumlah_per_item)
 			 VALUES ('r-1', 'samarinda', 'p-1', 'b-1', 100),
@@ -88,6 +94,47 @@ try {
 	assert.equal(
 		await write(PRODUK_PATCH, 'PATCH', { where: { id: 'p-1' }, payload: { harga: 12000 } }),
 		200
+	);
+
+	// Resep: jumlah wajib angka positif, porsi reguler/jumbo, bahan milik cabang yang sama.
+	const resep = (items: Array<Record<string, unknown>>) =>
+		write(RESEP_PUT, 'PUT', { payload: items }, '?produk_id=p-1');
+	assert.equal(await resep([{ bahan_id: 'b-1', jumlah_per_item: 'abc' }]), 400);
+	assert.equal(await resep([{ bahan_id: 'b-1', jumlah_per_item: 10, porsi: 'besar' }]), 400);
+	assert.equal(await resep([{ bahan_id: 'b-s2', jumlah_per_item: 10 }]), 400);
+	assert.equal(
+		await resep([
+			{ bahan_id: 'b-1', jumlah_per_item: 120, porsi: 'jumbo', cabang_id: 'samarinda2' }
+		]),
+		200
+	);
+	assert.equal(
+		await count(
+			"SELECT COUNT(*) AS n FROM resep_produk WHERE produk_id = 'p-1' AND cabang_id = 'samarinda' AND porsi = 'jumbo'"
+		),
+		1
+	);
+
+	// Bahan: yield bukan angka ditolak, kolom milik server (biaya per satuan) tidak bisa diisi.
+	assert.equal(
+		await write(BAHAN_POST, 'POST', { payload: { nama: 'Gula', yield_persen: 'abc' } }),
+		400
+	);
+	assert.equal(
+		await write(BAHAN_POST, 'POST', {
+			payload: {
+				id: 'b-gula',
+				nama: 'Gula',
+				jumlah_beli_terakhir: 1000,
+				biaya_beli_terakhir: 20000,
+				biaya_per_satuan: 1
+			}
+		}),
+		200
+	);
+	assert.equal(
+		await count("SELECT COUNT(*) AS n FROM bahan WHERE id = 'b-gula' AND biaya_per_satuan = 20"),
+		1
 	);
 
 	// Bahan yang masih dipakai resep menu aktif tetap dilindungi.

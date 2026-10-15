@@ -1,4 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
+import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	resolveOrderQueueDb,
@@ -16,7 +17,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = requireAuthSession(locals);
 	requireExactRole(session.role, ['kasir', 'pemilik']);
 	const branch = requireSessionBranch(locals);
-	const body = (await request.json().catch(() => null)) as {
+	const body = (await parseBody(request)) as {
 		idempotency_key?: unknown;
 		target?: unknown;
 		expected_revision?: unknown;

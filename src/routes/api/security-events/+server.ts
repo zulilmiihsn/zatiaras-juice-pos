@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { branchFromObservation, recordSecurityEvent } from '$lib/server/observability';
 import type { RequestHandler } from './$types';
 
@@ -175,12 +176,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, locals, 
 
 	let payload: { eventType?: unknown; data?: unknown; timestamp?: unknown };
 	try {
-		payload = await request.json();
-	} catch {
-		return json(
-			{ success: false, code: 'INVALID_JSON', message: 'Format data tidak valid' },
-			{ status: 400 }
-		);
+		payload = (await readJsonBody(request)) as typeof payload;
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
 	}
 
 	const eventType = sanitizeEventType(payload.eventType);

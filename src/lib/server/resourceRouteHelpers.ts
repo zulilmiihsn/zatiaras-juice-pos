@@ -4,6 +4,7 @@ import { auditDataChange, getDb, getRawDb, payloadRows, publish } from '$lib/ser
 import type { BranchId } from '$lib/server/branchResolver';
 import type { RealtimeTable } from '$lib/server/realtimePublisher';
 import { parseDataLimit } from '$lib/server/dataPagination';
+import { readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 
 /**
  * Helper bersama untuk resource routes RESTful (pengganti dispatch /api/data).
@@ -24,9 +25,17 @@ export type WriteBody = {
 	};
 };
 
-/** Parse body JSON dengan aman (default null bila bukan JSON valid). */
+/**
+ * Body JSON untuk route tier A (`kitError`). JSON rusak 400, terlalu besar 413; isi yang
+ * bukan objek tetap divalidasi caller. Kembalian nullable agar caller memeriksa bentuknya.
+ */
 export async function parseBody<T = WriteBody>(request: Request): Promise<T | null> {
-	return (await request.json().catch(() => null)) as T | null;
+	try {
+		return ((await readJsonBody(request)) ?? null) as T | null;
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) throw kitError(cause.status, cause.message);
+		throw cause;
+	}
 }
 
 /** Ambil `payload` non-kosong dari body, lempar 400 bila absen. */
