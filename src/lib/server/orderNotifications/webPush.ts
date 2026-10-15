@@ -2,6 +2,7 @@ import { buildPushPayload } from '@block65/webcrypto-web-push';
 import type {
 	OrderNotificationConfig,
 	OrderPushMessage,
+	OpsAlertPushMessage,
 	OrderPushSubscription
 } from '../../types/orderNotifications';
 import type { NotificationEnv } from './repository';
@@ -154,7 +155,7 @@ export type PushSender = (
 export async function sendWebPush(
 	env: NotificationEnv,
 	subscription: OrderPushSubscription,
-	message: OrderPushMessage
+	message: OrderPushMessage | OpsAlertPushMessage
 ): Promise<Response> {
 	if (!(await notificationConfig(env)).push_configured) throw new Error('Push belum dikonfigurasi');
 	const checked = await validateSubscription(subscription);

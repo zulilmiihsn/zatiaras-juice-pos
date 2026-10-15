@@ -10,7 +10,7 @@ import { NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strateg
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import type { PrecacheEntry } from 'workbox-precaching';
-import type { OrderPushMessage } from './lib/types/orderNotifications';
+import type { OpsAlertPushMessage, OrderPushMessage } from './lib/types/orderNotifications';
 import {
 	readNotificationContext,
 	consumeOrderNotificationPush,
@@ -60,6 +60,8 @@ registerRoute(
 
 const notificationTag = 'antrean-order-created';
 const queueURL = new URL('/antrean', self.location.origin).href;
+const opsAlertTag = 'zatiaras-ops-alert';
+const homeURL = new URL('/', self.location.origin).href;
 
 type VisibilityReply = { visible: boolean; queue_visible: boolean };
 type VisibilityMessage = VisibilityReply & { context_id: string };
@@ -93,6 +95,41 @@ function parsePush(value: unknown): OrderPushMessage | null {
 	)
 		return null;
 	return payload as OrderPushMessage;
+}
+
+function parseOpsAlert(value: unknown): OpsAlertPushMessage | null {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+	const payload = value as Partial<OpsAlertPushMessage>;
+	if (
+		payload.version !== 1 ||
+		payload.type !== 'ops_alert' ||
+		!boundedId(payload.branch) ||
+		!boundedId(payload.user_id) ||
+		!boundedId(payload.device_id) ||
+		typeof payload.summary !== 'string' ||
+		payload.summary.length === 0 ||
+		payload.summary.length > 300
+	)
+		return null;
+	return payload as OpsAlertPushMessage;
+}
+
+/** Alert hanya tampil di perangkat dan akun yang sama dengan registrasi aktif perangkat ini. */
+async function receiveOpsAlert(payload: OpsAlertPushMessage): Promise<void> {
+	const context = await readNotificationContext();
+	if (
+		!context ||
+		context.device_id !== payload.device_id ||
+		context.branch !== payload.branch ||
+		context.user_id !== payload.user_id
+	)
+		return;
+	await self.registration.showNotification('Peringatan sistem', {
+		body: payload.summary,
+		icon: '/img/192x192.png',
+		badge: '/img/144x144.png',
+		tag: opsAlertTag
+	});
 }
 
 async function appWindows(): Promise<WindowClient[]> {
@@ -240,8 +277,11 @@ self.addEventListener('push', (event) => {
 	event.waitUntil(
 		(async () => {
 			try {
-				const payload = parsePush(event.data?.json());
+				const raw: unknown = event.data?.json();
+				const payload = parsePush(raw);
 				if (payload) await receivePush(payload);
+				const alert = payload ? null : parseOpsAlert(raw);
+				if (alert) await receiveOpsAlert(alert);
 			} catch {
 				// Missing/corrupt storage, malformed payload, or denied OS permission must never leak a generic popup.
 				// Durable server feed and persisted receipts reconcile on the next authenticated foreground session.
@@ -251,6 +291,17 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
+	if (event.notification.tag === opsAlertTag) {
+		event.notification.close();
+		event.waitUntil(
+			(async () => {
+				const existing = (await appWindows())[0];
+				if (existing) await existing.focus();
+				else await self.clients.openWindow(homeURL);
+			})()
+		);
+		return;
+	}
 	if (event.notification.tag !== notificationTag) return;
 	event.notification.close();
 	event.waitUntil(

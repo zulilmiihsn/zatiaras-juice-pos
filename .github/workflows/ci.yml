@@ -228,6 +228,9 @@ jobs:
       - name: Run Request Body Suite
         run: pnpm test:request-body
 
+      - name: Run Ops Alert Suite
+        run: pnpm test:ops-alert
+
       - name: Run Auth, PIN, and Signing Key Suites
         run: |
           pnpm test:auth-service

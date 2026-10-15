@@ -165,6 +165,18 @@ duplikat; event realtime lintas cabang.
 - Menghentikan push: nonaktifkan config di kedua runtime lewat rilis; jangan menghapus
   tabel notifikasi atau ledger. Push yang sudah terkirim tidak bisa ditarik.
 
+## 8a. Alert operasional ke HP pemilik
+
+- Cron Worker realtime tiap menit memeriksa `request_metrics` 5 menit terakhir per cabang.
+  Alert terpicu bila ada minimal 5 respons 5xx, atau p95 latensi di atas 3 detik dengan minimal
+  20 request. Satu cabang paling banyak satu alert tiap 30 menit.
+- Penerima: perangkat akun **pemilik** cabang itu yang notifikasi pushnya aktif (prasyarat sama
+  dengan §8). Perangkat kasir tidak menerima alert.
+- Isi alert: cabang, jumlah error dan/atau p95. Klik membuka aplikasi. Detail ada di halaman
+  monitoring (khusus admin) atau tabel `error_events`/`request_metrics`.
+- Saat alert masuk: cek apakah kasir masih bisa checkout; bila tidak, ikuti §6 (stop/rollback) dan
+  hubungi pengembang. Alert tidak menghentikan atau mengubah transaksi apa pun.
+
 ## 9. Wipe riwayat transaksi uji (satu cabang)
 
 Destruktif; rollback satu-satunya adalah restore dari backup.

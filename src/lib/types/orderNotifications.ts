@@ -44,6 +44,16 @@ export interface OrderPushMessage {
 	sound_enabled: boolean;
 }
 
+/** Peringatan operasional untuk pemilik (lonjakan error/latensi), bukan data pesanan. */
+export interface OpsAlertPushMessage {
+	version: 1;
+	type: 'ops_alert';
+	branch: string;
+	user_id: string;
+	device_id: string;
+	summary: string;
+}
+
 export interface OrderNotificationConfig {
 	vapid_public_key: string | null;
 	push_configured: boolean;

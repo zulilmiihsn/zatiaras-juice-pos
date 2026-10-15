@@ -2,6 +2,7 @@ import { dispatchOrderNotifications } from './orderNotifications/delivery';
 import { BRANCH_GROUPS, branchContext, getD1Database } from './branchResolver';
 import { drainAuditOutbox } from './auditDrain';
 import { cleanTechnicalRows, cleanLocalRegistryDevices } from './technicalRetention';
+import { checkOpsAlerts } from './opsAlerts';
 export { RealtimeDurableObject } from './realtimeDurableObject.js';
 const DAILY_CRON = '0 3 * * *';
 const MINUTE_CRON = '* * * * *';
@@ -38,6 +39,12 @@ export default {
 			} catch {
 				/* Durable relay state survives outages; no provider diagnostics or credentials are logged. */
 			}
+			if (event.cron === MINUTE_CRON)
+				try {
+					await checkOpsAlerts(env, branchContext(branch), { now });
+				} catch {
+					/* Alert operasional hanya pengamatan; kegagalannya dicoba lagi pada tick berikutnya. */
+				}
 		}
 		const configured = env.AUDIT_MAINTENANCE_QUERY_BUDGET;
 		const proposed =
