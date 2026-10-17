@@ -3,6 +3,7 @@ import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/r
 import { dev } from '$app/environment';
 import { attemptLogin } from '$lib/server/services/authService';
 import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
+import { sessionCookieOptions } from '$lib/server/sessionStore';
 
 /**
  * Login username+password.
@@ -22,13 +23,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 	const result = await attemptLogin(platform, body, clientIp);
 
 	if (result.sessionId) {
-		cookies.set('zatiaras_sid', result.sessionId, {
-			httpOnly: true,
-			path: '/',
-			sameSite: 'lax',
-			secure: !dev,
-			maxAge: 60 * 60 * 24
-		});
+		cookies.set('zatiaras_sid', result.sessionId, sessionCookieOptions(!dev));
 		// A new session must not inherit a token minted for the previous user on this device.
 		// Issue the fresh token here (not delete) so concurrent first /api/csrf calls all reuse it.
 		setCsrfCookie(cookies, newCsrfToken(), !dev);

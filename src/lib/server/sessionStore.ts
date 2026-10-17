@@ -4,7 +4,7 @@ import {
 	normalizeBranch,
 	type BranchId
 } from '$lib/server/branchResolver';
-import { MS_PER_DAY } from '$lib/constants/time';
+import { MS_PER_DAY, MS_PER_HOUR } from '$lib/constants/time';
 import { parseSessionBranch } from './authSessionReader';
 export { getAuthSession } from './authSessionReader';
 import { revokeNotificationSession } from '$lib/server/orderNotifications/useCase';
@@ -21,7 +21,21 @@ export interface AuthSession {
 	unlockExpiresAt: number;
 }
 
-const SESSION_TTL_MS = MS_PER_DAY;
+// Sliding: sesi aktif diperpanjang TTL penuh, tetapi tulis D1 paling sering sekali per jam.
+const SESSION_TTL_MS = 6 * MS_PER_HOUR;
+const SESSION_RENEW_AFTER_MS = MS_PER_HOUR;
+// Batas mutlak sejak login, agar cookie yang bocor tidak hidup selamanya.
+const SESSION_MAX_LIFETIME_MS = 30 * MS_PER_DAY;
+
+export function sessionCookieOptions(secure: boolean, maxAgeMs = SESSION_TTL_MS) {
+	return {
+		httpOnly: true,
+		path: '/',
+		sameSite: 'lax',
+		secure,
+		maxAge: Math.max(1, Math.floor(maxAgeMs / 1000))
+	} as const;
+}
 
 function buildSessionId(branch: BranchId): string {
 	return `${branch}.${crypto.randomUUID()}`;
@@ -83,6 +97,30 @@ export async function createAuthSession(
 	await db.prepare('DELETE FROM auth_sessions WHERE expires_at <= ?').bind(now).run();
 
 	return session;
+}
+
+/**
+ * Perpanjang sesi yang masih berlaku. Mengembalikan sesi baru bila diperpanjang,
+ * null bila belum waktunya (throttle) atau batas mutlak sudah tercapai.
+ */
+export async function renewAuthSession(
+	platform: App.Platform | undefined,
+	session: AuthSession
+): Promise<AuthSession | null> {
+	const now = Date.now();
+	if (session.expiresAt - now > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return null;
+	const expiresAt = Math.min(now + SESSION_TTL_MS, session.createdAt + SESSION_MAX_LIFETIME_MS);
+	if (expiresAt <= session.expiresAt) return null;
+
+	const branch = normalizeBranch(session.branch);
+	const result = await getSessionDb(platform, branch)
+		.prepare(
+			'UPDATE auth_sessions SET expires_at = ? WHERE id = ? AND cabang_id = ? AND expires_at > ?'
+		)
+		.bind(expiresAt, session.id, branch, now)
+		.run();
+	if (!result.meta?.changes) return null;
+	return { ...session, expiresAt };
 }
 
 export async function grantSessionPageUnlock(
