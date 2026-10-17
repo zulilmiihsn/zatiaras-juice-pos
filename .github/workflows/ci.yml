@@ -270,6 +270,9 @@ jobs:
       - name: Run Docs Drift Suite
         run: pnpm test:docs-drift
 
+      - name: Run CSP Policy Suite
+        run: pnpm test:csp
+
       - name: Run Ledger Validation Suite
         run: pnpm test:ledger-validation
 

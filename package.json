@@ -86,6 +86,7 @@
 		"test:maintainability": "tsx src/tests/maintainability-guard-tests.ts",
 		"test:error-codes": "tsx src/tests/error-code-contract-tests.ts",
 		"test:docs-drift": "tsx src/tests/docs-drift-tests.ts",
+		"test:csp": "tsx src/tests/csp-policy-tests.ts",
 		"test:ledger-validation": "tsx src/tests/ledger-validation-tests.ts",
 		"test:ledger-cas": "tsx src/tests/ledger-cas-tests.ts",
 		"test:purchase-command": "tsx src/tests/purchase-command-tests.ts",

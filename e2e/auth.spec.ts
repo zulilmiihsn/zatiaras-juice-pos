@@ -15,6 +15,23 @@ test.describe('Authentication Browser Flows', () => {
 			await context.close();
 		}
 	});
+	test('login page loads without CSP violations', async ({ page }) => {
+		await page.addInitScript(() => {
+			const log: string[] = [];
+			(window as unknown as { __csp: string[] }).__csp = log;
+			document.addEventListener('securitypolicyviolation', (event) => {
+				log.push(`${event.violatedDirective} ${event.blockedURI}`);
+			});
+		});
+		await page.goto('/login');
+		await expect(page.locator('form')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByRole('button', { name: 'Masuk', exact: true })).toBeEnabled({
+			timeout: 15_000
+		});
+		const violations = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+		expect(violations).toEqual([]);
+	});
+
 	test('redirects unauthenticated user to /login', async ({ page }) => {
 		await page.goto('/pengaturan/pemilik/pajak');
 		await expect(page).toHaveURL(/\/login/);
