@@ -20,19 +20,19 @@
 		{
 			"binding": "DB_SAMARINDA_GROUP",
 			"database_name": "zatiaras-samarinda-group-staging",
-			"database_id": "STAGING_ID_DB_SAMARINDA_GROUP",
+			"database_id": "24b5056a-8d08-453e-9fd7-c31ea9a32e52",
 			"migrations_dir": "../drizzle"
 		},
 		{
 			"binding": "DB_BALIKPAPAN_GROUP",
 			"database_name": "zatiaras-balikpapan-group-staging",
-			"database_id": "STAGING_ID_DB_BALIKPAPAN_GROUP",
+			"database_id": "c1dd8460-2ad8-461d-9559-8d011987bc66",
 			"migrations_dir": "../drizzle"
 		},
 		{
 			"binding": "DB_BERAU_GROUP",
 			"database_name": "zatiaras-berau-group-staging",
-			"database_id": "STAGING_ID_DB_BERAU_GROUP",
+			"database_id": "1c907d5e-eac0-4843-b08b-da7ccb08a1f0",
 			"migrations_dir": "../drizzle"
 		}
 	],
