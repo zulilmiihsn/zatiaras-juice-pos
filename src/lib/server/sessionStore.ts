@@ -27,6 +27,8 @@ const SESSION_RENEW_AFTER_MS = MS_PER_HOUR;
 // Batas mutlak sejak login, agar cookie yang bocor tidak hidup selamanya.
 const SESSION_MAX_LIFETIME_MS = 30 * MS_PER_DAY;
 
+export const SESSION_COOKIE = 'zatiaras_sid';
+
 export function sessionCookieOptions(secure: boolean, maxAgeMs = SESSION_TTL_MS) {
 	return {
 		httpOnly: true,
@@ -100,17 +102,29 @@ export async function createAuthSession(
 }
 
 /**
- * Perpanjang sesi yang masih berlaku. Mengembalikan sesi baru bila diperpanjang,
- * null bila belum waktunya (throttle) atau batas mutlak sudah tercapai.
+ * Kebijakan sliding: expiry baru, atau null bila belum waktunya (throttle)
+ * atau batas mutlak sejak login sudah tercapai.
+ */
+export function nextSessionExpiry(
+	session: Pick<AuthSession, 'createdAt' | 'expiresAt'>,
+	now: number
+): number | null {
+	if (session.expiresAt - now > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return null;
+	const expiresAt = Math.min(now + SESSION_TTL_MS, session.createdAt + SESSION_MAX_LIFETIME_MS);
+	return expiresAt > session.expiresAt ? expiresAt : null;
+}
+
+/**
+ * Simpan perpanjangan sesi yang masih berlaku. Mengembalikan sesi baru bila
+ * diperpanjang, null bila belum waktunya atau sesi sudah tidak berlaku.
  */
 export async function renewAuthSession(
 	platform: App.Platform | undefined,
 	session: AuthSession
 ): Promise<AuthSession | null> {
 	const now = Date.now();
-	if (session.expiresAt - now > SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) return null;
-	const expiresAt = Math.min(now + SESSION_TTL_MS, session.createdAt + SESSION_MAX_LIFETIME_MS);
-	if (expiresAt <= session.expiresAt) return null;
+	const expiresAt = nextSessionExpiry(session, now);
+	if (expiresAt === null) return null;
 
 	const branch = normalizeBranch(session.branch);
 	const result = await getSessionDb(platform, branch)

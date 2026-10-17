@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { building, dev } from '$app/environment';
-import { getAuthSession, renewAuthSession, sessionCookieOptions } from '$lib/server/sessionStore';
+import { getAuthSession, SESSION_COOKIE } from '$lib/server/sessionStore';
+import { refreshSessionCookie } from '$lib/server/sessionRenewal';
 import {
 	branchFromObservation,
 	recordErrorEvent,
@@ -16,21 +17,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const startedAt = Date.now();
-	const sessionId = event.cookies.get('zatiaras_sid');
+	const sessionId = event.cookies.get(SESSION_COOKIE);
 	event.locals.authSession = await getAuthSession(event.platform, sessionId);
 	if (event.locals.authSession) {
-		// Gagal memperpanjang tidak boleh menggagalkan request: sesi lama tetap berlaku.
-		const renewed = await renewAuthSession(event.platform, event.locals.authSession).catch(
-			() => null
+		event.locals.authSession = await refreshSessionCookie(
+			event.platform,
+			event.cookies,
+			event.locals.authSession,
+			!dev
 		);
-		if (renewed) {
-			event.locals.authSession = renewed;
-			event.cookies.set(
-				'zatiaras_sid',
-				renewed.id,
-				sessionCookieOptions(!dev, renewed.expiresAt - Date.now())
-			);
-		}
 	}
 	const observedBranch = branchFromObservation(
 		event.platform,
