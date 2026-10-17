@@ -29,6 +29,13 @@ try {
 		logLevel: 'warn',
 		server: { host: '127.0.0.1', port: 0 }
 	});
+	// Default Node menutup socket keep-alive yang diam 5 detik. Tes yang menahan respons
+	// lebih lama membuat klien Playwright memakai ulang socket yang sedang ditutup
+	// (ECONNRESET, CI run 39009800989). Server tes tidak boleh menutup lebih dulu.
+	if (server.httpServer) {
+		server.httpServer.keepAliveTimeout = 120_000;
+		server.httpServer.headersTimeout = 121_000;
+	}
 	await server.listen();
 	const address = server.httpServer?.address();
 	if (!address || typeof address === 'string') throw new Error('E2E server address unavailable');
