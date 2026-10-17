@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { Cookies } from '@sveltejs/kit';
 import type { D1Database } from '@cloudflare/workers-types';
-import { MS_PER_DAY, MS_PER_HOUR } from '../lib/constants/time';
+import { MS_PER_HOUR } from '../lib/constants/time';
 import { createTestD1 } from './helpers/testD1';
 import {
 	createAuthSession,
@@ -14,9 +14,9 @@ import {
 } from '../lib/server/sessionStore';
 import { refreshSessionCookie } from '../lib/server/sessionRenewal';
 
-// Sesi aktif diperpanjang (sliding), dibatasi throttle 1 jam dan batas mutlak 30 hari.
+// Sesi aktif diperpanjang (sliding), dibatasi throttle 1 jam dan batas mutlak 16 jam.
 const TTL = 6 * MS_PER_HOUR;
-const MAX_LIFETIME = 30 * MS_PER_DAY;
+const MAX_LIFETIME = 16 * MS_PER_HOUR;
 const now = Date.now();
 
 // Kebijakan murni: tanpa DB.

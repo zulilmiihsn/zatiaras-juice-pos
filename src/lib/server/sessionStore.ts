@@ -4,7 +4,7 @@ import {
 	normalizeBranch,
 	type BranchId
 } from '$lib/server/branchResolver';
-import { MS_PER_DAY, MS_PER_HOUR } from '$lib/constants/time';
+import { MS_PER_HOUR } from '$lib/constants/time';
 import { parseSessionBranch } from './authSessionReader';
 export { getAuthSession } from './authSessionReader';
 import { revokeNotificationSession } from '$lib/server/orderNotifications/useCase';
@@ -25,7 +25,7 @@ export interface AuthSession {
 const SESSION_TTL_MS = 6 * MS_PER_HOUR;
 const SESSION_RENEW_AFTER_MS = MS_PER_HOUR;
 // Batas mutlak sejak login, agar cookie yang bocor tidak hidup selamanya.
-const SESSION_MAX_LIFETIME_MS = 30 * MS_PER_DAY;
+const SESSION_MAX_LIFETIME_MS = 16 * MS_PER_HOUR;
 
 export const SESSION_COOKIE = 'zatiaras_sid';
 
