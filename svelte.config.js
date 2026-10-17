@@ -19,19 +19,17 @@ const config = {
 			mode: 'auto',
 			directives: {
 				'default-src': ['self'],
-				'script-src': ['self', 'https://unpkg.com'],
+				'script-src': ['self'],
 				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
-				'img-src': ['self', 'data:', 'blob:', 'https:'],
+				// Host Supabase: gambar menu lama Samarinda masih menunjuk ke sana. Buang setelah
+				// gambar dipindah ke R2 (/api/upload).
+				'img-src': ['self', 'data:', 'blob:', 'https://qmlzwklzahcfigjpoavz.supabase.co'],
 				'font-src': ['self', 'https://fonts.gstatic.com', 'data:'],
-				'connect-src': [
-					'self',
-					'ws:',
-					'wss:',
-					'https://openrouter.ai',
-					'https://unpkg.com',
-					'https://cdn.jsdelivr.net'
-				],
-				'worker-src': ['self', 'blob:', 'https://cdn.jsdelivr.net'],
+				// Host realtime = origin aplikasi sendiri, tetapi 'self' belum cocok dengan skema
+				// ws/wss di semua browser, jadi wss: tetap dibuka. ws: hanya untuk loopback:
+				// dev server dan RawBT Print Server lokal. Panggilan AI berjalan di server.
+				'connect-src': ['self', 'wss:', 'ws://localhost:*', 'ws://127.0.0.1:*'],
+				'worker-src': ['self', 'blob:'],
 				'media-src': ['self', 'data:', 'blob:'],
 				'object-src': ['none'],
 				'frame-ancestors': ['none'],
