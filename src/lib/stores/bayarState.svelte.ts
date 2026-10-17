@@ -4,12 +4,15 @@ import { buildCartItemKey } from '$lib/utils/cartKey';
 import { securityUtils } from '$lib/utils/security';
 import { userRole } from '$lib/stores/userRole.svelte';
 import { posCart } from '$lib/stores/posCart.svelte';
-import { buildSaleReceiptHtml } from '$lib/utils/receiptPrint';
+import {
+	buildOfflineReceipt,
+	buildSaleReceiptPrint,
+	type CommittedReceipt
+} from '$lib/utils/saleReceipt';
 import { printReceiptUnified } from '$lib/services/printerEngine';
 import { addPendingTransaction } from '$lib/utils/offline';
 import { ErrorHandler, parseApiError } from '$lib/utils/errorHandling';
 import { formatRupiah } from '$lib/utils/currency';
-import { formatOrderDetails } from '$lib/utils/orderDetails';
 import { NOTIF } from '$lib/constants/ui';
 import { transactionService } from '$lib/services/transactionService';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
@@ -19,6 +22,14 @@ import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { productService } from '$lib/services/productService';
 import { prepareCheckoutNotificationOrigin } from '$lib/services/orderNotificationService';
 import { readCachedStockPolicy } from '$lib/utils/stockPolicyCache';
+import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import {
+	applyQuoteToCart,
+	buildCheckoutItems,
+	hasOfflinePriceTokens,
+	parseCheckoutResponse,
+	parseQuoteResponse
+} from '$lib/utils/posCheckout';
 import {
 	isStrictStockEnforcement,
 	isProductOutOfStock,
@@ -28,60 +39,6 @@ import type { ReceiptSettings } from '$lib/types/laporan';
 import type { TokoSession } from '$lib/types/store';
 import type { CartItem } from '$lib/types/cart';
 import type { NotifModalType } from '$lib/types';
-
-interface QuoteLine {
-	source: Record<string, unknown>;
-	product_name: string;
-	product_price: number;
-	add_ons: Array<{ id: string; nama: string; harga: number }>;
-	line_total: number;
-}
-
-interface QuoteResponse {
-	ok: boolean;
-	quote_token: string;
-	expires_at: string;
-	items: QuoteLine[];
-	total_amount: number;
-	total_qty: number;
-}
-
-interface CommittedReceipt {
-	items: Array<{
-		product_id: string | null;
-		nama: string;
-		jumlah: number;
-		harga: number;
-		nominal: number;
-		harga_dasar?: number;
-		total_tambahan?: number;
-		tambahan: Array<{ id: string; nama: string; harga: number }>;
-		gula: string | null;
-		es: string | null;
-		catatan: string | null;
-	}>;
-	total_amount: number;
-	total_qty: number;
-	cash_received: number;
-	change: number;
-	metode_bayar: string;
-	committed_at: string;
-	settings?: ReceiptSettings | null;
-}
-
-interface CheckoutResponse {
-	ok: boolean;
-	data?: {
-		buku_kas_id: string;
-		transaction_id: string;
-		nomor_harian?: number | null;
-		tanggal_nomor?: string | null;
-		total_amount: number;
-		total_qty: number;
-		change: number;
-		receipt: CommittedReceipt;
-	};
-}
 
 export function createBayarState() {
 	let cart = $state<CartItem[]>([]);
@@ -156,6 +113,12 @@ export function createBayarState() {
 		});
 	}
 
+	function notify(message: string, type: NotifModalType) {
+		notifModalMsg = message;
+		notifModalType = type;
+		showNotifModal = true;
+	}
+
 	function showErrorNotif(message: string) {
 		errorNotificationMessage = message;
 		showErrorNotification = true;
@@ -220,77 +183,19 @@ export function createBayarState() {
 		showCancelModal = false;
 	}
 
-	function buildItemInputs() {
-		return cart.map((item) => {
-			const isCustom = item.product.id.toString().startsWith('custom-');
-			return {
-				product_id: isCustom ? null : item.product.id,
-				nama_kustom: isCustom ? item.product.nama : null,
-				custom_price: isCustom ? (item.product.harga ?? 0) : null,
-				jumlah: item.jumlah,
-				add_on_ids: (item.addOns || []).map((addOn) => addOn.id),
-				porsi: item.porsi || 'reguler',
-				gula: item.gula || null,
-				es: item.es || null,
-				catatan: item.catatan || null,
-				product_price_token: isCustom ? null : item.product.price_token || null,
-				add_on_price_tokens: (item.addOns || [])
-					.map((addOn) => addOn.price_token)
-					.filter((token): token is string => Boolean(token))
-			};
-		});
-	}
-
-	function hasValidOfflinePricing(): boolean {
-		const expiresAt = Date.parse(localStorage.getItem('pos_catalog_expires_at') || '');
-		if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
-		return cart.every((item) => {
-			const isCustom = item.product.id.toString().startsWith('custom-');
-			return (
-				(isCustom || Boolean(item.product.price_token)) &&
-				(item.addOns || []).every((addOn) => Boolean(addOn.price_token))
-			);
-		});
-	}
-
 	async function prepareOnlineQuote(): Promise<'ready' | 'changed' | 'failed'> {
 		const previousTotal = cartTotalHarga;
 		try {
 			const response = await fetchWithCsrfRetry('/api/pos/quote', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ items: buildItemInputs() })
+				body: JSON.stringify({ items: buildCheckoutItems(cart) })
 			});
 			if (!response.ok) {
 				throw new Error(await parseApiError(response, `Quote gagal: HTTP ${response.status}`));
 			}
-			const quote = (await response.json()) as QuoteResponse;
-			if (
-				!quote.ok ||
-				!quote.quote_token ||
-				!Array.isArray(quote.items) ||
-				!Number.isFinite(quote.total_amount) ||
-				quote.items.length !== cart.length
-			) {
-				throw new Error('Respons quote POS tidak valid');
-			}
-
-			cart = cart.map((item, index) => {
-				const quoted = quote.items[index];
-				return {
-					...item,
-					product: {
-						...item.product,
-						nama: quoted.product_name,
-						harga: quoted.product_price
-					},
-					addOns: quoted.add_ons.map((addOn) => ({
-						...item.addOns.find((existing) => String(existing.id) === String(addOn.id)),
-						...addOn,
-						is_active: true
-					}))
-				};
-			});
+			const quote = parseQuoteResponse(await response.json(), cart.length);
+			cart = applyQuoteToCart(cart, quote);
 			posCart.items = cart;
 			activeQuoteToken = quote.quote_token;
 			quoteExpiresAt = quote.expires_at;
@@ -298,9 +203,10 @@ export function createBayarState() {
 			committedReceipt = null;
 
 			if (previousTotal !== quote.total_amount) {
-				notifModalMsg = `Harga berubah menjadi Rp ${formatRupiah(quote.total_amount)}. Periksa ulang pesanan lalu konfirmasi kembali.`;
-				notifModalType = 'warning';
-				showNotifModal = true;
+				notify(
+					`Harga berubah menjadi Rp ${formatRupiah(quote.total_amount)}. Periksa ulang pesanan lalu konfirmasi kembali.`,
+					'warning'
+				);
 				return 'changed';
 			}
 			return 'ready';
@@ -313,20 +219,11 @@ export function createBayarState() {
 		}
 	}
 
-	function isStockMonitoringIgnored(): boolean {
-		try {
-			if (typeof window === 'undefined' || typeof localStorage === 'undefined') return false;
-			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
-			const raw = localStorage.getItem(`pos-stock-policy:${branch}`);
-			if (!raw) return false;
-			return (JSON.parse(raw) as { mode?: string }).mode === 'ignored';
-		} catch {
-			return false;
-		}
-	}
-
 	async function handleBayar() {
-		if (isStrictStockEnforcement() && !isStockMonitoringIgnored()) {
+		if (
+			isStrictStockEnforcement() &&
+			readCachedStockPolicy(selectedBranch.value)?.mode !== 'ignored'
+		) {
 			try {
 				const catalog = await productService.getPosCatalog();
 				for (const item of cart) {
@@ -357,7 +254,7 @@ export function createBayarState() {
 			showErrorNotif('Saat offline, pembayaran hanya tersedia untuk tunai.');
 			return;
 		}
-		if (isOffline && !hasValidOfflinePricing()) {
+		if (isOffline && !hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
 			showErrorNotif('Katalog harga offline tidak valid atau kedaluwarsa. Hubungkan perangkat.');
 			return;
 		}
@@ -431,29 +328,23 @@ export function createBayarState() {
 		transactionQueuedOffline = false;
 		await cekSesiTokoAktif();
 		if (!cart || cart.length === 0 || totalHarga <= 0) {
-			notifModalMsg = 'Transaksi tidak valid: keranjang kosong atau total harga 0.';
-			notifModalType = 'error';
-			showNotifModal = true;
+			notify('Transaksi tidak valid: keranjang kosong atau total harga 0.', 'error');
 			return false;
 		}
 		const id_sesi_toko = sesiAktif?.id || null;
 		if (!id_sesi_toko && currentUserRole === 'kasir') {
-			notifModalMsg = 'Kasir tidak boleh melakukan transaksi saat toko tutup!';
-			notifModalType = 'error';
-			showNotifModal = true;
+			notify('Kasir tidak boleh melakukan transaksi saat toko tutup!', 'error');
 			return false;
 		}
 		if (!id_sesi_toko && currentUserRole === 'pemilik') {
-			notifModalMsg =
-				'PERINGATAN: Tidak ada sesi toko aktif! Transaksi akan dianggap di luar sesi dan tidak masuk ringkasan tutup toko.';
-			notifModalType = 'warning';
-			showNotifModal = true;
+			notify(
+				'PERINGATAN: Tidak ada sesi toko aktif! Transaksi akan dianggap di luar sesi dan tidak masuk ringkasan tutup toko.',
+				'warning'
+			);
 		}
 		const payment = paymentMethod === 'qris' ? 'non-tunai' : paymentMethod;
 		if (!payment) {
-			notifModalMsg = 'Metode pembayaran tidak valid!';
-			notifModalType = 'error';
-			showNotifModal = true;
+			notify('Metode pembayaran tidak valid!', 'error');
 			return false;
 		}
 		const requestPayload = {
@@ -462,7 +353,7 @@ export function createBayarState() {
 			nama_pelanggan: customerName || null,
 			metode_bayar: payment,
 			cash_received: cashReceived ? Number(cashReceived) : null,
-			items: buildItemInputs(),
+			items: buildCheckoutItems(cart),
 			mode: 'online' as const,
 			quote_token: activeQuoteToken,
 			store_session_id: id_sesi_toko
@@ -477,18 +368,10 @@ export function createBayarState() {
 				if (!response.ok) {
 					throw new Error(await parseApiError(response, `HTTP ${response.status}`));
 				}
-				const result = (await response.json()) as CheckoutResponse;
-				if (
-					!result.ok ||
-					!result.data ||
-					!Number.isFinite(result.data.total_amount) ||
-					!result.data.receipt
-				) {
-					throw new Error('Respons transaksi POS tidak valid');
-				}
-				committedReceipt = result.data.receipt;
-				quotedTotal = result.data.total_amount;
-				nomorPesanan = result.data.nomor_harian ?? null;
+				const result = parseCheckoutResponse(await response.json());
+				committedReceipt = result.receipt;
+				quotedTotal = result.total_amount;
+				nomorPesanan = result.nomor_harian ?? null;
 			} catch (error) {
 				if (error instanceof TypeError || !navigator.onLine) {
 					try {
@@ -498,20 +381,14 @@ export function createBayarState() {
 							queued_at: Date.now()
 						});
 					} catch (queueError) {
-						notifModalMsg = ErrorHandler.extractErrorMessage(queueError);
-						notifModalType = 'error';
-						showNotifModal = true;
+						notify(ErrorHandler.extractErrorMessage(queueError), 'error');
 						return false;
 					}
-					notifModalMsg = 'Transaksi tersimpan lokal. Status: menunggu sinkronisasi.';
-					notifModalType = 'success';
-					showNotifModal = true;
+					notify('Transaksi tersimpan lokal. Status: menunggu sinkronisasi.', 'success');
 					transactionQueuedOffline = true;
 					return true;
 				}
-				notifModalMsg = 'Gagal mencatat transaksi: ' + ErrorHandler.extractErrorMessage(error);
-				notifModalType = 'error';
-				showNotifModal = true;
+				notify('Gagal mencatat transaksi: ' + ErrorHandler.extractErrorMessage(error), 'error');
 				return false;
 			}
 			await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
@@ -530,73 +407,31 @@ export function createBayarState() {
 					queued_at: Date.now()
 				});
 			} catch (queueError) {
-				notifModalMsg = ErrorHandler.extractErrorMessage(queueError);
-				notifModalType = 'error';
-				showNotifModal = true;
+				notify(ErrorHandler.extractErrorMessage(queueError), 'error');
 				return false;
 			}
-			notifModalMsg = 'Transaksi tersimpan lokal. Status: menunggu sinkronisasi.';
-			notifModalType = 'success';
-			showNotifModal = true;
+			notify('Transaksi tersimpan lokal. Status: menunggu sinkronisasi.', 'success');
 			transactionQueuedOffline = true;
 		}
 		return true;
 	}
 
 	function buildOfflineCommittedReceipt(): CommittedReceipt {
-		const cash = Number(cashReceived) || 0;
-		return {
-			items: cart.map((item) => {
-				const isJumbo = item.porsi === 'jumbo';
-				const prod = item.product;
-				const basePrice = isJumbo ? (prod.harga_jumbo ?? prod.harga ?? 0) : (prod.harga ?? 0);
-				const addOnsTotal = (item.addOns || []).reduce((sum, a) => sum + (a.harga || 0), 0);
-				const unitPrice = basePrice + addOnsTotal;
-				return {
-					product_id: item.product.id ? String(item.product.id) : null,
-					nama: item.product.nama,
-					jumlah: item.jumlah,
-					harga: unitPrice,
-					nominal: unitPrice * item.jumlah,
-					harga_dasar: basePrice,
-					total_tambahan: addOnsTotal,
-					tambahan: (item.addOns || []).map((a) => ({
-						id: String(a.id),
-						nama: a.nama,
-						harga: a.harga
-					})),
-					gula: item.gula || null,
-					es: item.es || null,
-					catatan: item.catatan || null
-				};
-			}),
-			total_amount: totalHarga,
-			total_qty: totalQty,
-			cash_received: cash,
-			change: paymentMethod === 'tunai' && cash > totalHarga ? cash - totalHarga : 0,
-			metode_bayar: paymentMethod === 'qris' ? 'non-tunai' : paymentMethod,
-			committed_at: new Date().toISOString()
-		};
+		return buildOfflineReceipt(cart, {
+			totalAmount: totalHarga,
+			totalQty,
+			cashReceived: Number(cashReceived) || 0,
+			paymentMethod
+		});
 	}
 
-	function readQueuedStockPolicy(): {
-		epoch_token?: string;
-		mode?: 'tracked' | 'ignored';
-		revision?: number;
-	} {
-		try {
-			if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
-			const branch = (localStorage.getItem('selectedBranch')?.toLowerCase() || 'samarinda').trim();
-			const cached = readCachedStockPolicy(branch);
-			if (!cached) return {};
-			return {
-				epoch_token: cached.epoch_token || undefined,
-				mode: cached.mode,
-				revision: cached.revision
-			};
-		} catch {
-			return {};
-		}
+	function readQueuedStockPolicy() {
+		const cached = readCachedStockPolicy(selectedBranch.value);
+		return {
+			epoch_token: cached?.epoch_token || undefined,
+			mode: cached?.mode,
+			revision: cached?.revision
+		};
 	}
 
 	async function queueCurrentPosTransaction(request: Record<string, unknown>): Promise<void> {
@@ -630,82 +465,20 @@ export function createBayarState() {
 	}
 
 	function printStrukViaEscPosService() {
-		// Struk komit: harga dasar (tanpa topping) + rincian topping terpisah.
-		// harga inklusif TIDAK dipakai sebagai dasar agar tidak ganda.
-		const receiptItems = committedReceipt
-			? committedReceipt.items.map((item) => ({
-					product: {
-						id: item.product_id ?? '',
-						nama: item.nama,
-						harga: item.harga_dasar ?? item.harga,
-						harga_jumbo: undefined,
-						tipe: 'produk' as const
-					},
-					jumlah: item.jumlah,
-					porsi: undefined as 'reguler' | 'jumbo' | undefined,
-					addOns: item.tambahan,
-					gula: item.gula || '',
-					es: item.es || '',
-					catatan: item.catatan || ''
-				}))
-			: cart;
-
-		const receiptSettings = committedReceipt
-			? (committedReceipt.settings ?? {
-					nama_toko: 'Header toko saat transaksi tidak tersimpan',
-					ucapan: ''
-				})
-			: pengaturanStruk;
-		const receiptInput = {
-			settings: receiptSettings,
-			nomorHarian: nomorPesanan,
-			items: receiptItems,
-			customerName,
-			total: committedReceipt?.total_amount ?? totalHarga,
-			paymentMethod: committedReceipt?.metode_bayar ?? paymentMethod,
-			cashReceived: committedReceipt?.cash_received ?? (parseInt(cashReceived) || 0),
-			change: committedReceipt?.change ?? kembalian,
-			queuedOffline: transactionQueuedOffline,
-			printedAt: committedReceipt?.committed_at
-				? new Date(committedReceipt.committed_at)
-				: undefined
-		};
-
-		const html = buildSaleReceiptHtml(receiptInput);
-		const escposData = {
-			storeName: receiptSettings?.nama_toko || 'Header toko saat transaksi tidak tersimpan',
-			nomorHarian: nomorPesanan,
-			address: receiptSettings?.alamat,
-			phone: receiptSettings?.telepon,
-			instagram: receiptSettings?.instagram,
-			customerName: customerName || 'Pelanggan',
-			dateTime: (receiptInput.printedAt ?? new Date()).toLocaleString('id-ID'),
-			items: receiptItems.map((item) => {
-				const isJumbo = item.porsi === 'jumbo';
-				const prod = item.product;
-				const basePrice = isJumbo ? (prod.harga_jumbo ?? prod.harga ?? 0) : (prod.harga ?? 0);
-				const porsiSuffix =
-					isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';
-				return {
-					name: `${item.product.nama}${porsiSuffix}`,
-					qty: item.jumlah,
-					price: basePrice * item.jumlah,
-					addOns: (item.addOns || []).map((a) => ({
-						name: a.nama,
-						price: (a.harga ?? 0) * item.jumlah
-					})),
-					details: formatOrderDetails(item) || undefined
-				};
-			}),
-			total: receiptInput.total,
-			paymentMethod: receiptInput.paymentMethod,
-			cashReceived: receiptInput.cashReceived,
-			change: receiptInput.change,
-			footerMessage: receiptSettings?.ucapan,
-			queuedOffline: receiptInput.queuedOffline
-		};
-
-		void printReceiptUnified({ html, receiptData: escposData });
+		void printReceiptUnified(
+			buildSaleReceiptPrint({
+				receipt: committedReceipt,
+				cart,
+				settings: pengaturanStruk,
+				nomorHarian: nomorPesanan,
+				customerName,
+				total: totalHarga,
+				paymentMethod,
+				cashReceived: parseInt(cashReceived) || 0,
+				change: kembalian,
+				queuedOffline: transactionQueuedOffline
+			})
+		);
 	}
 
 	function handleAddCashTemplate(t: number) {

@@ -5,6 +5,8 @@ import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
 import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
 import { buildHistoryEscPosData, prepareHistoryReceipt } from '../lib/utils/historyReceipt.js';
+import { buildOfflineReceipt, buildSaleReceiptPrint } from '../lib/utils/saleReceipt.js';
+import type { CartItem } from '$lib/types/cart';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
 import { isTodayWita, rentangHariWitaUtc } from '../lib/utils/dateTime.js';
 import type { HistoryItem, ReceiptSettings } from '$lib/types/laporan';
@@ -427,6 +429,95 @@ assert.ok(
 	assert.ok(!evil.includes('<script>'), 'tag script di-escape');
 	assert.ok(evil.includes('&lt;script&gt;'), 'escape entity tampil');
 	assert.equal(count(evil, 'Rp1.000') >= 1, true, 'subtotal evil tetap tampil');
+}
+{
+	// Struk penjualan POS: snapshot offline dan data cetak dari satu sumber.
+	const cart: CartItem[] = [
+		{
+			product: { id: 9, nama: 'Jus Mangga', harga: 10_000, harga_jumbo: 14_000, tipe: 'minuman' },
+			jumlah: 2,
+			porsi: 'jumbo',
+			addOns: [{ id: 3, nama: 'Keju', harga: 2_000 }],
+			gula: 'less',
+			es: '',
+			catatan: ''
+		}
+	];
+	const committedAt = new Date('2026-06-29T08:30:00.000Z');
+	const offline = buildOfflineReceipt(
+		cart,
+		{ totalAmount: 32_000, totalQty: 2, cashReceived: 50_000, paymentMethod: 'tunai' },
+		committedAt
+	);
+	assert.deepEqual(offline.items[0], {
+		product_id: '9',
+		nama: 'Jus Mangga',
+		jumlah: 2,
+		harga: 16_000,
+		nominal: 32_000,
+		harga_dasar: 14_000,
+		total_tambahan: 2_000,
+		tambahan: [{ id: '3', nama: 'Keju', harga: 2_000 }],
+		gula: 'less',
+		es: null,
+		catatan: null
+	});
+	assert.equal(offline.change, 18_000, 'kembalian tunai');
+	assert.equal(offline.committed_at, committedAt.toISOString());
+	const qris = buildOfflineReceipt(cart, {
+		totalAmount: 32_000,
+		totalQty: 2,
+		cashReceived: 50_000,
+		paymentMethod: 'qris'
+	});
+	assert.equal(qris.metode_bayar, 'non-tunai', 'QRIS tercatat non-tunai');
+	assert.equal(qris.change, 0, 'non-tunai tanpa kembalian');
+
+	// Struk komit menang atas nilai keranjang; header kosong diberi tanda, bukan header terkini.
+	const printed = buildSaleReceiptPrint({
+		receipt: offline,
+		cart: [],
+		settings,
+		nomorHarian: null,
+		customerName: '',
+		total: 1,
+		paymentMethod: 'qris',
+		cashReceived: 1,
+		change: 1,
+		queuedOffline: true
+	});
+	assert.equal(printed.receiptData.storeName, 'Header toko saat transaksi tidak tersimpan');
+	assert.equal(printed.receiptData.customerName, 'Pelanggan');
+	assert.equal(printed.receiptData.total, 32_000);
+	assert.equal(printed.receiptData.paymentMethod, 'tunai');
+	assert.equal(printed.receiptData.change, 18_000);
+	assert.deepEqual(
+		printed.receiptData.items.map(({ name, qty, price, addOns }) => ({ name, qty, price, addOns })),
+		[{ name: 'Jus Mangga', qty: 2, price: 28_000, addOns: [{ name: 'Keju', price: 4_000 }] }],
+		'harga dasar dan topping terpisah, tidak ganda'
+	);
+	assert.ok(printed.html.includes('MENUNGGU SINKRONISASI'));
+	assert.ok(printed.html.includes('Rp28.000') && printed.html.includes('Rp4.000'));
+
+	// Tanpa struk komit: keranjang terbuka + pengaturan terkini, porsi jumbo diberi label.
+	const draft = buildSaleReceiptPrint({
+		receipt: null,
+		cart,
+		settings,
+		nomorHarian: 12,
+		customerName: 'Budi',
+		total: 32_000,
+		paymentMethod: 'tunai',
+		cashReceived: 40_000,
+		change: 8_000,
+		queuedOffline: false
+	});
+	assert.equal(draft.receiptData.storeName, 'Toko UAT');
+	assert.equal(draft.receiptData.footerMessage, settings.ucapan);
+	assert.equal(draft.receiptData.items[0].name, 'Jus Mangga (Jumbo)');
+	assert.equal(draft.receiptData.items[0].price, 28_000);
+	assert.equal(draft.receiptData.change, 8_000);
+	assert.ok(draft.html.includes('Budi') && draft.html.includes('Toko UAT'));
 }
 console.log('Receipt structural contract matches post-F17/F18 output (subtotal + @ + escape).');
 process.exit(0);

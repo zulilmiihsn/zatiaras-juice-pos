@@ -12,6 +12,14 @@ import {
 	persistOfflineSessionSnapshot,
 	readOfflineSessionSnapshot
 } from '../lib/auth/offlineSession';
+import {
+	applyQuoteToCart,
+	buildCheckoutItems,
+	hasOfflinePriceTokens,
+	parseCheckoutResponse,
+	parseQuoteResponse
+} from '../lib/utils/posCheckout';
+import type { CartItem } from '../lib/types/cart';
 
 class MemoryStorage {
 	private values = new Map<string, string>();
@@ -163,4 +171,114 @@ assert.deepEqual(
 	'Pending transaction must preserve committed receipt'
 );
 
-console.log('offline-pos-tests: 40 assertions passed');
+// Kontrak klien checkout POS (utils/posCheckout).
+{
+	const tokened: CartItem = {
+		product: { id: 7, nama: 'Jus', harga: 10_000, tipe: 'minuman', price_token: 'p7' },
+		jumlah: 2,
+		porsi: 'jumbo',
+		addOns: [{ id: 3, nama: 'Keju', harga: 2_000, price_token: 'a3' }],
+		gula: 'less',
+		es: '',
+		catatan: ''
+	};
+	const custom: CartItem = {
+		product: { id: 'custom-1', nama: 'Titipan', harga: 5_000, tipe: 'custom' },
+		jumlah: 1,
+		addOns: [],
+		gula: '',
+		es: '',
+		catatan: 'bungkus'
+	};
+	assert.deepEqual(buildCheckoutItems([tokened, custom]), [
+		{
+			product_id: 7,
+			nama_kustom: null,
+			custom_price: null,
+			jumlah: 2,
+			add_on_ids: [3],
+			porsi: 'jumbo',
+			gula: 'less',
+			es: null,
+			catatan: null,
+			product_price_token: 'p7',
+			add_on_price_tokens: ['a3']
+		},
+		{
+			product_id: null,
+			nama_kustom: 'Titipan',
+			custom_price: 5_000,
+			jumlah: 1,
+			add_on_ids: [],
+			porsi: 'reguler',
+			gula: null,
+			es: null,
+			catatan: 'bungkus',
+			product_price_token: null,
+			add_on_price_tokens: []
+		}
+	]);
+
+	const now = Date.parse('2026-06-29T08:00:00.000Z');
+	const future = '2026-06-29T09:00:00.000Z';
+	assert.equal(hasOfflinePriceTokens([tokened, custom], future, now), true);
+	assert.equal(hasOfflinePriceTokens([tokened], '2026-06-29T07:00:00.000Z', now), false);
+	assert.equal(hasOfflinePriceTokens([tokened], null, now), false, 'katalog tanpa expiry ditolak');
+	assert.equal(
+		hasOfflinePriceTokens(
+			[{ ...tokened, product: { ...tokened.product, price_token: undefined } }],
+			future,
+			now
+		),
+		false,
+		'produk tanpa token ditolak'
+	);
+	assert.equal(
+		hasOfflinePriceTokens(
+			[{ ...tokened, addOns: [{ id: 3, nama: 'Keju', harga: 2_000 }] }],
+			future,
+			now
+		),
+		false,
+		'topping tanpa token ditolak'
+	);
+
+	const quote = {
+		ok: true,
+		quote_token: 'q1',
+		expires_at: future,
+		total_amount: 30_000,
+		total_qty: 2,
+		items: [
+			{
+				source: {},
+				product_name: 'Jus Mangga',
+				product_price: 13_000,
+				add_ons: [{ id: '3', nama: 'Keju', harga: 2_000 }],
+				line_total: 30_000
+			}
+		]
+	};
+	assert.equal(parseQuoteResponse(quote, 1).quote_token, 'q1');
+	assert.throws(() => parseQuoteResponse(quote, 2), /quote POS tidak valid/, 'jumlah baris beda');
+	assert.throws(() => parseQuoteResponse({ ...quote, quote_token: '' }, 1), /tidak valid/);
+	assert.throws(() => parseQuoteResponse(null, 1), /tidak valid/);
+
+	const [quoted] = applyQuoteToCart([tokened], quote);
+	assert.equal(quoted.product.nama, 'Jus Mangga');
+	assert.equal(quoted.product.harga, 13_000);
+	assert.equal(quoted.product.price_token, 'p7', 'atribut lokal produk tetap');
+	assert.deepEqual(quoted.addOns, [
+		{ id: '3', nama: 'Keju', harga: 2_000, price_token: 'a3', is_active: true }
+	]);
+
+	assert.throws(() => parseCheckoutResponse({ ok: true, data: { total_amount: 1 } }), /transaksi/);
+	assert.throws(() => parseCheckoutResponse({ ok: false }), /transaksi/);
+	assert.equal(
+		parseCheckoutResponse({ ok: true, data: { total_amount: 1, receipt: receiptSample } })
+			.total_amount,
+		1
+	);
+}
+
+console.log('offline-pos-tests: all assertions passed');
