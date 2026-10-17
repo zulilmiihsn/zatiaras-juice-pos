@@ -103,7 +103,7 @@
 		"test:archive-chunk": "tsx src/tests/archive-chunk-tests.ts",
 		"test:archive-download": "tsx src/tests/archive-download-tests.ts",
 		"test:unit": "node --import tsx --test --test-concurrency=4 \"src/tests/*-tests.ts\"",
-		"test:coverage": "node --import tsx --test --test-concurrency=4 --experimental-test-coverage --test-coverage-include=\"src/lib/**\" \"src/tests/*-tests.ts\"",
+		"test:coverage": "node scripts/test-coverage.mjs",
 		"test:perf-budget": "tsx src/tests/perf-budget.bench.ts --d1",
 		"test:static": "pnpm check && pnpm lint && pnpm audit --audit-level high",
 		"test:all": "pnpm test:operations && pnpm test:static && pnpm test:unit",

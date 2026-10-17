@@ -186,6 +186,12 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
 `src/tests/*-tests.ts`; `pnpm test:coverage` menambah laporan coverage `src/lib`.
 Benchmark manual (`*.bench.ts`) tidak ikut.
 
+Coverage menghitung juga file yang tidak pernah di-load tes (0%), selama runtime Node
+mendukung `--test-coverage-include-all`. Bila tidak, skrip memberi peringatan dan angkanya
+hanya mencakup file yang dimuat. Logika server diuji di sini; state klien
+(`*.svelte.ts`) dan komponen dijaga oleh E2E Playwright. Logika murni klien yang perlu
+dites unit dipindah ke `src/lib/utils` (contoh: `posCheckout`, `saleReceipt`).
+
 Menambah tes: buat `src/tests/<domain>-tests.ts` (otomatis ikut `test:unit`), daftarkan
 `test:<domain>` di `package.json`, dan tambahkan langkahnya di `.github/workflows/ci.yml`.
 `test:docs-drift` gagal bila salah satu terlewat. Tes harus deterministik: tanpa produksi, tanpa model
