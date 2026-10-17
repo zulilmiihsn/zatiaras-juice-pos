@@ -3,9 +3,6 @@
 	import { browser } from '$app/environment';
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
 	import { branchLabel } from '$lib/utils/branches';
-	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
-	import { realtimeManager } from '$lib/realtime/realtimeManager';
-	import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import PinModal from '$lib/components/shared/pinModal.svelte';
 	import { securitySettings } from '$lib/stores/securitySettings.svelte';
@@ -14,35 +11,21 @@
 	import WeeklyChart from '$lib/components/dashboard/WeeklyChart.svelte';
 	import TokoModal from '$lib/components/dashboard/TokoModal.svelte';
 	import TopBarAiAssistant from '$lib/components/shared/topBarAiAssistant.svelte';
+	import DashboardQuickActions from '$lib/components/dashboard/DashboardQuickActions.svelte';
+	import DashboardStockPaused from '$lib/components/dashboard/DashboardStockPaused.svelte';
+	import DashboardIngredientUsage from '$lib/components/dashboard/DashboardIngredientUsage.svelte';
+	import DashboardCashFlow from '$lib/components/dashboard/DashboardCashFlow.svelte';
+	import DashboardOperationalStats from '$lib/components/dashboard/DashboardOperationalStats.svelte';
+	import DashboardBestSellers from '$lib/components/dashboard/DashboardBestSellers.svelte';
 	import { createToastManager } from '$lib/utils/ui';
 	import { getSesiAktif, getSesiSummary } from '$lib/services/sesiTokoService';
 	import { transactionService } from '$lib/services/transactionService';
-	import CupIcon from '$lib/components/icons/CupIcon.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import Store from '@lucide/svelte/icons/store';
-	import PlusCircle from '@lucide/svelte/icons/plus-circle';
-	import Boxes from '@lucide/svelte/icons/boxes';
-	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
-	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import Crown from '@lucide/svelte/icons/crown';
-	import RankMedal from '$lib/components/dashboard/RankMedal.svelte';
 	import Settings from '@lucide/svelte/icons/settings';
-	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import BookOpen from '@lucide/svelte/icons/book-open';
-	import ShoppingBagIcon from '@lucide/svelte/icons/shopping-bag';
-	import ClockIcon from '@lucide/svelte/icons/clock';
-	import Coffee from '@lucide/svelte/icons/coffee';
-	import Receipt from '@lucide/svelte/icons/receipt';
-	import CreditCard from '@lucide/svelte/icons/credit-card';
 
-	import type {
-		DashboardStats,
-		WeeklyIncomeData,
-		BestSeller,
-		TokoSession,
-		BukuKasRecord
-	} from '$lib/types';
+	import type { TokoSession, BukuKasRecord } from '$lib/types';
 	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
 
 	// Lazy load icons — assigned in onMount, consumed by DashboardMetrics via svelte:component
@@ -103,18 +86,6 @@
 	});
 
 	let modalAwal = $state<number | null>(null);
-
-	let imageError = $state<Record<number, boolean>>({});
-
-	function handleImgError(index: number) {
-		imageError[index] = true;
-	}
-
-	function formatStok(val: number): string {
-		if (val === undefined || val === null || isNaN(val)) return '0';
-		const rounded = Math.round(Number(val) * 100) / 100;
-		return rounded.toString();
-	}
 
 	// Toast notification — use shared createToastManager
 	const toastManager = createToastManager();
@@ -438,108 +409,7 @@
 
 			<!-- Snippet Definitions for Dashboard Modules -->
 			{#snippet bestSellersModule()}
-				<!-- Menu Terlaris (Peringkat Penjualan) -->
-				<div>
-					<div class="mb-2.5 flex items-center justify-between px-1">
-						<div>
-							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-								Peringkat Penjualan
-							</div>
-							<div class="text-sm font-bold text-slate-900 sm:text-base">Menu Terlaris</div>
-						</div>
-						{#if dashboard.bestSellers.length > 0}
-							<span
-								class="rounded-full border border-pink-100 bg-pink-50 px-2.5 py-0.5 text-[11px] font-bold text-pink-700"
-							>
-								{dashboard.bestSellers.length} Menu
-							</span>
-						{/if}
-					</div>
-					{#if dashboard.isLoadingBestSellers}
-						<div class="flex flex-col gap-2.5">
-							{#each Array(3) as _}
-								<div
-									class="flex animate-pulse items-center gap-3.5 rounded-[24px] bg-white p-3.5 shadow-xs"
-								>
-									<div class="h-12 w-12 rounded-2xl bg-slate-100"></div>
-									<div class="min-w-0 flex-1">
-										<div class="mb-2 h-4 w-32 rounded bg-slate-100"></div>
-										<div class="h-3 w-20 rounded bg-slate-100"></div>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else if dashboard.errorBestSellers}
-						<div
-							class="glass-card rounded-[24px] py-6 text-center text-xs font-bold text-rose-500 shadow-sm"
-						>
-							{dashboard.errorBestSellers}
-						</div>
-					{:else if dashboard.bestSellers.length === 0}
-						<div
-							class="glass-card rounded-[24px] py-8 text-center text-xs font-medium text-slate-400 shadow-sm"
-						>
-							Belum ada data transaksi menu terlaris
-						</div>
-					{:else}
-						<div class="flex flex-col gap-2.5">
-							{#each dashboard.bestSellers.slice(0, 5) as m, i}
-								<div
-									class="soft-float-card relative flex items-center justify-between overflow-visible p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99]"
-								>
-									{#if i === 0}
-										<!-- Crown Gimmick -->
-										<div
-											class="pointer-events-none absolute -top-3.5 -left-2 z-10 flex h-7 w-7 -rotate-[18deg] items-center justify-center drop-shadow-sm"
-											title="Peringkat 1 Terlaris"
-										>
-											<Crown size={22} class="fill-amber-400 stroke-[2.2] text-amber-500" />
-										</div>
-									{/if}
-
-									<div class="flex min-w-0 items-center gap-3">
-										<!-- Rank Medal -->
-										<RankMedal rank={i + 1} />
-
-										<!-- Product Image / Icon -->
-										<div
-											class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-pink-100/60 bg-pink-50/70 text-2xl"
-										>
-											{#if m.image && !imageError[i]}
-												<img
-													class="h-full w-full object-cover"
-													src={m.image}
-													alt={m.nama}
-													onerror={() => handleImgError(i)}
-												/>
-											{:else}
-												<CupIcon class="h-6 w-6 text-pink-500" strokeWidth={2} />
-											{/if}
-										</div>
-
-										<!-- Title -->
-										<div class="min-w-0 flex-1">
-											<h4 class="truncate text-sm leading-tight font-bold text-slate-900">
-												{m.nama}
-											</h4>
-											<span class="text-[11px] font-medium text-slate-400">Favorit Pelanggan</span>
-										</div>
-									</div>
-
-									<!-- Sold Count Pill -->
-									<div class="shrink-0 pl-2">
-										<span
-											class="inline-flex items-center rounded-full border border-pink-100 bg-pink-50 px-3 py-1 text-xs font-bold text-pink-700"
-										>
-											{m.total_qty ?? 0}
-											<span class="ml-1 text-[10px] font-semibold text-slate-400">terjual</span>
-										</span>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
+				<DashboardBestSellers {dashboard} />
 			{/snippet}
 
 			{#snippet weeklyChartModule()}
@@ -550,390 +420,28 @@
 			{/snippet}
 
 			{#snippet operationalStatsModule()}
-				{@const payTunai = sesiKasSummary.pemasukanTunai || dashboard.penjualanTunai || 0}
-				{@const payNonTunai = sesiKasSummary.pemasukanNonTunai || dashboard.penjualanNonTunai || 0}
-				{@const totalPay = payTunai + payNonTunai}
-				<!-- Statistik Operasional (2x2 Grid) -->
-				<div>
-					<div class="mb-2.5 px-1">
-						<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-							Metrik Kios
-						</div>
-						<div class="text-sm font-bold text-slate-900 sm:text-base">Statistik Operasional</div>
-					</div>
-					<div class="grid grid-cols-2 gap-3 sm:grid-cols-2">
-						<!-- Card 1: Rata-rata per Transaksi -->
-						<div
-							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
-						>
-							<div class="flex items-center justify-between">
-								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-									Rata-Rata Nota
-								</span>
-								<div
-									class="flex h-8 w-8 items-center justify-center rounded-xl border border-pink-100/80 bg-pink-50 text-pink-600 shadow-2xs"
-								>
-									<Receipt size={16} class="stroke-[2.2]" />
-								</div>
-							</div>
-							<div class="mt-2.5">
-								<div
-									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
-								>
-									{dashboard.jumlahTransaksi && dashboard.omzet
-										? `Rp ${formatRupiah(Math.round(dashboard.omzet / dashboard.jumlahTransaksi))}`
-										: 'Rp 0'}
-								</div>
-								<div class="mt-0.5 text-[11px] font-medium text-slate-400">per transaksi</div>
-							</div>
-						</div>
-
-						<!-- Card 2: Volume Cup per Nota -->
-						<div
-							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
-						>
-							<div class="flex items-center justify-between">
-								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-									Volume Cup
-								</span>
-								<div
-									class="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-100/80 bg-rose-50 text-rose-600 shadow-2xs"
-								>
-									<Coffee size={16} class="stroke-[2.2]" />
-								</div>
-							</div>
-							<div class="mt-2.5">
-								<div
-									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
-								>
-									{dashboard.avgTransaksi ?? '--'}
-									<span class="text-xs font-bold text-slate-400">cup</span>
-								</div>
-								<div class="mt-0.5 text-[11px] font-medium text-slate-400">rata-rata per nota</div>
-							</div>
-						</div>
-
-						<!-- Card 3: Jam Paling Ramai -->
-						<div
-							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
-						>
-							<div class="flex items-center justify-between">
-								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-									Jam Ramai
-								</span>
-								<div
-									class="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-100/80 bg-amber-50 text-amber-600 shadow-2xs"
-								>
-									<ClockIcon size={16} class="stroke-[2.2]" />
-								</div>
-							</div>
-							<div class="mt-2.5">
-								<div
-									class="text-lg font-black tracking-tight text-slate-900 sm:text-xl md:text-2xl"
-								>
-									{dashboard.jamRamai || '--'}
-								</div>
-								<div class="mt-0.5 text-[11px] font-medium text-slate-400">waktu terpadat</div>
-							</div>
-						</div>
-
-						<!-- Card 4: Rasio Pembayaran (QRIS vs Tunai) -->
-						<div
-							class="soft-float-card flex flex-col justify-between p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] sm:p-4.5"
-						>
-							<div class="flex items-center justify-between">
-								<span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-									Metode Bayar
-								</span>
-								<div
-									class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100/80 bg-emerald-50 text-emerald-600 shadow-2xs"
-								>
-									<CreditCard size={16} class="stroke-[2.2]" />
-								</div>
-							</div>
-							<div class="mt-2.5">
-								{#if totalPay > 0}
-									{@const pctNonTunai = Math.round((payNonTunai / totalPay) * 100)}
-									{@const pctTunai = 100 - pctNonTunai}
-									<!-- Segmented Visual Bar -->
-									<div
-										class="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5 ring-1 ring-slate-200/50"
-									>
-										{#if pctNonTunai > 0}
-											<div
-												class="h-full rounded-l-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
-												style="width: {pctNonTunai}%"
-												title="QRIS {pctNonTunai}%"
-											></div>
-										{/if}
-										{#if pctTunai > 0}
-											<div
-												class="h-full {pctNonTunai > 0
-													? 'rounded-r-full'
-													: 'rounded-full'} bg-gradient-to-r from-pink-500 to-rose-500 transition-all duration-500"
-												style="width: {pctTunai}%"
-												title="Tunai {pctTunai}%"
-											></div>
-										{/if}
-									</div>
-									<div class="mt-1.5 flex items-center justify-between text-[11px] font-black">
-										<span class="flex items-center gap-1 text-emerald-700">
-											<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-											QRIS {pctNonTunai}%
-										</span>
-										<span class="flex items-center gap-1 text-pink-600">
-											<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
-											Tunai {pctTunai}%
-										</span>
-									</div>
-								{:else}
-									<div class="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5">
-										<div class="h-full w-1/2 rounded-l-full bg-slate-200/60"></div>
-										<div class="h-full w-1/2 rounded-r-full bg-slate-200/40"></div>
-									</div>
-									<div
-										class="mt-1.5 flex items-center justify-between text-[11px] font-bold text-slate-400"
-									>
-										<span>QRIS 0%</span>
-										<span>Tunai 0%</span>
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
+				<DashboardOperationalStats {dashboard} {sesiKasSummary} />
 			{/snippet}
 
 			{#snippet cashFlowModule()}
-				<!-- Ringkasan Kas di Laci / Status Sesi Kasir -->
-				<div class="soft-float-card relative overflow-hidden p-4.5 sm:p-5">
-					<div class="mb-3 flex items-center justify-between">
-						<div>
-							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-								Arus Kas Fisik
-							</div>
-							<div class="text-sm font-bold text-slate-900 sm:text-base">Estimasi Kas di Laci</div>
-						</div>
-						<button
-							type="button"
-							onclick={handleOpenTokoModal}
-							class="flex cursor-pointer items-center gap-1 rounded-full border border-pink-100 bg-pink-50 px-2.5 py-1 text-xs font-bold text-pink-700 transition-all hover:bg-pink-100 active:scale-95"
-						>
-							<span>{tokoAktifLocal ? 'Kelola Sesi ›' : 'Buka Kios →'}</span>
-						</button>
-					</div>
-
-					<div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
-						<div class="flex items-center justify-between text-xs">
-							<span class="font-medium text-slate-500">Modal Kas Awal</span>
-							<span class="font-bold text-slate-800">
-								{modalAwal !== null ? `Rp ${formatRupiah(sesiKasSummary.modalAwal)}` : 'Rp 0'}
-							</span>
-						</div>
-						<div class="mt-2 flex items-center justify-between text-xs">
-							<span class="font-medium text-slate-500">Pemasukan Tunai</span>
-							<span class="font-bold text-emerald-600">
-								+ Rp {formatRupiah(sesiKasSummary.pemasukanTunai)}
-							</span>
-						</div>
-						{#if sesiKasSummary.pengeluaranTunai > 0}
-							<div class="mt-2 flex items-center justify-between text-xs">
-								<span class="font-medium text-slate-500">Pengeluaran Tunai</span>
-								<span class="font-bold text-rose-600">
-									- Rp {formatRupiah(sesiKasSummary.pengeluaranTunai)}
-								</span>
-							</div>
-						{/if}
-						<div class="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-2.5">
-							<span class="text-xs font-bold text-slate-900">Total Uang di Laci</span>
-							<span class="text-base font-extrabold text-pink-700 sm:text-lg">
-								Rp {formatRupiah(sesiKasSummary.uangKasir)}
-							</span>
-						</div>
-					</div>
-				</div>
+				<DashboardCashFlow
+					{modalAwal}
+					{sesiKasSummary}
+					{tokoAktifLocal}
+					onOpenToko={handleOpenTokoModal}
+				/>
 			{/snippet}
 
 			{#snippet ingredientUsageModule()}
-				<!-- Ranking Penggunaan Bahan Baku Hari Ini -->
-				<div>
-					<div class="mb-2.5 flex items-center justify-between px-1">
-						<div>
-							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-								Inventaris Harian
-							</div>
-							<div class="text-sm font-bold text-slate-900 sm:text-base">Pemakaian Bahan</div>
-						</div>
-						<a
-							href="/stok"
-							class="flex items-center gap-1 text-xs font-bold whitespace-nowrap text-pink-600 transition-colors hover:text-pink-700"
-						>
-							<span>Semua Stok</span>
-							<ArrowRight size={13} class="stroke-[2.5]" />
-						</a>
-					</div>
-
-					{#if dashboard.lowStockCount > 0}
-						<a
-							href="/stok"
-							class="mb-2.5 flex items-center justify-between rounded-2xl border border-rose-200/90 bg-rose-50/80 p-3 text-rose-950 shadow-2xs transition-all hover:bg-rose-100/70 active:scale-[0.99]"
-						>
-							<div class="flex min-w-0 items-center gap-2.5">
-								<div
-									class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white"
-								>
-									<AlertTriangle size={15} class="stroke-[2.5]" />
-								</div>
-								<div class="truncate text-xs font-bold">
-									<span>{dashboard.lowStockCount} Bahan Menipis:</span>
-									<span class="font-medium text-rose-700">
-										{dashboard.lowStockNames.join(', ')}</span
-									>
-								</div>
-							</div>
-							<span class="shrink-0 text-xs font-bold text-rose-600 underline">Restock</span>
-						</a>
-					{/if}
-
-					{#if dashboard.topIngredients.length === 0}
-						<div class="rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-xs">
-							<Boxes class="mx-auto mb-2 h-8 w-8 stroke-[1.8] text-slate-300" />
-							<div class="text-xs font-bold text-slate-700">Belum Ada Data Bahan</div>
-							<div class="mt-0.5 text-[11px] text-slate-400">
-								Tambahkan bahan baku di menu Stok untuk tracking pemakaian
-							</div>
-						</div>
-					{:else}
-						<div class="flex flex-col gap-2.5">
-							{#each dashboard.topIngredients as ing, i}
-								<div
-									class="soft-float-card relative flex items-center justify-between overflow-visible p-3.5 transition-all duration-200 hover:shadow-md active:scale-[0.99] {ing.is_low
-										? 'border border-rose-200/80 bg-rose-50/20'
-										: ''}"
-								>
-									{#if i === 0}
-										<!-- Crown Gimmick -->
-										<div
-											class="pointer-events-none absolute -top-3.5 -left-2 z-10 flex h-7 w-7 -rotate-[18deg] items-center justify-center drop-shadow-sm"
-											title="Peringkat 1 Pemakaian"
-										>
-											<Crown size={22} class="fill-amber-400 stroke-[2.2] text-amber-500" />
-										</div>
-									{/if}
-
-									<div class="flex min-w-0 items-center gap-3">
-										<!-- Rank Medal -->
-										<RankMedal rank={i + 1} />
-
-										<!-- Ingredient Icon Box -->
-										<div
-											class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {ing.is_low
-												? 'border border-rose-200/70 bg-rose-50 text-rose-600'
-												: 'border border-pink-100/60 bg-pink-50/70 text-pink-600'}"
-										>
-											{#if ing.is_low}
-												<AlertTriangle size={20} class="stroke-[2.2]" />
-											{:else}
-												<Boxes size={20} class="stroke-[2.2]" />
-											{/if}
-										</div>
-
-										<!-- Title & Usage -->
-										<div class="min-w-0 flex-1">
-											<h4 class="truncate text-sm leading-tight font-bold text-slate-900">
-												{ing.nama}
-											</h4>
-											<div class="mt-0.5 text-[11px] font-medium text-slate-400">
-												{#if ing.terpakai > 0}
-													Terpakai hari ini: <span class="font-bold text-slate-700"
-														>{formatStok(ing.terpakai)} {ing.satuan}</span
-													>
-												{:else}
-													<span>Belum ada pemakaian</span>
-												{/if}
-											</div>
-										</div>
-									</div>
-
-									<!-- Remaining Stock Pill -->
-									<div class="shrink-0 pl-2">
-										<span
-											class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold {ing.is_low
-												? 'border border-rose-200 bg-rose-100 text-rose-800'
-												: 'border border-emerald-100 bg-emerald-50 text-emerald-800'}"
-										>
-											{ing.is_low ? 'Menipis · ' : ''}Sisa {formatStok(ing.stok_saat_ini)}
-											{ing.satuan}
-										</span>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
+				<DashboardIngredientUsage {dashboard} />
 			{/snippet}
 
 			{#snippet stockPausedModule()}
-				<!-- Monitoring stok dijeda: bukan angka metrik -->
-				<div>
-					<div class="mb-2.5 flex items-center justify-between px-1">
-						<div>
-							<div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-								Inventaris Harian
-							</div>
-							<div class="text-sm font-bold text-slate-900 sm:text-base">
-								Monitoring Stok Dijeda
-							</div>
-						</div>
-					</div>
-					<div class="rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-xs">
-						<Boxes class="mx-auto mb-2 h-8 w-8 stroke-[1.8] text-slate-300" />
-						<div class="text-xs font-bold text-slate-700">Monitoring stok nonaktif</div>
-						<div class="mt-0.5 text-[11px] text-slate-400">
-							Penjualan tetap berjalan. Aktifkan kembali lewat pengaturan pemilik setelah
-							rekonsiliasi fisik.
-						</div>
-					</div>
-				</div>
+				<DashboardStockPaused />
 			{/snippet}
 
 			{#snippet quickActionsModule()}
-				<!-- Quick Action Panel for Tablet POS (Aksi Cepat Kasir) -->
-				<div
-					class="rounded-[28px] border border-slate-200/70 bg-white/90 p-4.5 shadow-2xs backdrop-blur-md"
-				>
-					<div class="mb-3 flex items-center justify-between">
-						<span class="text-xs font-bold tracking-wider text-slate-400 uppercase"
-							>Pintasan Cepat</span
-						>
-						<span class="text-[11px] font-semibold text-slate-400">Aksi Kios</span>
-					</div>
-					<div class="grid grid-cols-3 gap-3">
-						<a
-							href="/pos"
-							class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-3 py-3 text-xs font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
-						>
-							<ShoppingBagIcon size={16} class="stroke-[2.2]" />
-							<span>Buka Kasir</span>
-						</a>
-						<a
-							href="/catat"
-							class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
-						>
-							<BookOpen size={16} class="stroke-[2.2] text-pink-600" />
-							<span>Catat Kas</span>
-						</a>
-						{#if !stockPolicyState.ignored}
-							<a
-								href="/stok"
-								class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"
-							>
-								<Boxes size={16} class="stroke-[2.2] text-emerald-600" />
-								<span>Kelola Stok</span>
-							</a>
-						{/if}
-					</div>
-				</div>
+				<DashboardQuickActions />
 			{/snippet}
 
 			<!-- MOBILE VIEW (< md): Menu Terlaris -> Statistik -> Grafik Penjualan -> Kas Fisik -> Bahan -->
