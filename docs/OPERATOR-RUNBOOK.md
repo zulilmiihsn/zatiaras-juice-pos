@@ -155,8 +155,13 @@ dipakai. `test:staging` gagal bila config staging menunjuk resource produksi.
    pnpm exec wrangler pages secret put POS_PRICE_SIGNING_KEY --project-name zatiaraspos-staging
    ```
    `OPENROUTER_API_KEY` opsional, dengan cara yang sama.
-4. GitHub → Settings → Environments → buat environment `staging` (tanpa reviewer). Secret
-   `CLOUDFLARE_API_TOKEN` level repository sudah cukup; VAPID staging opsional.
+4. GitHub → Settings → Environments → buat environment `staging` (tanpa reviewer), lalu isi
+   secret `CLOUDFLARE_API_TOKEN`. Secret produksi tersimpan di environment `production`, bukan
+   level repository, jadi staging tidak mewarisinya. Dari token di `.env` tanpa menampilkannya:
+   ```powershell
+   grep '^CLOUDFLARE_API_TOKEN=' .env | cut -d= -f2- | gh secret set CLOUDFLARE_API_TOKEN --env staging
+   ```
+   VAPID staging opsional.
 
 **Setiap rilis:**
 
