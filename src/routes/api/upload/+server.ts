@@ -4,12 +4,12 @@ import { uploadToR2, deleteFromR2 } from '$lib/server/s3Client';
 import { requireAuthSession, requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	isAllowedProductImageMime,
+	hasProductImageSignature,
+	PRODUCT_IMAGE_MAX_BYTES,
 	isPublicProductImageKey,
 	productImageExtension,
 	extractBranchFromProductImageKey
 } from '$lib/server/r2ObjectPolicy';
-
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export async function GET({ url, platform }) {
 	const key = url.searchParams.get('key');
@@ -31,40 +31,6 @@ export async function GET({ url, platform }) {
 	});
 }
 
-function isValidImageBytes(buffer: ArrayBuffer, mimeType: string): boolean {
-	const bytes = new Uint8Array(buffer.slice(0, 16));
-	if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
-		return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-	}
-	if (mimeType === 'image/png') {
-		return (
-			bytes.length >= 8 &&
-			bytes[0] === 0x89 &&
-			bytes[1] === 0x50 &&
-			bytes[2] === 0x4e &&
-			bytes[3] === 0x47 &&
-			bytes[4] === 0x0d &&
-			bytes[5] === 0x0a &&
-			bytes[6] === 0x1a &&
-			bytes[7] === 0x0a
-		);
-	}
-	if (mimeType === 'image/webp') {
-		return (
-			bytes.length >= 12 &&
-			bytes[0] === 0x52 &&
-			bytes[1] === 0x49 &&
-			bytes[2] === 0x46 &&
-			bytes[3] === 0x46 &&
-			bytes[8] === 0x57 &&
-			bytes[9] === 0x45 &&
-			bytes[10] === 0x42 &&
-			bytes[11] === 0x50
-		);
-	}
-	return false;
-}
-
 export async function POST({ request, platform, locals }) {
 	// Auth sebelum try: kitError tidak boleh ketelan catch jadi 500
 	const branch = requireSessionBranch(locals);
@@ -83,7 +49,7 @@ export async function POST({ request, platform, locals }) {
 			return json({ error: 'Invalid file type. Allowed: jpg, png, webp' }, { status: 400 });
 		}
 
-		if (file.size > MAX_SIZE_BYTES) {
+		if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
 			return json({ error: 'File too large. Max 5MB.' }, { status: 400 });
 		}
 
@@ -93,7 +59,7 @@ export async function POST({ request, platform, locals }) {
 		}
 
 		const buffer = await file.arrayBuffer();
-		if (!isValidImageBytes(buffer, file.type)) {
+		if (!hasProductImageSignature(buffer, file.type)) {
 			return json(
 				{ error: 'Isi file tidak valid (signature gambar tidak cocok)' },
 				{ status: 400 }

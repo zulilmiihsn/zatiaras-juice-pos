@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { R2Bucket } from '@cloudflare/workers-types';
+import { productImageProxyPath } from './r2ObjectPolicy';
 
 /**
  * Akses R2 untuk gambar produk. Satu metode: binding STORAGE Cloudflare.
@@ -25,7 +26,7 @@ export const uploadToR2 = async (
 		customMetadata: customMetadata || {}
 	});
 	const publicUrl = env.R2_PUBLIC_URL || '';
-	return publicUrl ? `${publicUrl}/${key}` : `/api/upload?key=${encodeURIComponent(key)}`;
+	return publicUrl ? `${publicUrl}/${key}` : productImageProxyPath(key);
 };
 
 /** Hapus objek dari R2 lewat binding. */
