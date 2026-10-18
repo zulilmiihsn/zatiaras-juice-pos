@@ -139,6 +139,68 @@ async function cleanup(page: Page, ids: string[]) {
 	}
 }
 
+test('Antrean settings matches the settings shell, adapts to mobile, and keeps device details optional', async ({
+	browser,
+	baseURL
+}, testInfo) => {
+	const { context, page } = await device(browser, baseURL);
+	try {
+		await page.goto('/pengaturan', { waitUntil: 'domcontentloaded' });
+		const referenceHeader = await page.locator('.page-header').evaluate((element) => {
+			const style = getComputedStyle(element);
+			return {
+				background: style.backgroundImage,
+				radius: style.borderBottomLeftRadius
+			};
+		});
+		await page.getByRole('button', { name: /^Antrean Suara & notifikasi perangkat$/ }).click();
+		await expect(page.getByRole('heading', { name: 'Pengaturan Antrean', level: 1 })).toBeVisible();
+		const header = page.getByRole('banner');
+		expect(
+			await header.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return {
+					background: style.backgroundImage,
+					radius: style.borderBottomLeftRadius
+				};
+			})
+		).toEqual(referenceHeader);
+
+		const sound = page.getByRole('region', { name: 'Suara perangkat ini' });
+		const push = page.getByRole('region', { name: 'Notifikasi saat aplikasi tertutup' });
+		for (const width of [320, 390, 1280]) {
+			await page.setViewportSize({ width, height: 900 });
+			const headerBox = (await header.boundingBox())!;
+			expect(headerBox.x).toBe(0);
+			expect(headerBox.width).toBe(width);
+			expect(
+				await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+			).toBe(true);
+			const soundBox = (await sound.boundingBox())!;
+			const pushBox = (await push.boundingBox())!;
+			if (width < 768) {
+				expect(pushBox.x).toBe(soundBox.x);
+				expect(pushBox.y).toBeGreaterThanOrEqual(soundBox.y + soundBox.height);
+			} else {
+				expect(pushBox.x).toBeGreaterThan(soundBox.x + soundBox.width);
+				expect(pushBox.y).toBe(soundBox.y);
+			}
+			await page.screenshot({
+				path: testInfo.outputPath(`antrean-settings-${width}.png`),
+				fullPage: true
+			});
+		}
+
+		await expect(page.getByText('Service worker', { exact: true })).toBeHidden();
+		await page.getByText('Detail perangkat', { exact: true }).click();
+		await expect(page.getByText('Service worker', { exact: true })).toBeVisible();
+		await page.getByRole('link', { name: 'Kembali ke Pengaturan', exact: true }).click();
+		await expect(page).toHaveURL(/\/pengaturan$/);
+	} finally {
+		await context.close();
+	}
+});
+
 test('Antrean checkout alerts same branch recipients, not origin, and visible queue only silences its own profile', async ({
 	browser,
 	baseURL
