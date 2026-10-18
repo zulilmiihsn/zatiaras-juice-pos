@@ -48,3 +48,6 @@ code-quality-report.md
 svelte_check*.txt
 playwright-report/
 test-results/
+
+# Konfigurasi agen AI lokal (hook berisi path absolut mesin pengembang)
+/.codex/
