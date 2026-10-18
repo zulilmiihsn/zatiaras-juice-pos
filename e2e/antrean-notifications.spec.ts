@@ -153,7 +153,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 				radius: style.borderBottomLeftRadius
 			};
 		});
-		await page.getByRole('button', { name: /^Antrean Suara & notifikasi perangkat$/ }).click();
+		await page.getByRole('button', { name: /^Antrean Notifikasi$/ }).click();
 		await expect(page.getByRole('heading', { name: 'Pengaturan Antrean', level: 1 })).toBeVisible();
 		const header = page.getByRole('banner');
 		expect(
@@ -196,8 +196,19 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		await expect(page.getByText('Service worker', { exact: true })).toBeVisible();
 		await page.getByRole('link', { name: 'Kembali ke Pengaturan', exact: true }).click();
 		await expect(page).toHaveURL(/\/pengaturan$/);
-		for (const width of [390, 1280]) {
+		await expect(page.getByText('Pemilik Kios', { exact: true })).toBeVisible();
+		const ownerCard = page.getByRole('button', { name: 'Pemilik Khusus Owner', exact: true });
+		const antreanCard = page.getByRole('button', { name: /^Antrean / });
+		for (const width of [320, 390, 1280]) {
 			await page.setViewportSize({ width, height: 900 });
+			const [ownerTitle, antreanTitle] = await Promise.all([
+				ownerCard.getByText('Pemilik', { exact: true }).boundingBox(),
+				antreanCard.getByText('Antrean', { exact: true }).boundingBox()
+			]);
+			expect(
+				Math.abs(antreanTitle!.y - ownerTitle!.y),
+				`Judul kartu Antrean harus sejajar dengan Pemilik pada ${width}px`
+			).toBeLessThanOrEqual(1);
 			await page.screenshot({
 				path: testInfo.outputPath(`pengaturan-${width}.png`),
 				fullPage: true

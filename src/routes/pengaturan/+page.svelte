@@ -107,7 +107,7 @@
 			</button>
 
 			<button
-				class="soft-float-card flex aspect-square min-h-11 flex-col items-center justify-center p-4 text-center md:aspect-auto md:py-6"
+				class="soft-float-card flex aspect-square min-h-11 cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 ease-out hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 md:aspect-auto md:py-6"
 				onclick={() => goto('/pengaturan/antrean')}
 				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
 			>
@@ -117,7 +117,10 @@
 					<BellRing class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" aria-hidden="true" />
 				</div>
 				<div class="text-sm font-black text-slate-900 md:text-base">Antrean</div>
-				<span class="mt-1 text-xs text-slate-600">Suara & notifikasi perangkat</span>
+				<span
+					class="mt-1 inline-block rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-extrabold text-pink-700 md:text-xs"
+					>Notifikasi</span
+				>
 			</button>
 
 			<!-- Box Install PWA -->
