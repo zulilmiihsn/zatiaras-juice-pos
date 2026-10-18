@@ -7,6 +7,7 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import Crown from '@lucide/svelte/icons/crown';
+	import BellRing from '@lucide/svelte/icons/bell-ring';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import User from '@lucide/svelte/icons/user';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
@@ -110,6 +111,11 @@
 				onclick={() => goto('/pengaturan/antrean')}
 				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
 			>
+				<div
+					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
+				>
+					<BellRing class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" aria-hidden="true" />
+				</div>
 				<div class="text-sm font-black text-slate-900 md:text-base">Antrean</div>
 				<span class="mt-1 text-xs text-slate-600">Suara & notifikasi perangkat</span>
 			</button>

@@ -196,6 +196,13 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		await expect(page.getByText('Service worker', { exact: true })).toBeVisible();
 		await page.getByRole('link', { name: 'Kembali ke Pengaturan', exact: true }).click();
 		await expect(page).toHaveURL(/\/pengaturan$/);
+		for (const width of [390, 1280]) {
+			await page.setViewportSize({ width, height: 900 });
+			await page.screenshot({
+				path: testInfo.outputPath(`pengaturan-${width}.png`),
+				fullPage: true
+			});
+		}
 	} finally {
 		await context.close();
 	}
