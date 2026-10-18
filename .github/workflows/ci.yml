@@ -112,6 +112,9 @@ jobs:
       - name: Run Stores Suite
         run: pnpm test:stores
 
+      - name: Run PWA Updater Suite
+        run: pnpm test:pwa-updater
+
       - name: Run Offline Suite
         run: pnpm test:offline
 

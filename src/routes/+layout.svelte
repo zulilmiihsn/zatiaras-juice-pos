@@ -16,6 +16,7 @@
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { requireAuth } from '$lib/utils/authGuard';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import CircleArrowUp from '@lucide/svelte/icons/circle-arrow-up';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { createLayoutState } from '$lib/stores/layoutState.svelte';
@@ -29,6 +30,8 @@
 
 	const layoutSt = createLayoutState();
 	let showPendingTransactions = $state(false);
+	// "Nanti" hanya menyembunyikan banner sampai muat ulang; mode "Muat ulang" tak bisa ditunda.
+	let updateDismissed = $state(false);
 	onDestroy(() => layoutSt.dispose());
 
 	// ── Navigasi & View Transitions ──────────────────────────────────────────
@@ -230,22 +233,57 @@
 
 <OrderNotificationBanner />
 
-{#if layoutSt.pwaUpdateAvailable}
+{#if layoutSt.pwaUpdateAvailable && (layoutSt.pwaReloadRequired || !updateDismissed)}
 	<section
-		class="flex flex-wrap items-center gap-3 border-b border-sky-200 bg-sky-50 px-4 py-3 text-sky-950"
-		aria-label="Update aplikasi"
+		class="animate-fade-in mx-3 mt-3 flex max-w-xl flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-3 shadow-[0_8px_24px_-4px_rgba(219,39,119,0.12)] sm:flex-row sm:items-center md:mx-auto"
+		aria-label="Pembaruan aplikasi"
+		data-testid="pwa-update-banner"
 	>
-		<p class="min-w-0 flex-1 text-sm">
-			Versi baru tersedia. Selesaikan transaksi yang sedang diisi sebelum memperbarui.
-		</p>
-		<button
-			type="button"
-			onclick={layoutSt.updatePwa}
-			disabled={layoutSt.pwaUpdating}
-			class="min-h-11 rounded-lg bg-sky-900 px-4 font-semibold text-white disabled:opacity-50"
-		>
-			{layoutSt.pwaUpdating ? 'Memperbarui…' : 'Perbarui aplikasi'}
-		</button>
+		<div class="flex min-w-0 flex-1 items-center gap-3">
+			<span
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-600 via-pink-500 to-rose-500 text-white"
+				aria-hidden="true"
+			>
+				{#if layoutSt.pwaUpdating}
+					<RefreshCw class="h-5 w-5 motion-safe:animate-spin" />
+				{:else}
+					<CircleArrowUp class="h-5 w-5" />
+				{/if}
+			</span>
+			<div class="min-w-0" role="status">
+				<p class="text-sm font-extrabold text-stone-900">
+					{layoutSt.pwaReloadRequired ? 'Aplikasi sudah diperbarui' : 'Versi baru siap dipakai'}
+				</p>
+				<p class="text-xs leading-snug text-stone-600">
+					{layoutSt.pwaReloadRequired
+						? 'Muat ulang untuk memakai versi terbaru.'
+						: 'Selesaikan pesanan yang sedang dibuat, lalu perbarui.'}
+				</p>
+			</div>
+		</div>
+		<div class="flex gap-2 sm:shrink-0">
+			{#if !layoutSt.pwaReloadRequired && !layoutSt.pwaUpdating}
+				<button
+					type="button"
+					onclick={() => (updateDismissed = true)}
+					class="min-h-11 rounded-xl px-4 text-sm font-bold text-stone-600 transition-colors hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none"
+				>
+					Nanti
+				</button>
+			{/if}
+			<button
+				type="button"
+				onclick={layoutSt.updatePwa}
+				disabled={layoutSt.pwaUpdating}
+				class="btn-brand-primary flex-1 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none sm:flex-none"
+			>
+				{layoutSt.pwaUpdating
+					? 'Memperbarui…'
+					: layoutSt.pwaReloadRequired
+						? 'Muat ulang'
+						: 'Perbarui'}
+			</button>
+		</div>
 	</section>
 {/if}
 

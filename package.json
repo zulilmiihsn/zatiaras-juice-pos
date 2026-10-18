@@ -53,6 +53,7 @@
 		"test:hardening": "tsx src/tests/hardening-regression-tests.ts",
 		"test:csrf-contract": "tsx src/tests/csrf-contract-tests.ts",
 		"test:stores": "tsx src/tests/store-state-tests.ts",
+		"test:pwa-updater": "node --import tsx --test src/tests/pwa-updater-tests.ts",
 		"test:platform-emulation": "tsx src/tests/platform-emulation-tests.ts",
 		"test:tax": "tsx src/tests/tax-calculation-tests.ts",
 		"test:tax-cas": "tsx src/tests/tax-cas-tests.ts",

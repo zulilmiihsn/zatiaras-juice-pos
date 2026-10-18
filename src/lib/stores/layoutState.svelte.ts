@@ -12,6 +12,7 @@ import {
 import type { PendingTransaction } from '$lib/utils/offlineQueue';
 import type { Workbox } from 'workbox-window';
 import { createToastManager } from '$lib/utils/ui';
+import { createPwaUpdater, startPwaUpdateChecks, type PwaUpdateState } from '$lib/utils/pwaUpdater';
 
 export function createLayoutState() {
 	// ── Offline / pending sync ────────────────────────────────────────────────
@@ -25,14 +26,16 @@ export function createLayoutState() {
 	const toastManager = createToastManager();
 	let pwaWorkbox: Workbox | null = null;
 	let pwaRegistration: ServiceWorkerRegistration | null = null;
-	let pwaUpdateAvailable = $state(false);
-	let pwaUpdating = $state(false);
-	const pwaWaiting = () => {
-		pwaUpdateAvailable = Boolean(pwaRegistration?.waiting);
-	};
-	const pwaControlling = () => {
-		if (pwaUpdating) window.location.reload();
-	};
+	let stopPwaUpdateChecks: (() => void) | null = null;
+	let pwaState = $state<PwaUpdateState>('idle');
+	const pwaUpdater = createPwaUpdater({
+		getWaiting: () => pwaRegistration?.waiting ?? null,
+		reload: () => window.location.reload(),
+		onState: (next) => (pwaState = next),
+		onError: (message) => toastManager.showToastNotification(message, 'error')
+	});
+	const pwaWaiting = () => pwaUpdater.sync();
+	const pwaControlling = () => pwaUpdater.controlled();
 
 	async function updatePending() {
 		const pending = await getPendingTransactions();
@@ -130,23 +133,9 @@ export function createLayoutState() {
 			if (pwaWorkbox !== wb) return;
 			pwaRegistration = registration ?? null;
 			pwaWaiting();
+			if (pwaRegistration) stopPwaUpdateChecks = startPwaUpdateChecks(pwaRegistration);
 		} catch (error) {
 			console.log('PWA registration failed:', error);
-		}
-	}
-
-	function updatePwa() {
-		const waiting = pwaRegistration?.waiting;
-		if (!waiting || pwaUpdating) return;
-		pwaUpdating = true;
-		try {
-			waiting.postMessage({ type: 'SKIP_WAITING' });
-		} catch {
-			pwaUpdating = false;
-			toastManager.showToastNotification(
-				'Update belum dapat diterapkan. Muat ulang lalu coba lagi.',
-				'error'
-			);
 		}
 	}
 
@@ -205,16 +194,22 @@ export function createLayoutState() {
 			return isPendingSyncing;
 		},
 		get pwaUpdateAvailable() {
-			return pwaUpdateAvailable;
+			return pwaState !== 'idle';
 		},
 		get pwaUpdating() {
-			return pwaUpdating;
+			return pwaState === 'updating';
 		},
-		updatePwa,
+		get pwaReloadRequired() {
+			return pwaState === 'reload';
+		},
+		updatePwa: () => pwaUpdater.apply(),
 		toastManager,
 		dispose: () => {
 			pwaWorkbox?.removeEventListener('waiting', pwaWaiting);
 			pwaWorkbox?.removeEventListener('controlling', pwaControlling);
+			pwaUpdater.dispose();
+			stopPwaUpdateChecks?.();
+			stopPwaUpdateChecks = null;
 			pwaWorkbox = null;
 			pwaRegistration = null;
 			toastManager.dispose();
