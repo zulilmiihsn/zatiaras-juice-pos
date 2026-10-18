@@ -12,6 +12,14 @@ export class CheckoutDomainError extends Error {
 	}
 }
 
+/** Error terkontrol (4xx/5xx) dari orkestrasi checkout; tes membedakannya lewat `instanceof`. */
+export class CheckoutUseCaseError extends CheckoutDomainError {
+	constructor(status: number, message: string) {
+		super(status, message);
+		this.name = 'CheckoutUseCaseError';
+	}
+}
+
 export const IN_QUERY_CHUNK_SIZE = 80;
 export const CHECKOUT_WINDOW_MS = 60 * 1000;
 export const CHECKOUT_MAX_PER_WINDOW = 30;

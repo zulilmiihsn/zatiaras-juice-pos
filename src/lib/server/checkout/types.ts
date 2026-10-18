@@ -144,6 +144,31 @@ export type InventoryApplication = 'apply' | 'skip_policy_ignored' | 'skip_recon
 export type StockReplayDisposition =
 	'normal' | 'stale_to_ignored' | 'owner_approved_current' | 'owner_approved_after_recount';
 
+// ── Use case result ─────────────────────────────────────────────────────────
+
+export interface CheckoutSession {
+	userId: string;
+	username?: string;
+	role: string;
+}
+
+export interface CheckoutResultData {
+	buku_kas_id: string;
+	transaction_id: string;
+	committed_at: string;
+	total_amount: number;
+	total_qty: number;
+	change: number;
+	/** Nomor antrean harian (001+). Null hanya untuk baris legacy pra-migrasi. */
+	nomor_harian: number | null;
+	tanggal_nomor: string | null;
+	receipt: unknown;
+}
+
+export type CheckoutResult =
+	| { idempotent: true; d1Meta: null; data: CheckoutResultData }
+	| { idempotent: false; d1Meta: string | null; data: CheckoutResultData };
+
 // ── Context passed through the checkout pipeline ────────────────────────────
 
 export interface CheckoutContext {

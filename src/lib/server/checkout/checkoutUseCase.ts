@@ -11,177 +11,63 @@
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import { formatDateYmdWita } from '$lib/utils/dateTime';
+import { validateCheckoutPayload } from '$lib/utils/validation';
 import { getD1Database, type BranchContext } from '../branchResolver';
-import { publishBranchEvent } from '../realtimePublisher';
+import {
+	publishBranchEvent,
+	type BranchEventPayload,
+	type RealtimeAction,
+	type RealtimeTable
+} from '../realtimePublisher';
 import { settlePostCommitEffects } from '../postCommit';
 import { auditIntentStatement, type AuditLogInput } from '../auditLog';
 import { consumeRateLimit } from '../rateLimit';
-import { recordErrorEvent } from '../observability';
 import { buildOrderCreatedStatement } from '../orderNotifications/repository';
 import { resolveCheckoutNotificationOrigin } from '../orderNotifications/useCase';
 import { kickOrderNotifications } from '../orderNotifications/delivery';
-import type { AddOnRow, PosQuoteTokenData, PosTransactionInput, ProductRow } from './types';
+import { loadStockPolicy } from '../stockPolicy';
+import type {
+	CheckoutCapabilities,
+	CheckoutResult,
+	CheckoutSession,
+	IngredientDeductions,
+	PosTransactionInput,
+	StockDeductions
+} from './types';
 import {
+	CheckoutUseCaseError,
+	CHECKOUT_MAX_PER_WINDOW,
+	CHECKOUT_WINDOW_MS,
+	checkoutItemCountError,
+	normalizeMoney,
 	normalizePaymentMethod,
 	sanitizeShortText,
-	uniqueStrings,
-	normalizeMoney,
 	summarizeD1Meta,
-	CHECKOUT_WINDOW_MS,
-	CHECKOUT_MAX_PER_WINDOW,
-	checkoutItemCountError,
-	CheckoutDomainError,
-	OFFLINE_REPLAY_MAX_AGE_MS
+	uniqueStrings
 } from './utils';
 import {
-	getCheckoutCapabilities,
 	getActiveSessionId,
-	getReplaySessionId,
+	getCheckoutCapabilities,
 	getExistingByIdempotency,
+	getReplaySessionId,
+	loadAddOns,
 	loadProducts,
 	loadReceiptSettingsSnapshot,
-	loadRecipesByProduct,
-	loadAddOns
+	loadRecipesByProduct
 } from './dataLoader';
+import { buildCommittedResult, buildReceiptFromQuote } from './checkoutReceipt';
+import { failCheckoutCommit } from './commitFailure';
 import { computeItemFinancials } from './financials';
-import { buildCheckoutStatements } from './statementBuilder';
-import { allocateNomorHarian } from './nomorHarian';
 import { computeTransactionFingerprint } from './fingerprint';
-import type { StockDeductions, IngredientDeductions } from './types';
-import { PosPricingTokenError, verifyPosPricingToken } from '../posPricingToken';
-import { validateCheckoutPayload } from '$lib/utils/validation';
-import {
-	decodeReceiptSnapshot,
-	type ReceiptSnapshot,
-	type ReceiptSnapshotSettings
-} from '$lib/utils/receiptSnapshot';
-import { loadStockPolicy } from '$lib/server/stockPolicy';
-import { verifyStockPolicyEpoch } from '$lib/server/stockPolicyEpoch';
-import {
-	ensurePendingReview,
-	getTransitionCount,
-	loadOfflineReview
-} from '$lib/server/stockOfflineReview';
-import type { InventoryApplication, StockReplayDisposition } from './types';
+import { catalogFallbacks, currentCatalogTotal, normalizeCheckoutItems } from './itemInputs';
+import { allocateNomorHarian } from './nomorHarian';
+import { resolveCheckoutQuote } from './quoteResolution';
+import { buildCheckoutStatements } from './statementBuilder';
+import { resolveStockReplay } from './stockReplayPolicy';
 
-export class CheckoutUseCaseError extends CheckoutDomainError {
-	constructor(status: number, message: string) {
-		super(status, message);
-		this.name = 'CheckoutUseCaseError';
-	}
-}
-
-async function parseStoredReceiptSnapshot(
-	snapshot: string,
-	platform: App.Platform | undefined,
-	branch: BranchContext,
-	transactionId: string
-): Promise<ReceiptSnapshot> {
-	try {
-		const receipt = decodeReceiptSnapshot(snapshot);
-		if (!receipt) throw new Error('Snapshot struk kosong');
-		return receipt;
-	} catch (cause) {
-		await recordErrorEvent(platform, branch, {
-			source: 'checkout.receipt_snapshot',
-			error: cause,
-			status: 500,
-			context: { transaction_id: transactionId }
-		});
-		throw new CheckoutUseCaseError(
-			500,
-			'Struk transaksi tersimpan tidak dapat dibaca. Hubungi pemilik.'
-		);
-	}
-}
-
-export interface CheckoutSession {
-	userId: string;
-	username?: string;
-	role: string;
-}
-
-export interface CheckoutResultData {
-	buku_kas_id: string;
-	transaction_id: string;
-	committed_at: string;
-	total_amount: number;
-	total_qty: number;
-	change: number;
-	/** Nomor antrean harian (001+). Null hanya untuk baris legacy pra-migrasi. */
-	nomor_harian: number | null;
-	tanggal_nomor: string | null;
-	receipt: unknown;
-}
-
-export type CheckoutResult =
-	| { idempotent: true; d1Meta: null; data: CheckoutResultData }
-	| { idempotent: false; d1Meta: string | null; data: CheckoutResultData };
-
-interface CatalogProductTokenData {
-	id: string;
-	nama: string;
-	harga: number;
-	harga_jumbo?: number | null;
-	updated_at?: string | null;
-}
-
-interface CatalogAddOnTokenData {
-	id: string;
-	nama: string;
-	harga: number;
-	updated_at?: string | null;
-}
-
-interface RawCheckoutItem {
-	custom_price?: number;
-	jumlah?: number;
-}
-
-function buildReceiptFromQuote(
-	quote: PosQuoteTokenData,
-	input: {
-		totalAmount: number;
-		cashReceived: number;
-		paymentMethod: 'tunai' | 'non-tunai';
-		committedAt: string;
-		customerName: string | null;
-		settings: ReceiptSnapshotSettings | null;
-	}
-) {
-	return {
-		schema_version: 1 as const,
-		items: quote.items.map((item) => {
-			const unitPrice =
-				normalizeMoney(item.product_price) +
-				item.add_ons.reduce((sum, addOn) => sum + normalizeMoney(addOn.harga), 0);
-			return {
-				product_id: item.source.product_id ? String(item.source.product_id) : null,
-				nama: item.product_name,
-				jumlah: Number(item.source.jumlah),
-				harga: unitPrice,
-				nominal: normalizeMoney(item.line_total),
-				harga_dasar: normalizeMoney(item.product_price),
-				total_tambahan: unitPrice - normalizeMoney(item.product_price),
-				tambahan: item.add_ons,
-				gula: item.source.gula || null,
-				es: item.source.es || null,
-				catatan: item.source.catatan || null
-			};
-		}),
-		total_amount: input.totalAmount,
-		total_qty: quote.total_qty,
-		cash_received: input.cashReceived,
-		change:
-			input.paymentMethod === 'tunai' && input.cashReceived > 0
-				? input.cashReceived - input.totalAmount
-				: 0,
-		metode_bayar: input.paymentMethod,
-		committed_at: input.committedAt,
-		customer_name: input.customerName || null,
-		settings: input.settings
-	};
-}
+// Tes dan pemanggil lain mengimpor tipe dan error use case dari modul ini.
+export { CheckoutUseCaseError } from './utils';
+export type { CheckoutResult, CheckoutResultData, CheckoutSession } from './types';
 
 export interface CheckoutInput {
 	db: D1Database;
@@ -191,28 +77,26 @@ export interface CheckoutInput {
 	rawBody: unknown;
 }
 
-/** Orkestrasi checkout penuh. Melempar CheckoutUseCaseError untuk 4xx/5xx terkontrol. */
-export async function executeCheckout(input: CheckoutInput): Promise<CheckoutResult> {
-	const { db, branch, session, platform, rawBody } = input;
-	const fail = (status: number, message: string): never => {
-		throw new CheckoutUseCaseError(status, message);
-	};
+function fail(status: number, message: string): never {
+	throw new CheckoutUseCaseError(status, message);
+}
 
+/** Skema nomor antrean wajib ada, dan satu kasir dibatasi jumlah checkout per jendela waktu. */
+async function assertCheckoutAvailable(
+	db: D1Database,
+	branch: BranchContext,
+	session: CheckoutSession,
+	platform: App.Platform | undefined
+): Promise<CheckoutCapabilities> {
 	const capabilities = await getCheckoutCapabilities(db, branch);
-	const {
-		stockTrackingAvailable,
-		ingredientTrackingAvailable,
-		idempotencyAvailable,
-		nomorHarianAvailable
-	} = capabilities;
-	if (!nomorHarianAvailable) {
+	if (!capabilities.nomorHarianAvailable) {
 		fail(
 			503,
 			'Skema nomor antrean belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0036.'
 		);
 	}
 
-	const checkoutLimit = await consumeRateLimit(
+	const limit = await consumeRateLimit(
 		db,
 		branch,
 		`checkout:${session.userId}`,
@@ -220,11 +104,17 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		CHECKOUT_WINDOW_MS,
 		platform
 	);
-	if (!checkoutLimit.available)
-		fail(503, 'Checkout sementara tidak tersedia. Coba lagi beberapa saat.');
-	if (!checkoutLimit.allowed)
-		fail(429, `Terlalu banyak transaksi. Coba lagi ${checkoutLimit.retryAfterSeconds} detik lagi`);
+	if (!limit.available) fail(503, 'Checkout sementara tidak tersedia. Coba lagi beberapa saat.');
+	if (!limit.allowed) {
+		fail(429, `Terlalu banyak transaksi. Coba lagi ${limit.retryAfterSeconds} detik lagi`);
+	}
+	return capabilities;
+}
 
+function parseCheckoutBody(rawBody: unknown): {
+	body: PosTransactionInput;
+	mode: 'online' | 'offline_replay';
+} {
 	if (!rawBody) fail(400, 'Item transaksi kosong');
 	const validation = validateCheckoutPayload(rawBody);
 	if (!validation.success) {
@@ -240,133 +130,59 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	) {
 		fail(400, 'Mode transaksi POS tidak valid (harus online atau offline_replay)');
 	}
-	const mode = rawMode || 'online';
-	let quoteData: PosQuoteTokenData | null = null;
-	if (mode === 'online') {
-		try {
-			quoteData = (
-				await verifyPosPricingToken<PosQuoteTokenData>(platform?.env, body.quote_token, {
-					kind: 'checkout_quote',
-					branch
-				})
-			).data;
-		} catch (error) {
-			if (error instanceof PosPricingTokenError) {
-				if (error.code === 'SIGNING_KEY_UNAVAILABLE') {
-					fail(503, 'Layanan quote POS belum dikonfigurasi');
-				}
-				if (error.code === 'TOKEN_EXPIRED') {
-					fail(409, 'Quote harga kedaluwarsa. Verifikasi ulang pembayaran.');
-				}
-				fail(400, error.message);
-			}
-			throw error;
-		}
-	} else {
-		const queuedAt = Number(body.queued_at);
-		if (!Number.isFinite(queuedAt) || queuedAt > Date.now() + 30_000) {
-			fail(409, 'Waktu antrean transaksi offline tidak valid');
-		}
-		if (queuedAt < Date.now() - OFFLINE_REPLAY_MAX_AGE_MS) {
-			fail(409, 'Transaksi offline terlalu lama tersimpan dan perlu ditinjau pemilik');
-		}
-		try {
-			if (body.quote_token) {
-				quoteData = (
-					await verifyPosPricingToken<PosQuoteTokenData>(platform?.env, body.quote_token, {
-						kind: 'checkout_quote',
-						branch,
-						now: queuedAt
-					})
-				).data;
-			} else {
-				if (normalizePaymentMethod(body.metode_bayar) !== 'tunai') {
-					fail(409, 'Transaksi offline tanpa quote hanya boleh tunai');
-				}
-				const offlineItems = body.items;
-				const offlineItemError = checkoutItemCountError(offlineItems);
-				if (offlineItemError) fail(400, offlineItemError);
-				const verifiedItems = await Promise.all(
-					offlineItems!.map(async (item) => {
-						const jumlah = Number(item.jumlah);
-						if (!Number.isInteger(jumlah) || jumlah <= 0 || jumlah > 99) {
-							fail(400, 'Qty item tidak valid');
-						}
-						const addOnIds = (item.add_on_ids ?? []).map(String);
-						const addOnTokens = item.add_on_price_tokens ?? [];
-						if (addOnIds.length !== addOnTokens.length) {
-							fail(400, 'Token harga tambahan tidak lengkap');
-						}
-						const addOns = await Promise.all(
-							addOnTokens.map(async (token, index) => {
-								const verified = await verifyPosPricingToken<CatalogAddOnTokenData>(
-									platform?.env,
-									token,
-									{ kind: 'catalog_add_on', branch, now: queuedAt }
-								);
-								if (String(verified.data.id) !== addOnIds[index]) {
-									fail(400, 'Token harga tambahan tidak cocok');
-								}
-								return {
-									id: String(verified.data.id),
-									nama: verified.data.nama,
-									harga: normalizeMoney(verified.data.harga)
-								};
-							})
-						);
+	return { body, mode: rawMode || 'online' };
+}
 
-						let productName: string;
-						let productPrice: number;
-						if (item.product_id) {
-							const verified = await verifyPosPricingToken<CatalogProductTokenData>(
-								platform?.env,
-								item.product_price_token,
-								{ kind: 'catalog_product', branch, now: queuedAt }
-							);
-							if (String(verified.data.id) !== String(item.product_id)) {
-								fail(400, 'Token harga produk tidak cocok');
-							}
-							productName = verified.data.nama;
-							const isJumbo = String(item.porsi || '').toLowerCase() === 'jumbo';
-							productPrice = normalizeMoney(
-								isJumbo ? (verified.data.harga_jumbo ?? verified.data.harga) : verified.data.harga
-							);
-						} else {
-							productName = sanitizeShortText(item.nama_kustom, 80) ?? 'Item Custom';
-							productPrice = normalizeMoney(item.custom_price);
-							if (productPrice <= 0) fail(400, 'Harga custom item tidak valid');
-						}
-						return {
-							source: item,
-							product_name: productName,
-							product_price: productPrice,
-							add_ons: addOns,
-							line_total:
-								(productPrice + addOns.reduce((sum, addOn) => sum + addOn.harga, 0)) * jumlah
-						};
-					})
-				);
-				quoteData = {
-					items: verifiedItems,
-					total_amount: verifiedItems.reduce((sum, item) => sum + item.line_total, 0),
-					total_qty: verifiedItems.reduce((sum, item) => sum + Number(item.source.jumlah), 0)
-				};
-			}
-		} catch (error) {
-			if (error instanceof PosPricingTokenError) {
-				if (error.code === 'SIGNING_KEY_UNAVAILABLE') {
-					fail(503, 'Layanan harga POS belum dikonfigurasi');
-				}
-				if (error.code === 'TOKEN_EXPIRED') {
-					fail(409, 'Harga offline kedaluwarsa dan perlu ditinjau pemilik');
-				}
-				fail(400, error.message);
-			}
-			throw error;
-		}
-	}
-	const rawItems = quoteData?.items.map((item) => item.source) ?? body.items;
-	if (!Array.isArray(rawItems)) fail(400, 'Item transaksi kosong');
+async function hasVoidMarker(
+	db: D1Database,
+	branch: BranchContext,
+	idempotencyKey: string
+): Promise<boolean> {
+	const marker = await db
+		.prepare(
+			`SELECT transaction_id FROM pos_void_markers WHERE cabang_id = ? AND idempotency_key = ? LIMIT 1`
+		)
+		.bind(branch, idempotencyKey)
+		.first();
+	return Boolean(marker);
+}
+
+/** Realtime publish sesudah commit. Gagal publish tidak membatalkan transaksi. */
+async function publishCheckoutEvents(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	ids: { bukuKasId: string; transactionId: string; ingredientIds: string[] }
+): Promise<void> {
+	const env = platform?.env as Record<string, unknown> | undefined;
+	const publish =
+		(table: RealtimeTable, action: RealtimeAction, payload: Partial<BranchEventPayload>) =>
+		(signal: AbortSignal) =>
+			publishBranchEvent(env, branch, table, action, payload, undefined, signal);
+
+	await settlePostCommitEffects(
+		[
+			publish('buku_kas', 'insert', { id: ids.bukuKasId, transaction_id: ids.transactionId }),
+			publish('transaksi_kasir', 'insert', { transaction_id: ids.transactionId }),
+			...ids.ingredientIds.map((bahanId) => publish('bahan', 'update', { id: bahanId }))
+		],
+		undefined,
+		platform?.context
+	);
+}
+
+/** Orkestrasi checkout penuh. Melempar CheckoutUseCaseError untuk 4xx/5xx terkontrol. */
+export async function executeCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+	const { db, branch, session, platform, rawBody } = input;
+
+	const capabilities = await assertCheckoutAvailable(db, branch, session, platform);
+	const { stockTrackingAvailable, ingredientTrackingAvailable, idempotencyAvailable } =
+		capabilities;
+
+	const { body, mode } = parseCheckoutBody(rawBody);
+	const isOfflineReplay = mode === 'offline_replay';
+	const quote = await resolveCheckoutQuote(platform, branch, body, mode);
+
+	const rawItems = quote.items.map((item) => item.source);
 	const itemCountError = checkoutItemCountError(rawItems);
 	if (itemCountError) fail(400, itemCountError);
 	if (session.role !== 'pemilik' && rawItems.some((item) => !item.product_id)) {
@@ -374,200 +190,54 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	}
 
 	const idempotencyKey = sanitizeShortText(body.idempotency_key, 120);
-	if (!idempotencyKey || idempotencyKey.length < 8)
-		throw new CheckoutUseCaseError(400, 'idempotency_key tidak valid');
+	if (!idempotencyKey || idempotencyKey.length < 8) fail(400, 'idempotency_key tidak valid');
 
 	const paymentMethod = normalizePaymentMethod(body.metode_bayar);
 	const customerName = sanitizeShortText(body.nama_pelanggan, 60);
+	const cashReceived = normalizeMoney(body.cash_received);
 
 	const requestFingerprint = computeTransactionFingerprint({
 		branch,
 		storeSessionId: body.store_session_id,
 		cashReceived: body.cash_received,
 		items: rawItems,
-		totalAmount: quoteData
-			? quoteData.total_amount
-			: (rawItems as RawCheckoutItem[]).reduce(
-					(s: number, i) => s + normalizeMoney(i.custom_price) * Number(i.jumlah || 0),
-					0
-				),
-		totalQty: quoteData
-			? quoteData.total_qty
-			: (rawItems as RawCheckoutItem[]).reduce((s: number, i) => s + Number(i.jumlah || 0), 0),
+		totalAmount: quote.total_amount,
+		totalQty: quote.total_qty,
 		paymentMethod,
 		customerName
 	});
 
 	const existing = await getExistingByIdempotency(db, branch, idempotencyKey, idempotencyAvailable);
-	if (idempotencyAvailable && idempotencyKey) {
-		const voided = (await db
-			.prepare(
-				`SELECT transaction_id FROM pos_void_markers WHERE cabang_id = ? AND idempotency_key = ? LIMIT 1`
-			)
-			.bind(branch, idempotencyKey)
-			.first()) as { transaction_id?: string } | null;
-		if (voided && !existing) fail(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
-	}
+	const voided = idempotencyAvailable && (await hasVoidMarker(db, branch, idempotencyKey));
+	if (voided && !existing) fail(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
 	if (existing) {
-		if (existing.request_fingerprint !== requestFingerprint) {
-			fail(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
-		}
-
-		const receipt = existing.receipt_snapshot
-			? await parseStoredReceiptSnapshot(
-					existing.receipt_snapshot,
-					platform,
-					branch,
-					existing.transaction_id
-				)
-			: null;
-		const existingCashReceived = normalizeMoney(body.cash_received);
-		return {
-			idempotent: true,
-			d1Meta: null,
-			data: {
-				buku_kas_id: existing.id,
-				transaction_id: existing.transaction_id,
-				committed_at: existing.waktu || new Date().toISOString(),
-				total_amount: existing.nominal,
-				total_qty: existing.jumlah,
-				change:
-					paymentMethod === 'tunai' && existingCashReceived > 0
-						? existingCashReceived - existing.nominal
-						: 0,
-				nomor_harian: existing.nomor_harian ?? null,
-				tanggal_nomor: existing.tanggal_nomor ?? null,
-				receipt
-			}
-		};
+		return buildCommittedResult(existing, {
+			platform,
+			branch,
+			requestFingerprint,
+			paymentMethod,
+			cashReceived
+		});
 	}
+
 	const stockPolicy = await loadStockPolicy(db, branch);
-	let inventoryApplication: InventoryApplication =
-		stockPolicy.mode === 'tracked' ? 'apply' : 'skip_policy_ignored';
-	let replayDisposition: StockReplayDisposition = 'normal';
-
-	if (mode === 'offline_replay') {
-		const queuedAt = Number(body.queued_at);
-		let epochRevision: number | null = null;
-		if (typeof body.stock_policy_epoch_token === 'string' && body.stock_policy_epoch_token) {
-			try {
-				const epoch = await verifyStockPolicyEpoch(
-					platform?.env,
-					body.stock_policy_epoch_token,
-					branch
-				);
-				epochRevision = epoch.revision;
-			} catch {
-				epochRevision = null;
-			}
-		} else if (
-			typeof body.stock_policy_revision_at_queue === 'number' &&
-			Number.isInteger(body.stock_policy_revision_at_queue)
-		) {
-			epochRevision = body.stock_policy_revision_at_queue;
-		}
-		const transitions = await getTransitionCount(db, branch);
-		const tokenMatchesCurrent =
-			epochRevision !== null &&
-			epochRevision === stockPolicy.revision &&
-			(transitions > 0 || stockPolicy.revision === 0);
-		if (transitions === 0 && (epochRevision === null || epochRevision === 0)) {
-			replayDisposition = 'normal';
-		} else if (tokenMatchesCurrent) {
-			replayDisposition = 'normal';
-		} else if (stockPolicy.mode === 'ignored') {
-			replayDisposition = 'stale_to_ignored';
-			inventoryApplication = 'skip_policy_ignored';
-		} else {
-			const review = await loadOfflineReview(db, branch, idempotencyKey);
-			const fingerprintMatches = review?.request_fingerprint === requestFingerprint;
-			if (
-				review &&
-				fingerprintMatches &&
-				review.status === 'approved_current' &&
-				review.approved_policy_revision === stockPolicy.revision
-			) {
-				replayDisposition = 'owner_approved_current';
-				inventoryApplication = 'apply';
-			} else if (
-				review &&
-				fingerprintMatches &&
-				review.status === 'approved_after_recount' &&
-				review.approved_policy_revision === stockPolicy.revision
-			) {
-				replayDisposition = 'owner_approved_after_recount';
-				inventoryApplication = 'skip_reconciled_replay';
-			} else {
-				await ensurePendingReview(db, branch, {
-					idempotencyKey,
-					requestFingerprint,
-					queuedAt: Number.isFinite(queuedAt) ? queuedAt : Date.now(),
-					policyRevisionAtQueue: epochRevision,
-					currentPolicyRevision: stockPolicy.revision
-				});
-				throw new CheckoutUseCaseError(
-					428,
-					'Transaksi offline melewati perubahan kebijakan stok dan perlu ditinjau pemilik'
-				);
-			}
-		}
-		if (replayDisposition === 'stale_to_ignored') {
-			inventoryApplication = 'skip_policy_ignored';
-		}
-		if (replayDisposition === 'owner_approved_after_recount') {
-			inventoryApplication = 'skip_reconciled_replay';
-		}
-	}
-
-	const normalizedInputs = rawItems.map((item, index) => {
-		const jumlah = Number(item.jumlah);
-		if (!Number.isInteger(jumlah) || jumlah <= 0 || jumlah > 99) fail(400, 'Qty item tidak valid');
-		const quoteItem = quoteData?.items[index];
-		return {
-			source: item,
-			productId: item.product_id ? String(item.product_id) : null,
-			addOnIds: uniqueStrings((item.add_on_ids ?? []).map((id) => String(id))),
-			jumlah,
-			pricingSnapshot: quoteItem
-				? {
-						product_name: quoteItem.product_name,
-						product_price: quoteItem.product_price,
-						addOns: quoteItem.add_ons
-					}
-				: undefined
-		};
+	const { inventoryApplication, replayDisposition } = await resolveStockReplay({
+		db,
+		branch,
+		platform,
+		body,
+		mode,
+		stockPolicy,
+		idempotencyKey,
+		requestFingerprint
 	});
 
+	const normalizedInputs = normalizeCheckoutItems(rawItems, quote);
 	const productIds = uniqueStrings(normalizedInputs.map((item) => item.productId));
 	const addOnIds = uniqueStrings(normalizedInputs.flatMap((item) => item.addOnIds));
-	const fallbackProducts = new Map<string, ProductRow>();
-	const fallbackAddOns = new Map<string, AddOnRow>();
-	if (mode === 'offline_replay') {
-		for (const item of normalizedInputs) {
-			if (item.productId && item.pricingSnapshot) {
-				fallbackProducts.set(item.productId, {
-					id: item.productId,
-					nama: item.pricingSnapshot.product_name,
-					harga: item.pricingSnapshot.product_price,
-					stok: null,
-					lacak_stok: false,
-					lacak_bahan: false,
-					is_active: false
-				});
-			}
-			for (const addOn of item.pricingSnapshot?.addOns ?? []) {
-				fallbackAddOns.set(addOn.id, {
-					id: addOn.id,
-					nama: addOn.nama,
-					harga: addOn.harga,
-					is_active: false
-				});
-			}
-		}
-	}
+	const { fallbackProducts, fallbackAddOns } = catalogFallbacks(normalizedInputs, mode);
 
 	// Fase baca paralel: sesi toko, produk, dan add-on saling independen.
-	const isOfflineReplay = mode === 'offline_replay';
 	const [idSesiToko, productsById, addOnsById] = await Promise.all([
 		isOfflineReplay
 			? getReplaySessionId(db, branch, body.store_session_id, Number(body.queued_at))
@@ -608,9 +278,9 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const stockDeductions: StockDeductions = new Map();
 	const ingredientDeductions: IngredientDeductions = new Map();
 
-	const items = normalizedInputs.map((input) =>
+	const items = normalizedInputs.map((normalized) =>
 		computeItemFinancials({
-			input,
+			input: normalized,
 			addOnsById,
 			productsById,
 			recipesByProduct,
@@ -628,46 +298,31 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const totalAmount = items.reduce((sum, item) => sum + item.nominal, 0);
 	const totalQty = items.reduce((sum, item) => sum + item.jumlah, 0);
 	const totalHpp = items.reduce((sum, item) => sum + (item.nominal_hpp || 0), 0);
-	if (
-		quoteData &&
-		(totalAmount !== normalizeMoney(quoteData.total_amount) || totalQty !== quoteData.total_qty)
-	) {
+	if (totalAmount !== normalizeMoney(quote.total_amount) || totalQty !== quote.total_qty) {
 		fail(409, 'Total quote berubah. Verifikasi ulang pembayaran.');
 	}
-	const cashReceived = normalizeMoney(body.cash_received);
-	if (paymentMethod === 'tunai' && cashReceived < totalAmount)
+	if (paymentMethod === 'tunai' && cashReceived < totalAmount) {
 		fail(400, 'Nominal tunai kurang dari total');
+	}
 	if (paymentMethod === 'non-tunai' && cashReceived > 0 && cashReceived !== totalAmount) {
 		fail(409, 'Nominal pembayaran non-tunai tidak sama dengan total quote');
 	}
 
-	const receiptSettings = quoteData ? await loadReceiptSettingsSnapshot(db, branch) : null;
-	const receiptSnapshot = quoteData
-		? buildReceiptFromQuote(quoteData, {
-				totalAmount,
-				cashReceived,
-				paymentMethod,
-				committedAt: soldAt,
-				customerName,
-				settings: receiptSettings
-			})
-		: null;
+	const receiptSnapshot = buildReceiptFromQuote(quote, {
+		totalAmount,
+		cashReceived,
+		paymentMethod,
+		committedAt: soldAt,
+		customerName,
+		settings: await loadReceiptSettingsSnapshot(db, branch)
+	});
 
 	// Nomor antrean harian dialokasi paling akhir sebelum commit: request yang
 	// gagal validasi di atas tidak menghabiskan nomor.
 	const salesDate = formatDateYmdWita(soldAt);
 	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
 
-	const currentCatalogTotal = normalizedInputs.reduce((sum, item) => {
-		const productPrice = item.productId
-			? normalizeMoney(productsById.get(item.productId)?.harga)
-			: normalizeMoney(item.source.custom_price);
-		const addOnTotal = item.addOnIds.reduce(
-			(addOnSum, id) => addOnSum + normalizeMoney(addOnsById.get(id)?.harga),
-			0
-		);
-		return sum + (productPrice + addOnTotal) * item.jumlah;
-	}, 0);
+	const catalogTotal = currentCatalogTotal(normalizedInputs, productsById, addOnsById);
 	const auditInput: AuditLogInput = {
 		action: isOfflineReplay
 			? 'pos_transaction.offline_reconciliation_required'
@@ -686,8 +341,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			tanggalNomor: salesDate,
 			pricingSource: isOfflineReplay ? 'offline_signed_catalog' : 'online_quote',
 			queuedAt: isOfflineReplay ? Number(body.queued_at) : null,
-			currentCatalogTotal,
-			priceVariance: totalAmount - currentCatalogTotal,
+			currentCatalogTotal: catalogTotal,
+			priceVariance: totalAmount - catalogTotal,
 			stockPolicyMode: stockPolicy.mode,
 			stockPolicyRevision: stockPolicy.revision,
 			inventoryApplication,
@@ -747,6 +402,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	try {
 		d1Meta = summarizeD1Meta(await db.batch(statements));
 	} catch (error) {
+		// Request paralel dengan key yang sama bisa menang lebih dulu: hasilnya dikembalikan, bukan error.
 		const duplicate = await getExistingByIdempotency(
 			db,
 			branch,
@@ -754,134 +410,41 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			idempotencyAvailable
 		);
 		if (duplicate) {
-			if (!duplicate.request_fingerprint || duplicate.request_fingerprint !== requestFingerprint) {
-				fail(409, 'Idempotency key sudah dipakai untuk transaksi berbeda');
-			}
-
-			let receipt = duplicate.receipt_snapshot
-				? await parseStoredReceiptSnapshot(
-						duplicate.receipt_snapshot,
-						platform,
-						branch,
-						duplicate.transaction_id
-					)
-				: null;
-			if (!receipt && quoteData) {
-				receipt = buildReceiptFromQuote(quoteData, {
-					totalAmount: duplicate.nominal,
-					cashReceived,
-					paymentMethod,
-					committedAt: createdAt,
-					customerName,
-					settings: null
-				});
-			}
-
-			return {
-				idempotent: true,
-				d1Meta: null,
-				data: {
-					buku_kas_id: duplicate.id,
-					transaction_id: duplicate.transaction_id,
-					total_amount: duplicate.nominal,
-					total_qty: duplicate.jumlah,
-					change:
-						paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - duplicate.nominal : 0,
-					nomor_harian: duplicate.nomor_harian ?? null,
-					tanggal_nomor: duplicate.tanggal_nomor ?? null,
-					receipt,
-					committed_at: duplicate.waktu || new Date().toISOString()
-				}
-			};
-		}
-		const message = error instanceof Error ? error.message : String(error);
-		if (/no such table:\s*(?:main\.)?audit_log_outbox/i.test(message)) {
-			fail(503, 'Skema audit belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0018.');
-		}
-		if (/no such table:\s*(?:main\.)?antrean_notification_events/i.test(message)) {
-			fail(
-				503,
-				'Skema notifikasi Antrean belum tersedia di cabang ini. Minta pemilik menerapkan migrasi 0037.'
-			);
-		}
-		if (message.includes('TRANSACTION_VOIDED')) {
-			fail(409, 'Transaksi sudah dibatalkan (void). Buat transaksi baru.');
-		}
-		if (message.includes('STOCK_POLICY_CONFLICT')) {
-			fail(412, 'Pengaturan stok berubah. Muat ulang lalu konfirmasi transaksi kembali.');
-		}
-		if (message.includes('STOCK_REVIEW_NOT_APPROVED')) {
-			fail(428, 'Transaksi offline melewati perubahan kebijakan stok dan perlu ditinjau pemilik');
-		}
-		if (message.includes('INSUFFICIENT_STOCK')) {
-			await recordErrorEvent(platform, branch, {
-				source: 'POST /api/pos/transaction',
-				error,
-				status: 409,
-				session,
-				context: { idempotencyKey, stockDeductions: Object.fromEntries(stockDeductions) }
+			return buildCommittedResult(duplicate, {
+				platform,
+				branch,
+				requestFingerprint,
+				paymentMethod,
+				cashReceived,
+				receiptFallback: (row) =>
+					buildReceiptFromQuote(quote, {
+						totalAmount: row.nominal,
+						cashReceived,
+						paymentMethod,
+						committedAt: createdAt,
+						customerName,
+						settings: null
+					})
 			});
-			fail(409, 'Stok tidak cukup untuk salah satu item');
 		}
-		if (message.includes('INSUFFICIENT_INGREDIENT')) {
-			await recordErrorEvent(platform, branch, {
-				source: 'POST /api/pos/transaction',
-				error,
-				status: 409,
-				session,
-				context: { idempotencyKey, ingredientDeductions: Object.fromEntries(ingredientDeductions) }
-			});
-			fail(409, 'Stok bahan tidak cukup untuk salah satu menu');
-		}
-		await recordErrorEvent(platform, branch, {
-			source: 'POST /api/pos/transaction',
-			error,
-			status: 500,
+		return await failCheckoutCommit(error, {
+			platform,
+			branch,
 			session,
-			context: { idempotencyKey, totalAmount, totalQty }
+			idempotencyKey,
+			totalAmount,
+			totalQty,
+			stockDeductions,
+			ingredientDeductions
 		});
-		throw error;
 	}
 
 	// Intent is already durable. Audit delivery is owned by the scheduled drain, not request lifetime.
-	await settlePostCommitEffects(
-		[
-			(signal) =>
-				publishBranchEvent(
-					platform?.env as Record<string, unknown> | undefined,
-					branch,
-					'buku_kas',
-					'insert',
-					{ id: bukuKasId, transaction_id: transactionId },
-					undefined,
-					signal
-				),
-			(signal) =>
-				publishBranchEvent(
-					platform?.env as Record<string, unknown> | undefined,
-					branch,
-					'transaksi_kasir',
-					'insert',
-					{ transaction_id: transactionId },
-					undefined,
-					signal
-				),
-			...Array.from(ingredientDeductions.keys()).map(
-				(bahanId) => (signal: AbortSignal) =>
-					publishBranchEvent(
-						platform?.env as Record<string, unknown> | undefined,
-						branch,
-						'bahan',
-						'update',
-						{ id: bahanId },
-						undefined,
-						signal
-					)
-			)
-		],
-		undefined,
-		platform?.context
-	);
+	await publishCheckoutEvents(platform, branch, {
+		bukuKasId,
+		transactionId,
+		ingredientIds: Array.from(ingredientDeductions.keys())
+	});
 	// Pengiriman berjalan setelah commit; kegagalan provider tidak mengubah hasil checkout.
 	void kickOrderNotifications(platform, branch);
 
@@ -897,37 +460,7 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,
 			nomor_harian: nomorHarian,
 			tanggal_nomor: salesDate,
-			receipt: receiptSnapshot ?? {
-				items: items.map((item) => {
-					let tambahan: unknown = [];
-					if (item.snapshot_tambahan) {
-						try {
-							tambahan = JSON.parse(item.snapshot_tambahan);
-						} catch {
-							tambahan = [];
-						}
-					}
-					return {
-						product_id: item.produk_id,
-						nama: item.product_name,
-						jumlah: item.jumlah,
-						harga: item.harga,
-						nominal: item.nominal,
-						harga_dasar: item.harga_dasar,
-						total_tambahan: item.total_tambahan,
-						tambahan,
-						gula: item.gula,
-						es: item.es,
-						catatan: item.catatan
-					};
-				}),
-				total_amount: totalAmount,
-				total_qty: totalQty,
-				cash_received: cashReceived,
-				change: paymentMethod === 'tunai' && cashReceived > 0 ? cashReceived - totalAmount : 0,
-				metode_bayar: paymentMethod,
-				committed_at: createdAt
-			}
+			receipt: receiptSnapshot
 		}
 	};
 }
