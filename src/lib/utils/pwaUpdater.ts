@@ -1,4 +1,4 @@
-export type PwaUpdateState = 'idle' | 'available' | 'updating' | 'reload';
+export type PwaUpdateState = 'idle' | 'available' | 'updating' | 'reload' | 'retry';
 
 export const PWA_UPDATE_TIMEOUT_MS = 5_000;
 export const PWA_UPDATE_CHECK_MS = 30 * 60 * 1000;
@@ -9,17 +9,21 @@ interface PwaUpdaterDeps {
 	getWaiting: () => ServiceWorker | null;
 	reload: () => void;
 	onState: (state: PwaUpdateState) => void;
-	onError: (message: string) => void;
 }
 
 /**
  * Mesin status update PWA. Worker baru hanya diaktifkan atas klik kasir (SKIP_WAITING),
  * jadi reload tidak memotong transaksi. Tiga jalan keluar dijaga agar tombol tidak diam:
  * aktivasi yang tak kunjung datang (timeout), worker diaktifkan tab lain, dan waiting hilang.
+ * Tab yang belum dikontrol worker tidak menerima controlling; statechange pada worker
+ * waiting juga menjadi bukti aktivasi. Setelah timeout, reload perlu klik baru.
  */
 export function createPwaUpdater(deps: PwaUpdaterDeps) {
 	let state: PwaUpdateState = 'idle';
 	let timer: ReturnType<typeof setTimeout> | null = null;
+	let worker: ServiceWorker | null = null;
+	let reloadStarted = false;
+	let disposed = false;
 
 	const set = (next: PwaUpdateState) => {
 		if (state === next) return;
@@ -30,20 +34,60 @@ export function createPwaUpdater(deps: PwaUpdaterDeps) {
 		if (timer) clearTimeout(timer);
 		timer = null;
 	};
-	const idleOrAvailable = () => (deps.getWaiting() ? 'available' : 'idle');
+	const stopWatching = () => {
+		worker?.removeEventListener('statechange', onWorkerStateChange);
+		worker = null;
+	};
+	const reload = () => {
+		if (reloadStarted || disposed) return;
+		reloadStarted = true;
+		clearTimer();
+		stopWatching();
+		deps.reload();
+	};
+	const activated = () => {
+		if (reloadStarted || disposed) return;
+		clearTimer();
+		stopWatching();
+		if (state === 'updating') reload();
+		else set('reload');
+	};
+	function onWorkerStateChange() {
+		if (worker?.state === 'activated') activated();
+		else if (worker?.state === 'redundant') {
+			clearTimer();
+			stopWatching();
+			set('retry');
+		}
+	}
+	const watch = (next: ServiceWorker | null) => {
+		if (worker === next) return;
+		stopWatching();
+		worker = next;
+		worker?.addEventListener('statechange', onWorkerStateChange);
+	};
 
 	return {
 		get state() {
 			return state;
 		},
-		/** Baca ulang registration.waiting; tidak menimpa updating/reload. */
+		/** Baca ulang registration.waiting; tidak menimpa updating/reload maupun pemulihan. */
 		sync() {
-			if (state === 'updating' || state === 'reload') return;
-			set(idleOrAvailable());
+			if (disposed || reloadStarted || (state !== 'idle' && state !== 'available')) return;
+			const waiting = deps.getWaiting();
+			if (!waiting && worker?.state === 'activated') {
+				activated();
+				return;
+			}
+			if (!waiting && worker?.state === 'activating') return;
+			watch(waiting);
+			set(waiting ? 'available' : 'idle');
+			onWorkerStateChange();
 		},
 		apply() {
-			if (state === 'reload') {
-				deps.reload();
+			if (disposed || reloadStarted) return;
+			if (state === 'reload' || state === 'retry') {
+				reload();
 				return;
 			}
 			if (state !== 'available') return;
@@ -51,35 +95,38 @@ export function createPwaUpdater(deps: PwaUpdaterDeps) {
 			if (!waiting) {
 				// Worker sudah diaktifkan di tempat lain; halaman ini masih memakai JS lama.
 				set('reload');
+				reload();
 				return;
 			}
+			watch(waiting);
 			set('updating');
-			try {
-				waiting.postMessage({ type: 'SKIP_WAITING' });
-			} catch {
-				set(idleOrAvailable());
-				deps.onError('Update belum dapat diterapkan. Muat ulang lalu coba lagi.');
-				return;
-			}
 			timer = setTimeout(() => {
 				timer = null;
 				if (state !== 'updating') return;
-				set(idleOrAvailable());
-				deps.onError('Update tidak merespons. Coba lagi, atau muat ulang halaman.');
+				onWorkerStateChange();
+				if (state === 'updating' && !reloadStarted) set('retry');
 			}, PWA_UPDATE_TIMEOUT_MS);
+			onWorkerStateChange();
+			if (reloadStarted || waiting.state === 'redundant') return;
+			try {
+				waiting.postMessage({ type: 'SKIP_WAITING' });
+			} catch {
+				// Worker bisa berhenti saat pesan dikirim; banner menyediakan pemulihan manual.
+				clearTimer();
+				set('retry');
+			}
 		},
 		/** Event `controlling`: worker baru mengambil alih halaman ini. */
 		controlled() {
-			if (state === 'updating') {
-				clearTimer();
-				deps.reload();
-				return;
-			}
+			if (state === 'idle') return;
 			// Diaktifkan dari tab lain: jangan reload paksa, minta kasir yang memutuskan.
-			clearTimer();
-			set('reload');
+			activated();
 		},
-		dispose: clearTimer
+		dispose() {
+			disposed = true;
+			clearTimer();
+			stopWatching();
+		}
 	};
 }
 

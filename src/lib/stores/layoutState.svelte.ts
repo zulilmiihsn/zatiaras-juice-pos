@@ -31,8 +31,7 @@ export function createLayoutState() {
 	const pwaUpdater = createPwaUpdater({
 		getWaiting: () => pwaRegistration?.waiting ?? null,
 		reload: () => window.location.reload(),
-		onState: (next) => (pwaState = next),
-		onError: (message) => toastManager.showToastNotification(message, 'error')
+		onState: (next) => (pwaState = next)
 	});
 	const pwaWaiting = () => pwaUpdater.sync();
 	const pwaControlling = () => pwaUpdater.controlled();
@@ -201,6 +200,9 @@ export function createLayoutState() {
 		},
 		get pwaReloadRequired() {
 			return pwaState === 'reload';
+		},
+		get pwaUpdateDelayed() {
+			return pwaState === 'retry';
 		},
 		updatePwa: () => pwaUpdater.apply(),
 		toastManager,

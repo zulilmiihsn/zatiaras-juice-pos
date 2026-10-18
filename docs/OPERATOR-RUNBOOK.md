@@ -222,6 +222,26 @@ duplikat; event realtime lintas cabang.
 - Saat alert masuk: cek apakah kasir masih bisa checkout; bila tidak, ikuti §6 (stop/rollback) dan
   hubungi pengembang. Alert tidak menghentikan atau mengubah transaksi apa pun.
 
+## 8b. Pembaruan aplikasi PWA setelah deploy
+
+- Banner **Versi baru siap dipakai** berarti worker baru sudah terpasang dan menunggu
+  persetujuan. Selesaikan pesanan aktif, lalu tekan **Perbarui**. **Nanti** menunda pada tab itu.
+- Klik mengirim `SKIP_WAITING`; halaman dimuat ulang satu kali setelah worker mengambil
+  alih atau selesai berstatus `activated`. Tab yang belum dikontrol worker dapat menerima
+  update tanpa event `controlling`; status aktivasi worker juga dipantau langsung.
+- Aktivasi dari tab lain menampilkan **Aplikasi sudah diperbarui** dan tombol **Muat ulang**,
+  tanpa memuat ulang tab kasir otomatis.
+- Bila belum ada konfirmasi dalam 5 detik, banner tetap tersedia dengan pesan
+  **Pembaruan belum selesai** dan tombol **Muat ulang**. Pengguna tetap dapat bekerja atau
+  menunda; aktivasi yang terlambat menunggu klik baru agar tidak memotong transaksi.
+- Tab yang masih menjalankan kode updater lama perlu sekali muat ulang setelah rilis
+  perbaikan. Jangan menghapus data situs untuk memperbarui: antrean offline dan identitas
+  notifikasi tersimpan di perangkat.
+- Bukti lokal: `pnpm test:pwa-updater` dan
+  `node scripts/run-playwright-local.mjs e2e/pwa-updater.spec.ts e2e/offline.spec.ts`.
+  Suite browser memakai worker fixture di loopback untuk menguji siklus dua tab,
+  aktivasi tanpa controller, reload nyata, dan pemulihan timeout; bukan smoke produksi.
+
 ## 9. Wipe riwayat transaksi uji (satu cabang)
 
 Destruktif; rollback satu-satunya adalah restore dari backup.

@@ -8,28 +8,40 @@ import {
 	type PwaUpdateState
 } from '../lib/utils/pwaUpdater';
 
+class FakeWorker extends EventTarget {
+	state: ServiceWorkerState = 'installed';
+
+	constructor(readonly postMessage: (message: unknown) => void) {
+		super();
+	}
+
+	transition(state: ServiceWorkerState) {
+		this.state = state;
+		this.dispatchEvent(new Event('statechange'));
+	}
+}
+
 function harness(initialWaiting: boolean) {
 	const posted: unknown[] = [];
 	const states: PwaUpdateState[] = [];
-	const errors: string[] = [];
 	let reloads = 0;
-	let waiting: { postMessage: (m: unknown) => void } | null = initialWaiting
-		? { postMessage: (m) => posted.push(m) }
-		: null;
+	let waiting = initialWaiting ? new FakeWorker((message) => posted.push(message)) : null;
 	const updater = createPwaUpdater({
-		getWaiting: () => waiting as ServiceWorker | null,
+		getWaiting: () => waiting as unknown as ServiceWorker | null,
 		reload: () => void reloads++,
-		onState: (s) => states.push(s),
-		onError: (m) => errors.push(m)
+		onState: (s) => states.push(s)
 	});
 	return {
 		updater,
 		posted,
 		states,
-		errors,
 		reloads: () => reloads,
+		worker: () => {
+			assert.ok(waiting);
+			return waiting;
+		},
 		setWaiting: (w: boolean) => {
-			waiting = w ? { postMessage: (m) => posted.push(m) } : null;
+			waiting = w ? new FakeWorker((message) => posted.push(message)) : null;
 		}
 	};
 }
@@ -45,7 +57,41 @@ test('waiting terdeteksi lalu klik mengirim SKIP_WAITING dan reload saat control
 	assert.equal(h.reloads(), 1);
 });
 
-test('klik tanpa controlling: timeout mengembalikan tombol dan memberi tahu kasir', () => {
+test('controlling instalasi awal tidak meminta reload tanpa update', () => {
+	const h = harness(false);
+	h.updater.controlled();
+	assert.equal(h.updater.state, 'idle');
+	assert.equal(h.reloads(), 0);
+});
+
+test('worker aktif tanpa controlling tetap menyelesaikan update dan membatalkan timeout', () => {
+	mock.timers.enable({ apis: ['setTimeout'] });
+	try {
+		const h = harness(true);
+		h.updater.sync();
+		h.updater.apply();
+		h.worker().transition('activating');
+		assert.equal(h.reloads(), 0, 'tunggu aktivasi selesai');
+		h.worker().transition('activated');
+		assert.equal(h.reloads(), 1, 'tab tanpa controller harus memakai worker yang sudah aktif');
+		mock.timers.tick(PWA_UPDATE_TIMEOUT_MS * 2);
+		assert.equal(h.updater.state, 'updating', 'timeout lama tidak mengubah hasil aktivasi');
+	} finally {
+		mock.timers.reset();
+	}
+});
+
+test('aktivasi dan controlling bersamaan hanya me-reload sekali', () => {
+	const h = harness(true);
+	h.updater.sync();
+	h.updater.apply();
+	h.worker().transition('activated');
+	h.updater.controlled();
+	h.updater.apply();
+	assert.equal(h.reloads(), 1);
+});
+
+test('aktivasi tertunda: tersedia pemulihan muat ulang tanpa toast gagal', () => {
 	mock.timers.enable({ apis: ['setTimeout'] });
 	try {
 		const h = harness(true);
@@ -54,9 +100,29 @@ test('klik tanpa controlling: timeout mengembalikan tombol dan memberi tahu kasi
 		mock.timers.tick(PWA_UPDATE_TIMEOUT_MS - 1);
 		assert.equal(h.updater.state, 'updating');
 		mock.timers.tick(1);
-		assert.equal(h.updater.state, 'available');
-		assert.equal(h.errors.length, 1);
+		assert.equal(h.updater.state, 'retry');
 		assert.equal(h.reloads(), 0);
+		h.updater.sync();
+		assert.equal(h.updater.state, 'retry', 'pesan pemulihan tetap terlihat');
+		h.updater.apply();
+		assert.equal(h.reloads(), 1);
+	} finally {
+		mock.timers.reset();
+	}
+});
+
+test('worker aktif sesudah timeout menunggu klik baru, tidak memotong transaksi', () => {
+	mock.timers.enable({ apis: ['setTimeout'] });
+	try {
+		const h = harness(true);
+		h.updater.sync();
+		h.updater.apply();
+		mock.timers.tick(PWA_UPDATE_TIMEOUT_MS);
+		h.worker().transition('activated');
+		assert.equal(h.updater.state, 'reload');
+		assert.equal(h.reloads(), 0);
+		h.updater.apply();
+		assert.equal(h.reloads(), 1);
 	} finally {
 		mock.timers.reset();
 	}
@@ -70,7 +136,7 @@ test('controlling datang sebelum timeout membatalkan timeout', () => {
 		h.updater.apply();
 		h.updater.controlled();
 		mock.timers.tick(PWA_UPDATE_TIMEOUT_MS * 2);
-		assert.equal(h.errors.length, 0);
+		assert.equal(h.updater.state, 'updating');
 		assert.equal(h.reloads(), 1);
 	} finally {
 		mock.timers.reset();
@@ -88,32 +154,91 @@ test('tab lain mengaktifkan worker: banner minta muat ulang, klik reload', () =>
 	assert.equal(h.reloads(), 1);
 });
 
-test('klik saat waiting sudah hilang tidak diam: beralih ke muat ulang', () => {
+test('tab tanpa controller melihat aktivasi dari tab lain, tanpa reload otomatis', () => {
+	const h = harness(true);
+	h.updater.sync();
+	const worker = h.worker();
+	h.setWaiting(false);
+	worker.transition('activated');
+	assert.equal(h.updater.state, 'reload');
+	assert.equal(h.reloads(), 0);
+	h.updater.apply();
+	assert.equal(h.reloads(), 1);
+});
+
+test('klik saat waiting sudah hilang langsung memuat ulang, tanpa klik kedua', () => {
 	const h = harness(true);
 	h.updater.sync();
 	h.setWaiting(false);
 	h.updater.apply();
 	assert.equal(h.updater.state, 'reload');
 	assert.equal(h.posted.length, 0);
+	assert.equal(h.reloads(), 1);
 });
 
-test('postMessage melempar error: kembali available dan lapor', () => {
-	const errors: string[] = [];
+test('postMessage melempar error: pemulihan muat ulang tersedia tanpa toast gagal', () => {
+	let reloads = 0;
 	const updater = createPwaUpdater({
 		getWaiting: () =>
-			({
-				postMessage() {
-					throw new Error('dead');
-				}
+			new FakeWorker(() => {
+				throw new Error('dead');
 			}) as unknown as ServiceWorker,
-		reload: () => assert.fail('tidak boleh reload'),
-		onState: () => {},
-		onError: (m) => errors.push(m)
+		reload: () => void reloads++,
+		onState: () => {}
 	});
 	updater.sync();
 	updater.apply();
-	assert.equal(updater.state, 'available');
-	assert.equal(errors.length, 1);
+	assert.equal(updater.state, 'retry');
+	assert.equal(reloads, 0);
+	updater.apply();
+	assert.equal(reloads, 1);
+});
+
+test('worker redundant menyediakan pemulihan, tanpa mengaku update berhasil', () => {
+	const h = harness(true);
+	h.updater.sync();
+	h.updater.apply();
+	h.worker().transition('redundant');
+	assert.equal(h.updater.state, 'retry');
+	assert.equal(h.reloads(), 0);
+	h.updater.dispose();
+});
+
+test('worker waiting pengganti melepas listener worker lama', () => {
+	const h = harness(true);
+	h.updater.sync();
+	const previous = h.worker();
+	h.setWaiting(true);
+	h.updater.sync();
+	previous.transition('activated');
+	assert.equal(h.updater.state, 'available');
+	assert.equal(h.reloads(), 0);
+	h.worker().transition('activated');
+	assert.equal(h.updater.state, 'reload');
+	assert.equal(h.reloads(), 0);
+});
+
+test('sync saat aktivasi berlangsung tetap memantau worker meski waiting sudah kosong', () => {
+	const h = harness(true);
+	h.updater.sync();
+	const worker = h.worker();
+	worker.transition('activating');
+	h.setWaiting(false);
+	h.updater.sync();
+	assert.equal(h.updater.state, 'available');
+	worker.transition('activated');
+	assert.equal(h.updater.state, 'reload');
+	assert.equal(h.reloads(), 0);
+});
+
+test('sync memeriksa aktivasi selesai sebelum event statechange dikirim browser', () => {
+	const h = harness(true);
+	h.updater.sync();
+	h.worker().state = 'activated';
+	h.setWaiting(false);
+	h.updater.sync();
+	assert.equal(h.updater.state, 'reload');
+	assert.equal(h.reloads(), 0);
 });
 
 test('sync tidak menimpa updating/reload dan klik ganda diabaikan', () => {
@@ -125,6 +250,7 @@ test('sync tidak menimpa updating/reload dan klik ganda diabaikan', () => {
 	h.setWaiting(false);
 	h.updater.sync();
 	assert.equal(h.updater.state, 'updating');
+	h.updater.dispose();
 });
 
 test('worker waiting menghilang saat available: banner ikut hilang', () => {
@@ -135,15 +261,17 @@ test('worker waiting menghilang saat available: banner ikut hilang', () => {
 	assert.equal(h.updater.state, 'idle');
 });
 
-test('dispose membatalkan timeout', () => {
+test('dispose membatalkan timeout dan listener aktivasi', () => {
 	mock.timers.enable({ apis: ['setTimeout'] });
 	try {
 		const h = harness(true);
 		h.updater.sync();
 		h.updater.apply();
 		h.updater.dispose();
+		h.worker().transition('activated');
 		mock.timers.tick(PWA_UPDATE_TIMEOUT_MS * 2);
-		assert.equal(h.errors.length, 0);
+		assert.equal(h.updater.state, 'updating');
+		assert.equal(h.reloads(), 0);
 	} finally {
 		mock.timers.reset();
 	}

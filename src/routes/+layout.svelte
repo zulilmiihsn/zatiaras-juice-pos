@@ -237,6 +237,7 @@
 	<section
 		class="animate-fade-in mx-3 mt-3 flex max-w-xl flex-col gap-3 rounded-2xl border border-pink-100 bg-white p-3 shadow-[0_8px_24px_-4px_rgba(219,39,119,0.12)] sm:flex-row sm:items-center md:mx-auto"
 		aria-label="Pembaruan aplikasi"
+		aria-busy={layoutSt.pwaUpdating}
 		data-testid="pwa-update-banner"
 	>
 		<div class="flex min-w-0 flex-1 items-center gap-3">
@@ -252,12 +253,18 @@
 			</span>
 			<div class="min-w-0" role="status">
 				<p class="text-sm font-extrabold text-stone-900">
-					{layoutSt.pwaReloadRequired ? 'Aplikasi sudah diperbarui' : 'Versi baru siap dipakai'}
+					{layoutSt.pwaUpdateDelayed
+						? 'Pembaruan belum selesai'
+						: layoutSt.pwaReloadRequired
+							? 'Aplikasi sudah diperbarui'
+							: 'Versi baru siap dipakai'}
 				</p>
 				<p class="text-xs leading-snug text-stone-600">
-					{layoutSt.pwaReloadRequired
-						? 'Muat ulang untuk memakai versi terbaru.'
-						: 'Selesaikan pesanan yang sedang dibuat, lalu perbarui.'}
+					{layoutSt.pwaUpdateDelayed
+						? 'Aplikasi tetap bisa dipakai. Muat ulang saat pesanan selesai untuk mencoba lagi.'
+						: layoutSt.pwaReloadRequired
+							? 'Muat ulang untuk memakai versi terbaru.'
+							: 'Selesaikan pesanan yang sedang dibuat, lalu perbarui.'}
 				</p>
 			</div>
 		</div>
@@ -266,7 +273,7 @@
 				<button
 					type="button"
 					onclick={() => (updateDismissed = true)}
-					class="min-h-11 rounded-xl px-4 text-sm font-bold text-stone-600 transition-colors hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none"
+					class="min-h-11 rounded-xl px-4 text-sm font-bold text-stone-600 transition duration-200 ease-out hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none active:scale-[0.98]"
 				>
 					Nanti
 				</button>
@@ -275,11 +282,11 @@
 				type="button"
 				onclick={layoutSt.updatePwa}
 				disabled={layoutSt.pwaUpdating}
-				class="btn-brand-primary flex-1 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none sm:flex-none"
+				class="btn-brand-primary flex-1 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] sm:flex-none"
 			>
 				{layoutSt.pwaUpdating
 					? 'Memperbarui…'
-					: layoutSt.pwaReloadRequired
+					: layoutSt.pwaReloadRequired || layoutSt.pwaUpdateDelayed
 						? 'Muat ulang'
 						: 'Perbarui'}
 			</button>
