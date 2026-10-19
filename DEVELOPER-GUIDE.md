@@ -89,6 +89,11 @@ UI (src/routes, src/lib/components)
   `updated_at`, dan mutasi stok memakai jam commit server.
 - Replay yang melewati perubahan kebijakan stok dikarantina (HTTP 428) sampai pemilik
   menyetujui di `/pengaturan/pemilik/stok`.
+- Hanya token epoch bertanda tangan yang dapat membuktikan revisi stok saat
+  antrean dibuat. Angka revisi legacy tetap terbaca, tetapi setelah kebijakan
+  pernah berubah, angka tersebut membutuhkan review pemilik. Penarikan
+  persetujuan memperbarui revisi tinjauan secara atomik ke kebijakan cabang
+  saat ini sebelum pemilik memberi persetujuan ulang.
 - Klien mengklasifikasi kegagalan: 401/403 `auth`, 4xx konflik permanen, 429 dan 5xx
   dicoba ulang dengan backoff. Item konflik tetap di antrean dan bisa diekspor.
 

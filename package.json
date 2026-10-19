@@ -77,6 +77,7 @@
 		"test:stock-health": "tsx src/tests/stock-health-tests.ts",
 		"test:stock-reconciliation": "tsx src/tests/stock-reconciliation-tests.ts",
 		"test:stock-offline-review": "tsx src/tests/stock-offline-review-tests.ts",
+		"test:stock-replay-contract": "tsx src/tests/stock-replay-contract-tests.ts",
 		"test:page-lock": "tsx src/tests/page-lock-tests.ts",
 		"test:session-renew": "tsx src/tests/session-renew-tests.ts",
 		"test:catalog-routes": "tsx src/tests/catalog-route-tests.ts",

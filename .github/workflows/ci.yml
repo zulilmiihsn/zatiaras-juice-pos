@@ -225,6 +225,12 @@ jobs:
           pnpm test:stock-offline-review
           pnpm test:stock-write-guards
 
+      - name: Run Stock Replay Trust Contracts
+        run: pnpm test:stock-replay-contract
+
+      - name: Run Stock Replay Trust Contracts on D1
+        run: pnpm test:stock-replay-contract --d1
+
       - name: Run Page Lock Suite
         run: pnpm test:page-lock
 

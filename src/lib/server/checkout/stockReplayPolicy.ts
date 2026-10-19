@@ -16,7 +16,7 @@ async function revisionAtQueue(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
 	body: PosTransactionInput
-): Promise<number | null> {
+): Promise<{ revision: number | null; verified: boolean }> {
 	if (typeof body.stock_policy_epoch_token === 'string' && body.stock_policy_epoch_token) {
 		try {
 			const epoch = await verifyStockPolicyEpoch(
@@ -24,14 +24,19 @@ async function revisionAtQueue(
 				body.stock_policy_epoch_token,
 				branch
 			);
-			return epoch.revision;
+			return { revision: epoch.revision, verified: true };
 		} catch {
 			// Token epoch tak valid diperlakukan seperti tanpa revisi; keputusannya ada di pencocokan revisi.
-			return null;
+			return { revision: null, verified: false };
 		}
 	}
 	const legacy = body.stock_policy_revision_at_queue;
-	return typeof legacy === 'number' && Number.isInteger(legacy) ? legacy : null;
+	// Metadata lama tetap terbaca untuk review; angka dari klien tidak membuktikan revisi kebijakan.
+	return {
+		revision:
+			typeof legacy === 'number' && Number.isSafeInteger(legacy) && legacy >= 0 ? legacy : null,
+		verified: false
+	};
 }
 
 /**
@@ -59,10 +64,11 @@ export async function resolveStockReplay(input: {
 	};
 	if (input.mode !== 'offline_replay') return unchanged;
 
-	const epochRevision = await revisionAtQueue(input.platform, branch, body);
+	const { revision: epochRevision, verified } = await revisionAtQueue(input.platform, branch, body);
 	const transitions = await getTransitionCount(db, branch);
 	const neverTransitioned = transitions === 0 && (epochRevision === null || epochRevision === 0);
 	const tokenMatchesCurrent =
+		verified &&
 		epochRevision !== null &&
 		epochRevision === stockPolicy.revision &&
 		(transitions > 0 || stockPolicy.revision === 0);

@@ -142,6 +142,10 @@ export async function withdrawReview(
 		.prepare(
 			`UPDATE offline_stock_reviews
 			 SET status = 'pending', resolution = NULL, reconciliation_job_id = NULL,
+				 current_policy_revision = COALESCE((
+					 SELECT revision FROM stock_policy
+					 WHERE cabang_id = offline_stock_reviews.cabang_id
+				 ), 0),
 				 approved_policy_revision = NULL, reviewed_by = NULL, reviewed_at = NULL,
 				 consumed_at = NULL, revision = revision + 1
 			 WHERE cabang_id = ? AND idempotency_key = ? AND revision = ? AND status = 'approved_current'`
