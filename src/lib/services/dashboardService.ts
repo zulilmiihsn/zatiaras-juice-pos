@@ -9,7 +9,7 @@ import {
 	witaToUtcRange,
 	WITA_TIME_ZONE
 } from '$lib/utils/dateTime';
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get as idbGet, update as idbUpdate } from 'idb-keyval';
 import { dbGet } from '$lib/services/dataApiClient';
 import { CACHE_TTL_MS, REPORT_CACHE_VERSION } from '$lib/constants/cache';
 import type { TopUsedIngredient } from '$lib/types';
@@ -39,9 +39,9 @@ function stringField(row: DashboardRow, key: string, fallback = ''): string {
 
 // Monitoring stok nonaktif: lewati query inventaris agar saldo basi tidak diklaim current.
 // Fail-safe ke tracked bila policy tidak dapat dibaca.
-async function isStockMonitoringIgnored(): Promise<boolean> {
+async function isStockMonitoringIgnored(branch: string): Promise<boolean> {
 	try {
-		const response = await fetch('/api/pengaturan/stok', {
+		const response = await fetch(`/api/pengaturan/stok?branch=${encodeURIComponent(branch)}`, {
 			headers: { Accept: 'application/json' },
 			cache: 'no-store'
 		});
@@ -53,9 +53,9 @@ async function isStockMonitoringIgnored(): Promise<boolean> {
 	}
 }
 
-async function getCachedPosKas7Hari() {
+async function getCachedPosKas7Hari(branch: string, guard: () => boolean) {
+	if (!guard()) return [];
 	const todayStr = getTodayWita();
-	const branch = selectedBranch.value || 'default';
 	const cacheKey = `pos_kas_7hari_${branch}_${todayStr}`;
 	const cached = await bestEffortCache(() =>
 		idbGet<{ data: DashboardSaleRow[]; timestamp: number }>(cacheKey)
@@ -72,14 +72,20 @@ async function getCachedPosKas7Hari() {
 	const { startUtc } = witaToUtcRange(labels[0]);
 	const { endUtc } = witaToUtcRange(labels[6]);
 
-	const result = await dbGet<DashboardSaleRow>('pos_kas_7hari', { start: startUtc, end: endUtc });
-	await bestEffortCache(() => idbSet(cacheKey, { data: result, timestamp: Date.now() }));
+	const result = await dbGet<DashboardSaleRow>(
+		'pos_kas_7hari',
+		{ start: startUtc, end: endUtc },
+		branch
+	);
+	await bestEffortCache(() =>
+		idbUpdate(cacheKey, (current) => (guard() ? { data: result, timestamp: Date.now() } : current))
+	);
 	return result;
 }
 
-async function getAvgTransaksiHarian(): Promise<number> {
+async function getAvgTransaksiHarian(branch: string, guard: () => boolean): Promise<number> {
+	if (!guard()) return 0;
 	const todayStr = getTodayWita();
-	const branch = selectedBranch.value || 'default';
 	const cacheKey = `avg_transaksi_${branch}_${todayStr}`;
 	const cached = await bestEffortCache(() =>
 		idbGet<{ value: number; timestamp: number }>(cacheKey)
@@ -88,7 +94,7 @@ async function getAvgTransaksiHarian(): Promise<number> {
 		return cached.value;
 	}
 
-	const kas7 = await getCachedPosKas7Hari();
+	const kas7 = await getCachedPosKas7Hari(branch, guard);
 	const labels = getLastDaysYmdWita(7);
 
 	const perHari: Record<string, Set<string>> = {};
@@ -98,13 +104,15 @@ async function getAvgTransaksiHarian(): Promise<number> {
 		if (perHari[date] && t.transaction_id) perHari[date].add(t.transaction_id);
 	}
 	const avg = Math.round(Object.values(perHari).reduce((s, set) => s + set.size, 0) / 7);
-	await bestEffortCache(() => idbSet(cacheKey, { value: avg, timestamp: Date.now() }));
+	await bestEffortCache(() =>
+		idbUpdate(cacheKey, (current) => (guard() ? { value: avg, timestamp: Date.now() } : current))
+	);
 	return avg;
 }
 
-async function getJamRamaiMingguan(): Promise<string> {
+async function getJamRamaiMingguan(branch: string, guard: () => boolean): Promise<string> {
+	if (!guard()) return '';
 	const todayStr = getTodayWita();
-	const branch = selectedBranch.value || 'default';
 	const cacheKey = `jam_ramai_mingguan_${branch}_${todayStr}`;
 	const cached = await bestEffortCache(() =>
 		idbGet<{ value: string; timestamp: number }>(cacheKey)
@@ -113,7 +121,7 @@ async function getJamRamaiMingguan(): Promise<string> {
 		return cached.value;
 	}
 
-	const kas = await getCachedPosKas7Hari();
+	const kas = await getCachedPosKas7Hari(branch, guard);
 	const witaHour = new Intl.DateTimeFormat('en-US', {
 		timeZone: WITA_TIME_ZONE,
 		hour: '2-digit',
@@ -137,7 +145,9 @@ async function getJamRamaiMingguan(): Promise<string> {
 	const result =
 		peak >= 0 ? `${String(peak).padStart(2, '0')}.00–${String(peak + 1).padStart(2, '0')}.00` : '';
 
-	await bestEffortCache(() => idbSet(cacheKey, { value: result, timestamp: Date.now() }));
+	await bestEffortCache(() =>
+		idbUpdate(cacheKey, (current) => (guard() ? { value: result, timestamp: Date.now() } : current))
+	);
 	return result;
 }
 
@@ -151,6 +161,11 @@ export class DashboardService {
 
 	async getDashboardStats() {
 		const branch = selectedBranch.value || 'default';
+		const epoch = selectedBranch.contextEpoch;
+		const guard = smartCache.createCommitGuard(
+			`${CACHE_KEYS.DASHBOARD_STATS}_${branch}`,
+			() => selectedBranch.value === branch && selectedBranch.contextEpoch === epoch
+		);
 		return smartCache.get(
 			`${CACHE_KEYS.DASHBOARD_STATS}_${branch}`,
 			async () => {
@@ -201,14 +216,14 @@ export class DashboardService {
 						0
 					);
 
-					const avgTransaksi = await getAvgTransaksiHarian();
-					const jamRamai = await getJamRamaiMingguan();
-					const stockIgnored = await isStockMonitoringIgnored();
+					const avgTransaksi = await getAvgTransaksiHarian(branch, guard);
+					const jamRamai = await getJamRamaiMingguan(branch, guard);
+					const stockIgnored = await isStockMonitoringIgnored(branch);
 					const [bahanRes, mutasiRes] = stockIgnored
 						? [[], []]
 						: await Promise.all([
-								dbGet<DashboardRow>('bahan', { limit: '500' }).catch(() => []),
-								dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }).catch(() => [])
+								dbGet<DashboardRow>('bahan', { limit: '500' }, branch).catch(() => []),
+								dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }, branch).catch(() => [])
 							]);
 
 					const lowStockBahan = Array.isArray(bahanRes)
@@ -311,14 +326,14 @@ export class DashboardService {
 					.filter((t: DashboardRow) => t.metode_bayar === 'non-tunai' || t.metode_bayar === 'qris')
 					.reduce((s: number, t: DashboardRow) => s + numberField(t, 'nominal'), 0);
 
-				const avgTransaksi = await getAvgTransaksiHarian();
-				const jamRamai = await getJamRamaiMingguan();
-				const stockIgnoredFallback = await isStockMonitoringIgnored();
+				const avgTransaksi = await getAvgTransaksiHarian(branch, guard);
+				const jamRamai = await getJamRamaiMingguan(branch, guard);
+				const stockIgnoredFallback = await isStockMonitoringIgnored(branch);
 				const [bahanRes, mutasiRes] = stockIgnoredFallback
 					? [[], []]
 					: await Promise.all([
-							dbGet<DashboardRow>('bahan', { limit: '500' }).catch(() => []),
-							dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }).catch(() => [])
+							dbGet<DashboardRow>('bahan', { limit: '500' }, branch).catch(() => []),
+							dbGet<DashboardRow>('bahan_mutasi', { limit: '500' }, branch).catch(() => [])
 						]);
 
 				const lowStockBahan = Array.isArray(bahanRes)
@@ -394,7 +409,7 @@ export class DashboardService {
 					bestSellers: []
 				};
 			},
-			{ ttl: CACHE_TTL_MS.DASHBOARD_OVERVIEW, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.DASHBOARD_OVERVIEW, backgroundRefresh: true, guard }
 		);
 	}
 

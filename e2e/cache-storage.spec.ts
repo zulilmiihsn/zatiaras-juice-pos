@@ -15,6 +15,84 @@ const old = {
 	categories: [{ id: 'c-old', nama: 'Menu Lama' }],
 	addOns: [{ id: 'a-old', nama: 'Susu Lama', harga: 2000 }]
 };
+
+test('logout removes private cached data while retaining pending offline transactions', async ({
+	page
+}) => {
+	await probe(page, 'healthy');
+	const result = await page.evaluate(async () => {
+		const [{ auth }, { smartCache }, offline] = await Promise.all([
+			import('/src/lib/auth/auth.ts'),
+			import('/src/lib/utils/cache.ts'),
+			import('/src/lib/utils/offline.ts')
+		]);
+		const privateData = { omzet: 515000 };
+		const freshData = { omzet: 0 };
+		await smartCache.get('dashboard_stats_samarinda', async () => privateData, {
+			backgroundRefresh: false
+		});
+		async function storeValue(
+			databaseName: string,
+			storeName: string,
+			key: string,
+			value?: unknown
+		) {
+			const database = await new Promise<IDBDatabase>((resolve, reject) => {
+				const request = indexedDB.open(databaseName, 1);
+				request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error);
+			});
+			try {
+				const tx = database.transaction(storeName, value === undefined ? 'readonly' : 'readwrite');
+				const request =
+					value === undefined
+						? tx.objectStore(storeName).get(key)
+						: tx.objectStore(storeName).put(value, key);
+				const result = await new Promise<unknown>((resolve, reject) => {
+					request.onsuccess = () => resolve(request.result ?? null);
+					request.onerror = () => reject(request.error);
+				});
+				await new Promise<void>((resolve, reject) => {
+					tx.oncomplete = () => resolve();
+					tx.onerror = () => reject(tx.error);
+				});
+				return result;
+			} finally {
+				database.close();
+			}
+		}
+		await storeValue('keyval-store', 'keyval', 'pos_kas_7hari_samarinda_2026-10-19', privateData);
+		await storeValue('keyval-store', 'keyval', 'pending_transactions', [{ id: 'legacy-pending' }]);
+		await offline.addPendingTransaction(
+			{
+				queue_id: 'pending-on-logout',
+				type: 'pos_transaction',
+				request: { idempotency_key: 'pending-on-logout-key' }
+			},
+			'samarinda'
+		);
+		await auth.logout();
+		return {
+			current: await smartCache.get('dashboard_stats_samarinda', async () => freshData, {
+				backgroundRefresh: false
+			}),
+			legacyMetrics: await storeValue(
+				'keyval-store',
+				'keyval',
+				'pos_kas_7hari_samarinda_2026-10-19'
+			),
+			legacyQueue: await storeValue('keyval-store', 'keyval', 'pending_transactions'),
+			queue: await offline.getPendingTransactions(),
+			catalog: await storeValue('zatiaras-catalog-v2', 'catalog', 'pos-catalog:v2:samarinda')
+		};
+	});
+	expect(result.current).toEqual({ omzet: 0 });
+	expect(result.legacyMetrics).toBeNull();
+	expect(result.catalog).toBeNull();
+	expect(result.legacyQueue).toEqual([{ id: 'legacy-pending' }]);
+	expect(result.queue).toMatchObject([{ queue_id: 'pending-on-logout' }]);
+});
 function snapshot(data: typeof network) {
 	return {
 		version: 2,
@@ -138,6 +216,37 @@ async function probe(page: Page, scenario: string) {
 	return { ...result, requests };
 }
 
+test('a late catalog response cannot recreate session data after logout', async ({ page }) => {
+	await probe(page, 'healthy');
+	let release!: () => void;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route('**/api/pos/catalog', async (route) => {
+		await gate;
+		await route.fulfill({ json: snapshot(network) });
+	});
+	const requested = page.waitForRequest(
+		(request) => new URL(request.url()).pathname === '/api/pos/catalog'
+	);
+	const late = page.evaluate(async () =>
+		(await import('/src/lib/services/productService.ts')).productService.getPosCatalog()
+	);
+	await requested;
+	try {
+		await page.evaluate(async () => (await import('/src/lib/auth/auth.ts')).auth.logout());
+	} finally {
+		release();
+	}
+	await late;
+	const cached = await page.evaluate(async () => {
+		Object.defineProperty(navigator, 'onLine', { value: false });
+		return (await import('/src/lib/services/productService.ts')).productService.getPosCatalog();
+	});
+	expect(cached.source).toBe('unavailable');
+	expect(cached.products).toEqual([]);
+});
+
 test('healthy storage preserves the current online catalog', async ({ page }) => {
 	const result = await probe(page, 'healthy');
 	expect(result.products).toEqual(network.products);
@@ -145,6 +254,47 @@ test('healthy storage preserves the current online catalog', async ({ page }) =>
 	expect(result.addOns).toEqual(network.addOns);
 	expect(result.pos.products).toEqual(network.products);
 	expect(result.pos.source).toBe('network');
+});
+
+test('late dashboard follow-up queries retain the captured branch', async ({ page }) => {
+	await probe(page, 'healthy');
+	let release!: () => void;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route('**/api/dashboard/stats?**', async (route) => {
+		await gate;
+		await route.fulfill({
+			json: {
+				summary: [{ jumlah_item: 2, jumlah_transaksi: 1, penjualan_kotor: 15000, total_hpp: 5000 }]
+			}
+		});
+	});
+	await page.route('**/api/pengaturan/stok?**', (route) =>
+		route.fulfill({ json: { data: { mode: 'tracked' } } })
+	);
+	const branches: Array<string | null> = [];
+	await page.route('**/api/bahan*', (route) => {
+		branches.push(new URL(route.request().url()).searchParams.get('branch'));
+		return route.fulfill({ json: [] });
+	});
+	const requested = page.waitForRequest(
+		(request) => new URL(request.url()).pathname === '/api/dashboard/stats'
+	);
+	const late = page.evaluate(async () =>
+		(await import('/src/lib/services/dashboardService.ts')).dashboardService.getDashboardStats()
+	);
+	await requested;
+	try {
+		await page.evaluate(async () => {
+			(await import('/src/lib/stores/selectedBranch.svelte.ts')).selectedBranch.value =
+				'samarinda2';
+		});
+	} finally {
+		release();
+	}
+	await late;
+	expect(branches).toEqual(['samarinda', 'samarinda']);
 });
 
 for (const scenario of ['write-cold', 'write-old', 'storage-denied']) {

@@ -9,6 +9,7 @@ import {
 	readOfflineSessionSnapshot
 } from './offlineSession';
 import { clearOrderNotificationRegistration } from '$lib/services/orderNotificationService';
+import { clearCachedSessionData } from '$lib/utils/sessionCache';
 
 /**
  * Sesi klien hanya cermin snapshot lokal untuk UI/offline. Otoritas tetap cookie sesi
@@ -20,8 +21,12 @@ export const auth = {
 	},
 
 	async logout() {
+		clearUserRole();
+		clearSecuritySettings();
+		clearCsrfTokenCache();
 		if (browser) {
 			clearOfflineSessionSnapshot();
+			await clearCachedSessionData();
 			window.dispatchEvent(new CustomEvent('auth-session-refreshed'));
 			try {
 				await clearOrderNotificationRegistration();
@@ -38,10 +43,6 @@ export const auth = {
 			}
 			localStorage.removeItem('selectedBranch');
 		}
-
-		clearUserRole();
-		clearSecuritySettings();
-		clearCsrfTokenCache();
 	}
 };
 
@@ -56,6 +57,7 @@ export async function loginWithUsername(username: string, password: string, bran
 		reportApiFailure(result, res.status, '/api/veriflogin');
 		throw new Error(getApiErrorMessage(result, res.status, 'Login gagal'));
 	}
+	if (browser) await clearCachedSessionData();
 	// Server rotated the CSRF cookie with the new session; drop the pre-login token.
 	clearCsrfTokenCache();
 

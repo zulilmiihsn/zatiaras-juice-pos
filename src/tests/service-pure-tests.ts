@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { parsePrinterConfig } from '../lib/utils/printerConfig.js';
 import { selectSyncablePendings } from '../lib/utils/offlineQueue.js';
 import type { PendingTransaction } from '../lib/utils/offlineQueue.js';
+import test from 'node:test';
+import { bestEffortCache } from '../lib/utils/cachePersistence';
 
 // parsePrinterConfig: murni, tak sentuh localStorage.
 assert.deepEqual(parsePrinterConfig(null), { method: 'intent', paperSize: '58mm', deviceName: '' });
@@ -64,3 +66,16 @@ assert.deepEqual(
 );
 
 console.log('service-pure-tests: all assertions passed');
+
+await test('an optional cache deadline cannot block its authoritative caller or leak late rejections', async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	let rejectLate!: (error: Error) => void;
+	const storage = new Promise<unknown>((_resolve, reject) => {
+		rejectLate = reject;
+	});
+	const pending = bestEffortCache(() => storage, 20);
+	context.mock.timers.tick(20);
+	assert.equal(await pending, undefined);
+	rejectLate(new Error('Late cache failure'));
+	await Promise.resolve();
+});

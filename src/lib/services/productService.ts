@@ -2,7 +2,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { CACHE_TTL_MS } from '$lib/constants/cache';
 import type { Product, Category, AddOn } from '$lib/types/product';
 import { smartCache, CACHE_KEYS } from '$lib/utils/cache';
-import { get as idbGet, set as idbSet, update as idbUpdate } from 'idb-keyval';
+import { get as idbGet, update as idbUpdate } from 'idb-keyval';
 import {
 	dbGet,
 	dbGetStrict,
@@ -103,6 +103,11 @@ export class ProductService {
 	async getPosCatalog(): Promise<PosCatalogLoadResult> {
 		const branch = selectedBranch.value || 'default';
 		const key = `pos-catalog:v2:${branch}`;
+		const epoch = selectedBranch.contextEpoch;
+		const guard = smartCache.createCommitGuard(
+			key,
+			() => selectedBranch.value === branch && selectedBranch.contextEpoch === epoch
+		);
 		const stored = await bestEffortCache(() => idbGet<unknown>(key, catalogStore));
 		const cached = isPosCatalogSnapshot(stored) && stored.branch === branch ? stored : null;
 		const fallback = (message?: string): PosCatalogLoadResult =>
@@ -136,7 +141,9 @@ export class ProductService {
 				throw new Error('Format katalog POS tidak valid');
 			}
 			const snapshot = payload as PosCatalogSnapshot;
-			await bestEffortCache(() => idbSet(key, snapshot, catalogStore));
+			await bestEffortCache(() =>
+				idbUpdate<unknown>(key, (current) => (guard() ? snapshot : current), catalogStore)
+			);
 			return { ...snapshot, source: 'network' };
 		} catch (error) {
 			return fallback(error instanceof Error ? error.message : 'Katalog POS gagal dimuat');
