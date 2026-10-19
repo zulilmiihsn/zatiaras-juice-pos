@@ -121,6 +121,9 @@ jobs:
       - name: Run POS Integrity Suite
         run: pnpm test:pos-integrity
 
+      - name: Run Checkout Policy and Mutation Contracts
+        run: pnpm test:checkout-policy
+
       - name: Run Ingredient Yield Suite
         run: pnpm test:ingredient-yield
 
