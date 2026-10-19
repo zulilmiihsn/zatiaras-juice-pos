@@ -12,6 +12,11 @@ static/
 .tmp-chrome-offline/
 .claude/settings.local.json
 
+# Generated Android wrapper outputs; keep twa/twa-manifest.json checked.
+twa/app/
+twa/build/
+twa/.gradle/
+
 # Generated Playwright evidence
 .planning/quick/**/playwright-production/
 
