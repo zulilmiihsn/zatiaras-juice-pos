@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
+import {
+	mkdtempSync,
+	writeFileSync,
+	readFileSync,
+	existsSync,
+	rmSync,
+	readdirSync,
+	realpathSync
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { EventEmitter } from 'node:events';
@@ -231,6 +239,32 @@ test('explicit CLI selection stays literal and has one isolated environment', as
 	assert.equal(controlled.invocations[0].options.shell, false);
 	assert.deepEqual(controlled.cleaned, [0]);
 	assert.deepEqual(resolveE2eSelections(argv)[0].args, argv);
+});
+
+test('canonical project directory is shared by server and browser children', async () => {
+	const controlled = controlledRunner();
+	const expected = realpathSync.native(process.cwd());
+	const forkChild = controlled.dependencies.fork;
+	let serverDirectory;
+	controlled.dependencies.fork = (file, args, options) => {
+		serverDirectory = options.cwd;
+		return forkChild(file, args, options);
+	};
+	assert.equal(await runE2e(['e2e/cache-branch.spec.ts'], controlled.dependencies), 0);
+	assert.equal(serverDirectory, expected);
+	assert.equal(controlled.invocations[0].options.cwd, expected);
+	assert.deepEqual(controlled.cleaned, [0]);
+});
+
+test('canonical root resolution failure stops before creating owned state or children', async () => {
+	const controlled = controlledRunner();
+	controlled.dependencies.resolveRoot = () => {
+		throw new Error('OWNED_ROOT_FAILURE');
+	};
+	assert.equal(await runE2e(['e2e/cache-branch.spec.ts'], controlled.dependencies), 1);
+	assert.deepEqual(controlled.created, []);
+	assert.deepEqual(controlled.invocations, []);
+	assert.deepEqual(controlled.cleaned, []);
 });
 
 test('full coverage rejects a missing, duplicate, unknown or invalid canonical spec inventory', () => {

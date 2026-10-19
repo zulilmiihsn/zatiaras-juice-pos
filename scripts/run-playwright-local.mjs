@@ -1,5 +1,6 @@
 import { fork, spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -50,6 +51,8 @@ async function runSelection(selection, dependencies, artifactId) {
 	let exitCode = 1;
 	let stopped = true;
 	try {
+		// Windows menerima casing cwd berbeda, tetapi Vite membedakan identitas URL modul.
+		const projectRoot = (dependencies.resolveRoot || (() => realpathSync.native(process.cwd())))();
 		environment = (dependencies.createEnvironment || createE2eEnvironment)();
 		const initialized = await environment.initialize();
 		console.log(
@@ -64,6 +67,7 @@ async function runSelection(selection, dependencies, artifactId) {
 		};
 		const startupStarted = performance.now();
 		server = (dependencies.fork || fork)(new URL('./e2e-server.mjs', import.meta.url), [], {
+			cwd: projectRoot,
 			env,
 			execArgv: [],
 			stdio: ['ignore', 'inherit', 'inherit', 'ipc']
@@ -85,6 +89,7 @@ async function runSelection(selection, dependencies, artifactId) {
 				process.execPath,
 				[require.resolve('@playwright/test/cli'), 'test', ...selection.args],
 				{
+					cwd: projectRoot,
 					stdio: 'inherit',
 					shell: false,
 					env: {
