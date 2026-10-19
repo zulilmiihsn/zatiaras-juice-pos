@@ -1,8 +1,67 @@
 import { expect, test } from '@playwright/test';
 import { calculateTaxes } from '../src/lib/services/taxService';
 import type { TaxSettings } from '../src/lib/types/pajak';
+import { csrfMutate, csrfPost } from './helpers';
 
 test.describe('Tax Settings Behavioral Flows', () => {
+	test('tax API rejects malformed identities and foreign branch writes without changing configuration', async ({
+		page
+	}) => {
+		const branch = 'samarinda2';
+		const settings = {
+			isTaxEnabled: true,
+			taxes: [{ id: 'tax-api-test', nama: 'Pajak', tipe: 'ppn', persentase: 11, isEnabled: true }]
+		};
+		const anonymous = await csrfMutate(page, 'PUT', '/api/pengaturan/pajak', {
+			branch,
+			schema_version: 2,
+			expected_revision: 0,
+			settings
+		});
+		expect(anonymous.status()).toBe(401);
+		const login = await csrfPost(page, '/api/veriflogin', {
+			username: 'owner-e2e',
+			password: process.env.UAT_PASSWORD,
+			branch
+		});
+		expect(login.status()).toBe(200);
+		const read = async () => {
+			const response = await page.request.get(`/api/pengaturan/pajak?branch=${branch}`);
+			expect(response.status()).toBe(200);
+			return response.json() as Promise<{ revision: number; settings: TaxSettings }>;
+		};
+		const before = await read();
+		for (const patch of [
+			{ id: 1 },
+			{ id: { toString: 'invalid' }, persentase: 101 },
+			{ tipe: { toString: 'invalid' } },
+			{ id: ' ' }
+		]) {
+			const response = await csrfMutate(page, 'PUT', '/api/pengaturan/pajak', {
+				branch,
+				schema_version: 2,
+				expected_revision: before.revision,
+				settings: { ...settings, taxes: [{ ...settings.taxes[0], ...patch }] }
+			});
+			expect(response.status()).toBe(400);
+			const after = await read();
+			expect(after.revision).toBe(before.revision);
+			expect(after.settings).toEqual(before.settings);
+		}
+		const csrf = (await (await page.request.get('/api/csrf')).json()) as { token: string };
+		const foreign = await page.request.put('/api/pengaturan/pajak', {
+			headers: { 'X-CSRF-Token': csrf.token },
+			data: {
+				branch: 'berau',
+				schema_version: 2,
+				expected_revision: before.revision,
+				settings
+			}
+		});
+		expect(foreign.status()).toBe(403);
+		expect((await read()).settings).toEqual(before.settings);
+	});
+
 	test('tax settings route protects unauthorized access and enforces security boundary', async ({
 		page
 	}) => {

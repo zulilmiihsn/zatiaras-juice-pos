@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { calculateTaxes, DEFAULT_TAX_SETTINGS } from '../lib/services/taxService.js';
 import type { TaxSettings } from '../lib/types/pajak.js';
+import test from 'node:test';
+import {
+	calculateEngineTax,
+	validateTaxSettings,
+	legacyToSettings,
+	settingsToLegacy
+} from '../lib/tax/engine.js';
 
 console.log('--- Running Tax Calculation Tests ---');
 
@@ -202,3 +209,96 @@ console.log('--- Running Tax Calculation Tests ---');
 }
 
 console.log('All 9 Tax Calculation Test cases passed successfully!');
+
+await test('tax boundary rejects malformed IDs and JSON objects without coercion or exceptions', () => {
+	const valid = { id: 'pajak-1', nama: 'Pajak', tipe: 'ppn', persentase: 11, isEnabled: true };
+	assert.equal(validateTaxSettings({ isTaxEnabled: true, taxes: [valid] }).ok, true);
+	for (const id of [1, false, {}, ['pajak'], '', '   ', { toString: 'invalid' }]) {
+		const settings = { isTaxEnabled: true, taxes: [{ ...valid, id }] };
+		assert.doesNotThrow(() => validateTaxSettings(settings));
+		assert.equal(validateTaxSettings(settings).ok, false, `ID ${JSON.stringify(id)} harus ditolak`);
+	}
+	for (const patch of [
+		{ tipe: { toString: 'invalid' } },
+		{ id: { toString: 'invalid' }, persentase: 101 }
+	]) {
+		const settings = { isTaxEnabled: true, taxes: [{ ...valid, ...patch }] };
+		assert.doesNotThrow(() => validateTaxSettings(settings));
+		assert.equal(validateTaxSettings(settings).ok, false);
+	}
+	for (const settings of [
+		null,
+		1,
+		[],
+		{ isTaxEnabled: 'true', taxes: [] },
+		{ isTaxEnabled: true, taxes: null }
+	])
+		assert.equal(validateTaxSettings(settings).ok, false);
+	assert.equal(validateTaxSettings({ isTaxEnabled: true, taxes: [valid, valid] }).ok, false);
+	assert.equal(
+		validateTaxSettings({
+			isTaxEnabled: true,
+			taxes: Array.from({ length: 21 }, (_, n) => ({ ...valid, id: `pajak-${n}` }))
+		}).ok,
+		false
+	);
+});
+
+await test('legacy tax adapters retain explicit zero rates, custom thresholds, and disabled settings', () => {
+	const legacy = { enabled: true, nama: 'Pajak Nol', rate: 0, threshold: 0, apply_threshold: true };
+	assert.deepEqual(settingsToLegacy(legacyToSettings(legacy)), legacy);
+	const disabled = {
+		enabled: false,
+		nama: 'Pajak Khusus',
+		rate: 0.0175,
+		threshold: 120_000_000,
+		apply_threshold: false
+	};
+	assert.deepEqual(settingsToLegacy(legacyToSettings(disabled)), disabled);
+	assert.equal(legacyToSettings(null).taxes[0].persentase, 0.5);
+	assert.equal(
+		legacyToSettings({ rate: Number.NaN, threshold: Number.POSITIVE_INFINITY }).taxes[0]
+			.thresholdAmount,
+		500_000_000
+	);
+	assert.equal(settingsToLegacy({ isTaxEnabled: true, taxes: [] }).enabled, false);
+});
+
+await test('threshold crossings preserve total tax when the same turnover is split across periods', () => {
+	const settings: TaxSettings = {
+		isTaxEnabled: true,
+		taxes: [
+			{
+				id: 'pph',
+				nama: 'PPh',
+				tipe: 'pph_final',
+				persentase: 0.5,
+				isEnabled: true,
+				useThreshold500Juta: true,
+				thresholdAmount: 500_000_000
+			}
+		]
+	};
+	const calculate = (turnover: number, before: number) =>
+		calculateEngineTax({
+			settings,
+			periodTurnover: turnover,
+			periodGrossProfit: turnover / 2,
+			ytdTurnoverBefore: before
+		});
+	const first = calculate(2_000_000, 499_000_000);
+	const second = calculate(3_000_000, 501_000_000);
+	assert.equal(first.totalPajak, 5000);
+	assert.equal(second.totalPajak, 15000);
+	assert.equal(first.totalPajak + second.totalPajak, calculate(5_000_000, 499_000_000).totalPajak);
+	assert.equal(calculate(1_000_000, 499_000_000).totalPajak, 0);
+	assert.equal(
+		calculateEngineTax({
+			settings: { ...settings, taxes: [] },
+			periodTurnover: 100,
+			periodGrossProfit: -50,
+			ytdTurnoverBefore: 0
+		}).labaBersih,
+		-50
+	);
+});

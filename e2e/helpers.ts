@@ -31,7 +31,7 @@ export function ownerUsernameForTest(title: string): string {
  */
 export async function csrfMutate(
 	page: Page,
-	method: 'POST' | 'PATCH' | 'DELETE',
+	method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 	path: string,
 	data: unknown
 ) {

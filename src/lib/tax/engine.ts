@@ -32,22 +32,23 @@ export function validateTaxSettings(input: unknown): { ok: boolean; errors: stri
 		const ids = new Set<string>();
 		for (const raw of s.taxes) {
 			const t = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-			const id = String(t.id || '');
-			if (!id) errors.push('ID pajak wajib');
+			const id = typeof t.id === 'string' ? t.id : '';
+			if (!id.trim()) errors.push('ID pajak wajib berupa teks nonkosong');
 			else if (ids.has(id)) errors.push(`ID pajak ganda: ${id}`);
 			else ids.add(id);
 			if (typeof t.nama !== 'string' || !t.nama.trim()) errors.push('Nama pajak wajib');
 			if (!ALLOWED_TYPES.includes(t.tipe as EngineTaxType))
-				errors.push(`Tipe pajak tidak valid: ${String(t.tipe)}`);
-			if (!isValidRate(t.persentase)) errors.push(`Persentase pajak tidak valid: ${String(t.id)}`);
-			if (typeof t.isEnabled !== 'boolean')
-				errors.push(`isEnabled pajak tidak valid: ${String(t.id)}`);
+				errors.push(
+					`Tipe pajak tidak valid: ${typeof t.tipe === 'string' ? t.tipe : typeof t.tipe}`
+				);
+			if (!isValidRate(t.persentase)) errors.push(`Persentase pajak tidak valid: ${id}`);
+			if (typeof t.isEnabled !== 'boolean') errors.push(`isEnabled pajak tidak valid: ${id}`);
 			if (t.useThreshold500Juta !== undefined && typeof t.useThreshold500Juta !== 'boolean')
-				errors.push(`useThreshold500Juta tidak valid: ${String(t.id)}`);
+				errors.push(`useThreshold500Juta tidak valid: ${id}`);
 			if (t.thresholdAmount !== undefined) {
 				const th = t.thresholdAmount;
 				if (typeof th !== 'number' || !Number.isFinite(th) || th < 0)
-					errors.push(`thresholdAmount tidak valid: ${String(t.id)}`);
+					errors.push(`thresholdAmount tidak valid: ${id}`);
 			}
 		}
 	}
