@@ -38,6 +38,7 @@ const BUDGET = {
 	reportMs: 5_000,
 	workerCallMs: 30_000
 };
+// workerCallMs membatasi wall-clock panggilan use case lokal, bukan pengukuran CPU/heap Worker.
 const YEAR = 2025;
 const branch = branchContext('samarinda');
 const rss = () => Math.round(process.memoryUsage().rss / 1048576);
@@ -182,6 +183,7 @@ try {
 		posRows
 	);
 	report.seedMs = Math.round(performance.now() - seedStart);
+	console.log('PERF_PHASE', JSON.stringify({ phase: 'seed', elapsedMs: report.seedMs }));
 
 	// 2. Laporan setahun (jalur /api/reports/aggregate), tiga kali: dingin + hangat.
 	const reportRuns: number[] = [];
@@ -196,6 +198,7 @@ try {
 	const expectedIncome = posRows * 40000 + DAYS * (MANUAL_PER_DAY / 2) * 25000;
 	assert.equal(summary?.pendapatan, expectedIncome, 'Laporan setahun utuh');
 	report.reportMs = reportRuns;
+	console.log('PERF_PHASE', JSON.stringify({ phase: 'report', elapsedMs: reportRuns }));
 
 	// 3. Checkout di atas data setahun: 30 checkout berurutan.
 	await db.batch([
@@ -256,6 +259,7 @@ try {
 		p95: sorted[Math.floor(sorted.length * 0.95)],
 		max: sorted[sorted.length - 1]
 	};
+	console.log('PERF_PHASE', JSON.stringify({ phase: 'checkout', elapsedMs: report.checkoutMs }));
 
 	if (!SKIP_ARCHIVE) {
 		// 4. Arsip setahun: panggil runArchive berulang seperti UI sampai selesai.
@@ -288,6 +292,10 @@ try {
 			const start = performance.now();
 			archived = await runArchive(db, storage, branch, YEAR + 1);
 			archiveCalls.push(Math.round(performance.now() - start));
+			console.log(
+				'PERF_ARCHIVE_CALL',
+				JSON.stringify({ call: call + 1, elapsedMs: archiveCalls.at(-1) })
+			);
 			track();
 			if (archived.kind !== 'partial') break;
 		}
@@ -295,6 +303,7 @@ try {
 		const archiveBytes = objectKeys().map((key) => statSync(objectPath(key)).size);
 		report.archive = {
 			calls: archiveCalls.length,
+			callMs: archiveCalls,
 			objects: archiveBytes.length,
 			maxCallMs: Math.max(...archiveCalls),
 			totalMs: Math.round(performance.now() - archiveStart),
