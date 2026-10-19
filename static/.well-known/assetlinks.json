@@ -1,0 +1,10 @@
+[
+	{
+		"relation": ["delegate_permission/common.handle_all_urls"],
+		"target": {
+			"namespace": "android_app",
+			"package_name": "com.zatiaras.pos",
+			"sha256_cert_fingerprints": ["E8:D5:2F:DE:43:64:2A:DF:7B:EC:FE:76:BB:16:04:84:C9:89:AC:5D:38:5F:FA:4D:27:04:E8:E9:52:B9:1F:84"]
+		}
+	}
+]
