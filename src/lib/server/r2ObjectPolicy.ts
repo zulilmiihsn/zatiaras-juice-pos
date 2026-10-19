@@ -28,6 +28,8 @@ export function extractBranchFromProductImageKey(key: string): string | null {
 }
 
 export const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+// Multipart menambah boundary, nama file, dan field form di luar byte gambar.
+export const PRODUCT_IMAGE_REQUEST_MAX_BYTES = PRODUCT_IMAGE_MAX_BYTES + 256 * 1024;
 
 /** Cocokkan magic bytes dengan MIME yang diklaim; Content-Type dari klien tidak dipercaya. */
 export function hasProductImageSignature(

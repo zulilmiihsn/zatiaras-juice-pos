@@ -1,11 +1,17 @@
 import { json } from '@sveltejs/kit';
-import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
+import {
+	bodyErrorResponse,
+	readJsonBody,
+	readFormDataBody,
+	RequestBodyError
+} from '$lib/server/requestBody';
 import { uploadToR2, deleteFromR2 } from '$lib/server/s3Client';
 import { requireAuthSession, requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	isAllowedProductImageMime,
 	hasProductImageSignature,
 	PRODUCT_IMAGE_MAX_BYTES,
+	PRODUCT_IMAGE_REQUEST_MAX_BYTES,
 	isPublicProductImageKey,
 	productImageExtension,
 	extractBranchFromProductImageKey
@@ -38,10 +44,10 @@ export async function POST({ request, platform, locals }) {
 	requireAnyRole(session.role, ['pemilik', 'admin']);
 
 	try {
-		const formData = await request.formData();
-		const file = formData.get('file') as File | null;
+		const formData = await readFormDataBody(request, PRODUCT_IMAGE_REQUEST_MAX_BYTES);
+		const file = formData.get('file');
 
-		if (!file) {
+		if (!(file instanceof File)) {
 			return json({ error: 'No file provided' }, { status: 400 });
 		}
 
@@ -77,6 +83,7 @@ export async function POST({ request, platform, locals }) {
 
 		return json({ url: publicUrl, key });
 	} catch (err) {
+		if (err instanceof RequestBodyError) return bodyErrorResponse(err);
 		console.error('[upload] Error:', err);
 		return json({ error: 'Upload failed' }, { status: 500 });
 	}

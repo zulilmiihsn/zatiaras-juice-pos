@@ -11,7 +11,7 @@ export const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 export class RequestBodyError extends Error {
 	constructor(
 		readonly status: 400 | 413,
-		readonly code: 'INVALID_JSON' | 'PAYLOAD_TOO_LARGE',
+		readonly code: 'INVALID_JSON' | 'PAYLOAD_TOO_LARGE' | 'VALIDATION_ERROR',
 		message: string
 	) {
 		super(message);
@@ -22,16 +22,17 @@ export class RequestBodyError extends Error {
 const tooLarge = () =>
 	new RequestBodyError(413, 'PAYLOAD_TOO_LARGE', 'Data yang dikirim terlalu besar');
 const invalid = () => new RequestBodyError(400, 'INVALID_JSON', 'Format data tidak valid');
+const invalidForm = () =>
+	new RequestBodyError(400, 'VALIDATION_ERROR', 'Form unggahan tidak valid');
 
-export async function readJsonBody(
+async function* readBoundedChunks(
 	request: Request,
-	maxBytes: number = DEFAULT_MAX_BODY_BYTES
-): Promise<unknown> {
+	maxBytes: number,
+	malformed: () => RequestBodyError = invalid
+): AsyncGenerator<Uint8Array> {
 	if (Number(request.headers.get('content-length')) > maxBytes) throw tooLarge();
 	const reader = request.body?.getReader();
-	if (!reader) throw invalid();
-	const decoder = new TextDecoder();
-	let text = '';
+	if (!reader) throw malformed();
 	let bytes = 0;
 	try {
 		for (;;) {
@@ -39,24 +40,58 @@ export async function readJsonBody(
 			try {
 				chunk = await reader.read();
 			} catch {
-				throw invalid();
+				throw malformed();
 			}
 			if (chunk.done) break;
 			bytes += chunk.value.byteLength;
 			if (bytes > maxBytes) {
+				// Pembatalan best-effort: kegagalannya tidak boleh menyembunyikan penolakan ukuran.
 				await reader.cancel().catch(() => undefined);
 				throw tooLarge();
 			}
-			text += decoder.decode(chunk.value, { stream: true });
+			yield chunk.value;
 		}
-		text += decoder.decode();
 	} finally {
 		reader.releaseLock();
 	}
+}
+
+export async function readJsonBody(
+	request: Request,
+	maxBytes: number = DEFAULT_MAX_BODY_BYTES
+): Promise<unknown> {
+	const decoder = new TextDecoder();
+	let text = '';
+	for await (const chunk of readBoundedChunks(request, maxBytes))
+		text += decoder.decode(chunk, { stream: true });
+	text += decoder.decode();
 	try {
 		return JSON.parse(text) as unknown;
 	} catch {
 		throw invalid();
+	}
+}
+
+/** Batas berlaku sebelum parser multipart mengalokasikan seluruh form dan File. */
+export async function readFormDataBody(request: Request, maxBytes: number): Promise<FormData> {
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for await (const chunk of readBoundedChunks(request, maxBytes, invalidForm)) {
+		chunks.push(chunk);
+		total += chunk.byteLength;
+	}
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	try {
+		return await new Response(bytes, {
+			headers: { 'Content-Type': request.headers.get('content-type') || '' }
+		}).formData();
+	} catch {
+		throw invalidForm();
 	}
 }
 
