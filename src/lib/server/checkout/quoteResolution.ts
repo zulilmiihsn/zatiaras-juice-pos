@@ -1,5 +1,9 @@
 import type { BranchContext } from '../branchResolver';
-import { PosPricingTokenError, verifyPosPricingToken } from '../posPricingToken';
+import {
+	PosPricingTokenError,
+	verifyPosPricingToken,
+	POS_PRICING_CLOCK_SKEW_MS
+} from '../posPricingToken';
 import type { PosQuoteItem, PosQuoteTokenData, PosTransactionInput } from './types';
 import {
 	CheckoutUseCaseError,
@@ -27,7 +31,7 @@ interface CatalogAddOnTokenData {
 
 const MAX_ITEM_QTY = 99;
 // Toleransi jam perangkat yang sedikit maju terhadap jam server.
-const QUEUED_AT_FUTURE_SKEW_MS = 30_000;
+const QUEUED_AT_FUTURE_SKEW_MS = POS_PRICING_CLOCK_SKEW_MS;
 
 function fail(status: number, message: string): never {
 	throw new CheckoutUseCaseError(status, message);

@@ -2,6 +2,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const TOKEN_VERSION = 1;
 const MAX_TOKEN_LENGTH = 64 * 1024;
+export const POS_PRICING_CLOCK_SKEW_MS = 30_000;
 
 export type PosPricingTokenKind = 'catalog_product' | 'catalog_add_on' | 'checkout_quote';
 
@@ -193,7 +194,10 @@ export async function verifyPosPricingToken<T>(
 		throw new PosPricingTokenError('Token harga berasal dari cabang lain', 'TOKEN_BRANCH_MISMATCH');
 	}
 	const validationTime = input.now ?? Date.now();
-	if (!Number.isFinite(envelope.issued_at) || envelope.issued_at > validationTime + 30_000) {
+	if (
+		!Number.isFinite(envelope.issued_at) ||
+		envelope.issued_at > validationTime + POS_PRICING_CLOCK_SKEW_MS
+	) {
 		throw new PosPricingTokenError('Token harga belum berlaku', 'TOKEN_INVALID');
 	}
 	if (!Number.isFinite(envelope.expires_at) || envelope.expires_at <= validationTime) {

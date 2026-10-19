@@ -277,6 +277,48 @@ try {
 			replayDisposition: 'owner_approved_current'
 		});
 	});
+	await test('a newly fetched epoch cannot authorize an older queued sale', async () => {
+		const policy = await loadStockPolicy(db, transitionedBranch);
+		const token = await signStockPolicyEpoch(env, {
+			branch: transitionedBranch,
+			mode: policy.mode,
+			revision: policy.revision,
+			now: NOW
+		});
+		await assert.rejects(
+			decision(transitionedBranch, 'future-epoch', {
+				queued_at: NOW - 86400000,
+				stock_policy_epoch_token: token
+			}),
+			quarantined
+		);
+	});
+	await test('owner consent cannot be reused after changing the queued transaction time', async () => {
+		await assert.rejects(
+			decision(transitionedBranch, 'owner-current', { queued_at: NOW - 5000 }),
+			(error: unknown) => error instanceof OfflineReviewError && error.status === 409
+		);
+	});
+	await test('racing review claims cannot acknowledge another intent under the same key', async () => {
+		const base = {
+			idempotencyKey: 'racing-review',
+			queuedAt: NOW - 1000,
+			policyRevisionAtQueue: 0,
+			currentPolicyRevision: 4
+		};
+		const results = await Promise.allSettled([
+			ensurePendingReview(db, transitionedBranch, { ...base, requestFingerprint: 'racing-a' }),
+			ensurePendingReview(db, transitionedBranch, {
+				...base,
+				requestFingerprint: 'racing-b',
+				queuedAt: NOW - 2000
+			})
+		]);
+		assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+		const rejected = results.find((r) => r.status === 'rejected');
+		assert.ok(rejected?.status === 'rejected');
+		assert.ok(rejected.reason instanceof OfflineReviewError && rejected.reason.status === 409);
+	});
 } finally {
 	await close();
 }

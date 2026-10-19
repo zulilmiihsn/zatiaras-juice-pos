@@ -5,6 +5,7 @@ import { verifyStockPolicyEpoch } from '../stockPolicyEpoch';
 import { ensurePendingReview, getTransitionCount, loadOfflineReview } from '../stockOfflineReview';
 import type { InventoryApplication, PosTransactionInput, StockReplayDisposition } from './types';
 import { CheckoutUseCaseError } from './utils';
+import { POS_PRICING_CLOCK_SKEW_MS } from '../posPricingToken';
 
 export interface StockReplayDecision {
 	inventoryApplication: InventoryApplication;
@@ -24,7 +25,12 @@ async function revisionAtQueue(
 				body.stock_policy_epoch_token,
 				branch
 			);
-			return { revision: epoch.revision, verified: true };
+			const queuedAt = Number(body.queued_at);
+			return {
+				revision: epoch.revision,
+				verified:
+					Number.isFinite(queuedAt) && epoch.issued_at <= queuedAt + POS_PRICING_CLOCK_SKEW_MS
+			};
 		} catch {
 			// Token epoch tak valid diperlakukan seperti tanpa revisi; keputusannya ada di pencocokan revisi.
 			return { revision: null, verified: false };
@@ -81,6 +87,7 @@ export async function resolveStockReplay(input: {
 	const review = await loadOfflineReview(db, branch, input.idempotencyKey);
 	const approvedForCurrentPolicy =
 		review?.request_fingerprint === input.requestFingerprint &&
+		review.queued_at === Number(body.queued_at) &&
 		review.approved_policy_revision === stockPolicy.revision;
 	if (approvedForCurrentPolicy && review.status === 'approved_current') {
 		return { inventoryApplication: 'apply', replayDisposition: 'owner_approved_current' };

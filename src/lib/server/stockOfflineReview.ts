@@ -36,6 +36,15 @@ export class OfflineReviewError extends Error {
 	}
 }
 
+function assertReviewIntent(
+	row: OfflineReviewRow,
+	input: { requestFingerprint: string; queuedAt: number }
+): void {
+	if (row.request_fingerprint !== input.requestFingerprint || row.queued_at !== input.queuedAt) {
+		throw new OfflineReviewError('Idempotency key antrean dipakai transaksi berbeda', 409);
+	}
+}
+
 export async function getTransitionCount(db: D1Database, branch: BranchContext): Promise<number> {
 	const row = (await db
 		.prepare('SELECT COUNT(*) AS n FROM stock_policy_transitions WHERE cabang_id = ?')
@@ -74,9 +83,7 @@ export async function ensurePendingReview(
 ): Promise<OfflineReviewRow> {
 	const existing = await loadOfflineReview(db, branch, input.idempotencyKey);
 	if (existing) {
-		if (existing.request_fingerprint !== input.requestFingerprint) {
-			throw new OfflineReviewError('Idempotency key antrean dipakai transaksi berbeda', 409);
-		}
+		assertReviewIntent(existing, input);
 		return existing;
 	}
 	await db
@@ -98,6 +105,8 @@ export async function ensurePendingReview(
 		.run();
 	const row = await loadOfflineReview(db, branch, input.idempotencyKey);
 	if (!row) throw new OfflineReviewError('Gagal mencatat antrean untuk review pemilik', 409);
+	// Penulis paralel dapat menang sesudah pre-read; hasilnya tetap harus cocok dengan intent ini.
+	assertReviewIntent(row, input);
 	return row;
 }
 
