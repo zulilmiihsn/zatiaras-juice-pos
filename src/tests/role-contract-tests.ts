@@ -1,11 +1,26 @@
 import assert from 'node:assert/strict';
-import { isRedirect } from '@sveltejs/kit';
+import { isRedirect, isHttpError } from '@sveltejs/kit';
 import { load as loadReport } from '../routes/laporan/+page.server';
 import { load as loadArchive } from '../routes/pengaturan/pemilik/arsip/+page.server';
 import { normalizeRole, VALID_ROLES } from '../lib/utils/roles';
 import { createTestD1 } from './helpers/testD1';
 import { createAuthSession, getAuthSession } from '../lib/server/sessionStore';
 import { branchContext, normalizeBranch } from '../lib/server/branchResolver';
+import { requireAnyRole, requireExactRole, requireSessionBranch } from '../lib/server/apiAuth';
+
+for (const role of ['pemilik', 'kasir', 'admin', 'supervisor']) {
+	if (role === 'pemilik') requireExactRole(role, ['pemilik']);
+	else
+		assert.throws(
+			() => requireExactRole(role, ['pemilik']),
+			(error) => isHttpError(error, 403)
+		);
+}
+requireExactRole('admin', ['pemilik', 'admin']);
+assert.throws(
+	() => requireExactRole('pemilik', []),
+	(error) => isHttpError(error, 403)
+);
 
 // Kebijakan kanonik tunggal: tiga role valid, sisanya null.
 assert.deepEqual([...VALID_ROLES], ['pemilik', 'kasir', 'admin']);
@@ -67,6 +82,22 @@ try {
 		assert.equal(created.role, role);
 		const reread = await getAuthSession(platform, created.id);
 		assert.equal(reread?.role, role);
+		assert.equal(requireSessionBranch({ authSession: reread }), branch);
+		assert.equal(requireSessionBranch({ authSession: reread }, 'samarinda'), branch);
+		if (role === 'admin') {
+			assert.equal(requireSessionBranch({ authSession: reread }, 'berau'), 'berau');
+			requireAnyRole(role, []);
+		} else {
+			assert.throws(
+				() => requireSessionBranch({ authSession: reread }, 'berau'),
+				(error) => isHttpError(error, 403)
+			);
+			assert.throws(
+				() => requireAnyRole(role, []),
+				(error) => isHttpError(error, 403)
+			);
+		}
+		requireAnyRole(role, [role]);
 		assert.deepEqual(await reportPage(reread), {});
 		if (role === 'pemilik') assert.deepEqual(await archivePage(reread), {});
 		else await assert.rejects(archivePage(reread), redirectedTo('/unauthorized'));

@@ -5,7 +5,7 @@
 	"type": "module",
 	"packageManager": "pnpm@11.24.0",
 	"engines": {
-		"node": ">=22.0.0"
+		"node": ">=24.20.0"
 	},
 	"scripts": {
 		"dev": "vite dev",
@@ -110,14 +110,16 @@
 		"test:archive-download": "tsx src/tests/archive-download-tests.ts",
 		"test:unit": "node --import tsx --test --test-concurrency=4 \"src/tests/*-tests.ts\"",
 		"test:coverage": "node scripts/test-coverage.mjs",
+		"test:coverage:critical": "node scripts/test-coverage.mjs --critical",
+		"test:coverage-policy": "tsx src/tests/coverage-policy-tests.ts",
 		"test:perf-budget": "tsx src/tests/perf-budget.bench.ts --d1",
 		"test:static": "pnpm check && pnpm lint && pnpm audit --audit-level high",
 		"test:all": "pnpm test:operations && pnpm test:static && pnpm test:unit",
-		"test:release": "pnpm test:all && pnpm build && pnpm test:realtime-compiled && pnpm test:scheduled-compiled && pnpm test:ledger-browser-compiled && pnpm test:e2e:all",
+		"test:release": "pnpm test:all && pnpm test:coverage:critical && pnpm build && pnpm test:realtime-compiled && pnpm test:scheduled-compiled && pnpm test:ledger-browser-compiled && pnpm test:e2e:all",
 		"test:offline": "tsx src/tests/offline-pos-tests.ts",
 		"test:pos-integrity": "tsx src/tests/pos-integrity-tests.ts",
-		"test:ingredient-yield": "tsx src/tests/ingredient-yield-tests.ts",
 		"test:checkout-policy": "tsx src/tests/checkout-policy-tests.ts",
+		"test:ingredient-yield": "tsx src/tests/ingredient-yield-tests.ts",
 		"test:quantity-decimal": "tsx src/tests/quantity-decimal-tests.ts",
 		"test:yield": "tsx src/tests/ingredient-yield-tests.ts",
 		"test:pos-integrity:local": "node scripts/uat-pos-integrity.mjs",

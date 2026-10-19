@@ -276,6 +276,9 @@ jobs:
       - name: Run Maintainability Guard Suite
         run: pnpm test:maintainability
 
+      - name: Run Coverage Policy Contracts
+        run: pnpm test:coverage-policy
+
       - name: Run Error Code Contract Suite
         run: pnpm test:error-codes
 
@@ -424,11 +427,46 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  coverage:
+    name: Critical Domain Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [static, operations]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Critical Domain Coverage
+        run: pnpm test:coverage:critical
+
+      - name: Upload Domain Coverage Evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: domain-coverage-${{ github.sha }}
+          path: test-results/coverage/*.json
+          retention-days: 14
+          if-no-files-found: error
+
   build:
     name: Build Application Bundle
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [static, operations, unit, e2e]
+    needs: [static, operations, unit, e2e, coverage]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5

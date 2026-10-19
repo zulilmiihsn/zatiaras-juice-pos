@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import { mock } from 'node:test';
 import type { Cookies } from '@sveltejs/kit';
 import type { D1Database } from '@cloudflare/workers-types';
 import { MS_PER_HOUR } from '../lib/constants/time';
 import { createTestD1 } from './helpers/testD1';
 import {
 	createAuthSession,
+	deleteAuthSession,
 	getAuthSession,
+	grantSessionPageUnlock,
 	nextSessionExpiry,
 	renewAuthSession,
+	revokeBranchPageUnlocks,
 	SESSION_COOKIE,
 	sessionCookieOptions,
 	type AuthSession
@@ -17,6 +21,7 @@ import { refreshSessionCookie } from '../lib/server/sessionRenewal';
 // Sesi aktif diperpanjang (sliding), dibatasi throttle 1 jam dan batas mutlak 16 jam.
 const TTL = 6 * MS_PER_HOUR;
 const MAX_LIFETIME = 16 * MS_PER_HOUR;
+mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-19T00:00:00.000Z') });
 const now = Date.now();
 
 // Kebijakan murni: tanpa DB.
@@ -128,7 +133,67 @@ try {
 		['D1 mati']
 	);
 
+	await grantSessionPageUnlock(platform, await reload(), 'laporan', now + MS_PER_HOUR);
+	assert.deepEqual((await reload()).unlockedPages, ['laporan']);
+	await grantSessionPageUnlock(platform, await reload(), 'laporan', now + MS_PER_HOUR);
+	await grantSessionPageUnlock(platform, await reload(), 'stok', now + MS_PER_HOUR);
+	assert.deepEqual((await reload()).unlockedPages, ['laporan', 'stok']);
+	await grantSessionPageUnlock(
+		platform,
+		{ ...(await reload()), unlockExpiresAt: now },
+		'menu',
+		now + MS_PER_HOUR
+	);
+	assert.deepEqual((await reload()).unlockedPages, ['menu'], 'Expired unlocks are not retained');
+	await grantSessionPageUnlock(
+		platform,
+		{ ...(await reload()), branch: 'samarinda2' },
+		'laporan',
+		now + MS_PER_HOUR
+	);
+	assert.deepEqual(
+		(await reload()).unlockedPages,
+		['menu'],
+		'A foreign branch cannot modify this session'
+	);
+	await db
+		.prepare(
+			"INSERT INTO profil(id,cabang_id,role,username,password) VALUES('other-kasir','samarinda2','kasir','other-kasir','x')"
+		)
+		.run();
+	const other = await createAuthSession(platform, {
+		branch: 'samarinda2',
+		userId: 'other-kasir',
+		username: 'other-kasir',
+		role: 'kasir'
+	});
+	await grantSessionPageUnlock(platform, other, 'stok', now + MS_PER_HOUR);
+	await revokeBranchPageUnlocks(platform, 'samarinda');
+	assert.deepEqual((await reload()).unlockedPages, []);
+	assert.equal((await reload()).unlockExpiresAt, 0);
+	assert.deepEqual((await getAuthSession(platform, other.id))?.unlockedPages, ['stok']);
+	await setTimes(now - TTL, now - 1);
+	await grantSessionPageUnlock(platform, stale, 'laporan', now + MS_PER_HOUR);
+	assert.equal(
+		await db
+			.prepare('SELECT unlocked_pages FROM auth_sessions WHERE id=?')
+			.bind(created.id)
+			.first('unlocked_pages'),
+		'[]',
+		'Expired sessions cannot be unlocked'
+	);
+	await deleteAuthSession(undefined, undefined);
+	await deleteAuthSession(undefined, 'invalid-session');
+	await deleteAuthSession(platform, created.id);
+	assert.equal(
+		await db.prepare('SELECT id FROM auth_sessions WHERE id=?').bind(created.id).first('id'),
+		null
+	);
+	assert.ok(await getAuthSession(platform, other.id), 'Logout preserves other branch sessions');
+	await deleteAuthSession(platform, created.id);
+
 	console.log('session-renew-tests: policy/persist/cookie/expired/failure-logged passed');
 } finally {
 	await close();
+	mock.timers.reset();
 }

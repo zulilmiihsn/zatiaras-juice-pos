@@ -5,7 +5,9 @@ import {
 	summarizeManualRows,
 	ArchiveUseCaseError
 } from '$lib/server/archiveSnapshot';
-import { validateArchiveYear } from '$lib/server/archiveUseCase';
+import { previewArchive, validateArchiveYear } from '$lib/server/archiveUseCase';
+import { branchContext } from '$lib/server/branchResolver';
+import { createTestD1 } from './helpers/testD1';
 
 // validateArchiveYear: batas kontrak route lama.
 assert.throws(
@@ -126,5 +128,72 @@ const broken = summarizeManualRows([
 ]);
 assert.deepEqual([...broken.keys()], ['bukan-tang:in:x:none']);
 
-console.log('archive-usecase-tests: all assertions passed');
+const { db, close } = await createTestD1();
+try {
+	const rows = [
+		['old-pos', 'samarinda', '2025-12-31T15:59:59.999Z', 'pos', 'in', 100, 'pending'],
+		['old-in', 'samarinda', '2025-12-01T00:00:00.000Z', 'catat', 'in', 10, null],
+		['old-out', 'samarinda', '2025-12-02T00:00:00.000Z', 'catat', 'out', 25, null],
+		['at-cutoff', 'samarinda', '2025-12-31T16:00:00.000Z', 'pos', 'in', 1000, 'pending'],
+		['foreign', 'samarinda2', '2025-12-01T00:00:00.000Z', 'pos', 'in', 9000, 'pending']
+	] as const;
+	await db.batch(
+		rows.map((row) =>
+			db
+				.prepare(
+					`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,nominal,preparation_state,jenis,stock_policy_mode,stock_policy_revision)
+		 VALUES(?,?,?,?,?,?,?,'pendapatan_usaha','tracked',0)`
+				)
+				.bind(...row)
+		)
+	);
+	await db.batch(
+		[
+			['old-detail', 'samarinda', 'old-pos'],
+			['cutoff-detail', 'samarinda', 'at-cutoff'],
+			['foreign-detail', 'samarinda2', 'foreign'],
+			['foreign-link', 'samarinda2', 'old-pos'],
+			['orphan-detail', 'samarinda', 'missing']
+		].map((row) =>
+			db
+				.prepare(
+					'INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES(?,?,?,1,100)'
+				)
+				.bind(...row)
+		)
+	);
+	const inventory = async () =>
+		Promise.all(
+			['buku_kas', 'transaksi_kasir', 'archive_jobs'].map((table) =>
+				db.prepare(`SELECT * FROM ${table} ORDER BY id`).all()
+			)
+		);
+	const before = await inventory();
+	assert.deepEqual(await previewArchive(db, branchContext('samarinda'), 2026), {
+		branch: 'samarinda',
+		before_year: 2026,
+		cutoff_wita: '2025-12-31T16:00:00.000Z',
+		counts: { buku_kas: 3, pos: 1, manual: 2, transaksi_kasir: 1 },
+		financials: { total_in: 110, total_out: 25 },
+		pending_orders: 1
+	});
+	assert.deepEqual(await previewArchive(db, branchContext('balikpapan'), 2026), {
+		branch: 'balikpapan',
+		before_year: 2026,
+		cutoff_wita: '2025-12-31T16:00:00.000Z',
+		counts: { buku_kas: 0, pos: 0, manual: 0, transaksi_kasir: 0 },
+		financials: { total_in: 0, total_out: 0 },
+		pending_orders: 0
+	});
+	await assert.rejects(previewArchive(db, branchContext('samarinda'), 2026.5), /Tahun tidak valid/);
+	assert.deepEqual(
+		await inventory(),
+		before,
+		'Preview never mutates ledger, details or archive jobs'
+	);
+} finally {
+	await close();
+}
+
+console.log('archive-usecase-tests: snapshot/preview/cutoff/tenant/read-only assertions passed');
 process.exit(0);
