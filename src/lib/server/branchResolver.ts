@@ -33,9 +33,8 @@ const BRANCH_ALIASES: Record<string, BranchId> = {
 };
 
 export function normalizeBranch(input: unknown): BranchId {
-	const value = String(input || '')
-		.trim()
-		.toLowerCase();
+	if (typeof input !== 'string') throw error(400, 'Branch tidak valid');
+	const value = input.trim().toLowerCase();
 	const branch = Object.hasOwn(BRANCH_ALIASES, value) ? BRANCH_ALIASES[value] : undefined;
 	if (!branch) {
 		throw error(400, 'Branch tidak valid');

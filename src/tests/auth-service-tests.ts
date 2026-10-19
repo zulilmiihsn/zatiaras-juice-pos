@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { attemptLogin } from '../lib/server/services/authService';
 import { createTestD1 } from './helpers/testD1';
+import test from 'node:test';
 
 // auth boundary: kontrak negatif login seragam + sukses sesi,
 // lewat service yang dipakai route tipis.
@@ -118,3 +119,24 @@ async function seedProfil(
 }
 
 console.log('auth-service: ok');
+
+await test('login rejects nontext credentials and malformed branch values before database access', async () => {
+	for (const patch of [
+		{ username: 1 },
+		{ username: ['owner'] },
+		{ username: { toString: 'invalid' } },
+		{ password: 42 },
+		{ password: [] },
+		{ password: { toString: 'invalid' } },
+		{ branch: ['samarinda'] },
+		{ branch: { toString: 'invalid' } }
+	]) {
+		const result = await attemptLogin(
+			undefined,
+			{ username: 'owner', password: 'Rahasia42', branch: 'samarinda', ...patch },
+			'10.9.0.5'
+		);
+		assert.equal(result.status, 400);
+		assert.equal(result.sessionId, undefined);
+	}
+});

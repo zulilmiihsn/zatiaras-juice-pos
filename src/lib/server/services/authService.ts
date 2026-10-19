@@ -55,10 +55,10 @@ export async function attemptLogin(
 	try {
 		const body = rawBody as { username?: unknown; password?: unknown; branch?: unknown } | null;
 		const password = body?.password;
-		username = String(body?.username || '').trim();
+		username = typeof body?.username === 'string' ? body.username.trim() : '';
 		const branch = body?.branch;
 
-		if (!username || !password || !branch) {
+		if (!username || typeof password !== 'string' || !password || !branch) {
 			return {
 				status: 400,
 				body: {
@@ -156,7 +156,7 @@ export async function attemptLogin(
 		// Aturan tepi spasi (terdokumentasi): password di-trim di
 		// create/change/verify agar konsisten dengan hash tersimpan.
 		// Pola HTML/SQL di DALAM password tidak diubah/ditolak.
-		const passwordTrimmed = typeof password === 'string' ? password.trim() : String(password);
+		const passwordTrimmed = password.trim();
 		if (!user) {
 			await bcrypt.compare(passwordTrimmed, DUMMY_PASSWORD_HASH);
 			await appendAuditLog(rawDb, branchId, {
