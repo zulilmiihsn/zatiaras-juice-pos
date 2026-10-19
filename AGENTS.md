@@ -215,7 +215,7 @@ UI -> store/service -> route HTTP (auth + parse + respons)
 | Akses     | `src/lib/server/pageAccess.ts`                                                  | kunci PIN halaman kasir, juga untuk endpoint data                     |
 | Kesehatan | `src/lib/server/dataHealth.ts`                                                  | detector orphan/stok negatif                                          |
 | Offline   | `src/lib/services/offlineSync.ts`, `src/lib/utils/offlineQueue.ts`              | replay idempoten                                                      |
-| Uang      | `src/lib/utils/currency.ts`, `checkout/utils.ts`                                | `normalizeMoney`, `roundMoney`                                        |
+| Uang      | `src/lib/utils/money.ts` (reexport `currency.ts`), `checkout/utils.ts`          | `normalizeMoney`, `roundMoney`                                        |
 
 ## 4. Kontrak yang TIDAK BOLEH dilanggar
 
