@@ -10,6 +10,7 @@ import {
 	type ReadResource
 } from '$lib/services/dataApiClient';
 import { catalogStore } from '$lib/utils/idbStores';
+import { bestEffortCache } from '$lib/utils/cachePersistence';
 import {
 	isPosCatalogSnapshot,
 	type PosCatalogLoadResult,
@@ -72,12 +73,7 @@ export class ProductService {
 		const offlineKey = `table:${offlineKeyPrefix}:${branch}`;
 		// IDB best-effort: gagal buka/baca tak boleh melumpuhkan pemuatan
 		// produk (jatuh ke network, bukan reject diam-diam).
-		let stored: unknown;
-		try {
-			stored = await idbGet<unknown>(offlineKey, catalogStore);
-		} catch {
-			stored = undefined;
-		}
+		const stored = await bestEffortCache(() => idbGet<unknown>(offlineKey, catalogStore));
 		const offlineData = isTableSnapshot(stored) ? stored.data : [];
 		if (typeof navigator !== 'undefined' && !navigator.onLine) {
 			return offlineData;
@@ -95,10 +91,8 @@ export class ProductService {
 				updated_at: new Date().toISOString()
 			};
 			// Guard dibaca di transaksi IDB juga: branch/invalidate bisa berubah saat membuka store.
-			await idbUpdate<unknown>(
-				offlineKey,
-				(current) => (guard() ? snapshot : current),
-				catalogStore
+			await bestEffortCache(() =>
+				idbUpdate<unknown>(offlineKey, (current) => (guard() ? snapshot : current), catalogStore)
 			);
 			return data || [];
 		} catch {
@@ -109,12 +103,7 @@ export class ProductService {
 	async getPosCatalog(): Promise<PosCatalogLoadResult> {
 		const branch = selectedBranch.value || 'default';
 		const key = `pos-catalog:v2:${branch}`;
-		let stored: unknown;
-		try {
-			stored = await idbGet<unknown>(key, catalogStore);
-		} catch {
-			stored = undefined;
-		}
+		const stored = await bestEffortCache(() => idbGet<unknown>(key, catalogStore));
 		const cached = isPosCatalogSnapshot(stored) && stored.branch === branch ? stored : null;
 		const fallback = (message?: string): PosCatalogLoadResult =>
 			cached
@@ -147,7 +136,7 @@ export class ProductService {
 				throw new Error('Format katalog POS tidak valid');
 			}
 			const snapshot = payload as PosCatalogSnapshot;
-			await idbSet(key, snapshot, catalogStore);
+			await bestEffortCache(() => idbSet(key, snapshot, catalogStore));
 			return { ...snapshot, source: 'network' };
 		} catch (error) {
 			return fallback(error instanceof Error ? error.message : 'Katalog POS gagal dimuat');

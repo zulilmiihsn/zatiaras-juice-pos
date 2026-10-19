@@ -15,8 +15,14 @@ import { CACHE_TTL_MS, REPORT_CACHE_VERSION } from '$lib/constants/cache';
 import type { TopUsedIngredient } from '$lib/types';
 import { calculateTaxes } from '$lib/services/taxService';
 import { MS_PER_DAY } from '$lib/constants/time';
+import { bestEffortCache } from '$lib/utils/cachePersistence';
 
 type DashboardRow = Record<string, unknown>;
+
+interface DashboardSaleRow extends DashboardRow {
+	waktu: string;
+	transaction_id?: string | null;
+}
 
 function numberField(row: DashboardRow, key: string, fallback = 0): number {
 	const value = row[key];
@@ -51,7 +57,9 @@ async function getCachedPosKas7Hari() {
 	const todayStr = getTodayWita();
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `pos_kas_7hari_${branch}_${todayStr}`;
-	const cached = await idbGet(cacheKey);
+	const cached = await bestEffortCache(() =>
+		idbGet<{ data: DashboardSaleRow[]; timestamp: number }>(cacheKey)
+	);
 	if (
 		cached &&
 		Array.isArray(cached.data) &&
@@ -64,8 +72,8 @@ async function getCachedPosKas7Hari() {
 	const { startUtc } = witaToUtcRange(labels[0]);
 	const { endUtc } = witaToUtcRange(labels[6]);
 
-	const result = await dbGet('pos_kas_7hari', { start: startUtc, end: endUtc });
-	await idbSet(cacheKey, { data: result, timestamp: Date.now() });
+	const result = await dbGet<DashboardSaleRow>('pos_kas_7hari', { start: startUtc, end: endUtc });
+	await bestEffortCache(() => idbSet(cacheKey, { data: result, timestamp: Date.now() }));
 	return result;
 }
 
@@ -73,7 +81,9 @@ async function getAvgTransaksiHarian(): Promise<number> {
 	const todayStr = getTodayWita();
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `avg_transaksi_${branch}_${todayStr}`;
-	const cached = await idbGet(cacheKey);
+	const cached = await bestEffortCache(() =>
+		idbGet<{ value: number; timestamp: number }>(cacheKey)
+	);
 	if (cached && typeof cached.value === 'number' && Date.now() - cached.timestamp < MS_PER_DAY) {
 		return cached.value;
 	}
@@ -88,7 +98,7 @@ async function getAvgTransaksiHarian(): Promise<number> {
 		if (perHari[date] && t.transaction_id) perHari[date].add(t.transaction_id);
 	}
 	const avg = Math.round(Object.values(perHari).reduce((s, set) => s + set.size, 0) / 7);
-	await idbSet(cacheKey, { value: avg, timestamp: Date.now() });
+	await bestEffortCache(() => idbSet(cacheKey, { value: avg, timestamp: Date.now() }));
 	return avg;
 }
 
@@ -96,7 +106,9 @@ async function getJamRamaiMingguan(): Promise<string> {
 	const todayStr = getTodayWita();
 	const branch = selectedBranch.value || 'default';
 	const cacheKey = `jam_ramai_mingguan_${branch}_${todayStr}`;
-	const cached = await idbGet(cacheKey);
+	const cached = await bestEffortCache(() =>
+		idbGet<{ value: string; timestamp: number }>(cacheKey)
+	);
 	if (cached && typeof cached.value === 'string' && Date.now() - cached.timestamp < MS_PER_DAY) {
 		return cached.value;
 	}
@@ -125,7 +137,7 @@ async function getJamRamaiMingguan(): Promise<string> {
 	const result =
 		peak >= 0 ? `${String(peak).padStart(2, '0')}.00–${String(peak + 1).padStart(2, '0')}.00` : '';
 
-	await idbSet(cacheKey, { value: result, timestamp: Date.now() });
+	await bestEffortCache(() => idbSet(cacheKey, { value: result, timestamp: Date.now() }));
 	return result;
 }
 

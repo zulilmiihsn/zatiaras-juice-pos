@@ -73,6 +73,10 @@ UI (src/routes, src/lib/components)
 
 ### 3.2 Transaksi offline dan replay
 
+- Cache katalog dan statistik dashboard bersifat best-effort: storage gagal
+  tidak boleh membuang hasil jaringan yang valid. Snapshot lama dipakai saat
+  sumber jaringan gagal atau perangkat offline. Penulisan antrean transaksi
+  tetap wajib berhasil sebelum transaksi dinyatakan tersimpan lokal.
 - Offline hanya untuk tunai dan hanya bila katalog bertoken masih berlaku di perangkat.
 - Transaksi disimpan di IndexedDB dengan `mode: 'offline_replay'`, `queued_at`, dan
   `idempotency_key` asli; `offlineSync.ts` memutar ulang saat online.
