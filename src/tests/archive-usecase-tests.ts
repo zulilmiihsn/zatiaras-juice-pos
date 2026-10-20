@@ -164,9 +164,13 @@ try {
 	);
 	const inventory = async () =>
 		Promise.all(
-			['buku_kas', 'transaksi_kasir', 'archive_jobs'].map((table) =>
-				db.prepare(`SELECT * FROM ${table} ORDER BY id`).all()
-			)
+			['buku_kas', 'transaksi_kasir', 'archive_jobs'].map(async (table) => {
+				const { results } = await db
+					.prepare(`SELECT * FROM ${table} ORDER BY id`)
+					.all<Record<string, unknown>>();
+				// Seluruh kolom tetap dibandingkan; telemetry query bukan state bisnis.
+				return results.map((row) => ({ ...row }));
+			})
 		);
 	const before = await inventory();
 	assert.deepEqual(await previewArchive(db, branchContext('samarinda'), 2026), {
