@@ -51,16 +51,17 @@ pnpm dev
 
 ## Perintah penting
 
-| Perintah             | Fungsi                                                       |
-| -------------------- | ------------------------------------------------------------ |
-| `pnpm check`         | Pemeriksaan TypeScript/Svelte                                |
-| `pnpm lint`          | Prettier + ESLint                                            |
-| `pnpm test:unit`     | Seluruh tes unit/integrasi, paralel (SQLite lokal)           |
-| `pnpm test:coverage` | `test:unit` dengan laporan coverage                          |
-| `pnpm test:all`      | Tes operasional + gate statis + `test:unit`                  |
-| `pnpm test:e2e:all`  | Seluruh tes browser Playwright di lingkungan terisolasi      |
-| `pnpm test:release`  | `test:all`, build produksi, smoke compiled, lalu seluruh E2E |
-| `pnpm build`         | Build produksi ke `.svelte-kit/cloudflare`                   |
+| Perintah                      | Fungsi                                                       |
+| ----------------------------- | ------------------------------------------------------------ |
+| `pnpm check`                  | Pemeriksaan TypeScript/Svelte                                |
+| `pnpm lint`                   | Prettier + ESLint                                            |
+| `pnpm test:unit`              | Seluruh tes unit/integrasi, paralel (SQLite lokal)           |
+| `pnpm test:coverage`          | Diagnostik coverage seluruh unit                             |
+| `pnpm test:coverage:critical` | Gate coverage per modul domain kritis + laporan JSON         |
+| `pnpm test:all`               | Tes operasional + gate statis + `test:unit`                  |
+| `pnpm test:e2e:all`           | Seluruh tes browser Playwright di lingkungan terisolasi      |
+| `pnpm test:release`           | `test:all`, build produksi, smoke compiled, lalu seluruh E2E |
+| `pnpm build`                  | Build produksi ke `.svelte-kit/cloudflare`                   |
 
 Daftar lengkap ada di `package.json` (`test:*`, `d1:*`, `deploy:*`).
 

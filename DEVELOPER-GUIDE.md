@@ -160,6 +160,9 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
   ke state lewat `$effect`; pakai `$derived`.
 - **Uang**: `normalizeMoney`/`roundMoney`/`formatRupiah` dari `$lib/utils/currency`.
   `normalizeMoney` adalah kebijakan pembulatan, bukan validator input.
+  Implementasi decoder dan normalisasi berada di `$lib/utils/money`; `currency.ts`
+  mempertahankan API lama. Reexport memakai ekstensi `.ts` agar recovery CLI Node
+  native tetap dapat memuat modul yang sama tanpa loader TSX.
 - **Tanggal**: helper `$lib/utils/dateTime` (WITA). Jangan menulis ulang konversi zona.
 - **Kontrak API**: resource route mengembalikan `{ ok, data }` dan melempar
   `kitError(status, pesan)`. Endpoint auth/telemetri mengembalikan
@@ -172,6 +175,8 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
 - **Body request API**: baca hanya lewat `readJsonBody` (`$lib/server/requestBody`), atau
   `parseBody` untuk route tier A. JSON rusak dijawab 400 `INVALID_JSON`, body di atas
   1 MB dijawab 413 `PAYLOAD_TOO_LARGE`. Jangan memanggil `request.json()` langsung.
+  Upload multipart memakai `readFormDataBody` sebelum parsing: batas request 5 MiB
+  ditambah overhead multipart 256 KiB; berkas gambar tetap maksimal 5 MiB.
 - **Payload tulis**: teruskan ke DB hanya kolom yang diizinkan (`pickColumns` di
   `$lib/server/payloadFields`), dan baca angka dengan `finiteNumber` agar input bukan angka
   ditolak 400, bukan menjadi `NaN`. Kolom milik server (revisi, nomor harian, biaya per
@@ -181,19 +186,33 @@ dan log teredaksi. Hanya model OpenRouter `:free` yang diizinkan; model diatur e
 
 ## 5. Pengujian
 
-| Perintah                              | Cakupan                                                   |
-| ------------------------------------- | --------------------------------------------------------- |
-| `pnpm check` / `pnpm lint`            | Tipe, Prettier, ESLint                                    |
-| `pnpm test:unit`                      | Seluruh `src/tests/*-tests.ts` paralel (SQLite in-memory) |
-| `pnpm test:coverage`                  | `test:unit` + laporan coverage `src/lib`                  |
-| `pnpm exec tsx src/tests/<file> --d1` | Tes yang mendukung D1/workerd lokal                       |
-| `pnpm test:operations`                | Skrip backup/restore/wipe/rilis                           |
-| `pnpm test:e2e:all`                   | Playwright, server dan D1 terisolasi per run              |
-| `pnpm test:release`                   | Gate rilis penuh                                          |
+| Perintah                              | Cakupan                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `pnpm check` / `pnpm lint`            | Tipe, Prettier, ESLint                                       |
+| `pnpm test:unit`                      | Seluruh `src/tests/*-tests.ts` paralel (SQLite in-memory)    |
+| `pnpm test:coverage`                  | Diagnostik coverage seluruh unit dengan loader campuran      |
+| `pnpm test:coverage:critical`         | Gate coverage domain kritis dengan source loader TSX tunggal |
+| `pnpm exec tsx src/tests/<file> --d1` | Tes yang mendukung D1/workerd lokal                          |
+| `pnpm test:operations`                | Skrip backup/restore/wipe/rilis                              |
+| `pnpm test:e2e:all`                   | Playwright, server dan D1 terisolasi per run                 |
+| `pnpm test:release`                   | Gate rilis penuh                                             |
 
 `test:unit` memakai test runner bawaan Node (`node --test`, paralel 4) atas semua
 `src/tests/*-tests.ts`; `pnpm test:coverage` menambah laporan coverage `src/lib`.
 Benchmark manual (`*.bench.ts`) tidak ikut.
+
+`test:coverage:critical` memakai daftar eksplisit `CRITICAL_COVERAGE_TESTS` di
+`scripts/test-coverage.mjs` dan batas per modul di `scripts/coverage-policy.mjs`.
+Gate mencakup uang, fingerprint, replay stok, pajak, otoritas API, validasi ledger,
+sesi, snapshot dan orkestrasi arsip. Laporan JSON menyimpan runtime, scope, serta
+counter asli Node di `test-results/coverage/unit-coverage.json`. Modul wajib yang
+tidak terukur, counter rusak, laporan lama, atau kegagalan child tidak dapat
+mengesahkan gate. CI mengunggah laporan pada artefak `domain-coverage-<SHA>`.
+
+Node dipin melalui `.node-version`. Pengukuran domain memakai satu loader source;
+coverage native CLI dan SSR tidak digabung karena transformnya berbeda. Seluruh
+tes CLI/SSR tetap wajib di unit/operations dan tidak dilewati. `test:coverage`
+tetap diagnostik; persentasenya tidak mewakili cakupan E2E atau seluruh produk.
 
 Coverage menghitung juga file yang tidak pernah di-load tes (0%), selama runtime Node
 mendukung `--test-coverage-include-all`. Bila tidak, skrip memberi peringatan dan angkanya
