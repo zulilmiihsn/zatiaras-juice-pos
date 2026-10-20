@@ -38,6 +38,22 @@
 	--z-alert: 90;
 	--z-toast: 100;
 	--z-max: 999;
+
+	/* Sidebar navigasi (md+). Di HP 0 karena nav berupa bilah bawah.
+	Dipakai layout root sebagai padding kiri konten. */
+	--app-nav-width: 0px;
+}
+
+@media (min-width: 48rem) {
+	:root {
+		--app-nav-width: 4.75rem;
+	}
+}
+
+@media (min-width: 64rem) {
+	:root {
+		--app-nav-width: 13rem;
+	}
 }
 
 /* ── Guaranteed Z-Index Layer Utility Classes ── */

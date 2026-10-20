@@ -29,7 +29,7 @@
 	const laporanNav: NavItem = { label: 'Laporan', icon: FileText, path: '/laporan' };
 	const settingsNav: NavItem = { label: 'Pengaturan', icon: Settings, path: '/pengaturan' };
 
-	// Kasir hero selalu tepat di tengah: 7 tujuan saat stok aktif, 5 saat nonaktif.
+	// Kasir hero selalu tepat di tengah bilah bawah: 7 tujuan saat stok aktif, 5 saat nonaktif.
 	// Saat stok nonaktif, Pengaturan lewat Beranda (tidak memakan slot navbar).
 	const navs = $derived(
 		stockPolicyState.ignored
@@ -48,34 +48,46 @@
 	}
 </script>
 
+<!--
+	Satu <nav> dua bentuk, daftar tujuan dan badge dipakai bersama:
+	- < md (HP): bilah bawah penuh lebar, Kasir menonjol di tengah.
+	- md+ (tablet/desktop): sidebar setinggi layar menempel di tepi kiri; lg+ melebar dengan
+	  label di samping ikon.
+	Lebar sidebar datang dari --app-nav-width (app.css) dan dipakai layout root sebagai
+	padding konten, jadi halaman tidak perlu tahu ukurannya.
+-->
 <nav
-	class="relative mx-auto flex h-[64px] w-full items-center justify-around overflow-visible border-t border-slate-100/90 bg-white/95 px-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl md:mb-4 md:h-[76px] md:max-w-2xl md:rounded-[32px] md:border md:border-slate-200/80 md:px-6 md:shadow-[0_16px_40px_-8px_rgba(219,39,119,0.14),0_6px_20px_rgba(0,0,0,0.06)]"
+	aria-label="Navigasi utama"
+	class="z-fab sticky bottom-0 flex h-[64px] w-full items-center justify-around overflow-visible border-t border-slate-100/90 bg-white/95 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] backdrop-blur-xl md:fixed md:inset-y-0 md:left-0 md:h-auto md:w-(--app-nav-width) md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-y-auto md:border-t-0 md:border-r md:border-slate-200 md:bg-white md:px-1.5 md:py-4 md:shadow-none lg:px-3"
 >
 	{#each navs as nav}
 		{@const Icon = nav.icon}
 		{@const isActive = isPathActive(nav.path, $page.url.pathname)}
 
 		{#if nav.isHero}
-			<!-- Center Hero Button (Kasir) -->
+			<!-- Tombol Kasir: menonjol di tengah bilah bawah, kartu biasa di rel samping -->
 			<a
-				class="group relative -mt-6 flex min-h-[44px] w-14 min-w-[44px] flex-none cursor-pointer flex-col items-center justify-center focus:outline-none md:-mt-8 md:w-16"
+				class="group relative -mt-6 flex min-h-[44px] w-14 min-w-[44px] flex-none cursor-pointer flex-col items-center justify-center rounded-2xl focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none md:mt-0 md:w-full md:py-1.5 md:transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 lg:py-2.5 {isActive
+					? 'md:bg-pink-50'
+					: 'md:hover:bg-slate-50'}"
 				aria-label={nav.label}
+				aria-current={isActive ? 'page' : undefined}
 				href={nav.path}
 				data-sveltekit-preload-data="hover"
 			>
 				<div
-					class="relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90 min-[330px]:h-13 min-[330px]:w-13 md:h-16 md:w-16 {isActive
-						? 'scale-105 bg-gradient-to-tr from-pink-500 via-rose-500 to-pink-600 text-white shadow-xl ring-4 shadow-pink-500/40 ring-white md:scale-110 md:ring-6'
-						: 'bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-lg ring-4 shadow-pink-500/25 ring-white hover:scale-105 md:ring-6'} {posCart.totalItems >
+					class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90 min-[330px]:h-13 min-[330px]:w-13 md:h-12 md:w-12 md:ring-0 lg:h-9 lg:w-9 {isActive
+						? 'scale-105 bg-gradient-to-tr from-pink-500 via-rose-500 to-pink-600 text-white shadow-xl ring-4 shadow-pink-500/40 ring-white md:scale-100'
+						: 'bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-lg ring-4 shadow-pink-500/25 ring-white hover:scale-105'} {posCart.totalItems >
 						0 && !isActive
 						? 'shadow-pink-500/40 ring-pink-400/80'
 						: ''}"
 				>
-					<ShoppingBag class="h-5.5 w-5.5 stroke-[2.3] md:h-7 md:w-7" />
+					<ShoppingBag class="h-5.5 w-5.5 stroke-[2.3] md:h-6 md:w-6" />
 
 					{#if posCart.totalItems > 0}
 						<span
-							class="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white md:-top-1 md:-right-1 md:h-5.5 md:min-w-[22px] md:text-xs"
+							class="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white"
 							in:scale={{ duration: 200 }}
 							out:scale={{ duration: 150 }}
 						>
@@ -84,7 +96,7 @@
 					{/if}
 				</div>
 				<span
-					class="mt-1 text-[11px] font-bold transition-colors duration-150 md:mt-1.5 md:text-xs {isActive
+					class="mt-1 text-[11px] font-bold transition-colors duration-150 lg:mt-0 lg:text-sm {isActive
 						? 'text-pink-600'
 						: 'text-slate-500 group-hover:text-pink-600'}"
 				>
@@ -92,16 +104,18 @@
 				</span>
 			</a>
 		{:else}
-			<!-- Regular Nav Tab -->
+			<!-- Tab biasa -->
 			<a
-				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch py-1 transition-all duration-150 active:scale-95 md:py-2 {isActive
-					? 'text-pink-600'
-					: 'text-slate-400 hover:text-slate-600'}"
+				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch rounded-2xl py-1 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none active:scale-95 md:h-auto md:w-full md:flex-none md:py-2.5 lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 {isActive
+					? 'text-pink-600 md:bg-pink-50'
+					: 'text-slate-400 hover:text-slate-600 md:hover:bg-slate-50'}"
 				aria-label={nav.label}
+				aria-current={isActive ? 'page' : undefined}
 				href={nav.path}
 				data-sveltekit-preload-data="hover"
 			>
-				<div class="relative mb-0.5 flex items-center justify-center md:mb-1">
+				<!-- lg:h-9 w-9 = lebar kolom ikon yang sama dengan lingkaran Kasir, supaya label sejajar -->
+				<div class="relative mb-0.5 flex items-center justify-center lg:mb-0 lg:h-9 lg:w-9">
 					<Icon
 						class="h-5 w-5 stroke-[1.8] transition-transform duration-150 group-hover:scale-105 md:h-6 md:w-6 {isActive
 							? 'scale-105 stroke-[2.2] text-pink-600'
@@ -115,7 +129,7 @@
 								: orderQueueBadge.countSource === 'cached'
 									? `${orderQueueBadge.count} pesanan belum selesai dari data perangkat`
 									: `${orderQueueBadge.count} pesanan belum selesai`}
-							class="absolute -top-1.5 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white shadow ring-2 ring-white"
+							class="absolute -top-1.5 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white shadow ring-2 ring-white lg:top-0 lg:-right-0.5"
 						>
 							{orderQueueBadge.countSource === 'unknown'
 								? '?'
@@ -126,7 +140,7 @@
 					{/if}
 				</div>
 				<span
-					class="text-[11px] leading-tight transition-colors duration-150 md:text-xs {isActive
+					class="text-[11px] leading-tight transition-colors duration-150 lg:text-sm {isActive
 						? 'font-bold text-pink-600'
 						: 'font-medium text-slate-500'}"
 				>
@@ -140,7 +154,7 @@
 				</span>
 				{#if isActive}
 					<span
-						class="absolute bottom-1 h-1 w-4 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 md:bottom-1.5 md:h-1.5 md:w-6"
+						class="absolute bottom-1 h-1 w-4 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 md:hidden"
 					></span>
 				{/if}
 			</a>

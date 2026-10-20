@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import Topbar from '$lib/components/shared/topBar.svelte';
-	import BottomNav from '$lib/components/shared/bottomNav.svelte';
+	import AppNav from '$lib/components/shared/appNav.svelte';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
@@ -363,7 +363,7 @@
 		<!-- Tanpa overflow-y-auto: container ini tidak pernah overflow
 			(min-h induk tak terbatas) sehingga ia menjadi scroll container mati yang
 			mematahkan position:sticky turunan (sticky mengacu padanya, bukan viewport). -->
-		<div class="min-h-0 flex-1">
+		<div class="min-h-0 flex-1 pl-(--app-nav-width)">
 			{@render children()}
 		</div>
 		{#if showPinModal}
@@ -377,11 +377,7 @@
 				onClose={handlePinClose}
 			/>
 		{/if}
-		<div class="z-fab sticky bottom-0 overflow-visible md:pointer-events-none md:px-4">
-			<div class="md:pointer-events-auto">
-				<BottomNav />
-			</div>
-		</div>
+		<AppNav />
 	</div>
 {:else}
 	<div class="page-transition flex min-h-[100dvh] flex-col bg-[#faf7f8]">

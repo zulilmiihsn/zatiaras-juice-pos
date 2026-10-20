@@ -41,7 +41,7 @@
 	let copiedId = $state<string | null>(null);
 	let copyFailedId = $state<string | null>(null);
 
-	// Action portal agar modal menempel langsung ke document.body dan tidak tertutup BottomNav
+	// Action portal agar modal menempel langsung ke document.body dan tidak tertutup AppNav
 	function portal(node: HTMLElement) {
 		document.body.appendChild(node);
 		return {
@@ -352,7 +352,7 @@
 	</button>
 </div>
 
-<!-- ─── 2. ASSISTANT MODAL DIALOG (PORTAL KE BODY, BEBAS TUMPUKAN BOTTOMNAV) ─── -->
+<!-- ─── 2. ASSISTANT MODAL DIALOG (PORTAL KE BODY, BEBAS TUMPUKAN APPNAV) ─── -->
 {#if showAiModal}
 	<div
 		use:portal

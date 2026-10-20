@@ -538,7 +538,7 @@ test.describe('Stock Monitoring Toggle', () => {
 		await gotoHydrated(page, '/', 'text=Monitoring Stok Dijeda');
 		const nav = page.locator('nav').last();
 		await expect(nav.getByRole('link', { name: 'Stok' })).toHaveCount(0);
-		for (const width of [390, 837]) {
+		for (const width of [390, 700]) {
 			await page.setViewportSize({ width, height: 844 });
 			const navBox = await nav.boundingBox();
 			const kasirBox = await nav.getByRole('link', { name: 'Kasir' }).boundingBox();
@@ -575,7 +575,8 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Stok');
 		await expect(nav.getByRole('link').nth(5)).toHaveAttribute('aria-label', 'Laporan');
 		await expect(nav.getByRole('link').nth(6)).toHaveAttribute('aria-label', 'Pengaturan');
-		for (const width of [320, 360, 390, 768]) {
+		// 767px = bilah bawah terlebar sebelum breakpoint md beralih ke rel samping.
+		for (const width of [320, 360, 390, 767]) {
 			await page.setViewportSize({ width, height: 844 });
 			await page.evaluate(
 				() =>
@@ -624,5 +625,83 @@ test.describe('Stock Monitoring Toggle', () => {
 			expect(metrics.overlaps).toBe(false);
 			expect(metrics.settingsLabel).toBe(width < 420 ? 'Atur' : 'Pengaturan');
 		}
+	});
+
+	test('tablet and desktop use a full-height left sidebar that never covers page content', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'tracked', revision: 0 });
+		await gotoHydrated(page, '/', 'text=Buka Kasir');
+		const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+		const labels = ['Beranda', 'Catat', 'Antrean', 'Kasir', 'Stok', 'Laporan', 'Pengaturan'];
+		for (const width of [768, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 800 });
+			await page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+					)
+			);
+			const metrics = await page.evaluate(() => {
+				const nav = document.querySelector('nav[aria-label="Navigasi utama"]');
+				if (!nav) throw new Error('Side navigation is missing');
+				const navRect = nav.getBoundingClientRect();
+				const content = nav.parentElement?.firstElementChild;
+				if (!content) throw new Error('Page content is missing');
+				const items = Array.from(nav.querySelectorAll('a')).map((link) => {
+					const rect = link.getBoundingClientRect();
+					return { label: link.getAttribute('aria-label'), top: rect.top, bottom: rect.bottom };
+				});
+				return {
+					documentWidth: document.documentElement.scrollWidth,
+					position: getComputedStyle(nav).position,
+					navLeft: navRect.left,
+					navRight: navRect.right,
+					navTop: navRect.top,
+					navBottom: navRect.bottom,
+					contentLeft: content.getBoundingClientRect().left,
+					contentPaddingLeft: parseFloat(getComputedStyle(content).paddingLeft),
+					labels: items.map((item) => item.label),
+					stacked: items.every(
+						(item, index) => index === 0 || item.top >= items[index - 1].bottom - 0.1
+					)
+				};
+			});
+			expect(metrics.documentWidth).toBe(width);
+			expect(metrics.position).toBe('fixed');
+			expect(metrics.labels).toEqual(labels);
+			expect(metrics.stacked, `${width}px items must stack vertically`).toBe(true);
+			expect(metrics.navLeft).toBe(0);
+			expect(metrics.navTop).toBe(0);
+			expect(metrics.navBottom).toBe(800);
+			expect(
+				metrics.contentPaddingLeft,
+				`${width}px content must start right of the sidebar`
+			).toBeGreaterThanOrEqual(metrics.navRight);
+			for (const label of labels) {
+				await expect(nav.getByRole('link', { name: label })).toBeVisible();
+			}
+		}
+		await expect(nav.getByRole('link', { name: 'Beranda' })).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+	});
+
+	test('sidebar scrolls inside itself when the viewport is shorter than its items', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'tracked', revision: 0 });
+		await page.setViewportSize({ width: 800, height: 360 });
+		await gotoHydrated(page, '/', 'text=Buka Kasir');
+		const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+		const box = await nav.boundingBox();
+		expect(box).not.toBeNull();
+		expect(box!.y).toBeGreaterThanOrEqual(0);
+		expect(box!.y + box!.height).toBeLessThanOrEqual(360);
+		await nav.getByRole('link', { name: 'Pengaturan' }).scrollIntoViewIfNeeded();
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeInViewport();
 	});
 });
