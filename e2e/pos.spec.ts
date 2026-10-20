@@ -44,7 +44,7 @@ async function cleanupTransaction(page: Page, transactionId: string) {
 	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
 }
 
-test('POS header rounds upper corners on tablet and desktop', async ({ page }) => {
+test('POS header fills the top edge on desktop tablet and mobile', async ({ page }) => {
 	await loginAsOwner(page);
 	await page.goto('/pos');
 	await expect(page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible({
@@ -52,16 +52,33 @@ test('POS header rounds upper corners on tablet and desktop', async ({ page }) =
 	});
 	const header = page.getByRole('main', { name: 'Kasir POS' }).locator('.page-header');
 	for (const viewport of [
-		{ name: 'desktop', width: 1280, height: 800, upperRadius: '40px' },
-		{ name: 'tablet', width: 820, height: 1180, upperRadius: '40px' },
-		{ name: 'mobile', width: 390, height: 844, upperRadius: '0px' }
+		{ name: 'desktop', width: 1920, height: 1080 },
+		{ name: 'laptop', width: 1280, height: 800 },
+		{ name: 'tablet', width: 820, height: 1180 },
+		{ name: 'mobile', width: 390, height: 844 }
 	]) {
 		await page.setViewportSize(viewport);
-		await expect(header).toHaveCSS('border-top-left-radius', viewport.upperRadius);
-		await expect(header).toHaveCSS('border-top-right-radius', viewport.upperRadius);
+		await expect.poll(async () => (await header.boundingBox())?.y).toBe(0);
+		const headerBounds = await header.boundingBox();
+		expect(headerBounds).not.toBeNull();
+		expect(headerBounds!.x).toBe(0);
+		expect(headerBounds!.width).toBe(viewport.width);
+		await expect(header).toHaveCSS('border-top-left-radius', '0px');
+		await expect(header).toHaveCSS('border-top-right-radius', '0px');
 		await expect(header).toHaveCSS('border-bottom-left-radius', '40px');
 		await expect(header).toHaveCSS('border-bottom-right-radius', '40px');
 		await expect(page.getByPlaceholder('Cari menu jus buah, topping...')).toBeVisible();
+		if (viewport.width >= 768) {
+			const searchBounds = await page
+				.getByPlaceholder('Cari menu jus buah, topping...')
+				.boundingBox();
+			const cart = page.getByRole('complementary', { name: 'Panel Pesanan Kasir' });
+			await expect(cart).toBeVisible();
+			const cartBounds = await cart.boundingBox();
+			expect(searchBounds).not.toBeNull();
+			expect(cartBounds).not.toBeNull();
+			expect(searchBounds!.x + searchBounds!.width).toBeLessThanOrEqual(cartBounds!.x);
+		}
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 		).toBe(true);

@@ -28,61 +28,55 @@
 		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full flex-col overflow-x-clip pb-32 md:pb-12"
 	>
 		<!-- Responsive Layout: Single Column on Mobile, Split View on Tablet (md:) and Desktop (lg:) -->
-		<div
-			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 md:pt-4 lg:px-5"
-		>
-			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
-			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
-				<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
-				<div class="sticky top-0 z-30 bg-[#faf7f8]">
-					<!-- Fluid Wave Header for POS -->
-					<div class="page-header relative px-5 pt-4 pb-12 md:rounded-t-[40px] md:pt-6 md:pb-14">
-						<!-- Ambient background blur shapes -->
-						<div
-							class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-						></div>
-						<div
-							class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-						></div>
+		<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
+		<div class="sticky top-0 z-10 bg-[#faf7f8]">
+			<!-- Fluid Wave Header for POS -->
+			<div class="page-header relative pt-4 pb-12 md:pt-6 md:pb-14">
+				<!-- Ambient background blur shapes -->
+				<div
+					class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
+				></div>
+				<div
+					class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
+				></div>
 
-						<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
-						<div class="relative z-10 flex w-full items-center gap-2.5">
-							<div class="relative flex-1">
-								<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-									<Search class="h-4.5 w-4.5" />
-								</span>
-								<input
-									class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-11 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
-									type="text"
-									placeholder="Cari menu jus buah, topping..."
-									bind:value={s.search}
-									autocomplete="off"
-									oninput={(e) => s.handleSearchInput((e.target as HTMLInputElement).value)}
-								/>
-							</div>
-
-							<!-- Button Toggle Tampilan Grid / List -->
-							<button
-								type="button"
-								aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
-								title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
-								class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
-								onclick={() => posGridView.toggle()}
-							>
-								{#if posGridView.value}
-									<LayoutGrid class="h-5 w-5 stroke-[2.2] text-pink-600" />
-								{:else}
-									<LayoutList class="h-5 w-5 stroke-[2.2] text-slate-700" />
-								{/if}
-							</button>
+				<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
+				<div class="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-4 lg:px-5">
+					<div class="flex w-full items-center gap-2.5 md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
+						<div class="relative flex-1">
+							<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+								<Search class="h-4.5 w-4.5" />
+							</span>
+							<input
+								class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-11 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
+								type="text"
+								placeholder="Cari menu jus buah, topping..."
+								bind:value={s.search}
+								autocomplete="off"
+								oninput={(e) => s.handleSearchInput((e.target as HTMLInputElement).value)}
+							/>
 						</div>
+
+						<!-- Button Toggle Tampilan Grid / List -->
+						<button
+							type="button"
+							aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
+							title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
+							class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
+							onclick={() => posGridView.toggle()}
+						>
+							{#if posGridView.value}
+								<LayoutGrid class="h-5 w-5 stroke-[2.2] text-pink-600" />
+							{:else}
+								<LayoutList class="h-5 w-5 stroke-[2.2] text-slate-700" />
+							{/if}
+						</button>
 					</div>
+				</div>
+			</div>
 
-					<!-- Low Stock Alert Banner -->
-					{#if !stockPolicyState.ignored}
-						<LowStockAlertBanner lowStockItems={s.lowStockIngredients} />
-					{/if}
-
+			<div class="mx-auto w-full max-w-7xl md:px-4 lg:px-5">
+				<div class="md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
 					<!-- Category Filter Pills -->
 					<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">
 						<button
@@ -132,7 +126,14 @@
 						{/if}
 					</div>
 				</div>
+			</div>
+		</div>
 
+		<div
+			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 lg:px-5"
+		>
+			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
+			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
 				<ProductGrid
 					posGridView={posGridView.value}
 					isLoadingProducts={s.pos.isLoadingProducts}
@@ -153,6 +154,10 @@
 			<!-- Right Column: Dedicated Permanent Fixed Cart Panel on Tablet and Desktop -->
 			<PosCartPanel {s} />
 		</div>
+		<!-- Low Stock Alert Banner -->
+		{#if !stockPolicyState.ignored}
+			<LowStockAlertBanner lowStockItems={s.lowStockIngredients} />
+		{/if}
 		<CustomItemModal bind:show={s.showCustomItemModal} onAdd={s.addCustomItemToCart} />
 
 		<PosCartSheet {s} />
