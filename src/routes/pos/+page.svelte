@@ -22,18 +22,18 @@
 	onDestroy(s.destroy);
 </script>
 
-<div class="flex w-full max-w-full flex-col overflow-x-clip bg-[#faf7f8]">
+<!-- Satu kolom di HP; md+ katalog di kiri dan keranjang menempel di tepi kanan sebagai kolom samping -->
+<div
+	class="flex w-full max-w-full flex-col overflow-x-clip bg-[#faf7f8] md:flex-row md:items-start"
+>
 	<main
 		aria-label="Kasir POS"
-		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full flex-col overflow-x-clip pb-32 md:pb-12"
+		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full min-w-0 flex-col overflow-x-clip pb-32 md:min-h-dvh md:flex-1 md:pb-12"
 	>
-		<!-- Responsive Layout: Single Column on Mobile, Split View on Tablet (md:) and Desktop (lg:) -->
 		<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
-		<div class="sticky top-0 z-10 mx-auto w-full max-w-7xl bg-[#faf7f8] md:px-4 lg:px-5">
+		<div class="sticky top-0 z-10 w-full bg-[#faf7f8]">
 			<!-- Fluid Wave Header for POS -->
-			<div
-				class="page-header relative pt-4 pb-12 md:mr-[296px] md:pt-6 md:pb-14 lg:mr-[344px] xl:mr-[374px]"
-			>
+			<div class="page-header relative pt-4 pb-12 md:pt-6 md:pb-14">
 				<!-- Ambient background blur shapes -->
 				<div
 					class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
@@ -77,84 +77,72 @@
 				</div>
 			</div>
 
-			<div class="w-full">
-				<div class="md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
-					<!-- Category Filter Pills -->
-					<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">
+			<!-- Category Filter Pills -->
+			<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-5">
+				<button
+					class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
+					'all'
+						? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
+						: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
+					type="button"
+					onclick={s.handleSelectCategoryAll}>Semua</button
+				>
+				{#if (s.categories ?? []).length === 0 && s.pos.isLoadingProducts}
+					{#each Array(4) as _, i}
+						<div
+							class="h-[44px] min-w-[96px] flex-shrink-0 animate-pulse rounded-full bg-white/80"
+						></div>
+					{/each}
+				{:else if (s.categories ?? []).length === 0}
+					<!-- Button Custom Item di samping 'Semua' jika tidak ada kategori -->
+					<button
+						class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
+						type="button"
+						aria-label="Tambah item custom"
+						onclick={s.handleShowCustomItemModal}
+					>
+						<Plus class="h-5 w-5 stroke-[2.5]" />
+					</button>
+				{:else}
+					{#each s.categories ?? [] as c (c.id)}
 						<button
-							class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
-							'all'
+							class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
+							String(c.id)
 								? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 								: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
 							type="button"
-							onclick={s.handleSelectCategoryAll}>Semua</button
+							onclick={() => s.handleSelectCategory(c.id)}>{c.nama}</button
 						>
-						{#if (s.categories ?? []).length === 0 && s.pos.isLoadingProducts}
-							{#each Array(4) as _, i}
-								<div
-									class="h-[44px] min-w-[96px] flex-shrink-0 animate-pulse rounded-full bg-white/80"
-								></div>
-							{/each}
-						{:else if (s.categories ?? []).length === 0}
-							<!-- Button Custom Item di samping 'Semua' jika tidak ada kategori -->
-							<button
-								class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
-								type="button"
-								aria-label="Tambah item custom"
-								onclick={s.handleShowCustomItemModal}
-							>
-								<Plus class="h-5 w-5 stroke-[2.5]" />
-							</button>
-						{:else}
-							{#each s.categories ?? [] as c (c.id)}
-								<button
-									class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
-									String(c.id)
-										? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
-										: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
-									type="button"
-									onclick={() => s.handleSelectCategory(c.id)}>{c.nama}</button
-								>
-							{/each}
-							<!-- Button Custom Item di paling kanan -->
-							<button
-								class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
-								type="button"
-								onclick={s.handleShowCustomItemModal}
-							>
-								<Plus class="h-4.5 w-4.5 stroke-[2.5]" />
-								<span>Kustom</span>
-							</button>
-						{/if}
-					</div>
-				</div>
+					{/each}
+					<!-- Button Custom Item di paling kanan -->
+					<button
+						class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
+						type="button"
+						onclick={s.handleShowCustomItemModal}
+					>
+						<Plus class="h-4.5 w-4.5 stroke-[2.5]" />
+						<span>Kustom</span>
+					</button>
+				{/if}
 			</div>
 		</div>
 
-		<div
-			class="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:items-start md:px-4 lg:px-5"
-		>
-			<!-- Left Column: Catalog Area with padding for fixed cart on tablet & desktop -->
-			<div class="flex min-w-0 flex-1 flex-col md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
-				<ProductGrid
-					posGridView={posGridView.value}
-					isLoadingProducts={s.pos.isLoadingProducts}
-					skeletonCount={s.skeletonCount}
-					filteredProducts={s.filteredProducts}
-					categories={s.categories}
-					ingredients={s.pos.bahanData}
-					recipes={s.pos.resepData}
-					imageError={s.imageError}
-					loadError={s.pos.posLoadError}
-					strictStockMode={s.strictStockMode}
-					onSelectProduct={s.handleOpenAddOnModal}
-					onImgError={s.handleImgErrorId}
-					onRetry={s.pos.retryLoadPOSData}
-				/>
-			</div>
-
-			<!-- Right Column: Dedicated Permanent Fixed Cart Panel on Tablet and Desktop -->
-			<PosCartPanel {s} />
+		<div class="flex min-w-0 flex-1 flex-col">
+			<ProductGrid
+				posGridView={posGridView.value}
+				isLoadingProducts={s.pos.isLoadingProducts}
+				skeletonCount={s.skeletonCount}
+				filteredProducts={s.filteredProducts}
+				categories={s.categories}
+				ingredients={s.pos.bahanData}
+				recipes={s.pos.resepData}
+				imageError={s.imageError}
+				loadError={s.pos.posLoadError}
+				strictStockMode={s.strictStockMode}
+				onSelectProduct={s.handleOpenAddOnModal}
+				onImgError={s.handleImgErrorId}
+				onRetry={s.pos.retryLoadPOSData}
+			/>
 		</div>
 		<!-- Low Stock Alert Banner -->
 		{#if !stockPolicyState.ignored}
@@ -173,6 +161,8 @@
 
 		<PosProductSheet {s} />
 	</main>
+
+	<PosCartPanel {s} />
 
 	<CartPreview
 		cart={s.cart.items}

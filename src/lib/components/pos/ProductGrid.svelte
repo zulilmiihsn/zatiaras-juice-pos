@@ -49,7 +49,7 @@
 	{#if !posGridView}
 		<!-- List View -->
 		<div
-			class="flex flex-col gap-2.5 px-4 pb-4 md:px-2 md:pb-6"
+			class="flex flex-col gap-2.5 px-4 pb-4 md:px-5 md:pb-6"
 			transition:slide={{ duration: 250 }}
 		>
 			{#if isLoadingProducts}
@@ -153,7 +153,7 @@
 	{:else}
 		<!-- Grid View: Responsive Grid POS Tiles -->
 		<div
-			class="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 sm:gap-4 md:grid-cols-2 md:gap-4 md:px-2 md:pb-6 lg:grid-cols-3 xl:grid-cols-4"
+			class="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 sm:gap-4 md:grid-cols-2 md:gap-4 md:px-5 md:pb-6 xl:grid-cols-3 2xl:grid-cols-4"
 			transition:slide={{ duration: 250 }}
 		>
 			{#if isLoadingProducts}

@@ -44,7 +44,9 @@ async function cleanupTransaction(page: Page, transactionId: string) {
 	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
 }
 
-test('POS header stays within the catalog width and touches the top edge', async ({ page }) => {
+test('POS header fills the catalog column and the cart is a side column flush to the right edge', async ({
+	page
+}) => {
 	await loginAsOwner(page);
 	await page.goto('/pos');
 	await expect(page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible({
@@ -52,9 +54,10 @@ test('POS header stays within the catalog width and touches the top edge', async
 	});
 	const header = page.getByRole('main', { name: 'Kasir POS' }).locator('.page-header');
 	for (const viewport of [
-		{ name: 'desktop', width: 1920, height: 1080, headerX: 340, headerWidth: 866 },
-		{ name: 'laptop', width: 1280, height: 800, headerX: 20, headerWidth: 866 },
-		{ name: 'tablet', width: 820, height: 1180, headerX: 16, headerWidth: 492 },
+		// headerX = lebar sidebar, headerWidth = viewport - sidebar - keranjang samping.
+		{ name: 'desktop', width: 1920, height: 1080, headerX: 208, headerWidth: 1362 },
+		{ name: 'laptop', width: 1280, height: 800, headerX: 208, headerWidth: 722 },
+		{ name: 'tablet', width: 820, height: 1180, headerX: 76, headerWidth: 464 },
 		{ name: 'mobile', width: 390, height: 844, headerX: 0, headerWidth: 390 }
 	]) {
 		await page.setViewportSize(viewport);
@@ -78,7 +81,11 @@ test('POS header stays within the catalog width and touches the top edge', async
 			expect(searchBounds).not.toBeNull();
 			expect(cartBounds).not.toBeNull();
 			expect(searchBounds!.x + searchBounds!.width).toBeLessThanOrEqual(cartBounds!.x);
-			expect(headerBounds!.x + headerBounds!.width).toBeLessThan(cartBounds!.x);
+			// Menempel: header berakhir tepat di tepi keranjang, keranjang menempel ke tepi kanan dan atas layar.
+			expect(headerBounds!.x + headerBounds!.width).toBe(cartBounds!.x);
+			expect(cartBounds!.x + cartBounds!.width).toBe(viewport.width);
+			expect(cartBounds!.y).toBe(0);
+			expect(cartBounds!.height).toBe(viewport.height);
 		}
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)

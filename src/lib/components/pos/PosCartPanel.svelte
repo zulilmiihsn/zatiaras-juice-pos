@@ -13,8 +13,7 @@
 
 <aside
 	aria-label="Panel Pesanan Kasir"
-	class="fixed top-4 z-20 hidden h-[calc(100dvh-124px)] max-h-[calc(100dvh-124px)] w-[280px] shrink-0 flex-col rounded-[28px] border border-white/70 bg-white/90 shadow-xl backdrop-blur-xl md:flex lg:w-[320px] xl:w-[350px]"
-	style="right: max(1rem, calc((100vw - 80rem) / 2 + 1.25rem));"
+	class="sticky top-0 z-20 hidden h-dvh w-[280px] shrink-0 flex-col border-l border-slate-200 bg-white md:flex lg:w-[320px] xl:w-[350px]"
 >
 	<!-- Cart Header -->
 	<div class="flex items-center justify-between border-b border-pink-100/60 px-4 py-3">

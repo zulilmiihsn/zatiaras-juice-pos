@@ -295,8 +295,9 @@
 {/if}
 
 {#if layoutSt.pendingCount > 0}
+	<!-- md+: ditempel di kiri bawah (di kanan sidebar) agar tidak menutupi tombol Bayar keranjang samping -->
 	<div
-		class="animate-fade-in z-sheet fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl"
+		class="animate-fade-in z-sheet fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl md:right-auto md:left-[calc(var(--app-nav-width)+0.75rem)] md:mx-0 md:w-96 lg:w-md"
 		data-testid="pending-transaction-banner"
 	>
 		{#if layoutSt.isOffline}
