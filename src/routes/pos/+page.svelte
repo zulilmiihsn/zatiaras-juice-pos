@@ -36,7 +36,7 @@
 				<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
 				<div class="sticky top-0 z-30 bg-[#faf7f8]">
 					<!-- Fluid Wave Header for POS -->
-					<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
+					<div class="page-header relative px-5 pt-4 pb-12 md:rounded-t-[40px] md:pt-6 md:pb-14">
 						<!-- Ambient background blur shapes -->
 						<div
 							class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"

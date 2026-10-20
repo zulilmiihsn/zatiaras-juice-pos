@@ -44,6 +44,31 @@ async function cleanupTransaction(page: Page, transactionId: string) {
 	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
 }
 
+test('POS header rounds upper corners on tablet and desktop', async ({ page }) => {
+	await loginAsOwner(page);
+	await page.goto('/pos');
+	await expect(page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible({
+		timeout: 60_000
+	});
+	const header = page.getByRole('main', { name: 'Kasir POS' }).locator('.page-header');
+	for (const viewport of [
+		{ name: 'desktop', width: 1280, height: 800, upperRadius: '40px' },
+		{ name: 'tablet', width: 820, height: 1180, upperRadius: '40px' },
+		{ name: 'mobile', width: 390, height: 844, upperRadius: '0px' }
+	]) {
+		await page.setViewportSize(viewport);
+		await expect(header).toHaveCSS('border-top-left-radius', viewport.upperRadius);
+		await expect(header).toHaveCSS('border-top-right-radius', viewport.upperRadius);
+		await expect(header).toHaveCSS('border-bottom-left-radius', '40px');
+		await expect(header).toHaveCSS('border-bottom-right-radius', '40px');
+		await expect(page.getByPlaceholder('Cari menu jus buah, topping...')).toBeVisible();
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+		).toBe(true);
+		await page.screenshot({ path: test.info().outputPath(`pos-header-${viewport.name}.png`) });
+	}
+});
+
 for (const viewport of [
 	{ name: 'desktop', width: 1280, height: 800 },
 	{ name: 'mobile', width: 390, height: 844 }
