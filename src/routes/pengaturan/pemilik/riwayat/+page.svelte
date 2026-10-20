@@ -12,7 +12,7 @@
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import type { HistoryItem } from '$lib/types/laporan';
-	type IconComponent = typeof import('@lucide/svelte/icons/trash').default;
+	import Trash from '@lucide/svelte/icons/trash';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
@@ -32,7 +32,6 @@
 	let searchKeyword = $state('');
 	let filterPayment = $state('all'); // 'all' | 'qris' | 'tunai'
 	let filterRentang: RentangRiwayat = $state('hari-ini');
-	let Trash = $state<IconComponent | null>(null);
 
 	let showDetailModal = $state(false);
 	let selectedTransaksi = $state<HistoryItem | null>(null);
@@ -217,7 +216,6 @@
 			document.body.classList.add('hide-nav');
 		}
 		await fetchTransaksiHariIni();
-		Trash = (await import('@lucide/svelte/icons/trash')).default;
 		// pollingInterval = setInterval(fetchTransaksiHariIni, 5000); // HAPUS polling otomatis
 		// Dengarkan event global agar riwayat auto-refresh ketika rekomendasi AI diterapkan
 		aiHandler = async () => {

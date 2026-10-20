@@ -119,9 +119,6 @@ export function createCatatState() {
 	}
 
 	async function init() {
-		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			loadRouteIcons('catat');
-		});
 		if (!currentUserRole) {
 			const res = await fetch('/api/session');
 			if (res.ok) {

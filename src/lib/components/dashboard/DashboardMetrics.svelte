@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { formatRupiah } from '$lib/utils/currency';
-	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import TrendingUp from '@lucide/svelte/icons/trending-up';
+	import Wallet from '@lucide/svelte/icons/wallet';
 
 	let {
 		itemTerjual = null as number | null,
@@ -11,22 +12,6 @@
 		avgTransaksi = null as number | null,
 		jamRamai = '' as string
 	} = $props();
-
-	// Lazy load icons
-	let ShoppingBag = $state<IconComponent | null>(null);
-	let TrendingUp = $state<IconComponent | null>(null);
-	let Wallet = $state<IconComponent | null>(null);
-
-	onMount(async () => {
-		const icons = await Promise.all([
-			import('@lucide/svelte/icons/shopping-bag'),
-			import('@lucide/svelte/icons/trending-up'),
-			import('@lucide/svelte/icons/wallet')
-		]);
-		ShoppingBag = icons[0].default;
-		TrendingUp = icons[1].default;
-		Wallet = icons[2].default;
-	});
 </script>
 
 <!-- Metrik Utama (Authentic Glassmorphism & Soft Float) -->
@@ -54,13 +39,7 @@
 			<div
 				class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 md:h-13 md:w-13"
 			>
-				{#if Wallet}
-					<Wallet class="h-6 w-6 stroke-[2.2]" />
-				{:else}
-					<span
-						class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-					></span>
-				{/if}
+				<Wallet class="h-6 w-6 stroke-[2.2]" />
 			</div>
 		</div>
 
@@ -90,13 +69,7 @@
 			<div
 				class="flex h-9 w-9 items-center justify-center rounded-[14px] border border-pink-100 bg-pink-50 text-pink-600 md:h-10 md:w-10"
 			>
-				{#if ShoppingBag}
-					<ShoppingBag class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
-				{:else}
-					<span
-						class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
-					></span>
-				{/if}
+				<ShoppingBag class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
 			</div>
 		</div>
 		<div
@@ -121,13 +94,7 @@
 			<div
 				class="flex h-9 w-9 items-center justify-center rounded-[14px] border border-rose-100 bg-rose-50 text-rose-600 md:h-10 md:w-10"
 			>
-				{#if TrendingUp}
-					<TrendingUp class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
-				{:else}
-					<span
-						class="block h-4 w-4 animate-spin rounded-full border-2 border-rose-300 border-t-rose-600"
-					></span>
-				{/if}
+				<TrendingUp class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
 			</div>
 		</div>
 		<div

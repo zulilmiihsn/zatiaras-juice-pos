@@ -12,6 +12,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import FileDown from '@lucide/svelte/icons/file-down';
+	import Filter from '@lucide/svelte/icons/filter';
 	import Calendar from '@lucide/svelte/icons/calendar';
 	import X from '@lucide/svelte/icons/x';
 
@@ -66,13 +67,7 @@
 				onclick={() => (s.showFilter = true)}
 				aria-label="Filter laporan"
 			>
-				{#if s.FilterIcon}
-					<s.FilterIcon class="h-4.5 w-4.5 stroke-[2.2]" />
-				{:else}
-					<span
-						class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-					></span>
-				{/if}
+				<Filter class="h-4.5 w-4.5 stroke-[2.2]" />
 			</button>
 
 			<!-- Button Filter Tanggal Start -->

@@ -27,15 +27,6 @@
 	import Settings from '@lucide/svelte/icons/settings';
 
 	import type { TokoSession, BukuKasRecord } from '$lib/types';
-	type IconComponent = typeof import('@lucide/svelte/icons/wallet').default;
-
-	// Lazy load icons — assigned in onMount, consumed by DashboardMetrics via svelte:component
-	let Wallet = $state<IconComponent | null>(null);
-	let ShoppingBag = $state<IconComponent | null>(null);
-	let Coins = $state<IconComponent | null>(null);
-	let Users = $state<IconComponent | null>(null);
-	let Clock = $state<IconComponent | null>(null);
-	let TrendingUp = $state<IconComponent | null>(null);
 
 	import { createDashboardState } from '$lib/stores/dashboardState.svelte';
 	import { stockPolicyState } from '$lib/stores/stockPolicyState.svelte';
@@ -53,28 +44,6 @@
 
 	onMount(async () => {
 		void stockPolicyState.refresh();
-		// Preload ikon untuk halaman beranda agar ikon metrik muncul cepat
-		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			// non-blocking
-			loadRouteIcons('dashboard');
-			// anticipatory preload ke rute yang sering dituju berikutnya
-			setTimeout(() => loadRouteIcons('pos'), 0);
-			setTimeout(() => loadRouteIcons('laporan'), 0);
-		});
-		const icons = await Promise.all([
-			import('@lucide/svelte/icons/wallet'),
-			import('@lucide/svelte/icons/shopping-bag'),
-			import('@lucide/svelte/icons/coins'),
-			import('@lucide/svelte/icons/users'),
-			import('@lucide/svelte/icons/clock'),
-			import('@lucide/svelte/icons/trending-up')
-		]);
-		Wallet = icons[0].default;
-		ShoppingBag = icons[1].default;
-		Coins = icons[2].default;
-		Users = icons[3].default;
-		Clock = icons[4].default;
-		TrendingUp = icons[5].default;
 
 		// Jika role belum ada di store, validasi dari session backend.
 		if (!currentUserRole) {

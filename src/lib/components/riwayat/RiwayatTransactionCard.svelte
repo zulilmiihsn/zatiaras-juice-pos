@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import Trash from '@lucide/svelte/icons/trash';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { formatRupiah } from '$lib/utils/currency';
 	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
-
-	type IconComponent = typeof import('@lucide/svelte/icons/trash').default;
 
 	interface Props {
 		trx: HistoryItem;
@@ -14,14 +12,6 @@
 	}
 
 	let { trx, onOpen, onHapus = null }: Props = $props();
-
-	// Ikon hapus dimuat malas seperti sebelumnya di halaman pemilik.
-	let IkonHapus = $state<IconComponent | null>(null);
-	onMount(async () => {
-		if (onHapus) {
-			IkonHapus = (await import('@lucide/svelte/icons/trash')).default;
-		}
-	});
 </script>
 
 <div
@@ -70,7 +60,7 @@
 		>
 			{trx.tipe === 'out' ? '-' : ''}Rp {formatRupiah(trx.nominal)}
 		</div>
-		{#if onHapus && IkonHapus}
+		{#if onHapus}
 			<button
 				type="button"
 				class="cursor-pointer rounded-xl bg-red-50 p-2 text-red-600 shadow-md transition-colors hover:bg-red-100 md:p-2.5"
@@ -81,7 +71,7 @@
 				title="Hapus transaksi"
 				aria-label="Hapus transaksi"
 			>
-				<IkonHapus class="h-4.5 w-4.5 md:h-5 md:w-5" />
+				<Trash class="h-4.5 w-4.5 md:h-5 md:w-5" />
 			</button>
 		{:else}
 			<div class="text-xs text-gray-400">Tap untuk detail</div>

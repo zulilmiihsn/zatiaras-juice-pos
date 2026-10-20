@@ -20,8 +20,6 @@ import { calculateTaxes, getTaxSettings } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
 
 export function createLaporanState() {
-	let FilterIcon = $state<import('svelte').Component | null>(null);
-
 	let isInitialLoad = true;
 	let laporanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 	let laporanRefreshInFlight = false;
@@ -405,12 +403,6 @@ export function createLaporanState() {
 
 	onMount(() => {
 		laporanAlive = true;
-		import('$lib/utils/iconLoader').then(({ loadRouteIcons }) => {
-			loadRouteIcons('laporan');
-		});
-		import('@lucide/svelte/icons/filter').then((icon) => {
-			FilterIcon = icon.default;
-		});
 
 		filterDate = getTodayWita();
 		startDate = getLocalDateStringWITA();
@@ -492,9 +484,6 @@ export function createLaporanState() {
 	});
 
 	return {
-		get FilterIcon() {
-			return FilterIcon;
-		},
 		get showFilter() {
 			return showFilter;
 		},
