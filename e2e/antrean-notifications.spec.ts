@@ -206,18 +206,33 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		await page.getByRole('link', { name: 'Kembali ke Pengaturan', exact: true }).click();
 		await expect(page).toHaveURL(/\/pengaturan$/);
 		await expect(page.getByText('Pemilik Kios', { exact: true })).toBeVisible();
-		const ownerCard = page.getByRole('button', { name: 'Pemilik Khusus Owner', exact: true });
-		const antreanCard = page.getByRole('button', { name: /^Antrean / });
+		const ownerAccess = page.getByRole('link', { name: 'Kelola usaha', exact: true });
+		await expect(ownerAccess).toBeVisible();
+		await expect(ownerAccess).toHaveAttribute('href', '/pengaturan/pemilik');
+		const menus = page.getByRole('navigation', { name: 'Menu pengaturan', exact: true });
+		await expect(menus.getByRole('button')).toHaveCount(4);
+		const antreanCard = menus.getByRole('button', { name: /^Antrean / });
+		const printerCard = menus.getByRole('button', { name: /^Draft Struk / });
 		for (const width of [320, 390, 1280]) {
 			await page.setViewportSize({ width, height: 900 });
-			const [ownerTitle, antreanTitle] = await Promise.all([
-				ownerCard.getByText('Pemilik', { exact: true }).boundingBox(),
-				antreanCard.getByText('Antrean', { exact: true }).boundingBox()
+			const [antreanBox, printerBox] = await Promise.all([
+				antreanCard.boundingBox(),
+				printerCard.boundingBox()
 			]);
+			expect(antreanBox).not.toBeNull();
+			expect(printerBox).not.toBeNull();
+			if (width < 768) {
+				expect(printerBox!.x).toBe(antreanBox!.x);
+				expect(printerBox!.width).toBe(antreanBox!.width);
+				expect(printerBox!.y).toBeGreaterThanOrEqual(antreanBox!.y + antreanBox!.height);
+			} else {
+				expect(printerBox!.x).toBeGreaterThan(antreanBox!.x + antreanBox!.width);
+				expect(Math.abs(printerBox!.y - antreanBox!.y)).toBeLessThanOrEqual(1);
+			}
+			await expect(ownerAccess).toBeVisible();
 			expect(
-				Math.abs(antreanTitle!.y - ownerTitle!.y),
-				`Judul kartu Antrean harus sejajar dengan Pemilik pada ${width}px`
-			).toBeLessThanOrEqual(1);
+				await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+			).toBe(true);
 			await page.screenshot({
 				path: testInfo.outputPath(`pengaturan-${width}.png`),
 				fullPage: true
