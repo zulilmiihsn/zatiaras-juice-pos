@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
-import { csrfMutate, ownerUsernameForTest } from './helpers';
+import { csrfMutate, gotoHydrated, ownerUsernameForTest } from './helpers';
 
 async function waitForNotificationSettings(page: Page) {
 	await expect(
@@ -154,7 +154,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 }, testInfo) => {
 	const { context, page } = await device(browser, baseURL);
 	try {
-		await page.goto('/pengaturan', { waitUntil: 'domcontentloaded' });
+		await gotoHydrated(page, '/pengaturan', 'h2:text-is("Pemilik Kios")');
 		const referenceHeader = await page.locator('.page-header').evaluate((element) => {
 			const style = getComputedStyle(element);
 			return {
@@ -692,7 +692,21 @@ reloginTest(
 				.toContain(order.orderId);
 			const oldUsername = ownerUsernameForTest(test.info().title);
 			const newUsername = oldUsername === 'pemilik-e2e-2' ? 'pemilik-e2e-1' : 'pemilik-e2e-2';
-			await b.page.goto('/pengaturan', { waitUntil: 'domcontentloaded' });
+			// Hidrasi harus selesai sebelum menahan sesi; klik SSR tidak menjalankan handler logout.
+			await gotoHydrated(b.page, '/pengaturan', 'h2:text-is("Pemilik Kios")');
+			// Pemulihan banner dan aktivasi audio mengubah tinggi halaman; selesaikan setup sebelum race sesi.
+			const notificationBanner = b.page.getByRole('complementary', {
+				name: 'Notifikasi pesanan baru'
+			});
+			await expect(notificationBanner).toBeVisible();
+			const activateAudio = notificationBanner.getByRole('button', {
+				name: 'Aktifkan suara',
+				exact: true
+			});
+			if (await activateAudio.isVisible()) {
+				await activateAudio.press('Enter');
+				await expect(activateAudio).toBeHidden();
+			}
 			const validationGate = new Promise<void>((resolve) => {
 				releaseValidation = resolve;
 			});
@@ -728,10 +742,9 @@ reloginTest(
 				})
 				.toBe(true);
 			await b.page.getByRole('button', { name: 'Logout', exact: true }).click();
-			await b.page
-				.getByRole('dialog', { name: 'Konfirmasi Logout' })
-				.getByRole('button', { name: 'Keluar', exact: true })
-				.click();
+			const logoutDialog = b.page.getByRole('dialog', { name: 'Konfirmasi Logout' });
+			await expect(logoutDialog).toBeVisible();
+			await logoutDialog.getByRole('button', { name: 'Keluar', exact: true }).click();
 			await expect(b.page).toHaveURL(/\/login$/);
 			expect((await local(b.page)) === null).toBe(true);
 			releaseValidation!();

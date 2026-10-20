@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { ownerUsernameForTest } from './helpers';
+import { gotoHydrated, ownerUsernameForTest } from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -45,7 +45,7 @@ async function focusedLabel(page: Page): Promise<string> {
 // AppModal logout — initial focus, Tab trap, Escape, restore.
 test('logout modal traps focus and restores trigger', async ({ page }) => {
 	await loginAsOwner(page);
-	await page.goto('/pengaturan');
+	await gotoHydrated(page, '/pengaturan', 'h2:text-is("Pemilik Kios")');
 	const trigger = page.getByRole('button', { name: 'Logout', exact: true });
 	await expect(trigger).toBeVisible({ timeout: 30000 });
 	await trigger.focus();
