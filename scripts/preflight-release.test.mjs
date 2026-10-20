@@ -146,6 +146,28 @@ test('config berubah setelah manifest ditolak (REL-T06)', () => {
 	}
 });
 
+test('config dan metadata migrasi wajib memiliki inventori checksum lengkap', () => {
+	for (const group of ['config_checksums', 'migration_checksums']) {
+		const fx = fixture();
+		try {
+			for (const value of [undefined, null, [], {}, 'invalid']) {
+				const changed = { ...fx.manifest, [group]: value };
+				assert.ok(verifyManifest(changed, SHA).length > 0, `${group} malformed tidak boleh lulus`);
+			}
+			const omitted = Object.keys(fx.manifest[group])[0];
+			const incomplete = { ...fx.manifest[group] };
+			delete incomplete[omitted];
+			writeFileSync(omitted, '{"changed":true}\n');
+			assert.ok(
+				verifyManifest({ ...fx.manifest, [group]: incomplete }, SHA).length > 0,
+				`Hash ${omitted} yang dihapus tidak boleh menyembunyikan config berubah`
+			);
+		} finally {
+			fx.done();
+		}
+	}
+});
+
 // Journal migrasi CRLF (checkout Windows lama) tetap ditolak, dengan
 // diagnosis jelas; perubahan isi substantif tidak diberi diagnosis CRLF.
 test('journal CRLF ditolak dengan diagnosis, perubahan isi tanpa diagnosis', () => {

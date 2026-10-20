@@ -248,7 +248,15 @@ export function verifyManifest(manifest, expectedSha) {
 		}
 	}
 	const checkGroup = (label, recorded, current) => {
-		for (const [file, expected] of Object.entries(recorded || {})) {
+		if (!recorded || typeof recorded !== 'object' || Array.isArray(recorded)) {
+			errors.push(`${label} checksums hilang atau tidak valid.`);
+			return;
+		}
+		// Menghapus inventori/hash tidak boleh menyembunyikan file sumber yang berubah.
+		for (const file of Object.keys(current || {})) {
+			if (!Object.hasOwn(recorded, file)) errors.push(`${label} tak tercatat: ${file}.`);
+		}
+		for (const [file, expected] of Object.entries(recorded)) {
 			if (!(file in (current || {}))) errors.push(`${label} hilang: ${file}.`);
 			else if (current[file] !== expected) {
 				errors.push(`${label} berubah: ${file}.${lineEndingHint(file, expected)}`);

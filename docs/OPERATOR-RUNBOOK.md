@@ -112,6 +112,11 @@ Rollback schema memakai `node scripts/rollback-migration.mjs --shard <BINDING> -
 4. Catat deployment ID Worker realtime dan Pages; keduanya harus dari SHA yang sama.
 5. Smoke (§5).
 
+Manifest wajib memiliki inventori checksum config Cloudflare dan metadata migrasi
+yang lengkap. Grup yang hilang/kosong atau hash file yang dihapus tetap ditolak,
+meskipun SHA dan byte bundle cocok. Ambil ulang artefak dari CI yang benar atau
+bangun ulang melalui CI; jangan mengisi inventori secara manual untuk melewati gate.
+
 Commit dokumentasi yang di-push sesudah CI membuat SHA lama gagal "Assert Release SHA";
 deploy HEAD terbaru dengan run CI miliknya.
 
