@@ -21,6 +21,15 @@ on:
         options:
           - production
           - staging
+      staging_ref:
+        description: Ref staging (main atau release/*; diabaikan untuk produksi)
+        required: false
+        default: main
+
+env:
+  RELEASE_COMMIT_SHA: ${{ inputs.sha }}
+  RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
+  RELEASE_SOURCE_REF: ${{ inputs.target == 'staging' && inputs.staging_ref || 'main' }}
 
 jobs:
   verify:
@@ -31,17 +40,44 @@ jobs:
       actions: read
       contents: read
     steps:
+      - name: Validate Release Inputs
+        env:
+          RELEASE_TARGET: ${{ inputs.target }}
+        run: |
+          [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
+          [[ "$RELEASE_CI_RUN_ID" =~ ^[0-9]+$ ]] || (echo "Invalid CI run ID" && exit 1)
+          case "$RELEASE_TARGET" in
+            production|staging) ;;
+            *) echo "Invalid deployment target"; exit 1 ;;
+          esac
+          case "$RELEASE_SOURCE_REF" in
+            main|release/?*) ;;
+            *) echo "Release ref must be main or release/*"; exit 1 ;;
+          esac
+          git check-ref-format --branch "$RELEASE_SOURCE_REF"
+
       - name: Checkout Code
         uses: actions/checkout@v5
         with:
           # Jangan ref langsung ke SHA: perilaku fetch-SHA actions/checkout
-          # rapuh (pernah gagal sebagai branch). Checkout main lalu
-          # buktikan HEAD = SHA rilis; manifest verify mengunci sisanya.
-          ref: main
+          # rapuh (pernah gagal sebagai branch). Checkout main untuk produksi
+          # atau ref staging terpilih, lalu buktikan HEAD = SHA rilis;
+          # manifest verify mengunci sisanya.
+          ref: ${{ env.RELEASE_SOURCE_REF }}
 
       - name: Assert Release SHA
         run: |
-          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}" || (echo "SHA mismatch" && exit 1)
+          test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT_SHA" || (echo "SHA mismatch" && exit 1)
+
+      - name: Verify Successful CI Run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ci_metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_CI_RUN_ID" --jq '[.head_sha, .conclusion, .path] | @tsv')"
+          IFS=$'\t' read -r ci_sha ci_conclusion ci_path <<< "$ci_metadata"
+          test "$ci_sha" = "$RELEASE_COMMIT_SHA" || (echo "CI SHA mismatch" && exit 1)
+          test "$ci_conclusion" = "success" || (echo "CI run must be successful" && exit 1)
+          test "$ci_path" = ".github/workflows/ci.yml" || (echo "Artifact must come from CI workflow" && exit 1)
 
       - name: Download Release Artifact
         uses: actions/download-artifact@v5
@@ -51,8 +87,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Artifact Provenance
-        env:
-          RELEASE_COMMIT_SHA: ${{ inputs.sha }}
         run: node scripts/preflight-release.mjs --verify-only
 
   deploy:
@@ -69,11 +103,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ env.RELEASE_SOURCE_REF }}
 
       - name: Assert Release SHA
         run: |
-          test "$(git rev-parse HEAD)" = "${{ inputs.sha }}" || (echo "SHA mismatch" && exit 1)
+          test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT_SHA" || (echo "SHA mismatch" && exit 1)
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -97,8 +131,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Artifact Provenance
-        env:
-          RELEASE_COMMIT_SHA: ${{ inputs.sha }}
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Provision Antrean VAPID secrets

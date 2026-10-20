@@ -172,7 +172,11 @@ dipakai. `test:staging` gagal bila config staging menunjuk resource produksi.
 
 1. Migrasi baru ke staging dulu: `pnpm d1:migrate:staging`.
 2. Workflow **Deploy** dengan `target=staging` (dry-run tidak perlu; artifact diverifikasi di job
-   verify). SHA tetap harus HEAD `main` dengan CI hijau.
+   verify). `staging_ref` boleh `main` (default) atau branch `release/*`. Untuk preview branch,
+   jalankan workflow dari ref yang memuat perubahan workflow dan isi `staging_ref` dengan nama
+   branch release itu. SHA wajib HEAD ref terpilih, dan `ci_run_id` wajib menunjuk workflow CI
+   hijau pada SHA yang sama. Ref lain, SHA yang sudah bergeser, dan CI yang belum hijau ditolak
+   sebelum deploy. Produksi tetap wajib HEAD `main`; `staging_ref` diabaikan untuk produksi.
 3. Smoke di staging (§5). Bila lolos, migrasi produksi (§3) dan Deploy `target=production`.
 
 Staging berbagi kuota akun Cloudflare dengan produksi; pantau pemakaian D1/Workers di dashboard.
