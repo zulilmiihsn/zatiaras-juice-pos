@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import Boxes from '@lucide/svelte/icons/boxes';
@@ -22,42 +23,25 @@
 </script>
 
 <div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
-	<!-- Fluid Wave Header for Stok -->
-	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- Ambient background blur shapes -->
-		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
-
-		<div class="mx-auto w-full max-w-5xl">
-			<div class="relative z-10 mb-3 text-center md:mb-4">
-				<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
-					Stok & Bahan Baku
-				</h1>
-				<p class="text-xs font-medium text-white/85 md:text-sm">
-					Pantau ketersediaan buah, gula, susu, dan perlengkapan
-				</p>
+	<PageHeader
+		title="Stok & Bahan Baku"
+		subtitle="Pantau ketersediaan buah, gula, susu, dan perlengkapan"
+	>
+		<!-- Search Bar (Rounded-Full Glass Pill on the Wave) -->
+		<div class="relative z-10 mx-auto w-full max-w-sm md:max-w-md">
+			<div
+				class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400"
+			>
+				<Search class="h-4 w-4" />
 			</div>
-
-			<!-- Search Bar (Rounded-Full Glass Pill on the Wave) -->
-			<div class="relative z-10 mx-auto max-w-sm md:max-w-md">
-				<div
-					class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400"
-				>
-					<Search class="h-4 w-4" />
-				</div>
-				<input
-					type="text"
-					bind:value={s.searchKeyword}
-					placeholder="Cari buah, gula, susu, cup..."
-					class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-10 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 focus:outline-none md:text-base"
-				/>
-			</div>
+			<input
+				type="text"
+				bind:value={s.searchKeyword}
+				placeholder="Cari buah, gula, susu, cup..."
+				class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-10 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 focus:outline-none md:text-base"
+			/>
 		</div>
-	</div>
+	</PageHeader>
 
 	<!-- Main Content Area -->
 	<main

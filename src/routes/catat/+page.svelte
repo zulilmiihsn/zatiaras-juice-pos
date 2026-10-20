@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { fade, fly } from 'svelte/transition';
@@ -76,60 +77,43 @@
 />
 
 <div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
-	<!-- Fluid Wave Header for Catat -->
-	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- Ambient background blur shapes -->
+	<PageHeader
+		title="Pencatatan Keuangan"
+		subtitle="Catat pemasukan atau pengeluaran operasional kios"
+	>
+		<!-- Mode Switcher Pill on the Wave -->
 		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
-
-		<div class="mx-auto w-full max-w-5xl">
-			<div class="relative z-10 mb-3 text-center md:mb-4">
-				<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
-					Pencatatan Keuangan
-				</h1>
-				<p class="text-xs font-medium text-white/85 md:text-sm">
-					Catat pemasukan atau pengeluaran operasional kios
-				</p>
-			</div>
-
-			<!-- Mode Switcher Pill on the Wave -->
+			class="relative z-10 mx-auto flex w-full max-w-sm overflow-hidden rounded-full border border-white/40 bg-white/25 p-1 shadow-sm backdrop-blur-xl md:max-w-md"
+		>
+			<!-- Indicator Slide -->
 			<div
-				class="relative z-10 mx-auto flex max-w-sm overflow-hidden rounded-full border border-white/40 bg-white/25 p-1 shadow-sm backdrop-blur-xl md:max-w-md"
+				class="absolute top-1 bottom-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-white shadow-md transition-transform duration-200 ease-out"
+				style="transform: translateX({s.mode === 'pengeluaran' ? '100%' : '0'});"
+			></div>
+			<button
+				class="z-10 h-9 min-h-0 flex-1 cursor-pointer rounded-full text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.mode ===
+				'pemasukan'
+					? 'text-pink-700'
+					: 'text-white'}"
+				type="button"
+				aria-current={s.mode === 'pemasukan' ? 'page' : undefined}
+				onclick={s.handleSetPemasukan}
 			>
-				<!-- Indicator Slide -->
-				<div
-					class="absolute top-1 bottom-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-white shadow-md transition-transform duration-200 ease-out"
-					style="transform: translateX({s.mode === 'pengeluaran' ? '100%' : '0'});"
-				></div>
-				<button
-					class="z-10 h-9 min-h-0 flex-1 cursor-pointer rounded-full text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.mode ===
-					'pemasukan'
-						? 'text-pink-700'
-						: 'text-white'}"
-					type="button"
-					aria-current={s.mode === 'pemasukan' ? 'page' : undefined}
-					onclick={s.handleSetPemasukan}
-				>
-					+ Pemasukan
-				</button>
-				<button
-					class="z-10 h-9 min-h-0 flex-1 cursor-pointer rounded-full text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.mode ===
-					'pengeluaran'
-						? 'text-rose-700'
-						: 'text-white'}"
-					type="button"
-					aria-current={s.mode === 'pengeluaran' ? 'page' : undefined}
-					onclick={s.handleSetPengeluaran}
-				>
-					- Pengeluaran
-				</button>
-			</div>
+				+ Pemasukan
+			</button>
+			<button
+				class="z-10 h-9 min-h-0 flex-1 cursor-pointer rounded-full text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.mode ===
+				'pengeluaran'
+					? 'text-rose-700'
+					: 'text-white'}"
+				type="button"
+				aria-current={s.mode === 'pengeluaran' ? 'page' : undefined}
+				onclick={s.handleSetPengeluaran}
+			>
+				- Pengeluaran
+			</button>
 		</div>
-	</div>
+	</PageHeader>
 
 	<main
 		aria-label="Halaman catat pemasukan pengeluaran"

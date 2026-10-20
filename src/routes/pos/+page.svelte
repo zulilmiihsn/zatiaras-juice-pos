@@ -2,6 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import LowStockAlertBanner from '$lib/components/shared/LowStockAlertBanner.svelte';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import ProductGrid from '$lib/components/pos/ProductGrid.svelte';
 	import CustomItemModal from '$lib/components/pos/CustomItemModal.svelte';
 	import CartPreview from '$lib/components/pos/CartPreview.svelte';
@@ -32,50 +33,39 @@
 	>
 		<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
 		<div class="sticky top-0 z-10 w-full bg-[#faf7f8]">
-			<!-- Fluid Wave Header for POS -->
-			<div class="page-header relative pt-4 pb-12 md:pt-6 md:pb-14">
-				<!-- Ambient background blur shapes -->
-				<div
-					class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-				></div>
-				<div
-					class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-				></div>
-
+			<PageHeader variant="compact">
 				<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
-				<div class="relative z-10 w-full px-5">
-					<div class="flex w-full items-center gap-2.5">
-						<div class="relative flex-1">
-							<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-								<Search class="h-4.5 w-4.5" />
-							</span>
-							<input
-								class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-11 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
-								type="text"
-								placeholder="Cari menu jus buah, topping..."
-								bind:value={s.search}
-								autocomplete="off"
-								oninput={(e) => s.handleSearchInput((e.target as HTMLInputElement).value)}
-							/>
-						</div>
-
-						<!-- Button Toggle Tampilan Grid / List -->
-						<button
-							type="button"
-							aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
-							title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
-							class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
-							onclick={() => posGridView.toggle()}
-						>
-							{#if posGridView.value}
-								<LayoutGrid class="h-5 w-5 stroke-[2.2] text-pink-600" />
-							{:else}
-								<LayoutList class="h-5 w-5 stroke-[2.2] text-slate-700" />
-							{/if}
-						</button>
+				<div class="flex w-full items-center gap-2.5">
+					<div class="relative flex-1">
+						<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+							<Search class="h-4.5 w-4.5" />
+						</span>
+						<input
+							class="w-full rounded-full border border-white/80 bg-white/95 py-2.5 pr-4 pl-11 text-sm text-slate-900 shadow-md backdrop-blur-md transition-all duration-200 outline-none placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 md:text-base"
+							type="text"
+							placeholder="Cari menu jus buah, topping..."
+							bind:value={s.search}
+							autocomplete="off"
+							oninput={(e) => s.handleSearchInput((e.target as HTMLInputElement).value)}
+						/>
 					</div>
+
+					<!-- Button Toggle Tampilan Grid / List -->
+					<button
+						type="button"
+						aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
+						title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
+						class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
+						onclick={() => posGridView.toggle()}
+					>
+						{#if posGridView.value}
+							<LayoutGrid class="h-5 w-5 stroke-[2.2] text-pink-600" />
+						{:else}
+							<LayoutList class="h-5 w-5 stroke-[2.2] text-slate-700" />
+						{/if}
+					</button>
 				</div>
-			</div>
+			</PageHeader>
 
 			<!-- Category Filter Pills -->
 			<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-5">

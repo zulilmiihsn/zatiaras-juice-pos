@@ -269,9 +269,23 @@ input,
 	box-shadow:
 		0 20px 25px -5px rgba(236, 72, 153, 0.15),
 		0 8px 10px -6px rgba(236, 72, 153, 0.15);
-	/* SENGAJA tanpa min-height: min-height 208/232px pernah dicoba (opsi B1)
-	dan menghasilkan gurun pink kosong di halaman ber-konten pendek. Tinggi
-	header mengikuti padding seragam + isi fungsional masing-masing halaman. */
+}
+
+/* Dua tingkat tinggi, dipasang oleh PageHeader:
+   - standard: min-height sama untuk semua halaman utama (judul + satu baris kontrol).
+   - compact (tanpa kelas ini): tanpa min-height. SENGAJA: min-height 208/232px pernah
+     dicoba di semua halaman dan menghasilkan gurun pink kosong di halaman berisi satu
+     baris (Kasir, Pengaturan). */
+.page-header--standard {
+	display: flex;
+	flex-direction: column;
+	min-height: 11rem;
+}
+
+@media (min-width: 48rem) {
+	.page-header--standard {
+		min-height: 13rem;
+	}
 }
 
 /* ── Brand Buttons (satu sumber gaya tombol) ── */

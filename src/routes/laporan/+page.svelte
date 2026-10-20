@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
 	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
 	import LaporanFilter from '$lib/components/laporan/LaporanFilter.svelte';
@@ -56,102 +57,82 @@
 {/if}
 
 <div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
-	<!-- Fluid Wave Header for Laporan -->
-	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- Ambient background blur shapes -->
-		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
+	<PageHeader title="Laporan Keuangan" subtitle="Ringkasan omzet, modal, pengeluaran & laba bersih">
+		<!-- Date Filter Pills on the Wave -->
+		<div class="relative z-10 flex w-full items-center gap-2 md:mx-auto md:max-w-xl">
+			<!-- Button Filter Icon -->
+			<button
+				class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
+				onclick={() => (s.showFilter = true)}
+				aria-label="Filter laporan"
+			>
+				{#if s.FilterIcon}
+					<s.FilterIcon class="h-4.5 w-4.5 stroke-[2.2]" />
+				{:else}
+					<span
+						class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+					></span>
+				{/if}
+			</button>
 
-		<div class="mx-auto w-full max-w-5xl">
-			<div class="relative z-10 mb-3 text-center md:mb-4">
-				<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs md:text-xl">
-					Laporan Keuangan
-				</h1>
-				<p class="text-xs font-medium text-white/85 md:text-sm">
-					Ringkasan omzet, modal, pengeluaran & laba bersih
-				</p>
-			</div>
-
-			<!-- Date Filter Pills on the Wave -->
-			<div class="relative z-10 flex w-full items-center gap-2 md:mx-auto md:max-w-xl">
-				<!-- Button Filter Icon -->
-				<button
-					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95"
-					onclick={() => (s.showFilter = true)}
-					aria-label="Filter laporan"
+			<!-- Button Filter Tanggal Start -->
+			<button
+				class="flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-bold text-slate-800 shadow-sm backdrop-blur-md transition-all hover:bg-white active:scale-95"
+				onclick={s.openDatePicker}
+			>
+				<svg
+					class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					viewBox="0 0 24 24"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+					/></svg
 				>
-					{#if s.FilterIcon}
-						<s.FilterIcon class="h-4.5 w-4.5 stroke-[2.2]" />
-					{:else}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-						></span>
-					{/if}
-				</button>
+				<span class="truncate">{s.formatDate(s.startDate)}</span>
+			</button>
 
-				<!-- Button Filter Tanggal Start -->
-				<button
-					class="flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-bold text-slate-800 shadow-sm backdrop-blur-md transition-all hover:bg-white active:scale-95"
-					onclick={s.openDatePicker}
+			<!-- Button Filter Tanggal End -->
+			<button
+				class="flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-bold text-slate-800 shadow-sm backdrop-blur-md transition-all hover:bg-white active:scale-95"
+				onclick={s.openEndDatePicker}
+			>
+				<svg
+					class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					viewBox="0 0 24 24"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+					/></svg
 				>
-					<svg
-						class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						/></svg
-					>
-					<span class="truncate">{s.formatDate(s.startDate)}</span>
-				</button>
+				<span class="truncate">{s.endDate ? s.formatDate(s.endDate, true) : 'Hari ini'}</span>
+			</button>
 
-				<!-- Button Filter Tanggal End -->
-				<button
-					class="flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white/95 px-3 text-xs font-bold text-slate-800 shadow-sm backdrop-blur-md transition-all hover:bg-white active:scale-95"
-					onclick={s.openEndDatePicker}
-				>
-					<svg
-						class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						viewBox="0 0 24 24"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						/></svg
-					>
-					<span class="truncate">{s.endDate ? s.formatDate(s.endDate, true) : 'Hari ini'}</span>
-				</button>
-
-				<!-- Button Download PDF -->
-				<button
-					class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-					onclick={handleExportPdf}
-					disabled={isExporting}
-					title={isExporting ? 'Sedang mengekspor PDF...' : 'Unduh Laporan PDF'}
-					aria-label="Unduh Laporan PDF"
-				>
-					{#if isExporting}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-						></span>
-					{:else}
-						<FileDown class="h-4.5 w-4.5 stroke-[2.2]" />
-					{/if}
-				</button>
-			</div>
+			<!-- Button Download PDF -->
+			<button
+				class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+				onclick={handleExportPdf}
+				disabled={isExporting}
+				title={isExporting ? 'Sedang mengekspor PDF...' : 'Unduh Laporan PDF'}
+				aria-label="Unduh Laporan PDF"
+			>
+				{#if isExporting}
+					<span
+						class="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+					></span>
+				{:else}
+					<FileDown class="h-4.5 w-4.5 stroke-[2.2]" />
+				{/if}
+			</button>
 		</div>
-	</div>
+	</PageHeader>
 
 	<main
 		aria-label="Halaman laporan keuangan"

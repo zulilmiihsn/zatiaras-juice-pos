@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
@@ -303,94 +304,84 @@
 <TokoModal bind:show={showTokoModal} {isBukaToko} {sesiAktif} onTokoStatusChanged={cekSesiToko} />
 
 <div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
-	<!-- Fluid Wave Header for Beranda (Identical to Laporan, Catat, Stok) -->
-	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- Ambient background blur shapes -->
-		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
-
-		<div class="mx-auto w-full max-w-5xl">
-			<!-- Top Brand Row (Official Zatiaras Logo & Profile) -->
-			<div class="relative z-10 flex items-center justify-between pb-3 md:pb-4">
-				<div class="flex items-center gap-3">
-					<TopBarAiAssistant />
-					<div class="flex flex-col">
-						<h1
-							class="text-base leading-tight font-bold tracking-tight text-white drop-shadow-xs md:text-lg"
-						>
-							Zatiaras Juice
-						</h1>
-						<span class="text-[11px] font-medium text-white/85 md:text-xs">
-							{headerBranchLabel}
-						</span>
-					</div>
-				</div>
-
-				<div class="flex items-center gap-2">
-					<!-- Settings Icon Button -->
-					<a
-						href="/pengaturan"
-						aria-label="Pengaturan"
-						class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 md:h-10 md:w-10"
+	<!-- Baris brand + status kios; tinggi header disamakan dengan halaman utama lain oleh PageHeader -->
+	<PageHeader>
+		<!-- Top Brand Row (Official Zatiaras Logo & Profile) -->
+		<div class="relative z-10 flex items-center justify-between pb-3 md:pb-4">
+			<div class="flex items-center gap-3">
+				<TopBarAiAssistant />
+				<div class="flex flex-col">
+					<h1
+						class="text-base leading-tight font-bold tracking-tight text-white drop-shadow-xs md:text-lg"
 					>
-						<Settings size={18} class="stroke-[2.2]" />
-					</a>
+						Zatiaras Juice
+					</h1>
+					<span class="text-[11px] font-medium text-white/85 md:text-xs">
+						{headerBranchLabel}
+					</span>
 				</div>
 			</div>
 
-			<!-- Banner Status Toko (Buka / Tutup) -->
-			<button
-				type="button"
-				onclick={handleOpenTokoModal}
-				class="relative z-10 flex w-full cursor-pointer items-center justify-between rounded-full px-4 py-2.5 text-left shadow-md shadow-pink-950/10 transition-all duration-150 hover:shadow-lg active:scale-[0.98] md:mx-auto md:max-w-xl md:px-5 md:py-3 {tokoAktifLocal
-					? 'border border-emerald-300/70 bg-emerald-50/95 backdrop-blur-md'
-					: 'border border-rose-200/70 bg-white/95 backdrop-blur-md'}"
-			>
-				<div class="flex min-w-0 items-center gap-3">
-					<div
-						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-xs md:h-10 md:w-10 {tokoAktifLocal
-							? 'bg-emerald-500'
-							: 'bg-rose-500'}"
-					>
-						<Store size={18} class="stroke-[2.2]" />
-					</div>
-					<div class="flex min-w-0 flex-col">
-						<div class="flex items-center gap-1.5 leading-tight">
-							<span class="truncate text-xs font-bold tracking-tight text-slate-900 md:text-sm">
-								{tokoAktifLocal ? 'Kios Buka' : 'Kios Tutup'}
-							</span>
-							<span
-								class="inline-block h-2 w-2 shrink-0 rounded-full {tokoAktifLocal
-									? 'animate-pulse bg-emerald-500'
-									: 'bg-rose-500'}"
-							></span>
-						</div>
-						<span class="mt-0.5 truncate text-[11px] font-medium text-slate-500 md:text-xs">
-							{#if tokoAktifLocal}
-								Modal Kas: <span class="font-bold text-emerald-800"
-									>{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}</span
-								>
-							{:else}
-								Belum ada sesi kasir aktif
-							{/if}
-						</span>
-					</div>
-				</div>
-
-				<span
-					class="ml-2 shrink-0 text-xs font-bold transition-all md:text-sm {tokoAktifLocal
-						? 'text-slate-400 hover:text-slate-600'
-						: 'text-pink-600 hover:text-pink-700'}"
+			<div class="flex items-center gap-2">
+				<!-- Settings Icon Button -->
+				<a
+					href="/pengaturan"
+					aria-label="Pengaturan"
+					class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/40 bg-white/25 text-white shadow-xs backdrop-blur-xl transition-all hover:bg-white/40 active:scale-95 md:h-10 md:w-10"
 				>
-					{tokoAktifLocal ? 'Tutup Sesi ›' : 'Buka Sesi →'}
-				</span>
-			</button>
+					<Settings size={18} class="stroke-[2.2]" />
+				</a>
+			</div>
 		</div>
-	</div>
+
+		<!-- Banner Status Toko (Buka / Tutup) -->
+		<button
+			type="button"
+			onclick={handleOpenTokoModal}
+			class="relative z-10 flex w-full cursor-pointer items-center justify-between rounded-full px-4 py-2.5 text-left shadow-md shadow-pink-950/10 transition-all duration-150 hover:shadow-lg active:scale-[0.98] md:mx-auto md:max-w-xl md:px-5 md:py-3 {tokoAktifLocal
+				? 'border border-emerald-300/70 bg-emerald-50/95 backdrop-blur-md'
+				: 'border border-rose-200/70 bg-white/95 backdrop-blur-md'}"
+		>
+			<div class="flex min-w-0 items-center gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-xs md:h-10 md:w-10 {tokoAktifLocal
+						? 'bg-emerald-500'
+						: 'bg-rose-500'}"
+				>
+					<Store size={18} class="stroke-[2.2]" />
+				</div>
+				<div class="flex min-w-0 flex-col">
+					<div class="flex items-center gap-1.5 leading-tight">
+						<span class="truncate text-xs font-bold tracking-tight text-slate-900 md:text-sm">
+							{tokoAktifLocal ? 'Kios Buka' : 'Kios Tutup'}
+						</span>
+						<span
+							class="inline-block h-2 w-2 shrink-0 rounded-full {tokoAktifLocal
+								? 'animate-pulse bg-emerald-500'
+								: 'bg-rose-500'}"
+						></span>
+					</div>
+					<span class="mt-0.5 truncate text-[11px] font-medium text-slate-500 md:text-xs">
+						{#if tokoAktifLocal}
+							Modal Kas: <span class="font-bold text-emerald-800"
+								>{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}</span
+							>
+						{:else}
+							Belum ada sesi kasir aktif
+						{/if}
+					</span>
+				</div>
+			</div>
+
+			<span
+				class="ml-2 shrink-0 text-xs font-bold transition-all md:text-sm {tokoAktifLocal
+					? 'text-slate-400 hover:text-slate-600'
+					: 'text-pink-600 hover:text-pink-700'}"
+			>
+				{tokoAktifLocal ? 'Tutup Sesi ›' : 'Buka Sesi →'}
+			</span>
+		</button>
+	</PageHeader>
 
 	<main
 		aria-label="Dashboard"
