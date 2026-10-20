@@ -44,7 +44,7 @@ async function cleanupTransaction(page: Page, transactionId: string) {
 	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
 }
 
-test('POS header fills the top edge on desktop tablet and mobile', async ({ page }) => {
+test('POS header stays within the catalog width and touches the top edge', async ({ page }) => {
 	await loginAsOwner(page);
 	await page.goto('/pos');
 	await expect(page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible({
@@ -52,17 +52,17 @@ test('POS header fills the top edge on desktop tablet and mobile', async ({ page
 	});
 	const header = page.getByRole('main', { name: 'Kasir POS' }).locator('.page-header');
 	for (const viewport of [
-		{ name: 'desktop', width: 1920, height: 1080 },
-		{ name: 'laptop', width: 1280, height: 800 },
-		{ name: 'tablet', width: 820, height: 1180 },
-		{ name: 'mobile', width: 390, height: 844 }
+		{ name: 'desktop', width: 1920, height: 1080, headerX: 340, headerWidth: 866 },
+		{ name: 'laptop', width: 1280, height: 800, headerX: 20, headerWidth: 866 },
+		{ name: 'tablet', width: 820, height: 1180, headerX: 16, headerWidth: 492 },
+		{ name: 'mobile', width: 390, height: 844, headerX: 0, headerWidth: 390 }
 	]) {
 		await page.setViewportSize(viewport);
 		await expect.poll(async () => (await header.boundingBox())?.y).toBe(0);
 		const headerBounds = await header.boundingBox();
 		expect(headerBounds).not.toBeNull();
-		expect(headerBounds!.x).toBe(0);
-		expect(headerBounds!.width).toBe(viewport.width);
+		expect(headerBounds!.x).toBe(viewport.headerX);
+		expect(headerBounds!.width).toBe(viewport.headerWidth);
 		await expect(header).toHaveCSS('border-top-left-radius', '0px');
 		await expect(header).toHaveCSS('border-top-right-radius', '0px');
 		await expect(header).toHaveCSS('border-bottom-left-radius', '40px');
@@ -78,6 +78,7 @@ test('POS header fills the top edge on desktop tablet and mobile', async ({ page
 			expect(searchBounds).not.toBeNull();
 			expect(cartBounds).not.toBeNull();
 			expect(searchBounds!.x + searchBounds!.width).toBeLessThanOrEqual(cartBounds!.x);
+			expect(headerBounds!.x + headerBounds!.width).toBeLessThan(cartBounds!.x);
 		}
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)

@@ -209,8 +209,34 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		const ownerAccess = page.getByRole('link', { name: 'Kelola usaha', exact: true });
 		await expect(ownerAccess).toBeVisible();
 		await expect(ownerAccess).toHaveAttribute('href', '/pengaturan/pemilik');
+		const theme = await page.evaluate(() => {
+			const reference = document.createElement('span');
+			document.body.append(reference);
+			try {
+				reference.className = 'btn-brand-primary';
+				const buttonBackground = getComputedStyle(reference).backgroundImage;
+				const colors: Record<string, string> = {};
+				for (const color of ['pink', 'emerald', 'amber']) {
+					reference.style.color = `var(--color-${color}-600)`;
+					colors[color] = getComputedStyle(reference).color;
+				}
+				return { buttonBackground, colors };
+			} finally {
+				reference.remove();
+			}
+		});
+		await expect(ownerAccess).toHaveCSS('background-image', theme.buttonBackground);
 		const menus = page.getByRole('navigation', { name: 'Menu pengaturan', exact: true });
 		await expect(menus.getByRole('button')).toHaveCount(4);
+		for (const [name, color] of [
+			[/^Antrean /, 'pink'],
+			[/^Draft Struk /, 'emerald'],
+			[/^Riwayat /, 'amber'],
+			[/^Install PWA /, 'pink']
+		] as const) {
+			const icon = menus.getByRole('button', { name }).locator('.settings-menu-icon');
+			await expect(icon).toHaveCSS('color', theme.colors[color]);
+		}
 		const antreanCard = menus.getByRole('button', { name: /^Antrean / });
 		const printerCard = menus.getByRole('button', { name: /^Draft Struk / });
 		for (const width of [320, 390, 1280]) {

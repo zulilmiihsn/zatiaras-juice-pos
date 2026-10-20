@@ -68,7 +68,7 @@
 			>
 				<div class="flex min-w-0 items-center gap-3.5">
 					<div
-						class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#b5496b] text-white"
+						class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
 					>
 						{#if s.roleIcon}
 							{@const RoleIcon = s.roleIcon}
@@ -97,7 +97,7 @@
 				{#if isOwner}
 					<a
 						href="/pengaturan/pemilik"
-						class="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#b5496b] px-4 py-3 text-sm font-bold text-white transition duration-200 ease-out hover:bg-[#a13f5e] focus-visible:ring-2 focus-visible:ring-[#b5496b] focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] sm:shrink-0"
+						class="btn-brand-primary gap-2 px-4 text-sm focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] sm:shrink-0"
 					>
 						Kelola usaha
 						<ChevronRight class="h-4 w-4" aria-hidden="true" />
@@ -117,7 +117,7 @@
 				onclick={() => goto('/pengaturan/antrean')}
 				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
 			>
-				<span class="settings-menu-icon">
+				<span class="settings-menu-icon border-pink-100 bg-pink-50 text-pink-600">
 					<BellRing class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 				</span>
 				<span class="min-w-0 flex-1 md:flex-none">
@@ -133,13 +133,13 @@
 				class="settings-menu-item soft-float-card"
 				onclick={() => goto('/pengaturan/printer')}
 			>
-				<span class="settings-menu-icon">
+				<span class="settings-menu-icon border-emerald-100 bg-emerald-50 text-emerald-600">
 					{#if s.Printer}
 						{@const PrinterIcon = s.Printer}
 						<PrinterIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 					{:else}
 						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"
 						></span>
 					{/if}
 				</span>
@@ -156,13 +156,13 @@
 				class="settings-menu-item soft-float-card"
 				onclick={() => goto('/pengaturan/riwayat')}
 			>
-				<span class="settings-menu-icon">
+				<span class="settings-menu-icon border-amber-100 bg-amber-50 text-amber-600">
 					{#if s.History}
 						{@const HistoryIcon = s.History}
 						<HistoryIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 					{:else}
 						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"
 						></span>
 					{/if}
 				</span>
@@ -181,13 +181,13 @@
 				disabled={!s.isPwaLibraryLoaded}
 				aria-busy={!s.isPwaLibraryLoaded}
 			>
-				<span class="settings-menu-icon">
+				<span class="settings-menu-icon border-pink-100 bg-pink-50 text-pink-600">
 					{#if s.Download}
 						{@const DownloadIcon = s.Download}
 						<DownloadIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 					{:else}
 						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
 						></span>
 					{/if}
 				</span>
@@ -210,7 +210,7 @@
 			<button
 				type="button"
 				onclick={s.handleLogout}
-				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#ecd5dd] px-4 py-2 text-sm font-bold text-[#b5496b] transition duration-200 ease-out hover:bg-[#f8edf1] focus-visible:ring-2 focus-visible:ring-[#b5496b] focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
+				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-pink-200 px-4 py-2 text-sm font-bold text-pink-600 transition duration-200 ease-out hover:bg-pink-50 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
 			>
 				{#if s.LogOut}
 					{@const LogOutIcon = s.LogOut}
@@ -303,11 +303,11 @@
 		}
 
 		.settings-menu-item:hover:not(:disabled) {
-			box-shadow: 0 8px 24px -4px rgba(181, 73, 107, 0.12);
+			box-shadow: 0 8px 24px -4px rgba(236, 72, 153, 0.12);
 		}
 
 		.settings-menu-item:focus-visible {
-			outline: 2px solid #b5496b;
+			outline: 2px solid var(--color-pink-500);
 			outline-offset: 3px;
 		}
 
@@ -322,10 +322,9 @@
 			flex-shrink: 0;
 			align-items: center;
 			justify-content: center;
-			border: 1px solid #ecd5dd;
+			border-width: 1px;
+			border-style: solid;
 			border-radius: 1rem;
-			background: #f8edf1;
-			color: #b5496b;
 		}
 
 		@media (min-width: 48rem) {

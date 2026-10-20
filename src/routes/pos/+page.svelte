@@ -29,9 +29,11 @@
 	>
 		<!-- Responsive Layout: Single Column on Mobile, Split View on Tablet (md:) and Desktop (lg:) -->
 		<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
-		<div class="sticky top-0 z-10 bg-[#faf7f8]">
+		<div class="sticky top-0 z-10 mx-auto w-full max-w-7xl bg-[#faf7f8] md:px-4 lg:px-5">
 			<!-- Fluid Wave Header for POS -->
-			<div class="page-header relative pt-4 pb-12 md:pt-6 md:pb-14">
+			<div
+				class="page-header relative pt-4 pb-12 md:mr-[296px] md:pt-6 md:pb-14 lg:mr-[344px] xl:mr-[374px]"
+			>
 				<!-- Ambient background blur shapes -->
 				<div
 					class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
@@ -41,8 +43,8 @@
 				></div>
 
 				<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
-				<div class="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-4 lg:px-5">
-					<div class="flex w-full items-center gap-2.5 md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
+				<div class="relative z-10 w-full px-5">
+					<div class="flex w-full items-center gap-2.5">
 						<div class="relative flex-1">
 							<span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
 								<Search class="h-4.5 w-4.5" />
@@ -75,7 +77,7 @@
 				</div>
 			</div>
 
-			<div class="mx-auto w-full max-w-7xl md:px-4 lg:px-5">
+			<div class="w-full">
 				<div class="md:pr-[296px] lg:pr-[344px] xl:pr-[374px]">
 					<!-- Category Filter Pills -->
 					<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-2 md:pt-4">
