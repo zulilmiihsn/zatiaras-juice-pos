@@ -6,21 +6,23 @@
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
-	import Crown from '@lucide/svelte/icons/crown';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import BellRing from '@lucide/svelte/icons/bell-ring';
-	import CreditCard from '@lucide/svelte/icons/credit-card';
-	import User from '@lucide/svelte/icons/user';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 
 	const s = createPengaturanState();
+	const isOwner = $derived(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik');
 
 	onMount(async () => {
 		await s.init();
 	});
 </script>
 
-<div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
+<main
+	aria-label="Pengaturan Sistem"
+	class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12"
+>
 	<!-- Fluid Wave Header for Pengaturan (Full-width edge-to-edge) -->
 	<div class="page-header relative w-full px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<!-- Ambient background blur shapes -->
@@ -45,177 +47,177 @@
 		<!-- Box Informasi Role (Frosted Glass Card) -->
 		{#if s.isLoading || !s.isProfileLoaded}
 			<div
-				class="glass-card flex w-full animate-pulse flex-col items-center gap-2 rounded-[28px] p-5 shadow-lg md:mx-auto md:max-w-md"
+				class="glass-card flex w-full animate-pulse flex-col gap-5 rounded-[28px] p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between md:p-6"
+				aria-label="Memuat profil"
+				aria-busy="true"
 			>
-				<div class="mb-1 h-12 w-12 rounded-2xl bg-white/60"></div>
-				<div class="h-5 w-28 rounded-full bg-white/60"></div>
-				<div class="h-3.5 w-36 rounded-full bg-white/40"></div>
+				<div class="flex items-center gap-3.5">
+					<div class="h-12 w-12 shrink-0 rounded-2xl bg-white/60"></div>
+					<div class="space-y-2">
+						<div class="h-5 w-28 rounded-full bg-white/60"></div>
+						<div class="h-3.5 w-36 rounded-full bg-white/40"></div>
+					</div>
+				</div>
+				{#if isOwner}
+					<div class="h-11 rounded-xl bg-white/60 sm:w-36"></div>
+				{/if}
 			</div>
 		{:else}
 			<div
-				class="glass-card flex w-full flex-col items-center gap-1.5 rounded-[28px] p-5 text-center shadow-lg transition-all md:mx-auto md:max-w-md"
+				class="glass-card flex w-full flex-col gap-5 rounded-[28px] p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between md:p-6"
 			>
-				<div
-					class="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
-				>
-					{#if s.roleIcon}
-						{@const RoleIcon = s.roleIcon}
-						<RoleIcon class="h-6 w-6 stroke-[2.2]" />
-					{:else}
-						<span
-							class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-						></span>
-					{/if}
+				<div class="flex min-w-0 items-center gap-3.5">
+					<div
+						class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#b5496b] text-white"
+					>
+						{#if s.roleIcon}
+							{@const RoleIcon = s.roleIcon}
+							<RoleIcon class="h-6 w-6 stroke-[2.2]" aria-hidden="true" />
+						{:else}
+							<span
+								class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+							></span>
+						{/if}
+					</div>
+					<div class="min-w-0">
+						{#if isOwner}
+							<h2 class="text-lg font-black text-slate-900">Pemilik Kios</h2>
+							<p class="mt-1 text-xs leading-relaxed font-medium text-slate-500 md:text-sm">
+								Akses penuh ke seluruh operasional & laporan
+							</p>
+						{:else if s.currentUserRole === 'kasir'}
+							<h2 class="text-lg font-black text-slate-900">Kasir Kios</h2>
+							<p class="mt-1 text-xs leading-relaxed font-medium text-slate-500 md:text-sm">
+								Akses transaksi POS & pencatatan keuangan
+							</p>
+						{/if}
+					</div>
 				</div>
-				{#if s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik'}
-					<div class="text-lg font-black text-slate-900">Pemilik Kios</div>
-					<div class="text-xs font-semibold text-slate-500">
-						Akses penuh ke seluruh operasional & laporan
-					</div>
-				{:else if s.currentUserRole === 'kasir'}
-					<div class="text-lg font-black text-slate-900">Kasir Kios</div>
-					<div class="text-xs font-semibold text-slate-500">
-						Akses transaksi POS & pencatatan keuangan
-					</div>
+				<!-- Box Pemilik -->
+				{#if isOwner}
+					<a
+						href="/pengaturan/pemilik"
+						class="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#b5496b] px-4 py-3 text-sm font-bold text-white transition duration-200 ease-out hover:bg-[#a13f5e] focus-visible:ring-2 focus-visible:ring-[#b5496b] focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] sm:shrink-0"
+					>
+						Kelola usaha
+						<ChevronRight class="h-4 w-4" aria-hidden="true" />
+					</a>
 				{/if}
 			</div>
 		{/if}
 
 		<!-- Grid Menu Pengaturan (Soft Float Cards) -->
-		<div class="grid w-full grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-			<!-- Box Pemilik -->
+		<nav
+			aria-label="Menu pengaturan"
+			class="grid w-full grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4"
+		>
 			<button
-				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6 {s.currentUserRole ===
-					'admin' || s.currentUserRole === 'pemilik'
-					? ''
-					: 'pointer-events-none opacity-50'}"
-				onclick={() =>
-					(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik') &&
-					goto('/pengaturan/pemilik')}
-				disabled={s.currentUserRole !== 'admin' && s.currentUserRole !== 'pemilik'}
-			>
-				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-100 bg-purple-50 text-purple-600 md:h-12 md:w-12"
-				>
-					<Crown class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
-				</div>
-				<div class="text-sm font-black text-slate-900 md:text-base">Pemilik</div>
-				<span
-					class="mt-1 inline-block rounded-full bg-purple-50 px-2.5 py-0.5 text-[10px] font-extrabold text-purple-700 md:text-xs"
-					>Khusus Owner</span
-				>
-			</button>
-
-			<button
-				class="soft-float-card flex aspect-square min-h-11 cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 ease-out hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 md:aspect-auto md:py-6"
+				type="button"
+				class="settings-menu-item soft-float-card disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
 				onclick={() => goto('/pengaturan/antrean')}
 				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
 			>
-				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
-				>
-					<BellRing class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" aria-hidden="true" />
-				</div>
-				<div class="text-sm font-black text-slate-900 md:text-base">Antrean</div>
-				<span
-					class="mt-1 inline-block rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-extrabold text-pink-700 md:text-xs"
-					>Notifikasi</span
-				>
-			</button>
-
-			<!-- Box Install PWA -->
-			<button
-				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
-				onclick={s.handleInstallPWA}
-			>
-				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-pink-600 md:h-12 md:w-12"
-				>
-					{#if s.Download}
-						{@const DownloadIcon = s.Download}
-						<DownloadIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
-					{:else}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
-						></span>
-					{/if}
-				</div>
-				<div class="text-sm font-bold text-slate-900 md:text-base">Install PWA</div>
-				<span
-					class="mt-1 inline-block rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-700 md:text-xs"
-					>App Offline</span
-				>
+				<span class="settings-menu-icon">
+					<BellRing class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
+				</span>
+				<span class="min-w-0 flex-1 md:flex-none">
+					<span class="block text-sm font-bold text-slate-900 md:text-base">Antrean</span>
+					<span class="mt-1 block text-xs font-medium text-slate-500">Notifikasi</span>
+				</span>
+				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
 			</button>
 
 			<!-- Box Printer (Draft Struk) -->
 			<button
-				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
+				type="button"
+				class="settings-menu-item soft-float-card"
 				onclick={() => goto('/pengaturan/printer')}
 			>
-				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-600 md:h-12 md:w-12"
-				>
+				<span class="settings-menu-icon">
 					{#if s.Printer}
 						{@const PrinterIcon = s.Printer}
-						<PrinterIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+						<PrinterIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 					{:else}
 						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
 						></span>
 					{/if}
-				</div>
-				<div class="text-sm font-black text-slate-900 md:text-base">Draft Struk</div>
-				<span
-					class="mt-1 inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700 md:text-xs"
-					>Thermal</span
-				>
+				</span>
+				<span class="min-w-0 flex-1 md:flex-none">
+					<span class="block text-sm font-bold text-slate-900 md:text-base">Draft Struk</span>
+					<span class="mt-1 block text-xs font-medium text-slate-500">Thermal</span>
+				</span>
+				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
 			</button>
 
 			<!-- Box Riwayat Transaksi -->
 			<button
-				class="soft-float-card flex aspect-square cursor-pointer flex-col items-center justify-center p-4 text-center transition-all duration-200 hover:shadow-lg active:scale-95 md:aspect-auto md:py-6"
+				type="button"
+				class="settings-menu-item soft-float-card"
 				onclick={() => goto('/pengaturan/riwayat')}
 			>
-				<div
-					class="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50 text-amber-600 md:h-12 md:w-12"
-				>
+				<span class="settings-menu-icon">
 					{#if s.History}
 						{@const HistoryIcon = s.History}
-						<HistoryIcon class="h-5 w-5 stroke-[2.2] md:h-6 md:w-6" />
+						<HistoryIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 					{:else}
 						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
 						></span>
 					{/if}
-				</div>
-				<div class="text-sm font-black text-slate-900 md:text-base">Riwayat</div>
-				<span
-					class="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-700 md:text-xs"
-					>Hari Ini</span
-				>
+				</span>
+				<span class="min-w-0 flex-1 md:flex-none">
+					<span class="block text-sm font-bold text-slate-900 md:text-base">Riwayat</span>
+					<span class="mt-1 block text-xs font-medium text-slate-500">Hari Ini</span>
+				</span>
+				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
 			</button>
-		</div>
+
+			<!-- Box Install PWA -->
+			<button
+				type="button"
+				class="settings-menu-item soft-float-card disabled:cursor-wait disabled:opacity-60 disabled:active:scale-100"
+				onclick={s.handleInstallPWA}
+				disabled={!s.isPwaLibraryLoaded}
+				aria-busy={!s.isPwaLibraryLoaded}
+			>
+				<span class="settings-menu-icon">
+					{#if s.Download}
+						{@const DownloadIcon = s.Download}
+						<DownloadIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
+					{:else}
+						<span
+							class="block h-4 w-4 animate-spin rounded-full border-2 border-[#ecd5dd] border-t-[#b5496b]"
+						></span>
+					{/if}
+				</span>
+				<span class="min-w-0 flex-1 md:flex-none">
+					<span class="block text-sm font-bold text-slate-900 md:text-base">Install PWA</span>
+					<span class="mt-1 block text-xs font-medium text-slate-500">App Offline</span>
+				</span>
+				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
+			</button>
+		</nav>
 
 		<!-- Logout Section -->
-		<div class="soft-float-card mt-2 mb-6 overflow-hidden p-5 md:p-6">
-			<div class="flex items-center justify-between gap-4">
-				<div>
-					<h3 class="text-sm font-black text-slate-900 md:text-base">Keluar dari Akun</h3>
-					<p class="text-xs font-medium text-slate-500 md:text-sm">
-						Akhiri sesi kasir atau pemilik saat ini
-					</p>
-				</div>
-				<button
-					onclick={s.handleLogout}
-					class="flex cursor-pointer items-center gap-1.5 rounded-full border border-rose-100 bg-rose-50 px-4 py-2 text-xs font-black text-rose-600 transition-all hover:bg-rose-100 active:scale-95 md:px-5 md:py-2.5 md:text-sm"
-				>
-					{#if s.LogOut}
-						{@const LogOutIcon = s.LogOut}
-						<LogOutIcon class="h-4 w-4" />
-					{/if}
-					<span>Logout</span>
-				</button>
+		<div
+			class="mt-2 mb-4 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 px-1 pt-5"
+		>
+			<div>
+				<h2 class="text-sm font-bold text-slate-900">Keluar dari Akun</h2>
+				<p class="mt-1 text-xs font-medium text-slate-500">Akhiri sesi di perangkat ini</p>
 			</div>
+			<button
+				type="button"
+				onclick={s.handleLogout}
+				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#ecd5dd] px-4 py-2 text-sm font-bold text-[#b5496b] transition duration-200 ease-out hover:bg-[#f8edf1] focus-visible:ring-2 focus-visible:ring-[#b5496b] focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
+			>
+				{#if s.LogOut}
+					{@const LogOutIcon = s.LogOut}
+					<LogOutIcon class="h-4 w-4" aria-hidden="true" />
+				{/if}
+				<span>Logout</span>
+			</button>
 		</div>
 	</div>
 
@@ -287,6 +289,62 @@
 
 	<!-- Custom styling for PWA install dialog -->
 	<style>
+		.settings-menu-item {
+			display: flex;
+			min-height: 5rem;
+			cursor: pointer;
+			align-items: center;
+			gap: 0.875rem;
+			padding: 1rem;
+			text-align: left;
+			transition:
+				box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+				transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.settings-menu-item:hover:not(:disabled) {
+			box-shadow: 0 8px 24px -4px rgba(181, 73, 107, 0.12);
+		}
+
+		.settings-menu-item:focus-visible {
+			outline: 2px solid #b5496b;
+			outline-offset: 3px;
+		}
+
+		.settings-menu-item:active:not(:disabled) {
+			transform: scale(0.98);
+		}
+
+		.settings-menu-icon {
+			display: flex;
+			width: 2.75rem;
+			height: 2.75rem;
+			flex-shrink: 0;
+			align-items: center;
+			justify-content: center;
+			border: 1px solid #ecd5dd;
+			border-radius: 1rem;
+			background: #f8edf1;
+			color: #b5496b;
+		}
+
+		@media (min-width: 48rem) {
+			.settings-menu-item {
+				min-height: 9rem;
+				flex-direction: column;
+				justify-content: center;
+				gap: 0.75rem;
+				padding: 1.25rem;
+				text-align: center;
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.settings-menu-item {
+				transition: none;
+			}
+		}
+
 		:global(pwa-install) {
 			--pwa-install-dialog-header-color: #ffb6c1 !important;
 			--header-color: #ffb6c1 !important;
@@ -307,7 +365,7 @@
 			</div>
 		</div>
 	{/if}
-</div>
+</main>
 
 <!-- App Info -->
 <div class="py-4 text-center">
