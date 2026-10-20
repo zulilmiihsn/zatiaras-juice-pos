@@ -2,6 +2,12 @@ import { expect, test } from '@playwright/test';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { csrfMutate, ownerUsernameForTest } from './helpers';
 
+async function waitForNotificationSettings(page: Page) {
+	await expect(
+		page.getByText('Notifikasi dalam aplikasi siap untuk cabang sesi ini.', { exact: true })
+	).toBeVisible({ timeout: 30_000 });
+}
+
 async function login(
 	page: Page,
 	branch = 'samarinda',
@@ -25,9 +31,7 @@ async function login(
 	expect((await authenticated).status()).toBe(200);
 	await expect(page).toHaveURL(/\/$/);
 	await page.goto('/pengaturan/antrean', { waitUntil: 'domcontentloaded' });
-	await expect(
-		page.getByText('Notifikasi dalam aplikasi siap untuk cabang sesi ini.', { exact: true })
-	).toBeVisible({ timeout: 30_000 });
+	await waitForNotificationSettings(page);
 }
 async function device(
 	browser: Browser,
@@ -89,7 +93,11 @@ async function checkout(
 	page: Page,
 	customer: string,
 	offline = false
-): Promise<{ orderId: string; transactionId: string }> {
+): Promise<{
+	orderId: string;
+	transactionId: string;
+	requestBody: Record<string, unknown> | null;
+}> {
 	await page.goto('/pos', { waitUntil: 'domcontentloaded' });
 	await page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ }).click();
 	await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
@@ -118,13 +126,14 @@ async function checkout(
 	await expect(
 		page.getByText(offline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!', { exact: true })
 	).toBeVisible();
-	if (!response) return { orderId: '', transactionId: '' };
+	if (!response) return { orderId: '', transactionId: '', requestBody: null };
 	const result = await response;
 	expect(result.ok()).toBe(true);
 	const payload = (await result.json()).data;
 	return {
 		orderId: payload.buku_kas_id as string,
-		transactionId: payload.transaction_id as string
+		transactionId: payload.transaction_id as string,
+		requestBody: result.request().postDataJSON() as Record<string, unknown>
 	};
 }
 async function cleanup(page: Page, ids: string[]) {
@@ -240,14 +249,11 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 		await c.page.getByRole('button', { name: 'Tes suara', exact: true }).click();
 		const bNotes = await chimeStarts(b.page),
 			cNotes = await chimeStarts(c.page);
-		const request = a.page.waitForRequest(
-			(req) => req.url().endsWith('/api/pos/transaction') && req.method() === 'POST',
-			{ timeout: 30_000 }
-		);
 		const first = await checkout(a.page, 'Notifikasi pertama');
 		ids.push(first.transactionId);
 		orders.push(first.orderId);
-		const input = (await request).postDataJSON() as Record<string, unknown>;
+		const input = first.requestBody;
+		if (!input) throw new Error('Request checkout online tidak ditemukan');
 		// Two genuine concurrent D1 checkouts exercise a coalesced realtime wake-up; no checkout endpoint mock.
 		const rapid = await a.page.evaluate(async (body) => {
 			const csrf = (await (await fetch('/api/csrf')).json()).token;
@@ -358,9 +364,11 @@ test('Antrean sound preference persists across tabs and devices remain independe
 		const sound = a.page.getByRole('switch', { name: 'Suara pesanan baru' });
 		await sound.uncheck();
 		await a.page.reload({ waitUntil: 'domcontentloaded' });
+		await waitForNotificationSettings(a.page);
 		await expect(sound).not.toBeChecked();
 		const tab = await a.context.newPage();
 		await tab.goto('/pengaturan/antrean', { waitUntil: 'domcontentloaded' });
+		await waitForNotificationSettings(tab);
 		await expect(tab.getByRole('switch', { name: 'Suara pesanan baru' })).not.toBeChecked();
 		await expect(b.page.getByRole('switch', { name: 'Suara pesanan baru' })).toBeChecked();
 		await a.page.setViewportSize({ width: 390, height: 844 });

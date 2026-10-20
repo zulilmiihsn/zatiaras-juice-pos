@@ -284,6 +284,8 @@ test.describe('Stock Monitoring Toggle', () => {
 	// Input number menyimpan angka; simpan dulu melempar
 	// "trim is not a function" sehingga hitungan ketik manual tak pernah tersimpan.
 	test('typed reconciliation count saves through PUT', async ({ page }) => {
+		const pageErrors: string[] = [];
+		page.on('pageerror', (error) => pageErrors.push(error.message));
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
 		const job = {
@@ -311,20 +313,42 @@ test.describe('Stock Monitoring Toggle', () => {
 		const saved: unknown[] = [];
 		await page.route('**/api/pengaturan/stok/reconciliation/job-1/items', async (route) => {
 			saved.push(route.request().postDataJSON());
-			await route.fulfill({ json: { ok: true, data: { job } } });
+			await route.fulfill({
+				json: {
+					ok: true,
+					data: {
+						...job,
+						status: 'ready',
+						items: job.items.map((item) => ({ ...item, counted_quantity: 750 }))
+					}
+				}
+			});
 		});
 		await gotoHydrated(page, '/pengaturan/pemilik/stok', 'text=Monitoring Stok');
 		await page.getByRole('switch', { name: 'Aktifkan kembali monitoring stok' }).click();
 		await page.getByRole('button', { name: 'Ya, mulai rekonsiliasi', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Hitung fisik stok' });
 		await dialog.locator('input[type="number"]').first().fill('750');
+		const acknowledged = page.waitForResponse(
+			(response) =>
+				new URL(response.url()).pathname.endsWith('/reconciliation/job-1/items') &&
+				response.request().method() === 'PUT'
+		);
 		await dialog.getByRole('button', { name: 'Simpan progres' }).click();
+		expect((await acknowledged).status()).toBe(200);
 		await expect.poll(() => saved.length).toBe(1);
 		expect(saved[0]).toMatchObject({
 			branch: 'samarinda',
 			items: [{ entity_type: 'bahan', entity_id: 'b-gula', counted_quantity: 750 }]
 		});
 		await expect(dialog.getByText(/is not a function/)).toHaveCount(0);
+		await expect(dialog.getByRole('button', { name: 'Simpan progres' })).toBeEnabled();
+		await expect(dialog.locator('input[type="number"]').first()).toHaveAttribute(
+			'placeholder',
+			'750'
+		);
+		await expect(dialog.locator('input[type="number"]').first()).toHaveValue('');
+		expect(pageErrors).toEqual([]);
 	});
 
 	test('reconciliation displays multiple ingredient categories without crashing', async ({

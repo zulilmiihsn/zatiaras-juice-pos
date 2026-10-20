@@ -705,6 +705,9 @@ test('legacy status intent without a token is staged and replayed', async ({ pag
 				response.request().postDataJSON()?.idempotency_key === key
 		);
 		await page.goto('/antrean');
+		const acknowledged = await acknowledgement;
+		expect(acknowledged.status()).toBe(200);
+		await acknowledged.finished();
 		await expect
 			.poll(() =>
 				page.evaluate(async (idempotencyKey) => {
@@ -724,9 +727,6 @@ test('legacy status intent without a token is staged and replayed', async ({ pag
 			expected_revision: 0
 		});
 		expect(staged?.intent_id).toBeTruthy();
-		const acknowledged = await acknowledgement;
-		expect(acknowledged.status()).toBe(200);
-		await acknowledged.finished();
 		// Target commit can be visible before the response is consumed and local IDB acknowledgement finishes.
 		await expect
 			.poll(() =>
