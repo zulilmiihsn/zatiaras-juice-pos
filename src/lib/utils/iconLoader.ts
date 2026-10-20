@@ -134,27 +134,6 @@ export const ROUTE_ICONS = {
 		'plus-circle',
 		'minus-circle',
 		'save'
-	],
-	// Preload ikon umum untuk halaman pengaturan dan subroutes-nya
-	pengaturan: [
-		'settings',
-		'user',
-		'shield',
-		'printer',
-		// Ikon yang digunakan di halaman pengaturan utama
-		'log-out',
-		'palette',
-		'database',
-		'help-circle',
-		'bell',
-		'download',
-		'crown',
-		'credit-card',
-		'arrow-left',
-		// Ikon yang digunakan di halaman pemilik dan subroutes
-		'utensils',
-		'refresh-cw',
-		'trash'
 	]
 };
 

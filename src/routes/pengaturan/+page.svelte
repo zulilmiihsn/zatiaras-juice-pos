@@ -8,11 +8,16 @@
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import BellRing from '@lucide/svelte/icons/bell-ring';
+	import Download from '@lucide/svelte/icons/download';
+	import History from '@lucide/svelte/icons/history';
+	import LogOut from '@lucide/svelte/icons/log-out';
+	import Printer from '@lucide/svelte/icons/printer';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 
 	const s = createPengaturanState();
 	const isOwner = $derived(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik');
+	const RoleIcon = $derived(s.roleIcon);
 
 	onMount(async () => {
 		await s.init();
@@ -70,14 +75,7 @@
 					<div
 						class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25"
 					>
-						{#if s.roleIcon}
-							{@const RoleIcon = s.roleIcon}
-							<RoleIcon class="h-6 w-6 stroke-[2.2]" aria-hidden="true" />
-						{:else}
-							<span
-								class="block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-							></span>
-						{/if}
+						<RoleIcon class="h-6 w-6 stroke-[2.2]" aria-hidden="true" />
 					</div>
 					<div class="min-w-0">
 						{#if isOwner}
@@ -134,14 +132,7 @@
 				onclick={() => goto('/pengaturan/printer')}
 			>
 				<span class="settings-menu-icon border-emerald-100 bg-emerald-50 text-emerald-600">
-					{#if s.Printer}
-						{@const PrinterIcon = s.Printer}
-						<PrinterIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-					{:else}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-600"
-						></span>
-					{/if}
+					<Printer class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 				</span>
 				<span class="min-w-0 flex-1 md:flex-none">
 					<span class="block text-sm font-bold text-slate-900 md:text-base">Draft Struk</span>
@@ -157,14 +148,7 @@
 				onclick={() => goto('/pengaturan/riwayat')}
 			>
 				<span class="settings-menu-icon border-amber-100 bg-amber-50 text-amber-600">
-					{#if s.History}
-						{@const HistoryIcon = s.History}
-						<HistoryIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-					{:else}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"
-						></span>
-					{/if}
+					<History class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 				</span>
 				<span class="min-w-0 flex-1 md:flex-none">
 					<span class="block text-sm font-bold text-slate-900 md:text-base">Riwayat</span>
@@ -182,14 +166,7 @@
 				aria-busy={!s.isPwaLibraryLoaded}
 			>
 				<span class="settings-menu-icon border-pink-100 bg-pink-50 text-pink-600">
-					{#if s.Download}
-						{@const DownloadIcon = s.Download}
-						<DownloadIcon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-					{:else}
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-pink-300 border-t-pink-600"
-						></span>
-					{/if}
+					<Download class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
 				</span>
 				<span class="min-w-0 flex-1 md:flex-none">
 					<span class="block text-sm font-bold text-slate-900 md:text-base">Install PWA</span>
@@ -212,10 +189,7 @@
 				onclick={s.handleLogout}
 				class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-pink-200 px-4 py-2 text-sm font-bold text-pink-600 transition duration-200 ease-out hover:bg-pink-50 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
 			>
-				{#if s.LogOut}
-					{@const LogOutIcon = s.LogOut}
-					<LogOutIcon class="h-4 w-4" aria-hidden="true" />
-				{/if}
+				<LogOut class="h-4 w-4" aria-hidden="true" />
 				<span>Logout</span>
 			</button>
 		</div>
@@ -233,16 +207,7 @@
 	>
 		<div class="mb-4 flex items-center gap-3">
 			<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-				{#if s.LogOut}
-					{@const LogOutIcon = s.LogOut}
-					<LogOutIcon class="h-5 w-5 text-red-600" />
-				{:else}
-					<div class="flex h-5 w-5 items-center justify-center">
-						<span
-							class="block h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600"
-						></span>
-					</div>
-				{/if}
+				<LogOut class="h-5 w-5 text-red-600" aria-hidden="true" />
 			</div>
 			<div>
 				<h3 class="font-semibold text-gray-800">Konfirmasi Logout</h3>
