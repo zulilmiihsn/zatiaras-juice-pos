@@ -116,6 +116,7 @@ test('stale stock load cannot overwrite newer data', async ({ page }) => {
 	await expect(page.getByText('Gula Bersih').first()).toBeVisible({ timeout: 15000 });
 
 	gate.release('marker');
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(1000);
 	await expect(page.getByText('STALE-MARKER-XYZ')).toHaveCount(0);
 	await expect(page.getByText('Gula Bersih').first()).toBeVisible();

@@ -198,6 +198,7 @@ for (const viewport of [
 			await page
 				.getByRole('button', { name: 'Cetak Struk', exact: true })
 				.click({ noWaitAfter: true });
+			// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 			await page.waitForTimeout(500);
 			expect(historyDetailRequests).toBe(
 				0,

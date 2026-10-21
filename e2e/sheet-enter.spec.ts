@@ -62,6 +62,7 @@ test('enter in cash input keeps sheet and value', async ({ page }) => {
 	await cashInput.focus();
 	await cashInput.pressSequentially('50000', { delay: 30 });
 	await page.keyboard.press('Enter');
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(500);
 	await expect(sheet).toBeVisible();
 	expect(await cashInput.inputValue()).toBe('50.000');

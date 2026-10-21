@@ -62,6 +62,7 @@ test('one tax event triggers one logical refresh', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
 	await page.goto('/laporan');
 	await expect(page).toHaveURL(/\/laporan/);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(2000);
 	const { calls } = await installAggregateCounter(page);
 
@@ -71,6 +72,7 @@ test('one tax event triggers one logical refresh', async ({ page }) => {
 	const settled = calls();
 	await fireTaxEvent(page);
 	await expect.poll(() => calls(), { timeout: 10000 }).toBeGreaterThan(settled);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(2500);
 	expect(calls()).toBe(settled + 1);
 });
@@ -80,14 +82,17 @@ test('destroyed report ignores tax events', async ({ page }) => {
 	await loginAsOwner(page, test.info().title);
 	await page.goto('/laporan');
 	await expect(page).toHaveURL(/\/laporan/);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(2000);
 	const { calls } = await installAggregateCounter(page);
 
 	await page.getByRole('link', { name: 'Beranda' }).first().click();
 	await expect(page).toHaveURL(/\/$/);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(1000);
 	const settled = calls();
 	await fireTaxEvent(page);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(2500);
 	expect(calls()).toBe(settled);
 });

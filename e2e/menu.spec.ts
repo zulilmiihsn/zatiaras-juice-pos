@@ -85,13 +85,10 @@ test.describe('Menu Management Behavioral Flows', () => {
 		const tambahKategori = page
 			.getByRole('button', { name: 'Tambah Kategori', exact: true })
 			.first();
-		let switched = false;
-		for (let attempt = 0; attempt < 30 && !switched; attempt += 1) {
+		await expect(async () => {
 			await page.getByRole('button', { name: 'Kategori', exact: true }).click({ timeout: 15_000 });
-			await page.waitForTimeout(2000);
-			switched = await tambahKategori.isVisible();
-		}
-		expect(switched).toBe(true);
+			await expect(tambahKategori).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 60_000, intervals: [500] });
 		await tambahKategori.click();
 		await expect(page.getByRole('heading', { name: 'Tambah Kategori' })).toBeVisible();
 
@@ -115,13 +112,10 @@ test.describe('Menu Management Behavioral Flows', () => {
 			timeout: 60_000
 		});
 		const tambahEkstra = page.getByRole('button', { name: 'Tambah Tambahan', exact: true }).first();
-		let switched = false;
-		for (let attempt = 0; attempt < 30 && !switched; attempt += 1) {
+		await expect(async () => {
 			await page.getByRole('button', { name: 'Tambahan', exact: true }).click({ timeout: 15_000 });
-			await page.waitForTimeout(2000);
-			switched = await tambahEkstra.isVisible();
-		}
-		expect(switched).toBe(true);
+			await expect(tambahEkstra).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 60_000, intervals: [500] });
 		await tambahEkstra.click();
 		await expect(page.getByRole('heading', { name: 'Tambah Tambahan' })).toBeVisible();
 
@@ -146,13 +140,10 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await expect(tambahMenu).toBeVisible({ timeout: 60_000 });
 		// Klik bisa hilang pre-hidrasi seperti tab: ulangi sampai modal terbuka.
 		const tambahHeading = page.getByRole('heading', { name: 'Tambah Menu Baru' });
-		let opened = false;
-		for (let attempt = 0; attempt < 30 && !opened; attempt += 1) {
+		await expect(async () => {
 			await tambahMenu.click({ timeout: 15_000 });
-			await page.waitForTimeout(2000);
-			opened = await tambahHeading.isVisible();
-		}
-		expect(opened).toBe(true);
+			await expect(tambahHeading).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 60_000, intervals: [500] });
 
 		const name = `Menu UAT ${Date.now() % 100000}`;
 		await page.getByLabel('Nama Menu').fill(name);
@@ -175,13 +166,10 @@ test.describe('Menu Management Behavioral Flows', () => {
 			timeout: 60_000
 		});
 		const tambahBahan = page.getByRole('button', { name: 'Tambah Bahan', exact: true }).first();
-		let switched = false;
-		for (let attempt = 0; attempt < 30 && !switched; attempt += 1) {
+		await expect(async () => {
 			await page.getByRole('button', { name: 'Bahan', exact: true }).click({ timeout: 15_000 });
-			await page.waitForTimeout(2000);
-			switched = await tambahBahan.isVisible();
-		}
-		expect(switched).toBe(true);
+			await expect(tambahBahan).toBeVisible({ timeout: 2000 });
+		}).toPass({ timeout: 60_000, intervals: [500] });
 		await tambahBahan.click();
 		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeVisible();
 

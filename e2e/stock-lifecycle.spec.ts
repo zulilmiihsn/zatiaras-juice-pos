@@ -97,6 +97,7 @@ async function dispatchSale(page: Page): Promise<void> {
 async function spaGoBeranda(page: Page): Promise<void> {
 	await page.getByRole('link', { name: 'Beranda' }).first().click();
 	await expect(page).toHaveURL(/\/$/);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(1000);
 }
 
@@ -104,6 +105,7 @@ async function spaGoStok(page: Page): Promise<void> {
 	await page.getByRole('link', { name: 'Stok' }).first().click();
 	await expect(page).toHaveURL(/\/stok/);
 	await expect(page.getByText('Gula Bersih').first()).toBeVisible({ timeout: 15000 });
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(500);
 }
 
@@ -118,6 +120,7 @@ test('destroyed stock page ignores events and remount stays single', async ({ pa
 	await spaGoBeranda(page);
 	const settled = calls();
 	await dispatchSale(page);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(800);
 	expect(calls()).toBe(settled);
 
@@ -133,6 +136,7 @@ test('destroyed stock page ignores events and remount stays single', async ({ pa
 	const beforeEvent = calls();
 	await dispatchSale(page);
 	await expect.poll(() => calls()).toBe(beforeEvent + 1);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(800);
 	expect(calls()).toBe(beforeEvent + 1);
 });
@@ -146,11 +150,13 @@ test('leaving during pending load registers nothing', async ({ page }) => {
 
 	await spaGoBeranda(page);
 	release();
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(800);
 	expect(calls()).toBe(1);
 
 	// Event sesudah destroy tak memanggil handler lama.
 	await dispatchSale(page);
+	// Sengaja tidur: jendela "tidak ada yang terjadi", tak ada sinyal DOM untuk ditunggu.
 	await page.waitForTimeout(800);
 	expect(calls()).toBe(1);
 });

@@ -27,7 +27,7 @@ const CEILINGS: Record<string, number> = {
 	canvasHex: 0,
 	neutralNonSlate: 0,
 	roleLiteralUI: 0,
-	e2eWaitForTimeout: 18
+	e2eWaitForTimeout: 14
 };
 
 const { metrics, details, parseFailures } = computeMetrics();

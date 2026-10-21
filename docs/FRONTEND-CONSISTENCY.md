@@ -79,7 +79,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 0        | F13     |
 | `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 0        | F14     |
 | `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 0        | F15     |
-| `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 18       | F16     |
+| `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 14       | F16     |
 
 ## Kartu
 
@@ -106,7 +106,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F14  | Abu-abu ke slate                      | Haiku  | Selesai  |
 | F15  | Helper peran UI                       | Sonnet | Selesai  |
 | F15b | Server yang masih mengecualikan admin | Sonnet | Tertahan |
-| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Todo     |
+| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai  |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -391,3 +391,9 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   lulus). Ceiling `roleLiteralUI` 36 → 0. Literal peran di `src/lib/services/`
   (`autoApplyService`, `orderNotificationService`, `auth.ts`) di luar cakupan
   metrik dan tidak disentuh.
+- 22 Oktober 2026: F16 selesai. Empat loop tidur-lalu-cek di
+  `e2e/menu.spec.ts` (tab Kategori, Tambahan, Bahan, dan modal Tambah Menu)
+  menjadi `expect(async () => { klik; expect(...).toBeVisible }).toPass({
+timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
+  komentar satu baris dan dibiarkan. Ceiling `e2eWaitForTimeout` 18 → 14. E2E
+  lokal tidak dijalankan (memori rendah): verifikasi lewat CI.
