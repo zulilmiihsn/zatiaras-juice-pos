@@ -63,7 +63,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0            | 2        | F1      |
 | `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 3        | F3      |
 | `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 3        | F4      |
-| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 5        | F2, F5  |
+| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 2        | F2, F5  |
 | `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 6        | F5      |
 | `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 1        | F6      |
 | `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 3        | F6      |
@@ -77,7 +77,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 36       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0            | 23       | F13     |
-| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0            | 279      | F14     |
+| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0            | 276      | F14     |
 | `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0            | 36       | F15     |
 | `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14           | 18       | F16     |
 
@@ -89,7 +89,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | ---- | ------------------------------------- | ------ | -------- |
 | F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai  |
 | F1   | `<style>` bersarang                   | Haiku  | Todo     |
-| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Todo     |
+| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
 | F3   | State turunan lewat `$derived`        | Sonnet | Todo     |
 | F4   | `$app/stores` ke `$app/state`         | Haiku  | Todo     |
 | F5   | Navigasi pakai link                   | Haiku  | Todo     |
@@ -268,3 +268,7 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
 
 - 21 Oktober 2026: F0 selesai. Skrip pengukur, tes ratchet, langkah CI, dan
   dokumen ini ditambahkan. Pemindaian awal mencatat 20 metrik.
+- 21 Oktober 2026: F2 selesai. Menu `/pengaturan` jadi array + `{#each}`; tiga
+  item `<a href>`, Install PWA tetap `<button>`, item terlarang `aria-disabled`.
+  Kelas `.settings-menu-*` dibuang. `pureGotoButton` 5 → 2, `neutralNonSlate`
+  279 → 276 (tiga `text-stone-400` duplikat hilang).

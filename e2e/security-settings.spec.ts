@@ -78,7 +78,9 @@ for (const viewport of [
 		await expect(manageBusiness).toHaveAttribute('href', '/pengaturan/pemilik');
 
 		const menus = page.getByRole('navigation', { name: 'Menu pengaturan', exact: true });
-		const items = menus.getByRole('button');
+		const items = menus.locator('a, button');
+		await expect(menus.getByRole('link')).toHaveCount(3);
+		await expect(menus.getByRole('button')).toHaveCount(1);
 		await expect(items).toHaveCount(4);
 		await expect(items).toHaveText([
 			/Antrean.*Notifikasi/,
@@ -122,7 +124,8 @@ test('cashier settings preserve menu actions without owner access', async ({ pag
 	await expect(page.getByRole('heading', { name: 'Kasir Kios', exact: true })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Kelola usaha', exact: true })).toHaveCount(0);
 	const menus = page.getByRole('navigation', { name: 'Menu pengaturan', exact: true });
-	await expect(menus.getByRole('button')).toHaveCount(4);
+	await expect(menus.getByRole('link')).toHaveCount(3);
+	await expect(menus.getByRole('button')).toHaveCount(1);
 	const install = menus.getByRole('button', { name: /^Install PWA/ });
 	await expect(install).toBeEnabled();
 	await page.locator('pwa-install').evaluate((element) => {
@@ -150,7 +153,7 @@ test('cashier settings preserve menu actions without owner access', async ({ pag
 		await expect(page.getByRole('heading', { name: 'Kasir Kios', exact: true })).toBeVisible();
 		await page
 			.getByRole('navigation', { name: 'Menu pengaturan', exact: true })
-			.getByRole('button', { name: new RegExp(`^${menu}`) })
+			.getByRole('link', { name: new RegExp(`^${menu}`) })
 			.click();
 		await expect(page).toHaveURL(new RegExp(`${path}$`));
 	}

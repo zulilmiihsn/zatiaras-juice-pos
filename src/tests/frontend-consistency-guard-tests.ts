@@ -11,7 +11,7 @@ const CEILINGS: Record<string, number> = {
 	nestedStyle: 2,
 	effectAssignOnly: 3,
 	appStoresImport: 3,
-	pureGotoButton: 5,
+	pureGotoButton: 2,
 	headerBackGoto: 6,
 	consoleLogClient: 1,
 	staleVersionText: 3,
@@ -25,7 +25,7 @@ const CEILINGS: Record<string, number> = {
 	duplicatedLongClassGroups: 36,
 	brandHexClass: 118,
 	canvasHex: 23,
-	neutralNonSlate: 279,
+	neutralNonSlate: 276,
 	roleLiteralUI: 36,
 	e2eWaitForTimeout: 18
 };

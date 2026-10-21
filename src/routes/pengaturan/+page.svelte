@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
@@ -20,10 +19,64 @@
 	const isOwner = $derived(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik');
 	const RoleIcon = $derived(s.roleIcon);
 
+	const ITEM_BASE =
+		'soft-float-card flex min-h-20 items-center gap-3.5 p-4 text-left md:min-h-36 md:flex-col md:justify-center md:gap-3 md:p-5 md:text-center';
+	const ITEM_INTERACTIVE =
+		'cursor-pointer not-disabled:hover:shadow-[0_8px_24px_-4px_rgba(236,72,153,0.12)] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-pink-500 not-disabled:active:scale-[0.98] motion-reduce:transition-none';
+
+	const menuItems = $derived([
+		{
+			label: 'Antrean',
+			sub: 'Notifikasi',
+			icon: BellRing,
+			iconClass: 'border-pink-100 bg-pink-50 text-pink-600',
+			href: '/pengaturan/antrean',
+			allowed: s.currentUserRole === 'kasir' || s.currentUserRole === 'pemilik'
+		},
+		{
+			label: 'Draft Struk',
+			sub: 'Thermal',
+			icon: Printer,
+			iconClass: 'border-emerald-100 bg-emerald-50 text-emerald-600',
+			href: '/pengaturan/printer',
+			allowed: true
+		},
+		{
+			label: 'Riwayat',
+			sub: 'Hari Ini',
+			icon: History,
+			iconClass: 'border-amber-100 bg-amber-50 text-amber-600',
+			href: '/pengaturan/riwayat',
+			allowed: true
+		},
+		{
+			label: 'Install PWA',
+			sub: 'App Offline',
+			icon: Download,
+			iconClass: 'border-pink-100 bg-pink-50 text-pink-600',
+			onclick: s.handleInstallPWA,
+			busy: !s.isPwaLibraryLoaded,
+			allowed: true
+		}
+	]);
+
 	onMount(async () => {
 		await s.init();
 	});
 </script>
+
+{#snippet itemContent(item: (typeof menuItems)[number])}
+	<span
+		class="flex size-11 shrink-0 items-center justify-center rounded-2xl border {item.iconClass}"
+	>
+		<item.icon class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
+	</span>
+	<span class="min-w-0 flex-1 md:flex-none">
+		<span class="block text-sm font-bold text-slate-900 md:text-base">{item.label}</span>
+		<span class="mt-1 block text-xs font-medium text-slate-500">{item.sub}</span>
+	</span>
+	<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
+{/snippet}
 
 <main
 	aria-label="Pengaturan Sistem"
@@ -101,71 +154,27 @@
 			aria-label="Menu pengaturan"
 			class="grid w-full grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4"
 		>
-			<button
-				type="button"
-				class="settings-menu-item soft-float-card disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-				onclick={() => goto('/pengaturan/antrean')}
-				disabled={s.currentUserRole !== 'kasir' && s.currentUserRole !== 'pemilik'}
-			>
-				<span class="settings-menu-icon border-pink-100 bg-pink-50 text-pink-600">
-					<BellRing class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-				</span>
-				<span class="min-w-0 flex-1 md:flex-none">
-					<span class="block text-sm font-bold text-slate-900 md:text-base">Antrean</span>
-					<span class="mt-1 block text-xs font-medium text-slate-500">Notifikasi</span>
-				</span>
-				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
-			</button>
-
-			<!-- Box Printer (Draft Struk) -->
-			<button
-				type="button"
-				class="settings-menu-item soft-float-card"
-				onclick={() => goto('/pengaturan/printer')}
-			>
-				<span class="settings-menu-icon border-emerald-100 bg-emerald-50 text-emerald-600">
-					<Printer class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-				</span>
-				<span class="min-w-0 flex-1 md:flex-none">
-					<span class="block text-sm font-bold text-slate-900 md:text-base">Draft Struk</span>
-					<span class="mt-1 block text-xs font-medium text-slate-500">Thermal</span>
-				</span>
-				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
-			</button>
-
-			<!-- Box Riwayat Transaksi -->
-			<button
-				type="button"
-				class="settings-menu-item soft-float-card"
-				onclick={() => goto('/pengaturan/riwayat')}
-			>
-				<span class="settings-menu-icon border-amber-100 bg-amber-50 text-amber-600">
-					<History class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-				</span>
-				<span class="min-w-0 flex-1 md:flex-none">
-					<span class="block text-sm font-bold text-slate-900 md:text-base">Riwayat</span>
-					<span class="mt-1 block text-xs font-medium text-slate-500">Hari Ini</span>
-				</span>
-				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
-			</button>
-
-			<!-- Box Install PWA -->
-			<button
-				type="button"
-				class="settings-menu-item soft-float-card disabled:cursor-wait disabled:opacity-60 disabled:active:scale-100"
-				onclick={s.handleInstallPWA}
-				disabled={!s.isPwaLibraryLoaded}
-				aria-busy={!s.isPwaLibraryLoaded}
-			>
-				<span class="settings-menu-icon border-pink-100 bg-pink-50 text-pink-600">
-					<Download class="h-5 w-5 stroke-[2.2]" aria-hidden="true" />
-				</span>
-				<span class="min-w-0 flex-1 md:flex-none">
-					<span class="block text-sm font-bold text-slate-900 md:text-base">Install PWA</span>
-					<span class="mt-1 block text-xs font-medium text-slate-500">App Offline</span>
-				</span>
-				<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
-			</button>
+			{#each menuItems as item (item.label)}
+				{#if !item.allowed}
+					<div aria-disabled="true" class="{ITEM_BASE} cursor-not-allowed opacity-50">
+						{@render itemContent(item)}
+					</div>
+				{:else if item.href}
+					<a href={item.href} class="{ITEM_BASE} {ITEM_INTERACTIVE}">
+						{@render itemContent(item)}
+					</a>
+				{:else}
+					<button
+						type="button"
+						class="{ITEM_BASE} {ITEM_INTERACTIVE} disabled:cursor-wait disabled:opacity-60"
+						onclick={item.onclick}
+						disabled={item.busy}
+						aria-busy={item.busy}
+					>
+						{@render itemContent(item)}
+					</button>
+				{/if}
+			{/each}
 		</nav>
 
 		<!-- Logout Section -->
@@ -246,61 +255,6 @@
 
 	<!-- Custom styling for PWA install dialog -->
 	<style>
-		.settings-menu-item {
-			display: flex;
-			min-height: 5rem;
-			cursor: pointer;
-			align-items: center;
-			gap: 0.875rem;
-			padding: 1rem;
-			text-align: left;
-			transition:
-				box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-				transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-		}
-
-		.settings-menu-item:hover:not(:disabled) {
-			box-shadow: 0 8px 24px -4px rgba(236, 72, 153, 0.12);
-		}
-
-		.settings-menu-item:focus-visible {
-			outline: 2px solid var(--color-pink-500);
-			outline-offset: 3px;
-		}
-
-		.settings-menu-item:active:not(:disabled) {
-			transform: scale(0.98);
-		}
-
-		.settings-menu-icon {
-			display: flex;
-			width: 2.75rem;
-			height: 2.75rem;
-			flex-shrink: 0;
-			align-items: center;
-			justify-content: center;
-			border-width: 1px;
-			border-style: solid;
-			border-radius: 1rem;
-		}
-
-		@media (min-width: 48rem) {
-			.settings-menu-item {
-				min-height: 9rem;
-				flex-direction: column;
-				justify-content: center;
-				gap: 0.75rem;
-				padding: 1.25rem;
-				text-align: center;
-			}
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			.settings-menu-item {
-				transition: none;
-			}
-		}
-
 		:global(pwa-install) {
 			--pwa-install-dialog-header-color: #ffb6c1 !important;
 			--header-color: #ffb6c1 !important;

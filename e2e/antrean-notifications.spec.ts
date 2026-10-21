@@ -162,7 +162,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 				radius: style.borderBottomLeftRadius
 			};
 		});
-		await page.getByRole('button', { name: /^Antrean Notifikasi$/ }).click();
+		await page.getByRole('link', { name: /^Antrean Notifikasi$/ }).click();
 		await expect(page.getByRole('heading', { name: 'Pengaturan Antrean', level: 1 })).toBeVisible();
 		const header = page.locator('.page-header');
 		expect(
@@ -227,18 +227,19 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		});
 		await expect(ownerAccess).toHaveCSS('background-image', theme.buttonBackground);
 		const menus = page.getByRole('navigation', { name: 'Menu pengaturan', exact: true });
-		await expect(menus.getByRole('button')).toHaveCount(4);
-		for (const [name, color] of [
-			[/^Antrean /, 'pink'],
-			[/^Draft Struk /, 'emerald'],
-			[/^Riwayat /, 'amber'],
-			[/^Install PWA /, 'pink']
+		await expect(menus.getByRole('link')).toHaveCount(3);
+		await expect(menus.getByRole('button')).toHaveCount(1);
+		for (const [role, name, color] of [
+			['link', /^Antrean /, 'pink'],
+			['link', /^Draft Struk /, 'emerald'],
+			['link', /^Riwayat /, 'amber'],
+			['button', /^Install PWA /, 'pink']
 		] as const) {
-			const icon = menus.getByRole('button', { name }).locator('.settings-menu-icon');
+			const icon = menus.getByRole(role, { name }).locator(':scope > span').first();
 			await expect(icon).toHaveCSS('color', theme.colors[color]);
 		}
-		const antreanCard = menus.getByRole('button', { name: /^Antrean / });
-		const printerCard = menus.getByRole('button', { name: /^Draft Struk / });
+		const antreanCard = menus.getByRole('link', { name: /^Antrean / });
+		const printerCard = menus.getByRole('link', { name: /^Draft Struk / });
 		for (const width of [320, 390, 1280]) {
 			await page.setViewportSize({ width, height: 900 });
 			const [antreanBox, printerBox] = await Promise.all([
