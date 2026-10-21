@@ -1,8 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
@@ -14,6 +12,7 @@
 	import Printer from '@lucide/svelte/icons/printer';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 
 	const s = createPengaturanState();
 	const isOwner = $derived(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik');
@@ -231,15 +230,6 @@
 		</div>
 	</AppModal>
 
-	<!-- PWA Installed Toast -->
-	{#if s.showPwaInstalledToast}
-		<div
-			class="animate-fade-in z-toast fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 text-sm font-semibold text-white shadow-lg"
-		>
-			Aplikasi berhasil terpasang di Home Screen!
-		</div>
-	{/if}
-
 	<!-- PWA Install Web Component (SSR-safe) -->
 	{#if browser && s.isPwaLibraryLoaded}
 		<pwa-install
@@ -253,17 +243,11 @@
 		></pwa-install>
 	{/if}
 
-	{#if s.showNotification}
-		<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
-			<div
-				class="rounded-2xl bg-amber-500 px-6 py-3 text-center font-bold text-white shadow-xl shadow-amber-950/20 backdrop-blur-md"
-				in:fly={{ y: -20, duration: 240, easing: cubicOut }}
-				out:fade={{ duration: 160 }}
-			>
-				{s.notificationMessage}
-			</div>
-		</div>
-	{/if}
+	<ToastNotification
+		show={s.toastManager.showToast}
+		message={s.toastManager.toastMessage}
+		type={s.toastManager.toastType}
+	/>
 
 	<!-- App Info -->
 	<div class="mt-auto py-4 text-center">

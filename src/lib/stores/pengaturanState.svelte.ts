@@ -3,20 +3,17 @@ import { auth } from '$lib/auth/auth';
 import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
 import { ErrorHandler } from '$lib/utils/errorHandling';
 import { browser } from '$app/environment';
-import { NOTIF } from '$lib/constants/ui';
+import { createToastManager } from '$lib/utils/ui';
 import Crown from '@lucide/svelte/icons/crown';
 import CreditCard from '@lucide/svelte/icons/credit-card';
 import User from '@lucide/svelte/icons/user';
 
 export function createPengaturanState() {
+	const toastManager = createToastManager();
 	let isPwaLibraryLoaded = $state(false);
 	let isLoading = $state(true);
 	let isProfileLoaded = $state(false);
 	let showLogoutModal = $state(false);
-	let showPwaInstalledToast = $state(false);
-	let showNotification = $state(false);
-	let notificationMessage = $state('');
-	let notificationTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	const currentUserRole = $derived(userRole.value || '');
 	const roleIcon = $derived(
@@ -28,12 +25,7 @@ export function createPengaturanState() {
 	);
 
 	function showNotif(message: string) {
-		notificationMessage = message;
-		showNotification = true;
-		if (notificationTimeout !== null) clearTimeout(notificationTimeout);
-		notificationTimeout = setTimeout(() => {
-			showNotification = false;
-		}, NOTIF.TOAST_MS);
+		toastManager.showToastNotification(message, 'warning');
 	}
 
 	function handleLogout() {
@@ -73,8 +65,11 @@ export function createPengaturanState() {
 
 			if (typeof window !== 'undefined') {
 				window.addEventListener('appinstalled', () => {
-					showPwaInstalledToast = true;
-					setTimeout(() => (showPwaInstalledToast = false), 4000);
+					toastManager.showToastNotification(
+						'Aplikasi berhasil terpasang di Home Screen!',
+						'success',
+						4000
+					);
 				});
 			}
 
@@ -119,15 +114,7 @@ export function createPengaturanState() {
 		get showLogoutModal() {
 			return showLogoutModal;
 		},
-		get showPwaInstalledToast() {
-			return showPwaInstalledToast;
-		},
-		get showNotification() {
-			return showNotification;
-		},
-		get notificationMessage() {
-			return notificationMessage;
-		},
+		toastManager,
 		get currentUserRole() {
 			return currentUserRole;
 		},

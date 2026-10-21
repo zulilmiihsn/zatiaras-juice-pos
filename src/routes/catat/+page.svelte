@@ -1,8 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { cubicOut } from 'svelte/easing';
-	import { fade, fly } from 'svelte/transition';
 	import DropdownSheet from '$lib/components/shared/DropdownSheet.svelte';
 	import NotifModal from '$lib/components/shared/NotifModal.svelte';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
@@ -40,34 +38,6 @@
 	type={s.toastManager.toastType}
 	position="top"
 />
-
-{#if s.showSnackbar}
-	<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
-		<div
-			class="flex min-w-[220px] items-center justify-center gap-3 rounded-2xl bg-pink-600 px-6 py-3.5 text-base font-semibold text-white shadow-xl shadow-pink-950/20 backdrop-blur-md"
-			in:fly={{ y: -20, duration: 240, easing: cubicOut }}
-			out:fade={{ duration: 160 }}
-		>
-			<svg
-				class="h-6 w-6 shrink-0 text-white"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<circle cx="12" cy="12" r="10" fill="#f9a8d4" />
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M9 12l2 2 4-4"
-					stroke="#fff"
-					stroke-width="2"
-				/>
-			</svg>
-			<span class="flex-1 text-center">{s.snackbarMsg}</span>
-		</div>
-	</div>
-{/if}
 
 <NotifModal
 	show={s.showNotifModal}

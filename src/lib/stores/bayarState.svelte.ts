@@ -13,7 +13,7 @@ import { printReceiptUnified } from '$lib/services/printerEngine';
 import { addPendingTransaction } from '$lib/utils/offline';
 import { ErrorHandler, parseApiError } from '$lib/utils/errorHandling';
 import { formatRupiah } from '$lib/utils/currency';
-import { NOTIF } from '$lib/constants/ui';
+import { createToastManager } from '$lib/utils/ui';
 import { transactionService } from '$lib/services/transactionService';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { refreshBus } from '$lib/utils/refreshBus';
@@ -41,6 +41,7 @@ import type { CartItem } from '$lib/types/cart';
 import type { NotifModalType } from '$lib/types';
 
 export function createBayarState() {
+	const toastManager = createToastManager();
 	let cart = $state<CartItem[]>([]);
 	let customerName = $state('');
 	let paymentMethod = $state('');
@@ -55,8 +56,6 @@ export function createBayarState() {
 	/** Nomor antrean harian resmi; null = offline menunggu sinkron. */
 	let nomorPesanan = $state<number | null>(null);
 	let transactionQueuedOffline = $state(false);
-	let showErrorNotification = $state(false);
-	let errorNotificationMessage = $state('');
 	let showNotifModal = $state(false);
 	let notifModalMsg = $state('');
 	let notifModalType = $state<NotifModalType>('warning');
@@ -67,7 +66,6 @@ export function createBayarState() {
 
 	let pengaturanStruk: ReceiptSettings | null = null;
 	let sesiAktif: TokoSession | null = null;
-	let errorNotificationTimeout: number | null = null;
 
 	const currentUserRole = $derived(userRole.value || '');
 
@@ -120,12 +118,7 @@ export function createBayarState() {
 	}
 
 	function showErrorNotif(message: string) {
-		errorNotificationMessage = message;
-		showErrorNotification = true;
-		if (errorNotificationTimeout !== null) clearTimeout(errorNotificationTimeout);
-		errorNotificationTimeout = window.setTimeout(() => {
-			showErrorNotification = false;
-		}, NOTIF.TOAST_MS);
+		toastManager.showToastNotification(message, 'error');
 	}
 
 	function generateTransactionCode() {
@@ -567,12 +560,7 @@ export function createBayarState() {
 		get transactionQueuedOffline() {
 			return transactionQueuedOffline;
 		},
-		get showErrorNotification() {
-			return showErrorNotification;
-		},
-		get errorNotificationMessage() {
-			return errorNotificationMessage;
-		},
+		toastManager,
 		get showNotifModal() {
 			return showNotifModal;
 		},

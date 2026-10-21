@@ -72,7 +72,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 0        | F8      |
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
 | `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 0        | F9a–c   |
-| `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 3        | F10     |
+| `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 0        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 34       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
@@ -99,7 +99,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
 | F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
 | F9c  | Modal sisanya                         | Sonnet | Selesai  |
-| F10  | Satu mekanisme toast                  | Sonnet | Todo     |
+| F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Todo     |
 | F12  | Kelas form bersama                    | Sonnet | Todo     |
 | F13  | Token warna merek                     | Haiku  | Todo     |
@@ -328,3 +328,11 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   Konfirmasi hapus lokal di `PendingTransactionsSheet` memakai `use:modalFocus`
   dan tetap membawa `data-testid`; Escape tidak menutup saat `removalBusy`.
   `overlayFiles` 9 → 0, `duplicatedLongClassGroups` 35 → 34 (efek samping).
+- 21 Oktober 2026: F10 selesai. Snackbar `catat`, toast PWA terpasang dan
+  notifikasi amber di `pengaturan`, serta toast galat `pos/bayar` kini memakai
+  `<ToastNotification>` + `createToastManager()` yang dibuat di
+  `catatState`/`pengaturanState`/`bayarState` dan diekspos sebagai
+  `toastManager`; field boolean, pesan, dan timer buatan sendiri dibuang. Teks
+  tidak berubah (snackbar tetap 1,8 dtk, PWA 4 dtk, lainnya 3 dtk); hijau
+  jadi `success`, amber `warning`, galat `error`. Tampilan kini pil kecil
+  seragam ala `ToastNotification`. `inlineToast` 3 → 0.

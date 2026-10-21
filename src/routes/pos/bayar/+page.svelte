@@ -2,10 +2,9 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import NotifModal from '$lib/components/shared/NotifModal.svelte';
-	import { fly, fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { formatRupiah } from '$lib/utils/currency';
 	import { PAYMENT } from '$lib/constants/ui';
 	import { formatOrderDetails } from '$lib/utils/orderDetails';
@@ -496,17 +495,11 @@
 	</div>
 </AppModal>
 
-{#if s.showErrorNotification}
-	<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
-		<div
-			class="rounded-2xl bg-rose-600 px-6 py-3 text-center font-bold text-white shadow-xl shadow-rose-950/20 backdrop-blur-md"
-			in:fly={{ y: -20, duration: 240, easing: cubicOut }}
-			out:fade={{ duration: 160 }}
-		>
-			{s.errorNotificationMessage}
-		</div>
-	</div>
-{/if}
+<ToastNotification
+	show={s.toastManager.showToast}
+	message={s.toastManager.toastMessage}
+	type={s.toastManager.toastType}
+/>
 
 <NotifModal
 	show={s.showNotifModal}

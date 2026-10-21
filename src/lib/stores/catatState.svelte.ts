@@ -39,8 +39,6 @@ export function createCatatState() {
 	let nama = $state('');
 	let error = $state('');
 	let showDropdown = $state(false);
-	let showSnackbar = $state(false);
-	let snackbarMsg = $state('');
 	let showNotifModal = $state(false);
 	let notifModalMsg = $state('');
 	let notifModalType = $state<NotifModalType>('warning');
@@ -324,14 +322,13 @@ export function createCatatState() {
 				} catch {
 					// The save succeeded; recent-transaction refresh can be retried independently.
 				}
-				snackbarMsg =
+				toastManager.showToastNotification(
 					result.status === 'queued'
 						? 'Transaksi antre, menunggu sinkronisasi.'
-						: 'Transaksi berhasil dicatat!';
-				showSnackbar = true;
-				setTimeout(() => {
-					showSnackbar = false;
-				}, 1800);
+						: 'Transaksi berhasil dicatat!',
+					'success',
+					1800
+				);
 				rawNominal = '';
 				nominal = '';
 				namaJenis = '';
@@ -432,12 +429,6 @@ export function createCatatState() {
 		},
 		set showDropdown(v) {
 			showDropdown = v;
-		},
-		get showSnackbar() {
-			return showSnackbar;
-		},
-		get snackbarMsg() {
-			return snackbarMsg;
 		},
 		get showNotifModal() {
 			return showNotifModal;
