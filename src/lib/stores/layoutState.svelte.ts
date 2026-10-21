@@ -134,7 +134,7 @@ export function createLayoutState() {
 			pwaWaiting();
 			if (pwaRegistration) stopPwaUpdateChecks = startPwaUpdateChecks(pwaRegistration);
 		} catch (error) {
-			console.log('PWA registration failed:', error);
+			console.warn('PWA registration failed:', error);
 		}
 	}
 

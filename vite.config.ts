@@ -2,10 +2,13 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const pwaPrerenderPlaceholder = '__pwa-placeholder.json';
+const { version: appVersion } = JSON.parse(readFileSync('./package.json', 'utf8')) as {
+	version: string;
+};
 
 function ensurePwaPrerenderPlaceholder() {
 	return {
@@ -27,6 +30,7 @@ function ensurePwaPrerenderPlaceholder() {
 }
 
 export default defineConfig({
+	define: { __APP_VERSION__: JSON.stringify(appVersion) },
 	plugins: [
 		sveltekit(),
 		tailwindcss(),

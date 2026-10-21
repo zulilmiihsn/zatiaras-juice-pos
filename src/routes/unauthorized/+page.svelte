@@ -63,7 +63,9 @@
 
 		<!-- Footer -->
 		<div class="mt-6">
-			<p class="text-sm text-gray-500">© 2024 Zatiaras Juice. All rights reserved.</p>
+			<p class="text-sm text-gray-500">
+				© {new Date().getFullYear()} Zatiaras Juice. All rights reserved.
+			</p>
 		</div>
 	</div>
 </div>

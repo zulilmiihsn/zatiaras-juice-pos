@@ -65,8 +65,8 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 0        | F4      |
 | `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 0        | F2, F5  |
 | `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 0        | F5      |
-| `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 1        | F6      |
-| `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 3        | F6      |
+| `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 0        | F6      |
+| `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 0        | F6      |
 | `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0            | 18       | F7      |
 | `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 28       | F7      |
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 11       | F8      |
@@ -93,7 +93,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
 | F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
 | F5   | Navigasi pakai link                   | Haiku  | Selesai  |
-| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Todo     |
+| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai  |
 | F7   | Alias Tailwind                        | Haiku  | Todo     |
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Todo     |
 | F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Todo     |
@@ -287,3 +287,8 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   `href` + `label` ("Kembali ke Pengaturan" / "Kembali ke Pengaturan Pemilik").
   Import `goto` yang tak terpakai dibuang. `pureGotoButton` 2 → 0,
   `headerBackGoto` 6 → 0.
+- 21 Oktober 2026: F6 selesai. `console.log` di `layoutState` jadi
+  `console.warn`. `__APP_VERSION__` didefinisikan di `vite.config.ts` dari
+  `package.json` dan dideklarasikan di `app.d.ts`. Footer `pengaturan` dipindah
+  ke dalam `<main>` (`mt-auto`) dengan versi dan tahun dinamis; tahun di
+  `unauthorized` juga dinamis. `consoleLogClient` 1 → 0, `staleVersionText` 3 → 0.

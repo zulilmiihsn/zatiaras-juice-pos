@@ -1,6 +1,9 @@
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 
 declare global {
+	// Diisi vite.config.ts (define) dari version di package.json.
+	const __APP_VERSION__: string;
+
 	namespace App {
 		interface Locals {
 			authSession: {

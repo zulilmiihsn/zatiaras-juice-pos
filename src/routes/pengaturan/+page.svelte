@@ -264,13 +264,13 @@
 			</div>
 		</div>
 	{/if}
-</main>
 
-<!-- App Info -->
-<div class="py-4 text-center">
-	<p class="text-xs text-gray-500">ZatiarasPOS v1.0</p>
-	<p class="mt-1 text-xs text-gray-400">© 2024 Zatiaras Juice.</p>
-</div>
+	<!-- App Info -->
+	<div class="mt-auto py-4 text-center">
+		<p class="text-xs text-gray-500">ZatiarasPOS v{__APP_VERSION__}</p>
+		<p class="mt-1 text-xs text-gray-400">© {new Date().getFullYear()} Zatiaras Juice.</p>
+	</div>
+</main>
 
 <!-- Custom styling for PWA install dialog -->
 <style>
