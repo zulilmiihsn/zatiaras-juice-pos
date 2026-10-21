@@ -291,7 +291,8 @@
 				</div>
 			</div>
 
-			<div class="flex items-center gap-2">
+			<!-- Di md+ Pengaturan sudah selalu ada di sidebar, jadi tombol ini hanya untuk HP -->
+			<div class="flex items-center gap-2 md:hidden">
 				<!-- Settings Icon Button -->
 				<a
 					href="/pengaturan"

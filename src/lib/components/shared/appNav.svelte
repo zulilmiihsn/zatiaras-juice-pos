@@ -19,6 +19,8 @@
 		icon: Component;
 		path: string;
 		isHero?: boolean;
+		/** Hanya tampil di sidebar (md+); disembunyikan dari bilah bawah HP. */
+		sidebarOnly?: boolean;
 	};
 
 	const berandaNav: NavItem = { label: 'Beranda', icon: Home, path: '/' };
@@ -30,10 +32,18 @@
 	const settingsNav: NavItem = { label: 'Pengaturan', icon: Settings, path: '/pengaturan' };
 
 	// Kasir hero selalu tepat di tengah bilah bawah: 7 tujuan saat stok aktif, 5 saat nonaktif.
-	// Saat stok nonaktif, Pengaturan lewat Beranda (tidak memakan slot navbar).
+	// Saat stok nonaktif, Pengaturan di HP lewat Beranda (tidak memakan slot bilah bawah); di
+	// sidebar md+ ia tetap selalu ada karena slot di sana tidak terbatas.
 	const navs = $derived(
 		stockPolicyState.ignored
-			? [berandaNav, catatNav, kasirNav, antreanNav, laporanNav]
+			? [
+					berandaNav,
+					catatNav,
+					kasirNav,
+					antreanNav,
+					laporanNav,
+					{ ...settingsNav, sidebarOnly: true }
+				]
 			: [berandaNav, catatNav, antreanNav, kasirNav, stokNav, laporanNav, settingsNav]
 	);
 
@@ -106,7 +116,9 @@
 		{:else}
 			<!-- Tab biasa -->
 			<a
-				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch rounded-2xl py-1 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none active:scale-95 md:h-auto md:w-full md:flex-none md:py-2.5 lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 {isActive
+				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch rounded-2xl py-1 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none active:scale-95 md:h-auto md:w-full md:flex-none md:py-2.5 lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 {nav.sidebarOnly
+					? 'max-md:hidden'
+					: ''} {isActive
 					? 'text-pink-600 md:bg-pink-50'
 					: 'text-slate-400 hover:text-slate-600 md:hover:bg-slate-50'}"
 				aria-label={nav.label}

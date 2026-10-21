@@ -559,6 +559,26 @@ test.describe('Stock Monitoring Toggle', () => {
 		await expect(nav.getByRole('link').nth(4)).toHaveAttribute('aria-label', 'Laporan');
 	});
 
+	test('ignored mode keeps Pengaturan in the sidebar and drops the Beranda shortcut on md+', async ({
+		page
+	}) => {
+		await mockOwnerSession(page);
+		await mockStockPolicy(page, { mode: 'ignored', revision: 1 });
+		await page.setViewportSize({ width: 1024, height: 800 });
+		await gotoHydrated(page, '/', 'text=Pendapatan Hari Ini');
+		const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+		// Stok menghilang hanya setelah kebijakan stok "ignored" dimuat; expect menunggu itu.
+		await expect(nav.getByRole('link', { name: 'Stok' })).toHaveCount(0);
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toBeVisible();
+		await expect(nav.getByRole('link').last()).toHaveAttribute('aria-label', 'Pengaturan');
+		await expect(page.getByRole('link', { name: 'Pengaturan' })).toHaveCount(1);
+
+		// HP: bilah bawah tanpa Pengaturan, jalurnya kembali lewat tombol di Beranda.
+		await page.setViewportSize({ width: 390, height: 844 });
+		await expect(nav.getByRole('link', { name: 'Pengaturan' })).toHaveCount(0);
+		await expect(page.getByRole('link', { name: 'Pengaturan' })).toHaveCount(1);
+	});
+
 	test('tracked mode keeps Stok in the navigation', async ({ page }) => {
 		await mockOwnerSession(page);
 		await mockStockPolicy(page, { mode: 'tracked', revision: 0 });
