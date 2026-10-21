@@ -1,7 +1,3 @@
-<svelte:head>
-	<title>Offline - Zatiaras POS</title>
-</svelte:head>
-
 <main
 	class="flex min-h-[100dvh] items-center justify-center bg-[#faf8f6] px-5 text-center text-[#241f21]"
 >

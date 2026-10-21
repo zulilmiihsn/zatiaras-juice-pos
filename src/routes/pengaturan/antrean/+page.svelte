@@ -21,7 +21,6 @@
 	});
 </script>
 
-<svelte:head><title>Notifikasi Antrean — ZatiarasPOS</title></svelte:head>
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-20">
 	<header class="page-header relative w-full px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<div

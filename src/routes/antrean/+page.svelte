@@ -104,10 +104,6 @@
 	}}
 />
 
-<svelte:head>
-	<title>Antrean Pesanan - Zatiaras POS</title>
-</svelte:head>
-
 <div class="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#faf7f8]">
 	<PageHeader title="Antrean Pesanan" subtitle={headerSubtitle} note={headerNote}>
 		<div
