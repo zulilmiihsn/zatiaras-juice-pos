@@ -95,15 +95,13 @@
 				{/if}
 				{#each groupAndSumByName(qrisData).sort((a, b) => b.total - a.total) as grouped}
 					<li class="flex items-center justify-between text-xs text-zinc-700 sm:text-sm">
-						<span
+						<button
+							type="button"
 							class="{expandedItems.has(grouped.nama)
 								? ''
-								: 'max-w-[65%] truncate'} cursor-pointer hover:text-zinc-900"
+								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-zinc-900"
 							title={grouped.nama}
-							onclick={() => toggleExpand(grouped.nama)}
-							onkeydown={(e) => e.key === 'Enter' && toggleExpand(grouped.nama)}
-							role="button"
-							tabindex="0">{grouped.nama}</span
+							onclick={() => toggleExpand(grouped.nama)}>{grouped.nama}</button
 						>
 						<span class="font-bold text-zinc-900">Rp {formatRupiah(grouped.total)}</span>
 					</li>
@@ -116,15 +114,13 @@
 				{/if}
 				{#each groupAndSumByName(tunaiData).sort((a, b) => b.total - a.total) as grouped}
 					<li class="flex items-center justify-between text-xs text-zinc-700 sm:text-sm">
-						<span
+						<button
+							type="button"
 							class="{expandedItems.has(grouped.nama)
 								? ''
-								: 'max-w-[65%] truncate'} cursor-pointer hover:text-zinc-900"
+								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-zinc-900"
 							title={grouped.nama}
-							onclick={() => toggleExpand(grouped.nama)}
-							onkeydown={(e) => e.key === 'Enter' && toggleExpand(grouped.nama)}
-							role="button"
-							tabindex="0">{grouped.nama}</span
+							onclick={() => toggleExpand(grouped.nama)}>{grouped.nama}</button
 						>
 						<span class="font-bold text-zinc-900">Rp {formatRupiah(grouped.total)}</span>
 					</li>

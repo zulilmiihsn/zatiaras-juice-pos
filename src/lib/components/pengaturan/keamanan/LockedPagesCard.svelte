@@ -33,33 +33,27 @@
 	<!-- List Toggle Switch Halaman -->
 	<div class="mb-4 space-y-2.5">
 		<!-- 1. Beranda -->
-		<div
-			class="flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all duration-200 {s.lockedPages.includes(
+		<button
+			type="button"
+			class="flex w-full cursor-pointer items-center justify-between rounded-2xl border p-3.5 text-left transition-all duration-200 {s.lockedPages.includes(
 				'beranda'
 			)
 				? 'border-pink-200 bg-pink-50/40 ring-1 ring-pink-500/10'
 				: 'border-slate-100 bg-white hover:border-pink-100'}"
 			onclick={() => s.togglePageLock('beranda')}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					s.togglePageLock('beranda');
-				}
-			}}
-			role="button"
 			aria-pressed={s.lockedPages.includes('beranda')}
-			tabindex="0"
 		>
-			<div class="flex items-center gap-3">
-				<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+			<span class="flex items-center gap-3">
+				<span class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
 					<Home class="h-4.5 w-4.5 stroke-[2.2]" />
-				</div>
-				<div>
-					<div class="text-xs font-bold text-slate-900 md:text-sm">Beranda</div>
-					<div class="text-[11px] text-slate-400">Proteksi ringkasan & metrik dashboard</div>
-				</div>
-			</div>
-			<div
+				</span>
+				<span class="block">
+					<span class="block text-xs font-bold text-slate-900 md:text-sm">Beranda</span>
+					<span class="block text-[11px] text-slate-400">Proteksi ringkasan & metrik dashboard</span
+					>
+				</span>
+			</span>
+			<span
 				class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {s.lockedPages.includes(
 					'beranda'
 				)
@@ -73,37 +67,32 @@
 						? 'translate-x-5'
 						: 'translate-x-0'}"
 				></span>
-			</div>
-		</div>
+			</span></button
+		>
 
 		<!-- 2. Catat Transaksi -->
-		<div
-			class="flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all duration-200 {s.lockedPages.includes(
+		<button
+			type="button"
+			class="flex w-full cursor-pointer items-center justify-between rounded-2xl border p-3.5 text-left transition-all duration-200 {s.lockedPages.includes(
 				'catat'
 			)
 				? 'border-pink-200 bg-pink-50/40 ring-1 ring-pink-500/10'
 				: 'border-slate-100 bg-white hover:border-pink-100'}"
 			onclick={() => s.togglePageLock('catat')}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					s.togglePageLock('catat');
-				}
-			}}
-			role="button"
 			aria-pressed={s.lockedPages.includes('catat')}
-			tabindex="0"
 		>
-			<div class="flex items-center gap-3">
-				<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+			<span class="flex items-center gap-3">
+				<span class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
 					<Receipt class="h-4.5 w-4.5 stroke-[2.2]" />
-				</div>
-				<div>
-					<div class="text-xs font-bold text-slate-900 md:text-sm">Catat Transaksi Manual</div>
-					<div class="text-[11px] text-slate-400">Proteksi input pengeluaran & kas</div>
-				</div>
-			</div>
-			<div
+				</span>
+				<span class="block">
+					<span class="block text-xs font-bold text-slate-900 md:text-sm"
+						>Catat Transaksi Manual</span
+					>
+					<span class="block text-[11px] text-slate-400">Proteksi input pengeluaran & kas</span>
+				</span>
+			</span>
+			<span
 				class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {s.lockedPages.includes(
 					'catat'
 				)
@@ -117,37 +106,30 @@
 						? 'translate-x-5'
 						: 'translate-x-0'}"
 				></span>
-			</div>
-		</div>
+			</span></button
+		>
 
 		<!-- 3. Laporan Keuangan -->
-		<div
-			class="flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all duration-200 {s.lockedPages.includes(
+		<button
+			type="button"
+			class="flex w-full cursor-pointer items-center justify-between rounded-2xl border p-3.5 text-left transition-all duration-200 {s.lockedPages.includes(
 				'laporan'
 			)
 				? 'border-pink-200 bg-pink-50/40 ring-1 ring-pink-500/10'
 				: 'border-slate-100 bg-white hover:border-pink-100'}"
 			onclick={() => s.togglePageLock('laporan')}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					s.togglePageLock('laporan');
-				}
-			}}
-			role="button"
 			aria-pressed={s.lockedPages.includes('laporan')}
-			tabindex="0"
 		>
-			<div class="flex items-center gap-3">
-				<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+			<span class="flex items-center gap-3">
+				<span class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
 					<BarChart3 class="h-4.5 w-4.5 stroke-[2.2]" />
-				</div>
-				<div>
-					<div class="text-xs font-bold text-slate-900 md:text-sm">Laporan Keuangan</div>
-					<div class="text-[11px] text-slate-400">Proteksi data omzet & laba bersih</div>
-				</div>
-			</div>
-			<div
+				</span>
+				<span class="block">
+					<span class="block text-xs font-bold text-slate-900 md:text-sm">Laporan Keuangan</span>
+					<span class="block text-[11px] text-slate-400">Proteksi data omzet & laba bersih</span>
+				</span>
+			</span>
+			<span
 				class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {s.lockedPages.includes(
 					'laporan'
 				)
@@ -161,8 +143,8 @@
 						? 'translate-x-5'
 						: 'translate-x-0'}"
 				></span>
-			</div>
-		</div>
+			</span></button
+		>
 	</div>
 
 	<button

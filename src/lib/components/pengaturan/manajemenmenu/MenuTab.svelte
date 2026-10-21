@@ -127,56 +127,56 @@
 				>
 					{#each filteredMenus as menu (menu.id)}
 						<div
-							class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.98] md:p-4"
-							role="button"
-							tabindex="0"
-							onclick={() => openMenuForm(menu)}
-							onkeydown={(e) => e.key === 'Enter' && openMenuForm(menu)}
+							class="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.98] md:p-4"
 						>
 							<!-- Delete Button -->
 							<div class="absolute top-2 right-2 z-10">
 								<button
-									class="flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-400 shadow-sm ring-1 ring-slate-900/10 backdrop-blur-xs transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90 md:h-8 md:w-8"
-									onclick={(e) => {
-										e.stopPropagation();
-										confirmDeleteMenu(menu.id);
-									}}
+									type="button"
+									class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/95 text-slate-400 shadow-sm ring-1 ring-slate-900/10 backdrop-blur-xs transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90 md:h-8 md:w-8"
+									onclick={() => confirmDeleteMenu(menu.id)}
 									aria-label="Hapus Menu"
 								>
 									<Trash2 class="h-3.5 w-3.5 md:h-4 md:w-4" />
 								</button>
 							</div>
 
-							<!-- Image Thumbnail -->
-							<div
-								class="mb-2.5 flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-pink-100/50 bg-pink-50/50"
+							<button
+								type="button"
+								class="flex w-full cursor-pointer flex-col text-left"
+								onclick={() => openMenuForm(menu)}
 							>
-								{#if menu.gambar}
-									<img
-										src={menu.gambar}
-										alt={menu.nama}
-										class="h-full w-full object-cover transition-transform group-hover:scale-105"
-										onerror={() => handleImgError(menu.id)}
-									/>
-								{:else}
-									<div class="flex h-full w-full items-center justify-center text-pink-400">
-										<CupIcon class="h-10 w-10 text-pink-400" strokeWidth={2} />
-									</div>
-								{/if}
-							</div>
+								<!-- Image Thumbnail -->
+								<div
+									class="mb-2.5 flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-pink-100/50 bg-pink-50/50"
+								>
+									{#if menu.gambar}
+										<img
+											src={menu.gambar}
+											alt={menu.nama}
+											class="h-full w-full object-cover transition-transform group-hover:scale-105"
+											onerror={() => handleImgError(menu.id)}
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center text-pink-400">
+											<CupIcon class="h-10 w-10 text-pink-400" strokeWidth={2} />
+										</div>
+									{/if}
+								</div>
 
-							<!-- Info -->
-							<div class="min-w-0">
-								<div class="truncate text-sm font-bold text-slate-900 md:text-base">
-									{menu.nama}
+								<!-- Info -->
+								<div class="min-w-0">
+									<div class="truncate text-sm font-bold text-slate-900 md:text-base">
+										{menu.nama}
+									</div>
+									<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
+										{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
+									</div>
+									<div class="mt-1.5 text-sm font-extrabold text-pink-600 md:text-base">
+										Rp {formatRupiah(menu.harga)}
+									</div>
 								</div>
-								<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
-									{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
-								</div>
-								<div class="mt-1.5 text-sm font-extrabold text-pink-600 md:text-base">
-									Rp {formatRupiah(menu.harga)}
-								</div>
-							</div>
+							</button>
 						</div>
 					{/each}
 				</div>
@@ -185,50 +185,50 @@
 				<div class="flex flex-col gap-2" transition:fade={{ duration: 120 }}>
 					{#each filteredMenus as menu (menu.id)}
 						<div
-							class="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99] md:p-4"
-							role="button"
-							tabindex="0"
-							onclick={() => openMenuForm(menu)}
-							onkeydown={(e) => e.key === 'Enter' && openMenuForm(menu)}
+							class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99] md:p-4"
 						>
-							<!-- Image -->
-							<div
-								class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-pink-100/50 bg-pink-50/50 md:h-16 md:w-16"
+							<button
+								type="button"
+								class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+								onclick={() => openMenuForm(menu)}
 							>
-								{#if menu.gambar}
-									<img
-										src={menu.gambar}
-										alt={menu.nama}
-										class="h-full w-full object-cover"
-										onerror={() => handleImgError(menu.id)}
-									/>
-								{:else}
-									<div class="flex h-full w-full items-center justify-center text-pink-400">
-										<CupIcon class="h-7 w-7 text-pink-400 md:h-8 md:w-8" strokeWidth={2} />
-									</div>
-								{/if}
-							</div>
+								<!-- Image -->
+								<div
+									class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-pink-100/50 bg-pink-50/50 md:h-16 md:w-16"
+								>
+									{#if menu.gambar}
+										<img
+											src={menu.gambar}
+											alt={menu.nama}
+											class="h-full w-full object-cover"
+											onerror={() => handleImgError(menu.id)}
+										/>
+									{:else}
+										<div class="flex h-full w-full items-center justify-center text-pink-400">
+											<CupIcon class="h-7 w-7 text-pink-400 md:h-8 md:w-8" strokeWidth={2} />
+										</div>
+									{/if}
+								</div>
 
-							<!-- Details -->
-							<div class="min-w-0 flex-1">
-								<div class="truncate text-sm font-bold text-slate-900 md:text-base">
-									{menu.nama}
+								<!-- Details -->
+								<div class="min-w-0 flex-1">
+									<div class="truncate text-sm font-bold text-slate-900 md:text-base">
+										{menu.nama}
+									</div>
+									<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
+										{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
+									</div>
+									<div class="mt-1 text-sm font-extrabold text-pink-600 md:text-base">
+										Rp {formatRupiah(menu.harga)}
+									</div>
 								</div>
-								<div class="mt-0.5 truncate text-xs text-slate-400 md:text-sm">
-									{kategoriList.find((k) => k.id === menu.kategori_id)?.nama || 'Tanpa Kategori'}
-								</div>
-								<div class="mt-1 text-sm font-extrabold text-pink-600 md:text-base">
-									Rp {formatRupiah(menu.harga)}
-								</div>
-							</div>
+							</button>
 
 							<!-- Delete -->
 							<button
+								type="button"
 								class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90 md:h-9 md:w-9"
-								onclick={(e) => {
-									e.stopPropagation();
-									confirmDeleteMenu(menu.id);
-								}}
+								onclick={() => confirmDeleteMenu(menu.id)}
 								aria-label="Hapus Menu"
 							>
 								<Trash2 class="h-4 w-4 md:h-4.5 md:w-4.5" />

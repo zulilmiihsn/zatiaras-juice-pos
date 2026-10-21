@@ -73,7 +73,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
 | `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 0        | F9a–c   |
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 0        | F10     |
-| `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
+| `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 0        | F11     |
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 34       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0            | 23       | F13     |
@@ -100,7 +100,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
 | F9c  | Modal sisanya                         | Sonnet | Selesai  |
 | F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
-| F11  | `role="button"` jadi `<button>`       | Sonnet | Todo     |
+| F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
 | F12  | Kelas form bersama                    | Sonnet | Todo     |
 | F13  | Token warna merek                     | Haiku  | Todo     |
 | F14  | Abu-abu ke slate                      | Haiku  | Todo     |
@@ -336,3 +336,15 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   tidak berubah (snackbar tetap 1,8 dtk, PWA 4 dtk, lainnya 3 dtk); hijau
   jadi `success`, amber `warning`, galat `error`. Tampilan kini pil kecil
   seragam ala `ToastNotification`. `inlineToast` 3 → 0.
+- 21 Oktober 2026: F11 selesai (e2e lokal tidak dijalankan karena memori rendah;
+  CI jadi penjaga). Empat belas `role="button"` jadi `<button type="button">`
+  dan `onkeydown` Enter/Space dibuang. Kartu yang membungkus tombol aksi dipisah
+  area kliknya: pada `EkstraTab`, `KategoriTab`, `MenuTab` (daftar dan grid),
+  `RiwayatTransactionCard`, dan `BahanTab` konten utama kini `<button>` dan tombol
+  hapus/ubah stok menjadi saudaranya, bukan anaknya. `BahanTab` dan nominal di
+  `RiwayatTransactionCard` punya tombol buka kedua dengan `tabindex="-1"` supaya
+  seluruh kartu tetap bisa diklik tanpa tab stop ganda. Di `MenuFormModal`
+  tombol hapus gambar dipindah jadi saudara tombol unggah (sebelumnya bersarang).
+  Isi `<button>` di `LockedPagesCard` dan header toggle `MenuFormModal` dijadikan
+  `span` (+ `block`) agar tak ada `div`/`p` di dalam tombol; toggle menu
+  mendapat `aria-pressed`. `roleButton` 14 → 0.

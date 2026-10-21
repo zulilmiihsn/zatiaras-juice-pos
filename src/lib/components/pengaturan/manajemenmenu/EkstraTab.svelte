@@ -71,13 +71,13 @@
 							.toLowerCase()
 							.includes(searchEkstra.trim().toLowerCase())) as ekstra}
 						<div
-							class="group relative flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
-							role="button"
-							tabindex="0"
-							onclick={() => openEkstraForm(ekstra)}
-							onkeydown={(e) => e.key === 'Enter' && openEkstraForm(ekstra)}
+							class="group relative flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
 						>
-							<div class="flex min-w-0 flex-1 items-center gap-3">
+							<button
+								type="button"
+								class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+								onclick={() => openEkstraForm(ekstra)}
+							>
 								<div
 									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-pink-600 ring-1 ring-pink-100 transition-transform group-hover:scale-105"
 								>
@@ -101,13 +101,11 @@
 										{/if}
 									</div>
 								</div>
-							</div>
+							</button>
 							<button
+								type="button"
 								class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-colors hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90"
-								onclick={(e) => {
-									e.stopPropagation();
-									confirmDeleteEkstra(ekstra.id);
-								}}
+								onclick={() => confirmDeleteEkstra(ekstra.id)}
 								aria-label="Hapus Tambahan"
 							>
 								<Trash2 class="h-4 w-4" />

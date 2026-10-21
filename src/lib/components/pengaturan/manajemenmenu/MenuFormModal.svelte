@@ -101,7 +101,7 @@
 			<label for="menu-image" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 				>Gambar Menu</label
 			>
-			<div class="w-full">
+			<div class="relative w-full">
 				<button
 					type="button"
 					class="group relative w-full cursor-pointer"
@@ -116,21 +116,6 @@
 								alt="Preview Menu"
 								class="aspect-square w-full object-cover"
 							/>
-							<!-- Floating Delete Button -->
-							<div
-								class="absolute top-2.5 right-2.5 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-rose-500/90 text-white shadow-md backdrop-blur-xs transition-all hover:bg-rose-600 active:scale-90"
-								role="button"
-								tabindex="0"
-								aria-label="Hapus gambar"
-								onclick={(e) => {
-									e.stopPropagation();
-									s.removeImage();
-								}}
-								onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), s.removeImage())}
-								onkeypress={(e) => e.key === 'Enter' && (e.stopPropagation(), s.removeImage())}
-							>
-								<Trash2 class="h-4 w-4" />
-							</div>
 							<div
 								class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 backdrop-blur-[2px] transition-all duration-200 group-hover:opacity-100"
 							>
@@ -173,6 +158,17 @@
 						</div>
 					{/if}
 				</button>
+				{#if s.menuForm.gambar}
+					<!-- Tombol hapus: saudara (bukan anak) tombol upload agar tidak bersarang -->
+					<button
+						type="button"
+						class="absolute top-2.5 right-2.5 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-rose-500/90 text-white shadow-md backdrop-blur-xs transition-all hover:bg-rose-600 active:scale-90"
+						aria-label="Hapus gambar"
+						onclick={() => s.removeImage()}
+					>
+						<Trash2 class="h-4 w-4" />
+					</button>
+				{/if}
 			</div>
 			<input
 				type="file"
@@ -267,30 +263,29 @@
 						: 'border-slate-200 bg-white hover:border-slate-300'}"
 				>
 					<!-- Card Header / Toggle Area -->
-					<div
-						class="flex cursor-pointer items-center justify-between gap-3 p-3.5"
+					<button
+						type="button"
+						class="flex w-full cursor-pointer items-center justify-between gap-3 p-3.5 text-left"
+						aria-pressed={!!s.menuForm.lacak_bahan}
 						onclick={() => s.setTrackIngredients(!s.menuForm.lacak_bahan)}
-						role="button"
-						tabindex="0"
-						onkeydown={(e) => e.key === 'Enter' && s.setTrackIngredients(!s.menuForm.lacak_bahan)}
 					>
-						<div class="flex items-center gap-2.5">
-							<div
+						<span class="flex items-center gap-2.5">
+							<span
 								class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors {s
 									.menuForm.lacak_bahan
 									? 'bg-pink-500 text-white shadow-xs shadow-pink-500/30'
 									: 'bg-slate-100 text-slate-500'}"
 							>
 								<UtensilsCrossed class="h-4.5 w-4.5 stroke-[2.2]" />
-							</div>
-							<div>
+							</span>
+							<span class="block">
 								<span class="text-sm font-bold text-slate-900">Resep Bahan Baku</span>
-								<p class="text-xs text-slate-500">Otomatis potong stok bahan baku.</p>
-							</div>
-						</div>
+								<span class="block text-xs text-slate-500">Otomatis potong stok bahan baku.</span>
+							</span>
+						</span>
 
 						<!-- Custom Animated Toggle Switch -->
-						<div
+						<span
 							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {s
 								.menuForm.lacak_bahan
 								? 'bg-pink-600'
@@ -302,8 +297,8 @@
 									? 'translate-x-4'
 									: 'translate-x-0'}"
 							></span>
-						</div>
-					</div>
+						</span>
+					</button>
 
 					<!-- Expandable Recipe Builder (Directly Underneath Resep Bahan Card) -->
 					{#if s.menuForm.lacak_bahan}
@@ -526,30 +521,29 @@
 						: 'border-slate-200 bg-white hover:border-slate-300'}"
 				>
 					<!-- Card Header / Toggle Area -->
-					<div
-						class="flex cursor-pointer items-center justify-between gap-3 p-3.5"
+					<button
+						type="button"
+						class="flex w-full cursor-pointer items-center justify-between gap-3 p-3.5 text-left"
+						aria-pressed={!!s.menuForm.lacak_stok}
 						onclick={() => s.setTrackStock(!s.menuForm.lacak_stok)}
-						role="button"
-						tabindex="0"
-						onkeydown={(e) => e.key === 'Enter' && s.setTrackStock(!s.menuForm.lacak_stok)}
 					>
-						<div class="flex items-center gap-2.5">
-							<div
+						<span class="flex items-center gap-2.5">
+							<span
 								class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors {s
 									.menuForm.lacak_stok
 									? 'bg-pink-500 text-white shadow-xs shadow-pink-500/30'
 									: 'bg-slate-100 text-slate-500'}"
 							>
 								<Package class="h-4.5 w-4.5 stroke-[2.2]" />
-							</div>
-							<div>
+							</span>
+							<span class="block">
 								<span class="text-sm font-bold text-slate-900">Stok Barang Jadi</span>
-								<p class="text-xs text-slate-500">Potong langsung stok produk jadi.</p>
-							</div>
-						</div>
+								<span class="block text-xs text-slate-500">Potong langsung stok produk jadi.</span>
+							</span>
+						</span>
 
 						<!-- Custom Animated Toggle Switch -->
-						<div
+						<span
 							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {s
 								.menuForm.lacak_stok
 								? 'bg-pink-600'
@@ -561,8 +555,8 @@
 									? 'translate-x-4'
 									: 'translate-x-0'}"
 							></span>
-						</div>
-					</div>
+						</span>
+					</button>
 
 					<!-- Expandable Stock Input (Directly Underneath Barang Jadi Card) -->
 					{#if s.menuForm.lacak_stok}

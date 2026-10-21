@@ -15,26 +15,17 @@
 </script>
 
 <div
-	class="soft-float-card flex cursor-pointer items-start justify-between gap-3 p-4 transition-all hover:border-pink-200 hover:shadow-md md:p-4.5"
-	onclick={() => onOpen(trx)}
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onOpen(trx);
-		}
-	}}
-	role="button"
-	tabindex="0"
+	class="soft-float-card flex items-start justify-between gap-3 p-4 transition-all hover:border-pink-200 hover:shadow-md md:p-4.5"
 >
-	<div class="min-w-0 flex-1">
+	<button type="button" class="min-w-0 flex-1 cursor-pointer text-left" onclick={() => onOpen(trx)}>
 		<NomorPesananLabel
 			nomor={trx.nomor_harian}
 			kelas="text-[11px] font-extrabold tracking-wide text-pink-600"
 		/>
-		<div class="truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
+		<span class="block truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
 			{trx.nama}
-		</div>
-		<div class="mb-1 flex items-center gap-1.5 text-xs text-gray-500 md:text-sm">
+		</span>
+		<span class="mb-1 flex items-center gap-1.5 text-xs text-gray-500 md:text-sm">
 			<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
 				{trx.sumber === 'pos' ? 'POS' : 'Manual'}
 			</span>
@@ -44,37 +35,42 @@
 			<span class="font-bold text-pink-500 uppercase">
 				{trx.metode_bayar === 'qris' || trx.metode_bayar === 'non-tunai' ? 'QRIS' : 'Tunai'}
 			</span>
-		</div>
-		<div class="text-xs text-gray-400">
+		</span>
+		<span class="block text-xs text-gray-400">
 			{new Date(trx.waktu).toLocaleTimeString('id-ID', {
 				hour: '2-digit',
 				minute: '2-digit'
 			})}
-		</div>
-	</div>
+		</span>
+	</button>
 	<div class="flex shrink-0 flex-col items-end gap-1">
-		<div
-			class="text-base font-black md:text-lg {trx.tipe === 'out'
-				? 'text-orange-600'
-				: 'text-pink-600'}"
+		<button
+			type="button"
+			tabindex="-1"
+			class="flex cursor-pointer flex-col items-end gap-1 text-right"
+			onclick={() => onOpen(trx)}
 		>
-			{trx.tipe === 'out' ? '-' : ''}Rp {formatRupiah(trx.nominal)}
-		</div>
+			<span
+				class="block text-base font-black md:text-lg {trx.tipe === 'out'
+					? 'text-orange-600'
+					: 'text-pink-600'}"
+			>
+				{trx.tipe === 'out' ? '-' : ''}Rp {formatRupiah(trx.nominal)}
+			</span>
+			{#if !onHapus}
+				<span class="block text-xs text-gray-400">Tap untuk detail</span>
+			{/if}
+		</button>
 		{#if onHapus}
 			<button
 				type="button"
 				class="cursor-pointer rounded-xl bg-red-50 p-2 text-red-600 shadow-md transition-colors hover:bg-red-100 md:p-2.5"
-				onclick={(e) => {
-					e.stopPropagation();
-					onHapus(trx);
-				}}
+				onclick={() => onHapus(trx)}
 				title="Hapus transaksi"
 				aria-label="Hapus transaksi"
 			>
 				<Trash class="h-4.5 w-4.5 md:h-5 md:w-5" />
 			</button>
-		{:else}
-			<div class="text-xs text-gray-400">Tap untuk detail</div>
 		{/if}
 	</div>
 </div>

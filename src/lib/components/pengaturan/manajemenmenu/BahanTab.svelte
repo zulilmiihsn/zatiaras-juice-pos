@@ -210,16 +210,16 @@
 						{@const yieldPct = Number(bahan.yield_persen ?? 100)}
 
 						<div
-							class="group relative flex cursor-pointer flex-col justify-between gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
-							role="button"
-							tabindex="0"
-							onclick={() => openBahanForm(bahan)}
-							onkeydown={(e) => e.key === 'Enter' && openBahanForm(bahan)}
+							class="group relative flex flex-col justify-between gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-pink-200 hover:shadow-md active:scale-[0.99]"
 						>
 							<!-- Top Row: Name + Badges & Actions -->
 							<div class="flex items-start justify-between gap-2">
-								<div class="min-w-0 flex-1">
-									<div class="flex flex-wrap items-center gap-1.5">
+								<button
+									type="button"
+									class="min-w-0 flex-1 cursor-pointer text-left"
+									onclick={() => openBahanForm(bahan)}
+								>
+									<span class="flex flex-wrap items-center gap-1.5">
 										<span class="truncate text-sm font-black text-slate-900 md:text-base">
 											{bahan.nama}
 										</span>
@@ -235,17 +235,14 @@
 												Bersih {yieldPct}%
 											</span>
 										{/if}
-									</div>
-								</div>
+									</span>
+								</button>
 
 								<div class="flex shrink-0 items-center gap-1.5">
 									<button
 										type="button"
 										class="flex cursor-pointer items-center gap-1 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition-all hover:border-pink-300 hover:bg-pink-50 hover:text-pink-700 active:scale-95"
-										onclick={(e) => {
-											e.stopPropagation();
-											openMutasiBahanForm(bahan);
-										}}
+										onclick={() => openMutasiBahanForm(bahan)}
 										aria-label="Ubah Stok Bahan"
 									>
 										<ArrowUpDown class="h-3.5 w-3.5" />
@@ -254,10 +251,7 @@
 									<button
 										type="button"
 										class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-200/60 transition-all hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200 active:scale-90"
-										onclick={(e) => {
-											e.stopPropagation();
-											confirmDeleteBahan(bahan.id);
-										}}
+										onclick={() => confirmDeleteBahan(bahan.id)}
 										aria-label="Hapus Bahan Baku"
 									>
 										<Trash2 class="h-3.5 w-3.5" />
@@ -266,39 +260,46 @@
 							</div>
 
 							<!-- Bottom Row: Stock, Minimum limit, Modal Bersih -->
-							<div
-								class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-100/80 pt-2 text-xs"
+							<button
+								type="button"
+								tabindex="-1"
+								class="flex w-full cursor-pointer flex-col gap-2.5 text-left"
+								onclick={() => openBahanForm(bahan)}
 							>
-								<div class="flex flex-wrap items-center gap-1.5 text-slate-500">
-									<span class="font-bold text-slate-800">
-										Stok: {formatSmartStock(bahan.stok_saat_ini, bahan.satuan)}
-									</span>
-									{#if Number(bahan.ambang_stok || 0) > 0}
-										<span class="text-slate-300">•</span>
-										<span class="text-slate-400">
-											Min: {formatSmartStock(bahan.ambang_stok || 0, bahan.satuan)}
+								<span
+									class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-100/80 pt-2 text-xs"
+								>
+									<span class="flex flex-wrap items-center gap-1.5 text-slate-500">
+										<span class="font-bold text-slate-800">
+											Stok: {formatSmartStock(bahan.stok_saat_ini, bahan.satuan)}
 										</span>
-									{/if}
-								</div>
-
-								<div class="font-semibold text-slate-700">
-									Modal: <span class="font-bold text-pink-600"
-										>Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}</span
-									>
-									<span class="text-slate-400">/{bahan.satuan}</span>
-								</div>
-							</div>
-
-							{#if isLow}
-								<div class="-mt-1">
-									<span
-										class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
-									>
-										<AlertTriangle class="h-3 w-3" />
-										Stok Menipis
+										{#if Number(bahan.ambang_stok || 0) > 0}
+											<span class="text-slate-300">•</span>
+											<span class="text-slate-400">
+												Min: {formatSmartStock(bahan.ambang_stok || 0, bahan.satuan)}
+											</span>
+										{/if}
 									</span>
-								</div>
-							{/if}
+
+									<span class="block font-semibold text-slate-700">
+										Modal: <span class="font-bold text-pink-600"
+											>Rp {formatRupiah(Math.round(Number(bahan.biaya_per_satuan || 0)))}</span
+										>
+										<span class="text-slate-400">/{bahan.satuan}</span>
+									</span>
+								</span>
+
+								{#if isLow}
+									<span class="-mt-1 block">
+										<span
+											class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+										>
+											<AlertTriangle class="h-3 w-3" />
+											Stok Menipis
+										</span>
+									</span>
+								{/if}
+							</button>
 						</div>
 					{/each}
 				</div>
