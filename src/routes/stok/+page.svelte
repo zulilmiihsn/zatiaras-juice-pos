@@ -22,7 +22,7 @@
 	onDestroy(s.destroy);
 </script>
 
-<div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
+<div class="bg-canvas flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
 	<PageHeader
 		title="Stok & Bahan Baku"
 		subtitle="Pantau ketersediaan buah, gula, susu, dan perlengkapan"
@@ -369,7 +369,7 @@
 	<!-- Floating Action Button (FAB) -->
 	<div class="z-fab fixed right-4 bottom-20 sm:right-6 sm:bottom-24">
 		<button
-			class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+			class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 			onclick={s.openAddModal}
 			aria-label="Tambah Bahan Baku"
 		>

@@ -223,7 +223,7 @@
 			/>
 			<div class="mt-2 flex w-full gap-2.5">
 				<button
-					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 					type="button"
 					onclick={handleOk}>Gunakan</button
 				>

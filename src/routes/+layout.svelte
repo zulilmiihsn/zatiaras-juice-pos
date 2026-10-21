@@ -306,7 +306,7 @@
 {/if}
 
 {#if showNav}
-	<div class="page-transition flex min-h-dvh flex-col bg-[#faf7f8]">
+	<div class="page-transition bg-canvas flex min-h-dvh flex-col">
 		<!-- Tanpa overflow-y-auto: container ini tidak pernah overflow
 			(min-h induk tak terbatas) sehingga ia menjadi scroll container mati yang
 			mematahkan position:sticky turunan (sticky mengacu padanya, bukan viewport). -->
@@ -327,7 +327,7 @@
 		<AppNav />
 	</div>
 {:else}
-	<div class="page-transition flex min-h-dvh flex-col bg-[#faf7f8]">
+	<div class="page-transition bg-canvas flex min-h-dvh flex-col">
 		<div class="min-h-0 flex-1">
 			{@render children()}
 		</div>

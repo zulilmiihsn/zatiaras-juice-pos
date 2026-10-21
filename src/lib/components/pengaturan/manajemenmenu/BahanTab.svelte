@@ -107,7 +107,7 @@
 					type="button"
 					class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 					'all'
-						? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-xs ring-2 shadow-pink-500/20 ring-pink-500/15'
+						? 'border border-pink-300 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-xs ring-2 shadow-pink-500/20 ring-pink-500/15'
 						: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"
 					onclick={() => (selectedBahanCategory = 'all')}
 				>
@@ -151,7 +151,7 @@
 							type="button"
 							class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-150 active:scale-95 md:px-5 md:py-2.5 md:text-sm {selectedBahanCategory ===
 							cat
-								? 'border border-pink-300 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-xs ring-2 shadow-pink-500/20 ring-pink-500/15'
+								? 'border border-pink-300 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-xs ring-2 shadow-pink-500/20 ring-pink-500/15'
 								: 'border border-slate-200/80 bg-white text-slate-700 hover:border-pink-200 hover:text-pink-600'}"
 							onclick={() => (selectedBahanCategory = cat)}
 						>

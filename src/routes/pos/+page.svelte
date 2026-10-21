@@ -24,15 +24,13 @@
 </script>
 
 <!-- Satu kolom di HP; md+ katalog di kiri dan keranjang menempel di tepi kanan sebagai kolom samping -->
-<div
-	class="flex w-full max-w-full flex-col overflow-x-clip bg-[#faf7f8] md:flex-row md:items-start"
->
+<div class="bg-canvas flex w-full max-w-full flex-col overflow-x-clip md:flex-row md:items-start">
 	<main
 		aria-label="Kasir POS"
 		class="page-content flex min-h-[calc(100dvh-64px)] w-full max-w-full min-w-0 flex-col overflow-x-clip pb-32 md:min-h-dvh md:flex-1 md:pb-12"
 	>
 		<!-- Sticky kasir: search + kategori tetap di atas saat katalog digulir -->
-		<div class="sticky top-0 z-10 w-full bg-[#faf7f8]">
+		<div class="bg-canvas sticky top-0 z-10 w-full">
 			<PageHeader variant="compact">
 				<!-- Search Bar & View Mode Toggle (Glass Pills on the Wave) -->
 				<div class="flex w-full items-center gap-2.5">

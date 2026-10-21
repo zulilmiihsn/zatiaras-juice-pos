@@ -429,7 +429,7 @@
 		<button
 			type="submit"
 			form="stok-bahan-form"
-			class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
+			class="flex-2 cursor-pointer rounded-2xl bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3.5 text-sm font-black text-white shadow-lg shadow-pink-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
 		>
 			{s.editBahanId ? 'Simpan Perubahan' : 'Tambah Bahan'}
 		</button>

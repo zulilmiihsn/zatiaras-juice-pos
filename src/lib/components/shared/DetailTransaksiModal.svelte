@@ -74,7 +74,7 @@
 		<div class="flex items-center justify-between border-b border-pink-100 px-5 py-4">
 			<div class="flex items-center gap-3">
 				<div
-					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
+					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-pink-600 via-pink-500 to-rose-500 text-white shadow-sm shadow-pink-500/20"
 				>
 					<Receipt class="h-5 w-5 stroke-[2.2] text-white" />
 				</div>
@@ -269,7 +269,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex h-10 flex-1 cursor-pointer items-center justify-center rounded-xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-3.5 text-xs font-black text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
+				class="flex h-10 flex-1 cursor-pointer items-center justify-center rounded-xl bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-3.5 text-xs font-black text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
 				onclick={() => onClose?.()}
 			>
 				Tutup

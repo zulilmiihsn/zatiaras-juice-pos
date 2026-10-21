@@ -40,7 +40,7 @@
 	<div class="mb-5 flex items-center justify-between border-b border-pink-100/70 pb-3.5">
 		<div class="flex items-center gap-3">
 			<div
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-pink-600 via-pink-500 to-rose-500 text-white shadow-sm shadow-pink-500/20"
 			>
 				<SlidersHorizontal class="h-4.5 w-4.5 stroke-[2.2]" />
 			</div>

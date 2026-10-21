@@ -46,7 +46,7 @@
 	onClose={s.closeNotifModal}
 />
 
-<div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
+<div class="bg-canvas flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
 	<PageHeader
 		title="Pencatatan Keuangan"
 		subtitle="Catat pemasukan atau pengeluaran operasional kios"

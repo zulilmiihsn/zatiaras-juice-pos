@@ -8,6 +8,12 @@
 	--font-display:
 		'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
+	/* ── Warna merek: pink header lama jadi sumber (nilai sama dengan default Tailwind) ── */
+	--color-pink-500: #ec4899;
+	--color-pink-600: #db2777;
+	--color-rose-500: #f43f5e;
+	--color-canvas: #faf7f8;
+
 	/* ── Design System Z-Index Token Hierarchy (Tailwind v4 Theme) ── */
 	--z-index-base: 0;
 	--z-index-card: 10;
@@ -265,7 +271,12 @@ input,
 	overflow: hidden;
 	border-bottom-right-radius: 40px;
 	border-bottom-left-radius: 40px;
-	background: linear-gradient(to bottom right, #db2777, #ec4899, #f43f5e);
+	background: linear-gradient(
+		to bottom right,
+		var(--color-pink-600),
+		var(--color-pink-500),
+		var(--color-rose-500)
+	);
 	box-shadow:
 		0 20px 25px -5px rgba(236, 72, 153, 0.15),
 		0 8px 10px -6px rgba(236, 72, 153, 0.15);
@@ -309,7 +320,12 @@ input,
 
 .btn-brand-primary {
 	border: none;
-	background: linear-gradient(to right, #db2777, #ec4899, #f43f5e);
+	background: linear-gradient(
+		to right,
+		var(--color-pink-600),
+		var(--color-pink-500),
+		var(--color-rose-500)
+	);
 	color: #fff;
 	box-shadow:
 		0 10px 28px -6px rgba(219, 39, 119, 0.35),

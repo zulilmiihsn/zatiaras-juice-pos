@@ -75,8 +75,8 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0      | 0        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0      | 0        | F11     |
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | 26     | 26       | F12     |
-| `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0      | 118      | F13     |
-| `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 23       | F13     |
+| `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0      | 0        | F13     |
+| `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 0        | F13     |
 | `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 276      | F14     |
 | `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 36       | F15     |
 | `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 18       | F16     |
@@ -102,7 +102,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
 | F12  | Kelas form bersama                    | Sonnet | Selesai  |
-| F13  | Token warna merek                     | Haiku  | Todo     |
+| F13  | Token warna merek                     | Haiku  | Selesai  |
 | F14  | Abu-abu ke slate                      | Haiku  | Todo     |
 | F15  | Helper peran UI                       | Sonnet | Todo     |
 | F15b | Server yang masih mengecualikan admin | Sonnet | Tertahan |
@@ -362,3 +362,13 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   konstruksi dan CI. Ceiling `duplicatedLongClassGroups` 36 → 26; grup sisanya
   berbeda tampilan (tombol, ikon, kartu) dan tak dimasukkan agar tak mengubah
   tampilan.
+- 22 Oktober 2026: F13 selesai. `@theme` di `src/app.css` mendapat
+  `--color-pink-500/600`, `--color-rose-500` (nilai sama dengan default
+  Tailwind, jadi `pink-*` yang sudah ada tidak bergeser) dan `--color-canvas`.
+  36 berkas `.svelte`: `from-/via-/to-[#…]` menjadi `pink-600/pink-500/rose-500`,
+  `bg-[#faf7f8]` menjadi `bg-canvas`. Dua gradien di `app.css` memakai
+  `var(--color-…)`. `pnpm build` memuat `.bg-canvas`, `.from-pink-600` dan
+  `--color-canvas`. Screenshot sebelum/sesudah tidak dibuat (memori rendah);
+  nilai warna identik secara konstruksi. `app.html` (`theme-color`) dibiarkan.
+  Ceiling `brandHexClass` 118 → 0 dan `canvasHex` 23 → 0. Staging fase B+F12
+  sudah dideploy (run `39644721351`, sha `7263dd1`).

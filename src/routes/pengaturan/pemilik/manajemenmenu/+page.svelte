@@ -78,7 +78,7 @@
 	/>
 {/if}
 
-<div class="page-content min-h-dvh bg-[#faf7f8] pb-24">
+<div class="page-content bg-canvas min-h-dvh pb-24">
 	<div class="mb-3">
 		<PageHeader variant="compact">
 			<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
@@ -99,7 +99,7 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'menu'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						? 'bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'menu')}>Menu</button
 				>
@@ -107,7 +107,7 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'kategori'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						? 'bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'kategori')}>Kategori</button
 				>
@@ -115,7 +115,7 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'ekstra'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						? 'bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'ekstra')}>Tambahan</button
 				>
@@ -123,7 +123,7 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'bahan'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						? 'bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'bahan')}>Bahan</button
 				>
@@ -131,7 +131,7 @@
 					type="button"
 					class="min-h-[42px] shrink-0 cursor-pointer rounded-full px-4.5 py-2 text-xs font-extrabold transition-all duration-150 active:scale-95 sm:min-h-[44px] sm:px-5.5 sm:py-2.5 sm:text-sm md:text-base {s.activeTab ===
 					'hpp'
-						? 'bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
+						? 'bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 text-white shadow-md ring-2 shadow-pink-500/25 ring-pink-500/20'
 						: 'border border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600 focus:border-slate-200/80 focus:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/30'}"
 					onclick={() => (s.activeTab = 'hpp')}>HPP</button
 				>
@@ -142,7 +142,7 @@
 				{#if s.activeTab === 'menu'}
 					<button
 						type="button"
-						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
+						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
 						onclick={() => s.openMenuForm()}
 					>
 						<Plus class="h-4 w-4 stroke-[2.8]" />
@@ -151,7 +151,7 @@
 				{:else if s.activeTab === 'kategori'}
 					<button
 						type="button"
-						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
+						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
 						onclick={() => s.openKategoriForm(null)}
 					>
 						<Plus class="h-4 w-4 stroke-[2.8]" />
@@ -160,7 +160,7 @@
 				{:else if s.activeTab === 'ekstra'}
 					<button
 						type="button"
-						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
+						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
 						onclick={() => s.openEkstraForm()}
 					>
 						<Plus class="h-4 w-4 stroke-[2.8]" />
@@ -169,7 +169,7 @@
 				{:else if s.activeTab === 'bahan'}
 					<button
 						type="button"
-						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
+						class="flex cursor-pointer items-center gap-2 rounded-full border border-pink-200/80 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all duration-200 hover:scale-105 active:scale-95 md:text-sm"
 						onclick={() => s.openBahanForm()}
 					>
 						<Plus class="h-4 w-4 stroke-[2.8]" />
@@ -184,7 +184,7 @@
 	{#if s.activeTab === 'menu'}
 		<div class="z-fab fixed right-4 bottom-6 sm:hidden">
 			<button
-				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 				onclick={() => s.openMenuForm()}
 				aria-label="Tambah Menu"
 			>
@@ -197,7 +197,7 @@
 	{:else if s.activeTab === 'kategori'}
 		<div class="z-fab fixed right-4 bottom-6 sm:hidden">
 			<button
-				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 				onclick={() => s.openKategoriForm(null)}
 				aria-label="Tambah Kategori"
 			>
@@ -212,7 +212,7 @@
 	{:else if s.activeTab === 'ekstra'}
 		<div class="z-fab fixed right-4 bottom-6 sm:hidden">
 			<button
-				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 				onclick={() => s.openEkstraForm()}
 				aria-label="Tambah Tambahan"
 			>
@@ -227,7 +227,7 @@
 	{:else if s.activeTab === 'bahan'}
 		<div class="z-fab fixed right-4 bottom-6 sm:hidden">
 			<button
-				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+				class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-3.5 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 				onclick={() => s.openBahanForm()}
 				aria-label="Tambah Bahan"
 			>

@@ -17,7 +17,7 @@
 	<div class="grid grid-cols-3 gap-3">
 		<a
 			href="/pos"
-			class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-3 py-3 text-xs font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
+			class="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-3 py-3 text-xs font-extrabold text-white shadow-md shadow-pink-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
 		>
 			<ShoppingBagIcon size={16} class="stroke-[2.2]" />
 			<span>Buka Kasir</span>

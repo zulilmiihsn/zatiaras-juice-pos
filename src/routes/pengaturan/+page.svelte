@@ -77,10 +77,7 @@
 	<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
 {/snippet}
 
-<main
-	aria-label="Pengaturan Sistem"
-	class="page-content flex min-h-dvh flex-col bg-[#faf7f8] pb-12"
->
+<main aria-label="Pengaturan Sistem" class="page-content bg-canvas flex min-h-dvh flex-col pb-12">
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
 			<HeaderBackButton href="/">

@@ -23,8 +23,8 @@ const CEILINGS: Record<string, number> = {
 	inlineToast: 0,
 	roleButton: 0,
 	duplicatedLongClassGroups: 26,
-	brandHexClass: 118,
-	canvasHex: 23,
+	brandHexClass: 0,
+	canvasHex: 0,
 	neutralNonSlate: 276,
 	roleLiteralUI: 36,
 	e2eWaitForTimeout: 18

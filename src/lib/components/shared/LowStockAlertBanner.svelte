@@ -119,7 +119,7 @@
 			<div class="flex items-center gap-3.5">
 				<!-- Tactile Brand Icon -->
 				<div
-					class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#db2777] to-[#f43f5e] text-white shadow-md shadow-pink-500/20"
+					class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/20"
 				>
 					<AlertTriangle class="h-5 w-5 stroke-[2.2]" />
 				</div>
@@ -154,7 +154,7 @@
 								e.stopPropagation();
 								onFilterClick();
 							}}
-							class="flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
+							class="flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
 						>
 							<span>Lihat</span>
 							<ChevronRight class="h-4 w-4 stroke-[2.5]" />
@@ -163,7 +163,7 @@
 						<a
 							href="/stok"
 							onclick={(e) => e.stopPropagation()}
-							class="flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
+							class="flex cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4.5 py-2.5 text-xs font-black text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95 sm:text-sm"
 						>
 							<span>Buka</span>
 							<ChevronRight class="h-4 w-4 stroke-[2.5]" />

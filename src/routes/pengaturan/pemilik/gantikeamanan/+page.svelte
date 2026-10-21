@@ -15,7 +15,7 @@
 	onDestroy(s.destroy);
 </script>
 
-<div class="page-content flex min-h-dvh flex-col bg-[#faf7f8] pb-20">
+<div class="page-content bg-canvas flex min-h-dvh flex-col pb-20">
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
 			<HeaderBackButton href="/pengaturan/pemilik" label="Kembali ke Pengaturan Pemilik">

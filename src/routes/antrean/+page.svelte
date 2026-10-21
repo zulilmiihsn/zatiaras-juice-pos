@@ -104,7 +104,7 @@
 	}}
 />
 
-<div class="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#faf7f8]">
+<div class="bg-canvas flex min-h-[calc(100dvh-64px)] w-full flex-col">
 	<PageHeader title="Antrean Pesanan" subtitle={headerSubtitle} note={headerNote}>
 		<div
 			class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-center gap-2 max-[379px]:-mx-3 max-[379px]:w-[calc(100%+1.5rem)]"

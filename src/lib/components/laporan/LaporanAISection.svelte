@@ -343,7 +343,7 @@
 	<button
 		type="button"
 		onclick={() => (showAiModal = true)}
-		class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 pr-5 pl-4 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
+		class="group flex cursor-pointer items-center gap-2.5 rounded-full border border-white/40 bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 pr-5 pl-4 text-white shadow-xl shadow-pink-500/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40 active:scale-95"
 		aria-label="Buka Asisten AI"
 	>
 		<div class="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 shadow-2xs">
@@ -374,7 +374,7 @@
 		>
 			<!-- Header Modal Gradien Pink Khas Zatiaras -->
 			<div
-				class="relative overflow-hidden bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] px-5 py-4 text-white shadow-sm"
+				class="relative overflow-hidden bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-5 py-4 text-white shadow-sm"
 			>
 				<div class="relative z-10 flex items-center justify-between">
 					<div class="flex items-center gap-3">
@@ -421,7 +421,7 @@
 			<!-- Body Konten Percakapan / Saran Bersih -->
 			<div
 				bind:this={chatContainer}
-				class="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-[#faf7f8] p-4 sm:p-5"
+				class="bg-canvas flex flex-1 flex-col gap-3.5 overflow-y-auto p-4 sm:p-5"
 			>
 				{#if messages.length === 0}
 					<!-- Welcome State Sederhana & Ramah -->

@@ -139,7 +139,7 @@
 		<button
 			type="submit"
 			form="kategori-form"
-			class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-[#db2777] via-[#ec4899] to-[#f43f5e] py-3 text-xs font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+			class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-xs font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
 		>
 			{kategoriDetail ? 'Update Kategori' : 'Simpan Kategori'}
 		</button>

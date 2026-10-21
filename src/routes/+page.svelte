@@ -272,7 +272,7 @@
 <!-- Modal Buka/Tutup Toko -->
 <TokoModal bind:show={showTokoModal} {isBukaToko} {sesiAktif} onTokoStatusChanged={cekSesiToko} />
 
-<div class="flex min-h-full w-full max-w-full flex-col overflow-x-hidden bg-[#faf7f8]">
+<div class="bg-canvas flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
 	<!-- Baris brand + status kios; tinggi header disamakan dengan halaman utama lain oleh PageHeader -->
 	<PageHeader>
 		<!-- Top Brand Row (Official Zatiaras Logo & Profile) -->
