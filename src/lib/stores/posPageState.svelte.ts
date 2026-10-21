@@ -1,5 +1,6 @@
 // State UI, perintah, dan lifecycle halaman POS (sebelumnya inline di
 // routes/pos/+page.svelte). Data katalog/keranjang tetap di store pos/cart.
+import { isKasirRole } from '$lib/utils/roles';
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { createPosState, type PosProduct, type PosAddOn } from '$lib/stores/posState.svelte';
@@ -285,7 +286,7 @@ export function createPosPageState() {
 			return;
 		}
 		// Blokir kasir jika sesi toko belum dibuka
-		if (currentUserRole === 'kasir' && !sesiAktif) {
+		if (isKasirRole(currentUserRole) && !sesiAktif) {
 			showErrorNotif('Toko belum dibuka. Silakan buka toko terlebih dahulu!');
 			return;
 		}

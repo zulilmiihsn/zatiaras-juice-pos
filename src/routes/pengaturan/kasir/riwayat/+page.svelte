@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isKasirRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import { onMount, onDestroy } from 'svelte';
@@ -92,7 +93,7 @@
 
 	// Guard: hanya kasir yang boleh akses
 	onMount(() => {
-		if (userRole.value !== 'kasir') {
+		if (!isKasirRole(userRole.value)) {
 			goto('/unauthorized');
 		}
 	});

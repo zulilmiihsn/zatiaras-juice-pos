@@ -1,3 +1,4 @@
+import { isKasirRole } from '$lib/utils/roles';
 import {
 	validateNumber,
 	validateText,
@@ -145,13 +146,13 @@ export function createCatatState() {
 	> {
 		await cekSesiTokoAktif();
 		const id_sesi_toko = sesiAktif?.id || null;
-		if (!id_sesi_toko && currentUserRole === 'kasir') {
+		if (!id_sesi_toko && isKasirRole(currentUserRole)) {
 			notifModalMsg = 'Kasir tidak boleh melakukan transaksi saat toko tutup!';
 			notifModalType = 'error';
 			showNotifModal = true;
 			return { status: 'blocked', reason: 'toko_tutup' };
 		}
-		if (!id_sesi_toko && currentUserRole !== 'kasir') {
+		if (!id_sesi_toko && !isKasirRole(currentUserRole)) {
 			notifModalMsg =
 				'PERINGATAN: Tidak ada sesi toko aktif! Transaksi akan dianggap di luar sesi dan tidak masuk ringkasan tutup toko.';
 			notifModalType = 'warning';

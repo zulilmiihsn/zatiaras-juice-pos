@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isStaffRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -33,7 +34,7 @@
 		</div>
 	</PageHeader>
 	<main class="relative z-20 mx-auto -mt-6 w-full max-w-5xl flex-1 px-4 md:px-6">
-		{#if allowed && (userRole.value === 'kasir' || userRole.value === 'pemilik')}
+		{#if allowed && isStaffRole(userRole.value)}
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-start md:gap-5">
 				<section
 					class="soft-float-card min-w-0 p-5 md:col-span-5 md:p-6"

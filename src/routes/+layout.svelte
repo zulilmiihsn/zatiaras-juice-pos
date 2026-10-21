@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOwnerRole, isKasirRole, isStaffRole } from '$lib/utils/roles';
 	import '../app.css';
 	import Topbar from '$lib/components/shared/TopBar.svelte';
 	import AppNav from '$lib/components/shared/AppNav.svelte';
@@ -148,7 +149,7 @@
 		const sessionUser = (userProfile.value as { username?: unknown } | null)?.username ?? '';
 		void sessionUser;
 		void securityRefreshCounter;
-		if (role === 'kasir' && branch) {
+		if (isKasirRole(role) && branch) {
 			void loadKasirSecuritySettings();
 		}
 	});
@@ -173,7 +174,7 @@
 			: null;
 		const normalizedLockedPage = lockedPage?.toLowerCase();
 		const isCurrentPageLocked = Boolean(lockedPage);
-		if (currentUserRole === 'kasir' && isCurrentPageLocked && !pinUnlockedForCurrentPage) {
+		if (isKasirRole(currentUserRole) && isCurrentPageLocked && !pinUnlockedForCurrentPage) {
 			currentLockedPage =
 				normalizedLockedPage === 'home'
 					? 'beranda'
@@ -213,7 +214,7 @@
 	});
 
 	const notificationsEnabled = $derived(
-		(userRole.value === 'kasir' || userRole.value === 'pemilik') &&
+		isStaffRole(userRole.value) &&
 			!['/login', '/offline', '/unauthorized'].includes(page.url.pathname)
 	);
 	$effect(() => {
@@ -290,7 +291,7 @@
 	transactions={layoutSt.pendingTransactions}
 	isOffline={layoutSt.isOffline}
 	isSyncing={layoutSt.isPendingSyncing}
-	canRemove={userRole.value === 'pemilik' || userRole.value === 'admin'}
+	canRemove={isOwnerRole(userRole.value)}
 	onClose={() => (showPendingTransactions = false)}
 	onRetry={layoutSt.retryOnePendingTransaction}
 	onRetryAll={layoutSt.retryPendingTransactions}

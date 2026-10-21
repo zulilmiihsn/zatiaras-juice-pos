@@ -1,5 +1,6 @@
 // State, perintah, dan lifecycle halaman Pengaturan Pemilik > Keamanan
 // (kredensial pemilik/kasir, PIN, halaman terkunci). Halaman hanya merender.
+import { isOwnerRole } from '$lib/utils/roles';
 import { goto } from '$app/navigation';
 import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
@@ -66,7 +67,7 @@ export function createSecuritySettingsState() {
 	}
 
 	async function mount(): Promise<void> {
-		if (userRole.value !== 'pemilik') {
+		if (!isOwnerRole(userRole.value)) {
 			goto('/unauthorized');
 			return;
 		}

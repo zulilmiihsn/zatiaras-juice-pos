@@ -78,7 +78,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0      | 0        | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 0        | F13     |
 | `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 0        | F14     |
-| `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 36       | F15     |
+| `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 0        | F15     |
 | `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 18       | F16     |
 
 ## Kartu
@@ -104,7 +104,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F12  | Kelas form bersama                    | Sonnet | Selesai  |
 | F13  | Token warna merek                     | Haiku  | Selesai  |
 | F14  | Abu-abu ke slate                      | Haiku  | Selesai  |
-| F15  | Helper peran UI                       | Sonnet | Todo     |
+| F15  | Helper peran UI                       | Sonnet | Selesai  |
 | F15b | Server yang masih mengecualikan admin | Sonnet | Tertahan |
 | F16  | Tidur di e2e jadi `toPass`            | Sonnet | Todo     |
 
@@ -377,3 +377,17 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   sama). Ini mengubah tampilan sedikit (slate sedikit kebiruan): pemilik perlu
   memeriksa di staging fase C. Ceiling `neutralNonSlate` 276 → 0. Gerbang
   statis hijau: `pnpm check`, eslint, prettier, `pnpm build`.
+- 22 Oktober 2026: F15 selesai. `src/lib/utils/roles.ts` mendapat
+  `isOwnerRole` (pemilik atau admin), `isKasirRole`, `isStaffRole` (kasir,
+  pemilik, atau admin). 15 berkas UI dan store memakainya (8 halaman/layout, 7
+  store). Perubahan perilaku sesuai keputusan pemilik: `admin` kini setara
+  pemilik di menu Antrean (`pengaturan/+page.svelte`, `pengaturan/antrean`),
+  `pengaturan/pemilik/riwayat` (akses halaman dan hapus transaksi),
+  `securitySettingsState`, `bayarState` (peringatan sesi toko) dan
+  `+layout.svelte` (notifikasi antrean). Server tidak diubah (F15b, Tertahan),
+  jadi API tetap bisa menolak admin pada rute pemilik-saja. Kasus helper
+  ditambah ke `src/tests/role-contract-tests.ts`. Gerbang: `pnpm check`,
+  eslint, prettier, `pnpm test:frontend-consistency`, `pnpm test:unit` (170
+  lulus). Ceiling `roleLiteralUI` 36 → 0. Literal peran di `src/lib/services/`
+  (`autoApplyService`, `orderNotificationService`, `auth.ts`) di luar cakupan
+  metrik dan tidak disentuh.

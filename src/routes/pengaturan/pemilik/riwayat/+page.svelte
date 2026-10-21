@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOwnerRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import { onMount, onDestroy } from 'svelte';
@@ -184,7 +185,7 @@
 	}
 
 	onMount(() => {
-		if (userRole.value !== 'pemilik') {
+		if (!isOwnerRole(userRole.value)) {
 			goto('/unauthorized');
 		}
 	});
@@ -206,7 +207,7 @@
 	// Cek role sebelum delete
 	function canDeleteTransaction() {
 		const currentRole = userRole.value;
-		return currentRole === 'pemilik';
+		return isOwnerRole(currentRole);
 	}
 
 	let aiHandler: EventListener;

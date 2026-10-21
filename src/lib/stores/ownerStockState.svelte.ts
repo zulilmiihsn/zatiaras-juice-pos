@@ -1,5 +1,6 @@
 // State, perintah, dan lifecycle halaman Pengaturan Pemilik > Stok
 // (kebijakan monitoring, notifikasi, rekonsiliasi). Halaman hanya merender.
+import { isOwnerRole } from '$lib/utils/roles';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { userRole } from '$lib/stores/userRole.svelte';
@@ -531,7 +532,7 @@ export function createOwnerStockState() {
 	}
 
 	function mount(): void {
-		if (userRole.value !== 'pemilik' && userRole.value !== 'admin') {
+		if (!isOwnerRole(userRole.value)) {
 			goto('/unauthorized');
 			return;
 		}

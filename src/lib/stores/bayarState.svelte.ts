@@ -1,3 +1,4 @@
+import { isOwnerRole, isKasirRole } from '$lib/utils/roles';
 import { goto } from '$app/navigation';
 import { validateNumber } from '$lib/utils/validation';
 import { buildCartItemKey } from '$lib/utils/cartKey';
@@ -325,11 +326,11 @@ export function createBayarState() {
 			return false;
 		}
 		const id_sesi_toko = sesiAktif?.id || null;
-		if (!id_sesi_toko && currentUserRole === 'kasir') {
+		if (!id_sesi_toko && isKasirRole(currentUserRole)) {
 			notify('Kasir tidak boleh melakukan transaksi saat toko tutup!', 'error');
 			return false;
 		}
-		if (!id_sesi_toko && currentUserRole === 'pemilik') {
+		if (!id_sesi_toko && isOwnerRole(currentUserRole)) {
 			notify(
 				'PERINGATAN: Tidak ada sesi toko aktif! Transaksi akan dianggap di luar sesi dan tidak masuk ringkasan tutup toko.',
 				'warning'

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOwnerRole, isKasirRole, isStaffRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -15,7 +16,7 @@
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 
 	const s = createPengaturanState();
-	const isOwner = $derived(s.currentUserRole === 'admin' || s.currentUserRole === 'pemilik');
+	const isOwner = $derived(isOwnerRole(s.currentUserRole));
 	const RoleIcon = $derived(s.roleIcon);
 
 	const ITEM_BASE =
@@ -30,7 +31,7 @@
 			icon: BellRing,
 			iconClass: 'border-pink-100 bg-pink-50 text-pink-600',
 			href: '/pengaturan/antrean',
-			allowed: s.currentUserRole === 'kasir' || s.currentUserRole === 'pemilik'
+			allowed: isStaffRole(s.currentUserRole)
 		},
 		{
 			label: 'Draft Struk',
@@ -124,7 +125,7 @@
 							<p class="mt-1 text-xs leading-relaxed font-medium text-slate-500 md:text-sm">
 								Akses penuh ke seluruh operasional & laporan
 							</p>
-						{:else if s.currentUserRole === 'kasir'}
+						{:else if isKasirRole(s.currentUserRole)}
 							<h2 class="text-lg font-black text-slate-900">Kasir Kios</h2>
 							<p class="mt-1 text-xs leading-relaxed font-medium text-slate-500 md:text-sm">
 								Akses transaksi POS & pencatatan keuangan

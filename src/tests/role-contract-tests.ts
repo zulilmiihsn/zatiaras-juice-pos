@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { isRedirect, isHttpError } from '@sveltejs/kit';
 import { load as loadReport } from '../routes/laporan/+page.server';
 import { load as loadArchive } from '../routes/pengaturan/pemilik/arsip/+page.server';
-import { normalizeRole, VALID_ROLES } from '../lib/utils/roles';
+import {
+	isKasirRole,
+	isOwnerRole,
+	isStaffRole,
+	normalizeRole,
+	VALID_ROLES
+} from '../lib/utils/roles';
 import { createTestD1 } from './helpers/testD1';
 import { createAuthSession, getAuthSession } from '../lib/server/sessionStore';
 import { branchContext, normalizeBranch } from '../lib/server/branchResolver';
@@ -144,4 +150,19 @@ try {
 	);
 } finally {
 	await close();
+}
+
+// Helper peran UI: admin setara pemilik; nilai tak dikenal ditolak.
+for (const [role, owner, kasir, staff] of [
+	['pemilik', true, false, true],
+	['admin', true, false, true],
+	['kasir', false, true, true],
+	['supervisor', false, false, false],
+	['', false, false, false],
+	[null, false, false, false],
+	[undefined, false, false, false]
+] as const) {
+	assert.equal(isOwnerRole(role), owner, `isOwnerRole(${String(role)})`);
+	assert.equal(isKasirRole(role), kasir, `isKasirRole(${String(role)})`);
+	assert.equal(isStaffRole(role), staff, `isStaffRole(${String(role)})`);
 }

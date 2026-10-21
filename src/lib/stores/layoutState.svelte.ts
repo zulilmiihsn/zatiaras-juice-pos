@@ -1,3 +1,4 @@
+import { isOwnerRole } from '$lib/utils/roles';
 import { page } from '$app/state';
 import { userRole } from '$lib/stores/userRole.svelte';
 import { productService } from '$lib/services/productService';
@@ -85,7 +86,7 @@ export function createLayoutState() {
 
 	function shouldPrefetchOwnerInsights() {
 		const role = userRole.value;
-		const isOwner = role === 'pemilik' || role === 'admin';
+		const isOwner = isOwnerRole(role);
 		const path = page.url.pathname;
 		return isOwner && (path === '/' || path.startsWith('/laporan'));
 	}

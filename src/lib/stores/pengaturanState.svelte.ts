@@ -1,3 +1,4 @@
+import { isOwnerRole, isKasirRole } from '$lib/utils/roles';
 import { goto } from '$app/navigation';
 import { auth } from '$lib/auth/auth';
 import { userRole, setUserRole } from '$lib/stores/userRole.svelte';
@@ -17,11 +18,7 @@ export function createPengaturanState() {
 
 	const currentUserRole = $derived(userRole.value || '');
 	const roleIcon = $derived(
-		currentUserRole === 'admin' || currentUserRole === 'pemilik'
-			? Crown
-			: currentUserRole === 'kasir'
-				? CreditCard
-				: User
+		isOwnerRole(currentUserRole) ? Crown : isKasirRole(currentUserRole) ? CreditCard : User
 	);
 
 	function showNotif(message: string) {

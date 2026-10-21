@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOwnerRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -54,7 +55,7 @@
 	}
 
 	onMount(() => {
-		if (userRole.value !== 'pemilik' && userRole.value !== 'admin') {
+		if (!isOwnerRole(userRole.value)) {
 			goto('/unauthorized');
 			return;
 		}

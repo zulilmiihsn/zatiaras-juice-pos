@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOwnerRole, isKasirRole } from '$lib/utils/roles';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -186,7 +187,7 @@
 	async function handleOpenTokoModal() {
 		// Jika kasir, cek apakah PIN sudah dikonfigurasi.
 		// Jika belum disetup pemilik, auto-bypass agar kasir bisa langsung buka/tutup sesi kios.
-		if (currentUserRole === 'kasir') {
+		if (isKasirRole(currentUserRole)) {
 			let isPinSet = securitySettings.value?.pinConfigured;
 			if (isPinSet === undefined) {
 				try {
@@ -375,7 +376,7 @@
 
 			{#snippet weeklyChartModule()}
 				<!-- Grafik 7 Hari Terakhir -->
-				{#if currentUserRole === 'pemilik' || currentUserRole === 'admin'}
+				{#if isOwnerRole(currentUserRole)}
 					<WeeklyChart weeklyIncome={dashboard.weeklyIncome} weeklyMax={dashboard.weeklyMax} />
 				{/if}
 			{/snippet}
