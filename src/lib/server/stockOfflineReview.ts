@@ -2,6 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from '$lib/server/branchResolver';
 import { auditDataChange, getRawDb, publish } from '$lib/server/dataApiHelpers';
 import type { StockPolicyActor } from '$lib/server/stockPolicy';
+import { isOwnerRole } from '$lib/utils/roles';
 
 export type OfflineReviewStatus =
 	| 'pending'
@@ -118,7 +119,7 @@ export async function approveCurrentReview(
 	expectedRevision: number,
 	now: string
 ): Promise<OfflineReviewRow> {
-	if (actor.role !== 'pemilik')
+	if (!isOwnerRole(actor.role))
 		throw new OfflineReviewError('Hanya pemilik yang dapat menyetujui replay', 403);
 	const result = await db
 		.prepare(
@@ -145,7 +146,7 @@ export async function withdrawReview(
 	idempotencyKey: string,
 	expectedRevision: number
 ): Promise<OfflineReviewRow> {
-	if (actor.role !== 'pemilik')
+	if (!isOwnerRole(actor.role))
 		throw new OfflineReviewError('Hanya pemilik yang dapat membatalkan persetujuan', 403);
 	const result = await db
 		.prepare(

@@ -4,6 +4,7 @@ import type { BranchContext } from '$lib/server/branchResolver';
 import { auditDataChange, getRawDb, publish } from '$lib/server/dataApiHelpers';
 import { loadStockPolicy, type StockPolicyActor } from '$lib/server/stockPolicy';
 import { roundFourDecimals } from '$lib/utils/ingredientCost';
+import { isOwnerRole } from '$lib/utils/roles';
 
 export type StockReconciliationStatus = 'draft' | 'ready' | 'applied' | 'cancelled';
 export type StockReconciliationEntityType = 'produk' | 'bahan';
@@ -71,7 +72,7 @@ export class StockReconciliationError extends Error {
 }
 
 function requireOwner(actor: StockPolicyActor): void {
-	if (actor.role !== 'pemilik') {
+	if (!isOwnerRole(actor.role)) {
 		throw new StockReconciliationError(
 			'Hanya pemilik yang dapat menjalankan rekonsiliasi stok',
 			409

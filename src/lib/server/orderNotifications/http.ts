@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { requireAuthSession, requireExactRole, requireSessionBranch } from '../apiAuth';
+import { requireAnyRole, requireAuthSession, requireSessionBranch } from '../apiAuth';
 import type { BranchContext } from '../branchResolver';
 import type { AuthSession } from '../sessionStore';
 import type { NotificationEnv } from './repository';
@@ -17,7 +17,7 @@ export async function notificationResponse<T>(
 ): Promise<Response> {
 	try {
 		const session = requireAuthSession(event.locals);
-		requireExactRole(session.role, ['kasir', 'pemilik']);
+		requireAnyRole(session.role, ['kasir', 'pemilik']);
 		if (session.expiresAt <= Date.now()) throw error(401, 'Session telah berakhir');
 		const branch = requireSessionBranch(event.locals, event.url.searchParams.get('branch'));
 		const data = await execute(event.platform?.env, branch, session);

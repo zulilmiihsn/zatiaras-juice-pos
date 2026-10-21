@@ -388,7 +388,7 @@ try {
 	await expectHttpStatus(
 		() =>
 			CREATE(
-				routeEvent('POST', 'admin', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+				routeEvent('POST', 'kasir', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
 			),
 		403
 	);
@@ -456,7 +456,7 @@ try {
 			FINALIZE(
 				routeEvent(
 					'POST',
-					'admin',
+					'kasir',
 					{ branch: 'samarinda2', expected_policy_revision: 1 },
 					{ branch: 'samarinda2', id: routeJob.data.id }
 				) as never

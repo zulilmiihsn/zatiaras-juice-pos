@@ -224,7 +224,9 @@ try {
 		false
 	);
 
-	await expectStatus(() => GET(event('GET', 'admin') as unknown as Parameters<typeof GET>[0]), 403);
+	// Admin setara pemilik di server (F15b): lolos gerbang peran.
+	const adminGet = await GET(event('GET', 'admin') as unknown as Parameters<typeof GET>[0]);
+	assert.equal(adminGet.status, 200);
 	await expectStatus(
 		() =>
 			GET(
@@ -265,10 +267,11 @@ try {
 				event('PUT', 'admin', undefined, {
 					branch: 'samarinda',
 					expected_revision: 1,
-					mode: 'ignored'
+					mode: 'invalid'
 				}) as unknown as Parameters<typeof PUT>[0]
 			),
-		403
+		// Lolos gerbang peran, lalu ditolak karena mode tidak valid (bukan 403).
+		400
 	);
 	await expectStatus(
 		() =>

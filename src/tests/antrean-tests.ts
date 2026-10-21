@@ -653,7 +653,7 @@ try {
 	}
 
 	// Q07: route auth/role/cabang/body.
-	for (const role of ['admin', 'tamu']) {
+	for (const role of ['tamu']) {
 		for (const requestedBranch of ['samarinda', 'balikpapan']) {
 			const denied = apiEvent(
 				'GET',
@@ -674,7 +674,7 @@ try {
 			403
 		);
 	}
-	for (const role of ['admin', 'tamu']) {
+	for (const role of ['tamu']) {
 		let bodyRead = false;
 		const deniedBody = apiEvent(
 			'POST',

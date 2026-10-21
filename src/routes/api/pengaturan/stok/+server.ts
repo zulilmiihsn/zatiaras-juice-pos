@@ -1,6 +1,7 @@
 import { error as kitError, json } from '@sveltejs/kit';
 import { parseBody } from '$lib/server/resourceRouteHelpers';
-import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
+import { requireAnyRole, requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
+import { isOwnerRole } from '$lib/utils/roles';
 import {
 	branchStockRolloutAllows,
 	loadBranchStockPolicy,
@@ -11,10 +12,6 @@ import {
 import type { RequestHandler } from './$types';
 
 const BODY_FIELDS = new Set(['branch', 'expected_revision', 'mode']);
-
-function requireExactRole(role: string, allowed: readonly string[]): void {
-	if (!allowed.includes(role)) throw kitError(403, 'Role tidak memiliki akses');
-}
 
 function validateQuery(url: URL): void {
 	for (const key of url.searchParams.keys()) {
@@ -60,7 +57,7 @@ function parsePutBody(value: unknown): {
 
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const session = requireAuthSession(locals);
-	requireExactRole(session.role, ['kasir', 'pemilik']);
+	requireAnyRole(session.role, ['kasir', 'pemilik']);
 	validateQuery(url);
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const policy = await loadBranchStockPolicy(platform, branch);
@@ -68,7 +65,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	return json({
 		ok: true,
 		data: {
-			can_manage_policy: session.role === 'pemilik' && rolloutOpen,
+			can_manage_policy: isOwnerRole(session.role) && rolloutOpen,
 			...policy
 		}
 	});
@@ -76,7 +73,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	const session = requireAuthSession(locals);
-	requireExactRole(session.role, ['pemilik']);
+	requireAnyRole(session.role, ['pemilik']);
 	const parsed = parsePutBody(await parseBody(request));
 	const branch = requireSessionBranch(locals, parsed.branch);
 	if (!(await branchStockRolloutAllows(platform, branch))) {

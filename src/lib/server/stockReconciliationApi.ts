@@ -1,6 +1,7 @@
 import { error as kitError } from '@sveltejs/kit';
 import type { BranchContext } from '$lib/server/branchResolver';
 import { branchStockRolloutAllows } from '$lib/server/stockPolicy';
+import { isOwnerRole } from '$lib/utils/roles';
 import {
 	StockReconciliationError,
 	type StockReconciliationCountInput
@@ -88,7 +89,7 @@ export function parseFinalizeReconciliationBody(value: unknown): {
 }
 
 export function requireReconciliationOwner(role: string): void {
-	if (role !== 'pemilik') throw kitError(403, 'Role tidak memiliki akses');
+	if (!isOwnerRole(role)) throw kitError(403, 'Role tidak memiliki akses');
 }
 
 export async function requireReconciliationRollout(

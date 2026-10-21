@@ -1,5 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
-import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
+import { requireAnyRole, requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	listOrderQueue,
 	OrderQueueError,
@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const session = requireAuthSession(locals);
-	requireExactRole(session.role, ['kasir', 'pemilik']);
+	requireAnyRole(session.role, ['kasir', 'pemilik']);
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const db = resolveOrderQueueDb(platform, branch);
 	try {

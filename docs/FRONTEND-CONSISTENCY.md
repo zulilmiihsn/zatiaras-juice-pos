@@ -85,28 +85,28 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 
 Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 
-| ID   | Judul                                 | Model  | Status   |
-| ---- | ------------------------------------- | ------ | -------- |
-| F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai  |
-| F1   | `<style>` bersarang                   | Haiku  | Selesai  |
-| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
-| F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
-| F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
-| F5   | Navigasi pakai link                   | Haiku  | Selesai  |
-| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai  |
-| F7   | Alias Tailwind                        | Haiku  | Selesai  |
-| F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai  |
-| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
-| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
-| F9c  | Modal sisanya                         | Sonnet | Selesai  |
-| F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
-| F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
-| F12  | Kelas form bersama                    | Sonnet | Selesai  |
-| F13  | Token warna merek                     | Haiku  | Selesai  |
-| F14  | Abu-abu ke slate                      | Haiku  | Selesai  |
-| F15  | Helper peran UI                       | Sonnet | Selesai  |
-| F15b | Server yang masih mengecualikan admin | Sonnet | Tertahan |
-| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai  |
+| ID   | Judul                                 | Model  | Status  |
+| ---- | ------------------------------------- | ------ | ------- |
+| F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai |
+| F1   | `<style>` bersarang                   | Haiku  | Selesai |
+| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai |
+| F3   | State turunan lewat `$derived`        | Sonnet | Selesai |
+| F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai |
+| F5   | Navigasi pakai link                   | Haiku  | Selesai |
+| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai |
+| F7   | Alias Tailwind                        | Haiku  | Selesai |
+| F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai |
+| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai |
+| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai |
+| F9c  | Modal sisanya                         | Sonnet | Selesai |
+| F10  | Satu mekanisme toast                  | Sonnet | Selesai |
+| F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai |
+| F12  | Kelas form bersama                    | Sonnet | Selesai |
+| F13  | Token warna merek                     | Haiku  | Selesai |
+| F14  | Abu-abu ke slate                      | Haiku  | Selesai |
+| F15  | Helper peran UI                       | Sonnet | Selesai |
+| F15b | Server yang masih mengecualikan admin | Sonnet | Selesai |
+| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -397,3 +397,23 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
 timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   komentar satu baris dan dibiarkan. Ceiling `e2eWaitForTimeout` 18 → 14. E2E
   lokal tidak dijalankan (memori rendah): verifikasi lewat CI.
+- 22 Oktober 2026: F15b selesai, atas persetujuan eksplisit pemilik ("b":
+  tiga rute di kartu ditambah rute antrean dan pemeriksaan domain stok).
+  Memperluas akses `admin` di server menjadi setara `pemilik`:
+  `api/pengaturan/stok` (GET/PUT, kini `requireAnyRole`; `can_manage_policy`
+  memakai `isOwnerRole`), `offline-reviews` (GET dan PUT),
+  `api/antrean` dan `api/antrean/status` (`requireAnyRole(['kasir','pemilik'])`),
+  `orderNotifications/http.ts`, penerima notifikasi di
+  `orderNotifications/repository.ts` (`isStaffRole`), serta pemeriksaan domain
+  di `stockOfflineReview.ts` (setujui dan tarik), `stockReconciliation.ts`
+  dan `stockReconciliationApi.ts` (`isOwnerRole`). Kartu menyebut `role !==
+'pemilik'` di rute stok; kenyataannya `requireExactRole` lokal, dibuang.
+  Tes yang mengunci "admin ditolak" disesuaikan: `stock-policy-tests` (GET
+  admin 200, PUT admin lolos gerbang peran lalu 400 karena mode tidak valid),
+  `stock-reconciliation-tests` (penolak non-pemilik jadi `kasir`),
+  `antrean-tests` dan `antrean-notification-tests` (penolak jadi `tamu`; skenario
+  "role berubah" memakai `tamu`). `pnpm test:unit` 170 lulus. Belum disentuh
+  (di luar daftar yang disetujui): `requireOwnerPageSession` di `pageAuth.ts`
+  (halaman arsip masih mengarahkan admin ke `/unauthorized`), batasan item
+  kustom di `quoteUseCase.ts` dan `checkoutUseCase.ts`, serta literal peran di
+  `src/lib/services/`.

@@ -275,7 +275,7 @@ try {
 	}
 
 	// Auth and branch rejection happen before any database dependency; body cannot select another branch.
-	for (const role of ['admin', 'tamu']) {
+	for (const role of ['tamu']) {
 		for (const handler of [feedGet, configGet, devicePost, deviceDelete, ackPost]) {
 			const method =
 				handler === feedGet || handler === configGet
@@ -939,7 +939,7 @@ try {
 		}
 		if (cancellation === 'role')
 			await db
-				.prepare("UPDATE profil SET role='admin' WHERE cabang_id=? AND id=?")
+				.prepare("UPDATE profil SET role='tamu' WHERE cabang_id=? AND id=?")
 				.bind(branch, current.userId)
 				.run();
 		await dispatchOrderNotifications(env, branch, {

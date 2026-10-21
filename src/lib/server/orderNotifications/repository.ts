@@ -1,5 +1,6 @@
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
 import { getD1Database, type BranchContext } from '../branchResolver';
+import { isStaffRole } from '$lib/utils/roles';
 
 export type NotificationEnv = Record<string, unknown> | undefined;
 export interface DeviceRow {
@@ -115,7 +116,7 @@ export async function validNotificationSession(
 		)
 		.bind(branch, device.session_id, device.user_id, now)
 		.first<{ role: string }>();
-	return !!row && (row.role === 'kasir' || row.role === 'pemilik');
+	return !!row && isStaffRole(row.role);
 }
 
 export function isOriginDevice(
