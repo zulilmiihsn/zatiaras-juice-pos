@@ -11,7 +11,6 @@
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import { formatDateYmdWita } from '$lib/utils/dateTime';
-import { isOwnerRole } from '$lib/utils/roles';
 import { validateCheckoutPayload } from '$lib/utils/validation';
 import { getD1Database, type BranchContext } from '../branchResolver';
 import {
@@ -186,9 +185,6 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	const rawItems = quote.items.map((item) => item.source);
 	const itemCountError = checkoutItemCountError(rawItems);
 	if (itemCountError) fail(400, itemCountError);
-	if (!isOwnerRole(session.role) && rawItems.some((item) => !item.product_id)) {
-		fail(403, 'Item custom hanya boleh dibuat pemilik');
-	}
 
 	const idempotencyKey = sanitizeShortText(body.idempotency_key, 120);
 	if (!idempotencyKey || idempotencyKey.length < 8) fail(400, 'idempotency_key tidak valid');

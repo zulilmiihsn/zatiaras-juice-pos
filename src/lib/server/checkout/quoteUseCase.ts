@@ -5,7 +5,6 @@
  * panggil fungsi di sini, petakan hasil/error ke HTTP. Seluruh normalisasi,
  * rate-limit, load katalog, compute finansial, dan signing tinggal di sini.
  */
-import { isOwnerRole } from '$lib/utils/roles';
 import { getD1Database, type BranchContext } from '../branchResolver';
 import { consumeRateLimit } from '../rateLimit';
 import {
@@ -61,9 +60,6 @@ export async function buildPosQuote(
 	const rawItems = body?.items;
 	const itemCountError = checkoutItemCountError(rawItems);
 	if (itemCountError) throw new QuoteUseCaseError(400, itemCountError);
-	if (!isOwnerRole(session.role) && rawItems!.some((item) => !item.product_id)) {
-		throw new QuoteUseCaseError(403, 'Item custom hanya boleh dibuat pemilik');
-	}
 
 	const normalizedInputs = rawItems!.map((item) => {
 		const jumlah = Number(item.jumlah);

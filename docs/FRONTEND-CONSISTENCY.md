@@ -473,6 +473,18 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   pemilik lolos gerbang); jalur `executeCheckout` memakai gerbang yang sama
   tetapi tidak punya kasus tes sendiri karena butuh token quote bertanda
   tangan. `pnpm test:unit` 170 lulus.
+- 22 Oktober 2026: F18 dirombak atas perintah pemilik ("kasir juga bisa kok
+  input item custom"). Gerbang peran untuk item tanpa `product_id` dibuang dari
+  `quoteUseCase.ts` dan `checkoutUseCase.ts`; kasir, admin, dan pemilik kini
+  boleh membuat item custom. UI kasir memang tidak pernah menggerbangnya
+  (`CustomItemModal`, komentar "Item kustom kasir" di `posCheckout.ts`), jadi
+  server sebelumnya tidak selaras dengan UI. Harga tetap divalidasi server
+  (`custom_price` harus lebih dari 0). Kasus tes `antrean-tests` diubah: tiga
+  peran lolos. Muatan tes F18 sebelumnya memakai nama bidang salah (`nama`,
+  `harga`) sehingga admin dan pemilik sebenarnya gagal 400 di tahap harga;
+  gerbang peran saja yang diperiksa. Kini memakai `nama_kustom` dan
+  `custom_price`. `autoApplyService.ts` (rekomendasi AI) tetap pemilik saja,
+  tidak disentuh. `pnpm test:unit` 170 lulus.
 - 22 Oktober 2026: F19 selesai. `orderNotificationService.ts`
   (`isStaffRole`, sejalan dengan server F15b), `auth.ts` (`isKasirRole`) dan
   `autoApplyService.ts` (`!isOwnerRole`, sejalan dengan F18) memakai helper

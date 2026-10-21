@@ -405,23 +405,16 @@ try {
 	assert.equal(longReceiptItem?.es, longDetail?.es);
 	assert.equal(longReceiptItem?.catatan, longDetail?.catatan);
 
-	// F18: item custom (tanpa product_id) hanya untuk pemilik dan admin; kasir ditolak 403.
-	const customItem = { nama: 'Item Custom', harga: 5000, jumlah: 1 };
+	// F18: item custom (tanpa product_id) boleh dibuat kasir, admin, dan pemilik.
+	const customItem = { nama_kustom: 'Item Custom', custom_price: 5000, jumlah: 1 };
 	for (const role of ['kasir', 'admin', 'pemilik'] as const) {
-		let failure: { status?: number; message?: string } | null = null;
-		try {
-			await buildPosQuote(
-				{ env: checkoutEnv } as App.Platform,
-				samarinda,
-				{ userId: `custom-${role}`, role },
-				{ items: [customItem] }
-			);
-		} catch (error) {
-			failure = error as { status?: number; message?: string };
-		}
-		const blocked = failure?.message === 'Item custom hanya boleh dibuat pemilik';
-		assert.equal(blocked, role === 'kasir', `item custom ${role}`);
-		if (blocked) assert.equal(failure?.status, 403);
+		const quote = await buildPosQuote(
+			{ env: checkoutEnv } as App.Platform,
+			samarinda,
+			{ userId: `custom-${role}`, role },
+			{ items: [customItem] }
+		);
+		assert.ok(quote, `item custom ${role}`);
 	}
 
 	// Q04d: counter terisolasi per cabang: cabang lain mulai dari 1 di tanggal sama.
