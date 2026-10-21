@@ -51,12 +51,12 @@
 		});
 	});
 
-	let showNav = $state(true);
-	$effect(() => {
-		const path = $page.url.pathname;
-		const noNavRoutes = ['/login', '/unauthorized', '/pos/bayar', '/offline'];
-		showNav = !(noNavRoutes.includes(path) || path.startsWith('/pengaturan'));
-	});
+	// Turunan, bukan state yang disinkronkan lewat $effect: render SSR sudah benar sejak awal,
+	// jadi halaman tanpa nav tidak sempat tampil bergeser selebar sidebar sebelum hidrasi.
+	const noNavRoutes = ['/login', '/unauthorized', '/pos/bayar', '/offline'];
+	const showNav = $derived(
+		!(noNavRoutes.includes($page.url.pathname) || $page.url.pathname.startsWith('/pengaturan'))
+	);
 
 	// ── PIN Modal ─────────────────────────────────────────────────────────────
 	let showPinModal = $state(false);
