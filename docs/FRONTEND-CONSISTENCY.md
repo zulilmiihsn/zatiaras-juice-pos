@@ -71,7 +71,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 0        | F7      |
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 0        | F8      |
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
-| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 17       | F9a–c   |
+| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 14       | F9a–c   |
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 3        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 35       | F12     |
@@ -96,7 +96,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai  |
 | F7   | Alias Tailwind                        | Haiku  | Selesai  |
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai  |
-| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Todo     |
+| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
 | F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Todo     |
 | F9c  | Modal sisanya                         | Sonnet | Todo     |
 | F10  | Satu mekanisme toast                  | Sonnet | Todo     |
@@ -302,3 +302,10 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   karena Windows tak peka huruf besar/kecil) dan 21 berkas yang mengimpornya
   diperbarui. Pencarian case-sensitive nama lama 0, `importPathCaseMismatch`
   tetap 0. `lowercaseComponentFiles` 11 → 0. Penjaga akhir: CI Linux.
+- 21 Oktober 2026: F9a selesai. Tiga overlay `pos/bayar` (batal, peringatan QRIS,
+  sukses) jadi `<AppModal align="bottom" zClass="z-alert" size="sm">`. Batal
+  menutup lewat `closeModal` (Escape dan klik latar ikut menutup); QRIS dan sukses
+  memakai `backdropClose={false}` tanpa `onClose` sehingga hanya tombol yang
+  menutup, sama seperti sebelumnya. Keyframes `slideUpModal` dibuang; panel kini
+  `max-w-md` (ukuran `sm` AppModal) menggantikan `max-w-sm`. `overlayFiles`
+  17 → 14.

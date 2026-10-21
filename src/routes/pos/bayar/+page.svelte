@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import NotifModal from '$lib/components/shared/NotifModal.svelte';
 	import { fly, fade } from 'svelte/transition';
@@ -279,28 +280,30 @@
 	</div>
 </main>
 
-{#if s.showCancelModal}
-	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
-		<div
-			class="animate-slideUpModal mx-auto w-full max-w-sm rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
-		>
-			<div class="mb-2 text-center text-lg font-extrabold text-slate-900">Batalkan Pembayaran?</div>
-			<div class="mb-6 text-center text-xs font-medium text-slate-500">
-				Apakah Anda yakin ingin membatalkan pembayaran dan kembali ke kasir?
-			</div>
-			<div class="flex flex-col gap-2.5">
-				<button
-					class="min-h-[46px] w-full cursor-pointer rounded-full bg-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-rose-500/20 transition-all hover:bg-rose-600 active:scale-[0.98]"
-					onclick={s.confirmCancel}>Ya, Batalkan</button
-				>
-				<button
-					class="min-h-[46px] w-full cursor-pointer rounded-full bg-slate-100 py-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
-					onclick={s.closeModal}>Tutup</button
-				>
-			</div>
-		</div>
+<AppModal
+	open={s.showCancelModal}
+	label="Batalkan Pembayaran"
+	size="sm"
+	align="bottom"
+	zClass="z-alert"
+	panelClass="bg-white p-6"
+	onClose={s.closeModal}
+>
+	<div class="mb-2 text-center text-lg font-extrabold text-slate-900">Batalkan Pembayaran?</div>
+	<div class="mb-6 text-center text-xs font-medium text-slate-500">
+		Apakah Anda yakin ingin membatalkan pembayaran dan kembali ke kasir?
 	</div>
-{/if}
+	<div class="flex flex-col gap-2.5">
+		<button
+			class="min-h-[46px] w-full cursor-pointer rounded-full bg-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-rose-500/20 transition-all hover:bg-rose-600 active:scale-[0.98]"
+			onclick={s.confirmCancel}>Ya, Batalkan</button
+		>
+		<button
+			class="min-h-[46px] w-full cursor-pointer rounded-full bg-slate-100 py-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-200 active:scale-[0.98]"
+			onclick={s.closeModal}>Tutup</button
+		>
+	</div>
+</AppModal>
 
 {#if s.showCashModal}
 	<ModalSheet open={s.showCashModal} title="Pembayaran Tunai" onClose={s.closeCashModal}>
@@ -378,116 +381,120 @@
 	</ModalSheet>
 {/if}
 
-{#if s.showQrisWarning}
-	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
+<AppModal
+	open={s.showQrisWarning}
+	label="Periksa Pembayaran QRIS"
+	size="sm"
+	align="bottom"
+	zClass="z-alert"
+	panelClass="bg-white"
+	backdropClose={false}
+>
+	<div class="qris-warning-modal flex flex-col items-center gap-4 p-8 pb-6">
 		<div
-			class="animate-slideUpModal qris-warning-modal mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-t-[28px] border-t border-slate-100 bg-white p-8 pb-6 shadow-xl"
+			class="animate-bounceIn warning-icon mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600"
 		>
-			<div
-				class="animate-bounceIn warning-icon mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600"
-			>
-				<svg width="36" height="36" fill="none" viewBox="0 0 24 24"
-					><circle cx="12" cy="12" r="12" fill="#fde047" opacity="0.18" /><path
-						d="M12 8v4m0 4h.01"
-						stroke="#d97706"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					/></svg
-				>
-			</div>
-			<div class="warning-title text-center text-lg font-extrabold text-slate-900">
-				Periksa Pembayaran QRIS
-			</div>
-			<div class="text-center text-xs leading-relaxed text-slate-600">
-				Pastikan kasir sudah <span class="font-bold text-pink-600">memeriksa nama merchant</span>
-				dan <span class="font-bold text-pink-600">nominal pembayaran</span> di aplikasi konsumen sebelum
-				melanjutkan.
-			</div>
-			<button
-				class="warning-btn mt-2 min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
-				onclick={s.confirmQrisChecked}>Sudah Diperiksa</button
+			<svg width="36" height="36" fill="none" viewBox="0 0 24 24"
+				><circle cx="12" cy="12" r="12" fill="#fde047" opacity="0.18" /><path
+					d="M12 8v4m0 4h.01"
+					stroke="#d97706"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/></svg
 			>
 		</div>
+		<div class="warning-title text-center text-lg font-extrabold text-slate-900">
+			Periksa Pembayaran QRIS
+		</div>
+		<div class="text-center text-xs leading-relaxed text-slate-600">
+			Pastikan kasir sudah <span class="font-bold text-pink-600">memeriksa nama merchant</span>
+			dan <span class="font-bold text-pink-600">nominal pembayaran</span> di aplikasi konsumen sebelum
+			melanjutkan.
+		</div>
+		<button
+			class="warning-btn mt-2 min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+			onclick={s.confirmQrisChecked}>Sudah Diperiksa</button
+		>
 	</div>
-{/if}
+</AppModal>
 
-{#if s.showSuccessModal}
-	<div class="z-alert fixed inset-0 flex items-end justify-center bg-slate-900/45 backdrop-blur-xs">
-		<div
-			class="animate-slideUpModal mx-auto flex w-full max-w-sm flex-col items-center gap-3.5 rounded-t-[28px] border-t border-slate-100 bg-white p-6 pb-6 shadow-xl"
+<AppModal
+	open={s.showSuccessModal}
+	label={s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil'}
+	size="sm"
+	align="bottom"
+	zClass="z-alert"
+	panelClass="items-center gap-3.5 bg-white p-6"
+	backdropClose={false}
+>
+	<div
+		class="animate-bounceIn mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
+	>
+		<svg width="40" height="40" fill="none" viewBox="0 0 24 24"
+			><circle cx="12" cy="12" r="12" fill="#4ade80" opacity="0.18" /><path
+				d="M7 13l3 3 7-7"
+				stroke="#16a34a"
+				stroke-width="2.5"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/></svg
 		>
-			<div
-				class="animate-bounceIn mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
-			>
-				<svg width="40" height="40" fill="none" viewBox="0 0 24 24"
-					><circle cx="12" cy="12" r="12" fill="#4ade80" opacity="0.18" /><path
-						d="M7 13l3 3 7-7"
-						stroke="#16a34a"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					/></svg
-				>
-			</div>
-			<div class="text-center text-xl font-black text-slate-900">
-				{s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!'}
-			</div>
-			<NomorPesananLabel
-				nomor={s.nomorPesanan}
-				menunggu={s.transactionQueuedOffline}
-				kelas="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-pink-700"
-				kelasMenunggu="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-amber-600"
+	</div>
+	<div class="text-center text-xl font-black text-slate-900">
+		{s.transactionQueuedOffline ? 'Transaksi Tersimpan' : 'Transaksi Berhasil!'}
+	</div>
+	<NomorPesananLabel
+		nomor={s.nomorPesanan}
+		menunggu={s.transactionQueuedOffline}
+		kelas="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-pink-700"
+		kelasMenunggu="text-center text-4xl font-extrabold tabular-nums leading-none tracking-tight text-amber-600"
+	/>
+	<div class="text-center text-xs leading-relaxed text-slate-600">
+		{#if s.transactionQueuedOffline}
+			Tersimpan di perangkat dan menunggu sinkronisasi.<br />
+		{:else}
+			Pembayaran {s.paymentMethod === 'tunai' ? 'tunai' : s.paymentMethod.toUpperCase()} telah diterima.<br
 			/>
-			<div class="text-center text-xs leading-relaxed text-slate-600">
-				{#if s.transactionQueuedOffline}
-					Tersimpan di perangkat dan menunggu sinkronisasi.<br />
-				{:else}
-					Pembayaran {s.paymentMethod === 'tunai' ? 'tunai' : s.paymentMethod.toUpperCase()} telah diterima.<br
-					/>
-				{/if}
-				{#if s.customerName.trim()}
-					<span class="font-bold text-pink-600">{s.customerName.trim()}</span><br />
-				{/if}
-			</div>
-			<div
-				class="flex w-full flex-col gap-1.5 rounded-2xl border border-slate-100/90 bg-slate-50 p-3.5 text-xs"
+		{/if}
+		{#if s.customerName.trim()}
+			<span class="font-bold text-pink-600">{s.customerName.trim()}</span><br />
+		{/if}
+	</div>
+	<div
+		class="flex w-full flex-col gap-1.5 rounded-2xl border border-slate-100/90 bg-slate-50 p-3.5 text-xs"
+	>
+		<div class="flex justify-between font-medium text-slate-500">
+			<span>Total Tagihan</span><span class="font-extrabold text-pink-600"
+				>Rp {formatRupiah(s.totalHarga)}</span
 			>
-				<div class="flex justify-between font-medium text-slate-500">
-					<span>Total Tagihan</span><span class="font-extrabold text-pink-600"
-						>Rp {formatRupiah(s.totalHarga)}</span
-					>
-				</div>
-				<div class="flex justify-between font-medium text-slate-500">
-					<span>Dibayar</span><span class="font-bold text-slate-800"
-						>Rp {s.cashReceived ? formatRupiah(parseInt(s.cashReceived)) : '0'}</span
-					>
-				</div>
-				<div
-					class="flex justify-between border-t border-slate-200/60 pt-1 font-medium text-slate-500"
-				>
-					<span>Kembalian</span><span class="font-extrabold text-emerald-600"
-						>Rp {s.kembalian >= 0 ? formatRupiah(s.kembalian) : '0'}</span
-					>
-				</div>
-			</div>
-			<div class="flex w-full flex-col gap-2.5 pt-1">
-				<button
-					class="min-h-[46px] w-full cursor-pointer rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-[0.98]"
-					onclick={s.printStrukViaEscPosService}>Cetak Struk</button
-				>
-				<button
-					class="min-h-[46px] w-full cursor-pointer rounded-full border-2 border-pink-600 bg-white py-3 text-sm font-bold text-pink-700 transition-all hover:bg-pink-50 active:scale-[0.98]"
-					onclick={s.handleGoToAntrean}>Lihat Antrean</button
-				>
-				<button
-					class="min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
-					onclick={s.handleBackToKasir}>Kembali ke Kasir</button
-				>
-			</div>
+		</div>
+		<div class="flex justify-between font-medium text-slate-500">
+			<span>Dibayar</span><span class="font-bold text-slate-800"
+				>Rp {s.cashReceived ? formatRupiah(parseInt(s.cashReceived)) : '0'}</span
+			>
+		</div>
+		<div class="flex justify-between border-t border-slate-200/60 pt-1 font-medium text-slate-500">
+			<span>Kembalian</span><span class="font-extrabold text-emerald-600"
+				>Rp {s.kembalian >= 0 ? formatRupiah(s.kembalian) : '0'}</span
+			>
 		</div>
 	</div>
-{/if}
+	<div class="flex w-full flex-col gap-2.5 pt-1">
+		<button
+			class="min-h-[46px] w-full cursor-pointer rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-[0.98]"
+			onclick={s.printStrukViaEscPosService}>Cetak Struk</button
+		>
+		<button
+			class="min-h-[46px] w-full cursor-pointer rounded-full border-2 border-pink-600 bg-white py-3 text-sm font-bold text-pink-700 transition-all hover:bg-pink-50 active:scale-[0.98]"
+			onclick={s.handleGoToAntrean}>Lihat Antrean</button
+		>
+		<button
+			class="min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
+			onclick={s.handleBackToKasir}>Kembali ke Kasir</button
+		>
+	</div>
+</AppModal>
 
 {#if s.showErrorNotification}
 	<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
@@ -509,19 +516,6 @@
 />
 
 <style>
-	@keyframes slideUpModal {
-		from {
-			transform: translateY(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-	.animate-slideUpModal {
-		animation: slideUpModal 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-	}
 	@keyframes bounceIn {
 		0% {
 			transform: scale(0.7);
