@@ -1282,8 +1282,10 @@ async function compiledTests() {
 					.bind(role)
 					.run();
 				const archive = await pageResponse('/pengaturan/pemilik/arsip', credentials.samarinda);
-				assert.equal(archive.status, role === 'pemilik' ? 200 : 303);
-				if (role !== 'pemilik') assert.equal(archive.headers.get('Location'), '/unauthorized');
+				// Admin setara pemilik di halaman arsip (F17).
+				const canOpenArchive = role === 'pemilik' || role === 'admin';
+				assert.equal(archive.status, canOpenArchive ? 200 : 303);
+				if (!canOpenArchive) assert.equal(archive.headers.get('Location'), '/unauthorized');
 				await archive.text();
 			}
 			await db
