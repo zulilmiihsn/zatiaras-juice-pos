@@ -159,7 +159,9 @@ export async function changePinForBranch(
 		const currentValid = settings.pin_hash
 			? await verifyPinHash(currentPin, settings.pin_hash)
 			: constantTimeEqual(currentPin, settings.pin || '');
-		if (!currentValid) throw kitError(401, 'PIN lama salah');
+		// 400, bukan 401: sesinya sah, yang salah inputnya. Klien memetakan 401 ke
+		// "sesi login berakhir", jadi PIN lama yang salah terbaca seperti sesi habis.
+		if (!currentValid) throw kitError(400, 'PIN lama salah');
 	}
 
 	const unchanged = settings.pin_hash

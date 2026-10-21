@@ -150,7 +150,7 @@ async function seedPengaturan(
 	}
 }
 
-// 6. Change: PIN lama salah -> 401.
+// 6. Change: PIN lama salah -> 400 (bukan 401, agar klien tidak menampilkan "sesi berakhir").
 {
 	const { db, close } = await createTestD1();
 	try {
@@ -158,7 +158,9 @@ async function seedPengaturan(
 		const platform = { env: { DB_SAMARINDA_GROUP: db } };
 		await assert.rejects(
 			changePinForBranch(platform as never, branch, sessionFor('pemilik', 's6'), '8765', '9753'),
-			(err: unknown) => (err as { status?: number }).status === 401
+			(err: unknown) =>
+				(err as { status?: number }).status === 400 &&
+				(err as { body?: { message?: string } }).body?.message === 'PIN lama salah'
 		);
 	} finally {
 		await close();
