@@ -169,13 +169,6 @@
 		</div>
 	</PageHeader>
 
-	<style>
-		/* Satu tombol hapus kustom; sembunyikan bawaan browser agar tak ganda. */
-		.cari-antrean::-webkit-search-cancel-button {
-			display: none;
-		}
-	</style>
-
 	<main
 		class="relative z-20 mx-auto -mt-4 w-full max-w-5xl flex-1 px-4 pb-24 md:px-6"
 		aria-live="polite"
@@ -468,3 +461,10 @@
 		</div>
 	{/if}
 </AppModal>
+
+<style>
+	/* Satu tombol hapus kustom; sembunyikan bawaan browser agar tak ganda. */
+	.cari-antrean::-webkit-search-cancel-button {
+		display: none;
+	}
+</style>

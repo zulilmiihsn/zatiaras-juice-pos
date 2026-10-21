@@ -253,17 +253,6 @@
 		></pwa-install>
 	{/if}
 
-	<!-- Custom styling for PWA install dialog -->
-	<style>
-		:global(pwa-install) {
-			--pwa-install-dialog-header-color: #ffb6c1 !important;
-			--header-color: #ffb6c1 !important;
-		}
-		:global(pwa-install::part(header)) {
-			background-color: #ffb6c1 !important;
-		}
-	</style>
-
 	{#if s.showNotification}
 		<div class="z-toast pointer-events-none fixed inset-x-0 top-20 flex justify-center px-4">
 			<div
@@ -282,3 +271,14 @@
 	<p class="text-xs text-gray-500">ZatiarasPOS v1.0</p>
 	<p class="mt-1 text-xs text-gray-400">© 2024 Zatiaras Juice.</p>
 </div>
+
+<!-- Custom styling for PWA install dialog -->
+<style>
+	:global(pwa-install) {
+		--pwa-install-dialog-header-color: #ffb6c1 !important;
+		--header-color: #ffb6c1 !important;
+	}
+	:global(pwa-install::part(header)) {
+		background-color: #ffb6c1 !important;
+	}
+</style>

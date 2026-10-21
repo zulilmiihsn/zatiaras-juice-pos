@@ -8,7 +8,7 @@ import { computeMetrics } from '../../scripts/frontend-consistency.mjs';
  * Menaikkan ceiling wajib disertai alasan di pesan commit.
  */
 const CEILINGS: Record<string, number> = {
-	nestedStyle: 2,
+	nestedStyle: 0,
 	effectAssignOnly: 0,
 	appStoresImport: 3,
 	pureGotoButton: 2,
