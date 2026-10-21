@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import LaporanFilter from '$lib/components/laporan/LaporanFilter.svelte';
 	import LaporanSummaryCards from '$lib/components/laporan/LaporanSummaryCards.svelte';
 	import LaporanLabaRugiCard from '$lib/components/laporan/LaporanLabaRugiCard.svelte';

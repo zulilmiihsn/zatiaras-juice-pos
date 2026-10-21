@@ -4,14 +4,14 @@
 	import { browser } from '$app/environment';
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
 	import { branchLabel } from '$lib/utils/branches';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import PinModal from '$lib/components/shared/pinModal.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
+	import PinModal from '$lib/components/shared/PinModal.svelte';
 	import { securitySettings } from '$lib/stores/securitySettings.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
 	import DashboardMetrics from '$lib/components/dashboard/DashboardMetrics.svelte';
 	import WeeklyChart from '$lib/components/dashboard/WeeklyChart.svelte';
 	import TokoModal from '$lib/components/dashboard/TokoModal.svelte';
-	import TopBarAiAssistant from '$lib/components/shared/topBarAiAssistant.svelte';
+	import TopBarAiAssistant from '$lib/components/shared/TopBarAiAssistant.svelte';
 	import DashboardQuickActions from '$lib/components/dashboard/DashboardQuickActions.svelte';
 	import DashboardStockPaused from '$lib/components/dashboard/DashboardStockPaused.svelte';
 	import DashboardIngredientUsage from '$lib/components/dashboard/DashboardIngredientUsage.svelte';

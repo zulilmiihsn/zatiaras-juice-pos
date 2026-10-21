@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import type { CartItem } from '$lib/types/cart';
 	import Minus from '@lucide/svelte/icons/minus';

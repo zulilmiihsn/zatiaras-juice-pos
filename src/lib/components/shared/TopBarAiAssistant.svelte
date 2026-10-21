@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AiChatModal from './aiChatModal.svelte';
+	import AiChatModal from './AiChatModal.svelte';
 	import { refreshBus } from '$lib/utils/refreshBus';
 
 	let {

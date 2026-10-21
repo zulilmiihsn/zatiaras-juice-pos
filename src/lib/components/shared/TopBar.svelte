@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Settings from '@lucide/svelte/icons/settings';
 	import type { Snippet } from 'svelte';
-	import TopBarStatus from './topBarStatus.svelte';
-	import TopBarAiAssistant from './topBarAiAssistant.svelte';
+	import TopBarStatus from './TopBarStatus.svelte';
+	import TopBarAiAssistant from './TopBarAiAssistant.svelte';
 	let {
 		children,
 		actions,

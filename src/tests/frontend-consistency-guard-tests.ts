@@ -17,7 +17,7 @@ const CEILINGS: Record<string, number> = {
 	staleVersionText: 0,
 	arbitraryDvh: 0,
 	flexShrinkAlias: 0,
-	lowercaseComponentFiles: 11,
+	lowercaseComponentFiles: 0,
 	importPathCaseMismatch: 0,
 	overlayFiles: 17,
 	inlineToast: 3,

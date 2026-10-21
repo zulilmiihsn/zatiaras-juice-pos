@@ -13,7 +13,7 @@
 	import Monitor from '@lucide/svelte/icons/monitor';
 	import Printer from '@lucide/svelte/icons/printer';
 	import Check from '@lucide/svelte/icons/check';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import { createToastManager } from '$lib/utils/ui';
 	import { transactionService } from '$lib/services/transactionService';

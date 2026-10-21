@@ -39,8 +39,8 @@
 	import MutasiBahanModal from '$lib/components/pengaturan/manajemenmenu/MutasiBahanModal.svelte';
 
 	// Modal
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
-	import CropperDialog from '$lib/components/shared/cropperDialog.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
+	import CropperDialog from '$lib/components/shared/CropperDialog.svelte';
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import DeleteConfirmDialog from '$lib/components/shared/DeleteConfirmDialog.svelte';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';

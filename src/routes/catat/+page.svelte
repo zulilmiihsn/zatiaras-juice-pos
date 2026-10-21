@@ -3,9 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { fade, fly } from 'svelte/transition';
-	import DropdownSheet from '$lib/components/shared/dropdownSheet.svelte';
+	import DropdownSheet from '$lib/components/shared/DropdownSheet.svelte';
 	import NotifModal from '$lib/components/shared/NotifModal.svelte';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { createCatatState } from '$lib/stores/catatState.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import History from '@lucide/svelte/icons/history';

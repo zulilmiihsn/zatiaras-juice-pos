@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import LowStockAlertBanner from '$lib/components/shared/LowStockAlertBanner.svelte';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import ProductGrid from '$lib/components/pos/ProductGrid.svelte';
 	import CustomItemModal from '$lib/components/pos/CustomItemModal.svelte';

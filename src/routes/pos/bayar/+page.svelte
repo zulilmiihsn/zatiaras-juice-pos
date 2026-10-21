@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import NotifModal from '$lib/components/shared/NotifModal.svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';

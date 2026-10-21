@@ -11,7 +11,7 @@
 
 	import { createToastManager } from '$lib/utils/ui';
 	import { ErrorHandler } from '$lib/utils/errorHandling';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';

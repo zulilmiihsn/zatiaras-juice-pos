@@ -3,7 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { createSecuritySettingsState } from '$lib/stores/securitySettingsState.svelte';
 
 	import CredentialsCard from '$lib/components/pengaturan/keamanan/CredentialsCard.svelte';

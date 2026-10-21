@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Plus from '@lucide/svelte/icons/plus';

@@ -7,10 +7,10 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { userRole } from '$lib/stores/userRole.svelte';
-	import DropdownSheet from '$lib/components/shared/dropdownSheet.svelte';
+	import DropdownSheet from '$lib/components/shared/DropdownSheet.svelte';
 	import { createToastManager } from '$lib/utils/ui';
 	import { ErrorHandler } from '$lib/utils/errorHandling';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import type { HistoryItem } from '$lib/types/laporan';
 	import Trash from '@lucide/svelte/icons/trash';

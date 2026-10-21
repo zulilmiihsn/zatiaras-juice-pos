@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import { WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';

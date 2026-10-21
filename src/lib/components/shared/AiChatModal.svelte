@@ -11,7 +11,7 @@
 	import { formatWitaDateTime } from '$lib/utils/dateTime';
 	import { AI_ACTION_LABEL, validateRecommendation } from '$lib/utils/aiRecommendationSchema';
 	import { refreshBus } from '$lib/utils/refreshBus';
-	import SendIcon from '$lib/components/shared/sendIcon.svelte';
+	import SendIcon from '$lib/components/shared/SendIcon.svelte';
 
 	let {
 		isOpen = $bindable(false),

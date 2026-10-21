@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import Topbar from '$lib/components/shared/topBar.svelte';
-	import AppNav from '$lib/components/shared/appNav.svelte';
+	import Topbar from '$lib/components/shared/TopBar.svelte';
+	import AppNav from '$lib/components/shared/AppNav.svelte';
 	import PwaUpdateBanner from '$lib/components/shared/PwaUpdateBanner.svelte';
 	import { page, navigating } from '$app/state';
 	import { browser } from '$app/environment';
@@ -11,13 +11,13 @@
 	import { posGridView } from '$lib/stores/posGridView.svelte';
 	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 	import { transactionService } from '$lib/services/transactionService';
-	import PinModal from '$lib/components/shared/pinModal.svelte';
+	import PinModal from '$lib/components/shared/PinModal.svelte';
 	import { securitySettings, setSecuritySettings } from '$lib/stores/securitySettings.svelte';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { requireAuth } from '$lib/utils/authGuard';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
-	import ToastNotification from '$lib/components/shared/toastNotification.svelte';
+	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { createLayoutState } from '$lib/stores/layoutState.svelte';
 	import { verifyPagePin } from '$lib/services/pinAccessService';
 	import { refreshBus } from '$lib/utils/refreshBus';

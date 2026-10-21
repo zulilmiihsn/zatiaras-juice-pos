@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ModalSheet from '$lib/components/shared/modalSheet.svelte';
+	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
 	import { formatRupiah } from '$lib/utils/currency';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Minus from '@lucide/svelte/icons/minus';
