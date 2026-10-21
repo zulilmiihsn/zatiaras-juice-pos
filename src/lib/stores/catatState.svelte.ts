@@ -44,7 +44,7 @@ export function createCatatState() {
 	let showNotifModal = $state(false);
 	let notifModalMsg = $state('');
 	let notifModalType = $state<NotifModalType>('warning');
-	let currentUserRole = $state('');
+	const currentUserRole = $derived(userRole.value || '');
 	let sesiAktif = $state<TokoSession | null>(null);
 	let recentTransactions = $state<CatatRecentTransaction[]>([]);
 	let isLoadingRecent = $state(false);
@@ -65,10 +65,6 @@ export function createCatatState() {
 		{ value: 'beban_usaha', label: 'Beban Usaha' },
 		{ value: 'lainnya', label: 'Lainnya' }
 	];
-
-	$effect(() => {
-		currentUserRole = userRole.value || '';
-	});
 
 	$effect(() => {
 		if (mode === 'pemasukan') {

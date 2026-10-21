@@ -27,10 +27,7 @@ export function createPosPageState() {
 	const pos = createPosState();
 	const cart = posCart;
 
-	let currentUserRole = $state('');
-	$effect(() => {
-		currentUserRole = userRole.value || '';
-	});
+	const currentUserRole = $derived(userRole.value || '');
 
 	let sesiAktif: TokoSession | null = null;
 	let lowStockIngredients = $state<Ingredient[]>([]);

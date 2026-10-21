@@ -31,9 +31,10 @@
 	let passwordError = $state('');
 
 	let branch: BranchType = $state('samarinda');
-	$effect(() => {
-		selectedBranch.value = branch as BranchType;
-	});
+
+	function handleBranchChange(event: Event & { currentTarget: HTMLSelectElement }) {
+		selectedBranch.value = event.currentTarget.value as BranchType;
+	}
 
 	// Validate form
 	function validateForm(): boolean {
@@ -72,6 +73,8 @@
 		// dengan kredensial tersimpan (terdokumentasi di server).
 		isLoading = true;
 		try {
+			// Store cabang harus sama dengan cabang yang dipakai login walau pilihan tak diubah.
+			selectedBranch.value = branch;
 			await loginWithUsername(trimmedUsername, password, branch);
 			showSuccessModal = true;
 			await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -255,6 +258,7 @@
 						id="branch"
 						class="block w-full cursor-pointer appearance-none rounded-2xl border border-pink-100 bg-white py-3 pr-10 pl-10 text-sm font-semibold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-500/15"
 						bind:value={branch}
+						onchange={handleBranchChange}
 						aria-label="Pilih Cabang"
 					>
 						<option value="samarinda">Samarinda</option>

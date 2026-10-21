@@ -61,7 +61,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | Metrik                      | Yang dihitung                                                    | Awal | Target       | Sekarang | Kartu   |
 | --------------------------- | ---------------------------------------------------------------- | ---- | ------------ | -------- | ------- |
 | `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0            | 2        | F1      |
-| `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 3        | F3      |
+| `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 0        | F3      |
 | `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 3        | F4      |
 | `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 2        | F2, F5  |
 | `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 6        | F5      |
@@ -90,7 +90,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai  |
 | F1   | `<style>` bersarang                   | Haiku  | Todo     |
 | F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
-| F3   | State turunan lewat `$derived`        | Sonnet | Todo     |
+| F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
 | F4   | `$app/stores` ke `$app/state`         | Haiku  | Todo     |
 | F5   | Navigasi pakai link                   | Haiku  | Todo     |
 | F6   | Perapian kecil (log, versi, footer)   | Haiku  | Todo     |
@@ -272,3 +272,8 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   item `<a href>`, Install PWA tetap `<button>`, item terlarang `aria-disabled`.
   Kelas `.settings-menu-*` dibuang. `pureGotoButton` 5 → 2, `neutralNonSlate`
   279 → 276 (tiga `text-stone-400` duplikat hilang).
+- 21 Oktober 2026: F3 selesai. `currentUserRole` di `catatState` dan
+  `posPageState` jadi `$derived`. Di `login/+page.svelte` `selectedBranch.value`
+  ditulis di handler `onchange` dan sekali lagi sebelum `loginWithUsername`
+  (pilihan bawaan tanpa perubahan tetap harus masuk store). `effectAssignOnly`
+  3 → 0.
