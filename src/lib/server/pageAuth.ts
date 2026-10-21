@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { isOwnerRole } from '$lib/utils/roles';
 import { requireAuthSession } from './apiAuth';
 
 export function requirePageSession(locals: App.Locals) {
@@ -9,7 +10,7 @@ export function requirePageSession(locals: App.Locals) {
 
 export function requireOwnerPageSession(locals: App.Locals) {
 	const session = requirePageSession(locals);
-	// Preserve the existing owner-only UI policy, without the API's deliberate admin bypass.
-	if (session.role !== 'pemilik') redirect(303, '/unauthorized');
+	// Admin setara pemilik, sama seperti UI (isOwnerRole) dan API arsip (requireAnyRole).
+	if (!isOwnerRole(session.role)) redirect(303, '/unauthorized');
 	return session;
 }

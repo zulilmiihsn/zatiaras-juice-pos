@@ -107,7 +107,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F15  | Helper peran UI                       | Sonnet | Selesai  |
 | F15b | Server yang masih mengecualikan admin | Sonnet | Selesai  |
 | F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai  |
-| F17  | Halaman arsip untuk admin             | Sonnet | Tertahan |
+| F17  | Halaman arsip untuk admin             | Sonnet | Selesai  |
 | F18  | Item custom untuk admin               | Sonnet | Tertahan |
 | F19  | Literal peran di layanan klien        | Sonnet | Todo     |
 
@@ -457,3 +457,10 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
 - 22 Oktober 2026: kartu F17 (halaman arsip untuk admin, Tertahan), F18 (item
   custom untuk admin, Tertahan) dan F19 (literal peran di layanan klien, Todo)
   ditambahkan atas permintaan pemilik dari sisa F15b. Belum dikerjakan.
+- 22 Oktober 2026: F17 selesai, atas persetujuan eksplisit pemilik ("tuntaskan
+  semua F"). `requireOwnerPageSession` di `src/lib/server/pageAuth.ts` memakai
+  `isOwnerRole`, jadi admin kini membuka `/pengaturan/pemilik/arsip` (API
+  `/api/archive` sudah menerima admin lewat `requireAnyRole`, sehingga halaman
+  adalah satu-satunya penghalang). `role-contract-tests` menyesuaikan: loader
+  arsip untuk admin kini `{}`, kasir tetap diarahkan ke `/unauthorized`.
+  Gerbang: `pnpm check`, eslint, prettier, `role-contract-tests`.

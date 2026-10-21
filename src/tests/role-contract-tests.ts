@@ -105,7 +105,7 @@ try {
 		}
 		requireAnyRole(role, [role]);
 		assert.deepEqual(await reportPage(reread), {});
-		if (role === 'pemilik') assert.deepEqual(await archivePage(reread), {});
+		if (role === 'pemilik' || role === 'admin') assert.deepEqual(await archivePage(reread), {});
 		else await assert.rejects(archivePage(reread), redirectedTo('/unauthorized'));
 	}
 
