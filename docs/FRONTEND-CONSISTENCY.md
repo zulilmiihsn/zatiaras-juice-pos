@@ -85,31 +85,31 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 
 Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 
-| ID   | Judul                                 | Model  | Status   |
-| ---- | ------------------------------------- | ------ | -------- |
-| F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai  |
-| F1   | `<style>` bersarang                   | Haiku  | Selesai  |
-| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
-| F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
-| F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
-| F5   | Navigasi pakai link                   | Haiku  | Selesai  |
-| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai  |
-| F7   | Alias Tailwind                        | Haiku  | Selesai  |
-| F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai  |
-| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
-| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
-| F9c  | Modal sisanya                         | Sonnet | Selesai  |
-| F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
-| F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
-| F12  | Kelas form bersama                    | Sonnet | Selesai  |
-| F13  | Token warna merek                     | Haiku  | Selesai  |
-| F14  | Abu-abu ke slate                      | Haiku  | Selesai  |
-| F15  | Helper peran UI                       | Sonnet | Selesai  |
-| F15b | Server yang masih mengecualikan admin | Sonnet | Selesai  |
-| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai  |
-| F17  | Halaman arsip untuk admin             | Sonnet | Selesai  |
-| F18  | Item custom untuk admin               | Sonnet | Tertahan |
-| F19  | Literal peran di layanan klien        | Sonnet | Todo     |
+| ID   | Judul                                 | Model  | Status  |
+| ---- | ------------------------------------- | ------ | ------- |
+| F0   | Alat track (skrip, tes, CI, dokumen)  | Sonnet | Selesai |
+| F1   | `<style>` bersarang                   | Haiku  | Selesai |
+| F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai |
+| F3   | State turunan lewat `$derived`        | Sonnet | Selesai |
+| F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai |
+| F5   | Navigasi pakai link                   | Haiku  | Selesai |
+| F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai |
+| F7   | Alias Tailwind                        | Haiku  | Selesai |
+| F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai |
+| F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai |
+| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai |
+| F9c  | Modal sisanya                         | Sonnet | Selesai |
+| F10  | Satu mekanisme toast                  | Sonnet | Selesai |
+| F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai |
+| F12  | Kelas form bersama                    | Sonnet | Selesai |
+| F13  | Token warna merek                     | Haiku  | Selesai |
+| F14  | Abu-abu ke slate                      | Haiku  | Selesai |
+| F15  | Helper peran UI                       | Sonnet | Selesai |
+| F15b | Server yang masih mengecualikan admin | Sonnet | Selesai |
+| F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai |
+| F17  | Halaman arsip untuk admin             | Sonnet | Selesai |
+| F18  | Item custom untuk admin               | Sonnet | Selesai |
+| F19  | Literal peran di layanan klien        | Sonnet | Todo    |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -464,3 +464,12 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   adalah satu-satunya penghalang). `role-contract-tests` menyesuaikan: loader
   arsip untuk admin kini `{}`, kasir tetap diarahkan ke `/unauthorized`.
   Gerbang: `pnpm check`, eslint, prettier, `role-contract-tests`.
+- 22 Oktober 2026: F18 selesai, atas persetujuan eksplisit pemilik (opsi 1:
+  admin boleh membuat item custom). `buildPosQuote` (`quoteUseCase.ts`) dan
+  `executeCheckout` (`checkoutUseCase.ts`) memakai `!isOwnerRole(session.role)`
+  pada gerbang item tanpa `product_id`; pesan 403 tidak berubah. Admin kini bisa
+  menetapkan harga bebas di transaksi, sama seperti pemilik. Kasus tes
+  ditambahkan ke `antrean-tests` untuk jalur quote (kasir 403, admin dan
+  pemilik lolos gerbang); jalur `executeCheckout` memakai gerbang yang sama
+  tetapi tidak punya kasus tes sendiri karena butuh token quote bertanda
+  tangan. `pnpm test:unit` 170 lulus.
