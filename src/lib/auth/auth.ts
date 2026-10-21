@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { setUserRole, clearUserRole } from '$lib/stores/userRole.svelte';
 import { setSecuritySettings, clearSecuritySettings } from '$lib/stores/securitySettings.svelte';
 import { clearCsrfTokenCache, fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { isKasirRole } from '$lib/utils/roles';
 import { getApiErrorMessage, reportApiFailure } from '$lib/utils/errorHandling';
 import {
 	clearOfflineSessionSnapshot,
@@ -62,7 +63,7 @@ export async function loginWithUsername(username: string, password: string, bran
 	clearCsrfTokenCache();
 
 	// Kunci halaman PIN hanya berlaku untuk kasir.
-	if (result.user.role === 'kasir') {
+	if (isKasirRole(result.user.role)) {
 		try {
 			const qs = new URLSearchParams({ branch }).toString();
 			const settingsRes = await fetch(`/api/pengaturan?${qs}`);

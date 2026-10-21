@@ -109,7 +109,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F16  | Tidur di e2e jadi `toPass`            | Sonnet | Selesai |
 | F17  | Halaman arsip untuk admin             | Sonnet | Selesai |
 | F18  | Item custom untuk admin               | Sonnet | Selesai |
-| F19  | Literal peran di layanan klien        | Sonnet | Todo    |
+| F19  | Literal peran di layanan klien        | Sonnet | Selesai |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -473,3 +473,11 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   pemilik lolos gerbang); jalur `executeCheckout` memakai gerbang yang sama
   tetapi tidak punya kasus tes sendiri karena butuh token quote bertanda
   tangan. `pnpm test:unit` 170 lulus.
+- 22 Oktober 2026: F19 selesai. `orderNotificationService.ts`
+  (`isStaffRole`, sejalan dengan server F15b), `auth.ts` (`isKasirRole`) dan
+  `autoApplyService.ts` (`!isOwnerRole`, sejalan dengan F18) memakai helper
+  peran. `RoleInput` di `src/lib/utils/roles.ts` dilebarkan ke `unknown`
+  karena `role` di snapshot sesi offline bertipe `unknown`; helper hanya
+  membandingkan dengan `===`, jadi nilai tak dikenal tetap `false`. Gerbang:
+  `pnpm check`, eslint, prettier, `pnpm test:unit` (170 lulus). `autoApplyService`
+  tidak punya tes unit sendiri.

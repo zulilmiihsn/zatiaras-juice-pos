@@ -15,7 +15,7 @@ export function normalizeRole(role: unknown): ValidRole | null {
 
 // Helper peran untuk UI dan store. `admin` setara `pemilik` di UI, sesuai
 // `requireAnyRole` di `src/lib/server/apiAuth.ts`. Nilai tak dikenal: false.
-type RoleInput = string | null | undefined;
+type RoleInput = unknown;
 
 export function isOwnerRole(role: RoleInput): boolean {
 	return role === 'pemilik' || role === 'admin';

@@ -1,4 +1,5 @@
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { isStaffRole } from '$lib/utils/roles';
 import {
 	getOfflineSessionBranch,
 	readOfflineSessionSnapshot,
@@ -38,11 +39,7 @@ export function getNotificationScope(): NotificationScope | null {
 	const branch = getOfflineSessionBranch(snapshot);
 	const userId = snapshot?.user.id;
 	const role = snapshot?.user.role;
-	return snapshot &&
-		branch &&
-		typeof userId === 'string' &&
-		userId &&
-		(role === 'kasir' || role === 'pemilik')
+	return snapshot && branch && typeof userId === 'string' && userId && isStaffRole(role)
 		? { branch, user_id: userId, expires_at: snapshot.expiresAt }
 		: null;
 }

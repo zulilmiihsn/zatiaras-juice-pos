@@ -5,6 +5,7 @@ import { decodeDecimalNumber, normalizeMoney } from '$lib/utils/currency';
 import { getOfflineSessionRevision, readOfflineSessionSnapshot } from '$lib/auth/offlineSession';
 import { resolveLedgerCategory } from '$lib/utils/ledgerCategory';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
+import { isOwnerRole } from '$lib/utils/roles';
 import { userRole } from '$lib/stores/userRole.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
 import { parseApiError } from '$lib/utils/errorHandling';
@@ -434,7 +435,7 @@ export class AutoApplyService {
 				.filter(Boolean);
 			if (!productId) {
 				// Item custom: harga dari model TIDAK dipakai; pemilik isi harga valid.
-				if (userRole.value !== 'pemilik')
+				if (!isOwnerRole(userRole.value))
 					throw new Error('Item custom rekomendasi hanya boleh dibuat pemilik');
 				const customPrice = Number(product.harga);
 				if (!Number.isFinite(customPrice) || customPrice <= 0)
