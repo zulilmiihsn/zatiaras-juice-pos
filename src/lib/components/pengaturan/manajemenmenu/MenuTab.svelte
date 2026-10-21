@@ -36,7 +36,7 @@
 
 <div in:fade={{ duration: 150 }} class="flex min-h-0 flex-1 flex-col">
 	<!-- Fixed Controls Section -->
-	<div class="flex-shrink-0 bg-transparent">
+	<div class="shrink-0 bg-transparent">
 		<!-- Search & View Toggle in One Row -->
 		<div class="mx-auto max-w-5xl px-4 pb-2.5 md:px-6">
 			<div class="flex items-center gap-2">
@@ -68,9 +68,7 @@
 		<div class="mx-auto flex max-w-5xl items-center gap-2.5 overflow-x-auto px-4 pb-3.5 md:px-6">
 			{#if isLoadingKategori}
 				{#each Array(4) as _, i (i)}
-					<div
-						class="h-[44px] min-w-[88px] flex-shrink-0 animate-pulse rounded-full bg-white/80"
-					></div>
+					<div class="h-[44px] min-w-[88px] shrink-0 animate-pulse rounded-full bg-white/80"></div>
 				{/each}
 			{:else}
 				<button

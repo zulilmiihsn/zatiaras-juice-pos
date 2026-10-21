@@ -24,7 +24,7 @@
 
 <div in:fade={{ duration: 150 }} class="flex min-h-0 flex-1 flex-col">
 	<!-- Fixed Header Section -->
-	<div class="flex-shrink-0 bg-transparent">
+	<div class="shrink-0 bg-transparent">
 		<!-- Search Bar -->
 		<div class="mx-auto max-w-5xl px-4 pb-2.5 md:px-6">
 			<div class="relative flex items-center">

@@ -67,14 +67,14 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 0        | F5      |
 | `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 0        | F6      |
 | `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 0        | F6      |
-| `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0            | 18       | F7      |
-| `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 28       | F7      |
+| `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0            | 0        | F7      |
+| `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 0        | F7      |
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 11       | F8      |
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
 | `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 17       | F9a–c   |
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 3        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
-| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 36       | F12     |
+| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 35       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0            | 23       | F13     |
 | `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0            | 276      | F14     |
@@ -94,7 +94,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
 | F5   | Navigasi pakai link                   | Haiku  | Selesai  |
 | F6   | Perapian kecil (log, versi, footer)   | Haiku  | Selesai  |
-| F7   | Alias Tailwind                        | Haiku  | Todo     |
+| F7   | Alias Tailwind                        | Haiku  | Selesai  |
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Todo     |
 | F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Todo     |
 | F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Todo     |
@@ -292,3 +292,8 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   `package.json` dan dideklarasikan di `app.d.ts`. Footer `pengaturan` dipindah
   ke dalam `<main>` (`mt-auto`) dengan versi dan tahun dinamis; tahun di
   `unauthorized` juga dinamis. `consoleLogClient` 1 → 0, `staleVersionText` 3 → 0.
+- 21 Oktober 2026: F7 selesai. `min-h-[100dvh]` → `min-h-dvh` (18) dan
+  `flex-shrink-0` → `shrink-0` (28) di 31 berkas `.svelte`; `h-[100dvh]` tidak
+  ada. `calc(100dvh-…)` tidak disentuh. `arbitraryDvh` 18 → 0, `flexShrinkAlias`
+  28 → 0. Efek samping: `duplicatedLongClassGroups` 36 → 35 (satu string
+  kelas memendek di bawah 90 karakter setelah alias diganti).

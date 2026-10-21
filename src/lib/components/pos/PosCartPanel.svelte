@@ -73,7 +73,7 @@
 						<span class="min-w-0 flex-1 truncate">{item.product.nama}</span>
 						{#if isJumbo}
 							<span
-								class="flex-shrink-0 rounded bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase shadow-2xs"
+								class="shrink-0 rounded bg-gradient-to-r from-pink-500 to-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white uppercase shadow-2xs"
 								>Jumbo</span
 							>
 						{/if}

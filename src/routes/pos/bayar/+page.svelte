@@ -46,7 +46,7 @@
 	});
 </script>
 
-<main class="page-content min-h-[100dvh] flex-1 overflow-y-auto bg-[#faf7f8] pb-28">
+<main class="page-content min-h-dvh flex-1 overflow-y-auto bg-[#faf7f8] pb-28">
 	<!-- Fluid Wave Header for Payment -->
 	<div class="page-header relative px-5 pt-4 pb-12 md:pt-6 md:pb-14">
 		<!-- Ambient background blur shapes -->

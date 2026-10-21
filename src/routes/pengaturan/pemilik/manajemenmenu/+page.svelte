@@ -78,7 +78,7 @@
 	/>
 {/if}
 
-<div class="page-content min-h-[100dvh] bg-[#faf7f8] pb-24">
+<div class="page-content min-h-dvh bg-[#faf7f8] pb-24">
 	<div class="mb-3">
 		<PageHeader variant="compact">
 			<div class="mx-auto flex w-full max-w-5xl items-center justify-between">

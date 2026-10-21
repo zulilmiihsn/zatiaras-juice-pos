@@ -17,7 +17,7 @@
 >
 	<!-- Header -->
 	<div
-		class="flex flex-shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 py-4"
+		class="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 py-4"
 	>
 		<div>
 			<h2 class="text-lg font-black tracking-tight text-slate-900">Ubah Stok Bahan</h2>
@@ -73,7 +73,7 @@
 	</form>
 
 	<!-- Fixed Action Buttons -->
-	<div class="flex flex-shrink-0 gap-3 border-t border-slate-100 bg-white p-5">
+	<div class="flex shrink-0 gap-3 border-t border-slate-100 bg-white p-5">
 		<button
 			type="submit"
 			form="mutasi-form"

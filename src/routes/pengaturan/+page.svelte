@@ -80,7 +80,7 @@
 
 <main
 	aria-label="Pengaturan Sistem"
-	class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12"
+	class="page-content flex min-h-dvh flex-col bg-[#faf7f8] pb-12"
 >
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">

@@ -129,7 +129,7 @@
 </script>
 
 <div
-	class="page-content relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-pink-200 via-pink-100 to-pink-300 p-4 sm:p-6"
+	class="page-content relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-gradient-to-br from-pink-200 via-pink-100 to-pink-300 p-4 sm:p-6"
 >
 	<!-- Ambient Background Glow Orbs -->
 	<div

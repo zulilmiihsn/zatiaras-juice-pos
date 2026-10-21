@@ -65,7 +65,7 @@
 	<title>Monitoring Produksi - Zatiaras POS</title>
 </svelte:head>
 
-<div class="min-h-[100dvh] bg-gray-50 px-4 py-4 text-gray-900 md:px-8 md:py-8">
+<div class="min-h-dvh bg-gray-50 px-4 py-4 text-gray-900 md:px-8 md:py-8">
 	<header class="mx-auto flex max-w-6xl items-center justify-between gap-4">
 		<div class="flex items-center gap-3">
 			<a

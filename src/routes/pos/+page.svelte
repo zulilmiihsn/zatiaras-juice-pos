@@ -55,7 +55,7 @@
 						type="button"
 						aria-label={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
 						title={posGridView.value ? 'Ganti ke Tampilan List' : 'Ganti ke Tampilan Grid'}
-						class="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
+						class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-700 shadow-md backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-pink-600 active:scale-95"
 						onclick={() => posGridView.toggle()}
 					>
 						{#if posGridView.value}
@@ -70,7 +70,7 @@
 			<!-- Category Filter Pills -->
 			<div class="flex gap-2.5 overflow-x-auto px-4 pt-4 pb-3 md:px-5">
 				<button
-					class="min-h-[44px] min-w-[88px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
+					class="min-h-[44px] min-w-[88px] shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
 					'all'
 						? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 						: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -80,13 +80,13 @@
 				{#if (s.categories ?? []).length === 0 && s.pos.isLoadingProducts}
 					{#each Array(4) as _, i}
 						<div
-							class="h-[44px] min-w-[96px] flex-shrink-0 animate-pulse rounded-full bg-white/80"
+							class="h-[44px] min-w-[96px] shrink-0 animate-pulse rounded-full bg-white/80"
 						></div>
 					{/each}
 				{:else if (s.categories ?? []).length === 0}
 					<!-- Button Custom Item di samping 'Semua' jika tidak ada kategori -->
 					<button
-						class="flex min-h-[44px] min-w-[48px] flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
+						class="flex min-h-[44px] min-w-[48px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-4 py-2.5 text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 						type="button"
 						aria-label="Tambah item custom"
 						onclick={s.handleShowCustomItemModal}
@@ -96,7 +96,7 @@
 				{:else}
 					{#each s.categories ?? [] as c (c.id)}
 						<button
-							class="min-h-[44px] min-w-[96px] flex-shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
+							class="min-h-[44px] min-w-[96px] shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-bold transition-colors duration-150 {s.selectedCategory ===
 							String(c.id)
 								? 'border-pink-200/80 bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-sm shadow-pink-500/15'
 								: 'border-slate-200/80 bg-white text-slate-700 shadow-2xs hover:border-pink-200 hover:text-pink-600'}"
@@ -106,7 +106,7 @@
 					{/each}
 					<!-- Button Custom Item di paling kanan -->
 					<button
-						class="flex min-h-[44px] min-w-[105px] flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
+						class="flex min-h-[44px] min-w-[105px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-400 px-5 py-2.5 text-sm font-bold text-white shadow-sm shadow-pink-500/15 transition-colors duration-150"
 						type="button"
 						onclick={s.handleShowCustomItemModal}
 					>

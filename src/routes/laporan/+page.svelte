@@ -76,7 +76,7 @@
 				onclick={s.openDatePicker}
 			>
 				<svg
-					class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
+					class="h-3.5 w-3.5 shrink-0 text-pink-600"
 					fill="none"
 					stroke="currentColor"
 					stroke-width="2"
@@ -96,7 +96,7 @@
 				onclick={s.openEndDatePicker}
 			>
 				<svg
-					class="h-3.5 w-3.5 flex-shrink-0 text-pink-600"
+					class="h-3.5 w-3.5 shrink-0 text-pink-600"
 					fill="none"
 					stroke="currentColor"
 					stroke-width="2"

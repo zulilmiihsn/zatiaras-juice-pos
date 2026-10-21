@@ -21,7 +21,7 @@
 	onClose={s.closeBahanModal}
 >
 	<div
-		class="flex flex-shrink-0 items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-6 py-4.5"
+		class="flex shrink-0 items-center justify-between border-b border-pink-100/80 bg-gradient-to-r from-pink-50/90 via-rose-50/80 to-pink-50/90 px-6 py-4.5"
 	>
 		<div class="flex items-center gap-3.5">
 			<div
@@ -418,7 +418,7 @@
 	</form>
 
 	<!-- Fixed Action Buttons -->
-	<div class="flex flex-shrink-0 gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
+	<div class="flex shrink-0 gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
 		<button
 			type="button"
 			class="flex-1 cursor-pointer rounded-2xl bg-slate-100 py-3.5 text-sm font-black text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"

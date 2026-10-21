@@ -1,5 +1,5 @@
 <main
-	class="flex min-h-[100dvh] items-center justify-center bg-[#faf8f6] px-5 text-center text-[#241f21]"
+	class="flex min-h-dvh items-center justify-center bg-[#faf8f6] px-5 text-center text-[#241f21]"
 >
 	<section class="max-w-sm space-y-3">
 		<h1 class="text-2xl font-bold tracking-normal">Koneksi terputus</h1>

@@ -49,7 +49,7 @@
 			out:fade={{ duration: 160 }}
 		>
 			<svg
-				class="h-6 w-6 flex-shrink-0 text-white"
+				class="h-6 w-6 shrink-0 text-white"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
