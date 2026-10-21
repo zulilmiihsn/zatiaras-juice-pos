@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { modalFocus } from '$lib/utils/modalFocus';
 
 	let {
 		show = $bindable(false),
@@ -99,10 +100,12 @@
 
 {#if show}
 	<div
-		class="fixed inset-0 z-40 flex items-center justify-center bg-gradient-to-br from-pink-500/95 via-pink-600/95 to-purple-600/95 pb-20 backdrop-blur-md"
+		use:modalFocus
+		class="z-modal fixed inset-0 flex items-center justify-center bg-gradient-to-br from-pink-500/95 via-pink-600/95 to-purple-600/95 pb-20 backdrop-blur-md"
 		transition:fade={{ duration: 200 }}
 		role="dialog"
 		aria-modal="true"
+		aria-label={title}
 	>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<div

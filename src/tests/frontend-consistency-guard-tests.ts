@@ -19,7 +19,7 @@ const CEILINGS: Record<string, number> = {
 	flexShrinkAlias: 0,
 	lowercaseComponentFiles: 0,
 	importPathCaseMismatch: 0,
-	overlayFiles: 14,
+	overlayFiles: 9,
 	inlineToast: 3,
 	roleButton: 14,
 	duplicatedLongClassGroups: 35,

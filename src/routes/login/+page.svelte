@@ -9,6 +9,7 @@
 	import { isAuthenticated } from '$lib/utils/authGuard';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { modalFocus } from '$lib/utils/modalFocus';
 
 	import User from '@lucide/svelte/icons/user';
 	import Lock from '@lucide/svelte/icons/lock';
@@ -313,6 +314,10 @@
 		transition:fade={{ duration: 200 }}
 	>
 		<div
+			use:modalFocus
+			role="dialog"
+			aria-modal="true"
+			aria-label="Login Berhasil"
 			class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
 			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 		>
@@ -332,6 +337,10 @@
 		transition:fade={{ duration: 200 }}
 	>
 		<div
+			use:modalFocus={{ onEscape: () => (showErrorModal = false) }}
+			role="dialog"
+			aria-modal="true"
+			aria-label="Login Gagal"
 			class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
 			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
 		>

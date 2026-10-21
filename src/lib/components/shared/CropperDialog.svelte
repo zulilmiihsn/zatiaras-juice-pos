@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { modalFocus } from '$lib/utils/modalFocus';
+
 	let {
 		src = '',
 		open = $bindable(false),
@@ -189,9 +191,11 @@
 
 {#if open}
 	<div
+		use:modalFocus={{ onEscape: handleCancel }}
 		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40"
 		role="dialog"
 		aria-modal="true"
+		aria-label="Potong gambar"
 	>
 		<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
 			<div

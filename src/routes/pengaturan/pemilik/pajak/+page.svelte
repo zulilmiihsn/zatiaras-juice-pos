@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import ReceiptText from '@lucide/svelte/icons/receipt-text';
 	import Percent from '@lucide/svelte/icons/percent';
 	import Plus from '@lucide/svelte/icons/plus';
@@ -435,74 +436,75 @@
 </div>
 
 <!-- Modal Tambah Pajak Kustom -->
-{#if showAddModal}
-	<div
-		class="z-modal fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
-	>
-		<div class="animate-scaleUp w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl">
-			<h3 class="text-base font-black text-slate-900">Tambah Pajak Kustom</h3>
-			<p class="mt-0.5 text-xs text-slate-500">
-				Buat komponen pajak atau retribusi khusus toko Anda
-			</p>
+<AppModal
+	open={showAddModal}
+	label="Tambah Pajak Kustom"
+	size="sm"
+	align="center"
+	panelClass="bg-white p-6"
+	onClose={() => (showAddModal = false)}
+>
+	<div>
+		<h3 class="text-base font-black text-slate-900">Tambah Pajak Kustom</h3>
+		<p class="mt-0.5 text-xs text-slate-500">Buat komponen pajak atau retribusi khusus toko Anda</p>
 
-			<div class="mt-4 flex flex-col gap-3.5">
-				<div>
-					<label for="modal-tax-name" class="mb-1 block text-xs font-bold text-slate-700"
-						>Nama Pajak / Retribusi</label
-					>
-					<input
-						id="modal-tax-name"
-						type="text"
-						bind:value={newTaxName}
-						placeholder="Contoh: Retribusi Kebersihan / Pajak Usaha"
-						class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-pink-500 focus:outline-none"
-					/>
-				</div>
-
-				<div>
-					<label for="modal-tax-percent" class="mb-1 block text-xs font-bold text-slate-700"
-						>Persentase Pajak (%)</label
-					>
-					<input
-						id="modal-tax-percent"
-						type="number"
-						step="0.1"
-						min="0.1"
-						max="100"
-						bind:value={newTaxPercent}
-						class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold focus:border-pink-500 focus:outline-none"
-					/>
-				</div>
-
-				<div>
-					<label for="modal-tax-desc" class="mb-1 block text-xs font-bold text-slate-700"
-						>Keterangan (Opsional)</label
-					>
-					<input
-						id="modal-tax-desc"
-						type="text"
-						bind:value={newTaxDesc}
-						placeholder="Catatan tambahan peruntukan pajak"
-						class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-pink-500 focus:outline-none"
-					/>
-				</div>
+		<div class="mt-4 flex flex-col gap-3.5">
+			<div>
+				<label for="modal-tax-name" class="mb-1 block text-xs font-bold text-slate-700"
+					>Nama Pajak / Retribusi</label
+				>
+				<input
+					id="modal-tax-name"
+					type="text"
+					bind:value={newTaxName}
+					placeholder="Contoh: Retribusi Kebersihan / Pajak Usaha"
+					class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-pink-500 focus:outline-none"
+				/>
 			</div>
 
-			<div class="mt-6 flex items-center justify-end gap-2">
-				<button
-					onclick={() => (showAddModal = false)}
-					class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 active:scale-95"
+			<div>
+				<label for="modal-tax-percent" class="mb-1 block text-xs font-bold text-slate-700"
+					>Persentase Pajak (%)</label
 				>
-					Batal
-				</button>
-				<button
-					onclick={handleAddCustomTax}
-					disabled={!newTaxName.trim()}
-					class="cursor-pointer rounded-full bg-pink-600 px-5 py-2 text-xs font-black text-white shadow-sm hover:bg-pink-700 active:scale-95 disabled:opacity-50"
+				<input
+					id="modal-tax-percent"
+					type="number"
+					step="0.1"
+					min="0.1"
+					max="100"
+					bind:value={newTaxPercent}
+					class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold focus:border-pink-500 focus:outline-none"
+				/>
+			</div>
+
+			<div>
+				<label for="modal-tax-desc" class="mb-1 block text-xs font-bold text-slate-700"
+					>Keterangan (Opsional)</label
 				>
-					Simpan Pajak
-				</button>
+				<input
+					id="modal-tax-desc"
+					type="text"
+					bind:value={newTaxDesc}
+					placeholder="Catatan tambahan peruntukan pajak"
+					class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-pink-500 focus:outline-none"
+				/>
 			</div>
 		</div>
+
+		<div class="mt-6 flex items-center justify-end gap-2">
+			<button
+				onclick={() => (showAddModal = false)}
+				class="cursor-pointer rounded-full px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 active:scale-95"
+			>
+				Batal
+			</button>
+			<button
+				onclick={handleAddCustomTax}
+				disabled={!newTaxName.trim()}
+				class="cursor-pointer rounded-full bg-pink-600 px-5 py-2 text-xs font-black text-white shadow-sm hover:bg-pink-700 active:scale-95 disabled:opacity-50"
+			>
+				Simpan Pajak
+			</button>
+		</div>
 	</div>
-{/if}
+</AppModal>

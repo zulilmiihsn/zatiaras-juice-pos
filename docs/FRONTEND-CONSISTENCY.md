@@ -71,7 +71,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 0        | F7      |
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 0        | F8      |
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
-| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 14       | F9a–c   |
+| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 9        | F9a–c   |
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 3        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 35       | F12     |
@@ -97,7 +97,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F7   | Alias Tailwind                        | Haiku  | Selesai  |
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai  |
 | F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
-| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Todo     |
+| F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
 | F9c  | Modal sisanya                         | Sonnet | Todo     |
 | F10  | Satu mekanisme toast                  | Sonnet | Todo     |
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Todo     |
@@ -309,3 +309,12 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   menutup, sama seperti sebelumnya. Keyframes `slideUpModal` dibuang; panel kini
   `max-w-md` (ukuran `sm` AppModal) menggantikan `max-w-sm`. `overlayFiles`
   17 → 14.
+- 21 Oktober 2026: F9b selesai. Modal tambah pajak kustom jadi `AppModal`
+  (`size="sm"`, `align="center"`, panel `max-w-md` menggantikan `max-w-sm`,
+  animasi `animate-scaleUp` diganti transisi AppModal). Kartu status login
+  (berhasil/gagal) berukuran sebesar isinya sehingga memakai `use:modalFocus`
+  langsung di panel (`role="dialog"`, Escape menutup kartu gagal, kartu
+  berhasil tidak bisa ditutup). `PinModal` dan `CropperDialog` memakai
+  `use:modalFocus` di elemen `role="dialog"`; z-index numerik `z-40` di
+  `PinModal` diganti token `z-modal`. Semantik tutup PIN tetap lewat handler
+  window yang ada (Escape, tombol Tutup). `overlayFiles` 14 → 9.
