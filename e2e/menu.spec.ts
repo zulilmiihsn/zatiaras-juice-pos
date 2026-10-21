@@ -30,6 +30,14 @@ async function loginAsOwner(page: Page) {
 	await expect(page).toHaveURL(/\/$/);
 }
 
+// Kartu manajemen menu: div.group dengan tombol buka sebagai anak langsung;
+// tombol aksi (hapus, ubah stok) adalah saudaranya, bukan anak tombol buka.
+function managedCard(page: Page, name: string) {
+	return page
+		.locator('div.group', { hasText: name })
+		.filter({ has: page.locator('xpath=./button') });
+}
+
 test.describe('Menu Management Behavioral Flows', () => {
 	test('menu route protects unauthorized access and enforces security boundary', async ({
 		page
@@ -90,7 +98,7 @@ test.describe('Menu Management Behavioral Flows', () => {
 		const name = `Kat UAT ${Date.now() % 100000}`;
 		await page.getByLabel('Nama Kategori').fill(name);
 		await page.getByRole('button', { name: 'Simpan Kategori', exact: true }).click();
-		const card = page.locator('div[role="button"]', { hasText: name });
+		const card = managedCard(page, name);
 		await expect(card).toBeVisible({ timeout: 60_000 });
 		await expect(page.getByRole('heading', { name: 'Tambah Kategori' })).toBeHidden();
 
@@ -121,7 +129,7 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await page.getByLabel('Nama Tambahan').fill(name);
 		await page.getByLabel('Harga Tambahan').fill('3000');
 		await page.getByRole('button', { name: 'Simpan Tambahan', exact: true }).click();
-		const card = page.locator('div[role="button"]', { hasText: name });
+		const card = managedCard(page, name);
 		await expect(card).toBeVisible({ timeout: 60_000 });
 		await expect(page.getByRole('heading', { name: 'Tambah Tambahan' })).toBeHidden();
 
@@ -150,7 +158,7 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await page.getByLabel('Nama Menu').fill(name);
 		await page.getByLabel('Harga Reguler').fill('12000');
 		await page.getByRole('button', { name: 'Simpan Menu', exact: true }).click();
-		const card = page.locator('div[role="button"]', { hasText: name });
+		const card = managedCard(page, name);
 		await expect(card).toBeVisible({ timeout: 60_000 });
 		await expect(page.getByRole('heading', { name: 'Tambah Menu Baru' })).toBeHidden();
 
@@ -180,7 +188,7 @@ test.describe('Menu Management Behavioral Flows', () => {
 		const name = `Bahan UAT ${Date.now() % 100000}`;
 		await page.getByLabel('Nama Bahan').fill(name);
 		await page.getByRole('button', { name: 'Simpan Bahan', exact: true }).click();
-		const card = page.locator('div[role="button"]', { hasText: name });
+		const card = managedCard(page, name);
 		await expect(card).toBeVisible({ timeout: 60_000 });
 		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeHidden();
 
