@@ -2,6 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { modalFocus } from '$lib/utils/modalFocus';
 	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
 	import { AutoApplyService, type RecommendationConsent } from '$lib/services/autoApplyService';
@@ -240,24 +241,24 @@
 </script>
 
 {#if isOpen}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- Klik latar hanya jalan pintas mouse; Escape ditangani use:modalFocus. -->
 	<div
 		use:mountAbovePage
+		use:modalFocus={{ onEscape: closeModal }}
 		class="modal-overlay z-sheet fixed inset-0 flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
 		transition:fade={{ duration: 180 }}
 		onclick={closeModal}
-		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
 		aria-modal="true"
+		aria-label="Asisten AI"
 		tabindex="-1"
 	>
 		<div
 			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-[28px] bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
 			transition:scale={{ start: 0.95, duration: 220, easing: cubicOut }}
 			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.key === 'Escape' && closeModal()}
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
+			role="presentation"
 		>
 			<!-- Header -->
 			<div

@@ -71,10 +71,10 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 0        | F7      |
 | `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 0        | F8      |
 | `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
-| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 9        | F9a–c   |
+| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 0        | F9a–c   |
 | `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 3        | F10     |
 | `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 14       | F11     |
-| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 35       | F12     |
+| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 34       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0            | 23       | F13     |
 | `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0            | 276      | F14     |
@@ -98,7 +98,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Selesai  |
 | F9a  | Modal `pos/bayar` ke `AppModal`       | Sonnet | Selesai  |
 | F9b  | Modal login, pajak, PIN, cropper      | Sonnet | Selesai  |
-| F9c  | Modal sisanya                         | Sonnet | Todo     |
+| F9c  | Modal sisanya                         | Sonnet | Selesai  |
 | F10  | Satu mekanisme toast                  | Sonnet | Todo     |
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Todo     |
 | F12  | Kelas form bersama                    | Sonnet | Todo     |
@@ -318,3 +318,13 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   `use:modalFocus` di elemen `role="dialog"`; z-index numerik `z-40` di
   `PinModal` diganti token `z-modal`. Semantik tutup PIN tetap lewat handler
   window yang ada (Escape, tombol Tutup). `overlayFiles` 14 → 9.
+- 21 Oktober 2026: F9c selesai. `TokoModal`, `NotifModal`, `DetailTransaksiModal`,
+  `LaporanFilter`, dan dua pemilih tanggal di `laporan/+page.svelte` jadi
+  `AppModal` (`align="center"`, `size="sm"`; panel `NotifModal` dan pemilih
+  tanggal melebar dari `max-w-sm` ke `max-w-md`). `LaporanAISection` dan
+  `AiChatModal` tetap berportal ke `body` dan memakai `use:modalFocus` di
+  overlay (Escape lewat `onEscape`, handler keydown ganda dibuang; panel
+  `AiChatModal` yang dobel `role="dialog"` jadi `role="presentation"`).
+  Konfirmasi hapus lokal di `PendingTransactionsSheet` memakai `use:modalFocus`
+  dan tetap membawa `data-testid`; Escape tidak menutup saat `removalBusy`.
+  `overlayFiles` 9 → 0, `duplicatedLongClassGroups` 35 → 34 (efek samping).

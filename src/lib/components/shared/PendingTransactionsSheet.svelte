@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
+	import { modalFocus } from '$lib/utils/modalFocus';
 	import { WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';
@@ -290,6 +291,11 @@
 
 {#if pendingRemoval}
 	<div
+		use:modalFocus={{
+			onEscape: () => {
+				if (!removalBusy) pendingRemoval = null;
+			}
+		}}
 		class="z-alert fixed inset-0 flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
 		role="dialog"
 		aria-modal="true"

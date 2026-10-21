@@ -8,8 +8,7 @@
 	import LaporanAccordions from '$lib/components/laporan/LaporanAccordions.svelte';
 	import LaporanAISection from '$lib/components/laporan/LaporanAISection.svelte';
 	import { createLaporanState } from '$lib/stores/laporanState.svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import FileDown from '@lucide/svelte/icons/file-down';
 	import Filter from '@lucide/svelte/icons/filter';
@@ -178,143 +177,129 @@
 />
 
 <!-- Root Level Modal Date Picker Start (Outside animated main container) -->
-{#if s.showDatePicker}
-	<div
-		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
-		onclick={(e) => e.target === e.currentTarget && (s.showDatePicker = false)}
-		onkeydown={(e) => e.key === 'Escape' && (s.showDatePicker = false)}
-		transition:fade={{ duration: 180 }}
-	>
-		<div
-			class="relative mx-auto w-full max-w-sm rounded-[28px] border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
-			transition:scale={{ duration: 200, start: 0.95, easing: cubicOut }}
-		>
-			<div class="mb-5 flex items-center justify-between border-b border-pink-100/70 pb-3.5">
-				<div class="flex items-center gap-3">
-					<div
-						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
-					>
-						<Calendar class="h-4.5 w-4.5 stroke-[2.2]" />
-					</div>
-					<div>
-						<h3 class="text-base font-black tracking-tight text-slate-900">Pilih Tanggal Awal</h3>
-						<p class="text-[11px] font-semibold text-slate-400">Tentukan awal periode</p>
-					</div>
-				</div>
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-colors hover:bg-pink-100 hover:text-pink-700 active:scale-95"
-					onclick={() => (s.showDatePicker = false)}
-					aria-label="Tutup date picker"
-				>
-					<X class="h-4 w-4 stroke-[2.4]" />
-				</button>
+<AppModal
+	open={s.showDatePicker}
+	label="Pilih Tanggal Awal"
+	size="sm"
+	align="center"
+	zClass="z-dialog"
+	panelClass="relative border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
+	onClose={() => (s.showDatePicker = false)}
+>
+	<div class="mb-5 flex items-center justify-between border-b border-pink-100/70 pb-3.5">
+		<div class="flex items-center gap-3">
+			<div
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
+			>
+				<Calendar class="h-4.5 w-4.5 stroke-[2.2]" />
 			</div>
-			<div class="mb-6">
-				<label
-					class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-					for="date-picker-start"
-				>
-					<Calendar class="h-3.5 w-3.5 text-pink-600" />
-					Tanggal Awal
-				</label>
-				<input
-					id="date-picker-start"
-					type="date"
-					class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-					bind:value={s.tempStartDate}
-				/>
-			</div>
-			<div class="flex gap-2.5">
-				<button
-					type="button"
-					class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-600 shadow-2xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-					onclick={() => (s.showDatePicker = false)}
-				>
-					Batal
-				</button>
-				<button
-					type="button"
-					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
-					onclick={() => s.applyStartDate()}
-				>
-					Pilih
-				</button>
+			<div>
+				<h3 class="text-base font-black tracking-tight text-slate-900">Pilih Tanggal Awal</h3>
+				<p class="text-[11px] font-semibold text-slate-400">Tentukan awal periode</p>
 			</div>
 		</div>
+		<button
+			type="button"
+			class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-colors hover:bg-pink-100 hover:text-pink-700 active:scale-95"
+			onclick={() => (s.showDatePicker = false)}
+			aria-label="Tutup date picker"
+		>
+			<X class="h-4 w-4 stroke-[2.4]" />
+		</button>
 	</div>
-{/if}
+	<div class="mb-6">
+		<label
+			class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+			for="date-picker-start"
+		>
+			<Calendar class="h-3.5 w-3.5 text-pink-600" />
+			Tanggal Awal
+		</label>
+		<input
+			id="date-picker-start"
+			type="date"
+			class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+			bind:value={s.tempStartDate}
+		/>
+	</div>
+	<div class="flex gap-2.5">
+		<button
+			type="button"
+			class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-600 shadow-2xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+			onclick={() => (s.showDatePicker = false)}
+		>
+			Batal
+		</button>
+		<button
+			type="button"
+			class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+			onclick={() => s.applyStartDate()}
+		>
+			Pilih
+		</button>
+	</div>
+</AppModal>
 
 <!-- Root Level Modal Date Picker End (Outside animated main container) -->
-{#if s.showEndDatePicker}
-	<div
-		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
-		onclick={(e) => e.target === e.currentTarget && (s.showEndDatePicker = false)}
-		onkeydown={(e) => e.key === 'Escape' && (s.showEndDatePicker = false)}
-		transition:fade={{ duration: 180 }}
-	>
-		<div
-			class="relative mx-auto w-full max-w-sm rounded-[28px] border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
-			transition:scale={{ duration: 200, start: 0.95, easing: cubicOut }}
-		>
-			<div class="mb-5 flex items-center justify-between border-b border-pink-100/70 pb-3.5">
-				<div class="flex items-center gap-3">
-					<div
-						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
-					>
-						<Calendar class="h-4.5 w-4.5 stroke-[2.2]" />
-					</div>
-					<div>
-						<h3 class="text-base font-black tracking-tight text-slate-900">Pilih Tanggal Akhir</h3>
-						<p class="text-[11px] font-semibold text-slate-400">Tentukan batas periode</p>
-					</div>
-				</div>
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-colors hover:bg-pink-100 hover:text-pink-700 active:scale-95"
-					onclick={() => (s.showEndDatePicker = false)}
-					aria-label="Tutup end date picker"
-				>
-					<X class="h-4 w-4 stroke-[2.4]" />
-				</button>
+<AppModal
+	open={s.showEndDatePicker}
+	label="Pilih Tanggal Akhir"
+	size="sm"
+	align="center"
+	zClass="z-dialog"
+	panelClass="relative border border-pink-100/80 bg-white p-6 shadow-2xl shadow-pink-900/10"
+	onClose={() => (s.showEndDatePicker = false)}
+>
+	<div class="mb-5 flex items-center justify-between border-b border-pink-100/70 pb-3.5">
+		<div class="flex items-center gap-3">
+			<div
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-pink-200/80 bg-gradient-to-br from-[#db2777] via-[#ec4899] to-[#f43f5e] text-white shadow-sm shadow-pink-500/20"
+			>
+				<Calendar class="h-4.5 w-4.5 stroke-[2.2]" />
 			</div>
-			<div class="mb-6">
-				<label
-					class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-					for="date-picker-end"
-				>
-					<Calendar class="h-3.5 w-3.5 text-pink-600" />
-					Tanggal Akhir
-				</label>
-				<input
-					id="date-picker-end"
-					type="date"
-					class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-					bind:value={s.tempEndDate}
-				/>
-			</div>
-			<div class="flex gap-2.5">
-				<button
-					type="button"
-					class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-600 shadow-2xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
-					onclick={() => (s.showEndDatePicker = false)}
-				>
-					Batal
-				</button>
-				<button
-					type="button"
-					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
-					onclick={() => s.applyEndDate()}
-				>
-					Pilih
-				</button>
+			<div>
+				<h3 class="text-base font-black tracking-tight text-slate-900">Pilih Tanggal Akhir</h3>
+				<p class="text-[11px] font-semibold text-slate-400">Tentukan batas periode</p>
 			</div>
 		</div>
+		<button
+			type="button"
+			class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-colors hover:bg-pink-100 hover:text-pink-700 active:scale-95"
+			onclick={() => (s.showEndDatePicker = false)}
+			aria-label="Tutup end date picker"
+		>
+			<X class="h-4 w-4 stroke-[2.4]" />
+		</button>
 	</div>
-{/if}
+	<div class="mb-6">
+		<label
+			class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
+			for="date-picker-end"
+		>
+			<Calendar class="h-3.5 w-3.5 text-pink-600" />
+			Tanggal Akhir
+		</label>
+		<input
+			id="date-picker-end"
+			type="date"
+			class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+			bind:value={s.tempEndDate}
+		/>
+	</div>
+	<div class="flex gap-2.5">
+		<button
+			type="button"
+			class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white py-3 text-xs font-extrabold text-slate-600 shadow-2xs transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+			onclick={() => (s.showEndDatePicker = false)}
+		>
+			Batal
+		</button>
+		<button
+			type="button"
+			class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+			onclick={() => s.applyEndDate()}
+		>
+			Pilih
+		</button>
+	</div>
+</AppModal>

@@ -2,6 +2,7 @@
 	import { renderMarkdown } from '$lib/utils/markdown';
 	import { fade, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { modalFocus } from '$lib/utils/modalFocus';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { getApiErrorMessage, reportApiFailure } from '$lib/utils/errorHandling';
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
@@ -354,13 +355,16 @@
 
 <!-- ─── 2. ASSISTANT MODAL DIALOG (PORTAL KE BODY, BEBAS TUMPUKAN APPNAV) ─── -->
 {#if showAiModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- Klik latar hanya jalan pintas mouse; Escape ditangani use:modalFocus. -->
 	<div
 		use:portal
+		use:modalFocus={{ onEscape: handleAiClose }}
 		class="z-dialog fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-black/60 p-3 backdrop-blur-xs sm:p-5"
 		onclick={(e) => e.target === e.currentTarget && handleAiClose()}
-		onkeydown={(e) => e.key === 'Escape' && handleAiClose()}
 		role="dialog"
 		aria-modal="true"
+		aria-label="Asisten AI Zatiaras"
 		tabindex="-1"
 		transition:fade={{ duration: 180 }}
 	>
