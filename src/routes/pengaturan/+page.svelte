@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { fly, fade } from 'svelte/transition';
@@ -28,24 +29,15 @@
 	aria-label="Pengaturan Sistem"
 	class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12"
 >
-	<!-- Fluid Wave Header for Pengaturan (Full-width edge-to-edge) -->
-	<div class="page-header relative w-full px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<!-- Ambient background blur shapes -->
-		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
-
-		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
+	<PageHeader variant="compact">
+		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
 			<HeaderBackButton href="/">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">Pengaturan Sistem</h1>
 			<div class="h-10 w-10"></div>
 		</div>
-	</div>
+	</PageHeader>
 
 	<!-- Main Container -->
 	<div class="relative z-20 mx-auto -mt-6 flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 md:px-6">

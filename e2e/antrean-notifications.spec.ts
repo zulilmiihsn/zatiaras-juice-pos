@@ -164,7 +164,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		});
 		await page.getByRole('button', { name: /^Antrean Notifikasi$/ }).click();
 		await expect(page.getByRole('heading', { name: 'Pengaturan Antrean', level: 1 })).toBeVisible();
-		const header = page.getByRole('banner');
+		const header = page.locator('.page-header');
 		expect(
 			await header.evaluate((element) => {
 				const style = getComputedStyle(element);

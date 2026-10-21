@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -243,16 +244,8 @@
 </script>
 
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
-	<!-- Fluid Wave Header (Full-width edge-to-edge) -->
-	<div class="page-header relative w-full px-5 pt-4 pb-12 md:pt-6 md:pb-14">
-		<div
-			class="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/20 blur-xl"
-		></div>
-		<div
-			class="pointer-events-none absolute bottom-0 -left-6 h-32 w-32 rounded-full bg-rose-400/25 blur-xl"
-		></div>
-
-		<div class="relative z-10 mx-auto flex max-w-5xl items-center justify-between">
+	<PageHeader variant="compact">
+		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
 			<HeaderBackButton onclick={() => goto('/pengaturan/pemilik')}>
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
@@ -263,7 +256,7 @@
 				<RefreshCw class="h-5 w-5 {loading ? 'animate-spin' : ''}" />
 			</HeaderBackButton>
 		</div>
-	</div>
+	</PageHeader>
 
 	<!-- Main Container -->
 	<div class="relative z-20 mx-auto -mt-6 w-full max-w-5xl px-4 md:px-6">
