@@ -63,8 +63,8 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0            | 0        | F1      |
 | `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 0        | F3      |
 | `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 0        | F4      |
-| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 2        | F2, F5  |
-| `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 6        | F5      |
+| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 0        | F2, F5  |
+| `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 0        | F5      |
 | `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 1        | F6      |
 | `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 3        | F6      |
 | `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0            | 18       | F7      |
@@ -92,7 +92,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
 | F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
 | F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
-| F5   | Navigasi pakai link                   | Haiku  | Todo     |
+| F5   | Navigasi pakai link                   | Haiku  | Selesai  |
 | F6   | Perapian kecil (log, versi, footer)   | Haiku  | Todo     |
 | F7   | Alias Tailwind                        | Haiku  | Todo     |
 | F8   | Nama berkas komponen PascalCase       | Haiku  | Todo     |
@@ -282,3 +282,8 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   kini menghasilkan CSS. `nestedStyle` 2 → 0.
 - 21 Oktober 2026: F4 selesai. `+layout.svelte` dan `appNav.svelte` memakai
   `page` dan `navigating` dari `$app/state`. `appStoresImport` 3 → 0.
+- 21 Oktober 2026: F5 selesai. Tombol `goto` di `monitoring` dan `pemilik/stok`
+  jadi `<a href>` dengan `focus-visible:ring-2`; enam `HeaderBackButton` memakai
+  `href` + `label` ("Kembali ke Pengaturan" / "Kembali ke Pengaturan Pemilik").
+  Import `goto` yang tak terpakai dibuang. `pureGotoButton` 2 → 0,
+  `headerBackGoto` 6 → 0.

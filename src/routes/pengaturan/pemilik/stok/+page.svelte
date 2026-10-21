@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
@@ -268,14 +267,13 @@
 						Lihat dan ubah stok bahan baku secara real-time
 					</p>
 				</div>
-				<button
-					type="button"
-					onclick={() => goto('/stok')}
-					class="flex cursor-pointer items-center gap-1.5 rounded-full border border-pink-100 bg-pink-50 px-3.5 py-1.5 text-xs font-bold text-pink-600 transition-all hover:bg-pink-100 active:scale-95 md:px-4 md:py-2 md:text-sm"
+				<a
+					href="/stok"
+					class="flex cursor-pointer items-center gap-1.5 rounded-full border border-pink-100 bg-pink-50 px-3.5 py-1.5 text-xs font-bold text-pink-600 transition-all hover:bg-pink-100 focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none active:scale-95 md:px-4 md:py-2 md:text-sm"
 				>
 					<span>Buka Stok</span>
 					<ExternalLink class="h-3.5 w-3.5 stroke-[2.2] md:h-4 md:w-4" />
-				</button>
+				</a>
 			</div>
 		</div>
 	</div>

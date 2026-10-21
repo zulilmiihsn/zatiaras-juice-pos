@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Activity from '@lucide/svelte/icons/activity';
@@ -69,14 +68,13 @@
 <div class="min-h-[100dvh] bg-gray-50 px-4 py-4 text-gray-900 md:px-8 md:py-8">
 	<header class="mx-auto flex max-w-6xl items-center justify-between gap-4">
 		<div class="flex items-center gap-3">
-			<button
-				type="button"
-				class="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm transition-all active:scale-[0.98]"
+			<a
+				href="/pengaturan"
+				class="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none active:scale-[0.98]"
 				aria-label="Kembali"
-				onclick={() => goto('/pengaturan')}
 			>
 				<ArrowLeft class="h-5 w-5" />
-			</button>
+			</a>
 			<div>
 				<h1 class="text-xl font-bold tracking-normal md:text-2xl">Monitoring Produksi</h1>
 				<p class="mt-1 text-sm text-gray-500">Window 60 menit</p>

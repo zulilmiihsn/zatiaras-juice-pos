@@ -144,7 +144,7 @@
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
-			<HeaderBackButton onclick={() => goto('/pengaturan')}>
+			<HeaderBackButton href="/pengaturan" label="Kembali ke Pengaturan">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">

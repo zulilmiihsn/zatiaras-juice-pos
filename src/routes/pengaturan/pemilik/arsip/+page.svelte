@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
@@ -150,7 +149,7 @@
 <div class="page-content flex min-h-[100dvh] flex-col bg-[#faf7f8] pb-12">
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
-			<HeaderBackButton onclick={() => goto('/pengaturan/pemilik')}>
+			<HeaderBackButton href="/pengaturan/pemilik" label="Kembali ke Pengaturan Pemilik">
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
