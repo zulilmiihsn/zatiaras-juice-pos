@@ -348,3 +348,24 @@ input,
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+
+/* ── Form bersama (satu sumber gaya input & label) ──
+   Di layer components agar utilitas per-pemakaian (padding, bobot font)
+   tetap menimpa dasar ini. */
+@layer components {
+	.form-label {
+		@apply text-xs font-bold tracking-wider text-slate-700 uppercase;
+	}
+	.form-label-eyebrow {
+		@apply mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase;
+	}
+	.form-input {
+		@apply w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none;
+	}
+	.form-input-soft {
+		@apply w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15;
+	}
+	.form-input-pink {
+		@apply w-full rounded-xl border border-pink-100 bg-pink-50/30 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base;
+	}
+}

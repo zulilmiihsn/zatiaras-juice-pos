@@ -22,7 +22,7 @@ const CEILINGS: Record<string, number> = {
 	overlayFiles: 0,
 	inlineToast: 0,
 	roleButton: 0,
-	duplicatedLongClassGroups: 34,
+	duplicatedLongClassGroups: 26,
 	brandHexClass: 118,
 	canvasHex: 23,
 	neutralNonSlate: 276,

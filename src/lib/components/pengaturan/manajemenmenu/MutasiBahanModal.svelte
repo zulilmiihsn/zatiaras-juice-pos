@@ -42,9 +42,7 @@
 		autocomplete="off"
 	>
 		<div class="flex flex-col gap-1.5">
-			<label for="mutasi-delta" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Jumlah Perubahan</label
-			>
+			<label for="mutasi-delta" class="form-label">Jumlah Perubahan</label>
 			<input
 				id="mutasi-delta"
 				type="number"
@@ -59,13 +57,11 @@
 			</p>
 		</div>
 		<div class="flex flex-col gap-1.5">
-			<label for="mutasi-catatan" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Catatan</label
-			>
+			<label for="mutasi-catatan" class="form-label">Catatan</label>
 			<input
 				id="mutasi-catatan"
 				type="text"
-				class="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+				class="form-input"
 				bind:value={s.mutasiBahanForm.catatan}
 				placeholder="Belanja bahan / koreksi opname"
 			/>

@@ -208,17 +208,14 @@
 		</button>
 	</div>
 	<div class="mb-6">
-		<label
-			class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-			for="date-picker-start"
-		>
+		<label class="form-label-eyebrow" for="date-picker-start">
 			<Calendar class="h-3.5 w-3.5 text-pink-600" />
 			Tanggal Awal
 		</label>
 		<input
 			id="date-picker-start"
 			type="date"
-			class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
+			class="form-input-soft"
 			bind:value={s.tempStartDate}
 		/>
 	</div>
@@ -272,19 +269,11 @@
 		</button>
 	</div>
 	<div class="mb-6">
-		<label
-			class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-			for="date-picker-end"
-		>
+		<label class="form-label-eyebrow" for="date-picker-end">
 			<Calendar class="h-3.5 w-3.5 text-pink-600" />
 			Tanggal Akhir
 		</label>
-		<input
-			id="date-picker-end"
-			type="date"
-			class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-			bind:value={s.tempEndDate}
-		/>
+		<input id="date-picker-end" type="date" class="form-input-soft" bind:value={s.tempEndDate} />
 	</div>
 	<div class="flex gap-2.5">
 		<button

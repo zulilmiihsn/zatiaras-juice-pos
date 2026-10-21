@@ -58,28 +58,28 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 
 "Awal" = hasil skrip pada 21 Oktober 2026. "Sekarang" diisi agent saat kartu selesai.
 
-| Metrik                      | Yang dihitung                                                    | Awal | Target       | Sekarang | Kartu   |
-| --------------------------- | ---------------------------------------------------------------- | ---- | ------------ | -------- | ------- |
-| `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0            | 0        | F1      |
-| `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 0        | F3      |
-| `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 0        | F4      |
-| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 0        | F2, F5  |
-| `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 0        | F5      |
-| `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 0        | F6      |
-| `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0            | 0        | F6      |
-| `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0            | 0        | F7      |
-| `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0            | 0        | F7      |
-| `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0            | 0        | F8      |
-| `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0            | 0        | penjaga |
-| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0            | 0        | F9a–c   |
-| `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0            | 0        | F10     |
-| `roleButton`                | kemunculan `role="button"`                                       | 14   | 0            | 0        | F11     |
-| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | diset di F12 | 34       | F12     |
-| `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0            | 118      | F13     |
-| `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0            | 23       | F13     |
-| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0            | 276      | F14     |
-| `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0            | 36       | F15     |
-| `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14           | 18       | F16     |
+| Metrik                      | Yang dihitung                                                    | Awal | Target | Sekarang | Kartu   |
+| --------------------------- | ---------------------------------------------------------------- | ---- | ------ | -------- | ------- |
+| `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0      | 0        | F1      |
+| `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0      | 0        | F3      |
+| `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0      | 0        | F4      |
+| `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0      | 0        | F2, F5  |
+| `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0      | 0        | F5      |
+| `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0      | 0        | F6      |
+| `staleVersionText`          | teks `v1.0` atau `© 2024` di markup                              | 3    | 0      | 0        | F6      |
+| `arbitraryDvh`              | `min-h-[100dvh]` dan `h-[100dvh]`                                | 18   | 0      | 0        | F7      |
+| `flexShrinkAlias`           | `flex-shrink-*` (nama Tailwind v3)                               | 28   | 0      | 0        | F7      |
+| `lowercaseComponentFiles`   | berkas komponen diawali huruf kecil                              | 11   | 0      | 0        | F8      |
+| `importPathCaseMismatch`    | import `.svelte` beda huruf besar/kecil dari berkas di disk      | 0    | 0      | 0        | penjaga |
+| `overlayFiles`              | elemen `fixed inset-0` di berkas tanpa `use:modalFocus`          | 17   | 0      | 0        | F9a–c   |
+| `inlineToast`               | berkas dengan `z-toast` selain `toastNotification`               | 3    | 0      | 0        | F10     |
+| `roleButton`                | kemunculan `role="button"`                                       | 14   | 0      | 0        | F11     |
+| `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | 26     | 26       | F12     |
+| `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0      | 118      | F13     |
+| `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 23       | F13     |
+| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 276      | F14     |
+| `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 36       | F15     |
+| `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 18       | F16     |
 
 ## Kartu
 
@@ -101,7 +101,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F9c  | Modal sisanya                         | Sonnet | Selesai  |
 | F10  | Satu mekanisme toast                  | Sonnet | Selesai  |
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
-| F12  | Kelas form bersama                    | Sonnet | Todo     |
+| F12  | Kelas form bersama                    | Sonnet | Selesai  |
 | F13  | Token warna merek                     | Haiku  | Todo     |
 | F14  | Abu-abu ke slate                      | Haiku  | Todo     |
 | F15  | Helper peran UI                       | Sonnet | Todo     |
@@ -348,3 +348,17 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   Isi `<button>` di `LockedPagesCard` dan header toggle `MenuFormModal` dijadikan
   `span` (+ `block`) agar tak ada `div`/`p` di dalam tombol; toggle menu
   mendapat `aria-pressed`. `roleButton` 14 → 0.
+- 21 Oktober 2026: F12 selesai. `src/app.css` mendapat `@layer components`
+  berisi `.form-label`, `.form-label-eyebrow`, `.form-input`, `.form-input-soft`,
+  dan `.form-input-pink` (dibuat dengan `@apply`, string utilitas persis sama).
+  Diterapkan hanya pada string yang identik, sehingga tampilan sama secara
+  konstruksi: empat FormModal + `MutasiBahanModal` (`form-label`, `form-input`,
+  varian ikon `form-input pl-10 font-bold`), `LaporanFilter` + `laporan`
+  (`form-input-soft`, `form-label-eyebrow`), `PosProductSheet`
+  (`form-label-eyebrow mb-2`), `CredentialsCard` + `PinCard` + `printer`
+  (`form-input-pink` + utilitas padding; `printer` menimpa border 1,5px, teks
+  stone, durasi 200). Layer components membuat utilitas per-pemakaian tetap
+  menang. Dibandingkan screenshot: tidak dilakukan (memori rendah), dijaga lewat
+  konstruksi dan CI. Ceiling `duplicatedLongClassGroups` 36 → 26; grup sisanya
+  berbeda tampilan (tombol, ikon, kartu) dan tak dimasukkan agar tak mengubah
+  tampilan.

@@ -98,9 +98,7 @@
 	>
 		<!-- Preview Gambar Menu -->
 		<div class="flex flex-col gap-2">
-			<label for="menu-image" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Gambar Menu</label
-			>
+			<label for="menu-image" class="form-label">Gambar Menu</label>
 			<div class="relative w-full">
 				<button
 					type="button"
@@ -181,13 +179,11 @@
 
 		<!-- Nama Menu -->
 		<div class="flex flex-col gap-1.5">
-			<label for="menu-name" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Nama Menu</label
-			>
+			<label for="menu-name" class="form-label">Nama Menu</label>
 			<input
 				type="text"
 				id="menu-name"
-				class="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+				class="form-input"
 				bind:value={s.menuForm.nama}
 				required
 				placeholder="Contoh: Es Teh Manis"
@@ -197,9 +193,7 @@
 		<!-- Harga Reguler & Harga Jumbo -->
 		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 			<div class="flex flex-col gap-1.5">
-				<label for="menu-harga" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>Harga Reguler</label
-				>
+				<label for="menu-harga" class="form-label">Harga Reguler</label>
 				<div class="relative">
 					<span class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-slate-400"
 						>Rp</span
@@ -207,7 +201,7 @@
 					<input
 						type="text"
 						id="menu-harga"
-						class="w-full rounded-xl border border-slate-200/90 bg-white py-3 pr-4 pl-10 text-sm font-bold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+						class="form-input pl-10 font-bold"
 						bind:value={s.menuForm.harga}
 						oninput={s.handleRupiahInput(s.menuForm, 'harga')}
 						required
@@ -217,10 +211,7 @@
 			</div>
 
 			<div class="flex flex-col gap-1.5">
-				<label
-					for="menu-harga-jumbo"
-					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>
+				<label for="menu-harga-jumbo" class="form-label">
 					Harga Jumbo <span class="text-[11px] font-normal text-slate-400 lowercase"
 						>(opsional)</span
 					>
@@ -232,7 +223,7 @@
 					<input
 						type="text"
 						id="menu-harga-jumbo"
-						class="w-full rounded-xl border border-slate-200/90 bg-white py-3 pr-4 pl-10 text-sm font-bold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+						class="form-input pl-10 font-bold"
 						bind:value={s.menuForm.harga_jumbo}
 						oninput={s.handleRupiahInput(s.menuForm, 'harga_jumbo')}
 						placeholder="Sama jika kosong"
@@ -246,9 +237,7 @@
 			class="flex flex-col gap-3 rounded-[24px] border border-slate-200/80 bg-slate-50/60 p-4.5 shadow-xs"
 		>
 			<div>
-				<span class="text-xs font-bold tracking-wider text-slate-700 uppercase">
-					Metode Pengurangan Stok
-				</span>
+				<span class="form-label"> Metode Pengurangan Stok </span>
 				<p class="mt-0.5 text-xs text-slate-500">
 					Pilih bagaimana stok produk ini dikelola saat terjadi transaksi di kasir.
 				</p>
@@ -588,7 +577,7 @@
 
 		<!-- Tipe Menu -->
 		<div class="flex flex-col gap-1.5">
-			<span class="text-xs font-bold tracking-wider text-slate-700 uppercase">Tipe Menu</span>
+			<span class="form-label">Tipe Menu</span>
 			<div class="flex gap-2.5">
 				<button
 					type="button"
@@ -617,7 +606,7 @@
 
 		<!-- Kategori -->
 		<div class="flex flex-col gap-1.5">
-			<span class="text-xs font-bold tracking-wider text-slate-700 uppercase">Kategori</span>
+			<span class="form-label">Kategori</span>
 			<div class="scrollbar-hide flex gap-1.5 overflow-x-auto pb-1">
 				{#each s.kategoriList as kat}
 					<button
@@ -636,9 +625,7 @@
 
 		<!-- Tambahan -->
 		<div class="flex flex-col gap-1.5">
-			<span class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Tambahan (Opsional)</span
-			>
+			<span class="form-label">Tambahan (Opsional)</span>
 			<div class="grid grid-cols-2 gap-2">
 				{#each s.ekstraList as ekstra}
 					<button

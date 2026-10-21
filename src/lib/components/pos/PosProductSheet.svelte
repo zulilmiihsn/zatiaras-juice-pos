@@ -46,9 +46,7 @@
 		{#if s.selectedProduct && s.selectedProduct.tipe === 'minuman'}
 			<!-- Ukuran Porsi -->
 			<div>
-				<div
-					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-				>
+				<div class="form-label-eyebrow mb-2">
 					<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
 					Pilihan Porsi
 				</div>
@@ -92,9 +90,7 @@
 
 			<!-- Jenis Gula -->
 			<div>
-				<div
-					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-				>
+				<div class="form-label-eyebrow mb-2">
 					<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
 					Jenis Gula
 				</div>
@@ -114,9 +110,7 @@
 
 			<!-- Jenis Es -->
 			<div>
-				<div
-					class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-				>
+				<div class="form-label-eyebrow mb-2">
 					<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
 					Jenis Es
 				</div>
@@ -137,9 +131,7 @@
 
 		<!-- Tambahan (Ekstra) -->
 		<div>
-			<div
-				class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-			>
+			<div class="form-label-eyebrow mb-2">
 				<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
 				Tambahan (Ekstra)
 			</div>
@@ -198,9 +190,7 @@
 
 		<!-- Catatan -->
 		<div>
-			<div
-				class="mb-2 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-			>
+			<div class="form-label-eyebrow mb-2">
 				<span class="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
 				Catatan Pesanan
 			</div>

@@ -142,7 +142,7 @@
 					<input
 						id="old-username"
 						type="text"
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink px-4 py-2.5"
 						placeholder="Username saat ini"
 						bind:value={s.oldUsername}
 						required
@@ -162,7 +162,7 @@
 					<input
 						id="new-username"
 						type="text"
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink px-4 py-2.5"
 						placeholder="Masukkan username baru"
 						bind:value={s.newUsername}
 						required
@@ -179,7 +179,7 @@
 					<input
 						id="old-password"
 						type={s.showOldPassword ? 'text' : 'password'}
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink py-2.5 pr-11 pl-4"
 						placeholder="Masukkan password saat ini"
 						bind:value={s.oldPassword}
 						required
@@ -213,7 +213,7 @@
 							<input
 								id="new-password"
 								type={s.showNewPassword ? 'text' : 'password'}
-								class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+								class="form-input-pink py-2.5 pr-11 pl-4"
 								placeholder="Minimal 8 karakter"
 								bind:value={s.newPassword}
 								required
@@ -244,7 +244,7 @@
 							<input
 								id="confirm-password"
 								type={s.showConfirmPassword ? 'text' : 'password'}
-								class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+								class="form-input-pink py-2.5 pr-11 pl-4"
 								placeholder="Ulangi password baru"
 								bind:value={s.confirmPassword}
 								required
@@ -321,7 +321,7 @@
 					<input
 						id="kasir-old-username"
 						type="text"
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink px-4 py-2.5"
 						placeholder="Username kasir saat ini"
 						bind:value={s.kasirOldUsername}
 						required
@@ -341,7 +341,7 @@
 					<input
 						id="kasir-new-username"
 						type="text"
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 px-4 py-2.5 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink px-4 py-2.5"
 						placeholder="Masukkan username baru kasir"
 						bind:value={s.kasirNewUsername}
 						required
@@ -363,7 +363,7 @@
 					<input
 						id="kasir-old-password"
 						type={s.showKasirOldPassword ? 'text' : 'password'}
-						class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+						class="form-input-pink py-2.5 pr-11 pl-4"
 						placeholder="Masukkan password kasir saat ini"
 						bind:value={s.kasirOldPassword}
 						required
@@ -397,7 +397,7 @@
 							<input
 								id="kasir-new-password"
 								type={s.showKasirNewPassword ? 'text' : 'password'}
-								class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+								class="form-input-pink py-2.5 pr-11 pl-4"
 								placeholder="Minimal 8 karakter"
 								bind:value={s.kasirNewPassword}
 								required
@@ -428,7 +428,7 @@
 							<input
 								id="kasir-confirm-password"
 								type={s.showKasirConfirmPassword ? 'text' : 'password'}
-								class="w-full rounded-xl border border-pink-100 bg-pink-50/30 py-2.5 pr-11 pl-4 text-sm text-slate-800 transition-all outline-none placeholder:text-slate-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10 md:text-base"
+								class="form-input-pink py-2.5 pr-11 pl-4"
 								placeholder="Ulangi password baru"
 								bind:value={s.kasirConfirmPassword}
 								required

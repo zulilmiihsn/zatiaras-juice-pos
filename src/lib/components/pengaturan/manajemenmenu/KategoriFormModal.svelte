@@ -71,13 +71,11 @@
 		>
 			<!-- Nama Kategori -->
 			<div class="flex flex-col gap-1.5">
-				<label for="kategori-name" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>Nama Kategori</label
-				>
+				<label for="kategori-name" class="form-label">Nama Kategori</label>
 				<input
 					type="text"
 					id="kategori-name"
-					class="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+					class="form-input"
 					bind:value={kategoriDetailName}
 					required
 					placeholder="Masukkan nama kategori (contoh: Minuman)"
@@ -86,11 +84,7 @@
 
 			<!-- Menu dalam Kategori -->
 			<div class="flex flex-col gap-1.5">
-				<label
-					for="menu-dalam-kategori"
-					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>Menu dalam Kategori</label
-				>
+				<label for="menu-dalam-kategori" class="form-label">Menu dalam Kategori</label>
 				<div
 					class="flex min-h-[44px] flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3"
 				>
@@ -115,10 +109,7 @@
 
 			<!-- Menu non Kategori -->
 			<div class="flex flex-col gap-1.5">
-				<label
-					for="menu-non-kategori"
-					class="text-xs font-bold tracking-wider text-slate-700 uppercase">Menu non Kategori</label
-				>
+				<label for="menu-non-kategori" class="form-label">Menu non Kategori</label>
 				<div
 					class="flex min-h-[44px] flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3"
 				>

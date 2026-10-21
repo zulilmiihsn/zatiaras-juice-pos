@@ -51,13 +51,11 @@
 	>
 		<!-- Nama Bahan -->
 		<div class="flex flex-col gap-1.5">
-			<label for="bahan-name" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Nama Bahan</label
-			>
+			<label for="bahan-name" class="form-label">Nama Bahan</label>
 			<input
 				id="bahan-name"
 				type="text"
-				class="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+				class="form-input"
 				bind:value={s.bahanForm.nama}
 				required
 				placeholder="Contoh: Alpukat Mentega, Gula Pasir, Susu SKM, Cup 16oz"
@@ -66,9 +64,7 @@
 
 		<!-- Tipe Satuan / Sifat Bahan -->
 		<div class="flex flex-col gap-1.5">
-			<span class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Tipe Takaran / Sifat Bahan</span
-			>
+			<span class="form-label">Tipe Takaran / Sifat Bahan</span>
 			<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
 				{#each UNIT_CATEGORIES as cat}
 					<button
@@ -95,9 +91,7 @@
 
 		<!-- Kategori Bahan (Bahan Baku / Topping / Kemasan) -->
 		<div class="flex flex-col gap-1.5">
-			<label for="bahan-kategori" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Kategori Bahan</label
-			>
+			<label for="bahan-kategori" class="form-label">Kategori Bahan</label>
 			<div class="relative">
 				<select
 					id="bahan-kategori"
@@ -127,9 +121,7 @@
 		<!-- Satuan Dasar & Stok Siap Pakai -->
 		<div class="grid grid-cols-2 gap-3">
 			<div class="flex flex-col gap-1.5">
-				<label for="bahan-satuan" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>Satuan Simpan</label
-				>
+				<label for="bahan-satuan" class="form-label">Satuan Simpan</label>
 				<div class="relative">
 					<select
 						id="bahan-satuan"
@@ -160,9 +152,7 @@
 				</div>
 			</div>
 			<div class="flex flex-col gap-1.5">
-				<label for="bahan-stock" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>Stok Siap Pakai</label
-				>
+				<label for="bahan-stock" class="form-label">Stok Siap Pakai</label>
 				<input
 					id="bahan-stock"
 					type="text"
@@ -177,11 +167,7 @@
 
 		{#if s.bahanForm.tipe_satuan === 'kemasan'}
 			<div class="flex flex-col gap-1.5">
-				<label
-					for="bahan-isi-kemasan"
-					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-					>1 Pack/Bungkus Isi Berapa Pcs?</label
-				>
+				<label for="bahan-isi-kemasan" class="form-label">1 Pack/Bungkus Isi Berapa Pcs?</label>
 				<input
 					id="bahan-isi-kemasan"
 					type="text"
@@ -196,8 +182,7 @@
 
 		<!-- Batas Peringatan Habis -->
 		<div class="flex flex-col gap-1.5">
-			<label for="bahan-low" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Batas Peringatan Habis ({s.bahanForm.satuan})</label
+			<label for="bahan-low" class="form-label">Batas Peringatan Habis ({s.bahanForm.satuan})</label
 			>
 			<input
 				id="bahan-low"

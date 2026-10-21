@@ -83,22 +83,18 @@
 		autocomplete="off"
 	>
 		<div class="flex flex-col gap-1.5">
-			<label for="ekstra-name" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Nama Tambahan</label
-			>
+			<label for="ekstra-name" class="form-label">Nama Tambahan</label>
 			<input
 				type="text"
 				id="ekstra-name"
-				class="w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+				class="form-input"
 				bind:value={ekstraForm.nama}
 				required
 				placeholder="Contoh: Bubble Boba, Extra Shot"
 			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
-			<label for="ekstra-harga" class="text-xs font-bold tracking-wider text-slate-700 uppercase"
-				>Harga Tambahan</label
-			>
+			<label for="ekstra-harga" class="form-label">Harga Tambahan</label>
 			<div class="relative">
 				<span class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-slate-400"
 					>Rp</span
@@ -106,7 +102,7 @@
 				<input
 					id="ekstra-harga"
 					type="text"
-					class="w-full rounded-xl border border-slate-200/90 bg-white py-3 pr-4 pl-10 text-sm font-bold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 focus:outline-none"
+					class="form-input pl-10 font-bold"
 					bind:value={ekstraForm.harga}
 					oninput={handleRupiahInput(ekstraForm, 'harga')}
 					required
@@ -118,9 +114,7 @@
 		<!-- Section Lacak Bahan & HPP Topping (Opsional) -->
 		<div class="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5">
 			<div class="mb-2 flex items-center justify-between">
-				<span class="text-xs font-bold tracking-wider text-slate-700 uppercase">
-					Lacak Bahan & Potong Stok (Opsional)
-				</span>
+				<span class="form-label"> Lacak Bahan & Potong Stok (Opsional) </span>
 				{#if selectedEkstraBahan}
 					<button
 						type="button"

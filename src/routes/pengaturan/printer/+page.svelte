@@ -270,7 +270,7 @@
 						<input
 							type="text"
 							id="nama-toko"
-							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
 							bind:value={namaToko}
 							maxlength="50"
 							required
@@ -289,7 +289,7 @@
 						<input
 							type="text"
 							id="alamat"
-							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
 							bind:value={alamat}
 							maxlength="100"
 							required
@@ -309,7 +309,7 @@
 							<input
 								type="text"
 								id="telepon"
-								class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
 								bind:value={telepon}
 								maxlength="20"
 								required
@@ -328,7 +328,7 @@
 							<input
 								type="text"
 								id="instagram"
-								class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
 								bind:value={instagram}
 								maxlength="30"
 							/>
@@ -346,7 +346,7 @@
 						</label>
 						<textarea
 							id="ucapan"
-							class="w-full rounded-xl border-[1.5px] border-pink-100 bg-pink-50/30 px-4 py-3 text-base text-stone-900 transition-all duration-200 outline-none placeholder:text-stone-400 focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
 							rows="3"
 							bind:value={ucapan}
 							maxlength="120"></textarea>

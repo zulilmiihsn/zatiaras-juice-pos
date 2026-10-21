@@ -93,57 +93,31 @@
 	{#if filterType === 'harian'}
 		<div class="mb-6 space-y-3">
 			<div>
-				<label
-					class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-					for="harian-start-date"
-				>
+				<label class="form-label-eyebrow" for="harian-start-date">
 					<Calendar class="h-3.5 w-3.5 text-pink-600" />
 					Tanggal Awal
 				</label>
-				<input
-					id="harian-start-date"
-					type="date"
-					class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-					bind:value={startDate}
-				/>
+				<input id="harian-start-date" type="date" class="form-input-soft" bind:value={startDate} />
 			</div>
 			<div>
-				<label
-					class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-					for="harian-end-date"
-				>
+				<label class="form-label-eyebrow" for="harian-end-date">
 					<Calendar class="h-3.5 w-3.5 text-pink-600" />
 					Tanggal Akhir
 				</label>
-				<input
-					id="harian-end-date"
-					type="date"
-					class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-					bind:value={endDate}
-				/>
+				<input id="harian-end-date" type="date" class="form-input-soft" bind:value={endDate} />
 			</div>
 		</div>
 	{:else if filterType === 'mingguan'}
 		<div class="mb-6">
-			<label
-				class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-				for="mingguan-date"
-			>
+			<label class="form-label-eyebrow" for="mingguan-date">
 				<Calendar class="h-3.5 w-3.5 text-pink-600" />
 				Tanggal Awal Minggu
 			</label>
-			<input
-				id="mingguan-date"
-				type="date"
-				class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-				bind:value={startDate}
-			/>
+			<input id="mingguan-date" type="date" class="form-input-soft" bind:value={startDate} />
 		</div>
 	{:else if filterType === 'bulanan'}
 		<div class="mb-6">
-			<div
-				class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-			>
+			<div class="form-label-eyebrow">
 				<Calendar class="h-3.5 w-3.5 text-pink-600" />
 				Bulan & Tahun
 			</div>
@@ -173,18 +147,11 @@
 		</div>
 	{:else if filterType === 'tahunan'}
 		<div class="mb-6">
-			<label
-				class="mb-1.5 flex items-center gap-1.5 text-xs font-extrabold tracking-wider text-slate-500 uppercase"
-				for="tahunan-year"
-			>
+			<label class="form-label-eyebrow" for="tahunan-year">
 				<Calendar class="h-3.5 w-3.5 text-pink-600" />
 				Pilih Tahun
 			</label>
-			<select
-				id="tahunan-year"
-				class="w-full rounded-2xl border border-slate-200/90 bg-slate-50/70 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-xs transition-all outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/15"
-				bind:value={filterYear}
-			>
+			<select id="tahunan-year" class="form-input-soft" bind:value={filterYear}>
 				{#each availableYears as yr}
 					<option value={yr}>{yr}</option>
 				{/each}
