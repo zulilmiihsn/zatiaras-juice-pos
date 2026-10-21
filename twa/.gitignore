@@ -7,3 +7,13 @@ build/
 *.apk
 *.aab
 *.idsig
+
+# Hasil generate Bubblewrap; dibuat ulang dari twa-manifest.json (bubblewrap update/build).
+/build.gradle
+/settings.gradle
+/gradle.properties
+/gradle/
+/gradlew
+/gradlew.bat
+/manifest-checksum.txt
+/store_icon.png
