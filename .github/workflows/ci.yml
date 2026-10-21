@@ -276,6 +276,9 @@ jobs:
       - name: Run Maintainability Guard Suite
         run: pnpm test:maintainability
 
+      - name: Run Frontend Consistency Guard Suite
+        run: pnpm test:frontend-consistency
+
       - name: Run Coverage Policy Contracts
         run: pnpm test:coverage-policy
 
