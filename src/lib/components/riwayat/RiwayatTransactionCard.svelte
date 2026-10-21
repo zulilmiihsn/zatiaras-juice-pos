@@ -22,11 +22,11 @@
 			nomor={trx.nomor_harian}
 			kelas="text-[11px] font-extrabold tracking-wide text-pink-600"
 		/>
-		<span class="block truncate text-sm font-bold text-gray-900 md:text-base" title={trx.nama}>
+		<span class="block truncate text-sm font-bold text-slate-900 md:text-base" title={trx.nama}>
 			{trx.nama}
 		</span>
-		<span class="mb-1 flex items-center gap-1.5 text-xs text-gray-500 md:text-sm">
-			<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
+		<span class="mb-1 flex items-center gap-1.5 text-xs text-slate-500 md:text-sm">
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold md:text-xs">
 				{trx.sumber === 'pos' ? 'POS' : 'Manual'}
 			</span>
 			<span class="capitalize">
@@ -36,7 +36,7 @@
 				{trx.metode_bayar === 'qris' || trx.metode_bayar === 'non-tunai' ? 'QRIS' : 'Tunai'}
 			</span>
 		</span>
-		<span class="block text-xs text-gray-400">
+		<span class="block text-xs text-slate-400">
 			{new Date(trx.waktu).toLocaleTimeString('id-ID', {
 				hour: '2-digit',
 				minute: '2-digit'
@@ -58,7 +58,7 @@
 				{trx.tipe === 'out' ? '-' : ''}Rp {formatRupiah(trx.nominal)}
 			</span>
 			{#if !onHapus}
-				<span class="block text-xs text-gray-400">Tap untuk detail</span>
+				<span class="block text-xs text-slate-400">Tap untuk detail</span>
 			{/if}
 		</button>
 		{#if onHapus}

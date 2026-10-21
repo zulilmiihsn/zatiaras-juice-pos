@@ -74,7 +74,7 @@
 		<span class="block text-sm font-bold text-slate-900 md:text-base">{item.label}</span>
 		<span class="mt-1 block text-xs font-medium text-slate-500">{item.sub}</span>
 	</span>
-	<ChevronRight class="h-4 w-4 shrink-0 text-stone-400 md:hidden" aria-hidden="true" />
+	<ChevronRight class="h-4 w-4 shrink-0 text-slate-400 md:hidden" aria-hidden="true" />
 {/snippet}
 
 <main aria-label="Pengaturan Sistem" class="page-content bg-canvas flex min-h-dvh flex-col pb-12">
@@ -175,7 +175,7 @@
 
 		<!-- Logout Section -->
 		<div
-			class="mt-2 mb-4 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200/70 px-1 pt-5"
+			class="mt-2 mb-4 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/70 px-1 pt-5"
 		>
 			<div>
 				<h2 class="text-sm font-bold text-slate-900">Keluar dari Akun</h2>
@@ -207,14 +207,14 @@
 				<LogOut class="h-5 w-5 text-red-600" aria-hidden="true" />
 			</div>
 			<div>
-				<h3 class="font-semibold text-gray-800">Konfirmasi Logout</h3>
-				<p class="text-sm text-gray-600">Apakah Anda yakin ingin keluar?</p>
+				<h3 class="font-semibold text-slate-800">Konfirmasi Logout</h3>
+				<p class="text-sm text-slate-600">Apakah Anda yakin ingin keluar?</p>
 			</div>
 		</div>
 		<div class="flex gap-3">
 			<button
 				onclick={s.cancelLogout}
-				class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				class="flex-1 rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50"
 			>
 				Batal
 			</button>
@@ -248,8 +248,8 @@
 
 	<!-- App Info -->
 	<div class="mt-auto py-4 text-center">
-		<p class="text-xs text-gray-500">ZatiarasPOS v{__APP_VERSION__}</p>
-		<p class="mt-1 text-xs text-gray-400">© {new Date().getFullYear()} Zatiaras Juice.</p>
+		<p class="text-xs text-slate-500">ZatiarasPOS v{__APP_VERSION__}</p>
+		<p class="mt-1 text-xs text-slate-400">© {new Date().getFullYear()} Zatiaras Juice.</p>
 	</div>
 </main>
 

@@ -65,8 +65,8 @@
 					{/if}
 				</span>
 				<div class="min-w-0" role="status">
-					<p class="text-sm font-extrabold text-stone-900">{title}</p>
-					<p class="mt-0.5 text-xs leading-snug text-stone-600">{description}</p>
+					<p class="text-sm font-extrabold text-slate-900">{title}</p>
+					<p class="mt-0.5 text-xs leading-snug text-slate-600">{description}</p>
 				</div>
 			</div>
 			<div class="flex gap-2 sm:shrink-0">

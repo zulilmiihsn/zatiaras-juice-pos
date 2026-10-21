@@ -280,26 +280,26 @@
 							<!-- Toggle Laci Kasir -->
 							<div>
 								<label
-									class="mb-1.5 block text-xs font-bold tracking-wider text-zinc-700 uppercase"
+									class="mb-1.5 block text-xs font-bold tracking-wider text-slate-700 uppercase"
 									for="laci-kasir-toggle">Aliran Laci Kasir</label
 								>
 								<div
-									class="flex items-center justify-between rounded-2xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 md:p-4"
+									class="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 md:p-4"
 								>
 									<div class="flex items-center gap-3 md:gap-4">
 										<div
 											class="flex h-9 w-9 items-center justify-center rounded-full md:h-10 md:w-10 {s.paymentMethod ===
 											'tunai'
 												? 'bg-emerald-500 text-white'
-												: 'bg-gray-300 text-gray-600'}"
+												: 'bg-slate-300 text-slate-600'}"
 										>
 											<Wallet class="h-4.5 w-4.5 stroke-[2.2] md:h-5 md:w-5" />
 										</div>
 										<div>
-											<div class="text-sm font-bold text-gray-800 md:text-base">
+											<div class="text-sm font-bold text-slate-800 md:text-base">
 												Uang {s.mode === 'pemasukan' ? 'Masuk ke' : 'Keluar dari'} Laci Kasir
 											</div>
-											<div class="text-xs text-gray-500 md:text-sm">
+											<div class="text-xs text-slate-500 md:text-sm">
 												{s.paymentMethod === 'tunai'
 													? s.mode === 'pemasukan'
 														? 'Ya, uang tunai fisik masuk laci'
@@ -316,7 +316,7 @@
 										class="relative h-6 w-12 cursor-pointer rounded-full transition-colors duration-300 md:h-7 md:w-14 {s.paymentMethod ===
 										'tunai'
 											? 'bg-emerald-500'
-											: 'bg-gray-300'}"
+											: 'bg-slate-300'}"
 										onclick={() =>
 											(s.paymentMethod = s.paymentMethod === 'tunai' ? 'non-tunai' : 'tunai')}
 										onkeydown={(e) =>

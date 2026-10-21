@@ -75,12 +75,12 @@
 	<button
 		class="{isFirst
 			? 'mb-1'
-			: 'mt-2.5 mb-1'} flex w-full items-center justify-between rounded-xl bg-zinc-50 px-3.5 py-2 text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 sm:text-sm"
+			: 'mt-2.5 mb-1'} flex w-full items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 sm:text-sm"
 		onclick={toggle}
 	>
 		<span>{judul}</span>
 		<svg
-			class="h-4 w-4 text-zinc-400 transition-transform duration-200 {show ? '' : 'rotate-180'}"
+			class="h-4 w-4 text-slate-400 transition-transform duration-200 {show ? '' : 'rotate-180'}"
 			viewBox="0 0 20 20"
 		>
 			<polygon points="5,8 10,13 15,8" fill="currentColor" />
@@ -91,38 +91,38 @@
 			<div class="mt-1 text-[11px] font-bold tracking-wider text-pink-600 uppercase">QRIS</div>
 			<ul class="flex flex-col gap-1.5">
 				{#if qrisData.length === 0}
-					<li class="py-1 text-xs text-zinc-400 italic">Tidak ada data</li>
+					<li class="py-1 text-xs text-slate-400 italic">Tidak ada data</li>
 				{/if}
 				{#each groupAndSumByName(qrisData).sort((a, b) => b.total - a.total) as grouped}
-					<li class="flex items-center justify-between text-xs text-zinc-700 sm:text-sm">
+					<li class="flex items-center justify-between text-xs text-slate-700 sm:text-sm">
 						<button
 							type="button"
 							class="{expandedItems.has(grouped.nama)
 								? ''
-								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-zinc-900"
+								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-slate-900"
 							title={grouped.nama}
 							onclick={() => toggleExpand(grouped.nama)}>{grouped.nama}</button
 						>
-						<span class="font-bold text-zinc-900">Rp {formatRupiah(grouped.total)}</span>
+						<span class="font-bold text-slate-900">Rp {formatRupiah(grouped.total)}</span>
 					</li>
 				{/each}
 			</ul>
 			<div class="mt-2 text-[11px] font-bold tracking-wider text-pink-600 uppercase">Tunai</div>
 			<ul class="flex flex-col gap-1.5">
 				{#if tunaiData.length === 0}
-					<li class="py-1 text-xs text-zinc-400 italic">Tidak ada data</li>
+					<li class="py-1 text-xs text-slate-400 italic">Tidak ada data</li>
 				{/if}
 				{#each groupAndSumByName(tunaiData).sort((a, b) => b.total - a.total) as grouped}
-					<li class="flex items-center justify-between text-xs text-zinc-700 sm:text-sm">
+					<li class="flex items-center justify-between text-xs text-slate-700 sm:text-sm">
 						<button
 							type="button"
 							class="{expandedItems.has(grouped.nama)
 								? ''
-								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-zinc-900"
+								: 'max-w-[65%] truncate'} cursor-pointer text-left hover:text-slate-900"
 							title={grouped.nama}
 							onclick={() => toggleExpand(grouped.nama)}>{grouped.nama}</button
 						>
-						<span class="font-bold text-zinc-900">Rp {formatRupiah(grouped.total)}</span>
+						<span class="font-bold text-slate-900">Rp {formatRupiah(grouped.total)}</span>
 					</li>
 				{/each}
 			</ul>

@@ -65,24 +65,24 @@
 	<title>Monitoring Produksi - Zatiaras POS</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-gray-50 px-4 py-4 text-gray-900 md:px-8 md:py-8">
+<div class="min-h-dvh bg-slate-50 px-4 py-4 text-slate-900 md:px-8 md:py-8">
 	<header class="mx-auto flex max-w-6xl items-center justify-between gap-4">
 		<div class="flex items-center gap-3">
 			<a
 				href="/pengaturan"
-				class="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none active:scale-[0.98]"
+				class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:outline-none active:scale-[0.98]"
 				aria-label="Kembali"
 			>
 				<ArrowLeft class="h-5 w-5" />
 			</a>
 			<div>
 				<h1 class="text-xl font-bold tracking-normal md:text-2xl">Monitoring Produksi</h1>
-				<p class="mt-1 text-sm text-gray-500">Window 60 menit</p>
+				<p class="mt-1 text-sm text-slate-500">Window 60 menit</p>
 			</div>
 		</div>
 		<button
 			type="button"
-			class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
+			class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
 			onclick={loadMonitoringSummary}
 			disabled={isLoading}
 		>
@@ -107,36 +107,36 @@
 				</div>
 			{/if}
 			<section class="grid gap-3 md:grid-cols-4">
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<Activity class="h-5 w-5 text-pink-500" />
-					<div class="mt-3 text-sm text-gray-500">API Avg</div>
+					<div class="mt-3 text-sm text-slate-500">API Avg</div>
 					<div class="mt-1 text-2xl font-bold">
 						{monitoringSummary.sources?.requestMetrics?.available
 							? `${monitoringSummary.requests?.avgLatencyMs || 0} ms`
 							: 'Tidak tersedia'}
 					</div>
 				</div>
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<Activity class="h-5 w-5 text-pink-500" />
-					<div class="mt-3 text-sm text-gray-500">API P95</div>
+					<div class="mt-3 text-sm text-slate-500">API P95</div>
 					<div class="mt-1 text-2xl font-bold">
 						{monitoringSummary.sources?.requestMetrics?.available
 							? `${monitoringSummary.requests?.p95LatencyMs || 0} ms`
 							: 'Tidak tersedia'}
 					</div>
 				</div>
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<AlertTriangle class="h-5 w-5 text-pink-500" />
-					<div class="mt-3 text-sm text-gray-500">Error</div>
+					<div class="mt-3 text-sm text-slate-500">Error</div>
 					<div class="mt-1 text-2xl font-bold">
 						{monitoringSummary.sources?.errorEvents?.available
 							? monitoringSummary.errors?.total || 0
 							: 'Tidak tersedia'}
 					</div>
 				</div>
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<Wifi class="h-5 w-5 text-pink-500" />
-					<div class="mt-3 text-sm text-gray-500">Realtime</div>
+					<div class="mt-3 text-sm text-slate-500">Realtime</div>
 					<div class="mt-1 text-2xl font-bold">
 						{realtimeHealth.connected ? `${realtimeHealth.latencyMs || 0} ms` : 'Offline'}
 					</div>
@@ -144,26 +144,26 @@
 			</section>
 
 			<section class="grid gap-4 md:grid-cols-[1.4fr_0.8fr]">
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<div class="mb-3 flex items-center gap-2 text-base font-bold">
 						<Activity class="h-5 w-5 text-pink-500" />
 						<span>Endpoint Lambat</span>
 					</div>
 					{#if monitoringSummary.requests?.slowest?.length}
-						<div class="divide-y divide-gray-100">
+						<div class="divide-y divide-slate-100">
 							{#each monitoringSummary.requests.slowest.slice(0, 10) as item}
 								<div class="flex items-center justify-between gap-4 py-3 text-sm">
-									<span class="min-w-0 truncate text-gray-600">{item.method} {item.path}</span>
+									<span class="min-w-0 truncate text-slate-600">{item.method} {item.path}</span>
 									<span class="shrink-0 font-semibold">{item.duration_ms} ms</span>
 								</div>
 							{/each}
 						</div>
 					{:else}
-						<div class="rounded-lg bg-gray-50 p-4 text-sm text-gray-500">Belum ada sampel.</div>
+						<div class="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Belum ada sampel.</div>
 					{/if}
 				</div>
 
-				<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
 					<div class="mb-3 flex items-center gap-2 text-base font-bold">
 						<Database class="h-5 w-5 text-pink-500" />
 						<span>Backup D1</span>
@@ -175,19 +175,19 @@
 					{:else if monitoringSummary.backups?.recent?.length}
 						<div class="space-y-3">
 							{#each monitoringSummary.backups.recent.slice(0, 5) as backup}
-								<div class="rounded-lg bg-gray-50 p-3 text-sm">
+								<div class="rounded-lg bg-slate-50 p-3 text-sm">
 									<div class="flex items-center justify-between gap-3">
 										<span class="font-semibold">{backup.status}</span>
-										<span class="text-xs text-gray-500">{backup.database_name}</span>
+										<span class="text-xs text-slate-500">{backup.database_name}</span>
 									</div>
-									<div class="mt-1 truncate text-xs text-gray-500">
+									<div class="mt-1 truncate text-xs text-slate-500">
 										{backup.finished_at || backup.started_at}
 									</div>
 								</div>
 							{/each}
 						</div>
 					{:else}
-						<div class="rounded-lg bg-gray-50 p-4 text-sm text-gray-500">
+						<div class="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
 							Belum ada backup tercatat.
 						</div>
 					{/if}

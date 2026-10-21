@@ -262,7 +262,7 @@
 					>
 						<label
 							for="nama-toko"
-							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
 						>
 							<Store class="h-4 w-4 text-pink-500" />
 							Nama Toko
@@ -270,7 +270,7 @@
 						<input
 							type="text"
 							id="nama-toko"
-							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-slate-900 duration-200 placeholder:text-slate-400"
 							bind:value={namaToko}
 							maxlength="50"
 							required
@@ -281,7 +281,7 @@
 					>
 						<label
 							for="alamat"
-							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
 						>
 							<MapPin class="h-4 w-4 text-pink-500" />
 							Alamat
@@ -289,7 +289,7 @@
 						<input
 							type="text"
 							id="alamat"
-							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-slate-900 duration-200 placeholder:text-slate-400"
 							bind:value={alamat}
 							maxlength="100"
 							required
@@ -301,7 +301,7 @@
 						>
 							<label
 								for="telepon"
-								class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+								class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
 							>
 								<Phone class="h-4 w-4 text-pink-500" />
 								Nomor Telepon
@@ -309,7 +309,7 @@
 							<input
 								type="text"
 								id="telepon"
-								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
+								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-slate-900 duration-200 placeholder:text-slate-400"
 								bind:value={telepon}
 								maxlength="20"
 								required
@@ -320,7 +320,7 @@
 						>
 							<label
 								for="instagram"
-								class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+								class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
 							>
 								<InstagramIcon class="h-4 w-4 text-pink-500" />
 								Instagram
@@ -328,7 +328,7 @@
 							<input
 								type="text"
 								id="instagram"
-								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
+								class="form-input-pink border-[1.5px] px-4 py-3 text-base text-slate-900 duration-200 placeholder:text-slate-400"
 								bind:value={instagram}
 								maxlength="30"
 							/>
@@ -339,14 +339,14 @@
 					>
 						<label
 							for="ucapan"
-							class="mb-2 flex items-center gap-2 text-sm font-semibold text-stone-700"
+							class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
 						>
 							<MessageSquareHeart class="h-4 w-4 text-pink-500" />
 							Ucapan di Bawah Struk
 						</label>
 						<textarea
 							id="ucapan"
-							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-stone-900 duration-200 placeholder:text-stone-400"
+							class="form-input-pink border-[1.5px] px-4 py-3 text-base text-slate-900 duration-200 placeholder:text-slate-400"
 							rows="3"
 							bind:value={ucapan}
 							maxlength="120"></textarea>
@@ -375,7 +375,7 @@
 				>
 					<div class="mb-4 flex items-center gap-2">
 						<Printer class="h-5 w-5 text-pink-500" />
-						<h2 class="text-base font-bold text-stone-800">Pilih Metode Printer Struk</h2>
+						<h2 class="text-base font-bold text-slate-800">Pilih Metode Printer Struk</h2>
 					</div>
 
 					<div class="space-y-3">
@@ -384,7 +384,7 @@
 							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
 							'bluetooth'
 								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
-								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+								: 'border-slate-200 bg-white hover:border-pink-200 hover:bg-slate-50/50'}"
 						>
 							<input
 								type="radio"
@@ -396,11 +396,11 @@
 							<div class="flex-1">
 								<div class="flex items-center gap-2">
 									<Bluetooth class="h-4 w-4 text-pink-500" />
-									<span class="text-sm font-bold text-stone-800"
+									<span class="text-sm font-bold text-slate-800"
 										>Jalur 1 — Web Bluetooth (BLE 4.0/5.0)</span
 									>
 								</div>
-								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+								<p class="mt-1 text-xs leading-relaxed text-slate-500">
 									Direct ESC/POS instan tanpa perantara. Untuk printer thermal Bluetooth modern di
 									Chrome/Edge.
 								</p>
@@ -436,7 +436,7 @@
 							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
 							'usb'
 								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
-								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+								: 'border-slate-200 bg-white hover:border-pink-200 hover:bg-slate-50/50'}"
 						>
 							<input
 								type="radio"
@@ -448,11 +448,11 @@
 							<div class="flex-1">
 								<div class="flex items-center gap-2">
 									<Usb class="h-4 w-4 text-pink-500" />
-									<span class="text-sm font-bold text-stone-800"
+									<span class="text-sm font-bold text-slate-800"
 										>Jalur 2 — WebUSB (Kabel USB Printer POS)</span
 									>
 								</div>
-								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+								<p class="mt-1 text-xs leading-relaxed text-slate-500">
 									Direct ESC/POS via kabel USB (Epson TM-T82, Xprinter, Panda USB) di PC/Tablet
 									kasir.
 								</p>
@@ -488,7 +488,7 @@
 							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
 							'intent'
 								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
-								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+								: 'border-slate-200 bg-white hover:border-pink-200 hover:bg-slate-50/50'}"
 						>
 							<input
 								type="radio"
@@ -500,11 +500,11 @@
 							<div class="flex-1">
 								<div class="flex items-center gap-2">
 									<Smartphone class="h-4 w-4 text-pink-500" />
-									<span class="text-sm font-bold text-stone-800"
+									<span class="text-sm font-bold text-slate-800"
 										>Jalur 3 — Android Intent (RawBT / iMin Helper)</span
 									>
 								</div>
-								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+								<p class="mt-1 text-xs leading-relaxed text-slate-500">
 									Penyelamat untuk printer Bluetooth Classic (SPP 2.0/3.0 murah) di Android.
 									Meneruskan data struk ke aplikasi driver helper.
 								</p>
@@ -516,7 +516,7 @@
 							class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-all duration-200 {printerMethod ===
 							'server'
 								? 'border-pink-500 bg-pink-50/40 shadow-sm shadow-pink-500/10'
-								: 'border-stone-200 bg-white hover:border-pink-200 hover:bg-stone-50/50'}"
+								: 'border-slate-200 bg-white hover:border-pink-200 hover:bg-slate-50/50'}"
 						>
 							<input
 								type="radio"
@@ -528,11 +528,11 @@
 							<div class="flex-1">
 								<div class="flex items-center gap-2">
 									<Monitor class="h-4 w-4 text-pink-500" />
-									<span class="text-sm font-bold text-stone-800"
+									<span class="text-sm font-bold text-slate-800"
 										>Jalur 4 — Server Lokal (RawBT Print Server)</span
 									>
 								</div>
-								<p class="mt-1 text-xs leading-relaxed text-stone-500">
+								<p class="mt-1 text-xs leading-relaxed text-slate-500">
 									Untuk PC kasir Windows. Mengirim struk ke RawBT Print Server lokal
 									(127.0.0.1:40213) via HTTP, fallback WebSocket. Pastikan aplikasinya sudah
 									dijalankan di komputer ini.
@@ -546,13 +546,13 @@
 				<div
 					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
 				>
-					<h3 class="mb-3 text-sm font-bold text-stone-800">Ukuran Kertas Thermal</h3>
+					<h3 class="mb-3 text-sm font-bold text-slate-800">Ukuran Kertas Thermal</h3>
 					<div class="grid grid-cols-2 gap-3">
 						<label
 							class="flex cursor-pointer items-center justify-between rounded-xl border-[1.5px] p-3.5 transition-all {paperSize ===
 							'58mm'
 								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
-								: 'border-stone-200 text-stone-700 hover:border-pink-200'}"
+								: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
 						>
 							<span class="text-sm">58 mm (32 Kolom)</span>
 							<input
@@ -567,7 +567,7 @@
 							class="flex cursor-pointer items-center justify-between rounded-xl border-[1.5px] p-3.5 transition-all {paperSize ===
 							'80mm'
 								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
-								: 'border-stone-200 text-stone-700 hover:border-pink-200'}"
+								: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
 						>
 							<span class="text-sm">80 mm (48 Kolom)</span>
 							<input
@@ -606,7 +606,7 @@
 				<!-- Receipt Struk Preview -->
 				<div class="mx-auto w-full max-w-sm">
 					<div
-						class="relative overflow-hidden rounded-t-lg border-b-4 border-dotted border-gray-200 bg-white p-6 shadow-xl shadow-stone-200/50 sm:p-8"
+						class="relative overflow-hidden rounded-t-lg border-b-4 border-dotted border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8"
 					>
 						<div class="p-2 font-mono text-[14px] leading-relaxed text-black">
 							<div class="mb-4 text-center">
@@ -626,7 +626,7 @@
 								{/if}
 							</div>
 
-							<div class="mb-3 border-b border-dashed border-neutral-700"></div>
+							<div class="mb-3 border-b border-dashed border-slate-700"></div>
 
 							<div class="mb-3 flex justify-between text-left text-[13px]">
 								<div>nama pelanggan</div>
@@ -642,11 +642,11 @@
 										<td class="pb-1 text-right">Rp20.000</td>
 									</tr>
 									<tr>
-										<td class="pl-2 text-xs text-neutral-700">+ Topping Nata</td>
-										<td class="text-right text-xs text-neutral-700">Rp4.000</td>
+										<td class="pl-2 text-xs text-slate-700">+ Topping Nata</td>
+										<td class="text-right text-xs text-slate-700">Rp4.000</td>
 									</tr>
 									<tr>
-										<td colspan="2" class="pb-2 pl-2 text-xs text-neutral-700 italic"
+										<td colspan="2" class="pb-2 pl-2 text-xs text-slate-700 italic"
 											>Tanpa Gula, Sedikit Es</td
 										>
 									</tr>
@@ -659,7 +659,7 @@
 								</tbody>
 							</table>
 
-							<div class="mb-3 border-b border-dashed border-neutral-700"></div>
+							<div class="mb-3 border-b border-dashed border-slate-700"></div>
 
 							<table class="mb-6 w-full border-collapse text-sm">
 								<tbody>
@@ -694,15 +694,15 @@
 					class="flex flex-col justify-between rounded-2xl border-[1.5px] border-pink-100 bg-white p-6 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
 				>
 					<div>
-						<h3 class="text-lg font-bold text-stone-800">Kode ASCII (Base64) Logo</h3>
-						<p class="mt-2 text-sm leading-relaxed text-stone-600">
+						<h3 class="text-lg font-bold text-slate-800">Kode ASCII (Base64) Logo</h3>
+						<p class="mt-2 text-sm leading-relaxed text-slate-600">
 							Ini adalah representasi teks ASCII (Base64) dari logo toko. Data gambar ini ditanamkan
 							langsung dalam kode agar struk dapat dicetak kapan saja, bahkan saat perangkat kasir
 							sedang offline.
 						</p>
-						<div class="mt-4 rounded-xl border border-stone-200 bg-stone-900 p-4">
+						<div class="mt-4 rounded-xl border border-slate-200 bg-slate-900 p-4">
 							<div
-								class="max-h-40 overflow-y-auto pr-1 font-mono text-[10px] break-all text-stone-400 select-all"
+								class="max-h-40 overflow-y-auto pr-1 font-mono text-[10px] break-all text-slate-400 select-all"
 							>
 								{LOGO_BASE64}
 							</div>

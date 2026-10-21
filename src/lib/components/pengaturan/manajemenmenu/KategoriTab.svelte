@@ -49,7 +49,7 @@
 			{#if isLoadingKategori}
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-3.5 lg:grid-cols-3">
 					{#each Array(6) as _}
-						<div class="h-20 animate-pulse rounded-2xl bg-zinc-100"></div>
+						<div class="h-20 animate-pulse rounded-2xl bg-slate-100"></div>
 					{/each}
 				</div>
 			{:else if kategoriList.length === 0}
@@ -61,8 +61,8 @@
 					>
 						<FolderOpen class="h-6 w-6" />
 					</div>
-					<div class="text-sm font-bold text-zinc-800 md:text-base">Belum ada Kategori</div>
-					<div class="mt-1 text-xs text-zinc-400 md:text-sm">
+					<div class="text-sm font-bold text-slate-800 md:text-base">Belum ada Kategori</div>
+					<div class="mt-1 text-xs text-slate-400 md:text-sm">
 						Gunakan tombol Tambah Kategori untuk menambahkan kategori menu.
 					</div>
 				</div>

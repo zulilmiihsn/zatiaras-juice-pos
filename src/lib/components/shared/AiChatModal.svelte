@@ -262,7 +262,7 @@
 		>
 			<!-- Header -->
 			<div
-				class="flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4"
+				class="flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4"
 			>
 				<div class="flex items-center space-x-3">
 					<div
@@ -277,12 +277,12 @@
 							/>
 						</svg>
 					</div>
-					<h3 class="text-lg font-semibold text-gray-900">Asisten AI</h3>
+					<h3 class="text-lg font-semibold text-slate-900">Asisten AI</h3>
 				</div>
 				<div class="flex items-center space-x-2">
 					<button
 						onclick={closeModal}
-						class="rounded-lg p-2 text-gray-400 transition-all duration-200 hover:bg-gray-100 hover:text-gray-600"
+						class="rounded-lg p-2 text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-600"
 						aria-label="Tutup modal"
 					>
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,7 +304,7 @@
 						<div
 							class="max-w-xs rounded-lg px-4 py-2 lg:max-w-md {message.role === 'user'
 								? 'bg-pink-500 text-white'
-								: 'bg-gray-100 text-gray-900'}"
+								: 'bg-slate-100 text-slate-900'}"
 						>
 							<p class="text-sm whitespace-pre-wrap">{message.content}</p>
 							<p class="mt-1 text-xs opacity-70">
@@ -316,7 +316,7 @@
 
 				{#if isLoading}
 					<div class="flex justify-start">
-						<div class="max-w-xs rounded-lg bg-gray-100 px-4 py-2 text-gray-900 lg:max-w-md">
+						<div class="max-w-xs rounded-lg bg-slate-100 px-4 py-2 text-slate-900 lg:max-w-md">
 							<div class="flex items-center space-x-2">
 								<div class="h-4 w-4 animate-spin rounded-full border-b-2 border-pink-500"></div>
 								<span class="text-sm">Menganalisis...</span>
@@ -328,8 +328,8 @@
 
 			<!-- Recommendations -->
 			{#if showRecommendations && currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
-				<div class="border-t border-gray-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4">
-					<h4 class="mb-3 flex items-center text-sm font-medium text-gray-900">
+				<div class="border-t border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4">
+					<h4 class="mb-3 flex items-center text-sm font-medium text-slate-900">
 						<svg
 							class="mr-2 h-4 w-4 text-pink-600"
 							fill="none"
@@ -364,18 +364,18 @@
 								deskripsi: recData.deskripsi ?? rec.deskripsi
 							})}
 							<div
-								class="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
+								class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
 							>
 								<div class="flex-1">
-									<p class="text-sm font-medium text-gray-900">{rec.title}</p>
-									<p class="mt-1 text-xs text-gray-600">{rec.deskripsi}</p>
+									<p class="text-sm font-medium text-slate-900">{rec.title}</p>
+									<p class="mt-1 text-xs text-slate-600">{rec.deskripsi}</p>
 									{#if rejected}
 										<p role="alert" class="mt-1 text-xs text-red-700">
 											Tidak dapat diterapkan: {rejected}
 										</p>
 									{/if}
 									{#if before}
-										<p data-testid="ai-update-before" class="mt-1 text-xs text-gray-700">
+										<p data-testid="ai-update-before" class="mt-1 text-xs text-slate-700">
 											Sebelum: {before.id} · Revisi {before.revision} · Rp {formatRupiah(
 												before.nominal
 											)} · {before.tipe} · {before.jenis} · {before.deskripsi} · {formatWitaDateTime(
@@ -383,7 +383,7 @@
 											)} WITA
 										</p>
 										{#if recValidation.ok && recValidation.value.kind === 'update_transaction'}
-											<p data-testid="ai-update-after" class="mt-1 text-xs text-gray-700">
+											<p data-testid="ai-update-after" class="mt-1 text-xs text-slate-700">
 												Sesudah: {before.id} · Rp {formatRupiah(recValidation.value.amount)} · {recValidation
 													.value.type === 'pemasukan'
 													? 'in'
@@ -396,7 +396,7 @@
 												)} WITA
 											</p>
 										{/if}
-										<p class="mt-1 text-xs text-gray-700">
+										<p class="mt-1 text-xs text-slate-700">
 											Target/revisi berasal dari data sesi saat ini, bukan dari model. Koreksi kas
 											ini tidak mengubah stok.
 										</p>
@@ -410,7 +410,7 @@
 											? 'Perlu konfirmasi'
 											: (LEDGER_JENIS_LABEL[recCategory.jenis] ?? recCategory.jenis)}
 									</p>
-									<p class="mt-1 text-xs text-gray-600">
+									<p class="mt-1 text-xs text-slate-600">
 										Aksi: {(AI_ACTION_LABEL as Record<string, string>)[rec.action] ?? rec.action}
 										{recValidation.ok && recValidation.value.kind !== 'create_category'
 											? ` · Rp ${formatRupiah(recValidation.value.amount)}`
@@ -446,7 +446,7 @@
 							</button>
 							<button
 								onclick={invalidateConsent}
-								class="rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
+								class="rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
 							>
 								Batal
 							</button>
@@ -455,7 +455,7 @@
 						<div class="mt-4">
 							<button
 								onclick={invalidateConsent}
-								class="w-full rounded-xl px-4 py-3 text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-gray-800"
+								class="w-full rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
 							>
 								Tutup
 							</button>
@@ -465,7 +465,7 @@
 			{/if}
 
 			<!-- Input -->
-			<div class="rounded-b-xl border-t border-gray-200 bg-gray-50 p-4">
+			<div class="rounded-b-xl border-t border-slate-200 bg-slate-50 p-4">
 				<div class="flex space-x-3">
 					<textarea
 						bind:value={currentMessage}
@@ -473,7 +473,7 @@
 						placeholder="Ceritakan transaksi Anda..."
 						disabled={isLoading}
 						maxlength="2000"
-						class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 						rows="2"></textarea>
 					<button
 						onclick={sendMessage}

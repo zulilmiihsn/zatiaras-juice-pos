@@ -36,9 +36,9 @@
 
 		<!-- Content -->
 		<div class="rounded-2xl bg-white p-8 shadow-lg">
-			<h1 class="mb-4 text-2xl font-bold text-gray-800">Akses Ditolak</h1>
+			<h1 class="mb-4 text-2xl font-bold text-slate-800">Akses Ditolak</h1>
 
-			<p class="mb-6 text-gray-600">
+			<p class="mb-6 text-slate-600">
 				Maaf, Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi administrator
 				jika Anda merasa ini adalah kesalahan.
 			</p>
@@ -47,7 +47,7 @@
 			<div class="space-y-3">
 				<button
 					onclick={goBack}
-					class="w-full rounded-lg bg-gray-600 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-700"
+					class="w-full rounded-lg bg-slate-600 px-4 py-3 font-medium text-white transition-colors hover:bg-slate-700"
 				>
 					Kembali
 				</button>
@@ -63,7 +63,7 @@
 
 		<!-- Footer -->
 		<div class="mt-6">
-			<p class="text-sm text-gray-500">
+			<p class="text-sm text-slate-500">
 				© {new Date().getFullYear()} Zatiaras Juice. All rights reserved.
 			</p>
 		</div>

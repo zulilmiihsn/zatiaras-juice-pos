@@ -202,7 +202,7 @@
 					id="thn"
 					bind:value={beforeYear}
 					disabled={loading}
-					class="mb-4 w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-base focus:border-emerald-500 focus:outline-none disabled:opacity-60"
+					class="mb-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base focus:border-emerald-500 focus:outline-none disabled:opacity-60"
 				>
 					{#each years as y}
 						<option value={y}>{y}</option>
@@ -231,7 +231,7 @@
 						<div class="flex gap-2">
 							<button
 								onclick={() => (showConfirm = false)}
-								class="flex-1 cursor-pointer rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+								class="flex-1 cursor-pointer rounded-lg border border-slate-300 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
 							>
 								Batal
 							</button>
@@ -312,7 +312,7 @@
 						</div>
 					</div>
 				{:else if result.ok}
-					<div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+					<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
 						{result.message || 'Tidak ada transaksi lama untuk diarsipkan.'}
 					</div>
 				{:else}

@@ -199,7 +199,7 @@
 	>
 		<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
 			<div
-				class="relative mb-4 aspect-square h-[300px] w-full overflow-hidden rounded-xl bg-gray-100"
+				class="relative mb-4 aspect-square h-[300px] w-full overflow-hidden rounded-xl bg-slate-100"
 			>
 				<canvas
 					bind:this={canvasEl}

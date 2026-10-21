@@ -243,7 +243,7 @@
 {#if layoutSt.pendingCount > 0}
 	<!-- md+: ditempel di kiri bawah (di kanan sidebar) agar tidak menutupi tombol Bayar keranjang samping -->
 	<div
-		class="animate-fade-in z-sheet fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-stone-700 bg-[#282423] px-4 py-3 text-white shadow-xl md:right-auto md:left-[calc(var(--app-nav-width)+0.75rem)] md:mx-0 md:w-96 lg:w-md"
+		class="animate-fade-in z-sheet fixed right-3 bottom-3 left-3 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-slate-700 bg-[#282423] px-4 py-3 text-white shadow-xl md:right-auto md:left-[calc(var(--app-nav-width)+0.75rem)] md:mx-0 md:w-96 lg:w-md"
 		data-testid="pending-transaction-banner"
 	>
 		{#if layoutSt.isOffline}
@@ -255,7 +255,7 @@
 		{/if}
 		<div class="min-w-0 flex-1">
 			<div class="text-sm font-bold">{layoutSt.pendingCount} transaksi belum tersinkron</div>
-			<div class="text-xs text-stone-300">
+			<div class="text-xs text-slate-300">
 				{layoutSt.isOffline
 					? 'Menunggu koneksi internet'
 					: layoutSt.pendingFailedCount > 0
@@ -268,14 +268,14 @@
 		<div class="flex shrink-0 gap-2">
 			<button
 				type="button"
-				class="rounded-lg border border-stone-500 px-3 py-2 text-xs font-bold text-white transition-transform duration-200 active:scale-[0.98]"
+				class="rounded-lg border border-slate-500 px-3 py-2 text-xs font-bold text-white transition-transform duration-200 active:scale-[0.98]"
 				onclick={() => (showPendingTransactions = true)}
 			>
 				Detail
 			</button>
 			<button
 				type="button"
-				class="rounded-lg bg-white px-3 py-2 text-xs font-bold text-stone-900 transition-transform duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-900 transition-transform duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
 				disabled={layoutSt.isOffline || layoutSt.isPendingSyncing}
 				onclick={layoutSt.retryPendingTransactions}
 			>

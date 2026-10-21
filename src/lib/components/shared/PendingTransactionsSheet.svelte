@@ -129,21 +129,21 @@
 		data-testid="pending-transaction-sheet"
 	>
 		<div class="grid grid-cols-[1.3fr_0.7fr] gap-3">
-			<div class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-				<div class="mb-1 text-xs font-bold tracking-[0.14em] text-stone-500 uppercase">
+			<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+				<div class="mb-1 text-xs font-bold tracking-[0.14em] text-slate-500 uppercase">
 					Tersimpan lokal
 				</div>
-				<div class="text-3xl font-black text-stone-950">{transactions.length}</div>
-				<div class="mt-1 text-xs leading-5 text-stone-600">
+				<div class="text-3xl font-black text-slate-950">{transactions.length}</div>
+				<div class="mt-1 text-xs leading-5 text-slate-600">
 					Data tetap berada di perangkat sampai server menerima transaksi.
 				</div>
 			</div>
 			<div class="rounded-2xl border border-pink-100 bg-pink-50 p-4">
 				<div class="mb-1 text-xs font-bold tracking-[0.14em] text-pink-500 uppercase">Gagal</div>
-				<div class="text-3xl font-black text-stone-950">
+				<div class="text-3xl font-black text-slate-950">
 					{transactions.filter((item) => item.status === 'failed').length}
 				</div>
-				<div class="mt-1 text-xs leading-5 text-stone-600">Perlu retry atau pemeriksaan.</div>
+				<div class="mt-1 text-xs leading-5 text-slate-600">Perlu retry atau pemeriksaan.</div>
 			</div>
 		</div>
 
@@ -157,24 +157,24 @@
 
 		{#if transactions.length === 0}
 			<div
-				class="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-6 text-center"
+				class="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 text-center"
 			>
-				<FileWarning class="mb-3 h-10 w-10 text-stone-400" />
-				<div class="text-base font-bold text-stone-900">Tidak ada antrean</div>
-				<div class="mt-1 text-sm text-stone-500">Semua transaksi sudah tersinkron.</div>
+				<FileWarning class="mb-3 h-10 w-10 text-slate-400" />
+				<div class="text-base font-bold text-slate-900">Tidak ada antrean</div>
+				<div class="mt-1 text-sm text-slate-500">Semua transaksi sudah tersinkron.</div>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-3">
 				{#each transactions as item (item.queue_id)}
 					{@const summary = transactionSummary(item)}
 					<section
-						class="rounded-2xl border border-stone-200 bg-white p-4 shadow-[0_8px_24px_-18px_rgba(41,37,36,0.45)]"
+						class="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_-18px_rgba(41,37,36,0.45)]"
 						data-testid="pending-transaction-item"
 					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
-								<div class="truncate text-base font-black text-stone-950">{summary.code}</div>
-								<div class="mt-1 flex items-center gap-1.5 text-xs text-stone-500">
+								<div class="truncate text-base font-black text-slate-950">{summary.code}</div>
+								<div class="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
 									<Clock3 class="h-3.5 w-3.5" />
 									{formatDate(summary.createdAt)}
 								</div>
@@ -191,36 +191,36 @@
 							</span>
 						</div>
 
-						<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-stone-100 py-3">
+						<div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-slate-100 py-3">
 							<div>
-								<div class="text-[11px] font-bold tracking-wide text-stone-400 uppercase">
+								<div class="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
 									Total
 								</div>
-								<div class="mt-0.5 text-sm font-black text-stone-900">
+								<div class="mt-0.5 text-sm font-black text-slate-900">
 									Rp {formatRupiah(summary.total)}
 								</div>
 							</div>
 							<div>
-								<div class="text-[11px] font-bold tracking-wide text-stone-400 uppercase">
+								<div class="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
 									Pembayaran
 								</div>
-								<div class="mt-0.5 text-sm font-bold text-stone-900 capitalize">
+								<div class="mt-0.5 text-sm font-bold text-slate-900 capitalize">
 									{summary.payment}
 								</div>
 							</div>
 							<div>
-								<div class="text-[11px] font-bold tracking-wide text-stone-400 uppercase">
+								<div class="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
 									Jenis masalah
 								</div>
-								<div class="mt-0.5 text-sm font-bold text-stone-900">
+								<div class="mt-0.5 text-sm font-bold text-slate-900">
 									{failureLabel(item.failure_kind)}
 								</div>
 							</div>
 							<div>
-								<div class="text-[11px] font-bold tracking-wide text-stone-400 uppercase">
+								<div class="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
 									Percobaan
 								</div>
-								<div class="mt-0.5 text-sm font-bold text-stone-900">{item.attempt_count}</div>
+								<div class="mt-0.5 text-sm font-bold text-slate-900">{item.attempt_count}</div>
 							</div>
 						</div>
 
@@ -230,12 +230,12 @@
 								<div class="min-w-0 text-xs leading-5 text-red-900">{item.last_error}</div>
 							</div>
 						{/if}
-						<div class="mt-3 text-xs leading-5 text-stone-600">{guidance(item.failure_kind)}</div>
+						<div class="mt-3 text-xs leading-5 text-slate-600">{guidance(item.failure_kind)}</div>
 
 						<div class="mt-4 flex flex-wrap gap-2">
 							<button
 								type="button"
-								class="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-3 py-2 text-xs font-bold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
+								class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
 								disabled={isOffline || isSyncing}
 								onclick={() => onRetry(item.queue_id)}
 							>
@@ -244,7 +244,7 @@
 							</button>
 							<button
 								type="button"
-								class="inline-flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-700 transition-transform duration-200 active:scale-[0.98]"
+								class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-transform duration-200 active:scale-[0.98]"
 								onclick={() => exportTransactions([item], summary.code)}
 							>
 								<Download class="h-3.5 w-3.5" />
@@ -271,7 +271,7 @@
 		<div class="grid grid-cols-2 gap-3">
 			<button
 				type="button"
-				class="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-800 transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
+				class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
 				disabled={transactions.length === 0}
 				onclick={() => exportTransactions(transactions, 'semua')}
 			>
@@ -296,23 +296,23 @@
 				if (!removalBusy) pendingRemoval = null;
 			}
 		}}
-		class="z-alert fixed inset-0 flex items-end justify-center bg-stone-950/40 p-4 backdrop-blur-[2px] sm:items-center"
+		class="z-alert fixed inset-0 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-[2px] sm:items-center"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-pending-title"
 		data-testid="pending-removal-confirmation"
 	>
 		<div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
-			<div id="remove-pending-title" class="text-lg font-black text-stone-950">
+			<div id="remove-pending-title" class="text-lg font-black text-slate-950">
 				Hapus transaksi lokal?
 			</div>
-			<p class="mt-2 text-sm leading-6 text-stone-600">
+			<p class="mt-2 text-sm leading-6 text-slate-600">
 				Data ini belum tercatat di server. Export dahulu bila transaksi sudah dibayar pelanggan.
 			</p>
 			<div class="mt-5 grid grid-cols-2 gap-3">
 				<button
 					type="button"
-					class="rounded-xl border border-stone-200 px-4 py-3 text-sm font-bold text-stone-800 transition-transform duration-200 active:scale-[0.98]"
+					class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 transition-transform duration-200 active:scale-[0.98]"
 					onclick={() => (pendingRemoval = null)}
 				>
 					Batal

@@ -6,7 +6,7 @@
 	<aside
 		aria-label="Notifikasi pesanan baru"
 		aria-live="polite"
-		class="sticky top-0 z-50 mx-3 flex max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-stone-900 shadow-lg md:mx-auto"
+		class="sticky top-0 z-50 mx-3 flex max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-slate-900 shadow-lg md:mx-auto"
 	>
 		<div class="min-w-0 flex-1">
 			<p class="font-bold">Pesanan baru masuk</p>

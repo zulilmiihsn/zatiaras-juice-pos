@@ -59,14 +59,14 @@
 		<div class="flex flex-col gap-1.5">
 			<label
 				for="modal-bahan-nama"
-				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+				class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 			>
 				Nama Bahan
 			</label>
 			<input
 				id="modal-bahan-nama"
 				type="text"
-				class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+				class="w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 				bind:value={s.bahanForm.nama}
 				required
 				placeholder="Contoh: Alpukat Mentega, Gula Pasir, Cup 16oz"
@@ -75,7 +75,7 @@
 
 		<!-- Tipe Satuan / Sifat Bahan -->
 		<div class="flex flex-col gap-1.5">
-			<span class="text-xs font-bold tracking-wider text-zinc-700 uppercase">
+			<span class="text-xs font-bold tracking-wider text-slate-700 uppercase">
 				Tipe Takaran / Sifat Bahan
 			</span>
 			<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -85,7 +85,7 @@
 						class="flex cursor-pointer flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all {s
 							.bahanForm.tipe_satuan === cat.value
 							? 'border-pink-500 bg-pink-50/80 font-bold text-pink-700 shadow-xs ring-2 ring-pink-500/20'
-							: 'border-zinc-200/80 bg-zinc-50/50 text-zinc-600 hover:border-pink-200 hover:bg-white'}"
+							: 'border-slate-200/80 bg-slate-50/50 text-slate-600 hover:border-pink-200 hover:bg-white'}"
 						onclick={() => {
 							s.bahanForm.tipe_satuan = cat.value;
 							s.bahanForm.satuan = cat.defaultBase;
@@ -96,7 +96,7 @@
 						}}
 					>
 						<span class="text-xs font-bold capitalize">{cat.value}</span>
-						<span class="mt-0.5 text-[10px] font-medium text-zinc-400">({cat.defaultBase})</span>
+						<span class="mt-0.5 text-[10px] font-medium text-slate-400">({cat.defaultBase})</span>
 					</button>
 				{/each}
 			</div>
@@ -105,7 +105,7 @@
 		<div class="flex flex-col gap-1.5">
 			<label
 				for="modal-bahan-kategori"
-				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+				class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 			>
 				Kategori Bahan
 			</label>
@@ -113,7 +113,7 @@
 				<div class="relative">
 					<select
 						id="modal-bahan-kategori"
-						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm font-medium text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-slate-50 py-3 pr-10 pl-4 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 						bind:value={s.bahanForm.kategoriSelect}
 					>
 						{#each s.availableCategoryOptions as cat}
@@ -122,14 +122,14 @@
 						<option value="__new__">+ Buat Kategori Baru...</option>
 					</select>
 					<ChevronDown
-						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
+						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-slate-400"
 					/>
 				</div>
 
 				{#if s.bahanForm.kategoriSelect === '__new__'}
 					<input
 						type="text"
-						class="w-full rounded-2xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						class="w-full rounded-2xl border-0 bg-pink-50/50 px-4 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-pink-300 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 						bind:value={s.bahanForm.customKategori}
 						placeholder="Ketik nama kategori baru (contoh: Kemasan, Buah Segar)"
 						required
@@ -143,14 +143,14 @@
 			<div class="flex flex-col gap-1.5">
 				<label
 					for="modal-bahan-satuan"
-					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 				>
 					Satuan Simpan
 				</label>
 				<div class="relative">
 					<select
 						id="modal-bahan-satuan"
-						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-zinc-50 py-3 pr-10 pl-4 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+						class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-slate-50 py-3 pr-10 pl-4 text-sm text-slate-900 ring-1 ring-slate-200 transition-all ring-inset hover:ring-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
 						bind:value={s.bahanForm.satuan}
 					>
 						{#if s.bahanForm.tipe_satuan === 'cairan'}
@@ -172,7 +172,7 @@
 						{/if}
 					</select>
 					<ChevronDown
-						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-zinc-400"
+						class="pointer-events-none absolute top-1/2 right-3.5 h-4.5 w-4.5 -translate-y-1/2 text-slate-400"
 					/>
 				</div>
 			</div>
@@ -180,14 +180,14 @@
 			<div class="flex flex-col gap-1.5">
 				<label
 					for="modal-bahan-stok"
-					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 				>
 					Stok Siap Pakai
 				</label>
 				<input
 					id="modal-bahan-stok"
 					type="text"
-					class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+					class="w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 					bind:value={s.bahanForm.stok_saat_ini}
 					oninput={(e) => s.handleRupiahFormat(e, 'stok_saat_ini')}
 					onblur={() => s.handleQuantityBlur('stok_saat_ini')}
@@ -200,14 +200,14 @@
 			<div class="flex flex-col gap-1.5">
 				<label
 					for="modal-bahan-isi-kemasan"
-					class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+					class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 				>
 					1 Pack/Bungkus Isi Berapa Pcs?
 				</label>
 				<input
 					id="modal-bahan-isi-kemasan"
 					type="text"
-					class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+					class="w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 					bind:value={s.bahanForm.isi_per_kemasan}
 					oninput={(e) => s.handleRupiahFormat(e, 'isi_per_kemasan')}
 					onblur={() => s.handleQuantityBlur('isi_per_kemasan')}
@@ -219,39 +219,39 @@
 		<div class="flex flex-col gap-1.5">
 			<label
 				for="modal-bahan-ambang"
-				class="text-xs font-bold tracking-wider text-zinc-700 uppercase"
+				class="text-xs font-bold tracking-wider text-slate-700 uppercase"
 			>
 				Batas Peringatan Habis ({s.bahanForm.satuan})
 			</label>
 			<input
 				id="modal-bahan-ambang"
 				type="text"
-				class="w-full rounded-2xl border-0 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+				class="w-full rounded-2xl border-0 bg-slate-50 px-4 py-3 text-sm text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 				bind:value={s.bahanForm.ambang_stok}
 				oninput={(e) => s.handleRupiahFormat(e, 'ambang_stok')}
 				onblur={() => s.handleQuantityBlur('ambang_stok')}
 				placeholder="Contoh: 5"
 			/>
-			<p class="text-xs text-zinc-400">
+			<p class="text-xs text-slate-400">
 				Jika stok di bawah angka ini, muncul status peringatan stok.
 			</p>
 		</div>
 
 		<!-- Pembelian / Kulakan Grosir -->
-		<div class="rounded-2xl border border-zinc-200/80 bg-zinc-50/60 p-3.5">
-			<div class="mb-2 text-xs font-extrabold tracking-wider text-zinc-800 uppercase">
+		<div class="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-3.5">
+			<div class="mb-2 text-xs font-extrabold tracking-wider text-slate-800 uppercase">
 				Kalkulator Kulakan / Pembelian Grosir
 			</div>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<div class="flex flex-col gap-1.5">
-					<label for="modal-bahan-beli-qty" class="text-[11px] font-bold text-zinc-600">
+					<label for="modal-bahan-beli-qty" class="text-[11px] font-bold text-slate-600">
 						Jumlah Beli
 					</label>
 					<div class="flex gap-2">
 						<input
 							id="modal-bahan-beli-qty"
 							type="text"
-							class="w-full rounded-2xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							class="w-full rounded-2xl border-0 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={s.bahanForm.jumlah_beli_terakhir}
 							oninput={(e) => s.handleRupiahFormat(e, 'jumlah_beli_terakhir')}
 							onblur={() => s.handleQuantityBlur('jumlah_beli_terakhir')}
@@ -259,7 +259,7 @@
 						/>
 						<div class="relative w-28">
 							<select
-								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
+								class="w-full cursor-pointer appearance-none rounded-2xl border-0 bg-white py-2.5 pr-7 pl-2.5 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 transition-all ring-inset hover:ring-pink-300 focus:ring-2 focus:ring-pink-500 focus:outline-none"
 								bind:value={s.bahanForm.satuan_beli}
 							>
 								{#if s.bahanForm.tipe_satuan === 'berat'}
@@ -281,24 +281,25 @@
 								{/if}
 							</select>
 							<ChevronDown
-								class="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400"
+								class="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
 							/>
 						</div>
 					</div>
 				</div>
 
 				<div class="flex flex-col gap-1.5">
-					<label for="modal-bahan-beli-cost" class="text-[11px] font-bold text-zinc-600">
+					<label for="modal-bahan-beli-cost" class="text-[11px] font-bold text-slate-600">
 						Total Harga Beli
 					</label>
 					<div class="relative">
-						<span class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
+						<span
+							class="absolute top-1/2 left-3.5 -translate-y-1/2 text-xs font-bold text-slate-400"
 							>Rp</span
 						>
 						<input
 							id="modal-bahan-beli-cost"
 							type="text"
-							class="w-full rounded-2xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+							class="w-full rounded-2xl border-0 bg-white py-2.5 pr-3 pl-9 text-sm font-bold text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 							bind:value={s.bahanForm.biaya_beli_terakhir}
 							oninput={(e) => s.handleRupiahFormat(e, 'biaya_beli_terakhir')}
 							placeholder="35.000"
@@ -309,14 +310,14 @@
 
 			<!-- Hitung Susut Kulit/Biji (Hanya untuk Buah Segar / Tipe Berat & Unit) -->
 			{#if s.bahanForm.tipe_satuan === 'berat' || s.bahanForm.tipe_satuan === 'unit'}
-				<div class="mt-3 flex flex-col gap-2 border-t border-zinc-200/60 pt-3">
+				<div class="mt-3 flex flex-col gap-2 border-t border-slate-200/60 pt-3">
 					<div class="flex items-center justify-between">
 						<label
-							class="flex cursor-pointer items-center gap-2 text-xs font-bold text-zinc-700 select-none"
+							class="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-700 select-none"
 						>
 							<input
 								type="checkbox"
-								class="h-4 w-4 rounded border-zinc-300 text-pink-600 focus:ring-pink-500/20"
+								class="h-4 w-4 rounded border-slate-300 text-pink-600 focus:ring-pink-500/20"
 								checked={Number(s.bahanForm.yield_persen || 100) < 100}
 								onchange={(e) => {
 									s.bahanForm.yield_persen = e.currentTarget.checked ? '70' : '100';
@@ -339,35 +340,35 @@
 									type="number"
 									min="1"
 									max="100"
-									class="w-full rounded-2xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-zinc-900 ring-1 ring-zinc-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
+									class="w-full rounded-2xl border-0 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 ring-1 ring-slate-200 ring-inset focus:bg-white focus:ring-2 focus:ring-pink-500"
 									bind:value={s.bahanForm.yield_persen}
 									placeholder="70"
 								/>
 								<span
-									class="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-bold text-zinc-400"
+									class="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-bold text-slate-400"
 									>% Daging Bersih</span
 								>
 							</div>
 							<!-- Quick Preset Buttons -->
 							<div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-								<span class="text-[10px] font-semibold text-zinc-400">Pilihan Cepat:</span>
+								<span class="text-[10px] font-semibold text-slate-400">Pilihan Cepat:</span>
 								<button
 									type="button"
-									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
 									onclick={() => (s.bahanForm.yield_persen = '70')}
 								>
 									Alpukat/Mangga (70%)
 								</button>
 								<button
 									type="button"
-									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
 									onclick={() => (s.bahanForm.yield_persen = '45')}
 								>
 									Nanas (45%)
 								</button>
 								<button
 									type="button"
-									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-zinc-600 ring-1 ring-zinc-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
+									class="cursor-pointer rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200 transition-all hover:bg-pink-50 hover:text-pink-600 hover:ring-pink-300"
 									onclick={() => (s.bahanForm.yield_persen = '50')}
 								>
 									Jeruk (50%)
@@ -391,19 +392,19 @@
 				{@const effectiveUnitCost = preview.unitCost}
 
 				<div
-					class="mt-3 rounded-xl border border-pink-100 bg-pink-50/80 p-2.5 text-xs text-zinc-700"
+					class="mt-3 rounded-xl border border-pink-100 bg-pink-50/80 p-2.5 text-xs text-slate-700"
 				>
 					<div class="flex flex-wrap items-center justify-between gap-1 font-bold">
-						<span class="text-zinc-600">
+						<span class="text-slate-600">
 							{#if isFruitYield}
-								Daging Bersih: <span class="text-zinc-900"
+								Daging Bersih: <span class="text-slate-900"
 									>{formatQuantity(netBaseQty)} {s.bahanForm.satuan}</span
 								>
-								<span class="text-[10px] font-normal text-zinc-400">
+								<span class="text-[10px] font-normal text-slate-400">
 									(dari {formatQuantity(baseQty)} {s.bahanForm.satuan} utuh)</span
 								>
 							{:else}
-								Total: <span class="text-zinc-900"
+								Total: <span class="text-slate-900"
 									>{formatQuantity(baseQty)} {s.bahanForm.satuan}</span
 								>
 							{/if}

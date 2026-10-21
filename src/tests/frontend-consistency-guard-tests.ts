@@ -25,7 +25,7 @@ const CEILINGS: Record<string, number> = {
 	duplicatedLongClassGroups: 26,
 	brandHexClass: 0,
 	canvasHex: 0,
-	neutralNonSlate: 276,
+	neutralNonSlate: 0,
 	roleLiteralUI: 36,
 	e2eWaitForTimeout: 18
 };

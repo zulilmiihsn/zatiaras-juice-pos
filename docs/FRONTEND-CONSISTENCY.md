@@ -77,7 +77,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | `duplicatedLongClassGroups` | string kelas ≥ 90 karakter yang muncul ≥ 3 kali                  | 36   | 26     | 26       | F12     |
 | `brandHexClass`             | `[#db2777]`, `[#ec4899]`, `[#f43f5e]` + gradien hex di `app.css` | 118  | 0      | 0        | F13     |
 | `canvasHex`                 | `bg-[#faf7f8]`                                                   | 23   | 0      | 0        | F13     |
-| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 276      | F14     |
+| `neutralNonSlate`           | `gray/stone/zinc/neutral-<shade>`                                | 279  | 0      | 0        | F14     |
 | `roleLiteralUI`             | perbandingan literal `'pemilik'/'admin'/'kasir'` di UI dan store | 36   | 0      | 36       | F15     |
 | `e2eWaitForTimeout`         | `waitForTimeout(` di `e2e/`                                      | 18   | 14     | 18       | F16     |
 
@@ -103,7 +103,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F11  | `role="button"` jadi `<button>`       | Sonnet | Selesai  |
 | F12  | Kelas form bersama                    | Sonnet | Selesai  |
 | F13  | Token warna merek                     | Haiku  | Selesai  |
-| F14  | Abu-abu ke slate                      | Haiku  | Todo     |
+| F14  | Abu-abu ke slate                      | Haiku  | Selesai  |
 | F15  | Helper peran UI                       | Sonnet | Todo     |
 | F15b | Server yang masih mengecualikan admin | Sonnet | Tertahan |
 | F16  | Tidur di e2e jadi `toPass`            | Sonnet | Todo     |
@@ -372,3 +372,8 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
   nilai warna identik secara konstruksi. `app.html` (`theme-color`) dibiarkan.
   Ceiling `brandHexClass` 118 → 0 dan `canvasHex` 23 → 0. Staging fase B+F12
   sudah dideploy (run `39644721351`, sha `7263dd1`).
+- 22 Oktober 2026: F14 selesai. 276 kelas `gray|stone|zinc|neutral-<shade>`
+  di 19 berkas `.svelte` menjadi `slate-<shade>` (shade dan modifier opasitas
+  sama). Ini mengubah tampilan sedikit (slate sedikit kebiruan): pemilik perlu
+  memeriksa di staging fase C. Ceiling `neutralNonSlate` 276 → 0. Gerbang
+  statis hijau: `pnpm check`, eslint, prettier, `pnpm build`.

@@ -337,13 +337,13 @@
 		<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-red-100">
 			<Trash class="h-8 w-8 text-red-500" />
 		</div>
-		<h2 class="mb-2 text-center text-lg font-bold text-gray-800">Hapus Transaksi?</h2>
-		<p class="mb-6 text-center text-sm text-gray-500">
+		<h2 class="mb-2 text-center text-lg font-bold text-slate-800">Hapus Transaksi?</h2>
+		<p class="mb-6 text-center text-sm text-slate-500">
 			Transaksi yang dihapus tidak dapat dikembalikan. Yakin ingin menghapus transaksi ini?
 		</p>
 		<div class="flex w-full gap-3">
 			<button
-				class="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				class="flex-1 rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50"
 				onclick={() => (showDeleteModal = false)}>Batal</button
 			>
 			<button
