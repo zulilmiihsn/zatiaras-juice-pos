@@ -6,7 +6,7 @@
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import Settings from '@lucide/svelte/icons/settings';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { posCart } from '$lib/stores/posCart.svelte';
 	import { scale } from 'svelte/transition';
 	import { onMount } from 'svelte';
@@ -72,7 +72,7 @@
 >
 	{#each navs as nav}
 		{@const Icon = nav.icon}
-		{@const isActive = isPathActive(nav.path, $page.url.pathname)}
+		{@const isActive = isPathActive(nav.path, page.url.pathname)}
 
 		{#if nav.isHero}
 			<!-- Tombol Kasir: menonjol di tengah bilah bawah, kartu biasa di rel samping -->

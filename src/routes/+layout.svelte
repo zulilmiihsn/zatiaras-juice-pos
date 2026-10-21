@@ -3,11 +3,10 @@
 	import Topbar from '$lib/components/shared/topBar.svelte';
 	import AppNav from '$lib/components/shared/appNav.svelte';
 	import PwaUpdateBanner from '$lib/components/shared/PwaUpdateBanner.svelte';
-	import { page } from '$app/stores';
+	import { page, navigating } from '$app/state';
 	import { browser } from '$app/environment';
 	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
 	import { goto, invalidateAll, onNavigate } from '$app/navigation';
-	import { navigating } from '$app/stores';
 	import Download from '@lucide/svelte/icons/download';
 	import { posGridView } from '$lib/stores/posGridView.svelte';
 	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
@@ -54,7 +53,7 @@
 	// jadi halaman tanpa nav tidak sempat tampil bergeser selebar sidebar sebelum hidrasi.
 	const noNavRoutes = ['/login', '/unauthorized', '/pos/bayar', '/offline'];
 	const showNav = $derived(
-		!(noNavRoutes.includes($page.url.pathname) || $page.url.pathname.startsWith('/pengaturan'))
+		!(noNavRoutes.includes(page.url.pathname) || page.url.pathname.startsWith('/pengaturan'))
 	);
 
 	// ── PIN Modal ─────────────────────────────────────────────────────────────
@@ -137,7 +136,7 @@
 	}
 
 	$effect(() => {
-		if ($navigating) pinUnlockedForCurrentPage = false;
+		if (navigating.to) pinUnlockedForCurrentPage = false;
 	});
 
 	// Effect fetch: hanya identitas sesi/role/cabang + sinyal refresh eksplisit.
@@ -158,7 +157,7 @@
 	$effect(() => {
 		const currentUserRole = userRole.value;
 		const currentSecuritySettings = securitySettings.value;
-		const currentPath = $page.url.pathname;
+		const currentPath = page.url.pathname;
 		if (currentPath !== lastPath) {
 			pinUnlockedForCurrentPage = false;
 			lastPath = currentPath;
@@ -208,14 +207,14 @@
 	}
 
 	$effect(() => {
-		const path = $page.url.pathname;
+		const path = page.url.pathname;
 		const accessible = !showPinModal;
 		if (browser) untrack(() => orderNotifications.setPage(path, accessible));
 	});
 
 	const notificationsEnabled = $derived(
 		(userRole.value === 'kasir' || userRole.value === 'pemilik') &&
-			!['/login', '/offline', '/unauthorized'].includes($page.url.pathname)
+			!['/login', '/offline', '/unauthorized'].includes(page.url.pathname)
 	);
 	$effect(() => {
 		if (!browser || !notificationsEnabled) return;
@@ -225,7 +224,7 @@
 	onMount(async () => {
 		await layoutSt.setupPwa();
 		const publicRoutes = ['/login', '/offline', '/unauthorized'];
-		if (!publicRoutes.includes($page.url.pathname) && !(await requireAuth())) return;
+		if (!publicRoutes.includes(page.url.pathname) && !(await requireAuth())) return;
 		layoutSt.setupWindowListeners();
 	});
 </script>

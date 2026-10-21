@@ -10,7 +10,7 @@ import { computeMetrics } from '../../scripts/frontend-consistency.mjs';
 const CEILINGS: Record<string, number> = {
 	nestedStyle: 0,
 	effectAssignOnly: 0,
-	appStoresImport: 3,
+	appStoresImport: 0,
 	pureGotoButton: 2,
 	headerBackGoto: 6,
 	consoleLogClient: 1,

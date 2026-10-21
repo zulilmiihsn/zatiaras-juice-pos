@@ -62,7 +62,7 @@ yang lebih murah, dan dikunci oleh tes ratchet di CI supaya tidak kambuh.
 | --------------------------- | ---------------------------------------------------------------- | ---- | ------------ | -------- | ------- |
 | `nestedStyle`               | elemen `<style>` yang bukan blok tingkat atas                    | 2    | 0            | 0        | F1      |
 | `effectAssignOnly`          | `$effect` yang hanya menyalin satu nilai ke variabel             | 3    | 0            | 0        | F3      |
-| `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 3        | F4      |
+| `appStoresImport`           | `import … from '$app/stores'`                                    | 3    | 0            | 0        | F4      |
 | `pureGotoButton`            | `<button onclick={() => goto('/literal')}>`                      | 5    | 0            | 2        | F2, F5  |
 | `headerBackGoto`            | `<HeaderBackButton onclick={() => goto(…)}>`                     | 6    | 0            | 6        | F5      |
 | `consoleLogClient`          | `console.log` di kode klien                                      | 1    | 0            | 1        | F6      |
@@ -91,7 +91,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F1   | `<style>` bersarang                   | Haiku  | Selesai  |
 | F2   | Menu `/pengaturan` jadi daftar + link | Sonnet | Selesai  |
 | F3   | State turunan lewat `$derived`        | Sonnet | Selesai  |
-| F4   | `$app/stores` ke `$app/state`         | Haiku  | Todo     |
+| F4   | `$app/stores` ke `$app/state`         | Haiku  | Selesai  |
 | F5   | Navigasi pakai link                   | Haiku  | Todo     |
 | F6   | Perapian kecil (log, versi, footer)   | Haiku  | Todo     |
 | F7   | Alias Tailwind                        | Haiku  | Todo     |
@@ -280,3 +280,5 @@ Setelah F0 ada di `main`, sesi baru cukup diberi prompt ini:
 - 21 Oktober 2026: F1 selesai. Blok `<style>` di `antrean/+page.svelte` dan
   `pengaturan/+page.svelte` dipindah ke tingkat atas berkas; compile keduanya
   kini menghasilkan CSS. `nestedStyle` 2 → 0.
+- 21 Oktober 2026: F4 selesai. `+layout.svelte` dan `appNav.svelte` memakai
+  `page` dan `navigating` dari `$app/state`. `appStoresImport` 3 → 0.
