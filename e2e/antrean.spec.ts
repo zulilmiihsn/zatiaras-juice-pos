@@ -93,6 +93,14 @@ async function checkoutUatOrder(page: Page, customer: string): Promise<UatOrder>
 	return { transactionId, orderLabel, customer };
 }
 
+async function selectTab(page: Page, name: string) {
+	const tab = page.getByRole('tab', { name, exact: true });
+	await expect(async () => {
+		await tab.click();
+		await expect(tab).toHaveAttribute('aria-selected', 'true');
+	}).toPass({ timeout: 30_000 });
+}
+
 test('owner checkout appears in Antrean with Indonesian labels', async ({ page }) => {
 	await loginAsOwner(page);
 	const customer = `UAT Antrean ${Date.now().toString().slice(-6)}`;
@@ -191,12 +199,12 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 
 		// Buka kembali lalu pastikan masuk ke tab Diproses, tahan reload.
 		await doneCard.getByRole('button', { name: /buka kembali/i }).click();
-		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
+		await selectTab(page, 'Diproses');
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});
 		await page.reload();
-		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
+		await selectTab(page, 'Diproses');
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});
