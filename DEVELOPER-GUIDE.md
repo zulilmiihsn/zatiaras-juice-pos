@@ -111,6 +111,9 @@ UI (src/routes, src/lib/components)
   memerlukan PIN untuk kasir. Penegakan ada di server (`pageAccess.ts`), termasuk
   endpoint data di balik halaman itu. Kasir tetap boleh membaca laci sesi yang sedang
   aktif dan detail satu transaksi untuk cetak ulang.
+- Dashboard memakai alur pemuatan yang sama untuk awal halaman, refresh setelah PIN,
+  dan realtime. Pemuatan sukses menghapus pesan error sebelumnya; refresh gagal
+  mempertahankan data terakhir dan menampilkan error tanpa unhandled rejection.
 
 ### 3.4 Ledger manual dan kulakan
 

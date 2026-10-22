@@ -114,6 +114,7 @@ export function createDashboardState() {
 			// Load weekly income dengan cache
 			const weeklyData = await dashboardService.getWeeklyIncome();
 			applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
+			errorBestSellers = '';
 			await reportCacheMetrics('dashboard');
 		} catch (error) {
 			errorBestSellers = 'Gagal memuat data dashboard';
@@ -134,11 +135,7 @@ export function createDashboardState() {
 
 			dashboardRefreshInFlight = true;
 			try {
-				const dashboardStats = await dashboardService.getDashboardStats();
-				const nextBestSellers = await dashboardService.getBestSellers();
-				const weeklyData = await dashboardService.getWeeklyIncome();
-				applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
-				await reportCacheMetrics('dashboard');
+				await loadDashboardData();
 			} finally {
 				dashboardRefreshInFlight = false;
 			}
