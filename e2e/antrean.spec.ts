@@ -101,7 +101,9 @@ async function selectTab(page: Page, name: string) {
 	}).toPass({ timeout: 30_000 });
 }
 
-test('queue defaults to Masuk on entry and shows nonzero totals on every tab', async ({ page }) => {
+test('queue defaults to Masuk with wider tabs and badges only for active orders', async ({
+	page
+}) => {
 	await loginAsOwner(page);
 	let counts = { pending: 123, processing: 7, done: 2 };
 	await page.route('**/api/antrean?*', async (route) => {
@@ -125,13 +127,21 @@ test('queue defaults to Masuk on entry and shows nonzero totals on every tab', a
 	await expect(incoming).toHaveAttribute('aria-selected', 'true');
 	await expect(incoming.getByTestId('queue-tab-count')).toHaveText('123');
 	await expect(processing.getByTestId('queue-tab-count')).toHaveText('7');
-	await expect(done.getByTestId('queue-tab-count')).toHaveText('2');
+	await expect(done.getByTestId('queue-tab-count')).toHaveCount(0);
 	await expect(incoming).toHaveAccessibleDescription('123');
 	await expect(processing).toHaveAccessibleDescription('7');
-	await expect(done).toHaveAccessibleDescription('2');
-	for (const width of [320, 390, 1280]) {
+	await expect(done).toHaveAccessibleDescription('');
+	for (const width of [320, 390, 600, 768, 1280]) {
 		await page.setViewportSize({ width, height: 800 });
-		for (const tab of [incoming, processing, done]) {
+		const tablist = page.getByRole('tablist', { name: 'Status pesanan' });
+		const controlsWidth = await tablist
+			.locator('..')
+			.evaluate((el) => el.getBoundingClientRect().width);
+		const tablistWidth = await tablist.evaluate((el) => el.getBoundingClientRect().width);
+		const previousWidth = width < 640 ? controlsWidth - 96 : Math.min(384, controlsWidth - 96);
+		expect(Math.abs(tablistWidth - previousWidth * 1.05)).toBeLessThan(1);
+		await expect(done.getByTestId('queue-tab-count')).toHaveCount(0);
+		for (const tab of [incoming, processing]) {
 			const badge = tab.getByTestId('queue-tab-count');
 			await expect(badge).toBeVisible();
 			const bounds = await tab.boundingBox();

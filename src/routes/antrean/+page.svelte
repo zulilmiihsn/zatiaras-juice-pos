@@ -108,7 +108,7 @@
 <div class="bg-canvas flex min-h-[calc(100dvh-64px)] w-full flex-col">
 	<PageHeader title="Antrean Pesanan" subtitle={headerSubtitle} note={headerNote}>
 		<div
-			class="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-center gap-2 max-[379px]:-mx-3 max-[379px]:w-[calc(100%+1.5rem)]"
+			class="queue-controls relative z-10 mx-auto grid w-full max-w-5xl items-center justify-center gap-2 max-[379px]:-mx-3 max-[379px]:w-[calc(100%+1.5rem)]"
 		>
 			<button
 				type="button"
@@ -121,7 +121,7 @@
 			</button>
 
 			<div
-				class="relative flex min-w-0 flex-1 rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl sm:max-w-sm sm:flex-none sm:basis-96"
+				class="relative flex min-w-0 rounded-full border border-white/40 bg-white/25 p-1 backdrop-blur-xl"
 				role="tablist"
 				aria-label="Status pesanan"
 			>
@@ -188,7 +188,6 @@
 					type="button"
 					role="tab"
 					aria-label="Selesai"
-					aria-describedby={s.tabCounts?.done ? 'queue-count-done' : undefined}
 					aria-selected={s.activeTab === 'done'}
 					aria-current={s.activeTab === 'done' ? 'page' : undefined}
 					class="z-10 flex h-9 min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 focus:outline-none max-[379px]:h-12 max-[379px]:flex-col max-[379px]:gap-0.5 md:h-10 md:text-sm {s.activeTab ===
@@ -198,17 +197,6 @@
 					onclick={() => s.setTab('done')}
 				>
 					Selesai
-					{#if s.tabCounts && s.tabCounts.done > 0}
-						<span
-							id="queue-count-done"
-							data-testid="queue-tab-count"
-							class="queue-tab-count"
-							class:queue-tab-count-active={s.activeTab === 'done'}
-							title={s.tabCountsCached
-								? 'Pesanan tersimpan di perangkat'
-								: 'Jumlah pesanan selesai dalam 7 hari WITA terakhir'}>{s.tabCounts.done}</span
-						>
-					{/if}
 				</button>
 			</div>
 			<!-- Tombol cari: ganti spacer penyeimbang agar pil tetap tengah -->
@@ -548,6 +536,16 @@
 </AppModal>
 
 <style>
+	.queue-controls {
+		grid-template-columns: 2.5rem calc((100% - 6rem) * 1.05) 2.5rem;
+	}
+
+	@media (min-width: 40rem) {
+		.queue-controls {
+			grid-template-columns: 2.5rem min(25.2rem, calc((100% - 6rem) * 1.05)) 2.5rem;
+		}
+	}
+
 	.queue-tab-count {
 		display: inline-flex;
 		align-items: center;
