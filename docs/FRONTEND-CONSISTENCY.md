@@ -110,6 +110,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F17  | Halaman arsip untuk admin             | Sonnet | Selesai |
 | F18  | Item custom untuk admin               | Sonnet | Selesai |
 | F19  | Literal peran di layanan klien        | Sonnet | Selesai |
+| F20  | Toast riwayat saat layar PIN tampil   | Sonnet | Selesai |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -291,6 +292,16 @@ mengikuti.
 untuk item custom) baru diganti dengan `!isOwnerRole(...)` setelah F18
 selesai; sebelum itu biarkan, agar klien tidak mengizinkan yang server tolak.
 Gerbang: `pnpm check`, eslint, prettier, `pnpm test:unit`.
+
+**F20 Toast riwayat saat layar PIN tampil.** Di staging, kasir yang membuka
+halaman riwayat saat `catat` terkunci PIN melihat toast "Gagal memuat data
+transaksi". Penyebabnya: layout menampilkan layar PIN di atas halaman yang
+sudah terpasang, halaman langsung memanggil `/api/buku-kas`, dan server
+menjawab 403 `PIN_REQUIRED`. Perbaikan di `riwayatService.ts`
+(`isPinRequiredError`), `src/routes/pengaturan/riwayat/+page.svelte` dan
+`src/routes/pengaturan/kasir/riwayat/+page.svelte`: galat itu tidak memunculkan
+toast, dan halaman memuat ulang saat event `page-unlocked` (dikirim layout
+setelah PIN benar). Gerbang: `pnpm check`, eslint, prettier.
 
 ## Menyerahkan ke agent
 
@@ -493,3 +504,11 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   membandingkan dengan `===`, jadi nilai tak dikenal tetap `false`. Gerbang:
   `pnpm check`, eslint, prettier, `pnpm test:unit` (170 lulus). `autoApplyService`
   tidak punya tes unit sendiri.
+- 22 Oktober 2026: F20 selesai, atas perintah pemilik ("perbaiki") setelah
+  pemilik menemukan toast salah waktu di staging. Kartu ini baru, di luar
+  rencana F0–F19. Dua halaman riwayat (umum dan kasir) tidak lagi menampilkan
+  toast saat server menjawab `PIN_REQUIRED`, dan memuat ulang pada event
+  `page-unlocked`. Tidak ada tes unit karena `riwayatService` belum punya
+  berkas tes dan rantai impornya memuat store peramban; perilaku ini diuji
+  manual di staging. Gerbang: `pnpm check` (0 galat), eslint, prettier,
+  `pnpm test:frontend-consistency`.

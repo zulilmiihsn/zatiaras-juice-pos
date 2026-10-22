@@ -15,7 +15,7 @@
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import type { HistoryItem } from '$lib/types/laporan';
-	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
+	import { fetchTransaksiHariIniPage, isPinRequiredError } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
@@ -56,6 +56,7 @@
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
 		} catch (error) {
+			if (isPinRequiredError(error)) return;
 			ErrorHandler.logError(error, 'fetchTransaksiHariIniKasir');
 			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
 		} finally {
@@ -125,6 +126,7 @@
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('ai-recommendations-applied', aiHandler);
+			window.addEventListener('page-unlocked', aiHandler);
 			offRiwayatKasir = refreshBus.on('riwayat', async () => {
 				await fetchTransaksiHariIni();
 			});
@@ -137,6 +139,7 @@
 		}
 		if (typeof window !== 'undefined' && aiHandler) {
 			window.removeEventListener('ai-recommendations-applied', aiHandler);
+			window.removeEventListener('page-unlocked', aiHandler);
 			if (offRiwayatKasir) offRiwayatKasir();
 		}
 	});

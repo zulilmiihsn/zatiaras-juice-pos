@@ -9,7 +9,7 @@
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import type { HistoryItem } from '$lib/types/laporan';
-	import { fetchTransaksiHariIniPage } from '$lib/services/riwayatService';
+	import { fetchTransaksiHariIniPage, isPinRequiredError } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
@@ -46,6 +46,7 @@
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
 		} catch (err) {
+			if (isPinRequiredError(err)) return;
 			ErrorHandler.logError(err, 'fetchTransaksiHariIni (riwayat kasir)');
 			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
 			transaksiHariIni = [];
@@ -102,12 +103,14 @@
 		if (typeof window !== 'undefined') {
 			document.body.classList.add('hide-nav');
 		}
+		window.addEventListener('page-unlocked', fetchTransaksiHariIni);
 		await fetchTransaksiHariIni();
 	});
 
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
 			document.body.classList.remove('hide-nav');
+			window.removeEventListener('page-unlocked', fetchTransaksiHariIni);
 		}
 	});
 </script>
