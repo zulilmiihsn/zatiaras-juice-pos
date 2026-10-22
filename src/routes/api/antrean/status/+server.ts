@@ -9,7 +9,7 @@ import {
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/antrean/status — Proses / Selesai / Buka lagi satu pesanan.
+ * POST /api/antrean/status — Proses / Selesai / Buka kembali satu pesanan.
  * Body: { idempotency_key, target: pending|processing|done, expected_revision }.
  * Cabang selalu dari session; isi branch di body diabaikan.
  */

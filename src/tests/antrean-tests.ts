@@ -563,7 +563,7 @@ try {
 		'pagination tidak boleh ganda'
 	);
 
-	// Q06: Selesai idempotent, Buka lagi, dan stale revision ditolak.
+	// Q06: Selesai idempotent, Buka kembali ke Diproses, dan stale revision ditolak.
 	const doneOnce = await transitionOrderPreparation(
 		db,
 		samarinda,
@@ -584,9 +584,9 @@ try {
 		db,
 		samarinda,
 		{ userId: 'kasir-1', role: 'kasir' },
-		{ idempotency_key: 'antrean-old-0001', target: 'pending', expected_revision: 1 }
+		{ idempotency_key: 'antrean-old-0001', target: 'processing', expected_revision: 1 }
 	);
-	assert.equal(reopened.preparation_state, 'pending');
+	assert.equal(reopened.preparation_state, 'processing');
 	assert.equal(reopened.preparation_revision, 2);
 
 	// Q06b: Diproses = `pending` + preparation_started_at, tanpa nilai state baru di DB.
@@ -658,7 +658,11 @@ try {
 		.prepare('SELECT preparation_started_at FROM buku_kas WHERE cabang_id = ? AND id = ?')
 		.bind('samarinda', 'bk-proses-0007')
 		.first()) as { preparation_started_at: string | null } | null;
-	assert.equal(clearedRow?.preparation_started_at, null, 'Buka lagi mengosongkan timestamp proses');
+	assert.equal(
+		clearedRow?.preparation_started_at,
+		null,
+		'kembali ke Masuk mengosongkan timestamp proses'
+	);
 	await expectStatus(
 		() =>
 			transitionOrderPreparation(

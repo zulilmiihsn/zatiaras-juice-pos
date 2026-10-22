@@ -189,13 +189,14 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 		await expect(detail).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
 
-		// Buka lagi lalu pastikan kembali ke tab Masuk, tahan reload.
-		await doneCard.getByRole('button', { name: /buka lagi/i }).click();
-		await page.getByRole('tab', { name: /^Masuk/ }).click();
+		// Buka kembali lalu pastikan masuk ke tab Diproses, tahan reload.
+		await doneCard.getByRole('button', { name: /buka kembali/i }).click();
+		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});
 		await page.reload();
+		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});

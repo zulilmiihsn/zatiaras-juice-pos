@@ -414,11 +414,11 @@
 									type="button"
 									disabled={isSyncing(card)}
 									class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-2xs transition-all active:scale-95 disabled:cursor-wait disabled:opacity-60"
-									onclick={() => s.setStatus(card, 'pending')}
-									aria-label={`Buka lagi pesanan ${card.nama_pelanggan || card.idempotency_key}`}
+									onclick={() => s.setStatus(card, 'processing')}
+									aria-label={`Buka kembali pesanan ${card.nama_pelanggan || card.idempotency_key}`}
 								>
 									<Undo2 class="h-4 w-4" />
-									{isSyncing(card) ? 'Menyimpan' : 'Buka lagi'}
+									{isSyncing(card) ? 'Menyimpan' : 'Buka kembali'}
 								</button>
 							{/if}
 						</div>

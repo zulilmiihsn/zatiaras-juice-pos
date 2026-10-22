@@ -365,7 +365,7 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 		await tab.getByRole('tab', { name: 'Selesai', exact: true }).click();
 		await tab
 			.locator('article', { hasText: 'Notifikasi pertama' })
-			.getByRole('button', { name: /buka lagi/i })
+			.getByRole('button', { name: /buka kembali/i })
 			.click();
 		await wake(c.page);
 		expect(
