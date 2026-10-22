@@ -569,6 +569,12 @@ export class DashboardService {
 				}).toString();
 				const aggRes = await fetch(`/api/reports/aggregate?${aggParams}`);
 				if (!aggRes.ok) {
+					if (aggRes.status === 403) {
+						const payload = (await aggRes.json().catch(() => null)) as {
+							message?: unknown;
+						} | null;
+						if (payload?.message === 'PIN_REQUIRED') throw new Error('PIN_REQUIRED');
+					}
 					throw new Error(`Gagal memuat laporan (${aggRes.status})`);
 				}
 				const aggData = await aggRes.json();

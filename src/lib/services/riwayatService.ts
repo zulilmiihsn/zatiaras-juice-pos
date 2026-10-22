@@ -9,6 +9,8 @@ import { transactionService } from '$lib/services/transactionService';
 import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
 import type { BukuKasRecord, HistoryItem } from '$lib/types/laporan';
 
+export { isPinRequiredError } from '$lib/utils/pinRequiredError';
+
 /** Preset rentang Riwayat. Default 'hari-ini' = perilaku lama. */
 export type RentangRiwayat = 'hari-ini' | '7-hari';
 
@@ -29,14 +31,6 @@ export interface RiwayatFilter {
 	/** 'all' | 'qris' | 'tunai' — string longgar karena state komponen bertipe string. */
 	filterPayment?: string;
 	rentang?: RentangRiwayat;
-}
-
-/**
- * Server menjawab 403 `PIN_REQUIRED` selagi layar PIN masih menutupi halaman.
- * Itu bukan kegagalan muat: caller diam dan memuat ulang saat `page-unlocked`.
- */
-export function isPinRequiredError(error: unknown): boolean {
-	return error instanceof Error && error.message.includes('PIN_REQUIRED');
 }
 
 function toHistoryItem(t: BukuKasRecord): HistoryItem {

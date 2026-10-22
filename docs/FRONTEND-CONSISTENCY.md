@@ -111,6 +111,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | F18  | Item custom untuk admin               | Sonnet | Selesai |
 | F19  | Literal peran di layanan klien        | Sonnet | Selesai |
 | F20  | Toast riwayat saat layar PIN tampil   | Sonnet | Selesai |
+| F21  | Toast laporan saat layar PIN tampil   | Sonnet | Selesai |
 
 Urutan dan fase: **A** = F1–F8 (mekanis, tanpa perubahan tampilan) lalu staging.
 **B** = F9a–F11 (perilaku dan aksesibilitas) lalu staging, pemilik mencoba alur
@@ -302,6 +303,15 @@ menjawab 403 `PIN_REQUIRED`. Perbaikan di `riwayatService.ts`
 `src/routes/pengaturan/kasir/riwayat/+page.svelte`: galat itu tidak memunculkan
 toast, dan halaman memuat ulang saat event `page-unlocked` (dikirim layout
 setelah PIN benar). Gerbang: `pnpm check`, eslint, prettier.
+
+**F21 Toast laporan saat layar PIN tampil.** Kasus yang sama dengan F20, tetapi
+di halaman laporan: `laporanState` langsung memanggil
+`/api/reports/aggregate`, server menjawab 403 `PIN_REQUIRED`, lalu muncul toast
+"Gagal memuat data laporan". Perbaikan: helper `isPinRequiredError` dipindah ke
+`src/lib/utils/pinRequiredError.ts`, `dashboardService.getReportData` meneruskan
+penanda `PIN_REQUIRED` dari respons 403, dan `laporanState` tidak menampilkan
+toast untuk galat itu serta memuat ulang saat `page-unlocked`. Gerbang:
+`pnpm check`, eslint, prettier, `pnpm test:unit`.
 
 ## Menyerahkan ke agent
 
@@ -512,3 +522,9 @@ timeout: 60_000, intervals: [500] })`. 14 `waitForTimeout` lainnya diberi
   berkas tes dan rantai impornya memuat store peramban; perilaku ini diuji
   manual di staging. Gerbang: `pnpm check` (0 galat), eslint, prettier,
   `pnpm test:frontend-consistency`.
+- 22 Oktober 2026: F21 selesai, lanjutan F20 untuk halaman laporan. Helper
+  `isPinRequiredError` dipindah ke `src/lib/utils/pinRequiredError.ts`
+  (riwayat tetap mengekspor ulang agar pemanggil lama tidak berubah),
+  `getReportData` meneruskan `PIN_REQUIRED`, dan `laporanState` tidak
+  menampilkan toast saat layar PIN tampil serta memuat ulang pada
+  `page-unlocked`. Gerbang: `pnpm check`, eslint, prettier, `pnpm test:unit`.

@@ -15,6 +15,7 @@ import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { createToastManager } from '$lib/utils/ui';
 import { ErrorHandler } from '$lib/utils/errorHandling';
+import { isPinRequiredError } from '$lib/utils/pinRequiredError';
 import { groupReportTransactions } from '$lib/utils/reportGrouping';
 import { calculateTaxes, getTaxSettings } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
@@ -195,6 +196,7 @@ export function createLaporanState() {
 			laporan = reportDataContent.transactions || [];
 			await reportCacheMetrics('laporan');
 		} catch (error) {
+			if (isPinRequiredError(error)) return;
 			ErrorHandler.logError(error, 'loadLaporanData');
 			if (!silent) toastManager.showToastNotification('Gagal memuat data laporan', 'error');
 		} finally {
@@ -427,6 +429,9 @@ export function createLaporanState() {
 		const handleNavigation = () => {
 			void scheduleLaporanRefresh(100, true);
 		};
+		const handlePageUnlocked = () => {
+			void loadLaporanData({ force: true });
+		};
 		const handleAiRecommendationsApplied = async () => {
 			try {
 				await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
@@ -451,6 +456,7 @@ export function createLaporanState() {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		window.addEventListener('focus', handleFocus);
 		window.addEventListener('popstate', handleNavigation);
+		window.addEventListener('page-unlocked', handlePageUnlocked);
 		window.addEventListener(
 			'ai-recommendations-applied',
 			handleAiRecommendationsApplied as EventListener
@@ -460,6 +466,7 @@ export function createLaporanState() {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			window.removeEventListener('focus', handleFocus);
 			window.removeEventListener('popstate', handleNavigation);
+			window.removeEventListener('page-unlocked', handlePageUnlocked);
 			window.removeEventListener(
 				'ai-recommendations-applied',
 				handleAiRecommendationsApplied as EventListener
