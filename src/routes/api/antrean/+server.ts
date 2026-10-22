@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
 
 /**
  * GET /api/antrean — daftar pesanan POS per cabang untuk layar Antrean.
- * Query: state=pending|done (default pending), limit 1-100 (default 50), cursor opak.
+ * Query: state=pending|processing|done (default pending), limit 1-100 (default 50), cursor opak.
  * Route tipis: auth + parse + delegasi ke orderQueue use case.
  */
 export const GET: RequestHandler = async ({ url, platform, locals }) => {

@@ -9,7 +9,7 @@ Cloudflare Pages dan tetap bisa mencatat penjualan tunai saat offline.
 - **POS**: tunai dan non-tunai, porsi biasa/jumbo, tambahan, gula/es/catatan, item
   kustom (khusus pemilik), struk browser dan ESC/POS.
 - **Sesi toko**: buka/tutup toko dengan modal awal dan ringkasan laci per shift.
-- **Antrean pesanan**: satu transaksi satu kartu (Belum selesai/Selesai), nomor
+- **Antrean pesanan**: satu transaksi satu kartu (Masuk/Diproses/Selesai), nomor
   pesanan harian `001`–`999+` per cabang per tanggal WITA, notifikasi pesanan baru
   di perangkat lain (banner, suara, Web Push).
 - **Katalog**: produk, kategori, tambahan, bahan, resep, HPP, kulakan bahan.

@@ -41,5 +41,6 @@
 	"0039_sesi_toko_single_active.sql": "33ef7a451408f1694d974c72107958fc1fe21a8da565265894033f22bdf7d472",
 	"0040_profil_unique_username.sql": "b4517ea262e6c55b51ba4900b569b3eb96f53f322b38857f85041765d2a25bc9",
 	"0041_purchase_request_fingerprint.sql": "de47b5e2e4d2ec058d4a90cad1334b5a4d421bfde799093ca3e29233a5820784",
-	"0042_archive_restore_staging.sql": "144c8b34141001f120675e4529542c25c6c9b4ad27661fa8bf68315e2a4f6cbf"
+	"0042_archive_restore_staging.sql": "144c8b34141001f120675e4529542c25c6c9b4ad27661fa8bf68315e2a4f6cbf",
+	"0043_order_preparation_started.sql": "8e5d667bc5c10d244acdee2114869963bd861812e25cea530f62476ad60e493b"
 }

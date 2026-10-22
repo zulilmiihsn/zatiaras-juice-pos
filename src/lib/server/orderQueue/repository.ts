@@ -1,11 +1,17 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from '$lib/server/branchResolver';
 import { formatDateYmdWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
-import type { OrderQueueCursor, OrderQueueItemDetail, PreparationState } from './types';
+import type {
+	OrderQueueCursor,
+	OrderQueueItemDetail,
+	PreparationDbState,
+	PreparationState
+} from './types';
 
 /**
- * Tab Selesai hanya menampilkan 7 hari WITA terakhir agar daftar tak
- * menumpuk. Tab Belum selesai TANPA batas tanggal: pesanan menginap wajib
+ * Tab Masuk/Diproses memakai `preparation_state='pending'` yang sama;
+ * pembedanya `preparation_started_at` (lihat migration 0043). Tab Selesai
+ * menampilkan 7 hari WITA terakhir. Pesanan menginap tanpa batas tanggal
  * tetap terlihat sampai diselesaikan. Data lama tetap utuh di database.
  */
 export const DONE_WINDOW_DAYS = 7;
@@ -25,7 +31,8 @@ export interface OrderHeaderRow {
 	jumlah: number;
 	nomor_harian: number | null;
 	tanggal_nomor: string | null;
-	preparation_state: PreparationState | null;
+	preparation_state: PreparationDbState | null;
+	preparation_started_at: string | null;
 	preparation_revision: number;
 	preparation_completed_at: string | null;
 	preparation_completed_by: string | null;
@@ -70,7 +77,8 @@ export async function getHeaderByIdempotency(
 	return (await db
 		.prepare(
 			`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
+				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_started_at,
+				preparation_revision,
 				preparation_completed_at, preparation_completed_by, revision
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND sumber = 'pos' AND idempotency_key = ?
@@ -113,14 +121,20 @@ export async function listHeaders(
 	limit: number,
 	cursor: OrderQueueCursor | null
 ): Promise<OrderHeaderRow[]> {
-	if (state === 'pending') {
+	if (state !== 'done') {
+		const startedFilter =
+			state === 'processing'
+				? 'AND preparation_started_at IS NOT NULL'
+				: 'AND preparation_started_at IS NULL';
 		const { results = [] } = (await db
 			.prepare(
 				`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-					nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
+					nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_started_at,
+					preparation_revision,
 					preparation_completed_at, preparation_completed_by, revision
 				 FROM buku_kas
 				 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending'
+				 ${startedFilter}
 				 ${cursor ? 'AND (waktu > ? OR (waktu = ? AND id > ?))' : ''}
 				 ORDER BY waktu ASC, id ASC
 				 LIMIT ?`
@@ -133,7 +147,8 @@ export async function listHeaders(
 	const { results = [] } = (await db
 		.prepare(
 			`SELECT id, transaction_id, idempotency_key, nama_pelanggan, waktu, metode_bayar,
-				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_revision,
+				nominal, jumlah, nomor_harian, tanggal_nomor, preparation_state, preparation_started_at,
+				preparation_revision,
 				preparation_completed_at, preparation_completed_by, revision
 			 FROM buku_kas
 			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'done'

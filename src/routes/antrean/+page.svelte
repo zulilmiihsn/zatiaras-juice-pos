@@ -9,6 +9,7 @@
 	import { isTodayWita, WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Check from '@lucide/svelte/icons/check';
+	import Play from '@lucide/svelte/icons/play';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
@@ -125,8 +126,12 @@
 				aria-label="Status pesanan"
 			>
 				<div
-					class="absolute top-1 bottom-1 left-1 z-0 w-[calc(50%-4px)] rounded-full bg-white shadow-md transition-transform duration-200 ease-out"
-					style="transform: translateX({s.activeTab === 'done' ? '100%' : '0'});"
+					class="absolute top-1 bottom-1 left-1 z-0 rounded-full bg-white shadow-md transition-transform duration-200 ease-out"
+					style="width: calc((100% - 8px) / 3); transform: translateX({s.activeTab === 'processing'
+						? '100%'
+						: s.activeTab === 'done'
+							? '200%'
+							: '0'});"
 				></div>
 				<button
 					type="button"
@@ -139,7 +144,20 @@
 						: 'text-white'}"
 					onclick={() => s.setTab('pending')}
 				>
-					Belum selesai
+					Masuk
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={s.activeTab === 'processing'}
+					aria-current={s.activeTab === 'processing' ? 'page' : undefined}
+					class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+					'processing'
+						? 'text-pink-700'
+						: 'text-white'}"
+					onclick={() => s.setTab('processing')}
+				>
+					Diproses
 				</button>
 				<button
 					type="button"
@@ -305,12 +323,18 @@
 				>
 					<ClipboardList class="mb-3 h-10 w-10 text-pink-300" />
 					<div class="text-base font-extrabold text-slate-800">
-						{s.activeTab === 'pending' ? 'Antrean kosong' : 'Belum ada yang selesai'}
+						{s.activeTab === 'pending'
+							? 'Antrean kosong'
+							: s.activeTab === 'processing'
+								? 'Belum ada yang diproses'
+								: 'Belum ada yang selesai'}
 					</div>
 					<div class="mt-1 max-w-xs text-xs text-slate-500">
 						{s.activeTab === 'pending'
 							? 'Pesanan baru dari Kasir akan muncul di sini.'
-							: 'Pesanan yang ditandai selesai akan tampil di sini.'}
+							: s.activeTab === 'processing'
+								? 'Pesanan yang sedang dibuat akan tampil di sini.'
+								: 'Pesanan yang ditandai selesai akan tampil di sini.'}
 					</div>
 				</div>
 			{/if}
@@ -333,7 +357,7 @@
 								</div>
 								<div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
 									<span
-										>{s.activeTab === 'pending' && now && isTodayWita(card.waktu, now)
+										>{s.activeTab !== 'done' && now && isTodayWita(card.waktu, now)
 											? 'Hari ini'
 											: formatTanggal(card.waktu)}</span
 									>
@@ -352,6 +376,29 @@
 								</div>
 							</div>
 							{#if s.activeTab === 'pending'}
+								<div class="flex shrink-0 flex-col items-stretch gap-2">
+									<button
+										type="button"
+										disabled={isSyncing(card)}
+										class="flex min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-full border border-sky-200 bg-white px-5 text-sm font-bold text-sky-700 shadow-2xs transition-all active:scale-95 disabled:cursor-wait disabled:opacity-60"
+										onclick={() => s.setStatus(card, 'processing')}
+										aria-label={`Mulai proses pesanan ${card.nama_pelanggan || card.idempotency_key}`}
+									>
+										<Play class="h-4 w-4 stroke-[2.5]" />
+										{isSyncing(card) ? 'Menyimpan' : 'Proses'}
+									</button>
+									<button
+										type="button"
+										disabled={isSyncing(card)}
+										class="flex min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 text-sm font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-wait disabled:opacity-60"
+										onclick={() => s.setStatus(card, 'done')}
+										aria-label={`Tandai selesai pesanan ${card.nama_pelanggan || card.idempotency_key}`}
+									>
+										<Check class="h-4 w-4 stroke-[2.5]" />
+										{isSyncing(card) ? 'Menyimpan' : 'Selesai'}
+									</button>
+								</div>
+							{:else if s.activeTab === 'processing'}
 								<button
 									type="button"
 									disabled={isSyncing(card)}

@@ -1,8 +1,12 @@
 import { del, get, keys, update } from 'idb-keyval';
 import { orderQueueStore } from '$lib/utils/idbStores';
-import type { OrderQueueItem, TransitionOrderResult } from '$lib/server/orderQueue/types';
+import type {
+	OrderQueueItem,
+	PreparationState,
+	TransitionOrderResult
+} from '$lib/server/orderQueue/types';
 
-export type OrderTarget = 'pending' | 'done';
+export type OrderTarget = PreparationState;
 
 export interface UiOrderItem {
 	nama: string;
@@ -71,6 +75,10 @@ function intentsKey(branch: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isOrderTarget(value: unknown): value is OrderTarget {
+	return value === 'pending' || value === 'processing' || value === 'done';
 }
 
 function toUiItem(raw: unknown): UiOrderItem | null {
@@ -176,7 +184,7 @@ export function mergeQueueWithLocal(
 					: null,
 			nama_pelanggan: item.nama_pelanggan ? String(item.nama_pelanggan).slice(0, 60) : null,
 			waktu: String(item.waktu),
-			preparation_state: item.preparation_state === 'done' ? 'done' : 'pending',
+			preparation_state: isOrderTarget(item.preparation_state) ? item.preparation_state : 'pending',
 			preparation_revision: Number(item.preparation_revision ?? 0),
 			preparation_completed_at: item.preparation_completed_at ?? null,
 			items: Array.isArray(item.items)
@@ -214,11 +222,13 @@ export function mergeQueueWithLocal(
 	}
 	const compare = (left: string, right: string): number =>
 		left < right ? -1 : left > right ? 1 : 0;
+	const rank = (state: OrderTarget): number =>
+		state === 'pending' ? 0 : state === 'processing' ? 1 : 2;
 	return [...byKey.values()].sort((a, b) => {
 		if (a.preparation_state !== b.preparation_state) {
-			return a.preparation_state === 'pending' ? -1 : 1;
+			return rank(a.preparation_state) - rank(b.preparation_state);
 		}
-		if (a.preparation_state === 'pending') {
+		if (a.preparation_state !== 'done') {
 			return (
 				compare(a.waktu, b.waktu) ||
 				compare(a.buku_kas_id ?? a.idempotency_key, b.buku_kas_id ?? b.idempotency_key)
@@ -349,7 +359,7 @@ function normalizeCard(raw: unknown, key: string): UiOrder | undefined {
 		!raw.transaction_id ||
 		typeof raw.waktu !== 'string' ||
 		!Number.isFinite(Date.parse(raw.waktu)) ||
-		(raw.preparation_state !== 'pending' && raw.preparation_state !== 'done') ||
+		!isOrderTarget(raw.preparation_state) ||
 		!Number.isInteger(raw.preparation_revision) ||
 		Number(raw.preparation_revision) < 0 ||
 		!Array.isArray(raw.items)
@@ -394,7 +404,7 @@ function normalizeOperation(raw: unknown, key: string): StatusIntentOperation | 
 		raw.idempotency_key !== key ||
 		typeof raw.intent_id !== 'string' ||
 		!raw.intent_id ||
-		(raw.target !== 'pending' && raw.target !== 'done') ||
+		!isOrderTarget(raw.target) ||
 		typeof raw.expected_revision !== 'number' ||
 		!Number.isSafeInteger(raw.expected_revision) ||
 		raw.expected_revision < 0 ||
@@ -425,7 +435,7 @@ function normalizeIntents(raw: unknown, branch: string): StatusIntent[] {
 			typeof value.branch !== 'string' ||
 			value.branch.toLowerCase() !== branch.toLowerCase() ||
 			typeof value.userId !== 'string' ||
-			(value.target !== 'pending' && value.target !== 'done') ||
+			!isOrderTarget(value.target) ||
 			typeof value.expected_revision !== 'number' ||
 			!Number.isSafeInteger(value.expected_revision) ||
 			value.expected_revision < 0 ||

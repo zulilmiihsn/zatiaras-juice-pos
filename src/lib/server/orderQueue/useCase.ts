@@ -31,10 +31,18 @@ export class OrderQueueError extends Error {
 	}
 }
 
+function displayState(
+	row: Pick<OrderHeaderRow, 'preparation_state' | 'preparation_started_at'>
+): PreparationState {
+	if (row.preparation_state === 'done') return 'done';
+	if (row.preparation_state === 'pending' && row.preparation_started_at) return 'processing';
+	return 'pending';
+}
+
 function parseState(raw: unknown): PreparationState {
 	if (raw === undefined || raw === null || raw === '') return 'pending';
-	if (raw === 'pending' || raw === 'done') return raw;
-	throw new OrderQueueError(400, 'Parameter state harus pending atau done');
+	if (raw === 'pending' || raw === 'processing' || raw === 'done') return raw;
+	throw new OrderQueueError(400, 'Parameter state harus pending, processing, atau done');
 }
 
 function parseLimit(raw: unknown): number {
@@ -61,7 +69,10 @@ function toItem(header: OrderHeaderRow, details: OrderQueueItem['items']): Order
 				? Number(header.nomor_harian)
 				: null,
 		tanggal_nomor: header.tanggal_nomor ? String(header.tanggal_nomor) : null,
-		preparation_state: header.preparation_state as PreparationState,
+		preparation_state: displayState(header),
+		preparation_started_at: header.preparation_started_at
+			? String(header.preparation_started_at)
+			: null,
 		preparation_revision: Number(header.preparation_revision ?? 0),
 		preparation_completed_at: header.preparation_completed_at
 			? String(header.preparation_completed_at)
@@ -119,9 +130,7 @@ export async function listOrderQueue(
 		const last = pageRows[pageRows.length - 1];
 		nextCursor = encodeCursor({
 			sortValue:
-				state === 'pending'
-					? String(last.waktu)
-					: String(last.preparation_completed_at || last.waktu),
+				state === 'done' ? String(last.preparation_completed_at || last.waktu) : String(last.waktu),
 			id: String(last.id)
 		});
 	}
@@ -150,8 +159,8 @@ function parseTransitionInput(input: TransitionOrderInput): {
 	if (!key || key.length < 8 || key.length > 120) {
 		throw new OrderQueueError(400, 'idempotency_key tidak valid');
 	}
-	if (input.target !== 'pending' && input.target !== 'done') {
-		throw new OrderQueueError(400, 'Target status harus pending atau done');
+	if (input.target !== 'pending' && input.target !== 'processing' && input.target !== 'done') {
+		throw new OrderQueueError(400, 'Target status harus pending, processing, atau done');
 	}
 	const expected =
 		typeof input.expected_revision === 'string'
@@ -178,11 +187,12 @@ export async function transitionOrderPreparation(
 	if (!header.preparation_state) {
 		throw new OrderQueueError(409, 'Transaksi lama tidak mendukung Antrean');
 	}
-	if (header.preparation_state === target) {
+	const currentState = displayState(header);
+	if (currentState === target) {
 		return {
 			idempotency_key: idempotencyKey,
 			transaction_id: String(header.transaction_id),
-			preparation_state: header.preparation_state,
+			preparation_state: currentState,
 			preparation_revision: Number(header.preparation_revision ?? 0),
 			preparation_completed_at: header.preparation_completed_at
 				? String(header.preparation_completed_at)
@@ -199,31 +209,56 @@ export async function transitionOrderPreparation(
 	const now = new Date().toISOString();
 	const completedAt = target === 'done' ? now : null;
 	const completedBy = target === 'done' ? session.userId : null;
-	const updated = (await resolvedDb
-		.prepare(
-			`UPDATE buku_kas
-			 SET preparation_state = ?, preparation_revision = preparation_revision + 1,
-				revision = revision + 1,
-				preparation_completed_at = ?, preparation_completed_by = ?,
-				updated_at = ?
-			 WHERE cabang_id = ? AND id = ? AND sumber = 'pos'
-				AND preparation_state = ? AND preparation_revision = ?`
-		)
-		.bind(
-			target,
-			completedAt,
-			completedBy,
-			now,
-			branch,
-			String(header.id),
-			String(header.preparation_state),
-			expectedRevision
-		)
-		.run()) as unknown;
+	const where = `WHERE cabang_id = ? AND id = ? AND sumber = 'pos'
+				AND preparation_state = ? AND preparation_revision = ?`;
+	const commonTail = [
+		branch,
+		String(header.id),
+		String(header.preparation_state),
+		expectedRevision
+	];
+	let updated: unknown;
+	if (target === 'processing') {
+		updated = await resolvedDb
+			.prepare(
+				`UPDATE buku_kas
+				 SET preparation_state = 'pending', preparation_started_at = ?,
+					preparation_revision = preparation_revision + 1, revision = revision + 1,
+					preparation_completed_at = NULL, preparation_completed_by = NULL,
+					updated_at = ?
+				 ${where}`
+			)
+			.bind(now, now, ...commonTail)
+			.run();
+	} else if (target === 'done') {
+		updated = await resolvedDb
+			.prepare(
+				`UPDATE buku_kas
+				 SET preparation_state = 'done', preparation_revision = preparation_revision + 1,
+					revision = revision + 1,
+					preparation_completed_at = ?, preparation_completed_by = ?,
+					updated_at = ?
+				 ${where}`
+			)
+			.bind(completedAt, completedBy, now, ...commonTail)
+			.run();
+	} else {
+		updated = await resolvedDb
+			.prepare(
+				`UPDATE buku_kas
+				 SET preparation_state = 'pending', preparation_started_at = NULL,
+					preparation_revision = preparation_revision + 1, revision = revision + 1,
+					preparation_completed_at = NULL, preparation_completed_by = NULL,
+					updated_at = ?
+				 ${where}`
+			)
+			.bind(now, ...commonTail)
+			.run();
+	}
 	if (singleChange(updated) !== 1) {
 		const reread = await getHeaderByIdempotency(resolvedDb, branch, idempotencyKey);
 		if (!reread) throw new OrderQueueError(404, 'Pesanan tidak ditemukan');
-		if (reread.preparation_state === target) {
+		if (displayState(reread) === target) {
 			return {
 				idempotency_key: idempotencyKey,
 				transaction_id: String(reread.transaction_id),
@@ -255,7 +290,11 @@ export async function transitionOrderPreparation(
 				branch,
 				session as App.Locals['authSession'],
 				'buku_kas',
-				target === 'done' ? 'order_done' : 'order_reopened',
+				target === 'done'
+					? 'order_done'
+					: target === 'processing'
+						? 'order_started'
+						: 'order_reopened',
 				String(header.id),
 				{
 					transaction_id: String(header.transaction_id),

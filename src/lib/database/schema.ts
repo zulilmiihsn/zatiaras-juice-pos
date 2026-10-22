@@ -455,6 +455,7 @@ export const bukuKas = sqliteTable(
 			enum: ['normal', 'stale_to_ignored', 'owner_approved_current', 'owner_approved_after_recount']
 		}),
 		preparation_state: text('preparation_state', { enum: ['pending', 'done'] }),
+		preparation_started_at: text('preparation_started_at'),
 		preparation_revision: integer('preparation_revision').notNull().default(0),
 		preparation_completed_at: text('preparation_completed_at'),
 		preparation_completed_by: text('preparation_completed_by'),

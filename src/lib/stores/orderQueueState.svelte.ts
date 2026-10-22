@@ -104,7 +104,7 @@ async function recomputeBadge(): Promise<void> {
 			setUnknownCount();
 			return;
 		}
-		pendingCount = cachedCards.filter((card) => card.preparation_state === 'pending').length;
+		pendingCount = cachedCards.filter((card) => card.preparation_state !== 'done').length;
 		countSource = 'cached';
 		countFailed = false;
 		return;
@@ -136,7 +136,7 @@ async function recomputeBadge(): Promise<void> {
 		setUnknownCount();
 		return;
 	}
-	pendingCount = cachedCards.filter((card) => card.preparation_state === 'pending').length;
+	pendingCount = cachedCards.filter((card) => card.preparation_state !== 'done').length;
 	countSource = 'cached';
 	countFailed = false;
 }
@@ -327,9 +327,16 @@ export function createOrderQueueState() {
 		const pendings = (await getPendingTransactions()) as Array<Record<string, unknown>>;
 		const intents = await loadStatusIntents(branch);
 		if (!viewIsCurrent(gen, tab, branch, userId)) return;
-		if (tab === 'pending') {
+		if (tab !== 'done') {
+			const otherTab = tab === 'pending' ? 'processing' : 'pending';
+			const otherItems = (loadedDtos.get(otherTab) ?? []).filter(
+				(item) => item.preparation_state === otherTab
+			);
 			const snapshotItems = sortPending(
-				loaded.filter((item) => item.preparation_state === 'pending')
+				mergePages(
+					otherItems,
+					loaded.filter((item) => item.preparation_state === tab)
+				)
 			);
 			// Keep the authoritative online response visible if this offline-only cache write fails.
 			await saveQueueSnapshot(branch, userId, snapshotItems, page.pending_count, {

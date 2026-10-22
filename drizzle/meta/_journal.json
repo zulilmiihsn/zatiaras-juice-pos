@@ -302,6 +302,13 @@
 			"when": 1791590400000,
 			"tag": "0042_archive_restore_staging",
 			"breakpoints": true
+		},
+		{
+			"idx": 43,
+			"version": "6",
+			"when": 1792627200000,
+			"tag": "0043_order_preparation_started",
+			"breakpoints": true
 		}
 	]
 }

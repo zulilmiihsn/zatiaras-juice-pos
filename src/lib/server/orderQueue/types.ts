@@ -1,4 +1,11 @@
-export type PreparationState = 'pending' | 'done';
+/**
+ * Status tampilan Antrean. `processing` diturunkan dari
+ * `preparation_started_at`, bukan nilai baru di CHECK database.
+ */
+export type PreparationState = 'pending' | 'processing' | 'done';
+
+/** Nilai yang disimpan di kolom `buku_kas.preparation_state` (CHECK 0035). */
+export type PreparationDbState = 'pending' | 'done';
 
 export interface OrderQueueItemDetail {
 	id: string;
@@ -26,6 +33,8 @@ export interface OrderQueueItem {
 	nomor_harian: number | null;
 	tanggal_nomor: string | null;
 	preparation_state: PreparationState;
+	/** Opsional agar snapshot lama tetap terbaca; server selalu mengirim nilainya. */
+	preparation_started_at?: string | null;
 	preparation_revision: number;
 	preparation_completed_at: string | null;
 	preparation_completed_by: string | null;

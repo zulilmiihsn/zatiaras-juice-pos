@@ -77,7 +77,7 @@ dulu; apply memerlukan `--expect-sha256` yang disetujui.
 ## 3. Migrasi schema
 
 Migrasi tidak pernah ikut deploy. Tabel `d1_migrations` di ketiga shard produksi mencatat
-migrasi yang sudah diterapkan (0000–0042 per 14 Oktober 2026), jadi jalur utama memakai
+migrasi yang sudah diterapkan (0000–0043 per 22 Oktober 2026), jadi jalur utama memakai
 ledger itu:
 
 1. Backup dan verifikasi (§1).
@@ -215,7 +215,7 @@ duplikat; event realtime lintas cabang.
 - Aktivasi perangkat: login kasir/pemilik, (iOS: pasang PWA di Home Screen), buka
   Pengaturan → Antrean, tekan **Tes suara**, pastikan service worker **Siap**, lalu
   **Aktifkan notifikasi perangkat**.
-- Arsip menolak cutoff yang masih memuat pesanan Belum selesai.
+- Arsip menolak cutoff yang masih memuat pesanan Masuk atau Diproses.
 - Menghentikan push: nonaktifkan config di kedua runtime lewat rilis; jangan menghapus
   tabel notifikasi atau ledger. Push yang sudah terkirim tidak bisa ditarik.
 

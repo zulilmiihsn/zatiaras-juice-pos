@@ -79,6 +79,7 @@ async function seedQueueRow(input: {
 	waktu: string;
 	nama?: string | null;
 	state?: 'pending' | 'done' | null;
+	startedAt?: string;
 	completedAt?: string;
 	revision?: number;
 	sumber?: string;
@@ -92,13 +93,13 @@ async function seedQueueRow(input: {
 				id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, deskripsi,
 				nama_pelanggan, metode_bayar, transaction_id, idempotency_key,
 				stock_policy_mode, stock_policy_revision, stock_replay_disposition,
-				preparation_state, preparation_revision,
+				preparation_state, preparation_started_at, preparation_revision,
 				preparation_completed_at, preparation_completed_by,
 				restored_from_archive, created_at, updated_at
 			) VALUES (?, ?, ?, ?, 'in', 'pendapatan_usaha', 15000, 1, 'Penjualan Antrean',
 				?, 'tunai', ?, ?,
 				'tracked', 0, 'normal',
-				?, ?,
+				?, ?, ?,
 				?, ?,
 				0, ?, ?)`
 		)
@@ -111,6 +112,7 @@ async function seedQueueRow(input: {
 			input.transactionId,
 			input.idempotencyKey,
 			state,
+			input.startedAt ?? null,
 			input.revision ?? 0,
 			state === 'done' ? (input.completedAt ?? '2026-09-28T02:00:00.000Z') : null,
 			state === 'done' ? 'owner-antrean' : null,
@@ -150,6 +152,7 @@ try {
 	).results.map((c) => c.name);
 	for (const col of [
 		'preparation_state',
+		'preparation_started_at',
 		'preparation_revision',
 		'preparation_completed_at',
 		'preparation_completed_by'
@@ -585,6 +588,87 @@ try {
 	);
 	assert.equal(reopened.preparation_state, 'pending');
 	assert.equal(reopened.preparation_revision, 2);
+
+	// Q06b: Diproses = `pending` + preparation_started_at, tanpa nilai state baru di DB.
+	await seedQueueRow({
+		bukuKasId: 'bk-proses-0007',
+		transactionId: 'trx-proses-0007',
+		idempotencyKey: 'antrean-proses-0007',
+		waktu: '2026-09-28T02:30:00.000Z',
+		withItems: false
+	});
+	const started = await transitionOrderPreparation(
+		db,
+		samarinda,
+		{ userId: 'kasir-1', role: 'kasir' },
+		{ idempotency_key: 'antrean-proses-0007', target: 'processing', expected_revision: 0 }
+	);
+	assert.equal(started.preparation_state, 'processing');
+	assert.equal(started.preparation_revision, 1);
+	const startedAgain = await transitionOrderPreparation(
+		db,
+		samarinda,
+		{ userId: 'kasir-1', role: 'kasir' },
+		{ idempotency_key: 'antrean-proses-0007', target: 'processing', expected_revision: 1 }
+	);
+	assert.equal(startedAgain.idempotent, true);
+	assert.equal(startedAgain.preparation_revision, 1);
+	const pendingAfterStart = await listOrderQueue(db, samarinda, { state: 'pending', limit: 100 });
+	assert.ok(
+		!pendingAfterStart.items.some((i) => i.idempotency_key === 'antrean-proses-0007'),
+		'pesanan diproses keluar dari tab Masuk'
+	);
+	const processingPage = await listOrderQueue(db, samarinda, {
+		state: 'processing',
+		limit: 100
+	});
+	assert.ok(
+		processingPage.items.some((i) => i.idempotency_key === 'antrean-proses-0007'),
+		'tab Diproses memuat pesanan yang sudah mulai'
+	);
+	assert.equal(
+		processingPage.pending_count,
+		pendingAfterStart.pending_count,
+		'badge menghitung pesanan aktif termasuk Diproses'
+	);
+	const startedRow = (await db
+		.prepare(
+			'SELECT preparation_state, preparation_started_at FROM buku_kas WHERE cabang_id = ? AND id = ?'
+		)
+		.bind('samarinda', 'bk-proses-0007')
+		.first()) as { preparation_state: string; preparation_started_at: string | null } | null;
+	assert.equal(startedRow?.preparation_state, 'pending');
+	assert.ok(startedRow?.preparation_started_at, 'mulai proses mengisi timestamp');
+	const doneFromProcessing = await transitionOrderPreparation(
+		db,
+		samarinda,
+		{ userId: 'kasir-1', role: 'kasir' },
+		{ idempotency_key: 'antrean-proses-0007', target: 'done', expected_revision: 1 }
+	);
+	assert.equal(doneFromProcessing.preparation_state, 'done');
+	assert.equal(doneFromProcessing.preparation_revision, 2);
+	const reopenedFromProcessing = await transitionOrderPreparation(
+		db,
+		samarinda,
+		{ userId: 'owner-antrean', role: 'pemilik' },
+		{ idempotency_key: 'antrean-proses-0007', target: 'pending', expected_revision: 2 }
+	);
+	assert.equal(reopenedFromProcessing.preparation_state, 'pending');
+	const clearedRow = (await db
+		.prepare('SELECT preparation_started_at FROM buku_kas WHERE cabang_id = ? AND id = ?')
+		.bind('samarinda', 'bk-proses-0007')
+		.first()) as { preparation_started_at: string | null } | null;
+	assert.equal(clearedRow?.preparation_started_at, null, 'Buka lagi mengosongkan timestamp proses');
+	await expectStatus(
+		() =>
+			transitionOrderPreparation(
+				db,
+				samarinda,
+				{ userId: 'owner-antrean', role: 'pemilik' },
+				{ idempotency_key: 'antrean-proses-0007', target: 'done', expected_revision: 0 }
+			),
+		409
+	);
 	await expectStatus(
 		() =>
 			transitionOrderPreparation(
@@ -945,7 +1029,7 @@ try {
 	assert.deepEqual(filterQueueOrders(sampleCards, '142 ilham'), []);
 	assert.deepEqual(filterQueueOrders(sampleCards, '007 budi'), []);
 
-	// Q05b: Selesai dibatasi 7 hari; Belum selesai tanpa batas tanggal.
+	// Q05b: Selesai dibatasi 7 hari; Masuk/Diproses tanpa batas tanggal.
 	const dayMs = 24 * 60 * 60 * 1000;
 	await seedQueueRow({
 		bukuKasId: 'bk-done-sepekan',

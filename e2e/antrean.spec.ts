@@ -189,13 +189,45 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 		await expect(detail).toHaveCount(0);
 		await expect(doneCard).toBeVisible();
 
-		// Buka lagi lalu pastikan kembali ke tab Belum selesai, tahan reload.
+		// Buka lagi lalu pastikan kembali ke tab Masuk, tahan reload.
 		await doneCard.getByRole('button', { name: /buka lagi/i }).click();
-		await page.getByRole('tab', { name: /^Belum selesai/ }).click();
+		await page.getByRole('tab', { name: /^Masuk/ }).click();
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});
 		await page.reload();
+		await expect(page.locator('article', { hasText: customer })).toBeVisible({
+			timeout: 30_000
+		});
+	} finally {
+		if (transactionId) await cleanupTransaction(page, transactionId);
+	}
+});
+
+test('order moves through Masuk, Diproses, then Selesai', async ({ page }) => {
+	await loginAsOwner(page);
+	const customer = `UAT Proses ${Date.now().toString().slice(-6)}`;
+	let transactionId = '';
+	try {
+		const order = await checkoutUatOrder(page, customer);
+		transactionId = order.transactionId;
+
+		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
+		await expect(page).toHaveURL(/\/antrean/);
+		const card = page.locator('article', { hasText: customer });
+		await expect(card).toBeVisible({ timeout: 30_000 });
+
+		await card.getByRole('button', { name: /mulai proses/i }).click();
+		await expect(card).toHaveCount(0, { timeout: 30_000 });
+
+		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
+		const processingCard = page.locator('article', { hasText: customer });
+		await expect(processingCard).toBeVisible({ timeout: 30_000 });
+
+		await processingCard.getByRole('button', { name: /tandai selesai/i }).click();
+		await expect(processingCard).toHaveCount(0, { timeout: 30_000 });
+
+		await page.getByRole('tab', { name: 'Selesai', exact: true }).click();
 		await expect(page.locator('article', { hasText: customer })).toBeVisible({
 			timeout: 30_000
 		});
@@ -998,7 +1030,7 @@ test('appended queue snapshot survives offline reload and updates the device bad
 		if (productionPwa) {
 			await page.reload();
 		} else {
-			await page.getByRole('tab', { name: /^Belum selesai/ }).click();
+			await page.getByRole('tab', { name: /^Masuk/ }).click();
 		}
 		await expect(page.locator('article')).toHaveCount(51);
 		await expect(
@@ -2141,7 +2173,7 @@ test('online queue keeps 201 loaded rows while the offline snapshot caps at the 
 	expect(snapshot.keys.at(-1)).toBe('antrean-fixture-0200');
 	await context.setOffline(true);
 	try {
-		await page.getByRole('tab', { name: /^Belum selesai/ }).click();
+		await page.getByRole('tab', { name: /^Masuk/ }).click();
 		await expect(page.locator('article')).toHaveCount(200);
 		await expect(
 			page.getByText('200 pesanan belum selesai tersimpan di perangkat ini')

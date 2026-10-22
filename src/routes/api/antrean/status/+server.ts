@@ -9,8 +9,8 @@ import {
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/antrean/status — Selesai / Buka lagi satu pesanan.
- * Body: { idempotency_key, target: pending|done, expected_revision }.
+ * POST /api/antrean/status — Proses / Selesai / Buka lagi satu pesanan.
+ * Body: { idempotency_key, target: pending|processing|done, expected_revision }.
  * Cabang selalu dari session; isi branch di body diabaikan.
  */
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
