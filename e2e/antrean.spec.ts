@@ -109,9 +109,10 @@ test('owner checkout appears in Antrean with Indonesian labels', async ({ page }
 		const order = await checkoutUatOrder(page, customer);
 		transactionId = order.transactionId;
 
-		// Masuk Antrean dari modal sukses.
+		// Masuk Antrean dari modal sukses. Order checkout langsung ada di Diproses.
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
 		await expect(page).toHaveURL(/\/antrean/);
+		await selectTab(page, 'Diproses');
 		const card = page.locator('article', { hasText: customer });
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(
@@ -139,10 +140,11 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
 		await expect(page).toHaveURL(/\/antrean/);
+		await selectTab(page, 'Diproses');
 		const card = page.locator('article', { hasText: customer });
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		const csrfGuard = await page.evaluate(async (transactionId) => {
-			const queueBefore = await fetch('/api/antrean?state=pending&limit=100');
+			const queueBefore = await fetch('/api/antrean?state=processing&limit=100');
 			const before = await queueBefore.json();
 			const current = before.data.items.find(
 				(row: { transaction_id: string }) => row.transaction_id === transactionId
@@ -156,7 +158,7 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 					expected_revision: current.preparation_revision
 				})
 			});
-			const queueAfter = await fetch('/api/antrean?state=pending&limit=100');
+			const queueAfter = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await queueAfter.json();
 			const item = payload.data.items.find(
 				(row: { idempotency_key: string }) => row.idempotency_key === current.idempotency_key
@@ -168,7 +170,7 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 			};
 		}, order.transactionId);
 		expect(csrfGuard.status).toBe(403);
-		expect(csrfGuard.state).toBe('pending');
+		expect(csrfGuard.state).toBe('processing');
 		expect(csrfGuard.revision).toBe(0);
 
 		// Tandai selesai lalu pastikan pindah ke tab Selesai.
@@ -213,7 +215,7 @@ test('completed order moves to Selesai and can be reopened', async ({ page }) =>
 	}
 });
 
-test('order moves through Masuk, Diproses, then Selesai', async ({ page }) => {
+test('checkout order starts in Diproses then moves to Selesai', async ({ page }) => {
 	await loginAsOwner(page);
 	const customer = `UAT Proses ${Date.now().toString().slice(-6)}`;
 	let transactionId = '';
@@ -223,13 +225,7 @@ test('order moves through Masuk, Diproses, then Selesai', async ({ page }) => {
 
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
 		await expect(page).toHaveURL(/\/antrean/);
-		const card = page.locator('article', { hasText: customer });
-		await expect(card).toBeVisible({ timeout: 30_000 });
-
-		await card.getByRole('button', { name: /mulai proses/i }).click();
-		await expect(card).toHaveCount(0, { timeout: 30_000 });
-
-		await page.getByRole('tab', { name: 'Diproses', exact: true }).click();
+		await selectTab(page, 'Diproses');
 		const processingCard = page.locator('article', { hasText: customer });
 		await expect(processingCard).toBeVisible({ timeout: 30_000 });
 
@@ -255,6 +251,7 @@ test('queue search filters by name and number', async ({ page }) => {
 
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
 		await expect(page).toHaveURL(/\/antrean/);
+		await selectTab(page, 'Diproses');
 		const card = page.locator('article', { hasText: customer });
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await card.getByRole('button', { name: /tandai selesai/i }).click();
@@ -694,7 +691,7 @@ test('legacy status intent without a token is staged and replayed', async ({ pag
 		const key = await page.evaluate(async (transactionId) => {
 			const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
 			const session = await import(/* @vite-ignore */ '/src/lib/auth/offlineSession.ts');
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			const row = payload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === transactionId
@@ -1144,10 +1141,11 @@ test('a stale badge count is reconciled with the latest cache and deduplicated l
 		first = await checkoutUatOrder(page, `UAT badge first ${Date.now()}`);
 		second = await checkoutUatOrder(page, `UAT badge second ${Date.now()}`);
 		await page.goto('/antrean');
+		await selectTab(page, 'Diproses');
 		await expect(page.locator('article', { hasText: first.customer })).toBeVisible();
 		await expect(page.locator('article', { hasText: second.customer })).toBeVisible();
 		const orders = await page.evaluate(async () => {
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			return payload.data.items.map(
 				(item: {
@@ -1325,6 +1323,7 @@ test('401 status replay keeps the session error instead of a transient retry mes
 			await route.fulfill({ status: 401, json: { message: 'Login diperlukan' } });
 		});
 		await page.goto('/antrean');
+		await selectTab(page, 'Diproses');
 		const pendingCard = page.locator('article', { hasText: order.customer });
 		await expect(pendingCard).toBeVisible();
 		await pendingCard.getByRole('button', { name: /tandai selesai/i }).click();
@@ -1370,6 +1369,7 @@ test('failed status, checkout gate, and offline mount recovery retain durable or
 			route.fulfill({ status: 503, json: { message: 'Injected temporary outage' } })
 		);
 		await page.getByRole('button', { name: 'Lihat Antrean', exact: true }).click();
+		await selectTab(page, 'Diproses');
 		await page
 			.locator('article', { hasText: order.customer })
 			.getByRole('button', { name: /tandai selesai/i })
@@ -1410,7 +1410,7 @@ test('failed status, checkout gate, and offline mount recovery retain durable or
 		const gateOrder = await checkoutUatOrder(page, `UAT checkout gate ${Date.now()}`);
 		gateTransactionId = gateOrder.transactionId;
 		const gate = await page.evaluate(async (id) => {
-			const queueResponse = await fetch('/api/antrean?state=pending&limit=100');
+			const queueResponse = await fetch('/api/antrean?state=processing&limit=100');
 			const queuePayload = await queueResponse.json();
 			const row = queuePayload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === id
@@ -1473,13 +1473,14 @@ test('failed status, checkout gate, and offline mount recovery retain durable or
 		const mountOrder = await checkoutUatOrder(page, `UAT mount recovery ${Date.now()}`);
 		mountTransactionId = mountOrder.transactionId;
 		const mountKey = await page.evaluate(async (id) => {
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			return payload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === id
 			).idempotency_key as string;
 		}, mountTransactionId);
 		await page.goto('/antrean');
+		await selectTab(page, 'Diproses');
 		const mountCard = page.locator('article', { hasText: mountOrder.customer });
 		await expect(mountCard).toBeVisible();
 		await context.setOffline(true);
@@ -1564,6 +1565,7 @@ test('latest target waits for staged predecessor before the original request com
 	let secondTab: Page | undefined;
 	try {
 		await page.goto('/antrean');
+		await selectTab(page, 'Diproses');
 		const card = page.locator('article', { hasText: order.customer });
 		await expect(card).toBeVisible();
 		await page.route('**/api/antrean/status', async (route) => {
@@ -1586,7 +1588,7 @@ test('latest target waits for staged predecessor before the original request com
 		expect(firstPosts[0]).toMatchObject({ target: 'done', expected_revision: 0 });
 		const stagedBeforeCommit = await page.evaluate(async (transactionId) => {
 			const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			const key = payload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === transactionId
@@ -1608,7 +1610,7 @@ test('latest target waits for staged predecessor before the original request com
 		}, order.transactionId);
 		expect(stagedBeforeCommit).toMatchObject({
 			serverRevision: 0,
-			serverState: 'pending',
+			serverState: 'processing',
 			desiredTarget: 'done',
 			stagedTarget: 'done',
 			stagedRevision: 0
@@ -1655,14 +1657,14 @@ test('latest target waits for staged predecessor before the original request com
 			expected_revision: 0
 		});
 		const stillPending = await page.evaluate(async (key) => {
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			return payload.data.items.find(
 				(item: { idempotency_key: string }) => item.idempotency_key === key
 			);
 		}, stagedBeforeCommit.key);
 		expect(stillPending).toMatchObject({
-			preparation_state: 'pending',
+			preparation_state: 'processing',
 			preparation_revision: 0
 		});
 
@@ -1750,13 +1752,14 @@ test('latest status from another tab survives a committed request with a lost re
 	let primaryFailure: unknown;
 	try {
 		const key = await page.evaluate(async (id) => {
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			return payload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === id
 			).idempotency_key as string;
 		}, order.transactionId);
 		await page.goto('/antrean');
+		await selectTab(page, 'Diproses');
 		const originalCard = page.locator('article', { hasText: order.customer });
 		await expect(originalCard).toBeVisible();
 		await page.route('**/api/antrean/status', async (route) => {
@@ -1913,7 +1916,7 @@ test('status flight drains an intent saved during its final IndexedDB reread', a
 			const state = await import(/* @vite-ignore */ statePath);
 			await state.orderQueueBadge.refresh();
 			state.orderQueueBadge.dispose();
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			const keys = ids.map(
 				(id) =>
@@ -2446,7 +2449,7 @@ test('failed status rejection storage keeps its message and staged intent', asyn
 			const local = await import(/* @vite-ignore */ '/src/lib/utils/orderQueueLocal.ts');
 			const session = await import(/* @vite-ignore */ '/src/lib/auth/offlineSession.ts');
 			const sync = await import(/* @vite-ignore */ '/src/lib/services/orderQueueSync.ts');
-			const response = await fetch('/api/antrean?state=pending&limit=100');
+			const response = await fetch('/api/antrean?state=processing&limit=100');
 			const payload = await response.json();
 			const row = payload.data.items.find(
 				(item: { transaction_id: string }) => item.transaction_id === transactionId

@@ -11,7 +11,8 @@ Cloudflare Pages dan tetap bisa mencatat penjualan tunai saat offline.
 - **Sesi toko**: buka/tutup toko dengan modal awal dan ringkasan laci per shift.
 - **Antrean pesanan**: satu transaksi satu kartu (Masuk/Diproses/Selesai), nomor
   pesanan harian `001`–`999+` per cabang per tanggal WITA, notifikasi pesanan baru
-  di perangkat lain (banner, suara, Web Push).
+  di perangkat lain (banner, suara, Web Push). Checkout kasir langsung masuk
+  **Diproses**; tab **Masuk** disisakan untuk sumber pesanan lain.
 - **Katalog**: produk, kategori, tambahan, bahan, resep, HPP, kulakan bahan.
 - **Stok**: mutasi bahan/produk, rekonsiliasi fisik, monitoring stok opsional per cabang.
 - **Keuangan**: buku kas manual, riwayat, dashboard, laporan harian/rentang berbasis

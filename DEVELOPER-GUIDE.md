@@ -132,10 +132,13 @@ UI (src/routes, src/lib/components)
 ### 3.6 Antrean dan notifikasi
 
 Ringkasan di [ADR 0004](docs/adr/0004-antrean-notifications.md). Tiga tab:
-Masuk (`pending`), Diproses (`pending` + `preparation_started_at`), dan Selesai
-(`done`, jendela 7 hari). Event pesanan ditulis di batch checkout; perangkat membaca
-feed dengan cursor. Push dikirim cron tiap menit dengan lease, backoff, dan maksimal 8
-percobaan. Notifikasi bukan bukti pembayaran.
+Masuk (`pending` tanpa `preparation_started_at`), Diproses (`pending` +
+`preparation_started_at`), dan Selesai (`done`, jendela 7 hari). Checkout POS
+mengisi `preparation_started_at` saat insert sehingga order kasir langsung
+Diproses; Masuk disisakan untuk sumber pesanan lain. Event pesanan ditulis di
+batch checkout; perangkat membaca feed dengan cursor. Push dikirim cron tiap
+menit dengan lease, backoff, dan maksimal 8 percobaan. Notifikasi bukan bukti
+pembayaran.
 
 ### 3.7 Arsip dan restore
 

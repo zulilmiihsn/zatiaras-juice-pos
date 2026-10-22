@@ -230,7 +230,7 @@ try {
 	});
 	assert.ok(statements.length >= 1, 'checkout harus menghasilkan statement header');
 
-	// Q02 lanjutan: checkout pemilik end-to-end membuat satu kartu pending.
+	// Q02 lanjutan: checkout kasir end-to-end langsung membuat kartu Diproses.
 	await db.batch([
 		db.prepare(
 			`INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok, lacak_bahan, is_active)
@@ -293,11 +293,24 @@ try {
 	assert.equal(checkoutReceipt?.change, 0);
 	assert.equal(checkoutReceipt?.settings?.nama_toko, 'Toko Saat Checkout');
 	assert.equal(checkoutReceipt?.settings?.alamat, 'Alamat Checkout');
-	const storedState = await db
-		.prepare('SELECT preparation_state FROM buku_kas WHERE idempotency_key = ? AND cabang_id = ?')
+	const storedCheckout = (await db
+		.prepare(
+			'SELECT preparation_state, preparation_started_at FROM buku_kas WHERE idempotency_key = ? AND cabang_id = ?'
+		)
 		.bind('antrean-checkout-e2e-0001', 'samarinda')
-		.first<string>('preparation_state');
-	assert.equal(storedState, 'pending');
+		.first()) as { preparation_state: string; preparation_started_at: string | null } | null;
+	assert.equal(storedCheckout?.preparation_state, 'pending');
+	assert.ok(storedCheckout?.preparation_started_at, 'checkout langsung mengisi timestamp proses');
+	const processingAfterCheckout = await listOrderQueue(db, samarinda, {
+		state: 'processing',
+		limit: 100
+	});
+	assert.ok(
+		processingAfterCheckout.items.some(
+			(item) => item.idempotency_key === 'antrean-checkout-e2e-0001'
+		),
+		'order checkout harus tampil di tab Diproses'
+	);
 	await db
 		.prepare(
 			"UPDATE pengaturan SET nama_toko = 'Toko Setelah Checkout' WHERE cabang_id = 'samarinda'"
@@ -506,8 +519,8 @@ try {
 		'pending harus memuat pesanan lama'
 	);
 	assert.ok(
-		pendingPage.items.some((i) => i.idempotency_key === 'antrean-checkout-e2e-0001'),
-		'pending harus memuat checkout baru'
+		!pendingPage.items.some((i) => i.idempotency_key === 'antrean-checkout-e2e-0001'),
+		'checkout baru langsung Diproses, bukan Masuk'
 	);
 	assert.ok(
 		!pendingPage.items.some((i) => i.idempotency_key === 'antrean-manual-0003'),
@@ -533,7 +546,11 @@ try {
 	assert.equal(oldCard?.items[0]?.gula, 'kurang');
 	assert.equal(oldCard?.items[0]?.catatan, 'tanpa es batu');
 	// Nomor resmi terbawa ke daftar; baris seed lama (NULL) tetap tampil tanpa nomor.
-	const checkoutCard = pendingPage.items.find(
+	const checkoutProcessingPage = await listOrderQueue(db, samarinda, {
+		state: 'processing',
+		limit: 50
+	});
+	const checkoutCard = checkoutProcessingPage.items.find(
 		(i) => i.idempotency_key === 'antrean-checkout-e2e-0001'
 	);
 	assert.equal(checkoutCard?.nomor_harian, 1);

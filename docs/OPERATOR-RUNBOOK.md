@@ -77,7 +77,7 @@ dulu; apply memerlukan `--expect-sha256` yang disetujui.
 ## 3. Migrasi schema
 
 Migrasi tidak pernah ikut deploy. Tabel `d1_migrations` di ketiga shard produksi mencatat
-migrasi yang sudah diterapkan (0000–0043 per 22 Oktober 2026), jadi jalur utama memakai
+migrasi yang sudah diterapkan (0000–0044 per 22 Oktober 2026), jadi jalur utama memakai
 ledger itu:
 
 1. Backup dan verifikasi (§1).

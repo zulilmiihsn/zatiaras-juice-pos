@@ -8,6 +8,14 @@ async function waitForNotificationSettings(page: Page) {
 	).toBeVisible({ timeout: 30_000 });
 }
 
+async function selectTab(page: Page, name: string) {
+	const tab = page.getByRole('tab', { name, exact: true });
+	await expect(async () => {
+		await tab.click();
+		await expect(tab).toHaveAttribute('aria-selected', 'true');
+	}).toPass({ timeout: 30_000 });
+}
+
 async function login(
 	page: Page,
 	branch = 'samarinda',
@@ -360,6 +368,7 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 			.toBeGreaterThanOrEqual(cUnseenNotes + 3);
 		expect(await chimeStarts(b.page)).toBe(bSeenNotes);
 		const card = tab.locator('article', { hasText: 'Notifikasi pertama' });
+		await selectTab(tab, 'Diproses');
 		await expect(card).toBeVisible();
 		await card.getByRole('button', { name: /tandai selesai/i }).click();
 		await tab.getByRole('tab', { name: 'Selesai', exact: true }).click();
@@ -660,7 +669,7 @@ test('Antrean own offline checkout replay uses persistent profile origin and onl
 		expect((await local(a.page)).device_id).toBe(identity);
 		expect((await local(a.page)).events).toEqual([]);
 		const data = await a.page.evaluate(
-			async () => (await (await fetch('/api/antrean?state=pending&limit=100')).json()).data
+			async () => (await (await fetch('/api/antrean?state=processing&limit=100')).json()).data
 		);
 		const rows = data.items.filter((row: { buku_kas_id: string }) => row.buku_kas_id === orderId);
 		expect(rows).toHaveLength(1);
