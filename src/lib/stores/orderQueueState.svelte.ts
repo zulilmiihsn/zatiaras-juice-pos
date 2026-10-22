@@ -19,7 +19,11 @@ import {
 	type StatusIntent,
 	type UiOrder
 } from '$lib/utils/orderQueueLocal';
-import type { OrderQueueItem, PreparationState } from '$lib/server/orderQueue/types';
+import type {
+	OrderQueueCounts,
+	OrderQueueItem,
+	PreparationState
+} from '$lib/server/orderQueue/types';
 
 function currentBranch(): string | null {
 	if (!browser) return null;
@@ -233,6 +237,8 @@ export function createOrderQueueState() {
 	let statusSyncing = $state(false);
 	let pendingStatusCount = $state(0);
 	let activeTab = $state<PreparationState>('pending');
+	let tabCounts = $state<OrderQueueCounts | null>(null);
+	let tabCountsCached = $state(false);
 	let hasMore = $state(false);
 	let nextCursor = $state<string | null>(null);
 	let syncing = $state<Record<string, boolean>>({});
@@ -294,6 +300,10 @@ export function createOrderQueueState() {
 			items = [];
 			return;
 		}
+		if (browser && !navigator.onLine) {
+			await loadFromLocal(activeTab, loadGen, branch, userId);
+			return;
+		}
 		const [intents, pendingTransactions] = await Promise.all([
 			loadStatusIntents(branch),
 			getPendingTransactions()
@@ -351,6 +361,8 @@ export function createOrderQueueState() {
 		);
 		if (!viewIsCurrent(gen, tab, branch, userId)) return;
 		loadedDtos.set(tab, loaded);
+		tabCounts = page.counts ?? null;
+		tabCountsCached = false;
 		serverViewReady = true;
 		items = merged;
 		pendingStatusCount = intents.length;
@@ -374,8 +386,14 @@ export function createOrderQueueState() {
 			intents,
 			branch,
 			userId
-		).filter((card) => card.preparation_state === tab);
-		items = merged;
+		);
+		tabCounts = null;
+		tabCountsCached = true;
+		if (snapshot || merged.length > 0) {
+			tabCounts = { pending: 0, processing: 0, done: 0 };
+			for (const card of merged) tabCounts[card.preparation_state]++;
+		}
+		items = merged.filter((card) => card.preparation_state === tab);
 		serverViewReady = false;
 		pendingStatusCount = intents.length;
 		hasMore = false;
@@ -392,12 +410,14 @@ export function createOrderQueueState() {
 		if (!branch || !userId) {
 			items = [];
 			serverViewReady = false;
+			tabCounts = null;
 			loadError = SESSION_STATUS_MESSAGE;
 			loading = false;
 			return;
 		}
 		const key = scopeKey(branch, userId);
 		if (loadedScope && loadedScope !== key) {
+			tabCounts = null;
 			loadedDtos.clear();
 			serverViewReady = false;
 			items = [];
@@ -620,6 +640,12 @@ export function createOrderQueueState() {
 	}
 
 	return {
+		get tabCounts() {
+			return tabCounts;
+		},
+		get tabCountsCached() {
+			return tabCountsCached;
+		},
 		get items() {
 			return items;
 		},

@@ -3,6 +3,7 @@ import type { BranchId } from '$lib/server/branchResolver';
 import { formatDateYmdWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import type {
 	OrderQueueCursor,
+	OrderQueueCounts,
 	OrderQueueItemDetail,
 	PreparationDbState,
 	PreparationState
@@ -97,6 +98,29 @@ export async function countPendingOrders(db: D1Database, branch: BranchId): Prom
 		.bind(branch)
 		.first()) as { n?: number } | null;
 	return Number(row?.n ?? 0);
+}
+
+export async function countOrdersByState(
+	db: D1Database,
+	branch: BranchId
+): Promise<OrderQueueCounts> {
+	const row = await db
+		.prepare(
+			`SELECT
+			 COUNT(CASE WHEN preparation_state = 'pending' AND preparation_started_at IS NULL THEN 1 END) AS pending,
+			 COUNT(CASE WHEN preparation_state = 'pending' AND preparation_started_at IS NOT NULL THEN 1 END) AS processing,
+			 COUNT(CASE WHEN preparation_state = 'done' THEN 1 END) AS done
+			 FROM buku_kas
+			 WHERE cabang_id = ? AND sumber = 'pos'
+			 AND (preparation_state = 'pending' OR (preparation_state = 'done' AND preparation_completed_at >= ?))`
+		)
+		.bind(branch, doneWindowCutoff())
+		.first<OrderQueueCounts>();
+	return {
+		pending: Number(row?.pending ?? 0),
+		processing: Number(row?.processing ?? 0),
+		done: Number(row?.done ?? 0)
+	};
 }
 
 export async function countPendingOrdersBefore(

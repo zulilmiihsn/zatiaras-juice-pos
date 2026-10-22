@@ -101,6 +101,59 @@ async function selectTab(page: Page, name: string) {
 	}).toPass({ timeout: 30_000 });
 }
 
+test('queue defaults to Masuk on entry and shows nonzero totals on every tab', async ({ page }) => {
+	await loginAsOwner(page);
+	let counts = { pending: 123, processing: 7, done: 2 };
+	await page.route('**/api/antrean?*', async (route) => {
+		await route.fulfill({
+			json: {
+				ok: true,
+				data: {
+					items: [],
+					nextCursor: null,
+					hasMore: false,
+					pending_count: counts.pending + counts.processing,
+					counts
+				}
+			}
+		});
+	});
+	await page.goto('/antrean');
+	const incoming = page.getByRole('tab', { name: 'Masuk', exact: true });
+	const processing = page.getByRole('tab', { name: 'Diproses', exact: true });
+	const done = page.getByRole('tab', { name: 'Selesai', exact: true });
+	await expect(incoming).toHaveAttribute('aria-selected', 'true');
+	await expect(incoming.getByTestId('queue-tab-count')).toHaveText('123');
+	await expect(processing.getByTestId('queue-tab-count')).toHaveText('7');
+	await expect(done.getByTestId('queue-tab-count')).toHaveText('2');
+	await expect(incoming).toHaveAccessibleDescription('123');
+	await expect(processing).toHaveAccessibleDescription('7');
+	await expect(done).toHaveAccessibleDescription('2');
+	for (const width of [320, 390, 1280]) {
+		await page.setViewportSize({ width, height: 800 });
+		for (const tab of [incoming, processing, done]) {
+			const badge = tab.getByTestId('queue-tab-count');
+			await expect(badge).toBeVisible();
+			const bounds = await tab.boundingBox();
+			const badgeBounds = await badge.boundingBox();
+			expect(bounds).not.toBeNull();
+			expect(badgeBounds).not.toBeNull();
+			expect(badgeBounds!.x).toBeGreaterThanOrEqual(bounds!.x);
+			expect(badgeBounds!.x + badgeBounds!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+		}
+		await page.screenshot({ path: test.info().outputPath(`queue-tabs-${width}.png`) });
+	}
+	await selectTab(page, 'Selesai');
+	await page.goto('/');
+	await page.goto('/antrean');
+	await expect(incoming).toHaveAttribute('aria-selected', 'true');
+	counts = { pending: 0, processing: 1, done: 0 };
+	await page.getByRole('button', { name: 'Muat ulang Antrean', exact: true }).click();
+	await expect(incoming.getByTestId('queue-tab-count')).toHaveCount(0);
+	await expect(processing.getByTestId('queue-tab-count')).toHaveText('1');
+	await expect(done.getByTestId('queue-tab-count')).toHaveCount(0);
+});
+
 test('owner checkout appears in Antrean with Indonesian labels', async ({ page }) => {
 	await loginAsOwner(page);
 	const customer = `UAT Antrean ${Date.now().toString().slice(-6)}`;

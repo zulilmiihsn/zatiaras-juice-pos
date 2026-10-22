@@ -136,41 +136,79 @@
 				<button
 					type="button"
 					role="tab"
+					aria-label="Masuk"
+					aria-describedby={s.tabCounts?.pending ? 'queue-count-pending' : undefined}
 					aria-selected={s.activeTab === 'pending'}
 					aria-current={s.activeTab === 'pending' ? 'page' : undefined}
-					class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+					class="z-10 flex h-9 min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 focus:outline-none max-[379px]:h-12 max-[379px]:flex-col max-[379px]:gap-0.5 md:h-10 md:text-sm {s.activeTab ===
 					'pending'
 						? 'text-pink-700'
 						: 'text-white'}"
 					onclick={() => s.setTab('pending')}
 				>
 					Masuk
+					{#if s.tabCounts && s.tabCounts.pending > 0}
+						<span
+							id="queue-count-pending"
+							data-testid="queue-tab-count"
+							class="queue-tab-count"
+							class:queue-tab-count-active={s.activeTab === 'pending'}
+							title={s.tabCountsCached ? 'Pesanan tersimpan di perangkat' : 'Jumlah pesanan masuk'}
+							>{s.tabCounts.pending}</span
+						>
+					{/if}
 				</button>
 				<button
 					type="button"
 					role="tab"
+					aria-label="Diproses"
+					aria-describedby={s.tabCounts?.processing ? 'queue-count-processing' : undefined}
 					aria-selected={s.activeTab === 'processing'}
 					aria-current={s.activeTab === 'processing' ? 'page' : undefined}
-					class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+					class="z-10 flex h-9 min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 focus:outline-none max-[379px]:h-12 max-[379px]:flex-col max-[379px]:gap-0.5 md:h-10 md:text-sm {s.activeTab ===
 					'processing'
 						? 'text-pink-700'
 						: 'text-white'}"
 					onclick={() => s.setTab('processing')}
 				>
 					Diproses
+					{#if s.tabCounts && s.tabCounts.processing > 0}
+						<span
+							id="queue-count-processing"
+							data-testid="queue-tab-count"
+							class="queue-tab-count"
+							class:queue-tab-count-active={s.activeTab === 'processing'}
+							title={s.tabCountsCached
+								? 'Pesanan tersimpan di perangkat'
+								: 'Jumlah pesanan diproses'}>{s.tabCounts.processing}</span
+						>
+					{/if}
 				</button>
 				<button
 					type="button"
 					role="tab"
+					aria-label="Selesai"
+					aria-describedby={s.tabCounts?.done ? 'queue-count-done' : undefined}
 					aria-selected={s.activeTab === 'done'}
 					aria-current={s.activeTab === 'done' ? 'page' : undefined}
-					class="z-10 h-9 min-h-0 min-w-0 flex-1 cursor-pointer truncate rounded-full px-2 text-xs font-bold transition-all duration-200 focus:outline-none md:h-10 md:text-sm {s.activeTab ===
+					class="z-10 flex h-9 min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 focus:outline-none max-[379px]:h-12 max-[379px]:flex-col max-[379px]:gap-0.5 md:h-10 md:text-sm {s.activeTab ===
 					'done'
 						? 'text-pink-700'
 						: 'text-white'}"
 					onclick={() => s.setTab('done')}
 				>
 					Selesai
+					{#if s.tabCounts && s.tabCounts.done > 0}
+						<span
+							id="queue-count-done"
+							data-testid="queue-tab-count"
+							class="queue-tab-count"
+							class:queue-tab-count-active={s.activeTab === 'done'}
+							title={s.tabCountsCached
+								? 'Pesanan tersimpan di perangkat'
+								: 'Jumlah pesanan selesai dalam 7 hari WITA terakhir'}>{s.tabCounts.done}</span
+						>
+					{/if}
 				</button>
 			</div>
 			<!-- Tombol cari: ganti spacer penyeimbang agar pil tetap tengah -->
@@ -510,6 +548,27 @@
 </AppModal>
 
 <style>
+	.queue-tab-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.125rem;
+		height: 1.125rem;
+		padding-inline: 0.25rem;
+		border-radius: 999px;
+		background: rgb(255 255 255 / 20%);
+		color: inherit;
+		font-size: 0.625rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+	}
+
+	.queue-tab-count-active {
+		background: var(--color-pink-100);
+		color: var(--color-pink-700);
+	}
+
 	/* Satu tombol hapus kustom; sembunyikan bawaan browser agar tak ganda. */
 	.cari-antrean::-webkit-search-cancel-button {
 		display: none;

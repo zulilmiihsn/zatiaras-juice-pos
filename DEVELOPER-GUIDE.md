@@ -140,6 +140,13 @@ batch checkout; perangkat membaca feed dengan cursor. Push dikirim cron tiap
 menit dengan lease, backoff, dan maksimal 8 percobaan. Notifikasi bukan bukti
 pembayaran.
 
+Halaman selalu dibuka pada tab Masuk. Badge tab hanya tampil untuk jumlah di atas
+nol. Respons daftar menyertakan `counts` per status untuk seluruh hasil pada cabang
+aktif, terlepas dari pagination; `pending_count` tetap menjumlahkan Masuk dan
+Diproses. Jumlah Selesai mengikuti jendela 7 hari yang sama dengan daftarnya. Saat
+offline, badge menghitung pesanan yang tersimpan di perangkat dan diberi keterangan
+sumber lokal.
+
 ### 3.7 Arsip dan restore
 
 Arsip memindahkan transaksi di bawah cutoff ke R2 per chunk: klaim job, tulis snapshot dan

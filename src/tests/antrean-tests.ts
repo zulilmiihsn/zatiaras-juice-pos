@@ -567,6 +567,9 @@ try {
 	);
 	assert.equal(await countPendingOrders(db, samarinda), pendingPage.pending_count);
 	const firstTwo = await listOrderQueue(db, samarinda, { state: 'pending', limit: 1 });
+	assert.equal(firstTwo.counts?.pending, pendingPage.items.length, 'jumlah melampaui pagination');
+	assert.equal(firstTwo.counts?.processing, checkoutProcessingPage.items.length);
+	assert.equal(firstTwo.counts?.done, 0);
 	assert.equal(firstTwo.items.length, 1);
 	assert.equal(firstTwo.hasMore, true);
 	assert.ok(firstTwo.nextCursor, 'cursor harus ada bila hasMore');
@@ -1078,6 +1081,11 @@ try {
 		withItems: false
 	});
 	const donePage = await listOrderQueue(db, samarinda, { state: 'done', limit: 50 });
+	assert.equal(
+		donePage.counts?.done,
+		donePage.items.length,
+		'badge Selesai mengikuti batas 7 hari'
+	);
 	assert.ok(
 		donePage.items.some((i) => i.idempotency_key === 'antrean-done-sepekan'),
 		'selesai kemarin tetap tampil'

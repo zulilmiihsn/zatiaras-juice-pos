@@ -52,11 +52,15 @@ export interface ListOrderQueueOptions {
 	cursor?: string | null;
 }
 
+export type OrderQueueCounts = Record<PreparationState, number>;
+
 export interface OrderQueuePage {
 	items: OrderQueueItem[];
 	nextCursor: string | null;
 	hasMore: boolean;
 	pending_count: number;
+	/** Optional for compatibility with older cached API responses. */
+	counts?: OrderQueueCounts;
 }
 
 export interface TransitionOrderInput {

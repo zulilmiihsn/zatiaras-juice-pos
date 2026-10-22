@@ -4,6 +4,7 @@ import { auditDataChange, publish } from '$lib/server/dataApiHelpers';
 import {
 	countPendingOrders as countPending,
 	countPendingOrdersBefore as countPendingBefore,
+	countOrdersByState,
 	decodeCursor,
 	encodeCursor,
 	getHeaderByIdempotency,
@@ -134,8 +135,8 @@ export async function listOrderQueue(
 			id: String(last.id)
 		});
 	}
-	const pending_count = await countPending(db, branch);
-	return { items, nextCursor, hasMore, pending_count };
+	const counts = await countOrdersByState(db, branch);
+	return { items, nextCursor, hasMore, pending_count: counts.pending + counts.processing, counts };
 }
 
 export async function countPendingOrders(db: D1Database, branch: BranchContext): Promise<number> {
