@@ -172,9 +172,17 @@ export function buildReceiptLayout(
 	if (data.reprint) text('*** CETAK ULANG ***', 20, true, 'center');
 
 	// Info Pelanggan & Waktu
-	const nomor =
-		formatNomorHarian(data.nomorHarian) ?? (data.queuedOffline ? 'menunggu sinkronisasi' : null);
-	if (nomor) text(`No. Pesanan: ${nomor}`, 22, true, 'center');
+	const nomor = formatNomorHarian(data.nomorHarian);
+	y += 4;
+	text('NOMOR PESANAN', 16, false, 'center');
+	y += 4;
+	text(
+		nomor ?? (data.queuedOffline ? 'Menunggu sinkronisasi' : 'Belum tersedia'),
+		nomor ? 52 : 18,
+		true,
+		'center'
+	);
+	y += 12;
 	text(data.customerName || 'Pelanggan');
 	text(data.dateTime, 18);
 	if (data.queuedOffline) text('STATUS: MENUNGGU SINKRONISASI', 18, true);
@@ -238,6 +246,7 @@ export function receiptHtmlShell(content: string, layout: ReceiptLayout): string
 /** The synchronous HTML representation shares the same layout as the browser raster renderer. */
 export function buildReceiptDocumentHtml(data: ReceiptData, paperSize: PaperSize = '58mm'): string {
 	const layout = buildReceiptLayout(data, paperSize);
+	const nomor = formatNomorHarian(data.nomorHarian);
 	const description = [
 		data.storeName,
 		data.customerName,
@@ -246,9 +255,10 @@ export function buildReceiptDocumentHtml(data: ReceiptData, paperSize: PaperSize
 		data.instagram,
 		data.historyWarning,
 		data.footerMessage,
+		...(nomor ? [`No. Pesanan: ${nomor}`] : []),
 		...data.items.flatMap((item) => [item.name, item.details]),
 		...(data.queuedOffline
-			? ['No. Pesanan: menunggu sinkronisasi', 'STATUS: MENUNGGU SINKRONISASI']
+			? [...(nomor ? [] : ['No. Pesanan: menunggu sinkronisasi']), 'STATUS: MENUNGGU SINKRONISASI']
 			: [])
 	]
 		.filter(Boolean)

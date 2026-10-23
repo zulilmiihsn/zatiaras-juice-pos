@@ -308,8 +308,22 @@ async function exercisePrinter(
 					left < 11.9 || left + width > canvas.width - 11.9 || node.y + node.size > canvas.height
 				);
 			}).length;
+			const orderLabel = expected.layout.nodes.find(
+				(node) => node.type === 'text' && node.text === 'NOMOR PESANAN'
+			);
+			const orderNumber = expected.layout.nodes.find(
+				(node) => node.type === 'text' && node.text === '007'
+			);
 			return {
 				error,
+				orderNumberProminent:
+					orderLabel?.type === 'text' &&
+					orderNumber?.type === 'text' &&
+					orderNumber.bold &&
+					orderNumber.size >= 40 &&
+					orderNumber.size > orderLabel.size &&
+					orderNumber.align === 'center' &&
+					orderNumber.x === canvas.width / 2,
 				concurrentError,
 				closed,
 				requests,
@@ -346,6 +360,7 @@ for (const paperSize of ['58mm', '80mm'] as const) {
 			expect(result.error).toBe('');
 			expect(result.wireParity).toBe(true);
 			expect(result.pixelParity).toBe(true);
+			expect(result.orderNumberProminent).toBe(true);
 			expect(result.logoInk).toBe(true);
 			expect(result.overflow).toBe(0);
 			expect(result.width).toBe(paperSize === '80mm' ? 576 : 384);
@@ -404,6 +419,7 @@ for (const width of [1440, 320]) {
 		const preview = page.getByTestId('receipt-preview');
 		await expect(preview).toBeVisible();
 		await expect(preview).toHaveAttribute('width', '384');
+		await preview.screenshot({ path: test.info().outputPath(`receipt-${width}-58mm-paper.png`) });
 		const first = await preview.getAttribute('src');
 		await page.getByRole('radio', { name: '80 mm', exact: true }).check();
 		await expect(preview).toHaveAttribute('width', '576');
@@ -411,6 +427,8 @@ for (const width of [1440, 320]) {
 		await page.getByText('Isi contoh struk', { exact: true }).click();
 		await expect(page.locator('pre')).toContainText('Rp39.000');
 		await expect(page.locator('pre')).toContainText('Rp11.000');
+		await expect(page.locator('pre')).toContainText(/NOMOR PESANAN\s+007/);
+		await preview.screenshot({ path: test.info().outputPath(`receipt-${width}-80mm-paper.png`) });
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 		).toBe(true);

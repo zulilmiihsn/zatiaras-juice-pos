@@ -226,6 +226,42 @@ assert.equal(formatNomorHarian(history.nomor_harian), '007');
 assert.equal(formatNomorHarian(1000), '1000', 'lewat 999 lanjut tanpa blokir');
 assert.equal(formatNomorHarian(0), null);
 assert.equal(formatNomorHarian(null), null);
+// The official order number must be the visual focal point on both thermal paper sizes.
+for (const paperSize of ['58mm', '80mm'] as const) {
+	for (const reprint of [false, true]) {
+		for (const nomorHarian of [1, 7, 27, 148, 999, 1000]) {
+			const sample = buildSampleReceipt(settings, new Date('2026-06-29T08:30:00.000Z'));
+			const layout = buildReceiptLayout({ ...sample, nomorHarian, reprint }, paperSize);
+			const label = layout.nodes.find(
+				(node) => node.type === 'text' && node.text === 'NOMOR PESANAN'
+			);
+			const number = layout.nodes.find(
+				(node) => node.type === 'text' && node.text === formatNomorHarian(nomorHarian)
+			);
+			const customer = layout.nodes.find(
+				(node) => node.type === 'text' && node.text === sample.customerName
+			);
+			assert.ok(label?.type === 'text', 'order number has a separate, clearly named label');
+			assert.ok(number?.type === 'text', 'official number appears as its own untruncated text');
+			assert.ok(customer?.type === 'text');
+			assert.equal(number.align, 'center');
+			assert.equal(number.x, layout.width / 2);
+			assert.equal(number.bold, true);
+			assert.ok(number.size >= 40, 'order number stays readable at a glance');
+			assert.ok(number.size > label.size);
+			assert.ok(number.y > label.y);
+			assert.ok(number.y + number.size < customer.y, 'number and customer details never overlap');
+		}
+	}
+	for (const queuedOffline of [false, true]) {
+		const sample = buildSampleReceipt(settings, new Date('2026-06-29T08:30:00.000Z'));
+		const layout = buildReceiptLayout({ ...sample, nomorHarian: null, queuedOffline }, paperSize);
+		const texts = layout.nodes.filter((node) => node.type === 'text').map((node) => node.text);
+		assert.ok(texts.includes('NOMOR PESANAN'));
+		assert.ok(texts.includes(queuedOffline ? 'Menunggu sinkronisasi' : 'Belum tersedia'));
+		assert.ok(!texts.includes('000'), 'missing official numbers are never fabricated');
+	}
+}
 // Label level gula/es Indonesia; alias legacy ikut terpetakan, normal disembunyikan.
 assert.equal(formatLevelLabel('gula', 'less'), 'Sedikit Gula');
 assert.equal(formatLevelLabel('gula', 'no'), 'Tanpa Gula');
@@ -320,7 +356,7 @@ assert.ok(
 		],
 		total: 25000,
 		paymentMethod: 'tunai'
-	}).includes('No. Pesanan: 007'),
+	}).includes('NOMOR PESANAN 007'),
 	'printer ESC/POS memuat nomor yang sama'
 );
 assert.ok(

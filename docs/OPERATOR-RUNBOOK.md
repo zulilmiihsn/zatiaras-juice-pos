@@ -202,6 +202,9 @@ Konfigurasi lama tetap memakai print-intent sampai pilihan aplikasi diubah.
 
 1. Cetak contoh dari aplikasi. Pastikan logo, nama/alamat panjang, topping,
    catatan, total Rp39.000, uang Rp50.000, dan kembalian Rp11.000 terbaca utuh.
+   Blok **NOMOR PESANAN** menampilkan nomor resmi dalam angka besar, misalnya
+   **007**. Nomor di atas 999 tetap utuh; transaksi offline yang belum mendapat
+   nomor resmi menampilkan **Menunggu sinkronisasi**.
 2. Cetak transaksi tunai, non-tunai, dan cetak ulang. Nilai dan identitas toko
    pada cetak ulang tetap mengikuti snapshot transaksi.
 3. Uji metode yang benar-benar dipakai cabang: Bluetooth BLE, USB, helper
