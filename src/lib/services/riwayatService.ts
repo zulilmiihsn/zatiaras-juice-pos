@@ -8,6 +8,7 @@ import { getTodayWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import { transactionService } from '$lib/services/transactionService';
 import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
 import type { BukuKasRecord, HistoryItem } from '$lib/types/laporan';
+import type { DataPage, DataRecord } from '$lib/services/dataApiClient';
 
 export { isPinRequiredError } from '$lib/utils/pinRequiredError';
 
@@ -59,6 +60,31 @@ export interface RiwayatPage {
 	hasMore: boolean;
 }
 
+function historyParams(filter: RiwayatFilter, limit: number): Record<string, string> {
+	const params: Record<string, string> = { limit: String(limit) };
+	if (filter.searchKeyword?.trim()) params.search = filter.searchKeyword.trim();
+	if (filter.filterPayment && filter.filterPayment !== 'all')
+		params.metode = filter.filterPayment === 'qris' ? 'qris' : 'tunai';
+	return params;
+}
+
+function toRiwayatPage(page: DataPage<DataRecord>): RiwayatPage {
+	const items = ((page.data ?? []) as unknown as BukuKasRecord[])
+		.map(toHistoryItem)
+		.filter((t) => t.nominal > 0);
+	return { items, nextCursor: page.nextCursor, hasMore: page.hasMore };
+}
+
+/** Operator history uses a bounded POS-only endpoint; ledger PIN gates remain independent. */
+export async function fetchRiwayatPesananPage(
+	filter: RiwayatFilter = {},
+	cursor: string | null = null,
+	limit = 50
+): Promise<RiwayatPage> {
+	const params = { ...historyParams(filter, limit), rentang: filter.rentang ?? 'hari-ini' };
+	return toRiwayatPage(await transactionService.getRowsPage('riwayat_pesanan', params, cursor));
+}
+
 /**
  * Riwayat halaman hari ini, terbaru dulu (waktu DESC, id DESC).
  * Filter tanggal/search/payment diterapkan SEBELUM limit di server,
@@ -69,20 +95,15 @@ export async function fetchTransaksiHariIniPage(
 	cursor: string | null = null,
 	limit = 50
 ): Promise<RiwayatPage> {
-	const { searchKeyword = '', filterPayment = 'all', rentang = 'hari-ini' } = filter;
+	const { rentang = 'hari-ini' } = filter;
 	const { startUtc: start, endUtc: end } = rentangRiwayatUtc(rentang);
 	const params: Record<string, string> = {
+		...historyParams(filter, limit),
 		start,
 		end,
-		direction: 'desc',
-		limit: String(limit)
+		direction: 'desc'
 	};
-	if (searchKeyword.trim()) params.search = searchKeyword.trim();
-	if (filterPayment !== 'all') params.metode = filterPayment === 'qris' ? 'qris' : 'tunai';
 
 	const page = await transactionService.getRowsPage('buku_kas', params, cursor);
-	const items = ((page.data ?? []) as unknown as BukuKasRecord[])
-		.map(toHistoryItem)
-		.filter((t) => t.nominal > 0);
-	return { items, nextCursor: page.nextCursor, hasMore: page.hasMore };
+	return toRiwayatPage(page);
 }

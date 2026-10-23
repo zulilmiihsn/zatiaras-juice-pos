@@ -93,6 +93,7 @@ const READ_ROUTES = {
 	sesi_toko: '/api/sesi-toko',
 	pengaturan: '/api/pengaturan',
 	// Virtual reads (aggregate/dashboard)
+	riwayat_pesanan: '/api/pos/history',
 	dashboard_stats: '/api/dashboard/stats',
 	weekly_income_summary: '/api/dashboard/weekly',
 	best_sellers_summary: '/api/dashboard/best-sellers',
@@ -116,6 +117,7 @@ const WRITE_ROUTES = {
 
 export type ReadResource = keyof typeof READ_ROUTES;
 export type WriteResource = keyof typeof WRITE_ROUTES;
+export type PaginatedReadResource = 'buku_kas' | 'transaksi_kasir' | 'riwayat_pesanan';
 
 // ─── GET helpers ──────────────────────────────────────────────────────────
 
@@ -145,10 +147,10 @@ export const dbGetStrict = dbGet;
 
 /**
  * Ambil satu halaman cursor-paginated dari per-resource GET route.
- * Khusus buku_kas dan transaksi_kasir.
+ * Khusus buku_kas, transaksi_kasir, dan riwayat_pesanan.
  */
 export async function dbGetPage<T extends DataRecord = DataRecord>(
-	table: 'buku_kas' | 'transaksi_kasir',
+	table: PaginatedReadResource,
 	params: Record<string, string> = {},
 	cursor?: string | null
 ): Promise<DataPage<T>> {

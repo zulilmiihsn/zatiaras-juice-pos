@@ -166,6 +166,15 @@
 		const isPinConfigured = currentSecuritySettings?.pinConfigured === true;
 		const lockedPage = isPinConfigured
 			? currentSecuritySettings?.lockedPages?.find((lockedPageName) => {
+					// The settings landing page is navigation; order history is an operational read.
+					// Keep the PIN on configuration pages without blocking cashier order lookup.
+					if (
+						lockedPageName.toLowerCase() === 'pengaturan' &&
+						['/pengaturan', '/pengaturan/riwayat', '/pengaturan/kasir/riwayat'].includes(
+							currentPath
+						)
+					)
+						return false;
 					const fullLockedPath = mapLockedNameToPath(lockedPageName);
 					if (!fullLockedPath) return false;
 					if (fullLockedPath === '/') return currentPath === '/';

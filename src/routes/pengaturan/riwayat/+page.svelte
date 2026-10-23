@@ -9,7 +9,7 @@
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import type { HistoryItem } from '$lib/types/laporan';
-	import { fetchTransaksiHariIniPage, isPinRequiredError } from '$lib/services/riwayatService';
+	import { fetchRiwayatPesananPage, isPinRequiredError } from '$lib/services/riwayatService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
@@ -37,7 +37,7 @@
 		nextCursor = null;
 		hasMore = false;
 		try {
-			const page = await fetchTransaksiHariIniPage({
+			const page = await fetchRiwayatPesananPage({
 				searchKeyword,
 				filterPayment,
 				rentang: filterRentang
@@ -59,7 +59,7 @@
 		if (loadingMore || !hasMore || !nextCursor) return;
 		loadingMore = true;
 		try {
-			const page = await fetchTransaksiHariIniPage(
+			const page = await fetchRiwayatPesananPage(
 				{ searchKeyword, filterPayment, rentang: filterRentang },
 				nextCursor
 			);
@@ -122,7 +122,7 @@
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
-				{filterRentang === '7-hari' ? 'Riwayat Transaksi 7 Hari' : 'Riwayat Transaksi Hari Ini'}
+				{filterRentang === '7-hari' ? 'Riwayat Pesanan 7 Hari' : 'Riwayat Pesanan Hari Ini'}
 			</h1>
 			<HeaderBackButton label="Refresh" onclick={refreshManual}>
 				<RefreshCw class="h-5 w-5 {loading ? 'animate-spin' : ''}" />

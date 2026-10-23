@@ -5,7 +5,8 @@ import {
 	type DataPage,
 	type DataRecord,
 	type ReadResource,
-	type WriteResource
+	type WriteResource,
+	type PaginatedReadResource
 } from '$lib/services/dataApiClient';
 
 export class TransactionService {
@@ -21,7 +22,7 @@ export class TransactionService {
 	}
 
 	async getRowsPage<T extends DataRecord = DataRecord>(
-		table: 'buku_kas' | 'transaksi_kasir',
+		table: PaginatedReadResource,
 		params: Record<string, string> = {},
 		cursor?: string | null
 	): Promise<DataPage<T>> {

@@ -224,6 +224,15 @@ tetap memerlukan cetak fisik pada model printer cabang.
 Rujukan protokol: [server RawBT resmi](https://github.com/402d/rawbt_ws_server/blob/master/src/server.php)
 dan [RawbtPrintConnector](https://github.com/mike42/escpos-php/blob/development/src/Mike42/Escpos/PrintConnectors/RawbtPrintConnector.php).
 
+### Pemeriksaan akses kasir
+
+Untuk memeriksa akses kasir, buka **Pengaturan > Riwayat**. Daftar pesanan POS
+hari ini/7 hari dan detail/cetak ulang harus tersedia pada cabang kasir meskipun
+halaman Catat atau Beranda dikunci. Buku kas manual, laporan admin, dan data cabang
+lain tetap mengikuti izin sebelumnya. Kunci Pengaturan tetap melindungi halaman
+konfigurasi (misalnya printer), sedangkan menu navigasi dan riwayat pesanan
+operasional dapat dibuka kasir.
+
 ## 6. Pemicu stop/rollback
 
 Checksum backup/artifact tidak cocok; schema berbeda antar shard; migrasi satu shard

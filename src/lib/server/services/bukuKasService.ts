@@ -13,6 +13,7 @@ import {
 } from '$lib/server/ledgerValidation';
 import { newMutationToken, batchClaimChanges } from '$lib/server/ledgerCas';
 import { error as kitError } from '@sveltejs/kit';
+import { rentangHariWitaUtc } from '$lib/utils/dateTime';
 
 export type Database = ReturnType<typeof getDb>;
 export type SessionUser = App.Locals['authSession'];
@@ -432,6 +433,60 @@ export async function deleteBukuKasByTransaction(
 
 // KENAPA: route HTTP hanya boleh auth + parse + respons; resolusi DB milik
 // boundary server agar route tidak masuk allowlist import DB langsung.
+/** Operational history is limited to recent POS orders, never the owner's complete ledger. */
+export async function getOrderHistoryForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	filter: { rentang?: string | null; search?: string | null; metode?: string | null },
+	limit: number,
+	cursor: { sortValue: string; id: string } | null,
+	cursorPagination: boolean
+) {
+	const rentang = filter.rentang ?? 'hari-ini';
+	if (rentang !== 'hari-ini' && rentang !== '7-hari')
+		throw kitError(400, 'Rentang riwayat pesanan tidak valid');
+	const metode = filter.metode || null;
+	if (metode && !['tunai', 'qris', 'non-tunai'].includes(metode))
+		throw kitError(400, 'Metode pembayaran tidak valid');
+	const search = filter.search?.trim() || null;
+	if (search && search.length > 200) throw kitError(400, 'Pencarian maksimal 200 karakter');
+	const { startUtc, endUtc } = rentangHariWitaUtc(rentang === '7-hari' ? 7 : 1);
+	const result = await getBukuKasListForBranch(
+		platform,
+		branch,
+		{
+			startTime: startUtc,
+			endTime: endUtc,
+			sumber: 'pos',
+			tipe: 'in',
+			direction: 'desc',
+			search,
+			metode
+		},
+		limit,
+		cursor,
+		cursorPagination
+	);
+	const order = (row: typeof bukuKas.$inferSelect) => ({
+		id: row.id,
+		transaction_id: row.transaction_id,
+		nomor_harian: row.nomor_harian,
+		tanggal_nomor: row.tanggal_nomor,
+		idempotency_key: row.idempotency_key,
+		receipt_snapshot: row.receipt_snapshot,
+		waktu: row.waktu,
+		deskripsi: row.deskripsi,
+		nama_pelanggan: row.nama_pelanggan,
+		nominal: row.nominal,
+		tipe: row.tipe,
+		sumber: row.sumber,
+		metode_bayar: row.metode_bayar
+	});
+	return result.isPage
+		? { isPage: true as const, page: { ...result.page, data: result.page.data.map(order) } }
+		: { isPage: false as const, rows: result.rows.map(order) };
+}
+
 export function getBukuKasListForBranch(
 	platform: App.Platform | undefined,
 	branch: BranchContext,

@@ -112,6 +112,15 @@ UI (src/routes, src/lib/components)
   memerlukan PIN untuk kasir. Penegakan ada di server (`pageAccess.ts`), termasuk
   endpoint data di balik halaman itu. Kasir tetap boleh membaca laci sesi yang sedang
   aktif dan detail satu transaksi untuk cetak ulang.
+- Riwayat pesanan operasional memakai `GET /api/pos/history` untuk kasir/pemilik:
+  hanya penjualan POS cabang sesi, hari ini atau hari ini + enam hari sebelumnya
+  dalam WITA, maksimal 200 baris per halaman. Rentang dihitung server; query tidak
+  dapat mengganti sumber, tipe, atau tanggal bebas. Payload mengecualikan token
+  mutasi dan metadata kebijakan stok. PIN beranda/catat tetap berlaku pada
+  endpoint buku kas/laporan. PIN Pengaturan melindungi halaman konfigurasi;
+  halaman menu `/pengaturan` dan kedua route riwayat operasional tetap dapat
+  dibuka kasir. Pengecualian path bersifat exact agar subhalaman lain tetap terkunci.
+  Riwayat pemilik tetap memakai endpoint buku kas dengan izin sebelumnya.
 - Dashboard memakai alur pemuatan yang sama untuk awal halaman, refresh setelah PIN,
   dan realtime. Pemuatan sukses menghapus pesan error sebelumnya; refresh gagal
   mempertahankan data terakhir dan menampilkan error tanpa unhandled rejection.

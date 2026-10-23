@@ -1,5 +1,35 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
+import { csrfPost } from './helpers';
+
+test('cashier settings history uses the live scoped order endpoint and keeps owner routes restricted', async ({
+	page
+}) => {
+	await loginBranch(page, 'samarinda', 'kasir');
+	const session = await (await page.request.get('/api/session')).json();
+	expect(session.user.role).toBe('kasir');
+	await page.goto('/pengaturan');
+	await expect(page.getByRole('heading', { name: 'Kasir Kios', exact: true })).toBeVisible();
+	const historyResponse = page.waitForResponse(
+		(response) => new URL(response.url()).pathname === '/api/pos/history'
+	);
+	await page.getByRole('link', { name: /Riwayat.*Hari Ini/ }).click();
+	const response = await historyResponse;
+	expect(response.status()).toBe(200);
+	const history = await response.json();
+	expect(Array.isArray(history.data)).toBe(true);
+	expect(typeof history.hasMore).toBe('boolean');
+	for (const row of history.data) {
+		expect(row.sumber).toBe('pos');
+		expect(row.tipe).toBe('in');
+		expect(row).not.toHaveProperty('mutation_token');
+	}
+	expect((await page.request.get('/api/pos/history?branch=berau')).status()).toBe(403);
+	expect((await page.request.get('/api/pos/history?rentang=semua')).status()).toBe(400);
+	expect((await csrfPost(page, '/api/pos/history', {})).status()).toBe(405);
+	await page.goto('/pengaturan/pemilik/riwayat');
+	await expect(page).toHaveURL(/\/unauthorized$/);
+});
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;

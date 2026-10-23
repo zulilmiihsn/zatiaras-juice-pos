@@ -1,6 +1,66 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { gotoHydrated } from './helpers';
 
+test('cashier opens settings order history while the financial ledger remains PIN locked', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'cashier-history-locks',
+					pinConfigured: true,
+					halaman_terkunci: ['pengaturan', 'catat', 'beranda']
+				}
+			]
+		})
+	);
+	let ledgerReads = 0;
+	let orderReads = 0;
+	await page.route('**/api/buku-kas**', async (route) => {
+		ledgerReads++;
+		await route.fulfill({ status: 403, json: { message: 'PIN_REQUIRED' } });
+	});
+	await page.route('**/api/pos/history**', async (route) => {
+		orderReads++;
+		await route.fulfill({
+			json: {
+				data: [
+					{
+						id: 'order-history-1',
+						transaction_id: 'order-1',
+						nomor_harian: 7,
+						waktu: '2026-10-20T04:00:00.000Z',
+						deskripsi: 'Penjualan Jus Kasir',
+						nama_pelanggan: 'Rina Riwayat',
+						nominal: 25_000,
+						tipe: 'in',
+						sumber: 'pos',
+						metode_bayar: 'tunai'
+					}
+				],
+				nextCursor: null,
+				hasMore: false
+			}
+		});
+	});
+	await gotoHydrated(page, '/pengaturan', 'h2:text-is("Kasir Kios")');
+	await page.getByRole('link', { name: /Riwayat.*Hari Ini/ }).click();
+	await expect(page.getByRole('button', { name: /Penjualan Jus Kasir/ })).toBeVisible();
+	await expect(page.getByRole('dialog', { name: 'Akses Terkunci' })).toHaveCount(0);
+	expect(orderReads).toBeGreaterThan(0);
+	expect(ledgerReads).toBe(0);
+	await page.getByRole('button', { name: '7 hari', exact: true }).click();
+	await expect(
+		page.getByRole('heading', { name: 'Riwayat Pesanan 7 Hari', exact: true })
+	).toBeVisible();
+	await expect(page.getByRole('button', { name: /Penjualan Jus Kasir/ })).toBeVisible();
+	expect(ledgerReads).toBe(0);
+	await page.goto('/pengaturan/printer');
+	await expect(page.getByRole('dialog', { name: 'Akses Terkunci' })).toBeVisible();
+});
+
 async function openPrinterSettings(page: Page) {
 	await mockSettingsSession(page);
 	await gotoHydrated(page, '/pengaturan/printer', '#nama-toko');
@@ -480,7 +540,9 @@ async function mockSettingsSession(page: Page, role: 'pemilik' | 'kasir' = 'pemi
 					? { success: true, token: 'test-token' }
 					: path === '/api/pengaturan'
 						? [{ id: 'cfg-1', pinConfigured: true, halaman_terkunci: ['catat'] }]
-						: (path === '/api/buku-kas' || path === '/api/transaksi-kasir') &&
+						: (path === '/api/buku-kas' ||
+									path === '/api/transaksi-kasir' ||
+									path === '/api/pos/history') &&
 							  url.searchParams.get('pagination') === 'cursor'
 							? { data: [], nextCursor: null, hasMore: false }
 							: [];

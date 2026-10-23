@@ -234,6 +234,9 @@ jobs:
       - name: Run Page Lock Suite
         run: pnpm test:page-lock
 
+      - name: Run Page Lock Workerd Suite
+        run: pnpm test:page-lock --d1
+
       - name: Run Session Renew Suite
         run: pnpm test:session-renew
 
