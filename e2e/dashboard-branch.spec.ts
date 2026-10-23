@@ -120,10 +120,14 @@ test('cashier dashboard recovers after PIN unlock and a later failed refresh', a
 		})
 	);
 	await page.route('**/api/pin/verify', async (route) => {
+		if (route.request().method() === 'GET') {
+			await route.fulfill({ json: { ok: true, expiresAt: unlocked ? Date.now() + 60_000 : 0 } });
+			return;
+		}
 		const body = route.request().postDataJSON();
 		expect(body).toEqual({ pin: '2580', page: 'beranda' });
 		unlocked = true;
-		await route.fulfill({ json: { ok: true } });
+		await route.fulfill({ json: { ok: true, expiresAt: Date.now() + 60_000 } });
 	});
 	await page.route('**/api/dashboard/**', async (route) => {
 		if (!unlocked || unavailable) {

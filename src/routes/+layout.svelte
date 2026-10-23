@@ -4,7 +4,7 @@
 	import Topbar from '$lib/components/shared/TopBar.svelte';
 	import AppNav from '$lib/components/shared/AppNav.svelte';
 	import PwaUpdateBanner from '$lib/components/shared/PwaUpdateBanner.svelte';
-	import { page, navigating } from '$app/state';
+	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
 	import { goto, invalidateAll, onNavigate } from '$app/navigation';
@@ -13,14 +13,24 @@
 	import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 	import { transactionService } from '$lib/services/transactionService';
 	import PinModal from '$lib/components/shared/PinModal.svelte';
-	import { securitySettings, setSecuritySettings } from '$lib/stores/securitySettings.svelte';
+	import {
+		securitySettings,
+		setSecuritySettings,
+		pinAccess
+	} from '$lib/stores/securitySettings.svelte';
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import { requireAuth } from '$lib/utils/authGuard';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { createLayoutState } from '$lib/stores/layoutState.svelte';
-	import { verifyPagePin } from '$lib/services/pinAccessService';
+	import {
+		verifyPagePin,
+		hasPinAccess,
+		pinAccessIdentity,
+		refreshPinAccess,
+		finishPinRequest
+	} from '$lib/services/pinAccessService';
 	import { refreshBus } from '$lib/utils/refreshBus';
 	import PendingTransactionsSheet from '$lib/components/shared/PendingTransactionsSheet.svelte';
 	import OrderNotificationBanner from '$lib/components/shared/OrderNotificationBanner.svelte';
@@ -60,8 +70,7 @@
 	// ── PIN Modal ─────────────────────────────────────────────────────────────
 	let showPinModal = $state(false);
 	let currentLockedPage = $state<'beranda' | 'laporan' | 'pengaturan' | 'catat'>('beranda');
-	let pinUnlockedForCurrentPage = false;
-	let lastPath = '';
+	let pinRequiredForPage = false;
 	let isLoadingSecuritySettings = false;
 	let securityRefreshCounter = $state(0);
 	let securityRequestGen = 0;
@@ -137,7 +146,16 @@
 	}
 
 	$effect(() => {
-		if (navigating.to) pinUnlockedForCurrentPage = false;
+		if (!browser) return;
+		const path = page.url.pathname;
+		const identity = pinAccessIdentity();
+		const request = pinAccess.request;
+		if (request && (request.identity !== identity || request.path !== path)) {
+			untrack(() => finishPinRequest(false));
+		}
+		if (identity && !['/login', '/offline', '/unauthorized'].includes(path)) {
+			untrack(() => void refreshPinAccess());
+		}
 	});
 
 	// Effect fetch: hanya identitas sesi/role/cabang + sinyal refresh eksplisit.
@@ -159,10 +177,6 @@
 		const currentUserRole = userRole.value;
 		const currentSecuritySettings = securitySettings.value;
 		const currentPath = page.url.pathname;
-		if (currentPath !== lastPath) {
-			pinUnlockedForCurrentPage = false;
-			lastPath = currentPath;
-		}
 		const isPinConfigured = currentSecuritySettings?.pinConfigured === true;
 		const lockedPage = isPinConfigured
 			? currentSecuritySettings?.lockedPages?.find((lockedPageName) => {
@@ -183,11 +197,14 @@
 			: null;
 		const normalizedLockedPage = lockedPage?.toLowerCase();
 		const isCurrentPageLocked = Boolean(lockedPage);
-		if (isKasirRole(currentUserRole) && isCurrentPageLocked && !pinUnlockedForCurrentPage) {
+		pinRequiredForPage = isCurrentPageLocked;
+		const requestedPage = pinAccess.request?.page;
+		if (isKasirRole(currentUserRole) && (isCurrentPageLocked || requestedPage) && !hasPinAccess()) {
 			currentLockedPage =
-				normalizedLockedPage === 'home'
+				requestedPage ??
+				(normalizedLockedPage === 'home'
 					? 'beranda'
-					: (normalizedLockedPage as typeof currentLockedPage);
+					: (normalizedLockedPage as typeof currentLockedPage));
 			showPinModal = true;
 		} else {
 			showPinModal = false;
@@ -195,8 +212,8 @@
 	});
 
 	async function handlePinSuccess() {
-		pinUnlockedForCurrentPage = true;
 		showPinModal = false;
+		finishPinRequest(true);
 		securityRefreshCounter++;
 		await invalidateAll();
 		refreshBus.emit('dashboard');
@@ -211,7 +228,8 @@
 
 	function handlePinClose() {
 		showPinModal = false;
-		if (!pinUnlockedForCurrentPage) {
+		finishPinRequest(false);
+		if (pinRequiredForPage && !hasPinAccess()) {
 			goto('/pos');
 		}
 	}
@@ -326,8 +344,10 @@
 		{#if showPinModal}
 			<PinModal
 				show={showPinModal}
-				title="Akses Terkunci"
-				subtitle="Masukkan PIN untuk mengakses halaman ini"
+				title={pinAccess.request ? 'Verifikasi Aksi' : 'Akses Terkunci'}
+				subtitle={pinAccess.request
+					? 'Masukkan PIN untuk melanjutkan'
+					: 'Masukkan PIN untuk mengakses halaman ini'}
 				onVerify={(pin) => verifyPagePin(pin, currentLockedPage)}
 				onSuccess={handlePinSuccess}
 				onError={handlePinError}
@@ -344,8 +364,10 @@
 		{#if showPinModal}
 			<PinModal
 				show={showPinModal}
-				title="Akses Terkunci"
-				subtitle="Masukkan PIN untuk mengakses halaman ini"
+				title={pinAccess.request ? 'Verifikasi Aksi' : 'Akses Terkunci'}
+				subtitle={pinAccess.request
+					? 'Masukkan PIN untuk melanjutkan'
+					: 'Masukkan PIN untuk mengakses halaman ini'}
 				onVerify={(pin) => verifyPagePin(pin, currentLockedPage)}
 				onSuccess={handlePinSuccess}
 				onError={handlePinError}

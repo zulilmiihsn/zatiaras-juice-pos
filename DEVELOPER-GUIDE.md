@@ -112,6 +112,13 @@ UI (src/routes, src/lib/components)
   memerlukan PIN untuk kasir. Penegakan ada di server (`pageAccess.ts`), termasuk
   endpoint data di balik halaman itu. Kasir tetap boleh membaca laci sesi yang sedang
   aktif dan detail satu transaksi untuk cetak ulang.
+- PIN benar memberi izin bersama selama 60 detik untuk seluruh halaman terkunci dan
+  fitur ber-PIN, termasuk buka/tutup toko, pada sesi dan cabang yang sama. Navigasi,
+  refresh, dan pembacaan status tidak memperpanjang tenggat. Setelah kedaluwarsa,
+  akses terkunci berikutnya memerlukan PIN lagi. Status dibaca tanpa cache melalui
+  `GET /api/pin/verify`; klien hanya menyimpan metadata izin di memori, bukan PIN.
+  Logout, pergantian sesi/cabang, dan perubahan PIN membatalkan penggunaan izin lama;
+  izin PIN tidak mengubah batas peran atau cabang.
 - Riwayat pesanan operasional memakai `GET /api/pos/history` untuk kasir/pemilik:
   hanya penjualan POS cabang sesi, hari ini atau hari ini + enam hari sebelumnya
   dalam WITA, maksimal 200 baris per halaman. Rentang dihitung server; query tidak

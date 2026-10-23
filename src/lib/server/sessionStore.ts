@@ -140,13 +140,13 @@ export async function renewAuthSession(
 export async function grantSessionPageUnlock(
 	platform: App.Platform | undefined,
 	session: AuthSession,
-	page: string,
+	page: string | readonly string[],
 	expiresAt: number
 ): Promise<void> {
 	const branch = normalizeBranch(session.branch);
 	const pages =
 		session.unlockExpiresAt > Date.now() ? new Set(session.unlockedPages || []) : new Set<string>();
-	pages.add(page);
+	for (const name of typeof page === 'string' ? [page] : page) pages.add(name);
 	await getSessionDb(platform, branch)
 		.prepare(
 			`UPDATE auth_sessions

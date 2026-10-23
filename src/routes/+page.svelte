@@ -6,9 +6,8 @@
 	import { userRole, userProfile, setUserRole } from '$lib/stores/userRole.svelte';
 	import { branchLabel } from '$lib/utils/branches';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
-	import PinModal from '$lib/components/shared/PinModal.svelte';
 	import { securitySettings } from '$lib/stores/securitySettings.svelte';
-	import { verifyPagePin } from '$lib/services/pinAccessService';
+	import { requestPinAccess } from '$lib/services/pinAccessService';
 	import DashboardMetrics from '$lib/components/dashboard/DashboardMetrics.svelte';
 	import WeeklyChart from '$lib/components/dashboard/WeeklyChart.svelte';
 	import TokoModal from '$lib/components/dashboard/TokoModal.svelte';
@@ -73,7 +72,6 @@
 	let showTokoModal = $state(false);
 	let isBukaToko = $state(true); // true: buka toko, false: tutup toko
 	// Verifikasi PIN untuk aksi kasir (buka/tutup)
-	let showActionPinModal = $state(false);
 	let modalAwalInput = $state('');
 	let pinInputToko = $state('');
 	let pinErrorToko = $state('');
@@ -200,36 +198,14 @@
 				}
 			}
 
-			if (isPinSet) {
-				pendingAction = () => {
-					cekSesiToko().then(() => {
-						isBukaToko = !tokoAktifLocal;
-						showTokoModal = true;
-					});
-				};
-				showActionPinModal = true;
-				return;
-			}
+			// Pending action setelah PIN benar
+			if (isPinSet && !(await requestPinAccess('beranda'))) return;
 		}
 		// Non-kasir atau PIN belum disetup langsung buka modal (auto-bypass)
 		cekSesiToko().then(() => {
 			isBukaToko = !tokoAktifLocal;
 			showTokoModal = true;
 		});
-	}
-
-	// Pending action setelah PIN benar
-	let pendingAction = $state<(() => void) | null>(null);
-
-	function handleActionPinSuccess() {
-		showActionPinModal = false;
-		if (pendingAction) pendingAction();
-		pendingAction = null;
-	}
-
-	function handleActionPinClose() {
-		showActionPinModal = false;
-		pendingAction = null;
 	}
 
 	let hideTopbar = $state(false);
@@ -258,17 +234,6 @@
 	type={toastManager.toastType}
 	position="top"
 />
-
-{#if showActionPinModal}
-	<PinModal
-		show={showActionPinModal}
-		title="Verifikasi Aksi"
-		subtitle="Masukkan PIN untuk melanjutkan"
-		onVerify={(pin) => verifyPagePin(pin, 'beranda')}
-		onSuccess={handleActionPinSuccess}
-		onClose={handleActionPinClose}
-	/>
-{/if}
 
 <!-- Modal Buka/Tutup Toko -->
 <TokoModal bind:show={showTokoModal} {isBukaToko} {sesiAktif} onTokoStatusChanged={cekSesiToko} />

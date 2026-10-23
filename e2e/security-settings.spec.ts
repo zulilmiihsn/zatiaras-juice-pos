@@ -68,6 +68,207 @@ async function openPrinterSettings(page: Page) {
 	await expect(page.locator('#nama-toko')).toHaveValue('Zatiaras Juice');
 }
 
+test('cashier shares one PIN across pages and store actions for a fixed 60 seconds', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	let now = Date.parse('2026-10-20T04:00:00.000Z');
+	let unlockExpiresAt = 0;
+	let verifications = 0;
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({
+			json: [
+				{ pinConfigured: true, halaman_terkunci: ['beranda', 'laporan', 'catat', 'pengaturan'] }
+			]
+		})
+	);
+	await page.route('**/api/pin/verify', async (route) => {
+		if (route.request().method() === 'POST') {
+			verifications++;
+			expect(route.request().postDataJSON().pin).toBe('2580');
+			unlockExpiresAt = now + 60_000;
+		}
+		await route.fulfill({
+			json: { ok: true, expiresAt: unlockExpiresAt > now ? unlockExpiresAt : 0 }
+		});
+	});
+	await gotoHydrated(page, '/', 'h2:text-is("Akses Terkunci")');
+	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
+	await expect(locked).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect(locked).toHaveCount(0);
+	expect(verifications).toBe(1);
+	await page.getByRole('button', { name: /Kios Tutup/ }).click();
+	await expect(page.getByRole('dialog', { name: 'Verifikasi Aksi' })).toHaveCount(0);
+	await expect(page.locator('#modal-kas-input')).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.locator('#modal-kas-input')).toHaveCount(0);
+
+	await page.getByRole('link', { name: 'Catat', exact: true }).click();
+	await expect(page).toHaveURL(/\/catat$/);
+	await expect(locked).toHaveCount(0);
+	now += 59_999;
+	await page.clock.setFixedTime(now);
+	await page.getByRole('link', { name: 'Beranda', exact: true }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await expect(locked).toHaveCount(0);
+	const restored = page.waitForResponse(
+		(response) =>
+			new URL(response.url()).pathname === '/api/pin/verify' &&
+			response.request().method() === 'GET'
+	);
+	await page.reload();
+	await restored;
+	// Respons status dapat selesai sebelum halaman terhidrasi dan metadata izin diterapkan.
+	await expect(page.getByText('Samarinda', { exact: true }).first()).toBeVisible();
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const modulePath = '/src/lib/services/pinAccessService.ts';
+				const { hasPinAccess } = await import(/* @vite-ignore */ modulePath);
+				return hasPinAccess();
+			})
+		)
+		.toBe(true);
+	await expect(locked).toHaveCount(0);
+	expect(verifications).toBe(1);
+	expect(unlockExpiresAt).toBe(now + 1);
+
+	now++;
+	await page.clock.setFixedTime(now);
+	await page.getByRole('button', { name: /Kios Tutup/ }).click();
+	await expect(page.getByRole('dialog', { name: 'Verifikasi Aksi', exact: true })).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect(page.locator('#modal-kas-input')).toBeVisible();
+	expect(verifications).toBe(2);
+	await page.keyboard.press('Escape');
+	await page.getByRole('link', { name: 'Catat', exact: true }).click();
+	await expect(page).toHaveURL(/\/catat$/);
+	await expect(locked).toHaveCount(0);
+
+	// Pencabutan server (misalnya pemilik mengganti PIN) berlaku saat navigasi berikutnya.
+	unlockExpiresAt = 0;
+	await page.getByRole('link', { name: 'Beranda', exact: true }).click();
+	await expect(locked).toBeVisible();
+});
+
+test('cashier rejects malformed PIN status and clears access on branch change and logout', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({ json: [{ pinConfigured: true, halaman_terkunci: ['catat', 'pengaturan'] }] })
+	);
+	let mode: 'invalid' | 'unavailable' | 'verified' = 'invalid';
+	await page.route('**/api/pin/verify', async (route) => {
+		if (mode === 'unavailable') {
+			await route.abort('failed');
+			return;
+		}
+		await route.fulfill({
+			json:
+				mode === 'verified'
+					? { ok: true, expiresAt: Date.parse('2026-10-20T04:01:00.000Z') }
+					: { ok: true, expiresAt: 'invalid' }
+		});
+	});
+	await page.goto('/catat');
+	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
+	await expect(locked).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect(locked.getByText('Verifikasi PIN gagal', { exact: true })).toBeVisible();
+	mode = 'unavailable';
+	await page.reload();
+	await expect(locked).toBeVisible();
+	mode = 'verified';
+	await page.keyboard.type('2580');
+	await expect(locked).toHaveCount(0);
+	await page.evaluate(async () => {
+		const modulePath = '/src/lib/stores/selectedBranch.svelte.ts';
+		const { selectedBranch } = await import(/* @vite-ignore */ modulePath);
+		selectedBranch.value = 'berau';
+	});
+	await expect(locked).toBeVisible();
+	mode = 'invalid';
+	const loggedOut = await page.evaluate(async () => {
+		const authPath = '/src/lib/auth/auth.ts';
+		const accessPath = '/src/lib/stores/securitySettings.svelte.ts';
+		const { auth } = await import(/* @vite-ignore */ authPath);
+		const { pinAccess } = await import(/* @vite-ignore */ accessPath);
+		await auth.logout();
+		return { access: pinAccess.value, request: pinAccess.request };
+	});
+	expect(loggedOut).toEqual({ access: null, request: null });
+});
+
+test('cashier ignores late PIN responses after verification or a session change', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({ json: [{ pinConfigured: true, halaman_terkunci: ['catat'] }] })
+	);
+	let releaseStatus!: () => void;
+	const statusGate = new Promise<void>((resolve) => {
+		releaseStatus = resolve;
+	});
+	let releaseVerification!: () => void;
+	const verificationGate = new Promise<void>((resolve) => {
+		releaseVerification = resolve;
+	});
+	let firstStatus = true;
+	let unlockExpiresAt = 0;
+	let holdVerification = false;
+	let verifying = false;
+	await page.route('**/api/pin/verify', async (route) => {
+		if (route.request().method() === 'GET') {
+			const expiresAt = unlockExpiresAt;
+			if (firstStatus) {
+				firstStatus = false;
+				await statusGate;
+			}
+			await route.fulfill({ json: { ok: true, expiresAt } });
+			return;
+		}
+		if (holdVerification) {
+			verifying = true;
+			await verificationGate;
+		}
+		unlockExpiresAt = Date.parse('2026-10-20T04:01:00.000Z');
+		await route.fulfill({ json: { ok: true, expiresAt: unlockExpiresAt } });
+	});
+	await page.goto('/catat');
+	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
+	await expect(locked).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect(locked).toHaveCount(0);
+	const lateStatus = page.waitForResponse(
+		(response) =>
+			new URL(response.url()).pathname === '/api/pin/verify' &&
+			response.request().method() === 'GET'
+	);
+	releaseStatus();
+	await lateStatus;
+	await expect(locked).toHaveCount(0);
+
+	holdVerification = true;
+	unlockExpiresAt = 0;
+	await page.reload();
+	await expect(locked).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect.poll(() => verifying).toBe(true);
+	await page.evaluate(async () => {
+		const modulePath = '/src/lib/stores/userRole.svelte.ts';
+		const { setUserRole } = await import(/* @vite-ignore */ modulePath);
+		setUserRole('kasir', { id: 'replacement-user', username: 'kasir-baru', branch: 'samarinda' });
+	});
+	releaseVerification();
+	await expect(
+		locked.getByText('Sesi kasir berubah. Masukkan PIN kembali', { exact: true })
+	).toBeVisible();
+	await expect(locked).toBeVisible();
+});
+
 test('receipt preview recovers from a canvas failure', async ({ page }) => {
 	await openPrinterSettings(page);
 	await page.evaluate(() => {

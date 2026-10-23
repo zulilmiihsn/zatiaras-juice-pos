@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import type { ProtectedPage } from '$lib/server/pageAccess';
 
 interface SecuritySettings {
 	lockedPages: string[] | null;
@@ -31,6 +32,17 @@ class SecuritySettingsState {
 }
 export const securitySettings = new SecuritySettingsState();
 
+class PinAccessState {
+	value = $state<{ identity: string; expiresAt: number } | null>(null);
+	request = $state<{
+		identity: string;
+		path: string;
+		page: ProtectedPage;
+		complete: (verified: boolean) => void;
+	} | null>(null);
+}
+export const pinAccess = new PinAccessState();
+
 export function setSecuritySettings(settings: SecuritySettings) {
 	securitySettings.value = settings;
 	// Persist to localStorage
@@ -51,6 +63,9 @@ export function setSecuritySettings(settings: SecuritySettings) {
 
 export function clearSecuritySettings() {
 	securitySettings.value = null;
+	pinAccess.value = null;
+	pinAccess.request?.complete(false);
+	pinAccess.request = null;
 	// Clear from localStorage
 	if (browser) {
 		try {

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mock } from 'node:test';
 import { branchContext } from '../lib/server/branchResolver';
 import { hashPin } from '../lib/server/pinHash';
 import { changePinForBranch, verifyPinForBranch } from '../lib/server/services/pinService';
+import { createAuthSession, deleteAuthSession, getAuthSession } from '../lib/server/sessionStore';
+import { PROTECTED_PAGES, requirePageAccess } from '../lib/server/pageAccess';
+import { GET as PIN_STATUS, POST as VERIFY_PIN } from '../routes/api/pin/verify/+server';
 import { createTestD1 } from './helpers/testD1';
 
 // pin boundary: negatif rate-limit/PIN lama/PIN sama/belum-konfigurasi
@@ -241,6 +245,146 @@ async function seedPengaturan(
 			20
 		);
 	} finally {
+		await close();
+	}
+}
+
+// Satu verifikasi membuka seluruh halaman selama tepat 60 detik pada sesi yang sama.
+{
+	mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-24T04:00:00.000Z') });
+	const { db, close } = await createTestD1();
+	try {
+		await seedPengaturan(db, null, await hashPin('2580'));
+		await db
+			.prepare('UPDATE pengaturan SET halaman_terkunci = ? WHERE cabang_id = ? AND kunci IS NULL')
+			.bind(JSON.stringify(PROTECTED_PAGES), branch)
+			.run();
+		await db
+			.prepare(
+				`INSERT INTO profil (id, cabang_id, role, username, password)
+				 VALUES ('pin-kasir', 'samarinda', 'kasir', 'pin-kasir', 'fixture'),
+				 ('pin-kasir-berau', 'berau', 'kasir', 'pin-kasir-berau', 'fixture')`
+			)
+			.run();
+		await db
+			.prepare(
+				`INSERT INTO pengaturan (id, cabang_id, kunci, pin_hash, halaman_terkunci)
+				 SELECT 'pin-settings-berau', 'berau', NULL, pin_hash, halaman_terkunci
+				 FROM pengaturan WHERE cabang_id = ? AND kunci IS NULL`
+			)
+			.bind(branch)
+			.run();
+		const platform = {
+			env: { DB_SAMARINDA_GROUP: db, DB_BERAU_GROUP: db }
+		} as unknown as App.Platform;
+		const payload = {
+			branch: 'samarinda' as const,
+			userId: 'pin-kasir',
+			username: 'pin-kasir',
+			role: 'kasir'
+		};
+		const session = await createAuthSession(platform, payload);
+		const other = await createAuthSession(platform, payload);
+		const otherBranch = await createAuthSession(platform, {
+			...payload,
+			branch: 'berau',
+			userId: 'pin-kasir-berau',
+			username: 'pin-kasir-berau'
+		});
+		const verifiedAt = Date.now();
+		const response = await VERIFY_PIN({
+			platform,
+			locals: { authSession: session },
+			request: new Request('http://localhost/api/pin/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ pin: '2580', page: 'beranda' })
+			})
+		} as never);
+		assert.equal(response.status, 200);
+		assert.deepEqual(await response.json(), { ok: true, expiresAt: verifiedAt + 60_000 });
+		const reload = async () => {
+			const current = await getAuthSession(platform, session.id);
+			assert.ok(current);
+			return current;
+		};
+		const status = async (authSession: Awaited<ReturnType<typeof reload>> | null, query = '') =>
+			PIN_STATUS({
+				locals: { authSession },
+				url: new URL(`http://localhost/api/pin/verify${query}`)
+			} as never);
+		const currentStatus = await status(await reload());
+		assert.equal(currentStatus.headers.get('Cache-Control'), 'no-store');
+		assert.deepEqual(await currentStatus.json(), { ok: true, expiresAt: verifiedAt + 60_000 });
+		assert.deepEqual(await (await status(other)).json(), { ok: true, expiresAt: 0 });
+		for (const [current, query, expected] of [
+			[null, '', 401],
+			[{ ...session, role: 'pemilik' }, '', 403],
+			[{ ...session, role: 'staff' }, '', 403],
+			[session, '?branch=berau', 403]
+		] as const) {
+			await assert.rejects(
+				status(current, query),
+				(error: unknown) => (error as { status?: number }).status === expected
+			);
+		}
+		for (const page of PROTECTED_PAGES) await requirePageAccess(db, await reload(), page);
+		assert.equal((await getAuthSession(platform, other.id))?.unlockExpiresAt, 0);
+		await assert.rejects(
+			requirePageAccess(db, other, 'laporan'),
+			(error: unknown) => (error as { status?: number }).status === 403
+		);
+		await assert.rejects(
+			requirePageAccess(db, otherBranch, 'laporan'),
+			(error: unknown) => (error as { status?: number }).status === 403
+		);
+		mock.timers.tick(59_999);
+		for (const page of PROTECTED_PAGES) await requirePageAccess(db, await reload(), page);
+		assert.deepEqual(await (await status(await reload())).json(), {
+			ok: true,
+			expiresAt: verifiedAt + 60_000
+		});
+		assert.equal((await reload()).unlockExpiresAt, verifiedAt + 60_000);
+		const wrong = await verifyPinForBranch(platform, branch, await reload(), '9999', 'laporan');
+		assert.equal(wrong.ok, false);
+		if (!wrong.ok) assert.equal(wrong.status, 403);
+		assert.equal((await reload()).unlockExpiresAt, verifiedAt + 60_000);
+		mock.timers.tick(1);
+		assert.deepEqual(await (await status(await reload())).json(), { ok: true, expiresAt: 0 });
+		for (const page of PROTECTED_PAGES) {
+			await assert.rejects(
+				requirePageAccess(db, await reload(), page),
+				(error: unknown) => (error as { status?: number }).status === 403
+			);
+		}
+		const renewed = await verifyPinForBranch(platform, branch, await reload(), '2580', 'catat');
+		assert.deepEqual(renewed, { ok: true, expiresAt: verifiedAt + 120_000 });
+		const current = await reload();
+		const concurrent = await Promise.all([
+			verifyPinForBranch(platform, branch, current, '2580', 'laporan'),
+			verifyPinForBranch(platform, branch, current, '2580', 'pengaturan')
+		]);
+		assert.deepEqual(concurrent, [renewed, renewed]);
+		assert.deepEqual((await reload()).unlockedPages, [...PROTECTED_PAGES]);
+		assert.equal(
+			(await verifyPinForBranch(platform, branchContext('berau'), otherBranch, '2580', 'catat')).ok,
+			true
+		);
+		await changePinForBranch(platform, branch, { ...session, role: 'pemilik' }, '2580', '9753');
+		assert.deepEqual(await (await status(await reload())).json(), { ok: true, expiresAt: 0 });
+		for (const page of PROTECTED_PAGES) {
+			await assert.rejects(
+				requirePageAccess(db, await reload(), page),
+				(error: unknown) => (error as { status?: number }).status === 403
+			);
+		}
+		const otherBranchAfterChange = await getAuthSession(platform, otherBranch.id);
+		assert.ok(otherBranchAfterChange);
+		for (const page of PROTECTED_PAGES) await requirePageAccess(db, otherBranchAfterChange, page);
+		await deleteAuthSession(platform, session.id);
+		assert.equal(await getAuthSession(platform, session.id), null);
+	} finally {
+		mock.timers.reset();
 		await close();
 	}
 }

@@ -19,6 +19,16 @@ export function parsePageList(value: unknown): string[] {
 	return parsed.filter((item): item is string => typeof item === 'string');
 }
 
+export function getPageUnlockExpiresAt(
+	session: AuthSession,
+	pages: readonly ProtectedPage[] = PROTECTED_PAGES
+): number {
+	const expiresAt = Math.min(Number(session.unlockExpiresAt || 0), session.expiresAt);
+	return expiresAt > Date.now() && pages.every((page) => session.unlockedPages?.includes(page))
+		? expiresAt
+		: 0;
+}
+
 export async function requirePageAccess(
 	rawDb: D1Database,
 	session: AuthSession,
@@ -53,10 +63,7 @@ export async function requirePageAccess(
 	}
 	if (!lockedPages.includes(page)) return;
 
-	if (
-		Number(session.unlockExpiresAt || 0) > Date.now() &&
-		(session.unlockedPages || []).includes(page)
-	) {
+	if (getPageUnlockExpiresAt(session, [page])) {
 		return;
 	}
 

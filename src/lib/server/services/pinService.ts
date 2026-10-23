@@ -5,7 +5,7 @@ import { hashPin, validateNewPin, verifyPinHash } from '$lib/server/pinHash';
 import { constantTimeEqual } from '$lib/server/secureCompare';
 import { appendAuditLog } from '$lib/server/auditLog';
 import { grantSessionPageUnlock, revokeBranchPageUnlocks } from '$lib/server/sessionStore';
-import { isProtectedPage, type ProtectedPage } from '$lib/server/pageAccess';
+import { isProtectedPage, PROTECTED_PAGES } from '$lib/server/pageAccess';
 import { error as kitError } from '@sveltejs/kit';
 
 export type SessionUser = App.Locals['authSession'];
@@ -16,7 +16,7 @@ const PIN_MAX_ATTEMPTS = 10;
 // Batas per akun membuat tebak 10.000 PIN butuh ratusan jam, bukan sekitar satu jam.
 const PIN_USER_WINDOW_MS = 60 * 60 * 1000;
 const PIN_USER_MAX_ATTEMPTS = 20;
-const UNLOCK_TTL_MS = 15 * 60 * 1000;
+const UNLOCK_TTL_MS = 60_000;
 const PIN_CHANGE_WINDOW_MS = 15 * 60 * 1000;
 const PIN_CHANGE_MAX_ATTEMPTS = 5;
 
@@ -113,7 +113,7 @@ export async function verifyPinForBranch(
 	}
 
 	const expiresAt = Date.now() + UNLOCK_TTL_MS;
-	await grantSessionPageUnlock(platform, session, page as ProtectedPage, expiresAt);
+	await grantSessionPageUnlock(platform, session, PROTECTED_PAGES, expiresAt);
 	return { ok: true, expiresAt };
 }
 
