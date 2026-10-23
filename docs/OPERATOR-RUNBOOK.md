@@ -188,6 +188,39 @@ kembalian, ledger, stok, ringkasan, struk); satu replay offline tanpa duplikat; 
 ubah metode bayar; laporan dan pajak; realtime di dua browser; cetak struk di printer
 yang dipakai cabang.
 
+### Pemeriksaan struk
+
+Di **Pengaturan > Draft Struk > Tampilan Struk**, pilih ukuran kertas yang sama
+dengan printer. Preview dan semua metode cetak memakai satu gambar monokrom;
+58 mm memakai area cetak 48 mm (384 titik), 80 mm memakai 72 mm (576 titik),
+untuk printer thermal 203 dpi. Bluetooth/USB membutuhkan dukungan raster ESC/POS.
+Samakan ukuran kertas pada aplikasi helper Android atau RawBT Print Server;
+matikan penyesuaian ukuran yang mengubah skala gambar.
+Izinkan akses jaringan lokal jika browser meminta izin untuk server printer.
+Untuk Android, pilih aplikasi yang terpasang: **RawBT** atau **Helper print-intent**.
+Konfigurasi lama tetap memakai print-intent sampai pilihan aplikasi diubah.
+
+1. Cetak contoh dari aplikasi. Pastikan logo, nama/alamat panjang, topping,
+   catatan, total Rp39.000, uang Rp50.000, dan kembalian Rp11.000 terbaca utuh.
+2. Cetak transaksi tunai, non-tunai, dan cetak ulang. Nilai dan identitas toko
+   pada cetak ulang tetap mengikuti snapshot transaksi.
+3. Uji metode yang benar-benar dipakai cabang: Bluetooth BLE, USB, helper
+   Android, atau server lokal. Bluetooth klasik memakai helper Android.
+4. Putuskan koneksi saat uji cetak. Aplikasi harus berhenti menunggu dan
+   menampilkan kegagalan. Periksa kertas sebelum mencoba lagi: pengiriman
+   yang terputus mungkin sudah mencetak sebagian struk.
+
+Server RawBT resmi memakai WebSocket pada port 40213 dengan paket ESC/POS
+`intent:base64,...#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`.
+Endpoint HTTP `/print` bukan bagian protokol server ini.
+Fallback alamat hanya terjadi sebelum data dikirim; kegagalan setelah pengiriman tidak diulang otomatis. Status
+"terkirim" menyatakan penyerahan data, bukan konfirmasi bahwa kertas sudah
+keluar. Tes browser memakai perangkat/server simulasi; penerimaan hardware
+tetap memerlukan cetak fisik pada model printer cabang.
+
+Rujukan protokol: [server RawBT resmi](https://github.com/402d/rawbt_ws_server/blob/master/src/server.php)
+dan [RawbtPrintConnector](https://github.com/mike42/escpos-php/blob/development/src/Mike42/Escpos/PrintConnectors/RawbtPrintConnector.php).
+
 ## 6. Pemicu stop/rollback
 
 Checksum backup/artifact tidak cocok; schema berbeda antar shard; migrasi satu shard

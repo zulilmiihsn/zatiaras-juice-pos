@@ -1,11 +1,25 @@
 import assert from 'node:assert/strict';
-import { buildReceiptHtml, buildSaleReceiptHtml } from '../lib/utils/receiptPrint.js';
+import {
+	buildReceiptHtml,
+	buildSaleReceiptHtml,
+	buildSampleReceipt,
+	buildRawBtIntentUrl,
+	buildPrintIntentUrl
+} from '../lib/utils/receiptPrint.js';
+import {
+	buildReceiptLayout,
+	buildReceiptDocumentHtml,
+	cleanReceiptText,
+	wrapReceiptText,
+	type ReceiptData
+} from '../lib/utils/receiptLayout.js';
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
-import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
+import { buildReceiptEscPos, EscPosBuilder } from '../lib/utils/escposBuilder.js';
 import { buildHistoryEscPosData, prepareHistoryReceipt } from '../lib/utils/historyReceipt.js';
 import { buildOfflineReceipt, buildSaleReceiptPrint } from '../lib/utils/saleReceipt.js';
+import { parsePrinterConfig } from '../lib/utils/printerConfig.js';
 import type { CartItem } from '$lib/types/cart';
 import { buildLocalCardFromPending, mergeQueueWithLocal } from '../lib/utils/orderQueueLocal.js';
 import { isTodayWita, rentangHariWitaUtc } from '../lib/utils/dateTime.js';
@@ -65,6 +79,11 @@ const sale = buildSaleReceiptHtml({
 });
 
 const count = (s: string, sub: string) => s.split(sub).length - 1;
+const receiptText = (data: ReceiptData) =>
+	buildReceiptLayout(data)
+		.nodes.filter((node) => node.type === 'text')
+		.map((node) => node.text)
+		.join(' ');
 
 // The committed receipt snapshot wins over later catalog, ledger, and settings values.
 {
@@ -121,7 +140,7 @@ const count = (s: string, sub: string) => s.split(sub).length - 1;
 	assert.ok(!historicHtml.includes('Nama Katalog Baru'));
 	assert.ok(!historicHtml.includes('Toko UAT'), 'pengaturan receipt masa kini tidak dipakai');
 
-	const escpos = new TextDecoder().decode(buildReceiptEscPos(buildHistoryEscPosData(prepared)));
+	const escpos = receiptText(buildHistoryEscPosData(prepared));
 	assert.ok(escpos.includes('TOKO SAAT TRANSAKSI'));
 	assert.ok(escpos.includes('Jus Harga Lama'));
 	assert.ok(escpos.includes('Dibayar'));
@@ -155,7 +174,7 @@ const count = (s: string, sub: string) => s.split(sub).length - 1;
 	});
 	const partialHtml = buildReceiptHtml(prepared.history, prepared.settings, prepared.items);
 	assert.ok(partialHtml.includes('Tidak tersimpan'));
-	assert.ok(!partialHtml.includes("Dibayar:</td><td style='text-align:right;font-size:13px;'>Rp0"));
+	assert.ok(!receiptText(buildHistoryEscPosData(prepared)).includes('Dibayar Rp0'));
 }
 
 // Legacy: use only stored transaction detail; missing header/cash/change are never fabricated.
@@ -167,8 +186,8 @@ const count = (s: string, sub: string) => s.split(sub).length - 1;
 	assert.ok(legacyHtml.includes('Nama Historis Tersimpan'));
 	assert.ok(legacyHtml.includes('Header toko saat transaksi tidak tersimpan'));
 	assert.ok(legacyHtml.includes('Data uang diterima dan kembalian tidak tersimpan'));
-	assert.ok(!legacyHtml.includes('Dibayar:</td>'));
-	assert.ok(!legacyHtml.includes('Kembalian:</td>'));
+	assert.ok(!receiptText(buildHistoryEscPosData(prepared)).includes('Dibayar'));
+	assert.ok(!receiptText(buildHistoryEscPosData(prepared)).includes('Kembalian'));
 	assert.ok(prepared.historyWarning);
 }
 
@@ -287,45 +306,39 @@ assert.equal(synced.length, 1, 'sinkronisasi tidak membuat pesanan kedua');
 assert.equal(synced[0].nominal, 25000, 'ringkasan server memakai total transaksi');
 assert.equal(synced[0].nomor_harian, 7, 'kartu sinkron memakai nomor resmi server');
 assert.ok(
-	new TextDecoder()
-		.decode(
-			buildReceiptEscPos({
-				storeName: 'Toko UAT',
-				nomorHarian: history.nomor_harian,
-				items: [
-					{
-						name: 'Jus UAT',
-						qty: 1,
-						price: 25000,
-						details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
-					}
-				],
-				total: 25000,
-				paymentMethod: 'tunai'
-			})
-		)
-		.includes('No. Pesanan: 007'),
+	receiptText({
+		storeName: 'Toko UAT',
+		dateTime: '29/06/26 08.30',
+		nomorHarian: history.nomor_harian,
+		items: [
+			{
+				name: 'Jus UAT',
+				qty: 1,
+				price: 25000,
+				details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
+			}
+		],
+		total: 25000,
+		paymentMethod: 'tunai'
+	}).includes('No. Pesanan: 007'),
 	'printer ESC/POS memuat nomor yang sama'
 );
 assert.ok(
-	new TextDecoder()
-		.decode(
-			buildReceiptEscPos({
-				storeName: 'Toko UAT',
-				nomorHarian: history.nomor_harian,
-				items: [
-					{
-						name: 'Jus UAT',
-						qty: 1,
-						price: 25000,
-						details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
-					}
-				],
-				total: 25000,
-				paymentMethod: 'tunai'
-			})
-		)
-		.includes('Sedikit Gula, Tanpa Es'),
+	receiptText({
+		storeName: 'Toko UAT',
+		dateTime: '29/06/26 08.30',
+		nomorHarian: history.nomor_harian,
+		items: [
+			{
+				name: 'Jus UAT',
+				qty: 1,
+				price: 25000,
+				details: formatOrderDetails({ gula: 'kurang', es: 'no', catatan: null })
+			}
+		],
+		total: 25000,
+		paymentMethod: 'tunai'
+	}).includes('Sedikit Gula, Tanpa Es'),
 	'printer ESC/POS memuat label level Indonesia'
 );
 
@@ -519,5 +532,107 @@ assert.ok(
 	assert.equal(draft.receiptData.change, 8_000);
 	assert.ok(draft.html.includes('Budi') && draft.html.includes('Toko UAT'));
 }
+// Long names must wrap completely; printer firmware must never decide column alignment.
+for (const paperSize of ['58mm', '80mm'] as const) {
+	const builder = new EscPosBuilder({ paperSize });
+	builder.twoColumn('Nama produk panjang '.repeat(12), 'Rp123.456.789');
+	const lines = new TextDecoder().decode(builder.toBytes()).slice(2).trimEnd().split('\n');
+	assert.ok(
+		lines.every((line) => line.length <= builder.lineWidth),
+		`${paperSize}: every wrapped line fits the printable columns`
+	);
+	const sample = buildSampleReceipt(settings, new Date('2026-06-29T08:30:00.000Z'));
+	const layout = buildReceiptLayout(sample, paperSize);
+	assert.equal(layout.width, paperSize === '80mm' ? 576 : 384);
+	assert.ok(
+		layout.nodes.some((node) => node.type === 'logo'),
+		'every transport receives the logo'
+	);
+	const html = buildReceiptDocumentHtml(sample, paperSize);
+	assert.ok(html.includes(`size:${paperSize === '80mm' ? 80 : 58}mm`));
+	assert.ok(html.includes(`width:${paperSize === '80mm' ? 72 : 48}mm`));
+	assert.equal(
+		sample.total,
+		sample.items.reduce(
+			(total, item) =>
+				total + item.price + (item.addOns ?? []).reduce((sum, addOn) => sum + addOn.price, 0),
+			0
+		)
+	);
+	assert.equal(sample.change, sample.cashReceived! - sample.total);
+	const bytesPerRow = layout.width / 8;
+	const bitmap = {
+		width: layout.width,
+		height: 257,
+		bytes: Uint8Array.from({ length: bytesPerRow * 257 }, (_, i) => i % 256)
+	};
+	const encoded = buildReceiptEscPos(bitmap);
+	const rawBt = buildRawBtIntentUrl(encoded);
+	const rawBtSuffix = '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+	assert.ok(rawBt.startsWith('intent:base64,'));
+	assert.ok(rawBt.endsWith(rawBtSuffix));
+	assert.deepEqual(
+		new Uint8Array(
+			Buffer.from(rawBt.slice('intent:base64,'.length, -rawBtSuffix.length), 'base64')
+		),
+		encoded
+	);
+	assert.deepEqual([...encoded.slice(0, 5)], [0x1b, 0x40, 0x1b, 0x61, 0]);
+	let offset = 5;
+	let row = 0;
+	while (row < bitmap.height) {
+		assert.deepEqual([...encoded.slice(offset, offset + 4)], [0x1d, 0x76, 0x30, 0]);
+		assert.equal(encoded[offset + 4] + encoded[offset + 5] * 256, bytesPerRow);
+		const rows = encoded[offset + 6] + encoded[offset + 7] * 256;
+		assert.equal(rows, Math.min(128, bitmap.height - row));
+		offset += 8;
+		assert.deepEqual(
+			encoded.slice(offset, offset + rows * bytesPerRow),
+			bitmap.bytes.slice(row * bytesPerRow, (row + rows) * bytesPerRow)
+		);
+		offset += rows * bytesPerRow;
+		row += rows;
+	}
+	assert.deepEqual([...encoded.slice(offset)], [10, 10, 10, 0x1d, 0x56, 0x41, 0x10]);
+}
+for (const value of [
+	'a'.repeat(1000),
+	'Alamat toko sangat panjang '.repeat(15),
+	'\u00c9lodie Cafe\u0301 \u6d4b\u8bd5 '.repeat(10)
+]) {
+	const lines = wrapReceiptText(value, 30, (s) => Array.from(s).length);
+	assert.ok(lines.every((line) => Array.from(line).length <= 30));
+	assert.equal(lines.join('').replaceAll(' ', ''), cleanReceiptText(value).replaceAll(' ', ''));
+}
+assert.equal(cleanReceiptText('Pelanggan\u001b@\u001dV\u0000'), 'Pelanggan@V');
+assert.throws(
+	() => buildReceiptEscPos({ width: 385, height: 1, bytes: new Uint8Array(48) }),
+	/Gambar struk tidak valid/
+);
+assert.throws(
+	() => buildReceiptEscPos({ width: 384, height: 2, bytes: new Uint8Array(48) }),
+	/Gambar struk tidak valid/
+);
+assert.throws(
+	() => buildReceiptEscPos({ width: 384, height: 0, bytes: new Uint8Array() }),
+	/Gambar struk tidak valid/
+);
+{
+	const intent = await buildPrintIntentUrl(sale);
+	assert.ok(intent.startsWith('intent://#Intent;scheme=print-intent;S.content='));
+	const content = intent.split('S.content=')[1].split(';end')[0];
+	const { ungzip } = await import('pako');
+	assert.deepEqual(JSON.parse(new TextDecoder().decode(ungzip(Buffer.from(content, 'base64')))), [
+		sale
+	]);
+}
+assert.deepEqual(parsePrinterConfig({ method: 'intent', paperSize: '58mm' }), {
+	method: 'intent',
+	paperSize: '58mm',
+	deviceName: ''
+});
+assert.equal(parsePrinterConfig({ androidApp: 'rawbt' }).androidApp, 'rawbt');
+assert.equal(parsePrinterConfig({ androidApp: 'print-intent' }).androidApp, 'print-intent');
+assert.equal(parsePrinterConfig({ androidApp: 'unknown' }).androidApp, undefined);
 console.log('Receipt structural contract matches post-F17/F18 output (subtotal + @ + escape).');
 process.exit(0);

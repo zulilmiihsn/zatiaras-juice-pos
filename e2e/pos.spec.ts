@@ -98,7 +98,7 @@ for (const viewport of [
 	{ name: 'desktop', width: 1280, height: 800 },
 	{ name: 'mobile', width: 390, height: 844 }
 ]) {
-	test(`owner completes authoritative cash checkout through POS UI (${viewport.name})`, async ({
+	test(`owner completes authoritative cash checkout and reports receipt errors through POS UI (${viewport.name})`, async ({
 		page
 	}) => {
 		await page.setViewportSize(viewport);
@@ -182,6 +182,12 @@ for (const viewport of [
 				fullPage: true
 			});
 			await expect(page.getByText('Rp 10.000', { exact: true }).first()).toBeVisible();
+			const printButton = page.getByRole('button', { name: 'Cetak Struk', exact: true });
+			await printButton.click();
+			await expect(
+				page.getByText('Metode Aplikasi Android membutuhkan perangkat Android', { exact: false })
+			).toBeVisible();
+			await expect(printButton).toBeEnabled();
 
 			let historyDetailRequests = 0;
 			let currentSettingsRequests = 0;

@@ -3,6 +3,13 @@
  * Standar generator byte binary untuk printer thermal kasir (58mm / 80mm).
  * Zero-dependency murni TypeScript (Uint8Array).
  */
+import { cleanReceiptText, wrapReceiptText } from './receiptLayout.js';
+
+export interface ReceiptBitmap {
+	width: number;
+	height: number;
+	bytes: Uint8Array;
+}
 
 export interface EscPosOptions {
 	paperSize?: '58mm' | '80mm';
@@ -50,7 +57,7 @@ export class EscPosBuilder {
 	/** Tambah teks murni (tanpa newline) */
 	text(str: string): this {
 		if (!str) return this;
-		const bytes = this.encoder.encode(str);
+		const bytes = this.encoder.encode(cleanReceiptText(str));
 		for (let i = 0; i < bytes.length; i++) {
 			this.buffer.push(bytes[i]);
 		}
@@ -84,21 +91,50 @@ export class EscPosBuilder {
 	 * Sangat cocok untuk daftar item kasir (misal: "Jus Mangga x2" di kiri, "Rp20.000" di kanan).
 	 */
 	twoColumn(left: string, right: string): this {
-		const leftLen = left.length;
-		const rightLen = right.length;
-		const spaceNeeded = this.lineWidth - (leftLen + rightLen);
+		left = cleanReceiptText(left);
+		right = cleanReceiptText(right);
+		const measure = (value: string) => Array.from(value).length;
+		const rightLen = measure(right);
+		// Jika teks kiri terlalu panjang, potong atau bungkus
+		if (rightLen >= this.lineWidth) {
+			for (const line of wrapReceiptText(left, this.lineWidth, measure)) this.line(line);
+			for (const line of wrapReceiptText(right, this.lineWidth, measure)) this.line(line);
+			return this;
+		}
+		const lines = wrapReceiptText(left, this.lineWidth - rightLen - 1, measure);
+		for (let i = 0; i < lines.length; i++) {
+			const suffix =
+				i === 0 ? ' '.repeat(this.lineWidth - measure(lines[i]) - rightLen) + right : '';
+			this.line(lines[i] + suffix);
+		}
+		return this;
+	}
 
-		if (spaceNeeded >= 0) {
-			this.line(left + ' '.repeat(spaceNeeded) + right);
-		} else {
-			// Jika teks kiri terlalu panjang, potong atau bungkus
-			const maxLeft = Math.max(1, this.lineWidth - rightLen - 1);
-			const truncatedLeft = left.slice(0, maxLeft);
-			const remainingLeft = left.slice(maxLeft);
-			this.line(truncatedLeft + ' ' + right);
-			if (remainingLeft) {
-				this.line(remainingLeft);
-			}
+	/** Raster bands stay small enough for the input buffers of common thermal printers. */
+	raster(bitmap: ReceiptBitmap): this {
+		const bytesPerRow = bitmap.width / 8;
+		if (
+			![384, 576].includes(bitmap.width) ||
+			!Number.isInteger(bitmap.height) ||
+			bitmap.height < 1 ||
+			bitmap.height > 16_384 ||
+			bitmap.bytes.length !== bytesPerRow * bitmap.height
+		)
+			throw new Error('Gambar struk tidak valid.');
+		for (let row = 0; row < bitmap.height; row += 128) {
+			const rows = Math.min(128, bitmap.height - row);
+			this.buffer.push(
+				0x1d,
+				0x76,
+				0x30,
+				0,
+				bytesPerRow & 0xff,
+				bytesPerRow >> 8,
+				rows & 0xff,
+				rows >> 8
+			);
+			for (const byte of bitmap.bytes.subarray(row * bytesPerRow, (row + rows) * bytesPerRow))
+				this.buffer.push(byte);
 		}
 		return this;
 	}
@@ -116,111 +152,11 @@ export class EscPosBuilder {
 	}
 }
 
-import { formatNomorHarian } from './orderNumber';
-
 /** Helper untuk menyusun data struk transaksi kasir menjadi ESC/POS bytes */
-export function buildReceiptEscPos(
-	data: {
-		storeName: string;
-		/** Nomor antrean harian resmi. Null = transaksi offline menunggu sinkron. */
-		nomorHarian?: number | null;
-		address?: string;
-		phone?: string;
-		instagram?: string;
-		customerName?: string;
-		dateTime?: string;
-		items: Array<{
-			name: string;
-			qty: number;
-			price: number;
-			addOns?: Array<{ name: string; price: number }>;
-			details?: string;
-		}>;
-		total: number;
-		paymentMethod: string;
-		cashReceived?: number;
-		change?: number;
-		footerMessage?: string;
-		historyWarning?: string;
-		queuedOffline?: boolean;
-	},
-	options: EscPosOptions = {}
-): Uint8Array {
-	const builder = new EscPosBuilder(options);
-
-	// Header Toko
-	builder.align('center').bold(true).size('double-both');
-	builder.line(data.storeName.toUpperCase());
-	builder.bold(false).size('normal');
-
-	if (data.address) builder.line(data.address);
-	const contact = [data.instagram, data.phone].filter(Boolean).join(' | ');
-	if (contact) builder.line(contact);
-
-	builder.divider('-');
-
-	// Info Pelanggan & Waktu
-	builder.align('left');
-	const nomor =
-		formatNomorHarian(data.nomorHarian) ?? (data.queuedOffline ? 'menunggu sinkronisasi' : null);
-	if (nomor) builder.bold(true).line(`No. Pesanan: ${nomor}`).bold(false);
-	const customer = data.customerName || 'Pelanggan';
-	const dateStr = data.dateTime || new Date().toLocaleString('id-ID');
-	builder.twoColumn(customer, dateStr);
-
-	if (data.queuedOffline) {
-		builder.bold(true).line('STATUS: MENUNGGU SINKRONISASI').bold(false);
-	}
-
-	builder.divider('-');
-
-	// Daftar Item Belanja
-	for (const item of data.items) {
-		const itemLeft = `${item.name} x${item.qty}`;
-		const itemRight = `Rp${item.price.toLocaleString('id-ID')}`;
-		builder.bold(true).twoColumn(itemLeft, itemRight).bold(false);
-
-		if (item.addOns && item.addOns.length > 0) {
-			for (const addOn of item.addOns) {
-				builder.twoColumn(`  + ${addOn.name}`, `Rp${addOn.price.toLocaleString('id-ID')}`);
-			}
-		}
-
-		if (item.details) {
-			builder.line(`  (${item.details})`);
-		}
-	}
-
-	builder.divider('-');
-
-	// Total Pembayaran
-	builder.bold(true).twoColumn('TOTAL', `Rp${data.total.toLocaleString('id-ID')}`);
-	builder.bold(false);
-
-	builder.twoColumn('Metode', data.paymentMethod.toUpperCase());
-	if (data.paymentMethod.toLowerCase() === 'tunai' && data.cashReceived !== undefined) {
-		builder.twoColumn('Dibayar', `Rp${data.cashReceived.toLocaleString('id-ID')}`);
-		builder.twoColumn('Kembalian', `Rp${(data.change ?? 0).toLocaleString('id-ID')}`);
-	}
-
-	builder.divider('-');
-
-	// Jelaskan bila data historis yang tidak tersedia memang tidak pernah tersimpan.
-	if (data.historyWarning) {
-		builder.align('center').bold(true).line(data.historyWarning).bold(false).align('left');
-	}
-
-	// Ucapan Footer
-	if (data.footerMessage) {
-		builder.align('center');
-		const lines = data.footerMessage.split('\n');
-		for (const l of lines) {
-			if (l.trim()) builder.line(l.trim());
-		}
-	}
-
+export function buildReceiptEscPos(bitmap: ReceiptBitmap): Uint8Array {
+	const builder = new EscPosBuilder({ paperSize: bitmap.width === 576 ? '80mm' : '58mm' });
+	builder.align('left').raster(bitmap);
 	// Potong Kertas
 	builder.cut();
-
 	return builder.toBytes();
 }

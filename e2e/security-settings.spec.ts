@@ -1,6 +1,426 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { gotoHydrated } from './helpers';
 
+async function openPrinterSettings(page: Page) {
+	await mockSettingsSession(page);
+	await gotoHydrated(page, '/pengaturan/printer', '#nama-toko');
+	// The textbox exists in SSR; its loaded value proves the component has actually mounted.
+	await expect(page.locator('#nama-toko')).toHaveValue('Zatiaras Juice');
+}
+
+test('receipt preview recovers from a canvas failure', async ({ page }) => {
+	await openPrinterSettings(page);
+	await page.evaluate(() => {
+		const original = HTMLCanvasElement.prototype.getContext;
+		Object.defineProperty(window, 'restoreReceiptCanvas', {
+			value: () => {
+				HTMLCanvasElement.prototype.getContext = original;
+			}
+		});
+		HTMLCanvasElement.prototype.getContext = (() => null) as typeof original;
+	});
+	await page.getByRole('button', { name: 'Tampilan Struk', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Browser tidak dapat merender struk');
+	await page.evaluate(() =>
+		(window as unknown as { restoreReceiptCanvas: () => void }).restoreReceiptCanvas()
+	);
+	await page.getByRole('button', { name: 'Coba lagi', exact: true }).click();
+	await expect(page.getByTestId('receipt-preview')).toBeVisible();
+});
+
+test('receipt printer settings report blocked storage', async ({ page }) => {
+	await openPrinterSettings(page);
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.evaluate(() => {
+		const original = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key === 'pos_printer_config')
+				throw new DOMException('Blocked fixture', 'QuotaExceededError');
+			return original.call(this, key, value);
+		};
+	});
+	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
+	await page.getByRole('button', { name: 'Simpan Metode Printer', exact: true }).click();
+	await expect(
+		page.getByText('Pengaturan printer tidak dapat disimpan.', { exact: false })
+	).toBeVisible();
+	expect(errors).toEqual([]);
+});
+
+test('receipt Android method reports unsupported desktop instead of claiming print success', async ({
+	page
+}) => {
+	await openPrinterSettings(page);
+	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
+	await page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true }).click();
+	await expect(
+		page.getByText('Metode Aplikasi Android membutuhkan perangkat Android', { exact: false })
+	).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true })
+	).toBeEnabled();
+});
+
+test('receipt server times out and releases loading state', async ({ page }) => {
+	await openPrinterSettings(page);
+	await page.clock.install({ time: new Date('2026-10-20T04:00:00.000Z') });
+	await page.evaluate(() => {
+		const state = { sockets: 0, requests: 0, sent: 0 };
+		Object.defineProperty(window, 'receiptTimeoutState', { value: state });
+		class HangingSocket {
+			onopen = null;
+			onclose = null;
+			onerror = null;
+			constructor() {
+				state.sockets++;
+			}
+			send() {
+				state.sent++;
+			}
+			close() {
+				this.onclose = null;
+			}
+		}
+		Object.defineProperty(window, 'WebSocket', { configurable: true, value: HangingSocket });
+		const original = window.fetch.bind(window);
+		window.fetch = (input, init) => {
+			if (!String(input).includes(':40213/')) return original(input, init);
+			state.requests++;
+			return new Promise<Response>((_resolve, reject) => {
+				init?.signal?.addEventListener(
+					'abort',
+					() => reject(new DOMException('Fixture timeout', 'AbortError')),
+					{ once: true }
+				);
+			});
+		};
+	});
+	const state = () =>
+		page.evaluate(
+			() =>
+				(
+					window as unknown as {
+						receiptTimeoutState: { sockets: number; requests: number; sent: number };
+					}
+				).receiptTimeoutState
+		);
+	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
+	await page.locator('input[value="server"]').check();
+	const button = page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true });
+	await button.click();
+	await expect.poll(async () => (await state()).sockets).toBe(1);
+	await page.clock.runFor(5_001);
+	await expect.poll(async () => (await state()).sockets).toBe(2);
+	await page.clock.runFor(5_001);
+	await expect.poll(async () => (await state()).requests).toBe(0);
+	await expect(
+		page.getByText('Server printer lokal tidak merespons.', { exact: false })
+	).toBeVisible();
+	await expect(button).toBeEnabled();
+	expect((await state()).sent).toBe(0);
+});
+
+async function exercisePrinter(
+	page: Page,
+	method: 'usb' | 'bluetooth' | 'server',
+	paperSize: '58mm' | '80mm',
+	failure: '' | 'partial' | 'stall' | 'pre-send' | 'post-send' | 'concurrent' = ''
+) {
+	await openPrinterSettings(page);
+	return page.evaluate(
+		async ({ method, paperSize, failure }) => {
+			const enginePath = '/src/lib/services/printerEngine.ts';
+			const printPath = '/src/lib/utils/receiptPrint.ts';
+			const rasterPath = '/src/lib/utils/receiptRaster.ts';
+			const escposPath = '/src/lib/utils/escposBuilder.ts';
+			const engine = (await import(
+				enginePath
+			)) as typeof import('../src/lib/services/printerEngine');
+			const print = (await import(printPath)) as typeof import('../src/lib/utils/receiptPrint');
+			const raster = (await import(rasterPath)) as typeof import('../src/lib/utils/receiptRaster');
+			const escpos = (await import(escposPath)) as typeof import('../src/lib/utils/escposBuilder');
+			const data = print.buildSampleReceipt(
+				print.DEFAULT_RECEIPT_SETTINGS,
+				new Date('2026-10-20T04:00:00.000Z')
+			);
+			data.customerName = 'Rina <script>alert(1)</script> ' + 'Pelanggan '.repeat(8);
+			data.address = 'Alamat cabang dengan nama jalan dan keterangan sangat panjang '.repeat(4);
+			data.items[0].name = 'Jus Mangga Jumbo dengan nama produk sangat panjang '.repeat(3);
+			data.items[0].details = 'Catatan panjang '.repeat(12) + '\nCafe\u0301 \u6d4b\u8bd5';
+			const expected = await raster.renderReceipt(data, paperSize);
+			const chunks: Uint8Array[] = [];
+			const messages: string[] = [];
+			const socketUrls: string[] = [];
+			let httpRequests = 0;
+			let closed = false;
+			let requests = 0;
+			const originalFetch = window.fetch.bind(window);
+			window.fetch = async (input, init) => {
+				if (String(input).includes(':40213/')) {
+					httpRequests++;
+					messages.push(String(init?.body));
+					return new Response('', { status: 200 });
+				}
+				return originalFetch(input, init);
+			};
+			const usbDevice = {
+				opened: true,
+				configuration: {
+					interfaces: [
+						{
+							interfaceNumber: 0,
+							alternates: [{ endpoints: [{ direction: 'out', endpointNumber: 1 }] }]
+						}
+					]
+				},
+				async open() {
+					requests++;
+				},
+				async selectConfiguration() {
+					requests++;
+				},
+				async claimInterface() {
+					requests++;
+				},
+				async close() {
+					closed = true;
+				},
+				async transferOut(_endpoint: number, bytes: Uint8Array) {
+					if (failure === 'stall') return { status: 'stall', bytesWritten: 0 };
+					const written = failure === 'partial' ? Math.min(31, bytes.length) : bytes.length;
+					chunks.push(bytes.slice(0, written));
+					return { status: 'ok', bytesWritten: written };
+				}
+			};
+			Object.defineProperty(navigator, 'usb', {
+				configurable: true,
+				value: {
+					async requestDevice() {
+						requests++;
+						return usbDevice;
+					}
+				}
+			});
+			const characteristic = {
+				properties: { write: true },
+				async writeValueWithResponse(bytes: Uint8Array) {
+					chunks.push(bytes.slice());
+				}
+			};
+			const gatt = {
+				connected: true,
+				async connect() {
+					requests++;
+					return gatt;
+				},
+				disconnect() {
+					closed = true;
+				},
+				async getPrimaryService() {
+					return {
+						async getCharacteristics() {
+							return [characteristic];
+						}
+					};
+				}
+			};
+			Object.defineProperty(navigator, 'bluetooth', {
+				configurable: true,
+				value: {
+					async requestDevice() {
+						requests++;
+						return { name: 'Printer Uji', gatt };
+					}
+				}
+			});
+			class PrinterSocket {
+				onopen: (() => void) | null = null;
+				onerror: (() => void) | null = null;
+				onclose: (() => void) | null = null;
+				bufferedAmount = 0;
+				constructor(url: string) {
+					socketUrls.push(url);
+					queueMicrotask(() => (failure === 'pre-send' ? this.onerror?.() : this.onopen?.()));
+				}
+				send(message: string) {
+					messages.push(message);
+					if (failure === 'post-send') {
+						this.bufferedAmount = 10;
+						queueMicrotask(() => this.onerror?.());
+					}
+				}
+				close() {
+					this.onclose = null;
+				}
+			}
+			Object.defineProperty(window, 'WebSocket', { configurable: true, value: PrinterSocket });
+			engine.savePrinterConfig({ method, paperSize });
+			let error = '';
+			let concurrentError = '';
+			try {
+				const first = engine.printReceiptUnified({ receiptData: data });
+				if (failure === 'concurrent') {
+					try {
+						await engine.printReceiptUnified({ receiptData: data });
+					} catch (caught) {
+						concurrentError = String(caught);
+					}
+				}
+				await first;
+			} catch (caught) {
+				error = String(caught);
+			}
+			const bytes = Uint8Array.from(chunks.flatMap((chunk) => [...chunk]));
+			const expectedBytes = escpos.buildReceiptEscPos(expected.bitmap);
+			let serverBytes = new Uint8Array();
+			if (method === 'server' && messages[0]) {
+				const prefix = 'intent:base64,';
+				const suffix = '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+				if (!messages[0].startsWith(prefix) || !messages[0].endsWith(suffix))
+					throw new Error('Invalid vendor RawBT envelope');
+				serverBytes = Uint8Array.from(
+					atob(messages[0].slice(prefix.length, -suffix.length)),
+					(char) => char.charCodeAt(0)
+				);
+			}
+			const image = new Image();
+			image.src = expected.imageUrl;
+			await image.decode();
+			const canvas = document.createElement('canvas');
+			canvas.width = image.width;
+			canvas.height = image.height;
+			const ctx = canvas.getContext('2d')!;
+			ctx.drawImage(image, 0, 0);
+			const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+			let pixelParity = true;
+			for (let p = 0; p < canvas.width * canvas.height; p++) {
+				const bit = !!(expected.bitmap.bytes[p >> 3] & (0x80 >> (p & 7)));
+				if (pixels[p * 4] !== (bit ? 0 : 255) || pixels[p * 4 + 3] !== 255) pixelParity = false;
+			}
+			const overflow = expected.layout.nodes.filter((node) => {
+				if (node.type !== 'text') return false;
+				ctx.font = (node.bold ? 'bold ' : '') + node.size + 'px "Courier New", monospace';
+				const width = ctx.measureText(node.text).width;
+				const left =
+					node.x - (node.align === 'right' ? width : node.align === 'center' ? width / 2 : 0);
+				return (
+					left < 11.9 || left + width > canvas.width - 11.9 || node.y + node.size > canvas.height
+				);
+			}).length;
+			return {
+				error,
+				concurrentError,
+				closed,
+				requests,
+				httpRequests,
+				sockets: socketUrls.length,
+				messages: messages.length,
+				wireParity:
+					method === 'server'
+						? serverBytes.length === expectedBytes.length &&
+							serverBytes.every((byte, i) => byte === expectedBytes[i])
+						: bytes.length === expectedBytes.length &&
+							bytes.every((byte, i) => byte === expectedBytes[i]),
+				maxChunk: Math.max(0, ...chunks.map((chunk) => chunk.length)),
+				pixelParity,
+				overflow,
+				width: canvas.width,
+				logoInk: expected.bitmap.bytes
+					.slice((12 * canvas.width) / 8, (108 * canvas.width) / 8)
+					.some((byte) => byte !== 0),
+				paperMatches: method !== 'server' || serverBytes[9] === (paperSize === '80mm' ? 72 : 48),
+				unsafeHtml: messages.some((message) => message.includes('<script>'))
+			};
+		},
+		{ method, paperSize, failure }
+	);
+}
+
+for (const paperSize of ['58mm', '80mm'] as const) {
+	for (const method of ['usb', 'bluetooth', 'server'] as const) {
+		test(`receipt renderer preserves pixels, logo, wrapping and paper for ${method} ${paperSize}`, async ({
+			page
+		}) => {
+			const result = await exercisePrinter(page, method, paperSize);
+			expect(result.error).toBe('');
+			expect(result.wireParity).toBe(true);
+			expect(result.pixelParity).toBe(true);
+			expect(result.logoInk).toBe(true);
+			expect(result.overflow).toBe(0);
+			expect(result.width).toBe(paperSize === '80mm' ? 576 : 384);
+			expect(result.paperMatches).toBe(true);
+			expect(result.unsafeHtml).toBe(false);
+			if (method !== 'server')
+				expect(result.maxChunk).toBeLessThanOrEqual(method === 'usb' ? 4096 : 20);
+		});
+	}
+}
+
+for (const failure of ['partial', 'stall', 'concurrent'] as const) {
+	test(`receipt USB handles ${failure} without silent loss or duplicate print`, async ({
+		page
+	}) => {
+		const result = await exercisePrinter(page, 'usb', '58mm', failure);
+		if (failure === 'stall') {
+			expect(result.error).toContain('Pengiriman USB tidak lengkap');
+			expect(result.closed).toBe(true);
+		} else {
+			expect(result.error).toBe('');
+			expect(result.wireParity).toBe(true);
+		}
+		if (failure === 'concurrent')
+			expect(result.concurrentError).toContain('Pencetakan masih berlangsung');
+	});
+}
+
+for (const failure of ['pre-send', 'post-send'] as const) {
+	test(`receipt server handles ${failure} without uncertain automatic retries`, async ({
+		page
+	}) => {
+		const result = await exercisePrinter(page, 'server', '58mm', failure);
+		if (failure === 'pre-send') {
+			expect(result.error).toContain('Server printer lokal tidak merespons');
+			expect(result.sockets).toBe(2);
+			expect(result.httpRequests).toBe(0);
+		} else {
+			expect(result.error).toContain('Periksa struk sebelum mencetak ulang');
+			expect(result.sockets).toBe(1);
+			expect(result.httpRequests).toBe(0);
+		}
+		expect(result.messages).toBe(failure === 'pre-send' ? 0 : 1);
+	});
+}
+
+for (const width of [1440, 320]) {
+	test(`receipt preview uses renderer, changes paper and fits viewport ${width}`, async ({
+		page
+	}) => {
+		await page.setViewportSize({ width, height: 900 });
+		await openPrinterSettings(page);
+		await page.locator('#nama-toko').fill('Zatiaras Cabang Pengujian Nama Panjang');
+		await page.locator('#alamat').fill('Alamat cabang panjang '.repeat(8));
+		await page.getByRole('button', { name: 'Tampilan Struk', exact: true }).click();
+		const preview = page.getByTestId('receipt-preview');
+		await expect(preview).toBeVisible();
+		await expect(preview).toHaveAttribute('width', '384');
+		const first = await preview.getAttribute('src');
+		await page.getByRole('radio', { name: '80 mm', exact: true }).check();
+		await expect(preview).toHaveAttribute('width', '576');
+		expect(await preview.getAttribute('src')).not.toBe(first);
+		await page.getByText('Isi contoh struk', { exact: true }).click();
+		await expect(page.locator('pre')).toContainText('Rp39.000');
+		await expect(page.locator('pre')).toContainText('Rp11.000');
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+		).toBe(true);
+		await page.screenshot({
+			path: test.info().outputPath(`receipt-${width}-80mm.png`),
+			fullPage: true
+		});
+	});
+}
+
 // Halaman Pengaturan Pemilik > Keamanan setelah dipecah ke store +
 // kartu. Mock jaringan; tidak ada kredensial atau PIN nyata yang diubah.
 async function mockSettingsSession(page: Page, role: 'pemilik' | 'kasir' = 'pemilik') {

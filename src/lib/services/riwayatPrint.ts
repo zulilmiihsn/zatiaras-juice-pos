@@ -5,7 +5,6 @@
  * Melempar error; caller yang mengatur loading/toast/notifikasi.
  */
 import { transactionService } from '$lib/services/transactionService';
-import { buildReceiptHtml } from '$lib/utils/receiptPrint';
 import { buildHistoryEscPosData, prepareHistoryReceipt } from '$lib/utils/historyReceipt';
 import { printReceiptUnified } from '$lib/services/printerEngine';
 import type { HistoryItem } from '$lib/types/laporan';
@@ -18,6 +17,5 @@ export async function printRiwayatStruk(trx: HistoryItem): Promise<void> {
 		});
 	}
 	const receipt = prepareHistoryReceipt(trx, historicalItems);
-	const html = buildReceiptHtml(receipt.history, receipt.settings, receipt.items);
-	await printReceiptUnified({ html, receiptData: buildHistoryEscPosData(receipt) });
+	await printReceiptUnified({ receiptData: buildHistoryEscPosData(receipt) });
 }

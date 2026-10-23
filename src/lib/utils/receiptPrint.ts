@@ -4,12 +4,12 @@
  *
  * Sumber kebenaran: lihat CONVENTIONS.md §2.
  */
-import { LOGO_BASE64 } from './logoBase64.js';
-import { formatRupiah } from './currency.js';
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
-import { formatOrderDetails, formatLevelLabel } from './orderDetails.js';
-import { toReceiptLines } from './receiptLines.js';
-import { formatNomorHarian } from './orderNumber.js';
+import { formatOrderDetails } from './orderDetails.js';
+import { buildHistoryEscPosData } from './historyReceipt.js';
+import { buildReceiptDocumentHtml, type ReceiptData } from './receiptLayout.js';
+import { roundMoney } from './money.js';
+import type { PaperSize } from './printerConfig.js';
 
 type SaleReceiptItem = {
 	product: { nama: string; harga?: number | null; harga_jumbo?: number | null };
@@ -35,15 +35,6 @@ type SaleReceiptInput = {
 	printedAt?: Date;
 };
 
-function escapeHtml(value: unknown): string {
-	return String(value ?? '')
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
-}
-
 /** Default pengaturan struk bila data toko belum tersedia. */
 export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
 	nama_toko: 'Zatiaras Juice',
@@ -55,38 +46,7 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
 };
 
 /** Label metode bayar untuk tampilan struk. */
-export const METHOD_LABELS: Record<string, string> = {
-	tunai: 'Tunai',
-	qris: 'QRIS',
-	transfer: 'Transfer',
-	'e-wallet': 'E-Wallet',
-	card: 'Kartu',
-	'non-tunai': 'QRIS/Non-Tunai'
-};
-
-type ReceiptShellHeader = {
-	settings: ReceiptSettings;
-	marginBottom: number;
-	renderText: (value: unknown) => string;
-};
-
-function buildReceiptShell(header: ReceiptShellHeader, body: string, footer: string): string {
-	const { settings, marginBottom, renderText } = header;
-	let html = `<html><body style='font-family:monospace;color:#000;font-size:14px;line-height:1.5;margin:0;padding:8px;'>`;
-	html += `<div style='text-align:center;margin-bottom:${marginBottom}px;'>`;
-	html += `<img src='${LOGO_BASE64}' style='width:80px;height:80px;margin:0 auto 8px;display:block;' />`;
-	html += `<div style='font-weight:bold;font-size:20px;text-transform:uppercase;'>${renderText(settings.nama_toko)}</div>`;
-	html += `<div style='font-size:13px;margin-top:4px;'>${renderText(settings.alamat)}</div>`;
-	if (settings.instagram || settings.telepon) {
-		html += `<div style='font-size:13px;margin-top:2px;'>${settings.instagram ? renderText(settings.instagram) : ''}${settings.instagram && settings.telepon ? ' | ' : ''}${settings.telepon ? renderText(settings.telepon) : ''}</div>`;
-	}
-	html += `</div>`;
-	html += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-	html += body;
-	html += footer;
-	html += `</body></html>`;
-	return html;
-}
+export { METHOD_LABELS } from './receiptLayout.js';
 
 /**
  * Muat pengaturan struk dari DB, fallback ke localStorage.
@@ -97,9 +57,7 @@ export async function loadReceiptSettings(): Promise<ReceiptSettings | null> {
 	try {
 		const { dbGet } = await import('$lib/services/dataApiClient');
 		const rows = await dbGet('pengaturan');
-		if (rows && rows.length > 0) {
-			return rows[0] as unknown as ReceiptSettings;
-		}
+		if (rows && rows.length > 0) return rows[0] as unknown as ReceiptSettings;
 	} catch {
 		// abaikan, jatuh ke localStorage
 	}
@@ -124,137 +82,89 @@ export async function loadReceiptSettings(): Promise<ReceiptSettings | null> {
 export function buildReceiptHtml(
 	trx: HistoryItem,
 	pengaturan: ReceiptSettings | null,
-	items: Record<string, unknown>[]
+	items: Record<string, unknown>[],
+	paperSize: PaperSize = '58mm'
 ): string {
-	const p = pengaturan ?? DEFAULT_RECEIPT_SETTINGS;
-
-	let body = `<div style='text-align:center;font-weight:bold;font-size:14px;margin-bottom:8px;'>*** CETAK ULANG ***</div>`;
-	if (trx.receipt_data_available === false) {
-		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Data uang diterima dan kembalian tidak tersimpan.</b></div>`;
-	}
-	if (trx.receipt_header_available === false) {
-		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Header toko saat transaksi tidak tersimpan.</b></div>`;
-	}
-	if (trx.receipt_items_available === false) {
-		body += `<div style='font-size:12px;margin-bottom:8px;'><b>Detail item transaksi tidak tersedia.</b></div>`;
-	}
-	const nomor = formatNomorHarian(trx.nomor_harian);
-	if (nomor)
-		body += `<div style='text-align:center;font-weight:bold;margin-bottom:8px;'>No. Pesanan: ${nomor}</div>`;
-	body += `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
-	body += `<div>${escapeHtml(trx.nama_pelanggan || '')}</div>`;
-	body += `<div>${new Date(trx.waktu).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
-	body += `</div>`;
-
-	body += `<table style='width:100%;font-size:14px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
-
-	if (items.length > 0) {
-		for (const line of toReceiptLines(items)) {
-			// Breakdown terpercaya: baris dasar + topping terpisah (jumlah = subtotal).
-			// Inklusif legacy: satu baris subtotal, topping sudah termasuk.
-			const mainTotal =
-				!line.inklusifSaja && line.baseUnit !== null
-					? Math.round(line.baseUnit * line.jumlah * 100) / 100
-					: line.subtotal;
-			const at =
-				line.jumlah > 1 && line.unitInklusif !== null
-					? ` <span style='font-size:12px;font-weight:normal;'>@Rp${formatRupiah(line.unitInklusif)}</span>`
-					: '';
-			body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(line.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span>${at}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(mainTotal)}</td></tr>`;
-			if (!line.inklusifSaja) {
-				for (const a of line.addOns) {
-					body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(a.nama)} <span style='font-size:12px;font-weight:normal;'>x${line.jumlah}</span></td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah(a.total)}</td></tr>`;
-				}
-			}
-			const detail = [
-				formatLevelLabel('gula', line.gula),
-				formatLevelLabel('es', line.es),
-				line.catatan
-			]
-				.filter(Boolean)
-				.join(', ');
-			if (detail) {
-				body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
-			}
-		}
-	} else {
-		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${escapeHtml(trx.nama)}</td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(trx.nominal ?? 0)}</td></tr>`;
-	}
-
-	body += `</tbody></table>`;
-	body += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-
-	body += `<table style='width:100%;font-size:14px;margin-bottom:24px;border-collapse:collapse;'><tbody>`;
-	body += `<tr><td style='text-align:left;padding-bottom:4px;'>Total:</td><td style='text-align:right;font-weight:bold;font-size:16px;'>Rp${formatRupiah(trx.nominal ?? 0)}</td></tr>`;
-
-	const methodKey = (trx.metode_bayar || '').toLowerCase();
-	body += `<tr><td style='text-align:left;font-size:13px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:13px;padding-top:4px;'>${METHOD_LABELS[methodKey] || methodKey}</td></tr>`;
-	if (methodKey === 'tunai' && trx.receipt_data_available === true) {
-		const cashReceived =
-			typeof trx.cash_received === 'number'
-				? `Rp${formatRupiah(trx.cash_received)}`
-				: 'Tidak tersimpan';
-		const change =
-			typeof trx.change === 'number' ? `Rp${formatRupiah(trx.change)}` : 'Tidak tersimpan';
-		body += `<tr><td style='text-align:left;font-size:13px;'>Dibayar:</td><td style='text-align:right;font-size:13px;'>${cashReceived}</td></tr>`;
-		body += `<tr><td style='text-align:left;font-size:13px;'>Kembalian:</td><td style='text-align:right;font-size:13px;'>${change}</td></tr>`;
-	}
-	body += `</tbody></table>`;
-
-	const footer = `<div style='text-align:center;font-size:13px;white-space:pre-line;'>${escapeHtml(p.ucapan)}</div>`;
-	return buildReceiptShell(
-		{ settings: p, marginBottom: 12, renderText: (value) => escapeHtml(value) },
-		body,
-		footer
+	return buildReceiptDocumentHtml(
+		buildHistoryEscPosData({
+			history: trx,
+			settings: pengaturan ?? DEFAULT_RECEIPT_SETTINGS,
+			items,
+			historyWarning: null
+		}),
+		paperSize
 	);
 }
 
-/** Bangun HTML struk transaksi yang baru selesai dibayar. */
-export function buildSaleReceiptHtml(input: SaleReceiptInput): string {
+export function buildSaleReceiptData(input: SaleReceiptInput): ReceiptData {
 	const settings = input.settings ?? DEFAULT_RECEIPT_SETTINGS;
 	const printedAt = input.printedAt ?? new Date();
-	const nomor = formatNomorHarian(input.nomorHarian);
-	const nomorLine = nomor ?? (input.queuedOffline ? 'menunggu sinkronisasi' : null);
-	let body = nomorLine
-		? `<div style='text-align:center;font-weight:bold;margin-bottom:8px;'>No. Pesanan: ${nomorLine}</div>`
-		: '';
-	body += `<div style='text-align:left;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;'>`;
-	body += `<div>${escapeHtml(input.customerName)}</div>`;
-	body += `<div>${printedAt.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</div>`;
-	body += `</div>`;
-	if (input.queuedOffline) {
-		body += `<div style='font-size:12px;margin-bottom:12px;'><b>STATUS: MENUNGGU SINKRONISASI</b></div>`;
-	}
-	body += `<table style='width:100%;font-size:14px;margin-bottom:12px;border-collapse:collapse;'><tbody>`;
-	for (const item of input.items) {
-		const isJumbo = (item.porsi || '').toLowerCase() === 'jumbo';
-		const basePrice = isJumbo
-			? (item.product.harga_jumbo ?? item.product.harga ?? 0)
-			: (item.product.harga ?? 0);
-		const porsiSuffix =
-			isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';
-		const displayName = `${escapeHtml(item.product.nama)}${porsiSuffix}`;
-		body += `<tr><td style='text-align:left;padding-bottom:4px;font-weight:bold;'>${displayName} <span style='font-size:12px;font-weight:normal;'>x${item.jumlah}</span></td><td style='text-align:right;padding-bottom:4px;'>Rp${formatRupiah(basePrice * item.jumlah)}</td></tr>`;
-		for (const addOn of item.addOns ?? []) {
-			body += `<tr><td style='font-size:12px;padding-left:8px;color:#333;'>+ ${escapeHtml(addOn.nama)}</td><td style='font-size:12px;text-align:right;color:#333;'>Rp${formatRupiah((addOn.harga ?? 0) * item.jumlah)}</td></tr>`;
-		}
-		const detail = formatOrderDetails(item);
-		if (detail) {
-			body += `<tr><td colspan='2' style='font-size:12px;padding-left:8px;padding-bottom:8px;color:#333;font-style:italic;'>${escapeHtml(detail)}</td></tr>`;
-		}
-	}
-	body += `</tbody></table>`;
-	body += `<div style='border-bottom:1px dashed #333;margin-bottom:12px;'></div>`;
-	body += `<table style='width:100%;font-size:14px;margin-bottom:24px;border-collapse:collapse;'><tbody>`;
-	body += `<tr><td style='text-align:left;padding-bottom:4px;'>Total:</td><td style='text-align:right;font-weight:bold;font-size:16px;'>Rp${formatRupiah(input.total)}</td></tr>`;
-	body += `<tr><td style='text-align:left;font-size:13px;padding-top:4px;'>Metode:</td><td style='text-align:right;font-size:13px;padding-top:4px;'>${escapeHtml(METHOD_LABELS[input.paymentMethod] || input.paymentMethod)}</td></tr>`;
-	if (input.paymentMethod === 'tunai') {
-		body += `<tr><td style='text-align:left;font-size:13px;'>Dibayar:</td><td style='text-align:right;font-size:13px;'>Rp${formatRupiah(input.cashReceived)}</td></tr>`;
-		body += `<tr><td style='text-align:left;font-size:13px;'>Kembalian:</td><td style='text-align:right;font-size:13px;'>Rp${input.change >= 0 ? formatRupiah(input.change) : '0'}</td></tr>`;
-	}
-	body += `</tbody></table>`;
-	const footer = `<div style='text-align:center;font-size:13px;white-space:pre-line;'>${escapeHtml(settings.ucapan)}</div>`;
-	return buildReceiptShell({ settings, marginBottom: 16, renderText: escapeHtml }, body, footer);
+	return {
+		storeName: settings.nama_toko,
+		address: settings.alamat,
+		phone: settings.telepon,
+		instagram: settings.instagram,
+		footerMessage: settings.ucapan,
+		nomorHarian: input.nomorHarian,
+		customerName: input.customerName || 'Pelanggan',
+		dateTime: printedAt.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
+		items: input.items.map((item) => {
+			const isJumbo = (item.porsi || '').toLowerCase() === 'jumbo';
+			const basePrice = isJumbo
+				? (item.product.harga_jumbo ?? item.product.harga ?? 0)
+				: (item.product.harga ?? 0);
+			const porsiSuffix =
+				isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';
+			return {
+				name: `${item.product.nama}${porsiSuffix}`,
+				qty: item.jumlah,
+				price: roundMoney(basePrice * item.jumlah),
+				addOns: (item.addOns ?? []).map((addOn) => ({
+					name: addOn.nama,
+					price: roundMoney((addOn.harga ?? 0) * item.jumlah)
+				})),
+				details: formatOrderDetails(item) || undefined
+			};
+		}),
+		total: input.total,
+		paymentMethod: input.paymentMethod,
+		cashReceived: input.cashReceived,
+		change: Math.max(0, input.change),
+		queuedOffline: input.queuedOffline
+	};
+}
+
+/** Bangun HTML struk transaksi yang baru selesai dibayar. */
+export function buildSaleReceiptHtml(
+	input: SaleReceiptInput,
+	paperSize: PaperSize = '58mm'
+): string {
+	return buildReceiptDocumentHtml(buildSaleReceiptData(input), paperSize);
+}
+
+/** Preview and connection tests use the real renderer and the same arithmetically consistent sample. */
+export function buildSampleReceipt(settings: ReceiptSettings, printedAt = new Date()): ReceiptData {
+	return buildSaleReceiptData({
+		settings,
+		nomorHarian: 7,
+		items: [
+			{
+				product: { nama: 'Jus Mangga', harga: 10_000 },
+				jumlah: 2,
+				addOns: [{ nama: 'Topping Nata', harga: 2_000 }],
+				gula: 'no',
+				es: 'less'
+			},
+			{ product: { nama: 'Jus Alpukat', harga: 15_000 }, jumlah: 1 }
+		],
+		customerName: 'Pelanggan Contoh',
+		total: 39_000,
+		paymentMethod: 'tunai',
+		cashReceived: 50_000,
+		change: 11_000,
+		queuedOffline: false,
+		printedAt
+	});
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
@@ -264,6 +174,11 @@ function uint8ToBase64(bytes: Uint8Array): string {
 		binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
 	}
 	return btoa(binary);
+}
+
+/** RawBT Android and the vendor's PC WebSocket server accept the same ESC/POS envelope. */
+export function buildRawBtIntentUrl(bytes: Uint8Array): string {
+	return `intent:base64,${uint8ToBase64(bytes)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
 }
 
 /** Bangun URL intent cetak (gzip + base64) tanpa navigasi; dipakai ulang jalur server. */

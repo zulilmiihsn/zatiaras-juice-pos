@@ -1,10 +1,12 @@
 export type PrinterMethod = 'bluetooth' | 'usb' | 'intent' | 'server';
 export type PaperSize = '58mm' | '80mm';
+export type AndroidPrinterApp = 'rawbt' | 'print-intent';
 
 export interface PrinterConfig {
 	method: PrinterMethod;
 	paperSize: PaperSize;
 	deviceName?: string;
+	androidApp?: AndroidPrinterApp;
 }
 
 export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
@@ -24,6 +26,9 @@ export function parsePrinterConfig(raw: unknown): PrinterConfig {
 				? method
 				: DEFAULT_PRINTER_CONFIG.method,
 		paperSize: parsed.paperSize === '80mm' ? '80mm' : '58mm',
-		deviceName: typeof parsed.deviceName === 'string' ? parsed.deviceName : ''
+		deviceName: typeof parsed.deviceName === 'string' ? parsed.deviceName : '',
+		...(parsed.androidApp === 'rawbt' || parsed.androidApp === 'print-intent'
+			? { androidApp: parsed.androidApp }
+			: {})
 	};
 }

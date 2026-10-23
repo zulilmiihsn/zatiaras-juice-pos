@@ -7,19 +7,20 @@ alur kritis, konvensi, dan cara menguji. Prosedur produksi ada di
 
 ## 1. Istilah domain
 
-| Istilah                 | Arti                                                                                                           |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Cabang (`cabang_id`)    | `samarinda`, `samarinda2`, `balikpapan`, `balikpapan2`, `berau`. Semua data diisolasi per cabang.              |
-| Shard D1                | Satu database per grup: `DB_SAMARINDA_GROUP` (samarinda, samarinda2), `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`. |
-| Sesi toko (`sesi_toko`) | Shift buka–tutup toko dengan modal awal. Kasir hanya boleh berjualan saat ada sesi aktif.                      |
-| Buku kas (`buku_kas`)   | Ledger kas: satu baris per transaksi POS (`sumber = 'pos'`) atau catatan manual (`sumber = 'catat'`).          |
-| `transaksi_kasir`       | Baris item per transaksi POS (snapshot nama, harga, tambahan, HPP).                                            |
-| Bahan, resep, HPP       | Bahan baku; resep per produk per porsi (`reguler`/`jumbo`); HPP = biaya per satuan efektif (4 desimal).        |
-| Kebijakan stok          | Per cabang `tracked` atau `ignored`. Mode `ignored` tidak mengurangi stok, tetapi HPP tetap dihitung.          |
-| Nomor harian            | Nomor pesanan `001+` per cabang per tanggal WITA, dialokasi atomik saat commit di server.                      |
-| Idempotency key         | Kunci unik `(cabang_id, idempotency_key)`: satu transaksi POS dicatat tepat sekali.                            |
-| Receipt snapshot        | `buku_kas.receipt_snapshot`, dibuat sekali saat commit; cetak ulang tidak berubah walau katalog diedit.        |
-| WITA                    | Zona `Asia/Makassar` (UTC+8). Semua tanggal bisnis memakai WITA.                                               |
+| Istilah                 | Arti                                                                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cabang (`cabang_id`)    | `samarinda`, `samarinda2`, `balikpapan`, `balikpapan2`, `berau`. Semua data diisolasi per cabang.                                                                                                                       |
+| Shard D1                | Satu database per grup: `DB_SAMARINDA_GROUP` (samarinda, samarinda2), `DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`.                                                                                                          |
+| Sesi toko (`sesi_toko`) | Shift buka–tutup toko dengan modal awal. Kasir hanya boleh berjualan saat ada sesi aktif.                                                                                                                               |
+| Buku kas (`buku_kas`)   | Ledger kas: satu baris per transaksi POS (`sumber = 'pos'`) atau catatan manual (`sumber = 'catat'`).                                                                                                                   |
+| `transaksi_kasir`       | Baris item per transaksi POS (snapshot nama, harga, tambahan, HPP).                                                                                                                                                     |
+| Bahan, resep, HPP       | Bahan baku; resep per produk per porsi (`reguler`/`jumbo`); HPP = biaya per satuan efektif (4 desimal).                                                                                                                 |
+| Kebijakan stok          | Per cabang `tracked` atau `ignored`. Mode `ignored` tidak mengurangi stok, tetapi HPP tetap dihitung.                                                                                                                   |
+| Nomor harian            | Nomor pesanan `001+` per cabang per tanggal WITA, dialokasi atomik saat commit di server.                                                                                                                               |
+| Idempotency key         | Kunci unik `(cabang_id, idempotency_key)`: satu transaksi POS dicatat tepat sekali.                                                                                                                                     |
+| Receipt snapshot        | `buku_kas.receipt_snapshot`, dibuat sekali saat commit; cetak ulang tidak berubah walau katalog diedit.                                                                                                                 |
+| Rendering struk         | `receiptLayout` memiliki satu layout; `receiptRaster` membuat PNG dan bitmap monokrom yang sama untuk preview, ESC/POS, intent Android, dan server lokal. Lebar cetak 384/576 titik untuk kertas 58/80 mm pada 203 dpi. |
+| WITA                    | Zona `Asia/Makassar` (UTC+8). Semua tanggal bisnis memakai WITA.                                                                                                                                                        |
 
 ## 2. Struktur kode dan arah dependensi
 

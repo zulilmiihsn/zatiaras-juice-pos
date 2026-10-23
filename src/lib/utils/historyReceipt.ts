@@ -3,7 +3,7 @@ import { decodeReceiptSnapshot } from './receiptSnapshot.js';
 import type { ReceiptSnapshot } from './receiptSnapshot.js';
 import { formatOrderDetails } from './orderDetails.js';
 import { toReceiptLines } from './receiptLines.js';
-import type { buildReceiptEscPos } from './escposBuilder.js';
+import type { ReceiptData } from './receiptLayout.js';
 
 const UNAVAILABLE_HEADER: ReceiptSettings = {
 	nama_toko: 'Header toko saat transaksi tidak tersimpan',
@@ -100,9 +100,7 @@ export function prepareHistoryReceipt(
 }
 
 /** ESC/POS receives the same resolved historical values as the HTML renderer. */
-export function buildHistoryEscPosData(
-	receipt: HistoryReceipt
-): Parameters<typeof buildReceiptEscPos>[0] {
+export function buildHistoryEscPosData(receipt: HistoryReceipt): ReceiptData {
 	const { history, settings, items, historyWarning } = receipt;
 	const lines = toReceiptLines(items);
 	return {
@@ -121,6 +119,7 @@ export function buildHistoryEscPosData(
 						price: line.inklusifSaja
 							? line.subtotal
 							: Math.round((line.baseUnit ?? 0) * line.jumlah * 100) / 100,
+						...(line.unitInklusif !== null ? { unitPrice: line.unitInklusif } : {}),
 						addOns: line.inklusifSaja
 							? []
 							: line.addOns.map((addOn) => ({ name: addOn.nama, price: addOn.total })),
@@ -138,6 +137,20 @@ export function buildHistoryEscPosData(
 		...(typeof history.cash_received === 'number' ? { cashReceived: history.cash_received } : {}),
 		...(typeof history.change === 'number' ? { change: history.change } : {}),
 		footerMessage: settings.ucapan,
-		historyWarning: historyWarning ?? undefined
+		historyWarning:
+			historyWarning ??
+			([
+				history.receipt_data_available === false
+					? 'Data uang diterima dan kembalian tidak tersimpan.'
+					: '',
+				history.receipt_header_available === false
+					? 'Header toko saat transaksi tidak tersimpan.'
+					: '',
+				history.receipt_items_available === false ? 'Detail item transaksi tidak tersedia.' : ''
+			]
+				.filter(Boolean)
+				.join(' ') ||
+				undefined),
+		reprint: true
 	};
 }

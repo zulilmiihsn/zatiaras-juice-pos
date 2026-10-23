@@ -12,12 +12,12 @@
 	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import Monitor from '@lucide/svelte/icons/monitor';
 	import Printer from '@lucide/svelte/icons/printer';
-	import Check from '@lucide/svelte/icons/check';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
 	import { createToastManager } from '$lib/utils/ui';
 	import { transactionService } from '$lib/services/transactionService';
-	import { LOGO_BASE64 } from '$lib/utils/logoBase64';
+	import { buildSampleReceipt } from '$lib/utils/receiptPrint';
+	import { renderReceipt, type RenderedReceipt } from '$lib/utils/receiptRaster';
 	import {
 		getPrinterConfig,
 		savePrinterConfig,
@@ -27,6 +27,7 @@
 		isBluetoothSupported,
 		isUsbSupported,
 		type PrinterMethod,
+		type AndroidPrinterApp,
 		type PaperSize
 	} from '$lib/services/printerEngine';
 
@@ -42,18 +43,15 @@
 	// State Koneksi Printer
 	let printerMethod = $state<PrinterMethod>('intent');
 	let paperSize = $state<PaperSize>('58mm');
+	let androidApp = $state<AndroidPrinterApp>('print-intent');
 	let deviceName = $state('');
 	let isConnectingHardware = $state(false);
 	let isTestingPrint = $state(false);
-
-	let copied = $state(false);
-	function copyBase64() {
-		navigator.clipboard.writeText(LOGO_BASE64);
-		copied = true;
-		setTimeout(() => {
-			copied = false;
-		}, 2000);
-	}
+	let preview = $state<RenderedReceipt | null>(null);
+	let previewLoading = $state(false);
+	let previewError = $state('');
+	let previewRevision = $state(0);
+	const samplePrintedAt = new Date();
 
 	const defaultData = {
 		namaToko: 'Zatiaras Juice',
@@ -62,6 +60,41 @@
 		instagram: '@zatiarasjuice',
 		ucapan: 'Terima kasih sudah ngejus di\nZatiaras Juice!'
 	};
+	const sampleReceipt = $derived(
+		buildSampleReceipt(
+			{
+				nama_toko: namaToko || defaultData.namaToko,
+				alamat,
+				telepon,
+				instagram,
+				ucapan
+			},
+			samplePrintedAt
+		)
+	);
+	$effect(() => {
+		if (activeTab !== 'preview') return;
+		const data = sampleReceipt;
+		const size = paperSize;
+		void previewRevision;
+		let cancelled = false;
+		previewLoading = true;
+		previewError = '';
+		void renderReceipt(data, size)
+			.then((result) => {
+				if (!cancelled) preview = result;
+			})
+			.catch((error: unknown) => {
+				if (!cancelled)
+					previewError = error instanceof Error ? error.message : 'Pratinjau struk gagal dibuat.';
+			})
+			.finally(() => {
+				if (!cancelled) previewLoading = false;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	async function loadPengaturan() {
 		try {
@@ -85,6 +118,7 @@
 		const config = getPrinterConfig();
 		printerMethod = config.method;
 		paperSize = config.paperSize;
+		androidApp = config.androidApp ?? 'print-intent';
 		deviceName = config.deviceName || '';
 	}
 
@@ -137,12 +171,22 @@
 	}
 
 	function simpanKoneksiPrinter() {
-		savePrinterConfig({
-			method: printerMethod,
-			paperSize,
-			deviceName
-		});
-		toastManager.showToastNotification('Metode printer berhasil diperbarui!', 'success');
+		try {
+			savePrinterConfig({
+				method: printerMethod,
+				paperSize,
+				androidApp,
+				deviceName
+			});
+			toastManager.showToastNotification('Metode printer berhasil diperbarui!', 'success');
+			return true;
+		} catch (error) {
+			toastManager.showToastNotification(
+				error instanceof Error ? error.message : 'Pengaturan printer gagal disimpan.',
+				'error'
+			);
+			return false;
+		}
 	}
 
 	async function handlePairBluetooth() {
@@ -151,7 +195,7 @@
 			const result = await connectBluetoothPrinter();
 			deviceName = result.name;
 			printerMethod = 'bluetooth';
-			simpanKoneksiPrinter();
+			if (!simpanKoneksiPrinter()) return;
 			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
 		} catch (err: unknown) {
 			toastManager.showToastNotification(
@@ -169,7 +213,7 @@
 			const result = await connectUsbPrinter();
 			deviceName = result.name;
 			printerMethod = 'usb';
-			simpanKoneksiPrinter();
+			if (!simpanKoneksiPrinter()) return;
 			toastManager.showToastNotification(`Terhubung ke ${result.name}!`, 'success');
 		} catch (err: unknown) {
 			toastManager.showToastNotification(
@@ -184,7 +228,7 @@
 	async function handleTestPrint() {
 		isTestingPrint = true;
 		try {
-			await testPrintUnified(printerMethod, paperSize);
+			await testPrintUnified(printerMethod, paperSize, sampleReceipt, androidApp);
 			toastManager.showToastNotification('Perintah tes cetak terkirim!', 'success');
 		} catch (err: unknown) {
 			toastManager.showToastNotification(
@@ -534,7 +578,7 @@
 								</div>
 								<p class="mt-1 text-xs leading-relaxed text-slate-500">
 									Untuk PC kasir Windows. Mengirim struk ke RawBT Print Server lokal
-									(127.0.0.1:40213) via HTTP, fallback WebSocket. Pastikan aplikasinya sudah
+									(127.0.0.1:40213) via WebSocket dengan protokol RawBT. Pastikan aplikasinya sudah
 									dijalankan di komputer ini.
 								</p>
 							</div>
@@ -543,6 +587,34 @@
 				</div>
 
 				<!-- Ukuran Kertas Struk -->
+				{#if printerMethod === 'intent'}
+					<fieldset class="rounded-2xl border border-slate-200 bg-white p-5">
+						<legend class="px-1 text-sm font-bold text-slate-800">Aplikasi cetak Android</legend>
+						<p class="mb-3 text-xs leading-relaxed text-slate-500">
+							Pilih aplikasi yang terpasang. RawBT dan helper print-intent memakai protokol berbeda.
+						</p>
+						<div class="flex flex-wrap gap-4">
+							<label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700"
+								><input
+									type="radio"
+									name="android-print-app"
+									value="rawbt"
+									bind:group={androidApp}
+									class="accent-pink-500"
+								/>RawBT</label
+							>
+							<label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700"
+								><input
+									type="radio"
+									name="android-print-app"
+									value="print-intent"
+									bind:group={androidApp}
+									class="accent-pink-500"
+								/>Helper print-intent</label
+							>
+						</div>
+					</fieldset>
+				{/if}
 				<div
 					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
 				>
@@ -554,7 +626,7 @@
 								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
 								: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
 						>
-							<span class="text-sm">58 mm (32 Kolom)</span>
+							<span class="text-sm">58 mm</span>
 							<input
 								type="radio"
 								name="paper-size"
@@ -569,7 +641,7 @@
 								? 'border-pink-500 bg-pink-50/40 font-bold text-pink-700'
 								: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
 						>
-							<span class="text-sm">80 mm (48 Kolom)</span>
+							<span class="text-sm">80 mm</span>
 							<input
 								type="radio"
 								name="paper-size"
@@ -596,147 +668,127 @@
 						disabled={isTestingPrint}
 						class="w-full cursor-pointer rounded-xl border-[1.5px] border-pink-200 bg-white px-6 py-3.5 text-sm font-bold text-pink-600 shadow-sm transition-all hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50"
 					>
-						{isTestingPrint ? 'Mencetak Tes...' : '🖨️ Coba Tes Cetak Struk'}
+						{isTestingPrint ? 'Mengirim struk...' : 'Coba Tes Cetak Struk'}
 					</button>
 				</div>
 			</div>
 		{:else}
 			<!-- Preview Section -->
-			<div class="grid grid-cols-1 gap-8 md:grid-cols-2">
+			<section
+				aria-label="Pratinjau struk"
+				class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_280px]"
+			>
 				<!-- Receipt Struk Preview -->
-				<div class="mx-auto w-full max-w-sm">
-					<div
-						class="relative overflow-hidden rounded-t-lg border-b-4 border-dotted border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8"
-					>
-						<div class="p-2 font-mono text-[14px] leading-relaxed text-black">
-							<div class="mb-4 text-center">
-								<img
-									src={LOGO_BASE64}
-									class="mx-auto mb-3 block h-[120px] w-[120px] contrast-125 grayscale"
-									alt="Logo"
-								/>
-								<div class="text-xl font-bold uppercase">
-									{namaToko || 'Nama Toko'}
-								</div>
-								<div class="mt-1 text-[13px]">{alamat || 'Alamat Toko'}</div>
-								{#if instagram || telepon}
-									<div class="mt-0.5 text-[13px]">
-										{instagram}{instagram && telepon ? ' | ' : ''}{telepon}
-									</div>
-								{/if}
-							</div>
-
-							<div class="mb-3 border-b border-dashed border-slate-700"></div>
-
-							<div class="mb-3 flex justify-between text-left text-[13px]">
-								<div>nama pelanggan</div>
-								<div>01/01/2024 10.00</div>
-							</div>
-
-							<table class="mb-3 w-full border-collapse text-sm">
-								<tbody>
-									<tr>
-										<td class="pb-1 text-left font-bold"
-											>Jus Mangga <span class="text-xs font-normal">x2</span></td
-										>
-										<td class="pb-1 text-right">Rp20.000</td>
-									</tr>
-									<tr>
-										<td class="pl-2 text-xs text-slate-700">+ Topping Nata</td>
-										<td class="text-right text-xs text-slate-700">Rp4.000</td>
-									</tr>
-									<tr>
-										<td colspan="2" class="pb-2 pl-2 text-xs text-slate-700 italic"
-											>Tanpa Gula, Sedikit Es</td
-										>
-									</tr>
-									<tr>
-										<td class="pb-1 text-left font-bold"
-											>Jus Alpukat <span class="text-xs font-normal">x1</span></td
-										>
-										<td class="pb-1 text-right">Rp15.000</td>
-									</tr>
-								</tbody>
-							</table>
-
-							<div class="mb-3 border-b border-dashed border-slate-700"></div>
-
-							<table class="mb-6 w-full border-collapse text-sm">
-								<tbody>
-									<tr>
-										<td class="pb-1 text-left">Total:</td>
-										<td class="text-right text-base font-bold">Rp35.000</td>
-									</tr>
-									<tr>
-										<td class="pt-1 text-left text-[13px]">Metode:</td>
-										<td class="pt-1 text-right text-[13px]">Tunai</td>
-									</tr>
-									<tr>
-										<td class="text-left text-[13px]">Dibayar:</td>
-										<td class="text-right text-[13px]">Rp50.000</td>
-									</tr>
-									<tr>
-										<td class="text-left text-[13px]">Kembalian:</td>
-										<td class="text-right text-[13px]">Rp15.000</td>
-									</tr>
-								</tbody>
-							</table>
-
-							<div class="text-center text-[13px] whitespace-pre-line">
-								{ucapan || 'Terima kasih'}
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- ASCII (Base64) Info Card -->
 				<div
-					class="flex flex-col justify-between rounded-2xl border-[1.5px] border-pink-100 bg-white p-6 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+					class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 p-4 sm:p-6"
+					aria-busy={previewLoading}
 				>
-					<div>
-						<h3 class="text-lg font-bold text-slate-800">Kode ASCII (Base64) Logo</h3>
-						<p class="mt-2 text-sm leading-relaxed text-slate-600">
-							Ini adalah representasi teks ASCII (Base64) dari logo toko. Data gambar ini ditanamkan
-							langsung dalam kode agar struk dapat dicetak kapan saja, bahkan saat perangkat kasir
-							sedang offline.
-						</p>
-						<div class="mt-4 rounded-xl border border-slate-200 bg-slate-900 p-4">
-							<div
-								class="max-h-40 overflow-y-auto pr-1 font-mono text-[10px] break-all text-slate-400 select-all"
+					<div
+						class="mb-4 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600"
+					>
+						<span>Contoh hasil cetak</span><span>{paperSize === '80mm' ? '80 mm' : '58 mm'}</span>
+					</div>
+					{#if previewLoading}
+						<div
+							class="mx-auto h-96 w-full max-w-xs animate-pulse rounded-lg bg-white"
+							role="status"
+							aria-label="Menyiapkan pratinjau struk"
+						></div>
+					{:else if previewError}
+						<div class="rounded-lg bg-white p-5" role="alert">
+							<p class="text-sm text-slate-700">{previewError}</p>
+							<button
+								type="button"
+								onclick={() => previewRevision++}
+								class="mt-3 rounded-lg border border-pink-200 px-4 py-2 text-sm font-semibold text-pink-700 transition-transform active:scale-[0.98]"
+								>Coba lagi</button
 							>
-								{LOGO_BASE64}
-							</div>
 						</div>
-					</div>
-
-					<div class="mt-6">
-						<button
-							type="button"
-							class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-pink-500 py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 transition-all duration-200 hover:bg-pink-600 active:scale-[0.98]"
-							onclick={copyBase64}
-						>
-							{#if copied}
-								<Check class="h-4 w-4 stroke-[2.5]" />
-								Tersalin!
-							{:else}
-								<svg
-									class="h-4 w-4"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								>
-									<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-									<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-								</svg>
-								Salin Kode ASCII
-							{/if}
-						</button>
-					</div>
+					{:else if preview}
+						<div class="mx-auto w-fit max-w-full bg-white shadow-md">
+							<img
+								data-testid="receipt-preview"
+								src={preview.imageUrl}
+								width={preview.bitmap.width}
+								height={preview.bitmap.height}
+								alt="Contoh struk transaksi; rincian tersedia pada Isi contoh struk"
+								class="block h-auto max-w-full"
+							/>
+						</div>
+					{:else}
+						<p class="p-5 text-sm text-slate-600">Pratinjau belum tersedia.</p>
+					{/if}
 				</div>
-			</div>
+				<aside class="min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
+					<div>
+						<h2 class="text-base font-bold text-slate-800">Periksa sebelum mencetak</h2>
+						<p class="mt-2 text-sm leading-relaxed text-slate-600">
+							Pratinjau dan semua metode cetak memakai gambar struk yang sama, termasuk logo dan
+							pemisahan baris.
+						</p>
+					</div>
+					<fieldset>
+						<legend class="mb-2 text-sm font-semibold text-slate-800"
+							>Ukuran kertas pratinjau</legend
+						>
+						<div class="flex gap-3">
+							{#each ['58mm', '80mm'] as size}
+								<label
+									class="flex flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm"
+								>
+									<span>{size === '80mm' ? '80 mm' : '58 mm'}</span>
+									<input
+										type="radio"
+										name="preview-paper-size"
+										value={size}
+										bind:group={paperSize}
+										class="accent-pink-500"
+									/>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
+					<p class="text-xs leading-relaxed text-slate-500">
+						Samakan ukuran kertas pada printer dan aplikasi helper. Area cetak: {paperSize ===
+						'80mm'
+							? '72'
+							: '48'} mm. Printer Bluetooth/USB perlu mendukung gambar ESC/POS.
+					</p>
+					<div class="border-y border-slate-100 py-3 text-sm leading-relaxed text-slate-600">
+						<p>Total contoh <strong class="text-slate-800">Rp39.000</strong></p>
+						<p>Dibayar Rp50.000, kembalian Rp11.000.</p>
+					</div>
+					<button
+						type="button"
+						onclick={simpanKoneksiPrinter}
+						class="w-full rounded-xl bg-pink-500 px-4 py-3 text-sm font-bold text-white transition-transform active:scale-[0.98]"
+						>Simpan ukuran dan metode</button
+					>
+					<button
+						type="button"
+						onclick={handleTestPrint}
+						disabled={isTestingPrint || previewLoading || !!previewError}
+						aria-busy={isTestingPrint}
+						class="w-full rounded-xl border border-pink-200 px-4 py-3 text-sm font-bold text-pink-700 transition-transform active:scale-[0.98] disabled:opacity-50"
+						>{isTestingPrint ? 'Mengirim struk...' : 'Cetak contoh ini'}</button
+					>
+					<p class="text-xs leading-relaxed text-slate-500">
+						Pengaturan toko yang disimpan berlaku untuk transaksi berikutnya. Cetak ulang tetap
+						memakai snapshot transaksi.
+					</p>
+					{#if preview}
+						<details class="text-sm text-slate-600">
+							<summary class="cursor-pointer font-semibold text-slate-800">Isi contoh struk</summary
+							>
+							<pre
+								class="mt-3 text-xs leading-relaxed break-words whitespace-pre-wrap">{preview.layout.nodes
+									.filter((node) => node.type === 'text')
+									.map((node) => node.text)
+									.join('\n')}</pre>
+						</details>
+					{/if}
+				</aside>
+			</section>
 		{/if}
 	</div>
 </div>

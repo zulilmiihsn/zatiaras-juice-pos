@@ -4,9 +4,9 @@
  */
 import type { CartItem, CartProduct } from '../types/cart.js';
 import type { ReceiptSettings } from '../types/laporan.js';
-import type { buildReceiptEscPos } from './escposBuilder.js';
-import { buildSaleReceiptHtml } from './receiptPrint.js';
-import { formatOrderDetails } from './orderDetails.js';
+import type { ReceiptData } from './receiptLayout.js';
+import { buildReceiptDocumentHtml } from './receiptLayout.js';
+import { buildSaleReceiptData } from './receiptPrint.js';
 
 const UNAVAILABLE_STORE_NAME = 'Header toko saat transaksi tidak tersimpan';
 
@@ -109,7 +109,7 @@ export interface SaleReceiptPrintInput {
 
 export interface SaleReceiptPrint {
 	html: string;
-	receiptData: Parameters<typeof buildReceiptEscPos>[0];
+	receiptData: ReceiptData;
 }
 
 /** HTML dan data ESC/POS dari nilai yang sama, agar kedua jalur cetak tidak berbeda. */
@@ -138,7 +138,7 @@ export function buildSaleReceiptPrint(input: SaleReceiptPrintInput): SaleReceipt
 	const change = receipt?.change ?? input.change;
 	const printedAt = receipt?.committed_at ? new Date(receipt.committed_at) : undefined;
 
-	const html = buildSaleReceiptHtml({
+	const receiptData = buildSaleReceiptData({
 		settings,
 		nomorHarian: input.nomorHarian,
 		items,
@@ -151,36 +151,5 @@ export function buildSaleReceiptPrint(input: SaleReceiptPrintInput): SaleReceipt
 		printedAt
 	});
 
-	const receiptData: SaleReceiptPrint['receiptData'] = {
-		storeName: settings?.nama_toko || UNAVAILABLE_STORE_NAME,
-		nomorHarian: input.nomorHarian,
-		address: settings?.alamat,
-		phone: settings?.telepon,
-		instagram: settings?.instagram,
-		customerName: input.customerName || 'Pelanggan',
-		dateTime: (printedAt ?? new Date()).toLocaleString('id-ID'),
-		items: items.map((item) => {
-			const isJumbo = item.porsi === 'jumbo';
-			const porsiSuffix =
-				isJumbo && !item.product.nama.toLowerCase().includes('jumbo') ? ' (Jumbo)' : '';
-			return {
-				name: `${item.product.nama}${porsiSuffix}`,
-				qty: item.jumlah,
-				price: unitBasePrice(item) * item.jumlah,
-				addOns: (item.addOns || []).map((a) => ({
-					name: a.nama,
-					price: (a.harga ?? 0) * item.jumlah
-				})),
-				details: formatOrderDetails(item) || undefined
-			};
-		}),
-		total,
-		paymentMethod,
-		cashReceived,
-		change,
-		footerMessage: settings?.ucapan,
-		queuedOffline: input.queuedOffline
-	};
-
-	return { html, receiptData };
+	return { html: buildReceiptDocumentHtml(receiptData), receiptData };
 }

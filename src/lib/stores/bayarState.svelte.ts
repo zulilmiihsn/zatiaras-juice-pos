@@ -51,6 +51,7 @@ export function createBayarState() {
 	let showCashModal = $state(false);
 	let cashReceived = $state('');
 	let showSuccessModal = $state(false);
+	let isPrinting = $state(false);
 	let showQrisWarning = $state(false);
 	let transactionId = $state('');
 	let transactionCode = $state('');
@@ -458,21 +459,36 @@ export function createBayarState() {
 		showNotifModal = false;
 	}
 
-	function printStrukViaEscPosService() {
-		void printReceiptUnified(
-			buildSaleReceiptPrint({
-				receipt: committedReceipt,
-				cart,
-				settings: pengaturanStruk,
-				nomorHarian: nomorPesanan,
-				customerName,
-				total: totalHarga,
-				paymentMethod,
-				cashReceived: parseInt(cashReceived) || 0,
-				change: kembalian,
-				queuedOffline: transactionQueuedOffline
-			})
-		);
+	async function printStrukViaEscPosService() {
+		if (isPrinting) return;
+		isPrinting = true;
+		try {
+			await printReceiptUnified(
+				buildSaleReceiptPrint({
+					receipt: committedReceipt,
+					cart,
+					settings: pengaturanStruk,
+					nomorHarian: nomorPesanan,
+					customerName,
+					total: totalHarga,
+					paymentMethod,
+					cashReceived: parseInt(cashReceived) || 0,
+					change: kembalian,
+					queuedOffline: transactionQueuedOffline
+				})
+			);
+			toastManager.showToastNotification(
+				'Perintah cetak terkirim. Periksa hasil pada printer.',
+				'success'
+			);
+		} catch (error) {
+			toastManager.showToastNotification(
+				error instanceof Error ? error.message : 'Gagal mengirim struk ke printer.',
+				'error'
+			);
+		} finally {
+			isPrinting = false;
+		}
 	}
 
 	function handleAddCashTemplate(t: number) {
@@ -551,6 +567,9 @@ export function createBayarState() {
 		},
 		get showSuccessModal() {
 			return showSuccessModal;
+		},
+		get isPrinting() {
+			return isPrinting;
 		},
 		get showQrisWarning() {
 			return showQrisWarning;

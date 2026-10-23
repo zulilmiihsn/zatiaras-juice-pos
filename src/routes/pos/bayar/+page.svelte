@@ -482,7 +482,10 @@
 	<div class="flex w-full flex-col gap-2.5 pt-1">
 		<button
 			class="min-h-[46px] w-full cursor-pointer rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-[0.98]"
-			onclick={s.printStrukViaEscPosService}>Cetak Struk</button
+			disabled={s.isPrinting}
+			aria-busy={s.isPrinting}
+			onclick={s.printStrukViaEscPosService}
+			>{s.isPrinting ? 'Mengirim struk...' : 'Cetak Struk'}</button
 		>
 		<button
 			class="min-h-[46px] w-full cursor-pointer rounded-full border-2 border-pink-600 bg-white py-3 text-sm font-bold text-pink-700 transition-all hover:bg-pink-50 active:scale-[0.98]"

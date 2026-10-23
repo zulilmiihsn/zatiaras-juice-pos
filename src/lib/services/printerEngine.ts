@@ -4,12 +4,19 @@
  * 1. Web Bluetooth (BLE 4.0/5.0) — ESC/POS Direct
  * 2. WebUSB (Kabel USB Printer POS) — ESC/POS Direct
  * 3. Android Intent (RawBT / iMin Helper App) — Gzip Base64
- * 4. Server Lokal (RawBT Print Server di Windows/PC) — HTTP POST + WebSocket
+ * 4. Server Lokal (RawBT Print Server di Windows/PC) — ESC/POS via WebSocket
  */
 
 import { browser } from '$app/environment';
 import { buildReceiptEscPos } from '$lib/utils/escposBuilder';
-import { buildPrintIntentUrl, printViaIntent } from '$lib/utils/receiptPrint';
+import {
+	buildRawBtIntentUrl,
+	buildSampleReceipt,
+	DEFAULT_RECEIPT_SETTINGS,
+	printViaIntent
+} from '$lib/utils/receiptPrint';
+import { renderReceipt } from '$lib/utils/receiptRaster';
+import type { ReceiptData } from '$lib/utils/receiptLayout';
 import {
 	DEFAULT_PRINTER_CONFIG,
 	parsePrinterConfig,
@@ -19,6 +26,7 @@ import {
 } from '$lib/utils/printerConfig';
 
 export type { PaperSize, PrinterConfig, PrinterMethod };
+export type { AndroidPrinterApp } from '$lib/utils/printerConfig';
 
 // Known BLE Service UUIDs used by common 58mm/80mm thermal printers
 const KNOWN_BLE_SERVICES = [
@@ -66,19 +74,26 @@ interface UsbEndpointLike {
 interface UsbInterfaceLike {
 	interfaceNumber: number;
 	alternates: Array<{
+		alternateSetting?: number;
 		endpoints: UsbEndpointLike[];
 	}>;
 }
 
 interface UsbDeviceLike {
 	productName?: string;
+	opened?: boolean;
 	configuration: {
 		interfaces: UsbInterfaceLike[];
 	} | null;
 	open: () => Promise<void>;
 	selectConfiguration: (config: number) => Promise<void>;
 	claimInterface: (interfaceNumber: number) => Promise<void>;
-	transferOut: (endpointNumber: number, data: Uint8Array | BufferSource) => Promise<unknown>;
+	selectAlternateInterface?: (interfaceNumber: number, alternateSetting: number) => Promise<void>;
+	transferOut: (
+		endpointNumber: number,
+		data: Uint8Array | BufferSource
+	) => Promise<{ status: string; bytesWritten?: number }>;
+	close?: () => Promise<void>;
 }
 
 interface NavigatorHardware {
@@ -98,6 +113,25 @@ let activeBluetoothDevice: BluetoothDeviceLike | null = null;
 let activeBluetoothCharacteristic: BluetoothCharacteristicLike | null = null;
 let activeUsbDevice: UsbDeviceLike | null = null;
 let activeUsbEndpointNumber: number | null = null;
+let printing = false;
+
+async function printerTimeout<T>(
+	operation: Promise<T>,
+	message: string,
+	timeout = 10_000
+): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			operation,
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error(message)), timeout);
+			})
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
 
 /** Baca konfigurasi printer dari localStorage */
 export function getPrinterConfig(): PrinterConfig {
@@ -114,12 +148,14 @@ export function getPrinterConfig(): PrinterConfig {
 /** Simpan konfigurasi printer ke localStorage */
 export function savePrinterConfig(config: Partial<PrinterConfig>): PrinterConfig {
 	const current = getPrinterConfig();
-	const updated = { ...current, ...config };
+	const updated = parsePrinterConfig({ ...current, ...config });
 	if (browser) {
 		try {
 			localStorage.setItem('pos_printer_config', JSON.stringify(updated));
 		} catch {
-			// ignore
+			throw new Error(
+				'Pengaturan printer tidak dapat disimpan. Izinkan penyimpanan situs lalu coba lagi.'
+			);
 		}
 	}
 	return updated;
@@ -160,14 +196,25 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 		throw new Error('Gagal menghubungkan ke perangkat Bluetooth.');
 	}
 
-	const server = await device.gatt.connect();
+	const server = await printerTimeout(
+		device.gatt.connect(),
+		'Koneksi Bluetooth melewati batas waktu.'
+	);
 	let targetCharacteristic: BluetoothCharacteristicLike | null = null;
 
 	// Iterasi services untuk mencari characteristic writable
 	for (const serviceUuid of KNOWN_BLE_SERVICES) {
 		try {
-			const service = await server.getPrimaryService(serviceUuid);
-			const characteristics = await service.getCharacteristics();
+			const service = await printerTimeout(
+				server.getPrimaryService(serviceUuid),
+				'Layanan Bluetooth tidak merespons.',
+				3_000
+			);
+			const characteristics = await printerTimeout(
+				service.getCharacteristics(),
+				'Karakteristik Bluetooth tidak merespons.',
+				3_000
+			);
 			for (const char of characteristics) {
 				if (char.properties.write || char.properties.writeWithoutResponse) {
 					targetCharacteristic = char;
@@ -184,9 +231,17 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 		// Fallback: coba cari seluruh services yang diekspos device
 		if (typeof server.getPrimaryServices === 'function') {
 			try {
-				const services = await server.getPrimaryServices();
+				const services = await printerTimeout(
+					server.getPrimaryServices(),
+					'Pencarian layanan Bluetooth melewati batas waktu.',
+					3_000
+				);
 				for (const service of services) {
-					const characteristics = await service.getCharacteristics();
+					const characteristics = await printerTimeout(
+						service.getCharacteristics(),
+						'Karakteristik Bluetooth tidak merespons.',
+						3_000
+					);
 					for (const char of characteristics) {
 						if (char.properties.write || char.properties.writeWithoutResponse) {
 							targetCharacteristic = char;
@@ -202,6 +257,7 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 	}
 
 	if (!targetCharacteristic) {
+		server.disconnect();
 		throw new Error('Karakteristik cetak tidak ditemukan pada printer Bluetooth ini.');
 	}
 
@@ -228,21 +284,32 @@ async function sendBluetoothChunked(
 	characteristic: BluetoothCharacteristicLike,
 	data: Uint8Array
 ): Promise<void> {
-	const CHUNK_SIZE = 64; // safe MTU size for cheap thermal printers
+	const CHUNK_SIZE = 20; // Minimum BLE ATT payload; works without assuming a negotiated larger MTU.
 	for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
 		const chunk = data.slice(offset, offset + CHUNK_SIZE);
 		if (
 			characteristic.properties.writeWithoutResponse &&
 			characteristic.writeValueWithoutResponse
 		) {
-			await characteristic.writeValueWithoutResponse(chunk);
+			await printerTimeout(
+				characteristic.writeValueWithoutResponse(chunk),
+				'Pengiriman Bluetooth melewati batas waktu. Periksa struk sebelum mencetak ulang.'
+			);
+			// Delay kecil 15ms agar buffer printer sempat memproses
+			await new Promise((r) => setTimeout(r, 15));
 		} else if (characteristic.writeValueWithResponse) {
-			await characteristic.writeValueWithResponse(chunk);
+			await printerTimeout(
+				characteristic.writeValueWithResponse(chunk),
+				'Pengiriman Bluetooth melewati batas waktu. Periksa struk sebelum mencetak ulang.'
+			);
 		} else if (characteristic.writeValue) {
-			await characteristic.writeValue(chunk);
+			await printerTimeout(
+				characteristic.writeValue(chunk),
+				'Pengiriman Bluetooth melewati batas waktu. Periksa struk sebelum mencetak ulang.'
+			);
+		} else {
+			throw new Error('Printer Bluetooth tidak menyediakan jalur pengiriman data.');
 		}
-		// Delay kecil 15ms agar buffer printer sempat memproses
-		await new Promise((r) => setTimeout(r, 15));
 	}
 }
 
@@ -258,56 +325,80 @@ export async function connectUsbPrinter(): Promise<{ name: string }> {
 		throw new Error('WebUSB tidak tersedia di perangkat ini.');
 	}
 
-	const device = await navUsb
-		.requestDevice({
-			filters: [{ classCode: 7 }] // 7 = Printer Class
-		})
-		.catch(async () => {
-			// Fallback: accept any USB device
-			return await navUsb.requestDevice({ filters: [] });
-		});
+	const device = await navUsb.requestDevice({
+		// Printer Class (7) and vendor-specific thermal devices share the explicit device chooser.
+		filters: []
+	});
 
 	if (!device) {
 		throw new Error('Printer USB tidak dipilih.');
 	}
 
-	await device.open();
-	if (device.configuration === null) {
-		await device.selectConfiguration(1);
-	}
+	try {
+		await printerTimeout(
+			device.open(),
+			'Printer USB tidak dapat dibuka. Periksa driver dan koneksi kabel.'
+		);
+		if (device.configuration === null) {
+			await printerTimeout(
+				device.selectConfiguration(1),
+				'Konfigurasi printer USB melewati batas waktu.'
+			);
+		}
 
-	// Cari interface printer
-	let targetInterface: UsbInterfaceLike | null = null;
-	let outEndpoint: UsbEndpointLike | null = null;
+		// Cari interface printer
+		let targetInterface: UsbInterfaceLike | null = null;
+		let outEndpoint: UsbEndpointLike | null = null;
+		let alternateSetting: number | undefined;
 
-	if (device.configuration) {
-		for (const iface of device.configuration.interfaces) {
-			for (const alt of iface.alternates) {
-				for (const ep of alt.endpoints) {
-					if (ep.direction === 'out') {
-						targetInterface = iface;
-						outEndpoint = ep;
-						break;
+		if (device.configuration) {
+			for (const iface of device.configuration.interfaces) {
+				for (const alt of iface.alternates) {
+					for (const ep of alt.endpoints) {
+						if (ep.direction === 'out') {
+							targetInterface = iface;
+							outEndpoint = ep;
+							alternateSetting = alt.alternateSetting;
+							break;
+						}
 					}
+					if (outEndpoint) break;
 				}
 				if (outEndpoint) break;
 			}
-			if (outEndpoint) break;
 		}
+
+		if (!targetInterface || !outEndpoint) {
+			throw new Error('Endpoint printer USB tidak ditemukan.');
+		}
+
+		await printerTimeout(
+			device.claimInterface(targetInterface.interfaceNumber),
+			'Printer USB sedang dipakai aplikasi atau driver lain.'
+		);
+		if (alternateSetting !== undefined && device.selectAlternateInterface)
+			await printerTimeout(
+				device.selectAlternateInterface(targetInterface.interfaceNumber, alternateSetting),
+				'Pemilihan jalur USB melewati batas waktu.'
+			);
+		activeUsbDevice = device;
+		activeUsbEndpointNumber = outEndpoint.endpointNumber;
+
+		const deviceName = device.productName || 'Printer USB';
+		savePrinterConfig({ deviceName, method: 'usb' });
+
+		return { name: deviceName };
+	} catch (error) {
+		try {
+			if (device.close)
+				await printerTimeout(device.close(), 'Penutupan USB melewati batas waktu.', 1_000);
+		} catch {
+			// Best effort: a failed setup must release its device without hiding the original error.
+		}
+		activeUsbDevice = null;
+		activeUsbEndpointNumber = null;
+		throw error;
 	}
-
-	if (!targetInterface || !outEndpoint) {
-		throw new Error('Endpoint printer USB tidak ditemukan.');
-	}
-
-	await device.claimInterface(targetInterface.interfaceNumber);
-	activeUsbDevice = device;
-	activeUsbEndpointNumber = outEndpoint.endpointNumber;
-
-	const deviceName = device.productName || 'Printer USB';
-	savePrinterConfig({ deviceName, method: 'usb' });
-
-	return { name: deviceName };
 }
 
 /** Kirim data bytes ke Printer USB */
@@ -316,54 +407,82 @@ async function sendUsbData(
 	endpointNumber: number,
 	data: Uint8Array
 ): Promise<void> {
-	await device.transferOut(endpointNumber, data);
+	for (let offset = 0; offset < data.length;) {
+		const chunk = data.slice(offset, offset + 4096);
+		const result = await printerTimeout(
+			device.transferOut(endpointNumber, chunk),
+			'Pengiriman USB melewati batas waktu. Periksa struk sebelum mencetak ulang.'
+		);
+		if (
+			result.status !== 'ok' ||
+			(result.bytesWritten !== undefined &&
+				(!Number.isInteger(result.bytesWritten) ||
+					result.bytesWritten <= 0 ||
+					result.bytesWritten > chunk.length))
+		)
+			throw new Error('Pengiriman USB tidak lengkap. Periksa struk sebelum mencetak ulang.');
+		offset += result.bytesWritten ?? chunk.length;
+	}
 }
 
 // Endpoint RawBT Print Server lokal (dijalankan di PC kasir Windows).
-const LOCAL_PRINT_HTTP_ENDPOINTS = ['http://127.0.0.1:40213/print', 'http://localhost:40213/print'];
 const LOCAL_PRINT_WS_ENDPOINTS = ['ws://localhost:40213/', 'ws://127.0.0.1:40213/'];
 
-/** Kirim struk ke Server Lokal via HTTP POST, fallback WebSocket. */
+/** WebSocket can fail over only before sending; an uncertain print must never be sent twice. */
 async function sendToLocalServer(intentUrl: string): Promise<void> {
-	for (const url of LOCAL_PRINT_HTTP_ENDPOINTS) {
-		try {
-			await fetch(url, { method: 'POST', mode: 'no-cors', body: intentUrl });
-			return;
-		} catch {
-			// coba endpoint berikutnya
-		}
+	for (const url of LOCAL_PRINT_WS_ENDPOINTS) {
+		if (await sendToLocalServerWs(intentUrl, url)) return;
 	}
-	await sendToLocalServerWs(intentUrl, 0);
+	throw new Error(
+		"Server printer lokal tidak merespons. Pastikan 'RawBT Print Server' berjalan dan izinkan akses jaringan lokal."
+	);
 }
 
-function sendToLocalServerWs(intentUrl: string, index: number): Promise<void> {
-	if (index >= LOCAL_PRINT_WS_ENDPOINTS.length) {
-		throw new Error(
-			"Server printer lokal tidak dapat diakses! Pastikan 'RawBT Print Server' sudah dijalankan di komputer ini."
-		);
-	}
+function sendToLocalServerWs(intentUrl: string, url: string): Promise<boolean> {
 	return new Promise((resolve, reject) => {
 		let sent = false;
+		let finished = false;
+		let socket: WebSocket | undefined;
+		let drain: ReturnType<typeof setInterval> | undefined;
+		const finish = (error?: Error) => {
+			if (finished) return;
+			finished = true;
+			clearTimeout(timer);
+			clearInterval(drain);
+			if (socket) {
+				socket.onopen = socket.onclose = socket.onerror = null;
+				socket.close();
+			}
+			if (error) reject(error);
+			else resolve(sent);
+		};
+		const uncertain = () =>
+			new Error('Pengiriman server printer terputus. Periksa struk sebelum mencetak ulang.');
+		const timer = setTimeout(() => finish(sent ? uncertain() : undefined), 5_000);
 		try {
-			const socket = new WebSocket(LOCAL_PRINT_WS_ENDPOINTS[index]);
+			socket = new WebSocket(url);
 			socket.onopen = () => {
-				sent = true;
-				socket.send(intentUrl);
-				socket.close(1000, 'Print request sent');
-				resolve();
+				try {
+					sent = true;
+					socket!.send(intentUrl);
+					const flushed = () => {
+						if (socket?.bufferedAmount === 0) finish();
+					};
+					drain = setInterval(flushed, 25);
+					flushed();
+				} catch {
+					finish(uncertain());
+				}
 			};
-			socket.onerror = () => {
-				if (!sent) void sendToLocalServerWs(intentUrl, index + 1).then(resolve, reject);
-			};
+			socket.onerror = socket.onclose = () => finish(sent ? uncertain() : undefined);
 		} catch {
-			void sendToLocalServerWs(intentUrl, index + 1).then(resolve, reject);
+			finish();
 		}
 	});
 }
 
 export interface UnifiedPrintPayload {
-	html: string;
-	receiptData?: Parameters<typeof buildReceiptEscPos>[0];
+	receiptData: ReceiptData;
 }
 
 /**
@@ -371,104 +490,85 @@ export interface UnifiedPrintPayload {
  * Otomatis menggunakan salah satu dari 4 metode yang dipilih user di Pengaturan Printer.
  */
 export async function printReceiptUnified(payload: UnifiedPrintPayload): Promise<void> {
-	const config = getPrinterConfig();
+	await executePrint(payload.receiptData, getPrinterConfig());
+}
 
-	switch (config.method) {
-		case 'bluetooth': {
-			if (!activeBluetoothCharacteristic) {
-				await connectBluetoothPrinter();
-			}
-			if (payload.receiptData && activeBluetoothCharacteristic) {
-				const bytes = buildReceiptEscPos(payload.receiptData, { paperSize: config.paperSize });
+async function executePrint(data: ReceiptData, config: PrinterConfig): Promise<void> {
+	if (!browser) throw new Error('Cetak struk hanya tersedia di browser.');
+	if (printing) throw new Error('Pencetakan masih berlangsung. Tunggu sampai pengiriman selesai.');
+	printing = true;
+	try {
+		// Device selection must start within the click's user activation, before rasterization awaits.
+		if (
+			config.method === 'bluetooth' &&
+			(!activeBluetoothCharacteristic || !activeBluetoothDevice?.gatt?.connected)
+		)
+			await connectBluetoothPrinter();
+		if (
+			config.method === 'usb' &&
+			(!activeUsbDevice || activeUsbDevice.opened === false || activeUsbEndpointNumber === null)
+		)
+			await connectUsbPrinter();
+		if (config.method === 'intent' && !/Android/i.test(navigator.userAgent))
+			throw new Error(
+				'Metode Aplikasi Android membutuhkan perangkat Android dan aplikasi helper. Pilih USB atau Server Lokal untuk komputer.'
+			);
+		const rendered = await renderReceipt(data, config.paperSize);
+		const bytes = buildReceiptEscPos(rendered.bitmap);
+		switch (config.method) {
+			case 'bluetooth':
+				if (!activeBluetoothCharacteristic) throw new Error('Printer Bluetooth belum terhubung.');
 				await sendBluetoothChunked(activeBluetoothCharacteristic, bytes);
-				return;
-			}
-			// Fallback ke intent bila binary builder tidak tersedia
-			await printViaIntent(payload.html);
-			break;
-		}
-
-		case 'usb': {
-			if (!activeUsbDevice || activeUsbEndpointNumber === null) {
-				await connectUsbPrinter();
-			}
-			if (payload.receiptData && activeUsbDevice && activeUsbEndpointNumber !== null) {
-				const bytes = buildReceiptEscPos(payload.receiptData, { paperSize: config.paperSize });
+				break;
+			case 'usb':
+				if (!activeUsbDevice || activeUsbEndpointNumber === null)
+					throw new Error('Printer USB belum terhubung.');
 				await sendUsbData(activeUsbDevice, activeUsbEndpointNumber, bytes);
-				return;
+				break;
+			case 'server':
+				await sendToLocalServer(buildRawBtIntentUrl(bytes));
+				break;
+			case 'intent':
+				if (config.androidApp === 'rawbt') {
+					const intent = buildRawBtIntentUrl(bytes);
+					if (intent.length > 400_000)
+						throw new Error(
+							'Struk terlalu panjang untuk RawBT Android. Gunakan USB atau Bluetooth langsung.'
+						);
+					window.location.href = intent;
+				} else {
+					await printViaIntent(rendered.html);
+				}
+				break;
+		}
+	} catch (error) {
+		if (config.method === 'bluetooth') disconnectBluetooth();
+		if (config.method === 'usb' && activeUsbDevice) {
+			try {
+				if (activeUsbDevice.close)
+					await printerTimeout(
+						activeUsbDevice.close(),
+						'Penutupan koneksi USB melewati batas waktu.',
+						1_000
+					);
+			} catch {
+				// Best effort: discard a failed device even when its driver cannot close cleanly.
 			}
-			await printViaIntent(payload.html);
-			break;
+			activeUsbDevice = null;
+			activeUsbEndpointNumber = null;
 		}
-
-		case 'intent':
-		default: {
-			await printViaIntent(payload.html);
-			break;
-		}
-
-		case 'server': {
-			await sendToLocalServer(await buildPrintIntentUrl(payload.html));
-			break;
-		}
+		throw error;
+	} finally {
+		printing = false;
 	}
 }
 
 /** Jalankan Tes Cetak Struk Uji Coba */
-export async function testPrintUnified(method: PrinterMethod, paperSize: PaperSize): Promise<void> {
-	const dummyData = {
-		storeName: 'ZATIARAS JUICE',
-		address: 'Jl. Contoh Alamat No. 123',
-		phone: '0812-3456-7890',
-		instagram: '@zatiarasjuice',
-		customerName: 'Pelanggan Tes',
-		dateTime: new Date().toLocaleString('id-ID'),
-		items: [
-			{ name: 'Jus Mangga (Jumbo)', qty: 1, price: 15000, details: 'Normal' },
-			{ name: 'Jus Alpukat', qty: 1, price: 12000, addOns: [{ name: 'Topping Nata', price: 3000 }] }
-		],
-		total: 30000,
-		paymentMethod: 'tunai',
-		cashReceived: 50000,
-		change: 20000,
-		footerMessage: 'TES PRINT BERHASIL!\nTerima kasih sudah ngejus.'
-	};
-
-	const dummyHtml = `
-		<div style="text-align:center; font-family:monospace;">
-			<h3>ZATIARAS JUICE</h3>
-			<p>Jl. Contoh Alamat No. 123</p>
-			<hr/>
-			<p>TES CETAK STRUK BERHASIL</p>
-			<p>Total: Rp30.000 (Tunai)</p>
-			<hr/>
-			<p>Metode: ${method.toUpperCase()} (${paperSize})</p>
-		</div>
-	`;
-
-	if (method === 'bluetooth') {
-		if (!activeBluetoothCharacteristic) {
-			await connectBluetoothPrinter();
-		}
-		if (activeBluetoothCharacteristic) {
-			const bytes = buildReceiptEscPos(dummyData, { paperSize });
-			await sendBluetoothChunked(activeBluetoothCharacteristic, bytes);
-		} else {
-			throw new Error('Koneksi Bluetooth printer gagal dibentuk');
-		}
-	} else if (method === 'usb') {
-		if (!activeUsbDevice || activeUsbEndpointNumber === null) {
-			await connectUsbPrinter();
-		}
-		if (activeUsbDevice && activeUsbEndpointNumber !== null) {
-			const bytes = buildReceiptEscPos(dummyData, { paperSize });
-			await sendUsbData(activeUsbDevice, activeUsbEndpointNumber, bytes);
-		} else {
-			throw new Error('Koneksi USB printer gagal dibentuk');
-		}
-	} else if (method === 'server') {
-		await sendToLocalServer(await buildPrintIntentUrl(dummyHtml));
-	} else {
-		await printViaIntent(dummyHtml);
-	}
+export async function testPrintUnified(
+	method: PrinterMethod,
+	paperSize: PaperSize,
+	data: ReceiptData = buildSampleReceipt(DEFAULT_RECEIPT_SETTINGS),
+	androidApp: PrinterConfig['androidApp'] = getPrinterConfig().androidApp
+): Promise<void> {
+	await executePrint(data, { ...getPrinterConfig(), method, paperSize, androidApp });
 }
