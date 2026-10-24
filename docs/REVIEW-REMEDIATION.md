@@ -39,6 +39,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
 | R10 | Sederhanakan `raster()`                              | Sonnet | Selesai  | R9         |
 | R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai  | –          |
+| R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Sedang   | R11        |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
 Grup **B** = R7, R9–R11 (perapian, perilaku tidak berubah), lalu staging.
@@ -248,6 +249,27 @@ tidak disarankan dokumentasi Playwright.
   tidak ada request yang masih terbuka, dengan `expect.poll`.
 - **Bukti:** `--repeat-each=10` lulus semua. Kalau tidak stabil, kembalikan
   perubahannya dan tutup kartu sebagai "tidak dikerjakan".
+
+**R12 Selidiki GET status PIN yang datang terlambat.**
+R11 gagal karena sesekali ada GET `/api/pin/verify` yang datang lebih dari 500 ms
+setelah navigasi, saat tes sudah mengubah state mock. Dugaannya layout menjalankan
+ulang `refreshPinAccess()` karena efek di `src/routes/+layout.svelte` bergantung pada
+`pinAccessIdentity()` (membaca `userRole`, `userProfile`, `selectedBranch`) dan
+`pinAccess.request`. Dugaan itu belum dibuktikan. Dugaan lain: transisi halaman
+menahan klik. Kartu ini mencari pemicu sebenarnya sebelum mengubah apa pun.
+
+- **Langkah 1, selidiki (tidak di-commit):** pasang pencatat sementara di
+  `refreshPinAccess()` (`new Error().stack`), di efek layout (path, identity, ada
+  tidaknya `request`), dan teruskan console halaman ke terminal di tes. Jalankan tes
+  "fixed 60 seconds" minimal 6 kali. Catat pemicu tiap GET, termasuk pada ulangan yang lulus.
+- **Langkah 2, putuskan:**
+  - GET ulang tanpa perubahan identity atau path: perbaiki di layout supaya tidak
+    memanggil ulang, dengan tes.
+  - Pemicunya lain atau tidak bisa dihindari: tulis ulang tes dengan
+    `page.clock.install` dan `runFor` seperti tes R2, tanpa `setFixedTime`.
+- **Langkah 3:** kembalikan semua pencatat. Hapus `networkidle` hanya bila
+  `--repeat-each=20` lulus semua.
+- **Gerbang:** seperti R2, ditambah `pnpm test:frontend-consistency` bila `.svelte` berubah.
 
 ### Kartu pemilik
 
