@@ -149,7 +149,9 @@ export function buildLocalCardFromPending(
 				? String(request.nama_pelanggan).slice(0, 60)
 				: null,
 		waktu: createdAt,
-		preparation_state: 'pending',
+		// Checkout menyimpan preparation_started_at saat commit (statementBuilder), jadi setelah
+		// sinkron pesanan ini berstatus Diproses; kartu lokal harus sama agar tidak pindah tab.
+		preparation_state: 'processing',
 		preparation_revision: 0,
 		preparation_completed_at: null,
 		items,

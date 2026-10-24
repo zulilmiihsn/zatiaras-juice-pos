@@ -32,7 +32,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai  | R1         |
 | R3  | Fallback nama toko di struk                          | Haiku  | Selesai  | –          |
 | R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Selesai  | –          |
-| R5  | Order offline langsung Diproses                      | Sonnet | Todo     | –          |
+| R5  | Order offline langsung Diproses                      | Sonnet | Selesai  | –          |
 | R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Todo     | –          |
 | R7  | Cek overflow kontrol Antrean                         | Haiku  | Todo     | –          |
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
@@ -308,3 +308,8 @@ Sesi baru cukup diberi prompt ini:
   `flushed-close` gagal tanpa perbaikan dengan galat "Periksa struk sebelum
   mencetak ulang" (jalur cetak dobel) dan lulus dengannya; `pre-send` dan
   `post-send` tidak berubah. Teks acak di metode 4 tetap menunggu P2.
+- 25 Oktober 2026: R5 selesai. `buildLocalCardFromPending` memulai kartu offline di
+  `processing`, sama dengan server (`preparation_started_at` diisi saat checkout).
+  Tab, jumlah, dan tombol Antrean semuanya diturunkan dari `preparation_state`,
+  jadi tidak ada logika lain yang perlu diubah. `test:receipt-output`,
+  `test:antrean`, dan seluruh `e2e/antrean.spec.ts` (28 tes) lulus.

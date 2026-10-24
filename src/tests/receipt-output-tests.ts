@@ -306,6 +306,11 @@ const localCard = buildLocalCardFromPending(pending, 'samarinda');
 assert.equal(localCard?.nomor_harian, null, 'kartu lokal belum punya nomor resmi');
 assert.equal(localCard?.nominal, 25000, 'ringkasan offline memakai total struk tersimpan');
 assert.equal(
+	localCard?.preparation_state,
+	'processing',
+	'checkout langsung Diproses di server, jadi kartu offline tidak boleh mulai di Masuk'
+);
+assert.equal(
 	buildLocalCardFromPending(
 		{ ...pending, receipt: { items: [{ nama: 'Jus UAT', jumlah: 1 }] } },
 		'samarinda'
