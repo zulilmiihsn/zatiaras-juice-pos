@@ -302,7 +302,11 @@ async function seedPengaturan(
 			})
 		} as never);
 		assert.equal(response.status, 200);
-		assert.deepEqual(await response.json(), { ok: true, expiresAt: verifiedAt + 60_000 });
+		assert.deepEqual(await response.json(), {
+			ok: true,
+			expiresAt: verifiedAt + 60_000,
+			expiresInMs: 60_000
+		});
 		const reload = async () => {
 			const current = await getAuthSession(platform, session.id);
 			assert.ok(current);
@@ -315,8 +319,16 @@ async function seedPengaturan(
 			} as never);
 		const currentStatus = await status(await reload());
 		assert.equal(currentStatus.headers.get('Cache-Control'), 'no-store');
-		assert.deepEqual(await currentStatus.json(), { ok: true, expiresAt: verifiedAt + 60_000 });
-		assert.deepEqual(await (await status(other)).json(), { ok: true, expiresAt: 0 });
+		assert.deepEqual(await currentStatus.json(), {
+			ok: true,
+			expiresAt: verifiedAt + 60_000,
+			expiresInMs: 60_000
+		});
+		assert.deepEqual(await (await status(other)).json(), {
+			ok: true,
+			expiresAt: 0,
+			expiresInMs: 0
+		});
 		for (const [current, query, expected] of [
 			[null, '', 401],
 			[{ ...session, role: 'pemilik' }, '', 403],
@@ -342,7 +354,8 @@ async function seedPengaturan(
 		for (const page of PROTECTED_PAGES) await requirePageAccess(db, await reload(), page);
 		assert.deepEqual(await (await status(await reload())).json(), {
 			ok: true,
-			expiresAt: verifiedAt + 60_000
+			expiresAt: verifiedAt + 60_000,
+			expiresInMs: 1
 		});
 		assert.equal((await reload()).unlockExpiresAt, verifiedAt + 60_000);
 		const wrong = await verifyPinForBranch(platform, branch, await reload(), '9999', 'laporan');
@@ -350,7 +363,11 @@ async function seedPengaturan(
 		if (!wrong.ok) assert.equal(wrong.status, 403);
 		assert.equal((await reload()).unlockExpiresAt, verifiedAt + 60_000);
 		mock.timers.tick(1);
-		assert.deepEqual(await (await status(await reload())).json(), { ok: true, expiresAt: 0 });
+		assert.deepEqual(await (await status(await reload())).json(), {
+			ok: true,
+			expiresAt: 0,
+			expiresInMs: 0
+		});
 		for (const page of PROTECTED_PAGES) {
 			await assert.rejects(
 				requirePageAccess(db, await reload(), page),
@@ -371,7 +388,11 @@ async function seedPengaturan(
 			true
 		);
 		await changePinForBranch(platform, branch, { ...session, role: 'pemilik' }, '2580', '9753');
-		assert.deepEqual(await (await status(await reload())).json(), { ok: true, expiresAt: 0 });
+		assert.deepEqual(await (await status(await reload())).json(), {
+			ok: true,
+			expiresAt: 0,
+			expiresInMs: 0
+		});
 		for (const page of PROTECTED_PAGES) {
 			await assert.rejects(
 				requirePageAccess(db, await reload(), page),

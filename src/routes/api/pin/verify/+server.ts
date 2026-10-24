@@ -5,14 +5,18 @@ import { verifyPinForBranch } from '$lib/server/services/pinService';
 import { getPageUnlockExpiresAt } from '$lib/server/pageAccess';
 import type { RequestHandler } from './$types';
 
+/** `expiresInMs` lets a client with a skewed clock measure the unlock from its own clock. */
+function unlockPayload(expiresAt: number) {
+	return { ok: true, expiresAt, expiresInMs: Math.max(0, expiresAt - Date.now()) };
+}
+
 export const GET: RequestHandler = async ({ locals, url }) => {
 	const session = requireAuthSession(locals);
 	requireSessionBranch(locals, url.searchParams.get('branch'));
 	if (session.role !== 'kasir') throw kitError(403, 'Verifikasi PIN hanya untuk kasir');
-	return json(
-		{ ok: true, expiresAt: getPageUnlockExpiresAt(session) },
-		{ headers: { 'Cache-Control': 'no-store' } }
-	);
+	return json(unlockPayload(getPageUnlockExpiresAt(session)), {
+		headers: { 'Cache-Control': 'no-store' }
+	});
 };
 
 /**
@@ -40,5 +44,5 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			}
 		);
 	}
-	return json({ ok: true, expiresAt: result.expiresAt });
+	return json(unlockPayload(result.expiresAt));
 };

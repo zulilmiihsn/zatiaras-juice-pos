@@ -167,6 +167,44 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await expect(locked).toBeVisible();
 });
 
+test('cashier unlocks with a correct PIN when the device clock runs ahead of the server', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({
+			json: [
+				{ pinConfigured: true, halaman_terkunci: ['beranda', 'laporan', 'catat', 'pengaturan'] }
+			]
+		})
+	);
+	// The page clock is fixed at 04:00:00Z. The server clock is two minutes behind, so its
+	// wall-clock expiresAt is already in the past here; only expiresInMs is skew-free.
+	let unlocked = false;
+	await page.route('**/api/pin/verify', async (route) => {
+		if (route.request().method() === 'POST') unlocked = true;
+		await route.fulfill({
+			json: unlocked
+				? { ok: true, expiresAt: Date.parse('2026-10-20T03:59:00.000Z'), expiresInMs: 60_000 }
+				: { ok: true, expiresAt: 0, expiresInMs: 0 }
+		});
+	});
+	await gotoHydrated(page, '/', 'h2:text-is("Akses Terkunci")');
+	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
+	await expect(locked).toBeVisible();
+	await page.keyboard.type('2580');
+	await expect(locked).toHaveCount(0);
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const modulePath = '/src/lib/services/pinAccessService.ts';
+				const { hasPinAccess } = await import(/* @vite-ignore */ modulePath);
+				return hasPinAccess();
+			})
+		)
+		.toBe(true);
+});
+
 test('cashier rejects malformed PIN status and clears access on branch change and logout', async ({
 	page
 }) => {

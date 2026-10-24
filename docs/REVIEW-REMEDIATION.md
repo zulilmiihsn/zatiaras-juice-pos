@@ -28,7 +28,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | ID  | Judul                                                | Model  | Status   | Bergantung |
 | --- | ---------------------------------------------------- | ------ | -------- | ---------- |
 | R0  | Tracker ini                                          | Opus   | Selesai  | –          |
-| R1  | PIN tahan selisih jam perangkat                      | Sonnet | Todo     | –          |
+| R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai  | –          |
 | R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Todo     | R1         |
 | R3  | Fallback nama toko di struk                          | Haiku  | Todo     | –          |
 | R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Todo     | –          |
@@ -285,3 +285,8 @@ Sesi baru cukup diberi prompt ini:
   Delapan temuan sudah diverifikasi di kode. Satu temuan (BLE tanpa jeda) masih
   berupa risiko yang menunggu P1. Satu temuan (performa `raster()`) dilebih-lebihkan
   dan dijadikan perapian di R10.
+- 25 Oktober 2026: R1 selesai. `/api/pin/verify` (GET dan POST) menambah
+  `expiresInMs`; klien memakai `localExpiresAt()` di `pinAccessService.ts`, dan
+  tanpa `expiresInMs` jatuh ke `expiresAt` lama. Tes baru "device clock runs ahead
+  of the server" gagal tanpa perbaikan dan lulus dengannya. `test:pin-service`,
+  e2e `-g "PIN"`, `pnpm check`, eslint lulus.

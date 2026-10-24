@@ -9,7 +9,23 @@ export type PinVerificationResult = {
 	ok: boolean;
 	message?: string;
 	expiresAt?: number;
+	/** Remaining unlock time; independent of either side's wall clock. */
+	expiresInMs?: number;
 };
+
+/**
+ * Unlock expiry on this device's clock. The server's `expiresAt` is on the server clock, so a
+ * device running fast would reject a correct PIN; the remaining time is skew-free.
+ * Without `expiresInMs` (older server or mock) the raw `expiresAt` is used.
+ */
+function localExpiresAt(payload: PinVerificationResult | null): number {
+	if (!payload) return 0;
+	if (typeof payload.expiresInMs === 'number' && Number.isFinite(payload.expiresInMs))
+		return payload.expiresInMs > 0 ? Date.now() + payload.expiresInMs : 0;
+	return typeof payload.expiresAt === 'number' && Number.isFinite(payload.expiresAt)
+		? payload.expiresAt
+		: 0;
+}
 
 let requestGeneration = 0;
 let statusRequest: { identity: string; promise: Promise<boolean> } | null = null;
@@ -77,10 +93,8 @@ export async function refreshPinAccess(): Promise<boolean> {
 			});
 			const payload = (await response.json()) as PinVerificationResult;
 			if (generation === requestGeneration && identity === pinAccessIdentity()) {
-				pinAccess.value =
-					response.ok && payload?.ok === true && Number.isFinite(payload.expiresAt)
-						? { identity, expiresAt: payload.expiresAt! }
-						: null;
+				const expiresAt = response.ok && payload?.ok === true ? localExpiresAt(payload) : 0;
+				pinAccess.value = expiresAt > 0 ? { identity, expiresAt } : null;
 			}
 		} catch {
 			// Kegagalan jaringan/status tidak memberikan izin lokal tanpa konfirmasi server.
@@ -115,19 +129,15 @@ export async function verifyPagePin(
 	if (identity !== pinAccessIdentity()) {
 		return { ok: false, message: 'Sesi kasir berubah. Masukkan PIN kembali' };
 	}
-	const ok =
-		response.ok &&
-		payload?.ok === true &&
-		typeof payload.expiresAt === 'number' &&
-		Number.isFinite(payload.expiresAt) &&
-		payload.expiresAt > Date.now();
+	const expiresAt = response.ok && payload?.ok === true ? localExpiresAt(payload) : 0;
+	const ok = expiresAt > Date.now();
 	// Hasil status yang mulai sebelum verifikasi tidak boleh menimpa izin yang baru diberikan.
 	requestGeneration++;
 	statusRequest = null;
-	pinAccess.value = ok ? { identity, expiresAt: payload!.expiresAt! } : null;
+	pinAccess.value = ok ? { identity, expiresAt } : null;
 	return {
 		ok,
-		expiresAt: ok ? payload!.expiresAt : undefined,
+		expiresAt: ok ? expiresAt : undefined,
 		message: payload?.message || (ok ? undefined : 'Verifikasi PIN gagal')
 	};
 }
