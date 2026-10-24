@@ -62,8 +62,9 @@ export async function renderReceipt(
 	const bytesPerRow = canvas.width / 8;
 	const bytes = new Uint8Array(bytesPerRow * canvas.height);
 	for (let i = 0; i < pixels.data.length; i += 4) {
+		// A high cutoff keeps anti-aliased glyph edges black so thin strokes do not break up on paper.
 		const dark =
-			pixels.data[i] * 0.299 + pixels.data[i + 1] * 0.587 + pixels.data[i + 2] * 0.114 < 180;
+			pixels.data[i] * 0.299 + pixels.data[i + 1] * 0.587 + pixels.data[i + 2] * 0.114 < 210;
 		if (dark) bytes[(i / 4) >> 3] |= 0x80 >> ((i / 4) & 7);
 		pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = dark ? 0 : 255;
 		pixels.data[i + 3] = 255;

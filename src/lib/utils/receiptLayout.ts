@@ -63,7 +63,8 @@ export interface ReceiptLayout {
 
 export type MeasureReceiptText = (text: string, size: number, bold: boolean) => number;
 
-export const RECEIPT_FONT = '"Courier New", monospace';
+// Thick sans-serif strokes survive 1-bit thermal output; Android maps "Courier New" to a hairline typewriter face.
+export const RECEIPT_FONT = 'Arial, Roboto, "Helvetica Neue", "Liberation Sans", sans-serif';
 
 /** Control characters are never allowed to become printer commands or invisible layout changes. */
 export function cleanReceiptText(text: string): string {
