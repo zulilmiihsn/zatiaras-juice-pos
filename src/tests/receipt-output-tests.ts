@@ -16,7 +16,7 @@ import {
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
-import { buildReceiptEscPos, EscPosBuilder } from '../lib/utils/escposBuilder.js';
+import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
 import { buildHistoryEscPosData, prepareHistoryReceipt } from '../lib/utils/historyReceipt.js';
 import { buildOfflineReceipt, buildSaleReceiptPrint } from '../lib/utils/saleReceipt.js';
 import { parsePrinterConfig } from '../lib/utils/printerConfig.js';
@@ -575,13 +575,6 @@ assert.ok(
 }
 // Long names must wrap completely; printer firmware must never decide column alignment.
 for (const paperSize of ['58mm', '80mm'] as const) {
-	const builder = new EscPosBuilder({ paperSize });
-	builder.twoColumn('Nama produk panjang '.repeat(12), 'Rp123.456.789');
-	const lines = new TextDecoder().decode(builder.toBytes()).slice(2).trimEnd().split('\n');
-	assert.ok(
-		lines.every((line) => line.length <= builder.lineWidth),
-		`${paperSize}: every wrapped line fits the printable columns`
-	);
 	const sample = buildSampleReceipt(settings, new Date('2026-06-29T08:30:00.000Z'));
 	const layout = buildReceiptLayout(sample, paperSize);
 	assert.equal(layout.width, paperSize === '80mm' ? 576 : 384);

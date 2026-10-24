@@ -3,16 +3,10 @@
  * Standar generator byte binary untuk printer thermal kasir (58mm / 80mm).
  * Zero-dependency murni TypeScript (Uint8Array).
  */
-import { cleanReceiptText, wrapReceiptText } from './receiptLayout.js';
-
 export interface ReceiptBitmap {
 	width: number;
 	height: number;
 	bytes: Uint8Array;
-}
-
-export interface EscPosOptions {
-	paperSize?: '58mm' | '80mm';
 }
 
 /** Blank gaps of at least 1 mm are fed instead of sent as image rows. */
@@ -20,11 +14,8 @@ const MIN_FEED_ROWS = 8;
 
 export class EscPosBuilder {
 	private buffer: number[] = [];
-	private encoder = new TextEncoder();
-	public readonly lineWidth: number;
 
-	constructor(options: EscPosOptions = {}) {
-		this.lineWidth = options.paperSize === '80mm' ? 48 : 32;
+	constructor() {
 		this.init();
 	}
 
@@ -41,74 +32,10 @@ export class EscPosBuilder {
 		return this;
 	}
 
-	/** Bold on / off */
-	bold(enable: boolean = true): this {
-		this.buffer.push(0x1b, 0x45, enable ? 1 : 0); // ESC E n
-		return this;
-	}
-
-	/** Ukuran font: 'normal' | 'double-height' | 'double-width' | 'double-both' */
-	size(size: 'normal' | 'double-height' | 'double-width' | 'double-both' = 'normal'): this {
-		let val = 0x00;
-		if (size === 'double-height') val = 0x01;
-		else if (size === 'double-width') val = 0x10;
-		else if (size === 'double-both') val = 0x11;
-		this.buffer.push(0x1d, 0x21, val); // GS ! n
-		return this;
-	}
-
-	/** Tambah teks murni (tanpa newline) */
-	text(str: string): this {
-		if (!str) return this;
-		const bytes = this.encoder.encode(cleanReceiptText(str));
-		for (let i = 0; i < bytes.length; i++) {
-			this.buffer.push(bytes[i]);
-		}
-		return this;
-	}
-
-	/** Tambah satu baris teks + newline */
-	line(str: string = ''): this {
-		this.text(str);
-		this.buffer.push(0x0a); // LF
-		return this;
-	}
-
 	/** Tambah baris kosong */
 	feed(lines: number = 1): this {
 		for (let i = 0; i < lines; i++) {
 			this.buffer.push(0x0a);
-		}
-		return this;
-	}
-
-	/** Garis pemisah putus-putus atau solid */
-	divider(char: string = '-'): this {
-		const line = char.repeat(this.lineWidth);
-		this.line(line);
-		return this;
-	}
-
-	/**
-	 * Cetak baris dua kolom (Kiri rata kiri, Kanan rata kanan).
-	 * Sangat cocok untuk daftar item kasir (misal: "Jus Mangga x2" di kiri, "Rp20.000" di kanan).
-	 */
-	twoColumn(left: string, right: string): this {
-		left = cleanReceiptText(left);
-		right = cleanReceiptText(right);
-		const measure = (value: string) => Array.from(value).length;
-		const rightLen = measure(right);
-		// Jika teks kiri terlalu panjang, potong atau bungkus
-		if (rightLen >= this.lineWidth) {
-			for (const line of wrapReceiptText(left, this.lineWidth, measure)) this.line(line);
-			for (const line of wrapReceiptText(right, this.lineWidth, measure)) this.line(line);
-			return this;
-		}
-		const lines = wrapReceiptText(left, this.lineWidth - rightLen - 1, measure);
-		for (let i = 0; i < lines.length; i++) {
-			const suffix =
-				i === 0 ? ' '.repeat(this.lineWidth - measure(lines[i]) - rightLen) + right : '';
-			this.line(lines[i] + suffix);
 		}
 		return this;
 	}
@@ -188,7 +115,7 @@ export class EscPosBuilder {
 
 /** Helper untuk menyusun data struk transaksi kasir menjadi ESC/POS bytes */
 export function buildReceiptEscPos(bitmap: ReceiptBitmap): Uint8Array {
-	const builder = new EscPosBuilder({ paperSize: bitmap.width === 576 ? '80mm' : '58mm' });
+	const builder = new EscPosBuilder();
 	builder.align('left').raster(bitmap);
 	// Potong Kertas
 	builder.cut();

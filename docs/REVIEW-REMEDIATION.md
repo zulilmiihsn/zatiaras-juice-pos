@@ -36,7 +36,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Selesai  | –          |
 | R7  | Cek overflow kontrol Antrean                         | Haiku  | Selesai  | –          |
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
-| R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Todo     | –          |
+| R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
 | R10 | Sederhanakan `raster()`                              | Sonnet | Todo     | R9         |
 | R11 | Tes PIN tanpa `networkidle` (opsional)               | Sonnet | Todo     | –          |
 
@@ -336,3 +336,9 @@ Sesi baru cukup diberi prompt ini:
   viewport `e2e/antrean.spec.ts` (320, 390, 600, 768, 1280). Lulus di semua lebar,
   jadi tidak ada scroll horizontal dan CSS `.queue-controls` tetap. Seluruh
   `antrean.spec.ts` (28 tes) lulus.
+- 25 Oktober 2026: R9 selesai. `EscPosBuilder` kini hanya `init`, `align`, `feed`,
+  `raster`, `feedDots`, `cut`, `toBytes`. Dibuang: `text`, `line`, `divider`,
+  `twoColumn`, `bold`, `size`, `lineWidth`, `encoder`, `EscPosOptions`, dan impor
+  `receiptLayout`. Satu-satunya pemakai di luar kelas adalah blok `twoColumn` di
+  `receipt-output-tests.ts`, dan hanya blok itu yang dibuang. `pnpm check` 0 galat,
+  `test:receipt-output` lulus, e2e `-g "receipt renderer"` (`wireParity`) 6 tes lulus.
