@@ -1,0 +1,287 @@
+# Perbaikan hasil review
+
+Tanggal mulai: 24 Oktober 2026. `/code-review high 7263dd1f..main` (33 commit, 135
+berkas, pekerjaan 22–24 Oktober) menghasilkan 10 kandidat temuan. Delapan sudah
+dicek langsung di kode dan memang ada. Selain itu ada tiga masalah clean code.
+Dokumen ini membagi perbaikannya menjadi kartu kecil yang bisa dikerjakan agen
+yang lebih murah. Setiap kartu punya resep: berkas, pendekatan, tes, dan gerbang.
+
+## Aturan kerja agent
+
+Ikuti "Aturan kerja agent" nomor 1–10 di
+[`FRONTEND-CONSISTENCY.md`](FRONTEND-CONSISTENCY.md) persis. Ada empat perbedaan:
+
+1. ID kartu memakai `R<n>`. Subjek commit diakhiri ID itu, contoh
+   `fix(pin): tahan selisih jam perangkat (R1)`. Hash kartu dicari lewat
+   `git log --grep='(R1)'`.
+2. Tidak ada metrik ratchet di dokumen ini. `pnpm test:frontend-consistency` hanya
+   wajib bila kartu menyentuh berkas `.svelte`.
+3. R1 boleh mengubah respons `/api/pin/verify`, karena hanya menambah field dan
+   tidak mengubah otorisasi. Selain itu, perubahan yang menyentuh otorisasi server
+   tetap berhenti dan ditanyakan ke pemilik.
+4. Deploy staging dilakukan di akhir grup A dan akhir grup B, bukan per kartu.
+
+## Kartu
+
+Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
+
+| ID  | Judul                                                | Model  | Status   | Bergantung |
+| --- | ---------------------------------------------------- | ------ | -------- | ---------- |
+| R0  | Tracker ini                                          | Opus   | Selesai  | –          |
+| R1  | PIN tahan selisih jam perangkat                      | Sonnet | Todo     | –          |
+| R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Todo     | R1         |
+| R3  | Fallback nama toko di struk                          | Haiku  | Todo     | –          |
+| R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Todo     | –          |
+| R5  | Order offline langsung Diproses                      | Sonnet | Todo     | –          |
+| R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Todo     | –          |
+| R7  | Cek overflow kontrol Antrean                         | Haiku  | Todo     | –          |
+| R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
+| R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Todo     | –          |
+| R10 | Sederhanakan `raster()`                              | Sonnet | Todo     | R9         |
+| R11 | Tes PIN tanpa `networkidle` (opsional)               | Sonnet | Todo     | –          |
+
+Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
+Grup **B** = R7, R9–R11 (perapian, perilaku tidak berubah), lalu staging.
+Urutan di grup A: R1 sebelum R2, sisanya bebas.
+
+### Resep
+
+**R1 PIN tahan selisih jam perangkat.**
+`src/lib/services/pinAccessService.ts` membandingkan `expiresAt` dari jam server
+dengan `Date.now()` perangkat, di `verifyPagePin` (syarat `ok`) dan
+`refreshPinAccess`. Kalau jam perangkat lebih cepat 60 detik atau lebih, PIN
+yang benar ditolak dan kasir tidak bisa membuka halaman.
+
+- **Server** (`src/routes/api/pin/verify/+server.ts`): GET dan POST menambah
+  `expiresInMs: Math.max(0, expiresAt - Date.now())`, dengan `expiresAt` 0
+  menghasilkan 0. Jangan ubah `getPageUnlockExpiresAt` atau `requirePageAccess`
+  di `src/lib/server/pageAccess.ts`.
+- **Klien:**
+  - Tipe `PinVerificationResult` menambah `expiresInMs?: number`.
+  - Buat satu helper lokal di berkas yang sama. Bila `expiresInMs` finite,
+    helper mengembalikan `Date.now() + expiresInMs`, atau 0 bila nilainya ≤ 0.
+    Bila tidak finite, helper memakai `expiresAt` apa adanya, untuk
+    kompatibilitas selama deploy dan mock e2e lama.
+  - Pakai helper itu di `refreshPinAccess` dan `verifyPagePin`. Syarat `ok` di
+    verify memakai hasil helper.
+- **Tes:**
+  - `src/tests/pin-service-tests.ts` membandingkan respons dengan `deepEqual`
+    (sekitar baris 305, 318, 319, 345, 353, 361, 374). Tambahkan `expiresInMs`
+    yang sesuai ke semuanya.
+  - E2E baru di `e2e/security-settings.spec.ts`: mock POST `/api/pin/verify`
+    mengembalikan `expiresAt` 120 detik di belakang jam halaman dan
+    `expiresInMs: 60_000`. Dialog "Akses Terkunci" harus hilang.
+- **Gerbang:** `pnpm check`, eslint dan prettier berkas yang diubah,
+  `pnpm test:pin-service`, e2e `e2e/security-settings.spec.ts -g "PIN"`.
+
+**R2 PIN terkunci lagi saat habis.**
+`hasPinAccess()` di `src/lib/services/pinAccessService.ts` memakai `Date.now()`,
+yang tidak reaktif, dan tidak ada timer. Setelah 60 detik halaman tetap terbuka.
+Permintaan berikutnya dijawab server 403 `PIN_REQUIRED`, lalu ditelan diam-diam
+(`src/lib/stores/laporanState.svelte.ts`, `if (isPinRequiredError(error)) return;`).
+Kasir melihat angka lama tanpa pesan apa pun.
+
+1. **Timer kedaluwarsa.**
+   - Di `pinAccessService.ts`, buat `setPinAccess(next)` dan pakai di semua
+     penulisan `pinAccess.value` di berkas itu.
+   - Fungsi itu `clearTimeout` timer lama. Bila `next` ada dan berjalan di
+     browser, ia menjadwalkan
+     `setTimeout(..., Math.max(0, next.expiresAt - Date.now()))`.
+   - Callback hanya mengosongkan `pinAccess.value` bila
+     `pinAccess.value?.identity === next.identity` dan `expiresAt` sama. Jangan
+     membandingkan objek dengan `===`, karena `$state` membungkus objek dalam proxy.
+   - Layout (`src/routes/+layout.svelte`, effect yang mengisi `showPinModal`)
+     sudah membaca `pinAccess.value` lewat `hasPinAccess`, jadi modal muncul sendiri.
+2. **Sinkron saat server menolak.**
+   - Di setiap caller `isPinRequiredError`, panggil `void refreshPinAccess()`
+     sebelum `return`. Callernya: `laporanState.svelte.ts`,
+     `src/routes/pengaturan/riwayat/+page.svelte`, dan
+     `src/routes/pengaturan/kasir/riwayat/+page.svelte`.
+   - `dashboardService.ts` juga melempar penanda `PIN_REQUIRED`. Cari caller yang
+     menampilkan "Gagal memuat data dashboard" untuk galat itu, lalu perlakukan
+     sama: tanpa toast, kemudian refresh.
+
+- **Tes:** E2E baru di `e2e/security-settings.spec.ts` dengan pola
+  `page.clock.install` dan `page.clock.runFor`. Contohnya ada di spec yang sama,
+  tes yang memakai `page.clock.install({ time: … })`. Buka halaman terkunci,
+  masukkan PIN, `runFor(60_001)`, lalu "Akses Terkunci" harus tampil tanpa navigasi.
+- **Gerbang:** seperti R1, ditambah `pnpm test:unit`.
+
+**R3 Fallback nama toko.**
+`buildSaleReceiptData` di `src/lib/utils/receiptPrint.ts` memakai
+`storeName: settings.nama_toko` tanpa fallback. Fallback itu hilang di
+`a77d85ff`. Kolom `pengaturan.nama_toko` boleh NULL, dan baris dibaca lewat cast
+tanpa validasi (`loadReceiptSettings`). Akibatnya `data.storeName.toUpperCase()`
+di `src/lib/utils/receiptLayout.ts` bisa melempar TypeError dan cetak gagal.
+
+- **Perbaikan:**
+  `storeName: (settings.nama_toko ?? '').trim() || DEFAULT_RECEIPT_SETTINGS.nama_toko`,
+  dengan komentar satu baris bahwa kolomnya nullable.
+- **Tes:** di `src/tests/receipt-output-tests.ts`, `nama_toko` bernilai `null`
+  (lewat cast) dan `'  '` menghasilkan `storeName` "Zatiaras Juice", dan
+  `buildReceiptLayout` tidak melempar galat.
+- **Gerbang:** `pnpm test:receipt-output`, `pnpm check`, eslint, prettier.
+
+**R4 Server lokal: tutup setelah terkirim.**
+`sendToLocalServerWs` di `src/lib/services/printerEngine.ts` memperlakukan
+`onclose` sama dengan `onerror`. Server yang menutup socket kurang dari 25 ms
+setelah menerima data dianggap gagal, padahal struk sudah tercetak. Kasir lalu
+mencetak ulang dan struk jadi dobel.
+
+- **Perbaikan:**
+  - `socket.onerror = () => finish(sent ? uncertain() : undefined)`
+  - `socket.onclose = () => finish(sent && socket!.bufferedAmount > 0 ? uncertain() : undefined)`
+  - Komentar: browser tidak me-reset `bufferedAmount` saat close, jadi 0 berarti
+    semua byte sudah keluar dari browser.
+- **Tes:**
+  - Di `exercisePrinter` (`e2e/security-settings.spec.ts`, kelas mock
+    `PrinterSocket`), tambah mode `'flushed-close'`. Saat `send`, set
+    `bufferedAmount = 10`, lalu di microtask set `bufferedAmount = 0` dan panggil
+    `onclose`.
+  - Tambahkan mode itu ke loop tes "receipt server handles …". Harapannya
+    `error === ''`, `sockets === 1`, `messages === 1`, `wireParity === true`.
+  - Mode `post-send` (lewat `onerror`) tetap berakhir "Periksa struk sebelum mencetak ulang".
+- **Gerbang:** e2e `-g "receipt server"`, `pnpm check`, eslint, prettier.
+- Kartu ini tidak menyelesaikan teks acak di metode 4 (lihat P2).
+
+**R5 Order offline langsung Diproses.**
+`buildLocalCardFromPending` di `src/lib/utils/orderQueueLocal.ts` membuat order
+offline dengan `preparation_state: 'pending'` (Masuk). Sejak `7d022124`, server
+menyimpan `preparation_started_at = createdAt` saat checkout
+(`src/lib/server/checkout/statementBuilder.ts`, INSERT `buku_kas`). Nilai itu
+ditampilkan sebagai `processing` (`src/lib/server/orderQueue/types.ts`).
+Akibatnya order pindah tab setelah sinkron dan jumlah per tab berbeda.
+
+- **Perbaikan:** ubah ke `'processing'`, dengan komentar yang merujuk statementBuilder.
+- Sebelum mengubah, baca cara `src/routes/antrean/+page.svelte` dan
+  `mergeQueueWithLocal` menangani kartu `unsynced`: tombol, tab, dan jumlah.
+  Kalau ada logika yang mengandalkan `pending` untuk kartu unsynced, berhenti dan
+  laporkan.
+- **Tes:** di `src/tests/receipt-output-tests.ts`, pada kartu dari
+  `buildLocalCardFromPending`, assert `preparation_state === 'processing'`.
+- **Gerbang:** `pnpm test:receipt-output`, `pnpm test:antrean`, e2e `e2e/antrean.spec.ts`.
+
+**R6 Gagal simpan nama printer.**
+`savePrinterConfig` di `src/lib/services/printerEngine.ts` melempar galat bila
+`localStorage` gagal. Fungsi itu dipanggil di jalur cetak, yaitu
+`connectBluetoothPrinter` dan `connectUsbPrinter`, sehingga penyimpanan situs
+yang diblokir membuat cetak gagal total.
+
+- **Perbaikan:**
+  - Bungkus dua pemanggilan `savePrinterConfig({ deviceName, method })` dengan
+    `try { … } catch { … }` lokal.
+  - Komentarnya: nama perangkat hanya kenyamanan, jadi gagal simpan tidak boleh
+    menggagalkan cetak.
+  - Di jalur USB, pastikan catch yang baru tidak ikut menutup perangkat.
+  - `savePrinterConfig` sendiri tetap melempar galat, untuk halaman Pengaturan Printer.
+- **Gerbang:** `pnpm check`, eslint, prettier, e2e `-g "receipt"`.
+
+**R7 Cek overflow kontrol Antrean.**
+Grid `.queue-controls` di `src/routes/antrean/+page.svelte` totalnya 100% ditambah
+5%×(100% − 6rem), karena kolom tengah 1,05×. Lebar 1,05× itu permintaan pemilik
+dan dikunci tes di `e2e/antrean.spec.ts` (`previousWidth * 1.05`).
+
+- **Langkah:** di loop lebar viewport `e2e/antrean.spec.ts`
+  (`for (const width of [320, 390, 600, 768, 1280])`), tambah
+  `expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)`.
+- Kalau lulus di semua lebar: commit tesnya saja, status Selesai, dan catat
+  "tidak ada scroll horizontal, CSS tetap".
+- Kalau gagal: jangan ubah CSS. Status Tertahan, lalu tanya pemilik.
+- **Gerbang:** e2e `e2e/antrean.spec.ts`.
+
+**R8 Arsip `preparation_started_at` (Tertahan, menunggu P3).**
+`ARCHIVE_BUKU_KAS_FIELDS` di `src/lib/server/archiveSnapshot.ts` tidak memuat
+kolom itu. Order yang di-restore dan belum selesai akan kembali ke Masuk.
+Memperbaikinya mengubah format arsip:
+
+- `ARCHIVE_SCHEMA_VERSION` jadi 4.
+- `SUPPORTED_ARCHIVE_VERSIONS` jadi `[1, 2, 3, 4]`.
+- `BK_FIELDS` di jalur restore ikut diubah.
+- Arsip v3 dibaca dengan nilai `null`.
+- `src/tests/archive-version-tests.ts` diperbarui.
+
+Dampaknya kecil. Kerjakan hanya bila pemilik menyetujui di P3.
+
+**R9 Buang kode mati `EscPosBuilder`.**
+Sejak `a77d85ff`, struk selalu dikirim sebagai raster. Bagian berikut di
+`src/lib/utils/escposBuilder.ts` tidak dipakai kode produksi: `text`, `line`,
+`divider`, `twoColumn`, `bold`, `size`, `lineWidth`, `encoder`, `EscPosOptions`,
+dan import `cleanReceiptText` serta `wrapReceiptText`.
+
+- Cek dulu dengan Grep
+  `\.(twoColumn|bold|size|line|divider|text)\(|lineWidth|EscPosOptions` di `src`
+  dan `e2e`. Satu-satunya pemakai seharusnya blok `twoColumn` di
+  `src/tests/receipt-output-tests.ts`.
+- **Perbaikan:**
+  - Hapus semua yang tercantum di atas.
+  - Yang tersisa: `init`, `align`, `feed` (dipakai `cut`), `raster`, `feedDots`,
+    `cut`, `toBytes`.
+  - `buildReceiptEscPos` memakai `new EscPosBuilder()`.
+  - Di tes, hapus hanya blok `twoColumn`. Assertion layout di loop yang sama tetap ada.
+- **Gerbang:** `pnpm test:receipt-output`, `pnpm check`, eslint, prettier, e2e
+  `-g "receipt renderer"` (`wireParity` harus tetap `true`).
+
+**R10 Sederhanakan `raster()`.**
+Loop bersarang di `raster()` (`src/lib/utils/escposBuilder.ts`) memanggil
+`isBlank` berulang untuk baris yang sama.
+
+- **Perbaikan:**
+  - Hitung `blank = new Uint8Array(height)` sekali.
+  - Pakai satu loop. Run kosong dengan panjang ≥ `MIN_FEED_ROWS` menjadi
+    `feedDots`. Selain itu, band berjalan sampai run kosong panjang berikutnya,
+    maksimal 128 baris.
+  - Buffer `number[]` tetap, supaya konsisten dengan builder. Biayanya beberapa
+    milidetik untuk sekitar 760 baris.
+- **Bukti keluaran identik:** sebelum mengedit, jalankan skrip scratch (tidak
+  di-commit) yang mencetak SHA-256 `buildReceiptEscPos` untuk bitmap tes yang ada
+  (pola 257 baris, round-trip 700 baris, blank 600). Setelah mengedit, hash-nya
+  harus sama persis.
+- **Gerbang:** sama dengan R9.
+
+**R11 Tes PIN tanpa `networkidle` (opsional).**
+`settled()` di tes "cashier shares one PIN … fixed 60 seconds"
+(`e2e/security-settings.spec.ts`) memakai `waitForLoadState('networkidle')`, yang
+tidak disarankan dokumentasi Playwright.
+
+- **Perbaikan:** catat request `/api/pin/verify` lewat `page.on('request')` dan
+  `page.on('requestfinished')` / `page.on('requestfailed')`. Lalu tunggu sampai
+  tidak ada request yang masih terbuka, dengan `expect.poll`.
+- **Bukti:** `--repeat-each=10` lulus semua. Kalau tidak stabil, kembalikan
+  perubahannya dan tutup kartu sebagai "tidak dikerjakan".
+
+### Kartu pemilik
+
+- **P1:** setelah grup A ada di produksi, tes cetak lewat metode 1 (BLE) di MTP-II
+  dan JZ-MP250. Cek kecepatan, kejelasan huruf, jarak antar baris (`ESC J`), dan
+  apakah cetak tersendat di jarak kosong.
+- **P2:** data untuk teks acak di metode 4 (Server Lokal di PC Windows): nama dan
+  versi program server, isi `server.json` (`PrintConnector.Type` dan `Params`),
+  koneksi printer beserta driver Windows, dan foto hasil cetak.
+- **P3:** setujui atau tolak R8.
+
+## Verifikasi akhir
+
+- `pnpm lint`, `pnpm check`, `pnpm test:unit`, dan `pnpm test:static` hijau di lokal.
+- CI hijau di HEAD. Deploy staging sukses, `/login` dan `/api/csrf` di staging
+  menjawab 200.
+- **R1 dan R2:** e2e PIN yang baru lulus dengan `--repeat-each=5`.
+- **R4:** mode `flushed-close` lulus, `post-send` tetap "Periksa struk".
+- **R9 dan R10:** `wireParity` e2e tetap `true`, dan hash SHA-256 keluaran ESC/POS
+  sama dengan sebelum refactor.
+- `/code-review` pada rentang commit perbaikan tidak menemukan regresi baru.
+
+## Menyerahkan ke agent
+
+Sesi baru cukup diberi prompt ini:
+
+> Baca `docs/REVIEW-REMEDIATION.md`. Kerjakan kartu berstatus Todo paling atas
+> yang sesuai modelmu dan dependensinya sudah Selesai. Ikuti "Aturan kerja agent"
+> persis, perbarui tracker (status dan Log), lalu berhenti dan laporkan. Jangan
+> kerjakan kartu Tertahan.
+
+## Log
+
+- 24 Oktober 2026: R0 selesai. Tracker dibuat dari `/code-review high 7263dd1f..main`.
+  Delapan temuan sudah diverifikasi di kode. Satu temuan (BLE tanpa jeda) masih
+  berupa risiko yang menunggu P1. Satu temuan (performa `raster()`) dilebih-lebihkan
+  dan dijadikan perapian di R10.
