@@ -39,7 +39,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
 | R10 | Sederhanakan `raster()`                              | Sonnet | Selesai  | R9         |
 | R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai  | –          |
-| R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Sedang   | R11        |
+| R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Selesai  | R11        |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
 Grup **B** = R7, R9–R11 (perapian, perilaku tidak berubah), lalu staging.
@@ -380,3 +380,17 @@ Sesi baru cukup diberi prompt ini:
   ditunggu adalah GET status yang dipicu ulang oleh layout saat store sesi berubah dan
   belum dimulai, sehingga menghitung request yang sedang berjalan tidak cukup.
   `networkidle` memberi jeda tenang yang dibutuhkan; tes tetap memakainya.
+- 25 Oktober 2026: R12 selesai. Dugaan R11 ternyata separuh benar. Pencatat sementara
+  (stack di `refreshPinAccess()`, nilai di efek layout) menunjukkan pada setiap muat
+  penuh (goto, reload) efek PIN di `+layout.svelte` berjalan dua kali dengan path dan
+  identity yang sama persis, selisih sekitar 150 ms, dan keduanya memanggil GET status.
+  Jadi bukan identity yang berubah: ada dependensi yang terinvalidasi tanpa perubahan
+  isi. Perbaikan: `pinIdentity` dan `pagePath` kini `$derived` (hanya memberi tahu efek
+  saat nilainya berubah), dan `pinAccess.request` dibaca dengan `untrack`. Navigasi ke
+  path lain tetap membaca status ulang. Tes baru "layout reads the PIN status once per
+  page load and once per navigation": gagal 3 dari 3 tanpa perbaikan (GET 2 saat
+  harusnya 1), lulus 5 dari 5 dengan perbaikan. Tes "fixed 60 seconds" lulus 20 dari 20.
+  Percobaan kedua mengganti `networkidle` dengan pelacakan request gagal 1 dari 20
+  karena GET yang dibatalkan `reload()` tidak pernah memicu `requestfinished` atau
+  `requestfailed`, jadi penghitung bocor; `networkidle` dipertahankan di tes itu. Dua
+  spec PIN penuh (43 tes), `pnpm check`, dan `test:frontend-consistency` lulus.

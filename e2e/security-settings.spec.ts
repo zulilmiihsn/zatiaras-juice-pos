@@ -210,6 +210,33 @@ test('cashier unlocks with a correct PIN when the device clock runs ahead of the
 		.toBe(true);
 });
 
+test('layout reads the PIN status once per page load and once per navigation', async ({ page }) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({
+			json: [
+				{ pinConfigured: true, halaman_terkunci: ['beranda', 'laporan', 'catat', 'pengaturan'] }
+			]
+		})
+	);
+	let reads = 0;
+	await page.route('**/api/pin/verify', (route) => {
+		reads++;
+		// Page clock is fixed at 04:00:00Z, so the unlock stays valid for the whole test.
+		return route.fulfill({ json: { ok: true, expiresAt: Date.parse('2026-10-20T04:30:00.000Z') } });
+	});
+	await gotoHydrated(page, '/', 'text=Samarinda');
+	await expect.poll(() => reads).toBe(1);
+	await page.getByRole('link', { name: 'Catat', exact: true }).click();
+	await expect(page).toHaveURL(/\/catat$/);
+	await expect.poll(() => reads).toBe(2);
+	// Absence has no event to wait for. The duplicate read used to follow a load by about 150 ms,
+	// well inside the 500 ms quiet period that networkidle waits for.
+	await page.waitForLoadState('networkidle');
+	expect(reads).toBe(2);
+	await expect(page.getByRole('dialog', { name: 'Akses Terkunci', exact: true })).toHaveCount(0);
+});
+
 test('cashier is locked again when the 60 second unlock lapses without any navigation', async ({
 	page
 }) => {

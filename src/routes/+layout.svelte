@@ -145,11 +145,17 @@
 		return `/${lowered}`;
 	}
 
+	// $derived hanya memberi tahu efek saat nilainya berubah. Membaca identitas langsung di efek
+	// membuatnya berjalan ulang setiap objek profil diganti dengan isi yang sama, sehingga GET status
+	// PIN terkirim dua kali setelah muat penuh. Yang menentukan hanya identitas dan path.
+	const pinIdentity = $derived(pinAccessIdentity());
+	const pagePath = $derived(page.url.pathname);
+
 	$effect(() => {
 		if (!browser) return;
-		const path = page.url.pathname;
-		const identity = pinAccessIdentity();
-		const request = pinAccess.request;
+		const path = pagePath;
+		const identity = pinIdentity;
+		const request = untrack(() => pinAccess.request);
 		if (request && (request.identity !== identity || request.path !== path)) {
 			untrack(() => finishPinRequest(false));
 		}
