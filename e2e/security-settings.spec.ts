@@ -561,7 +561,10 @@ async function exercisePrinter(
 			}
 			const overflow = expected.layout.nodes.filter((node) => {
 				if (node.type !== 'text') return false;
-				ctx.font = (node.bold ? 'bold ' : '') + node.size + 'px Arial, Roboto, "Helvetica Neue", "Liberation Sans", sans-serif';
+				ctx.font =
+					(node.bold ? 'bold ' : '') +
+					node.size +
+					'px Arial, Roboto, "Helvetica Neue", "Liberation Sans", sans-serif';
 				const width = ctx.measureText(node.text).width;
 				const left =
 					node.x - (node.align === 'right' ? width : node.align === 'center' ? width / 2 : 0);
