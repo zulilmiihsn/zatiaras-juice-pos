@@ -100,7 +100,8 @@ export function buildSaleReceiptData(input: SaleReceiptInput): ReceiptData {
 	const settings = input.settings ?? DEFAULT_RECEIPT_SETTINGS;
 	const printedAt = input.printedAt ?? new Date();
 	return {
-		storeName: settings.nama_toko,
+		// Kolom pengaturan.nama_toko boleh NULL dan barisnya dibaca tanpa validasi.
+		storeName: (settings.nama_toko ?? '').trim() || DEFAULT_RECEIPT_SETTINGS.nama_toko,
 		address: settings.alamat,
 		phone: settings.telepon,
 		instagram: settings.instagram,

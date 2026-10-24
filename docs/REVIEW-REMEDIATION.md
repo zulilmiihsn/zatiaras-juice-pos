@@ -30,7 +30,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R0  | Tracker ini                                          | Opus   | Selesai  | –          |
 | R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai  | –          |
 | R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai  | R1         |
-| R3  | Fallback nama toko di struk                          | Haiku  | Todo     | –          |
+| R3  | Fallback nama toko di struk                          | Haiku  | Selesai  | –          |
 | R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Todo     | –          |
 | R5  | Order offline langsung Diproses                      | Sonnet | Todo     | –          |
 | R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Todo     | –          |
@@ -299,3 +299,7 @@ Sesi baru cukup diberi prompt ini:
   bisa membawa jawaban lama. Re-export `isPinRequiredError` di `riwayatService`
   dibuang (tidak dipakai). Dua tes e2e baru; yang kedua gagal tanpa perubahan
   `dashboardState` dan lulus 8/8 dengannya. `test:unit` 170 lulus.
+- 25 Oktober 2026: R3 selesai. `buildSaleReceiptData` memakai
+  `(nama_toko ?? '').trim() || DEFAULT_RECEIPT_SETTINGS.nama_toko`. Tes di
+  `receipt-output-tests.ts` mencakup `null`, `undefined`, `''`, `'   '`, dan nama
+  yang dipangkas; gagal di `nama_toko null` tanpa perbaikan.

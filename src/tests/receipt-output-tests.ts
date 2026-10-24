@@ -668,6 +668,22 @@ for (const paperSize of ['58mm', '80mm'] as const) {
 		].concat([0x1d, 0x56, 0x41, 0x10])
 	);
 }
+{
+	// Kolom nama_toko boleh NULL di database; struk tidak boleh gagal atau berkepala kosong.
+	const printedAt = new Date('2026-06-29T08:30:00.000Z');
+	for (const missing of [null, undefined, '', '   ']) {
+		const data = buildSampleReceipt(
+			{ ...settings, nama_toko: missing as unknown as string },
+			printedAt
+		);
+		assert.equal(data.storeName, 'Zatiaras Juice', `nama_toko ${JSON.stringify(missing)}`);
+		assert.doesNotThrow(() => buildReceiptLayout(data));
+	}
+	assert.equal(
+		buildSampleReceipt({ ...settings, nama_toko: '  Toko UAT ' }, printedAt).storeName,
+		'Toko UAT'
+	);
+}
 for (const value of [
 	'a'.repeat(1000),
 	'Alamat toko sangat panjang '.repeat(15),
