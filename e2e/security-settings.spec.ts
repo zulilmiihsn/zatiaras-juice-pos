@@ -495,7 +495,7 @@ async function exercisePrinter(
 	page: Page,
 	method: 'usb' | 'bluetooth' | 'server',
 	paperSize: '58mm' | '80mm',
-	failure: '' | 'partial' | 'stall' | 'pre-send' | 'post-send' | 'concurrent' = ''
+	failure: '' | 'partial' | 'stall' | 'pre-send' | 'post-send' | 'flushed-close' | 'concurrent' = ''
 ) {
 	await openPrinterSettings(page);
 	return page.evaluate(
@@ -618,6 +618,14 @@ async function exercisePrinter(
 					if (failure === 'post-send') {
 						this.bufferedAmount = 10;
 						queueMicrotask(() => this.onerror?.());
+					}
+					if (failure === 'flushed-close') {
+						// The server accepted the job, drained the buffer, then closed the socket.
+						this.bufferedAmount = 10;
+						queueMicrotask(() => {
+							this.bufferedAmount = 0;
+							this.onclose?.();
+						});
 					}
 				}
 				close() {
@@ -772,7 +780,7 @@ for (const failure of ['partial', 'stall', 'concurrent'] as const) {
 	});
 }
 
-for (const failure of ['pre-send', 'post-send'] as const) {
+for (const failure of ['pre-send', 'post-send', 'flushed-close'] as const) {
 	test(`receipt server handles ${failure} without uncertain automatic retries`, async ({
 		page
 	}) => {
@@ -781,6 +789,12 @@ for (const failure of ['pre-send', 'post-send'] as const) {
 			expect(result.error).toContain('Server printer lokal tidak merespons');
 			expect(result.sockets).toBe(2);
 			expect(result.httpRequests).toBe(0);
+		} else if (failure === 'flushed-close') {
+			// A server that closes right after reading the job printed it: no error, no resend.
+			expect(result.error).toBe('');
+			expect(result.sockets).toBe(1);
+			expect(result.httpRequests).toBe(0);
+			expect(result.wireParity).toBe(true);
 		} else {
 			expect(result.error).toContain('Periksa struk sebelum mencetak ulang');
 			expect(result.sockets).toBe(1);

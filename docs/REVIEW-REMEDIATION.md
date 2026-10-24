@@ -31,7 +31,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai  | –          |
 | R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai  | R1         |
 | R3  | Fallback nama toko di struk                          | Haiku  | Selesai  | –          |
-| R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Todo     | –          |
+| R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Selesai  | –          |
 | R5  | Order offline langsung Diproses                      | Sonnet | Todo     | –          |
 | R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Todo     | –          |
 | R7  | Cek overflow kontrol Antrean                         | Haiku  | Todo     | –          |
@@ -303,3 +303,8 @@ Sesi baru cukup diberi prompt ini:
   `(nama_toko ?? '').trim() || DEFAULT_RECEIPT_SETTINGS.nama_toko`. Tes di
   `receipt-output-tests.ts` mencakup `null`, `undefined`, `''`, `'   '`, dan nama
   yang dipangkas; gagal di `nama_toko null` tanpa perbaikan.
+- 25 Oktober 2026: R4 selesai. `onclose` di `sendToLocalServerWs` kini sukses bila
+  `bufferedAmount` sudah 0; `onerror` tetap "Periksa struk". Mode e2e baru
+  `flushed-close` gagal tanpa perbaikan dengan galat "Periksa struk sebelum
+  mencetak ulang" (jalur cetak dobel) dan lulus dengannya; `pre-send` dan
+  `post-send` tidak berubah. Teks acak di metode 4 tetap menunggu P2.

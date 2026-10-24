@@ -474,7 +474,10 @@ function sendToLocalServerWs(intentUrl: string, url: string): Promise<boolean> {
 					finish(uncertain());
 				}
 			};
-			socket.onerror = socket.onclose = () => finish(sent ? uncertain() : undefined);
+			socket.onerror = () => finish(sent ? uncertain() : undefined);
+			// Server yang menutup koneksi setelah menerima pekerjaan itu normal. Browser tidak
+			// me-reset bufferedAmount saat close, jadi 0 berarti semua byte sudah keluar.
+			socket.onclose = () => finish(sent && socket!.bufferedAmount > 0 ? uncertain() : undefined);
 		} catch {
 			finish();
 		}
