@@ -38,7 +38,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
 | R10 | Sederhanakan `raster()`                              | Sonnet | Selesai  | R9         |
-| R11 | Tes PIN tanpa `networkidle` (opsional)               | Sonnet | Todo     | –          |
+| R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai  | –          |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
 Grup **B** = R7, R9–R11 (perapian, perilaku tidak berubah), lalu staging.
@@ -351,3 +351,10 @@ Sesi baru cukup diberi prompt ini:
   `bab3b745…2b349` sama sebelum dan sesudah. Mengubah batas band 128 menjadi 127
   membuat hash berbeda, jadi pembanding ini peka. `pnpm check` 0 galat,
   `test:receipt-output` dan e2e `wireParity` (6 tes) lulus.
+- 25 Oktober 2026: R11 ditutup sebagai tidak dikerjakan. `settled()` diganti dengan
+  pelacakan `request`/`requestfinished`/`requestfailed` untuk `/api/pin/verify`; 9 dari
+  10 ulangan lulus, satu gagal (klik "Kios Tutup" terhalang kunci yang datang
+  terlambat), jadi perubahan dikembalikan sesuai resep. Penyebabnya: yang perlu
+  ditunggu adalah GET status yang dipicu ulang oleh layout saat store sesi berubah dan
+  belum dimulai, sehingga menghitung request yang sedang berjalan tidak cukup.
+  `networkidle` memberi jeda tenang yang dibutuhkan; tes tetap memakainya.
