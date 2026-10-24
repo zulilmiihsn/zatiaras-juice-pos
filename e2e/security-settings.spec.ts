@@ -495,7 +495,15 @@ async function exercisePrinter(
 	page: Page,
 	method: 'usb' | 'bluetooth' | 'server',
 	paperSize: '58mm' | '80mm',
-	failure: '' | 'partial' | 'stall' | 'pre-send' | 'post-send' | 'flushed-close' | 'concurrent' = ''
+	failure:
+		| ''
+		| 'partial'
+		| 'stall'
+		| 'pre-send'
+		| 'post-send'
+		| 'flushed-close'
+		| 'blocked-storage'
+		| 'concurrent' = ''
 ) {
 	await openPrinterSettings(page);
 	return page.evaluate(
@@ -634,6 +642,14 @@ async function exercisePrinter(
 			}
 			Object.defineProperty(window, 'WebSocket', { configurable: true, value: PrinterSocket });
 			engine.savePrinterConfig({ method, paperSize });
+			if (failure === 'blocked-storage') {
+				const original = Storage.prototype.setItem;
+				Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+					if (key === 'pos_printer_config')
+						throw new DOMException('Blocked fixture', 'QuotaExceededError');
+					return original.call(this, key, value);
+				};
+			}
 			let error = '';
 			let concurrentError = '';
 			try {
@@ -777,6 +793,16 @@ for (const failure of ['partial', 'stall', 'concurrent'] as const) {
 		}
 		if (failure === 'concurrent')
 			expect(result.concurrentError).toContain('Pencetakan masih berlangsung');
+	});
+}
+
+for (const method of ['bluetooth', 'usb'] as const) {
+	test(`receipt ${method} still prints when the remembered printer name cannot be saved`, async ({
+		page
+	}) => {
+		const result = await exercisePrinter(page, method, '58mm', 'blocked-storage');
+		expect(result.error).toBe('');
+		expect(result.wireParity).toBe(true);
 	});
 }
 

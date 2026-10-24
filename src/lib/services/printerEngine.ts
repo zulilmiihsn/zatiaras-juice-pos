@@ -161,6 +161,19 @@ export function savePrinterConfig(config: Partial<PrinterConfig>): PrinterConfig
 	return updated;
 }
 
+/**
+ * Nama perangkat yang diingat hanya kenyamanan. Penyimpanan situs yang diblokir tidak boleh
+ * menggagalkan koneksi atau cetak; halaman Pengaturan Printer tetap melaporkannya lewat
+ * savePrinterConfig langsung.
+ */
+function rememberPrinter(deviceName: string, method: 'bluetooth' | 'usb'): void {
+	try {
+		savePrinterConfig({ deviceName, method });
+	} catch {
+		// Koneksi yang baru dibuat tetap dipakai pada sesi ini.
+	}
+}
+
 /** Periksa apakah Web Bluetooth didukung browser */
 export function isBluetoothSupported(): boolean {
 	if (!browser || typeof navigator === 'undefined') return false;
@@ -265,7 +278,7 @@ export async function connectBluetoothPrinter(): Promise<{ name: string }> {
 	activeBluetoothCharacteristic = targetCharacteristic;
 
 	const deviceName = device.name || 'Printer Bluetooth';
-	savePrinterConfig({ deviceName, method: 'bluetooth' });
+	rememberPrinter(deviceName, 'bluetooth');
 
 	return { name: deviceName };
 }
@@ -385,7 +398,7 @@ export async function connectUsbPrinter(): Promise<{ name: string }> {
 		activeUsbEndpointNumber = outEndpoint.endpointNumber;
 
 		const deviceName = device.productName || 'Printer USB';
-		savePrinterConfig({ deviceName, method: 'usb' });
+		rememberPrinter(deviceName, 'usb');
 
 		return { name: deviceName };
 	} catch (error) {

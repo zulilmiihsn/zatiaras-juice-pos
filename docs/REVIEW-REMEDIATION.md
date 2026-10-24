@@ -33,7 +33,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R3  | Fallback nama toko di struk                          | Haiku  | Selesai  | –          |
 | R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Selesai  | –          |
 | R5  | Order offline langsung Diproses                      | Sonnet | Selesai  | –          |
-| R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Todo     | –          |
+| R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Selesai  | –          |
 | R7  | Cek overflow kontrol Antrean                         | Haiku  | Todo     | –          |
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Todo     | –          |
@@ -313,3 +313,11 @@ Sesi baru cukup diberi prompt ini:
   Tab, jumlah, dan tombol Antrean semuanya diturunkan dari `preparation_state`,
   jadi tidak ada logika lain yang perlu diubah. `test:receipt-output`,
   `test:antrean`, dan seluruh `e2e/antrean.spec.ts` (28 tes) lulus.
+- 25 Oktober 2026: R6 selesai. Helper privat `rememberPrinter()` di
+  `printerEngine.ts` membungkus `savePrinterConfig` di jalur sambung Bluetooth dan
+  USB; `savePrinterConfig` sendiri tetap melempar galat untuk halaman Pengaturan
+  Printer (tes "report blocked storage" tetap lulus). Mode e2e `blocked-storage`
+  (Bluetooth dan USB) gagal tanpa perbaikan dengan "Pengaturan printer tidak dapat
+  disimpan" dan lulus dengannya. Semua 20 tes `-g "receipt"` lulus.
+- 25 Oktober 2026: grup A (R1–R6) selesai di `main`. Berikutnya: deploy staging
+  untuk grup A, lalu grup B.
