@@ -65,7 +65,8 @@ async function openPrinterSettings(page: Page) {
 	await mockSettingsSession(page);
 	await gotoHydrated(page, '/pengaturan/printer', '#nama-toko');
 	// The textbox exists in SSR; its loaded value proves the component has actually mounted.
-	await expect(page.locator('#nama-toko')).toHaveValue('Zatiaras Juice');
+	// The first test after a cold dev server waits for Vite to optimise dependencies, longer than 5 s.
+	await expect(page.locator('#nama-toko')).toHaveValue('Zatiaras Juice', { timeout: 20_000 });
 }
 
 test('cashier shares one PIN across pages and store actions for a fixed 60 seconds', async ({
@@ -75,6 +76,13 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	let now = Date.parse('2026-10-20T04:00:00.000Z');
 	let unlockExpiresAt = 0;
 	let verifications = 0;
+	let inFlight = 0;
+	// Setiap navigasi memicu GET verifikasi. Ubah state server atau jam hanya setelah semuanya selesai,
+	// kalau tidak respons yang terlambat mengunci halaman di tengah langkah tes.
+	const settled = async () => {
+		await page.waitForLoadState('networkidle');
+		await expect.poll(() => inFlight).toBe(0);
+	};
 	await page.route('**/api/pengaturan?*', (route) =>
 		route.fulfill({
 			json: [
@@ -83,14 +91,19 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 		})
 	);
 	await page.route('**/api/pin/verify', async (route) => {
-		if (route.request().method() === 'POST') {
-			verifications++;
-			expect(route.request().postDataJSON().pin).toBe('2580');
-			unlockExpiresAt = now + 60_000;
+		inFlight++;
+		try {
+			if (route.request().method() === 'POST') {
+				verifications++;
+				expect(route.request().postDataJSON().pin).toBe('2580');
+				unlockExpiresAt = now + 60_000;
+			}
+			await route.fulfill({
+				json: { ok: true, expiresAt: unlockExpiresAt > now ? unlockExpiresAt : 0 }
+			});
+		} finally {
+			inFlight--;
 		}
-		await route.fulfill({
-			json: { ok: true, expiresAt: unlockExpiresAt > now ? unlockExpiresAt : 0 }
-		});
 	});
 	await gotoHydrated(page, '/', 'h2:text-is("Akses Terkunci")');
 	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
@@ -133,6 +146,7 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await expect(locked).toHaveCount(0);
 	expect(verifications).toBe(1);
 	expect(unlockExpiresAt).toBe(now + 1);
+	await settled();
 
 	now++;
 	await page.clock.setFixedTime(now);
@@ -147,6 +161,7 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await expect(locked).toHaveCount(0);
 
 	// Pencabutan server (misalnya pemilik mengganti PIN) berlaku saat navigasi berikutnya.
+	await settled();
 	unlockExpiresAt = 0;
 	await page.getByRole('link', { name: 'Beranda', exact: true }).click();
 	await expect(locked).toBeVisible();
