@@ -321,3 +321,12 @@ Sesi baru cukup diberi prompt ini:
   disimpan" dan lulus dengannya. Semua 20 tes `-g "receipt"` lulus.
 - 25 Oktober 2026: grup A (R1–R6) selesai di `main`. Berikutnya: deploy staging
   untuk grup A, lalu grup B.
+- 25 Oktober 2026: CI grup A (`561c3aa0`) gagal di dua tes E2E, keduanya tes lama yang
+  mengunci perilaku sebelum R2, bukan galat kode. (1) `dashboard-branch.spec.ts`
+  mengharapkan pesan "Gagal memuat data dashboard" di balik layar PIN; R2 sengaja
+  menghapusnya, jadi asersinya dibalik menjadi `toHaveCount(0)`. (2)
+  `security-settings.spec.ts` "fixed 60 seconds" membekukan `Date` tetapi tidak
+  `setTimeout`, sehingga sisa 1 ms membuat timer kedaluwarsa R2 menguncinya seketika.
+  Sisa dibuat 50 detik, batas 59,999/60,000 ms diperiksa lewat `hasPinAccess()`, dan
+  langkah pencabutan memakai `page.reload()` karena klik tautan terhalang transisi
+  halaman. 10/10 lulus berurutan; dua spec penuh 42 tes lulus.

@@ -163,7 +163,8 @@ test('cashier dashboard recovers after PIN unlock and a later failed refresh', a
 	await loginBranch(page, 'samarinda', 'kasir');
 	await expect(page.getByRole('dialog', { name: 'Akses Terkunci' })).toBeVisible();
 	await expect.poll(() => denied).toBeGreaterThan(0);
-	await expect(page.getByText('Gagal memuat data dashboard').first()).toBeAttached();
+	// PIN_REQUIRED hanya memunculkan layar PIN, bukan pesan gagal muat.
+	await expect(page.getByText('Gagal memuat data dashboard')).toHaveCount(0);
 	await page.keyboard.type('2580');
 	await expect(page.getByRole('dialog', { name: 'Akses Terkunci' })).toHaveCount(0);
 	await expect(page.getByText('Rp 42.000', { exact: true }).first()).toBeVisible();

@@ -120,7 +120,9 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await page.getByRole('link', { name: 'Catat', exact: true }).click();
 	await expect(page).toHaveURL(/\/catat$/);
 	await expect(locked).toHaveCount(0);
-	now += 59_999;
+	// Jam halaman dibekukan, tetapi timer kedaluwarsa tetap berjalan di waktu nyata. Sisa masa buka
+	// harus cukup panjang selama tes; batas tepat 59,999 ms dan 60,000 ms diperiksa lewat hasPinAccess().
+	now += 10_000;
 	await page.clock.setFixedTime(now);
 	await page.getByRole('link', { name: 'Beranda', exact: true }).click();
 	await expect(page).toHaveURL(/\/$/);
@@ -134,22 +136,24 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await restored;
 	// Respons status dapat selesai sebelum halaman terhidrasi dan metadata izin diterapkan.
 	await expect(page.getByText('Samarinda', { exact: true }).first()).toBeVisible();
-	await expect
-		.poll(() =>
-			page.evaluate(async () => {
-				const modulePath = '/src/lib/services/pinAccessService.ts';
-				const { hasPinAccess } = await import(/* @vite-ignore */ modulePath);
-				return hasPinAccess();
-			})
-		)
-		.toBe(true);
+	const hasAccess = () =>
+		page.evaluate(async () => {
+			const modulePath = '/src/lib/services/pinAccessService.ts';
+			const { hasPinAccess } = await import(/* @vite-ignore */ modulePath);
+			return hasPinAccess();
+		});
+	await expect.poll(hasAccess).toBe(true);
 	await expect(locked).toHaveCount(0);
 	expect(verifications).toBe(1);
-	expect(unlockExpiresAt).toBe(now + 1);
+	expect(unlockExpiresAt).toBe(now + 50_000);
 	await settled();
 
+	now += 49_999;
+	await page.clock.setFixedTime(now);
+	expect(await hasAccess()).toBe(true);
 	now++;
 	await page.clock.setFixedTime(now);
+	expect(await hasAccess()).toBe(false);
 	await page.getByRole('button', { name: /Kios Tutup/ }).click();
 	await expect(page.getByRole('dialog', { name: 'Verifikasi Aksi', exact: true })).toBeVisible();
 	await page.keyboard.type('2580');
@@ -160,10 +164,11 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	await expect(page).toHaveURL(/\/catat$/);
 	await expect(locked).toHaveCount(0);
 
-	// Pencabutan server (misalnya pemilik mengganti PIN) berlaku saat navigasi berikutnya.
-	await settled();
+	// Pencabutan server (misalnya pemilik mengganti PIN) berlaku saat status dibaca ulang.
 	unlockExpiresAt = 0;
-	await page.getByRole('link', { name: 'Beranda', exact: true }).click();
+	// Muat ulang, bukan klik tautan: transisi halaman dan GET status yang terlambat membuat klik
+	// tidak menentu, sedangkan muat ulang selalu membaca ulang status dari server.
+	await page.reload();
 	await expect(locked).toBeVisible();
 });
 
