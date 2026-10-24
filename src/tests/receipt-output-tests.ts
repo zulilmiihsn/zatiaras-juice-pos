@@ -631,6 +631,43 @@ for (const paperSize of ['58mm', '80mm'] as const) {
 	}
 	assert.deepEqual([...encoded.slice(offset)], [10, 10, 10, 0x1d, 0x56, 0x41, 0x10]);
 }
+{
+	// Blank gaps are fed, not sent, and decoding the stream must give back the exact same image.
+	const bytesPerRow = 48;
+	const height = 700;
+	const bytes = new Uint8Array(bytesPerRow * height);
+	const inkRows = [0, 1, 2, 30, 31, 32, 40, 41, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309];
+	for (const r of inkRows) bytes.fill(0xaa, r * bytesPerRow, (r + 1) * bytesPerRow);
+	const encoded = buildReceiptEscPos({ width: 384, height, bytes });
+	assert.ok(encoded.length < bytes.length / 4, 'blank gaps must not be sent as image rows');
+	const decoded = new Uint8Array(bytes.length);
+	let offset = 5;
+	let row = 0;
+	const end = encoded.length - 7;
+	while (offset < end) {
+		if (encoded[offset] === 0x1b && encoded[offset + 1] === 0x4a) {
+			row += encoded[offset + 2];
+			offset += 3;
+			continue;
+		}
+		assert.deepEqual([...encoded.slice(offset, offset + 4)], [0x1d, 0x76, 0x30, 0]);
+		const rows = encoded[offset + 6] + encoded[offset + 7] * 256;
+		assert.ok(rows >= 1 && rows <= 128);
+		decoded.set(encoded.slice(offset + 8, offset + 8 + rows * bytesPerRow), row * bytesPerRow);
+		offset += 8 + rows * bytesPerRow;
+		row += rows;
+	}
+	assert.equal(row, height);
+	assert.deepEqual(decoded, bytes);
+	// A fully blank image becomes feed commands only.
+	const blank = buildReceiptEscPos({ width: 384, height: 600, bytes: new Uint8Array(48 * 600) });
+	assert.deepEqual(
+		[...blank],
+		[
+			0x1b, 0x40, 0x1b, 0x61, 0, 0x1b, 0x4a, 255, 0x1b, 0x4a, 255, 0x1b, 0x4a, 90, 10, 10, 10
+		].concat([0x1d, 0x56, 0x41, 0x10])
+	);
+}
 for (const value of [
 	'a'.repeat(1000),
 	'Alamat toko sangat panjang '.repeat(15),

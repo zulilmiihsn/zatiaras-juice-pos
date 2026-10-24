@@ -15,6 +15,9 @@ export interface EscPosOptions {
 	paperSize?: '58mm' | '80mm';
 }
 
+/** Blank gaps of at least 1 mm are fed instead of sent as image rows. */
+const MIN_FEED_ROWS = 8;
+
 export class EscPosBuilder {
 	private buffer: number[] = [];
 	private encoder = new TextEncoder();
@@ -121,8 +124,33 @@ export class EscPosBuilder {
 			bitmap.bytes.length !== bytesPerRow * bitmap.height
 		)
 			throw new Error('Gambar struk tidak valid.');
-		for (let row = 0; row < bitmap.height; row += 128) {
-			const rows = Math.min(128, bitmap.height - row);
+		const isBlank = (row: number) =>
+			bitmap.bytes.subarray(row * bytesPerRow, (row + 1) * bytesPerRow).every((byte) => byte === 0);
+		let row = 0;
+		while (row < bitmap.height) {
+			if (isBlank(row)) {
+				let end = row;
+				while (end < bitmap.height && isBlank(end)) end++;
+				// A short gap costs more in feed/raster switching than in bytes, so it stays in the image.
+				if (end - row >= MIN_FEED_ROWS) {
+					this.feedDots(end - row);
+					row = end;
+					continue;
+				}
+			}
+			// The band ends at the next gap long enough to be fed, or at 128 rows.
+			let end = row;
+			while (end < bitmap.height && end - row < 128) {
+				if (isBlank(end)) {
+					let gapEnd = end;
+					while (gapEnd < bitmap.height && gapEnd - end < MIN_FEED_ROWS && isBlank(gapEnd))
+						gapEnd++;
+					if (gapEnd - end >= MIN_FEED_ROWS) break;
+					end = gapEnd;
+				} else end++;
+			}
+			end = Math.min(end, row + 128);
+			const rows = end - row;
 			this.buffer.push(
 				0x1d,
 				0x76,
@@ -133,10 +161,16 @@ export class EscPosBuilder {
 				rows & 0xff,
 				rows >> 8
 			);
-			for (const byte of bitmap.bytes.subarray(row * bytesPerRow, (row + rows) * bytesPerRow))
+			for (const byte of bitmap.bytes.subarray(row * bytesPerRow, end * bytesPerRow))
 				this.buffer.push(byte);
+			row = end;
 		}
 		return this;
+	}
+
+	/** ESC J feeds n dots (1/203 inch on 203 dpi thermal heads); 255 is the most one command moves. */
+	private feedDots(dots: number): void {
+		for (let left = dots; left > 0; left -= 255) this.buffer.push(0x1b, 0x4a, Math.min(left, 255));
 	}
 
 	/** Perintah potong kertas otomatis (Auto Cut) + feed */
