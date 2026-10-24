@@ -1,4 +1,5 @@
 import { dashboardService } from '$lib/services/dashboardService';
+import { handlePinRequired } from '$lib/services/pinAccessService';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
 import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
@@ -117,7 +118,8 @@ export function createDashboardState() {
 			errorBestSellers = '';
 			await reportCacheMetrics('dashboard');
 		} catch (error) {
-			errorBestSellers = 'Gagal memuat data dashboard';
+			// Izin buka habis: layar PIN muncul dan dashboard dimuat ulang setelah dibuka.
+			if (!handlePinRequired(error)) errorBestSellers = 'Gagal memuat data dashboard';
 		} finally {
 			isLoadingDashboard = false;
 			isLoadingBestSellers = false;

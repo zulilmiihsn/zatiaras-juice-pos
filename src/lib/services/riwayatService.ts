@@ -10,8 +10,6 @@ import { decodeLedgerRevision } from '$lib/utils/ledgerRevision';
 import type { BukuKasRecord, HistoryItem } from '$lib/types/laporan';
 import type { DataPage, DataRecord } from '$lib/services/dataApiClient';
 
-export { isPinRequiredError } from '$lib/utils/pinRequiredError';
-
 /** Preset rentang Riwayat. Default 'hari-ini' = perilaku lama. */
 export type RentangRiwayat = 'hari-ini' | '7-hari';
 

@@ -1,4 +1,5 @@
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+import { isPinRequiredError } from '$lib/utils/pinRequiredError';
 import type { ProtectedPage } from '$lib/server/pageAccess';
 import { pinAccess } from '$lib/stores/securitySettings.svelte';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
@@ -29,6 +30,28 @@ function localExpiresAt(payload: PinVerificationResult | null): number {
 
 let requestGeneration = 0;
 let statusRequest: { identity: string; promise: Promise<boolean> } | null = null;
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Satu-satunya penulis `pinAccess.value` di layanan ini. Ia juga memasang timer yang
+ * mengosongkan izin saat masa buka habis, sehingga layout mengunci ulang tanpa menunggu
+ * navigasi (`hasPinAccess` membaca `Date.now()`, yang tidak reaktif).
+ */
+function setPinAccess(next: { identity: string; expiresAt: number } | null): void {
+	clearTimeout(expiryTimer);
+	expiryTimer = undefined;
+	pinAccess.value = next;
+	if (!next || typeof window === 'undefined') return;
+	expiryTimer = setTimeout(
+		() => {
+			// Bandingkan isi, bukan objek: $state membungkus objek dalam proxy.
+			const current = pinAccess.value;
+			if (current?.identity === next.identity && current.expiresAt === next.expiresAt)
+				pinAccess.value = null;
+		},
+		Math.max(0, next.expiresAt - Date.now())
+	);
+}
 
 export function pinAccessIdentity(): string {
 	if (typeof window === 'undefined' || userRole.value !== 'kasir') return '';
@@ -77,13 +100,17 @@ export async function requestPinAccess(page: ProtectedPage): Promise<boolean> {
 	});
 }
 
-export async function refreshPinAccess(): Promise<boolean> {
+/**
+ * `fresh` melewati request status yang sedang berjalan: request itu dikirim sebelum server
+ * menolak dan bisa membawa jawaban lama. Nomor generasi membuat hasilnya diabaikan.
+ */
+export async function refreshPinAccess(options: { fresh?: boolean } = {}): Promise<boolean> {
 	const identity = pinAccessIdentity();
 	if (!identity) {
-		pinAccess.value = null;
+		setPinAccess(null);
 		return false;
 	}
-	if (statusRequest?.identity === identity) return statusRequest.promise;
+	if (!options.fresh && statusRequest?.identity === identity) return statusRequest.promise;
 	const generation = ++requestGeneration;
 	const promise = (async () => {
 		try {
@@ -94,12 +121,12 @@ export async function refreshPinAccess(): Promise<boolean> {
 			const payload = (await response.json()) as PinVerificationResult;
 			if (generation === requestGeneration && identity === pinAccessIdentity()) {
 				const expiresAt = response.ok && payload?.ok === true ? localExpiresAt(payload) : 0;
-				pinAccess.value = expiresAt > 0 ? { identity, expiresAt } : null;
+				setPinAccess(expiresAt > 0 ? { identity, expiresAt } : null);
 			}
 		} catch {
 			// Kegagalan jaringan/status tidak memberikan izin lokal tanpa konfirmasi server.
 			if (generation === requestGeneration && identity === pinAccessIdentity()) {
-				pinAccess.value = null;
+				setPinAccess(null);
 			}
 		}
 		return identity === pinAccessIdentity() && hasPinAccess();
@@ -110,6 +137,17 @@ export async function refreshPinAccess(): Promise<boolean> {
 	} finally {
 		if (statusRequest?.promise === promise) statusRequest = null;
 	}
+}
+
+/**
+ * 403 `PIN_REQUIRED` berarti server tidak lagi mengakui izin buka (habis atau dicabut),
+ * sementara klien masih mengira terbuka. Sinkronkan agar layout menampilkan layar PIN,
+ * bukan membiarkan data lama tanpa pesan. True bila galatnya memang itu; caller diam.
+ */
+export function handlePinRequired(error: unknown): boolean {
+	if (!isPinRequiredError(error)) return false;
+	void refreshPinAccess({ fresh: true });
+	return true;
 }
 
 export async function verifyPagePin(
@@ -134,7 +172,7 @@ export async function verifyPagePin(
 	// Hasil status yang mulai sebelum verifikasi tidak boleh menimpa izin yang baru diberikan.
 	requestGeneration++;
 	statusRequest = null;
-	pinAccess.value = ok ? { identity, expiresAt } : null;
+	setPinAccess(ok ? { identity, expiresAt } : null);
 	return {
 		ok,
 		expiresAt: ok ? expiresAt : undefined,

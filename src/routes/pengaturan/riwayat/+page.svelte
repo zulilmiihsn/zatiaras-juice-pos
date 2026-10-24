@@ -9,7 +9,8 @@
 	import { ErrorHandler } from '$lib/utils/errorHandling';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import type { HistoryItem } from '$lib/types/laporan';
-	import { fetchRiwayatPesananPage, isPinRequiredError } from '$lib/services/riwayatService';
+	import { fetchRiwayatPesananPage } from '$lib/services/riwayatService';
+	import { handlePinRequired } from '$lib/services/pinAccessService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
@@ -46,7 +47,7 @@
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
 		} catch (err) {
-			if (isPinRequiredError(err)) return;
+			if (handlePinRequired(err)) return;
 			ErrorHandler.logError(err, 'fetchTransaksiHariIni (riwayat kasir)');
 			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
 			transaksiHariIni = [];

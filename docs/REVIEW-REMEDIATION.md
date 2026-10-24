@@ -29,7 +29,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | --- | ---------------------------------------------------- | ------ | -------- | ---------- |
 | R0  | Tracker ini                                          | Opus   | Selesai  | –          |
 | R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai  | –          |
-| R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Todo     | R1         |
+| R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai  | R1         |
 | R3  | Fallback nama toko di struk                          | Haiku  | Todo     | –          |
 | R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Todo     | –          |
 | R5  | Order offline langsung Diproses                      | Sonnet | Todo     | –          |
@@ -290,3 +290,12 @@ Sesi baru cukup diberi prompt ini:
   tanpa `expiresInMs` jatuh ke `expiresAt` lama. Tes baru "device clock runs ahead
   of the server" gagal tanpa perbaikan dan lulus dengannya. `test:pin-service`,
   e2e `-g "PIN"`, `pnpm check`, eslint lulus.
+- 25 Oktober 2026: R2 selesai. `pinAccessService.ts` punya satu penulis
+  `setPinAccess()` yang memasang timer kedaluwarsa, jadi layout mengunci ulang
+  saat 60 detik habis tanpa navigasi. `handlePinRequired()` (baru) menggantikan
+  `isPinRequiredError` di `laporanState`, dua halaman riwayat, dan `dashboardState`
+  (yang sebelumnya menampilkan "Gagal memuat data dashboard"); ia memanggil
+  `refreshPinAccess({ fresh: true })`, karena request status yang sedang berjalan
+  bisa membawa jawaban lama. Re-export `isPinRequiredError` di `riwayatService`
+  dibuang (tidak dipakai). Dua tes e2e baru; yang kedua gagal tanpa perubahan
+  `dashboardState` dan lulus 8/8 dengannya. `test:unit` 170 lulus.

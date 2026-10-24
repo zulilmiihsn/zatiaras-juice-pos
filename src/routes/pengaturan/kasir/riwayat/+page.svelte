@@ -15,7 +15,8 @@
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 	import { printRiwayatStruk } from '$lib/services/riwayatPrint';
 	import type { HistoryItem } from '$lib/types/laporan';
-	import { fetchRiwayatPesananPage, isPinRequiredError } from '$lib/services/riwayatService';
+	import { fetchRiwayatPesananPage } from '$lib/services/riwayatService';
+	import { handlePinRequired } from '$lib/services/pinAccessService';
 	import type { RentangRiwayat } from '$lib/services/riwayatService';
 	import DetailTransaksiModal from '$lib/components/shared/DetailTransaksiModal.svelte';
 	import RiwayatFilterCard from '$lib/components/riwayat/RiwayatFilterCard.svelte';
@@ -56,7 +57,7 @@
 			nextCursor = page.nextCursor;
 			hasMore = page.hasMore;
 		} catch (error) {
-			if (isPinRequiredError(error)) return;
+			if (handlePinRequired(error)) return;
 			ErrorHandler.logError(error, 'fetchTransaksiHariIniKasir');
 			toastManager.showToastNotification('Gagal memuat data transaksi', 'error');
 		} finally {

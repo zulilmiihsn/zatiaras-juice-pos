@@ -15,7 +15,7 @@ import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { createToastManager } from '$lib/utils/ui';
 import { ErrorHandler } from '$lib/utils/errorHandling';
-import { isPinRequiredError } from '$lib/utils/pinRequiredError';
+import { handlePinRequired } from '$lib/services/pinAccessService';
 import { groupReportTransactions } from '$lib/utils/reportGrouping';
 import { calculateTaxes, getTaxSettings } from '$lib/services/taxService';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
@@ -196,7 +196,7 @@ export function createLaporanState() {
 			laporan = reportDataContent.transactions || [];
 			await reportCacheMetrics('laporan');
 		} catch (error) {
-			if (isPinRequiredError(error)) return;
+			if (handlePinRequired(error)) return;
 			ErrorHandler.logError(error, 'loadLaporanData');
 			if (!silent) toastManager.showToastNotification('Gagal memuat data laporan', 'error');
 		} finally {

@@ -205,6 +205,62 @@ test('cashier unlocks with a correct PIN when the device clock runs ahead of the
 		.toBe(true);
 });
 
+test('cashier is locked again when the 60 second unlock lapses without any navigation', async ({
+	page
+}) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({
+			json: [
+				{ pinConfigured: true, halaman_terkunci: ['beranda', 'laporan', 'catat', 'pengaturan'] }
+			]
+		})
+	);
+	let unlocked = false;
+	await page.route('**/api/pin/verify', async (route) => {
+		if (route.request().method() === 'POST') unlocked = true;
+		await route.fulfill({
+			json: unlocked
+				? { ok: true, expiresAt: Date.parse('2026-10-20T04:01:00.000Z'), expiresInMs: 60_000 }
+				: { ok: true, expiresAt: 0, expiresInMs: 0 }
+		});
+	});
+	await gotoHydrated(page, '/', 'h2:text-is("Akses Terkunci")');
+	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
+	await expect(locked).toBeVisible();
+	// Fake timers only from here, so the unlock timer the app arms next is the one that runs.
+	await page.clock.install({ time: new Date('2026-10-20T04:00:00.000Z') });
+	await page.keyboard.type('2580');
+	await expect(locked).toHaveCount(0);
+	await page.clock.runFor(59_000);
+	await expect(locked).toHaveCount(0);
+	await page.clock.runFor(1_001);
+	await expect(locked).toBeVisible();
+});
+
+test('cashier sees the PIN screen when the server rejects a lapsed unlock', async ({ page }) => {
+	await mockSettingsSession(page, 'kasir');
+	await page.route('**/api/pengaturan?*', (route) =>
+		route.fulfill({ json: [{ pinConfigured: true, halaman_terkunci: ['beranda'] }] })
+	);
+	// The client still believes the unlock is open until the server rejects a read.
+	let revoked = false;
+	await page.route('**/api/pin/verify', (route) =>
+		route.fulfill({
+			json: revoked
+				? { ok: true, expiresAt: 0, expiresInMs: 0 }
+				: { ok: true, expiresAt: Date.parse('2026-10-20T04:01:00.000Z'), expiresInMs: 60_000 }
+		})
+	);
+	await page.route('**/api/dashboard/stats**', async (route) => {
+		revoked = true;
+		await route.fulfill({ status: 403, json: { message: 'PIN_REQUIRED' } });
+	});
+	await page.goto('/');
+	await expect(page.getByRole('dialog', { name: 'Akses Terkunci', exact: true })).toBeVisible();
+	await expect(page.getByText('Gagal memuat data dashboard', { exact: true })).toHaveCount(0);
+});
+
 test('cashier rejects malformed PIN status and clears access on branch change and logout', async ({
 	page
 }) => {
