@@ -140,6 +140,10 @@ test('queue defaults to Masuk with wider tabs and badges only for active orders'
 		const tablistWidth = await tablist.evaluate((el) => el.getBoundingClientRect().width);
 		const previousWidth = width < 640 ? controlsWidth - 96 : Math.min(384, controlsWidth - 96);
 		expect(Math.abs(tablistWidth - previousWidth * 1.05)).toBeLessThan(1);
+		// Kolom tengah 1,05× tidak boleh mendorong halaman melebar melewati viewport.
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			width
+		);
 		await expect(done.getByTestId('queue-tab-count')).toHaveCount(0);
 		for (const tab of [incoming, processing]) {
 			const badge = tab.getByTestId('queue-tab-count');
