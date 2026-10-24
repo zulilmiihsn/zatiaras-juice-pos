@@ -607,7 +607,17 @@ async function exercisePrinter(
 				logoInk: expected.bitmap.bytes
 					.slice((12 * canvas.width) / 8, (108 * canvas.width) / 8)
 					.some((byte) => byte !== 0),
-				paperMatches: method !== 'server' || serverBytes[9] === (paperSize === '80mm' ? 72 : 48),
+				paperMatches:
+					method !== 'server' ||
+					serverBytes[
+						serverBytes.findIndex(
+							(byte, i) =>
+								byte === 0x1d &&
+								serverBytes[i + 1] === 0x76 &&
+								serverBytes[i + 2] === 0x30 &&
+								serverBytes[i + 3] === 0
+						) + 4
+					] === (paperSize === '80mm' ? 72 : 48),
 				unsafeHtml: messages.some((message) => message.includes('<script>'))
 			};
 		},
