@@ -37,7 +37,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R7  | Cek overflow kontrol Antrean                         | Haiku  | Selesai  | –          |
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
-| R10 | Sederhanakan `raster()`                              | Sonnet | Todo     | R9         |
+| R10 | Sederhanakan `raster()`                              | Sonnet | Selesai  | R9         |
 | R11 | Tes PIN tanpa `networkidle` (opsional)               | Sonnet | Todo     | –          |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
@@ -342,3 +342,12 @@ Sesi baru cukup diberi prompt ini:
   `receiptLayout`. Satu-satunya pemakai di luar kelas adalah blok `twoColumn` di
   `receipt-output-tests.ts`, dan hanya blok itu yang dibuang. `pnpm check` 0 galat,
   `test:receipt-output` lulus, e2e `-g "receipt renderer"` (`wireParity`) 6 tes lulus.
+- 25 Oktober 2026: R10 selesai. `raster()` menghitung `blankRun` (jumlah baris kosong
+  berurutan dari tiap baris) sekali dengan satu pass mundur, lalu memakainya di loop
+  maju; `isBlank` tidak lagi dipanggil ulang untuk baris yang sama. Bukti keluaran
+  identik: skrip scratch (tidak di-commit) mencetak SHA-256 `buildReceiptEscPos` untuk
+  153 bitmap (tiga pola dari tes, celah 1–600 baris di sekitar ambang 8, batas band
+  128, dan batas `ESC J` 255, di 384 dan 576 px, serta 60 bitmap acak). TOTAL
+  `bab3b745…2b349` sama sebelum dan sesudah. Mengubah batas band 128 menjadi 127
+  membuat hash berbeda, jadi pembanding ini peka. `pnpm check` 0 galat,
+  `test:receipt-output` dan e2e `wireParity` (6 tes) lulus.

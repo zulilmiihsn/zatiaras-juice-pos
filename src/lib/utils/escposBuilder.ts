@@ -51,32 +51,25 @@ export class EscPosBuilder {
 			bitmap.bytes.length !== bytesPerRow * bitmap.height
 		)
 			throw new Error('Gambar struk tidak valid.');
-		const isBlank = (row: number) =>
-			bitmap.bytes.subarray(row * bytesPerRow, (row + 1) * bytesPerRow).every((byte) => byte === 0);
+		// blankRun[r] counts the blank rows starting at r, so every row is scanned once.
+		const blankRun = new Uint16Array(bitmap.height + 1);
+		for (let r = bitmap.height - 1; r >= 0; r--) {
+			const blank = bitmap.bytes
+				.subarray(r * bytesPerRow, (r + 1) * bytesPerRow)
+				.every((byte) => byte === 0);
+			blankRun[r] = blank ? blankRun[r + 1] + 1 : 0;
+		}
 		let row = 0;
 		while (row < bitmap.height) {
-			if (isBlank(row)) {
-				let end = row;
-				while (end < bitmap.height && isBlank(end)) end++;
-				// A short gap costs more in feed/raster switching than in bytes, so it stays in the image.
-				if (end - row >= MIN_FEED_ROWS) {
-					this.feedDots(end - row);
-					row = end;
-					continue;
-				}
+			// A short gap costs more in feed/raster switching than in bytes, so it stays in the image.
+			if (blankRun[row] >= MIN_FEED_ROWS) {
+				this.feedDots(blankRun[row]);
+				row += blankRun[row];
+				continue;
 			}
 			// The band ends at the next gap long enough to be fed, or at 128 rows.
-			let end = row;
-			while (end < bitmap.height && end - row < 128) {
-				if (isBlank(end)) {
-					let gapEnd = end;
-					while (gapEnd < bitmap.height && gapEnd - end < MIN_FEED_ROWS && isBlank(gapEnd))
-						gapEnd++;
-					if (gapEnd - end >= MIN_FEED_ROWS) break;
-					end = gapEnd;
-				} else end++;
-			}
-			end = Math.min(end, row + 128);
+			let end = row + 1;
+			while (end < bitmap.height && end - row < 128 && blankRun[end] < MIN_FEED_ROWS) end++;
 			const rows = end - row;
 			this.buffer.push(
 				0x1d,
