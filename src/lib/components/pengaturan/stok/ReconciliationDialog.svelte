@@ -210,7 +210,7 @@
 										<span class="block truncate text-[11px] text-slate-400">
 											{#if meta?.sistem !== null && meta?.sistem !== undefined}
 												Stok sistem: {meta.sistem}{#if satuan}
-													{satuan}{/if}
+													{' ' + satuan}{/if}
 											{:else}
 												{item.entity_id}
 											{/if}

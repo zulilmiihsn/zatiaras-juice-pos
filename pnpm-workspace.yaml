@@ -14,8 +14,8 @@ overrides:
   cookie@<0.7.0: 0.7.2
   # fast-uri dinaikkan ke 3.1.8 (GHSA-qw65-cvwx-89v3 + GHSA-58mr-gqgx-xq4g, gate audit CI).
   fast-uri@<3.1.8: 3.1.8
-  # undici dinaikkan ke 7.29.1 (GHSA-rfgv-xxqx-mfg5 + GHSA-w293-vg96-wgc3, gate audit CI).
-  undici@<7.29.1: 7.29.1
+  # undici dinaikkan ke 7.30.1 (GHSA-xjj6-f33q-929c + GHSA-rfgv-xxqx-mfg5 + GHSA-w293-vg96-wgc3, gate audit CI).
+  undici@<7.30.1: 7.30.1
   # brace-expansion dinaikkan (GHSA-q2hr-2g5m-vwhr, gate audit CI).
   brace-expansion@>=2.0.0 <2.1.7: 2.1.7
   brace-expansion@>=4.0.0 <5.0.12: 5.0.12
