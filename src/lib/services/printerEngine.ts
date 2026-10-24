@@ -291,12 +291,12 @@ async function sendBluetoothChunked(
 			characteristic.properties.writeWithoutResponse &&
 			characteristic.writeValueWithoutResponse
 		) {
+			// Each awaited write already waits for the GATT stack, which paces the printer;
+			// an extra per-chunk sleep made a raster receipt take tens of seconds.
 			await printerTimeout(
 				characteristic.writeValueWithoutResponse(chunk),
 				'Pengiriman Bluetooth melewati batas waktu. Periksa struk sebelum mencetak ulang.'
 			);
-			// Delay kecil 15ms agar buffer printer sempat memproses
-			await new Promise((r) => setTimeout(r, 15));
 		} else if (characteristic.writeValueWithResponse) {
 			await printerTimeout(
 				characteristic.writeValueWithResponse(chunk),
