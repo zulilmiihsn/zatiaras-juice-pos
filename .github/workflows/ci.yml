@@ -276,6 +276,9 @@ jobs:
       - name: Run A11y Suite
         run: pnpm test:a11y
 
+      - name: Run Swipe Dismiss Suite
+        run: pnpm test:swipe-dismiss
+
       - name: Run Maintainability Guard Suite
         run: pnpm test:maintainability
 

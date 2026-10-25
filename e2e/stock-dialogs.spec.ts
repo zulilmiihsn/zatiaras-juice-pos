@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { gotoHydrated } from './helpers';
 
 const ROW_BAHAN = {
@@ -18,7 +18,7 @@ const ROW_BAHAN = {
 	is_active: true
 };
 
-async function mockSession(page: Page) {
+async function mockSession(page: Page, rows: (typeof ROW_BAHAN)[] = [ROW_BAHAN]) {
 	await page.addInitScript(() => {
 		localStorage.setItem('selectedBranch', 'samarinda');
 		localStorage.setItem(
@@ -57,7 +57,7 @@ async function mockSession(page: Page) {
 			await route.fulfill({ json: { ok: true } });
 			return;
 		}
-		await route.fulfill({ json: [ROW_BAHAN] });
+		await route.fulfill({ json: rows });
 	});
 }
 
@@ -210,4 +210,56 @@ test('delete dialog confirms from keyboard', async ({ page }) => {
 	await expect(dialog).toBeHidden({ timeout: 10000 });
 	expect(writes.length).toBe(1);
 	expect(writes[0].url).toContain('b-uji');
+});
+
+// Peringatan stok menipis: bisa digeser untuk ditutup, tombol di dalamnya tetap bekerja.
+const ROW_BAHAN_MENIPIS = { ...ROW_BAHAN, id: 'b-menipis', nama: 'Susu Uji', stok_saat_ini: 5 };
+
+async function drag(page: Page, target: Locator, deltaX: number, deltaY: number) {
+	const box = await target.boundingBox();
+	if (!box) throw new Error('Elemen yang diseret tidak punya kotak layout');
+	const x = box.x + box.width / 2;
+	const y = box.y + box.height / 2;
+	await page.mouse.move(x, y);
+	await page.mouse.down();
+	await page.mouse.move(x + deltaX, y + deltaY, { steps: 8 });
+	await page.mouse.up();
+}
+
+test.describe('low stock alert banner swipe', () => {
+	test.beforeEach(async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await mockSession(page, [ROW_BAHAN_MENIPIS]);
+		await gotoHydrated(page, '/stok', 'text=Susu Uji');
+	});
+
+	const banner = (page: Page) => page.getByRole('region', { name: /Peringatan Stok Menipis/ });
+
+	for (const [arah, deltaX, deltaY] of [
+		['atas', 0, -60],
+		['kiri', -100, 0],
+		['kanan', 100, 0]
+	] as const) {
+		test(`closes when swiped ${arah}`, async ({ page }) => {
+			await expect(banner(page)).toBeVisible();
+			await drag(page, banner(page).getByText('Stok Menipis', { exact: true }), deltaX, deltaY);
+			await expect(banner(page)).toHaveCount(0);
+		});
+	}
+
+	test('springs back when the swipe is too short and ignores a swipe down', async ({ page }) => {
+		await expect(banner(page)).toBeVisible();
+		const title = banner(page).getByText('Stok Menipis', { exact: true });
+		await drag(page, title, 0, -10);
+		await drag(page, title, 0, 80);
+		await expect(banner(page)).toBeVisible();
+		await expect(banner(page)).toHaveCSS('transform', /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+	});
+
+	test('does not close from a drag that starts on its action button', async ({ page }) => {
+		const action = banner(page).getByRole('button', { name: /Lihat/ });
+		await expect(action).toBeVisible();
+		await drag(page, action, 0, -60);
+		await expect(banner(page)).toBeVisible();
+	});
 });

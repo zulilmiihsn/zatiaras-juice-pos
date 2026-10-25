@@ -87,6 +87,7 @@
 		"test:antrean-notifications": "tsx src/tests/antrean-notification-tests.ts",
 		"test:stock-policy-cache": "tsx src/tests/stock-policy-cache-tests.ts",
 		"test:a11y": "tsx src/tests/a11y-focus-tests.ts",
+		"test:swipe-dismiss": "tsx src/tests/swipe-dismiss-tests.ts",
 		"test:maintainability": "tsx src/tests/maintainability-guard-tests.ts",
 		"test:frontend-consistency": "tsx src/tests/frontend-consistency-guard-tests.ts",
 		"test:error-codes": "tsx src/tests/error-code-contract-tests.ts",

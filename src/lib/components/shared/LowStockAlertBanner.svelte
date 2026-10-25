@@ -3,6 +3,7 @@
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import type { Ingredient } from '$lib/types/product';
+	import { swipeDismiss, type SwipeDirection } from '$lib/utils/swipeDismiss';
 
 	let {
 		lowStockItems = [] as Ingredient[],
@@ -18,69 +19,21 @@
 
 	let isDismissed = $state(false);
 
-	// Gesture Swipe State
+	// Gesture Swipe State (pembacaan gestur ada di swipeDismiss)
+	const SWIPE_THRESHOLDS = { up: 25, left: 45, right: 45 };
 	let isDragging = $state(false);
-	let startX = 0;
-	let startY = 0;
 	let currentDeltaX = $state(0);
 	let currentDeltaY = $state(0);
 	let isSwipingOut = $state(false);
-	let dismissDirection = $state<'up' | 'left' | 'right'>('up');
+	let dismissDirection = $state<SwipeDirection>('up');
 
-	function handleDismiss(direction: 'up' | 'left' | 'right' = 'up') {
+	function handleDismiss(direction: SwipeDirection = 'up') {
 		dismissDirection = direction;
 		isSwipingOut = true;
 		setTimeout(() => {
 			isDismissed = true;
 			onDismiss();
 		}, 200);
-	}
-
-	function handlePointerDown(e: PointerEvent) {
-		// Ignore clicks on buttons/links
-		if ((e.target as HTMLElement)?.closest('button, a')) return;
-		isDragging = true;
-		startX = e.clientX;
-		startY = e.clientY;
-		currentDeltaX = 0;
-		currentDeltaY = 0;
-		try {
-			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-		} catch {
-			// Pointer capture is optional; swipe detection still works without browser capture support.
-		}
-	}
-
-	function handlePointerMove(e: PointerEvent) {
-		if (!isDragging) return;
-		const diffX = e.clientX - startX;
-		const diffY = e.clientY - startY;
-
-		currentDeltaX = diffX;
-		currentDeltaY = Math.min(10, diffY); // slight down resistance, free up
-	}
-
-	function handlePointerUp(e: PointerEvent) {
-		if (!isDragging) return;
-		isDragging = false;
-		try {
-			(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-		} catch {
-			// Pointer may already be released when the gesture ends.
-		}
-
-		// Check dismiss thresholds (flick-friendly)
-		if (currentDeltaY < -25) {
-			handleDismiss('up');
-		} else if (currentDeltaX < -45) {
-			handleDismiss('left');
-		} else if (currentDeltaX > 45) {
-			handleDismiss('right');
-		} else {
-			// Spring back
-			currentDeltaX = 0;
-			currentDeltaY = 0;
-		}
 	}
 </script>
 
@@ -111,10 +64,28 @@
 					)}; transition: {isDragging
 				? 'none'
 				: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease'};"
-			onpointerdown={handlePointerDown}
-			onpointermove={handlePointerMove}
-			onpointerup={handlePointerUp}
-			onpointercancel={handlePointerUp}
+			use:swipeDismiss={{
+				thresholds: SWIPE_THRESHOLDS,
+				onStart: () => {
+					isDragging = true;
+					currentDeltaX = 0;
+					currentDeltaY = 0;
+				},
+				// Sedikit perlawanan ke bawah, bebas ke atas.
+				onDrag: (deltaX, deltaY) => {
+					currentDeltaX = deltaX;
+					currentDeltaY = Math.min(10, deltaY);
+				},
+				onEnd: (direction) => {
+					isDragging = false;
+					if (direction) {
+						handleDismiss(direction);
+					} else {
+						currentDeltaX = 0;
+						currentDeltaY = 0;
+					}
+				}
+			}}
 		>
 			<div class="flex items-center gap-3.5">
 				<!-- Tactile Brand Icon -->
