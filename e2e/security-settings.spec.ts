@@ -77,12 +77,11 @@ test('cashier shares one PIN across pages and store actions for a fixed 60 secon
 	let unlockExpiresAt = 0;
 	let verifications = 0;
 	let inFlight = 0;
-	// Setiap navigasi memicu GET verifikasi. Ubah state server atau jam hanya setelah semuanya selesai,
-	// kalau tidak respons yang terlambat mengunci halaman di tengah langkah tes.
-	const settled = async () => {
-		await page.waitForLoadState('networkidle');
-		await expect.poll(() => inFlight).toBe(0);
-	};
+	// Setiap muat dan navigasi memicu tepat satu GET verifikasi (dijaga tes "layout reads the PIN
+	// status once …"), jadi tidak ada GET susulan yang perlu ditunggu lewat jeda tenang. Ubah state
+	// server atau jam hanya setelah GET yang berjalan selesai, kalau tidak responsnya mengunci
+	// halaman di tengah langkah tes.
+	const settled = () => expect.poll(() => inFlight).toBe(0);
 	await page.route('**/api/pengaturan?*', (route) =>
 		route.fulfill({
 			json: [

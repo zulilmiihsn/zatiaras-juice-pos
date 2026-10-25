@@ -38,7 +38,7 @@ Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 | R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Selesai | P3         |
 | R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai | –          |
 | R10 | Sederhanakan `raster()`                              | Sonnet | Selesai | R9         |
-| R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai | –          |
+| R11 | Tes PIN tanpa `networkidle`                          | Sonnet | Selesai | –          |
 | R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Selesai | R11        |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
@@ -410,3 +410,11 @@ Sesi baru cukup diberi prompt ini:
   lalu R8 (`03762976`, CI `40157412376`) di staging (deploy `40158762620`) dan produksi
   (deploy `40160079245`). Di keduanya `/login` dan `/api/csrf` menjawab 200. Semua
   kartu selesai kecuali verifikasi pemilik P1 dan P2.
+- 25 Oktober 2026: R11 dikerjakan ulang setelah R12. `settled()` di tes "fixed 60
+  seconds" tidak lagi memakai `networkidle`; sisa pekerjaannya hanya menunggu
+  `inFlight` (hitungan di handler route) kembali 0. Alasan boleh: percobaan R11 gagal
+  karena GET kedua yang muncul sekitar 150 ms setelah muat, dan R12 sudah menghapusnya
+  (dijaga tes "layout reads the PIN status once per page load and once per navigation").
+  Tes lulus 30 dari 30 (`--repeat-each=30 --workers=1`), seluruh `security-settings.spec.ts`
+  lulus (34 tes), eslint dan prettier bersih. `networkidle` di tes R12 sengaja dipertahankan:
+  tes itu membuktikan ketiadaan GET, dan ketiadaan tidak punya kejadian untuk ditunggu.
