@@ -405,5 +405,8 @@ Sesi baru cukup diberi prompt ini:
   gagal. `test:unit` 170 lulus, `archive-*` dan `restore-*` lulus, e2e
   `archive-download.spec.ts` (5 tes) lulus, `pnpm check` 0 galat. Rollback: kode lama
   menolak arsip v4 lewat gerbang versi, jadi arsip yang ditulis setelah ini hanya bisa
-  dipulihkan oleh kode v4. Belum di-push: push akan membuat SHA produksi `5acce7ee`
-  ditolak `deploy.yml`.
+  dipulihkan oleh kode v4.
+- 25 Oktober 2026: grup A + B + R12 di produksi (`5acce7ee`, deploy `40157258231`),
+  lalu R8 (`03762976`, CI `40157412376`) di staging (deploy `40158762620`) dan produksi
+  (deploy `40160079245`). Di keduanya `/login` dan `/api/csrf` menjawab 200. Semua
+  kartu selesai kecuali verifikasi pemilik P1 dan P2.
