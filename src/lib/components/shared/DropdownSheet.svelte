@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import ModalSheet from './ModalSheet.svelte';
 
 	let {
 		options = [],
@@ -31,65 +30,22 @@
 	}
 </script>
 
-{#if open}
-	<div
-		class="modal-backdrop"
-		transition:fade={{ duration: 180 }}
-		onclick={(event) => event.target === event.currentTarget && close()}
-		onkeydown={(e) => e.key === 'Escape' && close()}
-		role="dialog"
-		aria-label="Modal pilih opsi"
-		tabindex="-1"
-	>
-		<div class="sheet" role="document" transition:fly={{ y: 240, duration: 220, easing: cubicOut }}>
-			<div class="sheet-header">Pilih Opsi</div>
-			<div class="dropdown-list">
-				{#each options as opt (opt.value)}
-					<button
-						type="button"
-						class="dropdown-item {selected === opt.value ? 'active' : ''}"
-						onclick={() => selectOption(opt.value)}>{opt.label}</button
-					>
-				{/each}
-			</div>
-		</div>
+<ModalSheet {open} onClose={close} label="Modal pilih opsi">
+	{#snippet header()}
+		<div class="px-6 pt-3 pb-4 text-center text-lg font-bold text-pink-600">Pilih Opsi</div>
+	{/snippet}
+	<div class="dropdown-list">
+		{#each options as opt (opt.value)}
+			<button
+				type="button"
+				class="dropdown-item {selected === opt.value ? 'active' : ''}"
+				onclick={() => selectOption(opt.value)}>{opt.label}</button
+			>
+		{/each}
 	</div>
-{/if}
+</ModalSheet>
 
 <style>
-	.modal-backdrop {
-		position: fixed;
-		left: 0;
-		right: 0;
-		top: 0;
-		bottom: 0;
-		background: rgba(15, 23, 42, 0.4);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
-		z-index: var(--z-sheet, 60);
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-	}
-	.sheet {
-		width: 100%;
-		max-width: 420px;
-		margin: 0 auto;
-		background: #fff;
-		border-radius: 24px 24px 0 0;
-		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-		min-height: 120px;
-		padding: 1.75rem 1.5rem 1.5rem 1.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	.sheet-header {
-		font-size: 1.15rem;
-		font-weight: 700;
-		color: #db2777;
-		text-align: center;
-	}
 	.dropdown-list {
 		display: flex;
 		flex-direction: column;

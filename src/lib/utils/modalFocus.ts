@@ -29,6 +29,25 @@ function focusablesOf(node: HTMLElement): HTMLElement[] {
 // Hanya dialog teratas yang menangani Escape/Tab.
 const dialogStack: HTMLElement[] = [];
 const inertTouched = new Set<Element>();
+let bodyOverflow: { value: string; priority: string } | null = null;
+
+function lockBackgroundScroll(): void {
+	bodyOverflow = {
+		value: document.body.style.getPropertyValue('overflow'),
+		priority: document.body.style.getPropertyPriority('overflow')
+	};
+	document.body.style.setProperty('overflow', 'hidden', 'important');
+}
+
+function restoreBackgroundScroll(): void {
+	if (!bodyOverflow) return;
+	if (bodyOverflow.value) {
+		document.body.style.setProperty('overflow', bodyOverflow.value, bodyOverflow.priority);
+	} else {
+		document.body.style.removeProperty('overflow');
+	}
+	bodyOverflow = null;
+}
 
 function markInert(element: Element): void {
 	if (element.hasAttribute('inert') || inertTouched.has(element)) return;
@@ -106,8 +125,19 @@ function focusInside(node: HTMLElement): void {
 
 export function modalFocus(node: HTMLElement, options?: ModalFocusOptions) {
 	const trigger = document.activeElement as HTMLElement | null;
+	const originalLayer = {
+		value: node.style.getPropertyValue('z-index'),
+		priority: node.style.getPropertyPriority('z-index')
+	};
+	const topLayer = Math.max(
+		...dialogStack.map((dialog) => Number.parseInt(getComputedStyle(dialog).zIndex, 10) || 0)
+	);
+	const ownLayer = Number.parseInt(getComputedStyle(node).zIndex, 10) || 0;
+	// Portaled sheets must remain visually above the parent that just lost keyboard focus.
+	if (ownLayer <= topLayer) node.style.setProperty('z-index', String(topLayer + 1), 'important');
 	// Panel tanpa focusable tetap harus bisa menerima fokus program.
 	if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '-1');
+	if (dialogStack.length === 0) lockBackgroundScroll();
 	dialogStack.push(node);
 	recomputeBackgroundInert();
 
@@ -162,6 +192,13 @@ export function modalFocus(node: HTMLElement, options?: ModalFocusOptions) {
 			node.removeEventListener('keydown', handleKeyDown);
 			const position = dialogStack.indexOf(node);
 			if (position !== -1) dialogStack.splice(position, 1);
+			if (originalLayer.value) {
+				node.style.setProperty('z-index', originalLayer.value, originalLayer.priority);
+			} else {
+				node.style.removeProperty('z-index');
+			}
+			// A nested dialog must not unlock the page while another dialog still owns it.
+			if (dialogStack.length === 0) restoreBackgroundScroll();
 			// Inert yang dipasang untuk dialog ini (mis. isi dialog induk) dilepas.
 			recomputeBackgroundInert();
 			// Restore ke pemicu bila masih ada dan bisa difokus (tidak

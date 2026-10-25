@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import X from '@lucide/svelte/icons/x';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import DialogRoot from './DialogRoot.svelte';
 
 	interface ModalSheetProps {
 		open?: boolean;
@@ -33,17 +33,6 @@
 	const uid = $props.id();
 	const titleId = `${uid}-title`;
 	const labelledby = $derived(!header && title ? titleId : undefined);
-
-	function portal(node: HTMLElement) {
-		document.body.appendChild(node);
-		return {
-			destroy() {
-				if (node.parentNode) {
-					node.parentNode.removeChild(node);
-				}
-			}
-		};
-	}
 
 	function close() {
 		onClose?.();
@@ -90,99 +79,68 @@
 		}
 		allowDrag = false;
 	}
-
-	function focusTrap(node: HTMLElement) {
-		// Delegasi ke kebijakan kanonik tunggal.
-		return modalFocus(node, { onEscape: close });
-	}
 </script>
 
-{#if open}
+<DialogRoot
+	{open}
+	{labelledby}
+	label={label || title || undefined}
+	onClose={close}
+	fadeDuration={220}
+	class="z-sheet items-end justify-center bg-slate-900/45 backdrop-blur-[4px]"
+>
+	<!-- Delegasi ke kebijakan kanonik tunggal. -->
 	<div
-		use:portal
-		class="modal-backdrop"
-		transition:fade={{ duration: 220 }}
-		onclick={(e) => e.target === e.currentTarget && close()}
-		onkeydown={(e) => {
-			// Hanya backdrop itu sendiri; Escape di panel milik action
-			// modalFocus (tanpa double-close).
-			if (e.key === 'Escape' && e.target === e.currentTarget) close();
-		}}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby={labelledby}
-		aria-label={labelledby ? undefined : label || title || undefined}
+		class="modal-sheet w-full max-w-[100vw] overflow-x-hidden px-0 pt-2 pb-0 sm:px-0"
+		transition:fly|global={{ y: 380, duration: 280, easing: cubicOut }}
+		role="document"
+		bind:this={sheet}
+		ontouchstart={onTouchStart}
+		ontouchmove={onTouchMove}
+		ontouchend={onTouchEnd}
 		tabindex="-1"
 	>
 		<div
-			use:focusTrap
-			class="modal-sheet w-full max-w-[100vw] overflow-x-hidden px-0 pt-2 pb-0 sm:px-0"
-			transition:fly={{ y: 380, duration: 280, easing: cubicOut }}
-			role="document"
-			bind:this={sheet}
-			ontouchstart={onTouchStart}
-			ontouchmove={onTouchMove}
-			ontouchend={onTouchEnd}
-			tabindex="-1"
+			class="sheet-drag-area flex w-full cursor-grab justify-center pt-1 pb-1 active:cursor-grabbing"
 		>
-			<div
-				class="sheet-drag-area flex w-full cursor-grab justify-center pt-1 pb-1 active:cursor-grabbing"
-			>
-				<div class="sheet-dragbar" role="presentation"></div>
-			</div>
-
-			{#if header}
-				{@render header()}
-			{:else if title}
-				<div
-					class="sheet-header flex items-center justify-between border-b border-slate-100/80 px-5 pt-1 pb-3"
-				>
-					<span id={titleId} class="truncate text-base font-extrabold text-slate-800">{title}</span>
-					{#if showCloseButton}
-						<button
-							type="button"
-							onclick={close}
-							aria-label="Tutup modal"
-							class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-800 active:scale-90"
-						>
-							<X class="h-4 w-4 stroke-[2.2]" />
-						</button>
-					{/if}
-				</div>
-			{/if}
-
-			<div class="sheet-content min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
-				{@render children?.()}
-			</div>
-
-			{#if footer}
-				<div
-					class="sheet-footer z-20 w-full max-w-[100vw] shrink-0 border-t border-slate-100 bg-white/98 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md sm:px-6"
-				>
-					{@render footer()}
-				</div>
-			{/if}
+			<div class="sheet-dragbar" role="presentation"></div>
 		</div>
+
+		{#if header}
+			{@render header()}
+		{:else if title}
+			<div
+				class="sheet-header flex items-center justify-between border-b border-slate-100/80 px-5 pt-1 pb-3"
+			>
+				<span id={titleId} class="truncate text-base font-extrabold text-slate-800">{title}</span>
+				{#if showCloseButton}
+					<button
+						type="button"
+						onclick={close}
+						aria-label="Tutup modal"
+						class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-800 active:scale-90"
+					>
+						<X class="h-4 w-4 stroke-[2.2]" />
+					</button>
+				{/if}
+			</div>
+		{/if}
+
+		<div class="sheet-content min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
+			{@render children?.()}
+		</div>
+
+		{#if footer}
+			<div
+				class="sheet-footer z-20 w-full max-w-[100vw] shrink-0 border-t border-slate-100 bg-white/98 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md sm:px-6"
+			>
+				{@render footer()}
+			</div>
+		{/if}
 	</div>
-{/if}
+</DialogRoot>
 
 <style>
-	.modal-backdrop {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		width: 100vw;
-		height: 100dvh;
-		background: rgba(15, 23, 42, 0.45);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
-		z-index: var(--z-sheet, 60);
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-	}
 	.modal-sheet {
 		position: relative;
 		width: 100%;
@@ -219,6 +177,7 @@
 	.sheet-content {
 		padding-top: 6px;
 		padding-bottom: 12px;
+		overscroll-behavior-y: contain;
 		-webkit-overflow-scrolling: touch;
 	}
 </style>

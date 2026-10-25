@@ -5,6 +5,24 @@ export interface AiChatMessage {
 	timestamp: Date;
 }
 
+export interface AiReportMeta {
+	dateRange?: { start?: string; end?: string; reasoning?: string };
+	webSearch?: boolean;
+}
+
+export interface AiReportMessage extends AiReportMeta {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	isStreaming?: boolean;
+}
+
+export type AiReportEvent =
+	| { type: 'token'; text: string }
+	| ({ type: 'meta' } & AiReportMeta)
+	| { type: 'done' }
+	| { type: 'error'; error: string };
+
 export interface TransactionAnalysis {
 	id: string;
 	originalText: string;

@@ -139,6 +139,7 @@
 		"test:ai-period": "tsx src/tests/ai-period-tests.ts",
 		"test:ai-gateway": "tsx src/tests/ai-gateway-tests.ts",
 		"test:ai-chat-usecase": "tsx src/tests/ai-chat-usecase-tests.ts",
+		"test:ai-report-state": "tsx src/tests/ai-report-state-tests.ts",
 		"d1:setup:local": "node scripts/setup-local-d1.mjs",
 		"d1:seed:samarinda": "node scripts/seed-samarinda-menu.mjs --remote",
 		"d1:seed:samarinda:recipes": "node scripts/seed-samarinda-recipes.mjs --remote",

@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import AppModal from './AppModal.svelte';
 	import type { AiChatMessage, AutoApplyResult, TransactionAnalysis } from '$lib/types/ai';
 	import { AiAnalysisService } from '$lib/services/aiAnalysisService';
 	import { AutoApplyService, type RecommendationConsent } from '$lib/services/autoApplyService';
@@ -72,21 +70,6 @@
 			if (open) addWelcomeMessage();
 		});
 	});
-
-	// Reactive statement untuk mengontrol body scroll
-	$effect(() => {
-		if (isOpen && typeof document !== 'undefined') {
-			document.body.classList.add('modal-open');
-		} else if (typeof document !== 'undefined') {
-			document.body.classList.remove('modal-open');
-		}
-	});
-
-	function mountAbovePage(node: HTMLElement) {
-		// Header stacking/transform contexts can otherwise put page content above a fixed sheet.
-		node.ownerDocument.body.appendChild(node);
-		return { destroy: () => node.remove() };
-	}
 
 	function addWelcomeMessage() {
 		const welcomeMessage: AiChatMessage = {
@@ -236,295 +219,244 @@
 		currentMessage = '';
 		isLoading = false;
 		appliedSinceOpen = false;
+		isOpen = false;
 		onClose?.();
 	}
 </script>
 
-{#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- Klik latar hanya jalan pintas mouse; Escape ditangani use:modalFocus. -->
+<AppModal
+	open={isOpen}
+	label="Asisten AI"
+	size="custom"
+	align="center"
+	zClass="z-sheet"
+	backdropClass="bg-slate-950/18 px-2 py-2 backdrop-blur-[8px] sm:px-4 sm:py-4"
+	panelClass="mx-auto h-[600px] max-h-[calc(100dvh-1rem)] max-w-[500px] rounded-[28px] bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] md:max-w-[720px]"
+	onClose={closeModal}
+>
+	<!-- Header -->
 	<div
-		use:mountAbovePage
-		use:modalFocus={{ onEscape: closeModal }}
-		class="modal-overlay z-sheet fixed inset-0 flex items-center justify-center bg-black/30 px-2 py-2 backdrop-blur-xs sm:px-4 sm:py-4"
-		transition:fade={{ duration: 180 }}
-		onclick={closeModal}
-		role="dialog"
-		aria-modal="true"
-		aria-label="Asisten AI"
-		tabindex="-1"
+		class="flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4"
 	>
-		<div
-			class="mx-auto flex h-[600px] w-full max-w-[500px] flex-col rounded-[28px] bg-white shadow-2xl sm:mx-auto md:max-w-[720px]"
-			transition:scale={{ start: 0.95, duration: 220, easing: cubicOut }}
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
-		>
-			<!-- Header -->
+		<div class="flex items-center space-x-3">
 			<div
-				class="flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4"
+				class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg"
 			>
-				<div class="flex items-center space-x-3">
-					<div
-						class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg"
-					>
-						<svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-							/>
-						</svg>
-					</div>
-					<h3 class="text-lg font-semibold text-slate-900">Asisten AI</h3>
-				</div>
-				<div class="flex items-center space-x-2">
-					<button
-						onclick={closeModal}
-						class="rounded-lg p-2 text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-600"
-						aria-label="Tutup modal"
-					>
-						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							></path>
-						</svg>
-					</button>
+				<svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+					/>
+				</svg>
+			</div>
+			<h3 class="text-lg font-semibold text-slate-900">Asisten AI</h3>
+		</div>
+		<div class="flex items-center space-x-2">
+			<button
+				onclick={closeModal}
+				class="rounded-lg p-2 text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-600"
+				aria-label="Tutup modal"
+			>
+				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					></path>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<!-- Messages -->
+	<div class="flex-1 space-y-4 overflow-y-auto p-4">
+		{#each messages as message (message.id)}
+			<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
+				<div
+					class="max-w-xs rounded-lg px-4 py-2 lg:max-w-md {message.role === 'user'
+						? 'bg-pink-500 text-white'
+						: 'bg-slate-100 text-slate-900'}"
+				>
+					<p class="text-sm whitespace-pre-wrap">{message.content}</p>
+					<p class="mt-1 text-xs opacity-70">
+						{message.timestamp.toLocaleTimeString('id-ID')}
+					</p>
 				</div>
 			</div>
+		{/each}
 
-			<!-- Messages -->
-			<div class="flex-1 space-y-4 overflow-y-auto p-4">
-				{#each messages as message (message.id)}
-					<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
-						<div
-							class="max-w-xs rounded-lg px-4 py-2 lg:max-w-md {message.role === 'user'
-								? 'bg-pink-500 text-white'
-								: 'bg-slate-100 text-slate-900'}"
-						>
-							<p class="text-sm whitespace-pre-wrap">{message.content}</p>
-							<p class="mt-1 text-xs opacity-70">
-								{message.timestamp.toLocaleTimeString('id-ID')}
+		{#if isLoading}
+			<div class="flex justify-start">
+				<div class="max-w-xs rounded-lg bg-slate-100 px-4 py-2 text-slate-900 lg:max-w-md">
+					<div class="flex items-center space-x-2">
+						<div class="h-4 w-4 animate-spin rounded-full border-b-2 border-pink-500"></div>
+						<span class="text-sm">Menganalisis...</span>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Recommendations -->
+	{#if showRecommendations && currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
+		<div class="border-t border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4">
+			<h4 class="mb-3 flex items-center text-sm font-medium text-slate-900">
+				<svg
+					class="mr-2 h-4 w-4 text-pink-600"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					></path>
+				</svg>
+				Rekomendasi:
+			</h4>
+			<div class="space-y-3">
+				{#each currentAnalysis.recommendations as rec (rec.id)}
+					{@const recValidation = validateRecommendation({
+						action: rec.action,
+						data: rec.data
+					})}
+					{@const before = consent?.updates[rec.id]}
+					{@const rejected = consent?.rejected[rec.id]}
+					{@const recData = (rec.data ?? {}) as {
+						type?: unknown;
+						category?: unknown;
+						deskripsi?: unknown;
+					}}
+					{@const recCategory = resolveLedgerCategory({
+						type: recData.type,
+						category: recData.category,
+						deskripsi: recData.deskripsi ?? rec.deskripsi
+					})}
+					<div
+						class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
+					>
+						<div class="flex-1">
+							<p class="text-sm font-medium text-slate-900">{rec.title}</p>
+							<p class="mt-1 text-xs text-slate-600">{rec.deskripsi}</p>
+							{#if rejected}
+								<p role="alert" class="mt-1 text-xs text-red-700">
+									Tidak dapat diterapkan: {rejected}
+								</p>
+							{/if}
+							{#if before}
+								<p data-testid="ai-update-before" class="mt-1 text-xs text-slate-700">
+									Sebelum: {before.id} · Revisi {before.revision} · Rp {formatRupiah(
+										before.nominal
+									)} · {before.tipe} · {before.jenis} · {before.deskripsi} · {formatWitaDateTime(
+										before.waktu
+									)} WITA
+								</p>
+								{#if recValidation.ok && recValidation.value.kind === 'update_transaction'}
+									<p data-testid="ai-update-after" class="mt-1 text-xs text-slate-700">
+										Sesudah: {before.id} · Rp {formatRupiah(recValidation.value.amount)} · {recValidation
+											.value.type === 'pemasukan'
+											? 'in'
+											: 'out'} · {recData.category === undefined
+											? before.jenis
+											: 'needsConfirmation' in recCategory
+												? 'Perlu konfirmasi'
+												: recCategory.jenis} · {recValidation.value.deskripsi} · {formatWitaDateTime(
+											before.waktu
+										)} WITA
+									</p>
+								{/if}
+								<p class="mt-1 text-xs text-slate-700">
+									Target/revisi berasal dari data sesi saat ini, bukan dari model. Koreksi kas ini
+									tidak mengubah stok.
+								</p>
+							{/if}
+							<p
+								class="mt-1 text-xs font-semibold {'needsConfirmation' in recCategory
+									? 'text-amber-700'
+									: 'text-slate-500'}"
+							>
+								Kategori: {'needsConfirmation' in recCategory
+									? 'Perlu konfirmasi'
+									: (LEDGER_JENIS_LABEL[recCategory.jenis] ?? recCategory.jenis)}
 							</p>
+							<p class="mt-1 text-xs text-slate-600">
+								Aksi: {(AI_ACTION_LABEL as Record<string, string>)[rec.action] ?? rec.action}
+								{recValidation.ok && recValidation.value.kind !== 'create_category'
+									? ` · Rp ${formatRupiah(recValidation.value.amount)}`
+									: ''}
+								{recValidation.ok && recValidation.value.kind === 'update_transaction'
+									? ` · Target ${recValidation.value.id.slice(0, 8)}…`
+									: ''}
+								{!recValidation.ok ? ` · Tak valid: ${recValidation.reason}` : ''}
+							</p>
+						</div>
+						<div class="flex items-center space-x-2">
+							<span
+								class="rounded-full px-3 py-1 text-xs font-medium {rec.priority === 'high'
+									? 'bg-red-100 text-red-800'
+									: rec.priority === 'medium'
+										? 'bg-yellow-100 text-yellow-800'
+										: 'bg-pink-100 text-pink-800'}"
+							>
+								{rec.priority}
+							</span>
 						</div>
 					</div>
 				{/each}
-
-				{#if isLoading}
-					<div class="flex justify-start">
-						<div class="max-w-xs rounded-lg bg-slate-100 px-4 py-2 text-slate-900 lg:max-w-md">
-							<div class="flex items-center space-x-2">
-								<div class="h-4 w-4 animate-spin rounded-full border-b-2 border-pink-500"></div>
-								<span class="text-sm">Menganalisis...</span>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
-
-			<!-- Recommendations -->
-			{#if showRecommendations && currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
-				<div class="border-t border-slate-200 bg-gradient-to-r from-pink-50 to-rose-50 p-4">
-					<h4 class="mb-3 flex items-center text-sm font-medium text-slate-900">
-						<svg
-							class="mr-2 h-4 w-4 text-pink-600"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-							></path>
-						</svg>
-						Rekomendasi:
-					</h4>
-					<div class="space-y-3">
-						{#each currentAnalysis.recommendations as rec (rec.id)}
-							{@const recValidation = validateRecommendation({
-								action: rec.action,
-								data: rec.data
-							})}
-							{@const before = consent?.updates[rec.id]}
-							{@const rejected = consent?.rejected[rec.id]}
-							{@const recData = (rec.data ?? {}) as {
-								type?: unknown;
-								category?: unknown;
-								deskripsi?: unknown;
-							}}
-							{@const recCategory = resolveLedgerCategory({
-								type: recData.type,
-								category: recData.category,
-								deskripsi: recData.deskripsi ?? rec.deskripsi
-							})}
-							<div
-								class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
-							>
-								<div class="flex-1">
-									<p class="text-sm font-medium text-slate-900">{rec.title}</p>
-									<p class="mt-1 text-xs text-slate-600">{rec.deskripsi}</p>
-									{#if rejected}
-										<p role="alert" class="mt-1 text-xs text-red-700">
-											Tidak dapat diterapkan: {rejected}
-										</p>
-									{/if}
-									{#if before}
-										<p data-testid="ai-update-before" class="mt-1 text-xs text-slate-700">
-											Sebelum: {before.id} · Revisi {before.revision} · Rp {formatRupiah(
-												before.nominal
-											)} · {before.tipe} · {before.jenis} · {before.deskripsi} · {formatWitaDateTime(
-												before.waktu
-											)} WITA
-										</p>
-										{#if recValidation.ok && recValidation.value.kind === 'update_transaction'}
-											<p data-testid="ai-update-after" class="mt-1 text-xs text-slate-700">
-												Sesudah: {before.id} · Rp {formatRupiah(recValidation.value.amount)} · {recValidation
-													.value.type === 'pemasukan'
-													? 'in'
-													: 'out'} · {recData.category === undefined
-													? before.jenis
-													: 'needsConfirmation' in recCategory
-														? 'Perlu konfirmasi'
-														: recCategory.jenis} · {recValidation.value.deskripsi} · {formatWitaDateTime(
-													before.waktu
-												)} WITA
-											</p>
-										{/if}
-										<p class="mt-1 text-xs text-slate-700">
-											Target/revisi berasal dari data sesi saat ini, bukan dari model. Koreksi kas
-											ini tidak mengubah stok.
-										</p>
-									{/if}
-									<p
-										class="mt-1 text-xs font-semibold {'needsConfirmation' in recCategory
-											? 'text-amber-700'
-											: 'text-slate-500'}"
-									>
-										Kategori: {'needsConfirmation' in recCategory
-											? 'Perlu konfirmasi'
-											: (LEDGER_JENIS_LABEL[recCategory.jenis] ?? recCategory.jenis)}
-									</p>
-									<p class="mt-1 text-xs text-slate-600">
-										Aksi: {(AI_ACTION_LABEL as Record<string, string>)[rec.action] ?? rec.action}
-										{recValidation.ok && recValidation.value.kind !== 'create_category'
-											? ` · Rp ${formatRupiah(recValidation.value.amount)}`
-											: ''}
-										{recValidation.ok && recValidation.value.kind === 'update_transaction'
-											? ` · Target ${recValidation.value.id.slice(0, 8)}…`
-											: ''}
-										{!recValidation.ok ? ` · Tak valid: ${recValidation.reason}` : ''}
-									</p>
-								</div>
-								<div class="flex items-center space-x-2">
-									<span
-										class="rounded-full px-3 py-1 text-xs font-medium {rec.priority === 'high'
-											? 'bg-red-100 text-red-800'
-											: rec.priority === 'medium'
-												? 'bg-yellow-100 text-yellow-800'
-												: 'bg-pink-100 text-pink-800'}"
-									>
-										{rec.priority}
-									</span>
-								</div>
-							</div>
-						{/each}
-					</div>
-					{#if currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
-						<div class="mt-4 flex space-x-3">
-							<button
-								onclick={applyRecommendations}
-								disabled={isLoading || !consent}
-								class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								{isLoading ? 'Menerapkan...' : 'Terapkan Rekomendasi'}
-							</button>
-							<button
-								onclick={invalidateConsent}
-								class="rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
-							>
-								Batal
-							</button>
-						</div>
-					{:else}
-						<div class="mt-4">
-							<button
-								onclick={invalidateConsent}
-								class="w-full rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
-							>
-								Tutup
-							</button>
-						</div>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- Input -->
-			<div class="rounded-b-xl border-t border-slate-200 bg-slate-50 p-4">
-				<div class="flex space-x-3">
-					<textarea
-						bind:value={currentMessage}
-						onkeydown={handleKeyPress}
-						placeholder="Ceritakan transaksi Anda..."
-						disabled={isLoading}
-						maxlength="2000"
-						class="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-						rows="2"></textarea>
+			{#if currentAnalysis?.recommendations && currentAnalysis.recommendations.length > 0}
+				<div class="mt-4 flex space-x-3">
 					<button
-						onclick={sendMessage}
-						disabled={!currentMessage.trim() || isLoading}
-						class="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
-						aria-label="Kirim pesan"
+						onclick={applyRecommendations}
+						disabled={isLoading || !consent}
+						class="flex-1 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						<SendIcon class="h-4 w-4" />
+						{isLoading ? 'Menerapkan...' : 'Terapkan Rekomendasi'}
+					</button>
+					<button
+						onclick={invalidateConsent}
+						class="rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
+					>
+						Batal
 					</button>
 				</div>
-			</div>
+			{:else}
+				<div class="mt-4">
+					<button
+						onclick={invalidateConsent}
+						class="w-full rounded-xl px-4 py-3 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-800"
+					>
+						Tutup
+					</button>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Input -->
+	<div class="rounded-b-xl border-t border-slate-200 bg-slate-50 p-4">
+		<div class="flex space-x-3">
+			<textarea
+				bind:value={currentMessage}
+				onkeydown={handleKeyPress}
+				placeholder="Ceritakan transaksi Anda..."
+				disabled={isLoading}
+				maxlength="2000"
+				class="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-pink-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+				rows="2"></textarea>
+			<button
+				onclick={sendMessage}
+				disabled={!currentMessage.trim() || isLoading}
+				class="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3 text-sm font-medium text-white shadow-lg transition-all duration-200 hover:from-pink-600 hover:to-rose-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+				aria-label="Kirim pesan"
+			>
+				<SendIcon class="h-4 w-4" />
+			</button>
 		</div>
 	</div>
-{/if}
-
-<style>
-	.modal-overlay {
-		/* Menggunakan background yang sama dengan modal buka/tutup toko */
-		background: rgba(0, 0, 0, 0.18);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		z-index: var(--z-sheet, 70) !important;
-		position: fixed !important;
-		top: 0 !important;
-		left: 0 !important;
-		right: 0 !important;
-		bottom: 0 !important;
-		width: 100vw !important;
-		height: 100vh !important;
-		overflow: hidden;
-		transition: background 0.2s;
-		/* Memastikan modal overlay tidak ter-blur */
-		filter: none !important;
-		-webkit-filter: none !important;
-	}
-
-	/* Fallback untuk browser lama */
-	@supports not (backdrop-filter: blur(8px)) {
-		.modal-overlay {
-			background: rgba(0, 0, 0, 0.4);
-		}
-	}
-
-	/* Memastikan body tidak scroll saat modal terbuka */
-	:global(body.modal-open) {
-		overflow: hidden;
-	}
-
-	/* Memastikan bottomNav ter-blur saat modal terbuka */
-	:global(body.modal-open .nav-transition) {
-		filter: blur(8px);
-		-webkit-filter: blur(8px);
-	}
-</style>
+</AppModal>

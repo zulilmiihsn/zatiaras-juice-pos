@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ModalSheet from '$lib/components/shared/ModalSheet.svelte';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import DialogRoot from './DialogRoot.svelte';
 	import { WITA_TIME_ZONE } from '$lib/utils/dateTime';
 	import type { PendingFailureKind, PendingTransaction } from '$lib/utils/offlineQueue';
 	import { buildPendingTransactionExport } from '$lib/utils/offlineQueue';
@@ -289,43 +289,39 @@
 	{/snippet}
 </ModalSheet>
 
-{#if pendingRemoval}
-	<div
-		use:modalFocus={{
-			onEscape: () => {
-				if (!removalBusy) pendingRemoval = null;
-			}
-		}}
-		class="z-alert fixed inset-0 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-[2px] sm:items-center"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="remove-pending-title"
-		data-testid="pending-removal-confirmation"
-	>
-		<div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
-			<div id="remove-pending-title" class="text-lg font-black text-slate-950">
-				Hapus transaksi lokal?
-			</div>
-			<p class="mt-2 text-sm leading-6 text-slate-600">
-				Data ini belum tercatat di server. Export dahulu bila transaksi sudah dibayar pelanggan.
-			</p>
-			<div class="mt-5 grid grid-cols-2 gap-3">
-				<button
-					type="button"
-					class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 transition-transform duration-200 active:scale-[0.98]"
-					onclick={() => (pendingRemoval = null)}
-				>
-					Batal
-				</button>
-				<button
-					type="button"
-					class="rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
-					disabled={removalBusy}
-					onclick={confirmRemoval}
-				>
-					{removalBusy ? 'Menghapus' : 'Hapus lokal'}
-				</button>
-			</div>
+<DialogRoot
+	open={Boolean(pendingRemoval)}
+	labelledby="remove-pending-title"
+	backdropClose={false}
+	onClose={() => {
+		if (!removalBusy) pendingRemoval = null;
+	}}
+	class="z-alert items-end justify-center bg-slate-950/40 p-4 backdrop-blur-[2px] sm:items-center"
+	data-testid="pending-removal-confirmation"
+>
+	<div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+		<div id="remove-pending-title" class="text-lg font-black text-slate-950">
+			Hapus transaksi lokal?
+		</div>
+		<p class="mt-2 text-sm leading-6 text-slate-600">
+			Data ini belum tercatat di server. Export dahulu bila transaksi sudah dibayar pelanggan.
+		</p>
+		<div class="mt-5 grid grid-cols-2 gap-3">
+			<button
+				type="button"
+				class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 transition-transform duration-200 active:scale-[0.98]"
+				onclick={() => (pendingRemoval = null)}
+			>
+				Batal
+			</button>
+			<button
+				type="button"
+				class="rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-45"
+				disabled={removalBusy}
+				onclick={confirmRemoval}
+			>
+				{removalBusy ? 'Menghapus' : 'Hapus lokal'}
+			</button>
 		</div>
 	</div>
-{/if}
+</DialogRoot>

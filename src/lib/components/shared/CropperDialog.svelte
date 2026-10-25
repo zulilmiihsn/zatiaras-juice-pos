@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import DialogRoot from './DialogRoot.svelte';
 
 	let {
 		src = '',
@@ -189,53 +189,51 @@
 	});
 </script>
 
-{#if open}
-	<div
-		use:modalFocus={{ onEscape: handleCancel }}
-		class="z-dialog fixed inset-0 flex items-center justify-center bg-black/40"
-		role="dialog"
-		aria-modal="true"
-		aria-label="Potong gambar"
-	>
-		<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
-			<div
-				class="relative mb-4 aspect-square h-[300px] w-full overflow-hidden rounded-xl bg-slate-100"
+<DialogRoot
+	{open}
+	label="Potong gambar"
+	backdropClose={false}
+	onClose={handleCancel}
+	class="z-modal items-center justify-center bg-black/40"
+>
+	<div class="flex w-full max-w-xs flex-col items-center rounded-2xl bg-white p-4 shadow-xl">
+		<div
+			class="relative mb-4 aspect-square h-[300px] w-full overflow-hidden rounded-xl bg-slate-100"
+		>
+			<canvas
+				bind:this={canvasEl}
+				width={csize}
+				height={csize}
+				onmousedown={onPointerDown}
+				onmousemove={onPointerMove}
+				onmouseup={onPointerUp}
+				onmouseleave={onPointerUp}
+				class="h-full w-full cursor-grab touch-none"
+			></canvas>
+		</div>
+		<input
+			type="range"
+			min={minZoom}
+			max={maxZoom}
+			step="0.01"
+			bind:value={zoom}
+			oninput={onZoomInput}
+			class="mb-2 w-full accent-pink-500"
+		/>
+		<div class="mt-2 flex w-full gap-2.5">
+			<button
+				class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
+				type="button"
+				onclick={handleOk}>Gunakan</button
 			>
-				<canvas
-					bind:this={canvasEl}
-					width={csize}
-					height={csize}
-					onmousedown={onPointerDown}
-					onmousemove={onPointerMove}
-					onmouseup={onPointerUp}
-					onmouseleave={onPointerUp}
-					class="h-full w-full cursor-grab touch-none"
-				></canvas>
-			</div>
-			<input
-				type="range"
-				min={minZoom}
-				max={maxZoom}
-				step="0.01"
-				bind:value={zoom}
-				oninput={onZoomInput}
-				class="mb-2 w-full accent-pink-500"
-			/>
-			<div class="mt-2 flex w-full gap-2.5">
-				<button
-					class="flex-1 cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-500/25 transition-all hover:opacity-95 active:scale-95"
-					type="button"
-					onclick={handleOk}>Gunakan</button
-				>
-				<button
-					class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95"
-					type="button"
-					onclick={handleCancel}>Batal</button
-				>
-			</div>
+			<button
+				class="flex-1 cursor-pointer rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95"
+				type="button"
+				onclick={handleCancel}>Batal</button
+			>
 		</div>
 	</div>
-{/if}
+</DialogRoot>
 
 <style>
 	.aspect-square {

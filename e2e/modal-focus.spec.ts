@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Locator } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { gotoHydrated, ownerUsernameForTest } from './helpers';
 
@@ -40,6 +40,40 @@ async function dialogContainsFocus(page: Page, dialogName: string): Promise<bool
 
 async function focusedLabel(page: Page): Promise<string> {
 	return page.evaluate(() => (document.activeElement as HTMLElement)?.textContent?.trim() ?? '');
+}
+
+async function prepareScrollableBackground(page: Page) {
+	// Room above and below the viewport exposes scroll chaining in either direction.
+	await page.evaluate(() => {
+		document.body.style.minHeight = '2400px';
+		window.scrollTo({ top: 300, behavior: 'instant' });
+	});
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+}
+
+async function wheelAndSettle(page: Page, delta: number) {
+	await page.mouse.wheel(0, delta);
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			)
+	);
+}
+
+async function expectWheelContained(page: Page, target: Locator, delta: number) {
+	await target.hover();
+	await wheelAndSettle(page, delta);
+	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+}
+
+async function expectBackgroundRestored(page: Page, dialog: Locator) {
+	await page.keyboard.press('Escape');
+	await expect(dialog).toHaveCount(0);
+	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	await page.mouse.move(5, 5);
+	await page.mouse.wheel(0, 400);
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 }
 
 // AppModal logout — initial focus, Tab trap, Escape, restore.
@@ -238,4 +272,233 @@ test('modalFocus handles empty panels, nested Escape, inert cleanup and restore'
 	await call('mfClose', 'mf-outer');
 	expect(await active()).toBe('');
 	expect(await page.evaluate(() => document.querySelector('[inert]') === null)).toBe(true);
+});
+
+for (const viewport of [
+	{ width: 1280, height: 800 },
+	{ width: 390, height: 844 }
+]) {
+	test(`AppModal contains background scroll at ${viewport.width}px`, async ({ page }) => {
+		await page.setViewportSize(viewport);
+		await loginAsOwner(page);
+		await page
+			.getByRole('navigation', { name: 'Navigasi utama' })
+			.getByRole('link', { name: 'Laporan', exact: true })
+			.click();
+		await expect(page).toHaveURL(/\/laporan$/);
+		await page.getByRole('button', { name: 'Filter laporan', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Filter Laporan', exact: true });
+		await expect(dialog).toBeVisible();
+		await prepareScrollableBackground(page);
+		const heading = dialog.getByRole('heading', { name: 'Filter Laporan', exact: true });
+		await expectWheelContained(page, heading, -400);
+		await expectWheelContained(page, heading, 400);
+		await page.mouse.move(5, 5);
+		await wheelAndSettle(page, 400);
+		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundRestored(page, dialog);
+	});
+
+	test(`ModalSheet contains scroll at both edges at ${viewport.width}px`, async ({ page }) => {
+		// A short viewport makes the real product options overflow at both widths.
+		await page.setViewportSize({ ...viewport, height: 600 });
+		await loginAsOwner(page);
+		await page
+			.getByRole('navigation', { name: 'Navigasi utama' })
+			.getByRole('link', { name: 'Kasir', exact: true })
+			.click();
+		await expect(page).toHaveURL(/\/pos$/);
+		await page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ }).click();
+		const dialog = page.getByRole('dialog', { name: 'Es Teh UAT', exact: true });
+		await expect(dialog).toBeVisible();
+		await prepareScrollableBackground(page);
+		const content = dialog.locator('.sheet-content');
+		await expect
+			.poll(() => content.evaluate((node) => node.scrollHeight - node.clientHeight))
+			.toBeGreaterThan(0);
+		await content.hover();
+		await page.mouse.wheel(0, 100);
+		await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		for (const delta of [-400, 400]) {
+			await dialog.locator('.sheet-content, .addon-modal-content').evaluateAll((nodes, delta) => {
+				for (const node of nodes) node.scrollTop = delta < 0 ? 0 : node.scrollHeight;
+			}, delta);
+			await expectWheelContained(page, content, delta);
+		}
+		await expectWheelContained(
+			page,
+			dialog.getByRole('heading', { name: 'Es Teh UAT', exact: true }),
+			400
+		);
+		await page.mouse.move(5, 5);
+		await wheelAndSettle(page, 400);
+		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundRestored(page, dialog);
+	});
+}
+
+test('AppModal keeps long stock forms scrollable without moving the background', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 390, height: 640 });
+	await loginAsOwner(page);
+	await page
+		.getByRole('navigation', { name: 'Navigasi utama' })
+		.getByRole('link', { name: 'Stok', exact: true })
+		.click();
+	await expect(page).toHaveURL(/\/stok$/);
+	await page.getByRole('button', { name: 'Tambah Bahan Baku', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Tambah Bahan Baku', exact: true });
+	await expect(dialog).toBeVisible();
+	await prepareScrollableBackground(page);
+	const form = dialog.locator('form');
+	await expect
+		.poll(() => form.evaluate((node) => node.scrollHeight - node.clientHeight))
+		.toBeGreaterThan(0);
+	await form.hover();
+	await page.mouse.wheel(0, 100);
+	await expect.poll(() => form.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	for (const delta of [-400, 400]) {
+		await form.evaluate((node, delta) => {
+			node.scrollTop = delta < 0 ? 0 : node.scrollHeight;
+		}, delta);
+		await expectWheelContained(page, form, delta);
+	}
+	await expectBackgroundRestored(page, dialog);
+});
+
+test('dialog scroll lock survives non-LIFO disposal and restores the original style and position', async ({
+	page
+}) => {
+	await page.goto('/login');
+	const result = await page.evaluate(async () => {
+		const modulePath = '/src/lib/utils/modalFocus.ts';
+		const { modalFocus } = await import(/* @vite-ignore */ modulePath);
+		const original = document.body.style.cssText;
+		document.body.style.minHeight = '2400px';
+		document.body.style.setProperty('overflow', 'auto', 'important');
+		window.scrollTo({ top: 300, behavior: 'instant' });
+		const first = document.createElement('div');
+		const second = document.createElement('div');
+		first.className = 'z-dialog';
+		second.className = 'z-sheet';
+		first.tabIndex = second.tabIndex = -1;
+		document.body.append(first, second);
+		const outer = modalFocus(first);
+		const initialLock = document.body.style.overflow;
+		const inner = modalFocus(second);
+		const topLayer =
+			Number(getComputedStyle(second).zIndex) > Number(getComputedStyle(first).zIndex);
+		outer.destroy();
+		const remainingLock = document.body.style.overflow;
+		inner.destroy();
+		const restored = {
+			value: document.body.style.overflow,
+			priority: document.body.style.getPropertyPriority('overflow'),
+			top: window.scrollY,
+			inert: document.querySelector('[inert]') !== null,
+			layer: second.style.zIndex
+		};
+		first.remove();
+		second.remove();
+		document.body.style.cssText = original;
+		return { initialLock, remainingLock, topLayer, restored };
+	});
+	expect(result).toEqual({
+		initialLock: 'hidden',
+		remainingLock: 'hidden',
+		topLayer: true,
+		restored: { value: 'auto', priority: 'important', top: 300, inert: false, layer: '' }
+	});
+});
+
+test('transaction option sheet traps keyboard focus and restores its trigger', async ({ page }) => {
+	await loginAsOwner(page);
+	await page
+		.getByRole('navigation', { name: 'Navigasi utama' })
+		.getByRole('link', { name: 'Catat', exact: true })
+		.click();
+	await expect(page).toHaveURL(/\/catat$/);
+	const trigger = page.locator('#jenis-dropdown');
+	await trigger.click();
+	const dialog = page.getByRole('dialog', { name: 'Modal pilih opsi', exact: true });
+	await expect(dialog).toBeVisible();
+	await expect
+		.poll(() => dialog.evaluate((node) => node.contains(document.activeElement)))
+		.toBe(true);
+	for (let index = 0; index < 5; index++) {
+		await page.keyboard.press(index % 2 ? 'Shift+Tab' : 'Tab');
+		expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+	}
+	await page.keyboard.press('Escape');
+	await expect(dialog).toHaveCount(0);
+	await expect(trigger).toBeFocused();
+	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+});
+
+test('cropper cancellation leaves its parent menu dialog locked and usable', async ({ page }) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await loginAsOwner(page);
+	await page
+		.getByRole('navigation', { name: 'Navigasi utama' })
+		.getByRole('link', { name: 'Pengaturan', exact: true })
+		.click();
+	await page.getByRole('link', { name: 'Kelola usaha', exact: true }).click();
+	await page.getByRole('link', { name: /Manajemen Menu/ }).click();
+	await expect(page).toHaveURL(/\/pengaturan\/pemilik\/manajemenmenu$/);
+	await page.getByRole('button', { name: 'Tambah Menu', exact: true }).first().click();
+	const parent = page.getByRole('dialog', { name: 'Tambah Menu Baru', exact: true });
+	await expect(parent).toBeVisible();
+	const data = await page.evaluate(() => {
+		const canvas = document.createElement('canvas');
+		canvas.width = canvas.height = 8;
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Canvas fixture is unavailable');
+		context.fillStyle = '#db2777';
+		context.fillRect(0, 0, 8, 8);
+		return canvas.toDataURL('image/png').split(',')[1];
+	});
+	await parent.locator('input[type="file"]').setInputFiles({
+		name: 'uji-crop.png',
+		mimeType: 'image/png',
+		buffer: Buffer.from(data, 'base64')
+	});
+	const cropper = page.getByRole('dialog', { name: 'Potong gambar', exact: true });
+	await expect(cropper).toBeVisible();
+	await expect
+		.poll(() => cropper.evaluate((node) => node.contains(document.activeElement)))
+		.toBe(true);
+	await page.screenshot({ path: test.info().outputPath('nested-cropper.png') });
+	await page.keyboard.press('Escape');
+	await expect(cropper).toHaveCount(0);
+	await expect(parent).toBeVisible();
+	expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+	await parent.getByLabel('Nama Menu').fill('Menu belum disimpan');
+	await page.keyboard.press('Escape');
+	await expect(parent).toHaveCount(0);
+	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+	expect(errors).toEqual([]);
+});
+
+test('failed login dialog traps focus and closes without leaving the page locked', async ({
+	page
+}) => {
+	await page.goto('/login');
+	await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 60_000 });
+	await page.route('**/api/veriflogin', (route) =>
+		route.fulfill({ status: 401, json: { success: false, message: 'Kredensial uji tidak valid' } })
+	);
+	await page.getByPlaceholder('Masukkan username').fill('uji-dialog');
+	await page.getByPlaceholder('Masukkan password').fill('SandiUjiModal123!');
+	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Login Gagal', exact: true });
+	await expect(dialog).toBeVisible();
+	await page.keyboard.press('Tab');
+	expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+	await page.keyboard.press('Escape');
+	await expect(dialog).toHaveCount(0);
+	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
 });

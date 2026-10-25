@@ -64,6 +64,39 @@ pendapatan/pengeluaran tidak boleh disimpulkan sebagai laba aktual. Pada mode
 memiliki snapshot dan nominal HPP. Kegagalan membaca kebijakan menghentikan
 analisis, bukan dianggap sebagai monitoring aktif.
 
+Saat jawaban asisten laporan sedang streaming, auto-scroll mengikuti jawaban
+terbaru hanya selama pengguna tetap di bagian bawah percakapan. Scroll ke atas
+menghentikan auto-scroll, termasuk saat respons selesai atau gagal. Scroll kembali
+ke bawah atau mengirim pertanyaan baru mengaktifkannya kembali.
+Scroll pada batas atas/bawah percakapan maupun area modal tidak diteruskan ke
+halaman laporan di belakangnya.
+
+`DialogRoot` adalah fondasi dialog produksi: portal ke `document.body`, semantik
+dialog, integrasi `modalFocus`, backdrop, dan pembatas scroll. `AppModal` mengatur
+presentasi dialog; `ModalSheet` mengatur presentasi sheet dan gesture swipe.
+Dialog fitur memakai fondasi tersebut, termasuk PIN, cropper, login, dan dropdown.
+Konten panjang tetap bisa discroll tanpa meneruskan scroll ke halaman belakang.
+`modalFocus` menahan scroll halaman selama stack dialog belum kosong dan memulihkan
+nilai serta prioritas style `overflow` sebelumnya ketika dialog terakhir dibuang.
+Dialog bertumpuk tetap menjebak fokus dan Escape hanya ditangani dialog teratas.
+Lapisan dialog baru ditempatkan di atas stack aktif, termasuk sheet yang token
+`z-index` awalnya lebih rendah daripada induknya. Style lapisan semula dipulihkan
+saat dialog dibuang.
+
+Kedua AI memakai `AppModal`. State laporan berada di `createAiReportState`; HTTP,
+validasi respons JSON/SSE, dan pelepasan reader berada di `aiReportService`.
+Request aktif memiliki identitas sendiri beserta konteks cabang dan revisi sesi.
+Hasil request lama tidak boleh mengubah state request penggantinya. Stop, reset,
+pergantian konteks, dan penghancuran fitur membatalkan request miliknya. Menutup
+dialog laporan hanya menyembunyikan percakapan; meninggalkan halaman membatalkan
+stream. Auto-scroll tetap dimiliki view chat dan menghormati posisi baca pengguna.
+Persetujuan transaksi tetap dimiliki `AutoApplyService`, terpisah dari fondasi UI.
+
+Guard AST konsistensi frontend menolak dialog produksi yang membuat root sendiri.
+Tes state/transport AI dapat dijalankan dengan `pnpm test:ai-report-state`; kontrak
+DOM dialog dan lifecycle dibuktikan oleh `e2e/modal-focus.spec.ts` dan
+`e2e/aichat-errors.spec.ts`.
+
 ### 3.1 Checkout online
 
 1. `GET /api/pos/catalog` mengirim katalog dengan token harga HMAC per produk/tambahan

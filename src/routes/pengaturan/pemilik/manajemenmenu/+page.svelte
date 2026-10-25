@@ -381,7 +381,7 @@
 	{#if s.showCropperDialog}
 		<CropperDialog
 			src={s.cropperDialogImage}
-			bind:open={s.showCropperDialog}
+			open={s.showCropperDialog}
 			onDone={s.handleCropperDone}
 			onCancel={s.handleCropperCancel}
 		/>

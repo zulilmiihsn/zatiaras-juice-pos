@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { fade, scale } from 'svelte/transition';
+	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import DialogRoot from './DialogRoot.svelte';
 
 	let {
 		show = $bindable(false),
@@ -71,7 +71,7 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (!show) return;
+		if (!show || event.defaultPrevented) return;
 		if (event.key >= '0' && event.key <= '9') {
 			event.preventDefault();
 			handlePinInput(parseInt(event.key, 10));
@@ -83,10 +83,6 @@
 			if (pinInput.length === 4) {
 				handleVerify();
 			}
-		} else if (event.key === 'Escape') {
-			event.preventDefault();
-			show = false;
-			if (onClose) onClose();
 		}
 	}
 
@@ -96,121 +92,121 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
-
-{#if show}
-	<div
-		use:modalFocus
-		class="z-modal fixed inset-0 flex items-center justify-center bg-gradient-to-br from-pink-500/95 via-pink-600/95 to-purple-600/95 pb-20 backdrop-blur-md"
-		transition:fade={{ duration: 200 }}
-		role="dialog"
-		aria-modal="true"
-		aria-label={title}
-	>
-		<div class="flex h-full w-full flex-col items-center justify-center p-4">
-			<div
-				class="relative w-full max-w-sm rounded-[28px] border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
-				transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
-			>
-				{#if onClose}
-					<button
-						type="button"
-						class="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95"
-						onclick={() => {
-							show = false;
-							if (onClose) onClose();
-						}}
-						aria-label="Tutup"
-					>
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					</button>
-				{/if}
-				<div class="mb-4 text-center">
-					<div
-						class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 shadow-lg"
-					>
-						<svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-							/>
-						</svg>
-					</div>
-					<h2 class="mb-2 text-xl font-bold text-white">{title}</h2>
-					<p class="text-sm text-pink-100">{subtitle}</p>
-				</div>
-
-				<!-- PIN Display (Fixed 4 Digits) -->
-				<div class="mb-2 flex justify-center gap-3.5 {isShaking ? 'animate-shake' : ''}">
-					{#each Array(4) as _, i}
-						<div
-							class="h-4 w-4 rounded-full transition-all duration-150 {pinInput.length > i
-								? 'scale-110 bg-white shadow-xs'
-								: 'border-2 border-white/50 bg-white/30'} {isVerifying ? 'animate-pulse' : ''}"
-						></div>
-					{/each}
-				</div>
-				<!-- Reserve space for error to avoid layout shift -->
-				<div
-					class="mb-2 h-5 text-center text-sm font-semibold text-white/90 {pinError || isVerifying
-						? 'visible opacity-100'
-						: 'invisible opacity-0'}"
-					aria-live="polite"
+<DialogRoot
+	open={show}
+	label={title}
+	backdropClose={false}
+	onkeydown={handleKeyDown}
+	onClose={() => {
+		show = false;
+		onClose?.();
+	}}
+	class="z-modal items-center justify-center bg-gradient-to-br from-pink-500/95 via-pink-600/95 to-purple-600/95 pb-20 backdrop-blur-md"
+	fadeDuration={200}
+>
+	<div class="flex h-full w-full flex-col items-center justify-center p-4">
+		<div
+			class="relative w-full max-w-sm rounded-[28px] border border-white/30 bg-white/20 p-6 shadow-2xl backdrop-blur-xl md:p-8"
+			transition:scale|global={{ start: 0.94, duration: 220, easing: cubicOut }}
+		>
+			{#if onClose}
+				<button
+					type="button"
+					class="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95"
+					onclick={() => {
+						show = false;
+						if (onClose) onClose();
+					}}
+					aria-label="Tutup"
 				>
-					{isVerifying ? 'Memverifikasi...' : pinError}
+					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+			{/if}
+			<div class="mb-4 text-center">
+				<div
+					class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 shadow-lg"
+				>
+					<svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+						/>
+					</svg>
 				</div>
+				<h2 class="mb-2 text-xl font-bold text-white">{title}</h2>
+				<p class="text-sm text-pink-100">{subtitle}</p>
+			</div>
 
-				<!-- Numpad -->
-				<div class="mb-3 grid grid-cols-3 justify-items-center gap-3">
-					{#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as num}
-						<button
-							type="button"
-							class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
-							onclick={() => handlePinInput(num)}
-							disabled={isVerifying}
-						>
-							{num}
-						</button>
-					{/each}
-					<div class="h-16 w-16" aria-hidden="true"></div>
+			<!-- PIN Display (Fixed 4 Digits) -->
+			<div class="mb-2 flex justify-center gap-3.5 {isShaking ? 'animate-shake' : ''}">
+				{#each Array(4) as _, i}
+					<div
+						class="h-4 w-4 rounded-full transition-all duration-150 {pinInput.length > i
+							? 'scale-110 bg-white shadow-xs'
+							: 'border-2 border-white/50 bg-white/30'} {isVerifying ? 'animate-pulse' : ''}"
+					></div>
+				{/each}
+			</div>
+			<!-- Reserve space for error to avoid layout shift -->
+			<div
+				class="mb-2 h-5 text-center text-sm font-semibold text-white/90 {pinError || isVerifying
+					? 'visible opacity-100'
+					: 'invisible opacity-0'}"
+				aria-live="polite"
+			>
+				{isVerifying ? 'Memverifikasi...' : pinError}
+			</div>
+
+			<!-- Numpad -->
+			<div class="mb-3 grid grid-cols-3 justify-items-center gap-3">
+				{#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as num}
 					<button
 						type="button"
 						class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
-						onclick={() => handlePinInput(0)}
+						onclick={() => handlePinInput(num)}
 						disabled={isVerifying}
 					>
-						0
+						{num}
 					</button>
-					<button
-						type="button"
-						class="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
-						onclick={handleDelete}
-						disabled={isVerifying || pinInput.length === 0}
-						aria-label="Hapus"
-					>
-						<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-8.172a2 2 0 01-1.414-.586L3 12z"
-							/>
-						</svg>
-					</button>
-				</div>
+				{/each}
+				<div class="h-16 w-16" aria-hidden="true"></div>
+				<button
+					type="button"
+					class="h-16 w-16 rounded-2xl border border-white/30 bg-white/20 text-2xl font-bold text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:bg-white/40 active:shadow-[0_0_20px_rgba(255,255,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
+					onclick={() => handlePinInput(0)}
+					disabled={isVerifying}
+				>
+					0
+				</button>
+				<button
+					type="button"
+					class="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+					onclick={handleDelete}
+					disabled={isVerifying || pinInput.length === 0}
+					aria-label="Hapus"
+				>
+					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-8.172a2 2 0 01-1.414-.586L3 12z"
+						/>
+					</svg>
+				</button>
 			</div>
 		</div>
 	</div>
-{/if}
+</DialogRoot>
 
 <style>
 	@keyframes shake {

@@ -239,7 +239,9 @@ test('layout reads the PIN status once per page load and once per navigation', a
 test('cashier is locked again when the 60 second unlock lapses without any navigation', async ({
 	page
 }) => {
-	await mockSettingsSession(page, 'kasir');
+	const verifiedAt = Date.parse('2026-10-20T04:00:00.000Z');
+	await page.clock.install({ time: verifiedAt - 60_000 });
+	await mockSettingsSession(page, 'kasir', 'manual');
 	await page.route('**/api/pengaturan?*', (route) =>
 		route.fulfill({
 			json: [
@@ -259,13 +261,25 @@ test('cashier is locked again when the 60 second unlock lapses without any navig
 	await gotoHydrated(page, '/', 'h2:text-is("Akses Terkunci")');
 	const locked = page.getByRole('dialog', { name: 'Akses Terkunci', exact: true });
 	await expect(locked).toBeVisible();
-	// Fake timers only from here, so the unlock timer the app arms next is the one that runs.
-	await page.clock.install({ time: new Date('2026-10-20T04:00:00.000Z') });
+	// Network and dialog transitions must not consume the interval asserted below.
+	await page.clock.pauseAt(verifiedAt);
 	await page.keyboard.type('2580');
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const modulePath = '/src/lib/stores/securitySettings.svelte.ts';
+				const { pinAccess } = await import(/* @vite-ignore */ modulePath);
+				return pinAccess.value?.expiresAt;
+			})
+		)
+		.toBe(verifiedAt + 60_000);
+	await page.clock.runFor(250);
 	await expect(locked).toHaveCount(0);
-	await page.clock.runFor(59_000);
+	await page.clock.runFor(58_750);
+	expect(await page.evaluate(() => Date.now())).toBe(verifiedAt + 59_000);
 	await expect(locked).toHaveCount(0);
 	await page.clock.runFor(1_001);
+	expect(await page.evaluate(() => Date.now())).toBe(verifiedAt + 60_001);
 	await expect(locked).toBeVisible();
 });
 
@@ -895,9 +909,13 @@ for (const width of [1440, 320]) {
 
 // Halaman Pengaturan Pemilik > Keamanan setelah dipecah ke store +
 // kartu. Mock jaringan; tidak ada kredensial atau PIN nyata yang diubah.
-async function mockSettingsSession(page: Page, role: 'pemilik' | 'kasir' = 'pemilik') {
+async function mockSettingsSession(
+	page: Page,
+	role: 'pemilik' | 'kasir' = 'pemilik',
+	clock: 'fixed' | 'manual' = 'fixed'
+) {
 	const writes: Array<{ method: string; url: string; body: unknown }> = [];
-	await page.clock.setFixedTime(new Date('2026-10-20T04:00:00.000Z'));
+	if (clock === 'fixed') await page.clock.setFixedTime(new Date('2026-10-20T04:00:00.000Z'));
 	const expiresAt = Date.parse('2026-10-20T05:00:00.000Z');
 	await page.addInitScript(
 		({ role, expiresAt }) => {

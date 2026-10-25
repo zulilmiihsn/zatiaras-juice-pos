@@ -7,9 +7,9 @@
 	import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 	import type { BranchType } from '$lib/stores/selectedBranch.svelte';
 	import { isAuthenticated } from '$lib/utils/authGuard';
-	import { fade, scale } from 'svelte/transition';
+	import { scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import DialogRoot from '$lib/components/shared/DialogRoot.svelte';
 
 	import User from '@lucide/svelte/icons/user';
 	import Lock from '@lucide/svelte/icons/lock';
@@ -308,49 +308,44 @@
 </div>
 
 <!-- Success Notification Overlay (Full Screen Viewport) -->
-{#if showSuccessModal}
+<DialogRoot
+	open={showSuccessModal}
+	label="Login Berhasil"
+	backdropClose={false}
+	class="z-dialog items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+	fadeDuration={200}
+>
 	<div
-		class="z-dialog fixed inset-0 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-		transition:fade={{ duration: 200 }}
+		class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
+		transition:scale|global={{ start: 0.94, duration: 220, easing: cubicOut }}
 	>
-		<div
-			use:modalFocus
-			role="dialog"
-			aria-modal="true"
-			aria-label="Login Berhasil"
-			class="flex flex-col items-center rounded-3xl border border-pink-100 bg-white px-8 py-6 shadow-2xl"
-			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
-		>
-			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600">
-				<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
-			</div>
-			<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
-			<div class="text-xs font-medium text-slate-400">Membuka aplikasi...</div>
+		<div class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600">
+			<CheckCircle2 class="h-9 w-9 stroke-[2.5]" />
 		</div>
+		<div class="mt-3 text-lg font-black text-slate-900">Login Berhasil!</div>
+		<div class="text-xs font-medium text-slate-400">Membuka aplikasi...</div>
 	</div>
-{/if}
+</DialogRoot>
 
 <!-- Error Notification Overlay (Full Screen Viewport) -->
-{#if showErrorModal}
+<DialogRoot
+	open={showErrorModal}
+	label="Login Gagal"
+	backdropClose={false}
+	onClose={() => (showErrorModal = false)}
+	class="z-dialog items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+	fadeDuration={200}
+>
 	<div
-		class="z-dialog fixed inset-0 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-		transition:fade={{ duration: 200 }}
+		class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
+		transition:scale|global={{ start: 0.94, duration: 220, easing: cubicOut }}
 	>
-		<div
-			use:modalFocus={{ onEscape: () => (showErrorModal = false) }}
-			role="dialog"
-			aria-modal="true"
-			aria-label="Login Gagal"
-			class="flex flex-col items-center rounded-3xl border border-rose-100 bg-white px-8 py-6 shadow-2xl"
-			transition:scale={{ start: 0.94, duration: 220, easing: cubicOut }}
-		>
-			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
-				<AlertCircle class="h-9 w-9 stroke-[2.5]" />
-			</div>
-			<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
-			<div class="text-xs font-medium text-slate-400">
-				{errorMessage || 'Periksa username dan password'}
-			</div>
+		<div class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+			<AlertCircle class="h-9 w-9 stroke-[2.5]" />
+		</div>
+		<div class="mt-3 text-lg font-black text-rose-600">Login Gagal</div>
+		<div class="text-xs font-medium text-slate-400">
+			{errorMessage || 'Periksa username dan password'}
 		</div>
 	</div>
-{/if}
+</DialogRoot>

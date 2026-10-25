@@ -13,6 +13,23 @@ import { parse } from 'svelte/compiler';
 const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 
+/**
+ * @param {string} file Repository-relative path with forward slashes.
+ * @param {{name: string, role: string, ariaModal: string, classes: string | null}} node
+ */
+export function isUnownedDialog(file, node) {
+	if (file === 'src/lib/components/shared/DialogRoot.svelte') return false;
+	// The existing development-only simulator is maintained separately from production dialogs.
+	if (file === 'src/routes/dev/printer-sim/+page.svelte') return false;
+	const tokens = node.classes?.split(/\s+/) ?? [];
+	return (
+		node.name === 'dialog' ||
+		['dialog', 'alertdialog'].includes(node.role) ||
+		node.ariaModal === 'true' ||
+		(tokens.includes('fixed') && tokens.includes('inset-0'))
+	);
+}
+
 /** AST dari svelte/compiler tak punya tipe longgar yang stabil; hanya dibaca secara defensif. */
 /** @typedef {any} AstNode */
 
@@ -154,7 +171,6 @@ export function computeMetrics() {
 			parseFailures.push(`${rel(file)}: ${error instanceof Error ? error.message : error}`);
 			continue;
 		}
-		const guardsFocus = src.includes('use:modalFocus');
 
 		/** @param {AstNode} node @returns {string} */
 		const where = (node) => `${rel(file)}:${lineOf(src, node.start)}`;
@@ -194,11 +210,16 @@ export function computeMetrics() {
 			if (node.type === 'RegularElement') {
 				if (node.name === 'style') hit('nestedStyle', where(node));
 				const cls = classText(attr(node, 'class'));
+				if (
+					isUnownedDialog(rel(file), {
+						name: node.name,
+						role: attrExpr(attr(node, 'role')),
+						ariaModal: attrExpr(attr(node, 'aria-modal')),
+						classes: cls
+					})
+				)
+					hit('overlayFiles', where(node));
 				if (cls !== null) {
-					const tokens = cls.split(/\s+/);
-					if (tokens.includes('fixed') && tokens.includes('inset-0') && !guardsFocus) {
-						hit('overlayFiles', where(node));
-					}
 					const flat = cls.replace(/\s+/g, ' ').trim();
 					if (flat.length >= 90 && !flat.includes('{')) {
 						const list = classGroups.get(flat) ?? [];
