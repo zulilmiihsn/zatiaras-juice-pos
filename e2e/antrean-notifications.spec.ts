@@ -812,3 +812,70 @@ reloginTest(
 		}
 	}
 );
+
+test('Antrean notification banner closes by swipe up or close button without clearing unseen orders', async ({
+	browser,
+	baseURL
+}) => {
+	const clients: Awaited<ReturnType<typeof device>>[] = [];
+	try {
+		for (let index = 0; index < 2; index++) clients.push(await device(browser, baseURL));
+	} catch (error) {
+		await Promise.allSettled(clients.map((client) => client.context.close()));
+		throw error;
+	}
+	const [a, b] = clients;
+	const ids: string[] = [];
+	let primaryFailure: unknown;
+	let hasFailure = false;
+	try {
+		const banner = b.page.getByRole('complementary', { name: 'Notifikasi pesanan baru' });
+		const unseen = async () => (await local(b.page))?.events.length ?? 0;
+		const first = await checkout(a.page, 'Banner geser pertama');
+		ids.push(first.transactionId);
+		await wake(b.page);
+		await expect(banner).toBeVisible();
+		// Menyeret dari teks (bukan tombol/link) lebih dari ambang geser ke atas.
+		const title = banner.getByText('Pesanan baru masuk', { exact: true });
+		const grip = await title.boundingBox();
+		if (!grip) throw new Error('Judul banner tidak punya kotak layout');
+		const x = grip.x + grip.width / 2;
+		await b.page.mouse.move(x, grip.y + grip.height / 2);
+		await b.page.mouse.down();
+		await b.page.mouse.move(x, grip.y - 70, { steps: 8 });
+		await b.page.mouse.up();
+		await expect(banner).toHaveCount(0);
+		// Menutup hanya menyembunyikan: pesanan tetap belum terlihat di perangkat ini.
+		expect(await unseen()).toBeGreaterThan(0);
+
+		const second = await checkout(a.page, 'Banner geser kedua');
+		ids.push(second.transactionId);
+		await wake(b.page);
+		await expect(banner).toBeVisible();
+		// Sisa jarak geser tidak boleh terbawa: banner baru harus utuh di dalam layar.
+		await expect
+			.poll(async () => (await banner.boundingBox())?.y ?? Number.NEGATIVE_INFINITY)
+			.toBeGreaterThanOrEqual(0);
+
+		await banner.getByRole('button', { name: 'Tutup notifikasi' }).click();
+		await expect(banner).toHaveCount(0);
+		expect(await unseen()).toBeGreaterThan(0);
+	} catch (error) {
+		hasFailure = true;
+		primaryFailure = error;
+	} finally {
+		const cleaned = await Promise.allSettled([cleanup(a.page, ids)]);
+		const closed = await Promise.allSettled(clients.map((client) => client.context.close()));
+		// Failed teardown must fail a passing test, but cannot mask the original behavioral assertion.
+		if (!hasFailure) {
+			const teardownFailure = [...cleaned, ...closed].find(
+				(result) => result.status === 'rejected'
+			);
+			if (teardownFailure?.status === 'rejected') {
+				hasFailure = true;
+				primaryFailure = teardownFailure.reason;
+			}
+		}
+	}
+	if (hasFailure) throw primaryFailure;
+});
