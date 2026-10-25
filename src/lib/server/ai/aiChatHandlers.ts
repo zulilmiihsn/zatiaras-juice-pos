@@ -412,7 +412,8 @@ export async function handleRegularChat(input: {
 				end: rangeContext.requested.end,
 				endFormatted: rangeContext.requested.endFormatted,
 				type: rangeContext.requested.type,
-				dataRequirements: rangeContext.dataRequirements
+				dataRequirements: rangeContext.dataRequirements,
+				stockMonitoringPaused: pipeline.stockMonitoringPaused
 			},
 			deps,
 			sanitizedHistory,

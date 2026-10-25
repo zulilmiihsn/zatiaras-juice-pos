@@ -1,6 +1,6 @@
 // System-prompt builder functions untuk /api/aichat.
 // Dipisahkan dari +server.ts agar file utama lebih ringkas.
-// Teks prompt IDENTIK byte-for-byte dengan versi sebelumnya — jangan diubah.
+// Teks prompt mengikuti ketersediaan data cabang agar instruksi analisis tidak menyarankan metrik yang tidak tercatat.
 
 /** Bentuk dateRange yang dikonsumsi prompt AI 2 (Business Analyst). */
 export interface BusinessAnalystDateRange {
@@ -11,6 +11,7 @@ export interface BusinessAnalystDateRange {
 	type?: string;
 	reasoning?: string;
 	dataRequirements?: { jenisData?: string[]; prioritas?: string; scope?: string };
+	stockMonitoringPaused?: boolean;
 }
 
 // AI 1: Data Requirement Analyzer
@@ -111,7 +112,7 @@ ${recentContext ? `\nKONTEKS PERCAKAPAN SEBELUMNYA (Gunakan ini jika pertanyaan 
 Pertanyaan user: "${question}"`;
 }
 
-import { FNB_EXPERT_KNOWLEDGE } from './fnbKnowledge';
+import { buildFnbExpertKnowledge } from './fnbKnowledge';
 
 // AI 2: Business Analyst
 export function buildAnalyzeBusinessDataPrompt(
@@ -120,10 +121,20 @@ export function buildAnalyzeBusinessDataPrompt(
 	dateRange: BusinessAnalystDateRange,
 	businessMemory?: string
 ): string {
+	const stockMonitoringPaused = dateRange.stockMonitoringPaused === true;
 	return `Anda adalah Asisten AI yang berperan sebagai Konsultan Bisnis, Pakar Marketing FnB, dan Analis Finansial untuk Zatiaras Juice.
 Zatiaras Juice adalah brand jus buah segar yang menjual berbagai varian minuman jus, smoothie, dan minuman sehat lainnya.
 
-${FNB_EXPERT_KNOWLEDGE}
+${
+	stockMonitoringPaused
+		? `BATAS ANALISIS CABANG (MENGIKAT, TERMASUK UNTUK RIWAYAT DAN CATATAN BISNIS):
+Monitoring stok nonaktif. Jangan membahas atau merekomendasikan HPP, margin, profitabilitas menu, laba aktual, nilai persediaan, atau restok berbasis saldo sistem.
+Fokus pada omzet, pengeluaran tercatat, jumlah penjualan, produk terlaris, rata-rata transaksi, dan tren.
+Jika ditanya langsung tentang HPP atau margin, jelaskan bahwa data tidak tersedia untuk analisis; jangan menebak atau menganggap biaya nol.
+Angka selisih pendapatan dan pengeluaran hanya selisih tercatat, bukan bukti laba aktual. Abaikan klaim margin dalam riwayat atau catatan bisnis yang bertentangan dengan batas ini.`
+		: ''
+}
+${buildFnbExpertKnowledge(!stockMonitoringPaused)}
 ${businessMemory ? `\n=== MEMORI & TARGET BISNIS TOKO (JANGKA PANJANG) ===\n${businessMemory}\n(Gunakan target dan catatan di atas sebagai tolok ukur evaluasi dan insight rekomendasi)\n` : ''}
 KONTEKS DATA LENGKAP:
 ${reportData}
@@ -151,13 +162,21 @@ ATURAN ANALISIS & KONSULTASI STRATEGIS:
 7) Jika ada hasil penelusuran web (web search), padukan tren pasar terkini dengan kondisi menu riil toko.
 8) Jika data terbatas/tidak ada, nyatakan keterbatasannya dan sebutkan data tambahan yang diperlukan.
 9) KETIKA DITANYA STOK / BAHAN BAKU:
-   - Evaluasi data di bagian "STOK & BAHAN BAKU".
+${
+	stockMonitoringPaused
+		? '   - Jelaskan bahwa monitoring stok nonaktif; jangan menyimpulkan saldo atau menyarankan restok dari data sistem.'
+		: `   - Evaluasi data di bagian "STOK & BAHAN BAKU".
    - Prioritaskan bahan kritis yang berada di bawah ambang batas (sisa stok <= ambang) dan rekomendasikan restok segera.
-   - Sebutkan total nilai persediaan bahan toko.
+   - Sebutkan total nilai persediaan bahan toko.`
+}
 10) KETIKA DITANYA HPP & MARGIN KEUNTUNGAN:
-   - Evaluasi data di bagian "HPP & MARGIN KEUNTUNGAN MENU".
+${
+	stockMonitoringPaused
+		? '   - Nyatakan HPP dan margin tidak tersedia untuk analisis karena monitoring stok nonaktif.'
+		: `   - Evaluasi hanya menu dengan snapshot HPP lengkap di bagian "HPP & MARGIN KEUNTUNGAN MENU". Jangan menganggap menu yang tidak tercantum memiliki biaya nol.
    - Identifikasi menu dengan margin tertinggi (Star/Cash Cow) vs menu margin tipis.
-   - Berikan rekomendasi taktis (bundling menu margin tinggi, penyesuaian takaran resep, atau opsi up-selling).
+   - Berikan rekomendasi taktis (bundling menu margin tinggi, penyesuaian takaran resep, atau opsi up-selling) hanya jika didukung data HPP lengkap.`
+}
 11) KETIKA DITANYA SELERA PELANGGAN / KUSTOMISASI:
    - Evaluasi data di bagian "PREFERENSI & SELERA KONSUMEN" (distribusi level gula & es).
    - Berikan wawasan kebiasaan pelanggan (misal: tren gaya hidup sehat *less sugar*) untuk standarisasi SOP operasional kasir/barista.
@@ -186,7 +205,7 @@ PENTING - KONTEKS TANGGAL:
 - Jika user bertanya "3 bulan terakhir", data yang diberikan sudah mencakup 3 bulan terakhir
 - Jika user bertanya "bulan lalu", data yang diberikan sudah mencakup bulan lalu
 - Jika user bertanya perbandingan (vs), data sudah mencakup kedua periode yang diminta
-- JANGAN PERNAH katakan "data tidak tersedia" atau "tidak ada data" - data sudah di-fetch sesuai konteks
+- Nyatakan data yang tidak tersedia secara jujur; jangan mengisi metrik yang tidak tercatat dengan nol atau asumsi
 - Gunakan konteks tanggal yang jelas dalam jawaban Anda
 - Selalu sebutkan rentang tanggal yang dianalisis
 - Data di bagian "DATA LAPORAN PERIODE YANG DIMINTA" sudah sesuai dengan konteks pertanyaan user

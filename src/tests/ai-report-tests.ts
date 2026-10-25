@@ -1,8 +1,154 @@
 import assert from 'node:assert/strict';
+import { mock } from 'node:test';
 import { createTestD1 } from './helpers/testD1';
-import { fetchReportDataSql } from '../lib/server/ai/reportData';
+import {
+	buildReportContext,
+	fetchReportDataSql,
+	type RangeContext
+} from '../lib/server/ai/reportData';
+import { buildAnalyzeBusinessDataPrompt } from '../lib/server/ai/prompts';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
-import { branchContext } from '../lib/server/branchResolver';
+import { branchContext, getDrizzleDb } from '../lib/server/branchResolver';
+import { prepareReportAnalysis } from '../lib/server/ai/aiChatUseCase';
+
+// Stok nonaktif: AI tidak menerima angka margin, termasuk dari transaksi lama.
+// Tanpa snapshot HPP, nol bawaan bukan bukti biaya nol meski stok masih aktif.
+const costDb = await createTestD1();
+try {
+	await costDb.db
+		.prepare(
+			`INSERT INTO buku_kas (id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, transaction_id)
+		 VALUES ('cost-header', 'samarinda', '2026-09-10T02:00:00.000Z', 'catat', 'in', 'pendapatan_usaha', 40000, 4, 'cost-tx')`
+		)
+		.run();
+	for (const [id, name, snapshot, hpp] of [
+		['known', 'Menu Terukur', '{"hpp_per_item":4000}', 4000],
+		['unknown', 'Menu Tanpa HPP', null, 0],
+		['mixed-known', 'Menu Campuran', '{"hpp_per_item":4000}', 4000],
+		['mixed-unknown', 'Menu Campuran', null, 0]
+	] as const) {
+		await costDb.db
+			.prepare(
+				`INSERT INTO transaksi_kasir (id, cabang_id, buku_kas_id, nama_produk, jumlah, nominal, snapshot_hpp, nominal_hpp)
+			 VALUES (?, 'samarinda', 'cost-header', ?, 1, 10000, ?, ?)`
+			)
+			.bind(id, name, snapshot, hpp)
+			.run();
+	}
+	const range: RangeContext = {
+		requested: {
+			start: '2026-09-10',
+			end: '2026-09-10',
+			startFormatted: '10 September 2026',
+			endFormatted: '10 September 2026',
+			type: 'daily'
+		},
+		dataRequirements: {
+			jenisData: ['financial_summary'],
+			prioritas: 'general_analysis',
+			scope: 'general_analysis'
+		}
+	};
+	const tracked = await fetchReportDataSql(
+		costDb.db,
+		'samarinda',
+		range.requested.start,
+		range.requested.end
+	);
+	assert.deepEqual(
+		tracked.serverReportData.marginProduk?.map((m) => [m.nama, m.marginPersen]),
+		[['Menu Terukur', 60]]
+	);
+	assert.ok(buildReportContext(tracked.serverReportData, range).includes('Margin 60%'));
+	assert.ok(
+		buildAnalyzeBusinessDataPrompt('Analisis margin', '', range.requested).includes(
+			'Identifikasi menu dengan margin tertinggi'
+		)
+	);
+	await costDb.db
+		.prepare(
+			`INSERT INTO stock_policy (cabang_id, mode, revision, disabled_at, updated_at, updated_by, updated_by_role)
+		 VALUES ('samarinda', 'ignored', 1, '2026-09-10T03:00:00.000Z', '2026-09-10T03:00:00.000Z', 'owner', 'pemilik')`
+		)
+		.run();
+	const paused = await fetchReportDataSql(
+		costDb.db,
+		'samarinda',
+		range.requested.start,
+		range.requested.end
+	);
+	assert.deepEqual(
+		paused.serverReportData.marginProduk,
+		[],
+		'stok nonaktif tidak mengekspos margin historis'
+	);
+	assert.equal(paused.serverReportData.summary?.pendapatan, 40000);
+	// Builder juga menolak angka margin yang tersisa dari konteks lama.
+	const context = buildReportContext(
+		{
+			...paused.serverReportData,
+			marginProduk: [
+				{ nama: 'Margin Basi', omzet: 10000, hpp: 0, labaKotor: 10000, marginPersen: 100 }
+			]
+		},
+		range
+	);
+	assert.ok(context.includes('HPP dan margin tidak tersedia'));
+	assert.ok(!context.includes('Margin Basi') && !context.includes('Margin 100%'));
+	assert.ok(!context.includes('- Laba Kotor:') && !context.includes('- Laba Bersih:'));
+	const prompt = buildAnalyzeBusinessDataPrompt('Bagaimana menaikkan omzet?', context, {
+		...range.requested,
+		stockMonitoringPaused: true
+	});
+	assert.ok(prompt.includes('Jangan membahas atau merekomendasikan HPP, margin'));
+	assert.ok(!prompt.includes('Identifikasi menu dengan margin tertinggi'));
+	assert.ok(!prompt.includes('Stars (Populer Tinggi, Margin Tinggi)'));
+	assert.ok(!prompt.includes('JANGAN PERNAH katakan "data tidak tersedia"'));
+	// Cabang aktif tidak mengikuti kebijakan cabang lain.
+	assert.equal(
+		(await fetchReportDataSql(costDb.db, 'balikpapan', range.requested.start, range.requested.end))
+			.serverReportData.stokBahan?.monitoringPaused,
+		false
+	);
+	const pipelineInput = {
+		rawDb: costDb.db,
+		db: getDrizzleDb(
+			{ env: { DB_SAMARINDA_GROUP: costDb.db } } as App.Platform,
+			branchContext('samarinda')
+		),
+		branch: branchContext('samarinda'),
+		cleanQ: 'performa penjualan tanggal 10 September 2026',
+		deps: { apiKey: '', model: '', url: 'https://test.invalid' },
+		history: [{ role: 'assistant', content: 'Menu Tanpa HPP memiliki margin 100%' }],
+		webSearchFlag: false
+	};
+	mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-16T00:00:00.000Z') });
+	const pipeline = await prepareReportAnalysis(pipelineInput);
+	assert.equal(pipeline.kind, 'ready');
+	if (pipeline.kind === 'ready') {
+		assert.equal(pipeline.stockMonitoringPaused, true);
+		assert.ok(
+			pipeline.fullMessages[0].content.includes('Jangan membahas atau merekomendasikan HPP, margin')
+		);
+		assert.ok(pipeline.fullMessages[0].content.includes('Abaikan klaim margin dalam riwayat'));
+	}
+	const marginQuestion = await prepareReportAnalysis({
+		...pipelineInput,
+		cleanQ: 'margin tanggal 10 September 2026'
+	});
+	assert.equal(marginQuestion.kind, 'empty');
+	if (marginQuestion.kind === 'empty')
+		assert.ok(marginQuestion.payload.error.includes('HPP dan margin tidak tersedia'));
+	// Gagal membaca kebijakan tidak boleh dianggap monitoring aktif.
+	await costDb.db.prepare('DROP TABLE stock_policy').run();
+	await assert.rejects(
+		fetchReportDataSql(costDb.db, 'samarinda', range.requested.start, range.requested.end)
+	);
+	console.log('ai-report-tests: stock-aware margin context passed');
+} finally {
+	mock.timers.reset();
+	await costDb.close();
+}
 
 // Inti finansial AI reuse agregat kanonik aktif + arsip.
 const { db, close } = await createTestD1();

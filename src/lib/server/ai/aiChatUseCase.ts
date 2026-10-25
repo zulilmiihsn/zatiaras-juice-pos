@@ -111,6 +111,7 @@ export async function analyzeBusinessData(
 		type?: string;
 		reasoning?: string;
 		dataRequirements?: { jenisData?: string[]; prioritas?: string; scope?: string };
+		stockMonitoringPaused?: boolean;
 	},
 	deps: AiDeps,
 	history: ChatMessage[] = [],
@@ -251,6 +252,7 @@ export async function analyzeTransactionText(
 
 export interface ReportPipelineReady {
 	kind: 'ready';
+	stockMonitoringPaused: boolean;
 	dataRequirements: DataRequirements;
 	rangeContext: RangeContext;
 	reportContext: string;
@@ -322,21 +324,26 @@ export async function prepareReportAnalysis(input: {
 	);
 
 	// Monitoring stok nonaktif: jawab deterministik tanpa memanggil gateway AI.
-	if (reportResult.serverReportData.stokBahan?.monitoringPaused && isInventoryQuestion(cleanQ)) {
+	if (
+		reportResult.serverReportData.stokBahan?.monitoringPaused &&
+		(isInventoryQuestion(cleanQ) || dataRequirements.prioritas === 'margin_analysis')
+	) {
 		return {
 			kind: 'empty',
 			payload: {
 				code: 'NO_DATA',
-				error:
-					'Monitoring stok sedang dijeda untuk cabang ini sehingga saldo sistem bukan kondisi terkini. Lakukan hitung fisik untuk mengetahui stok aktual.',
+				error: isInventoryQuestion(cleanQ)
+					? 'Monitoring stok sedang dijeda untuk cabang ini sehingga saldo sistem bukan kondisi terkini. Lakukan hitung fisik untuk mengetahui stok aktual.'
+					: 'HPP dan margin tidak tersedia untuk analisis karena monitoring stok nonaktif. Biaya yang tidak tercatat tidak dapat dianggap nol.',
 				dateRange: `${dataRequirements.periode.start} hingga ${dataRequirements.periode.end}`,
 				dataRequirements: {
 					jenisData: dataRequirements.jenisData,
 					prioritas: dataRequirements.prioritas,
 					scope: dataRequirements.scope
 				},
-				suggestion:
-					'Aktifkan kembali monitoring stok lewat pengaturan pemilik setelah rekonsiliasi fisik bila ingin analisis stok otomatis.'
+				suggestion: isInventoryQuestion(cleanQ)
+					? 'Aktifkan kembali monitoring stok lewat pengaturan pemilik setelah rekonsiliasi fisik bila ingin analisis stok otomatis.'
+					: 'Gunakan analisis omzet, pengeluaran tercatat, produk terlaris, atau tren penjualan.'
 			}
 		};
 	}
@@ -430,13 +437,15 @@ export async function prepareReportAnalysis(input: {
 			end: rangeContext.requested.end,
 			endFormatted: rangeContext.requested.endFormatted,
 			type: rangeContext.requested.type,
-			dataRequirements: rangeContext.dataRequirements
+			dataRequirements: rangeContext.dataRequirements,
+			stockMonitoringPaused: reportResult.serverReportData.stokBahan?.monitoringPaused
 		},
 		businessMemory
 	);
 
 	return {
 		kind: 'ready',
+		stockMonitoringPaused: reportResult.serverReportData.stokBahan?.monitoringPaused === true,
 		dataRequirements,
 		rangeContext,
 		reportContext,

@@ -55,6 +55,15 @@ UI (src/routes, src/lib/components)
 
 ## 3. Alur kritis
 
+Asisten laporan memakai kebijakan stok cabang sebagai batas analisis. Saat mode
+`ignored`, konteks AI tidak memuat angka HPP/margin atau matriks profitabilitas;
+pertanyaan margin dijawab deterministik dengan penjelasan data tidak tersedia.
+Omzet, pengeluaran tercatat, volume, dan tren tetap dapat dianalisis. Selisih
+pendapatan/pengeluaran tidak boleh disimpulkan sebagai laba aktual. Pada mode
+`tracked`, margin menu hanya disertakan bila seluruh transaksi menu dalam periode
+memiliki snapshot dan nominal HPP. Kegagalan membaca kebijakan menghentikan
+analisis, bukan dianggap sebagai monitoring aktif.
+
 ### 3.1 Checkout online
 
 1. `GET /api/pos/catalog` mengirim katalog dengan token harga HMAC per produk/tambahan

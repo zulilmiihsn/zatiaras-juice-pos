@@ -162,13 +162,8 @@ export async function fetchReportDataSql(
 	endYmd: string
 ): Promise<ReportSqlResult> {
 	// Monitoring stok nonaktif: jangan kirim saldo basi sebagai fakta terkini ke model.
-	let stockMonitoringPaused = false;
-	try {
-		const policy = await loadStockPolicy(rawDb, branchContext(normalizeBranch(requestedBranch)));
-		stockMonitoringPaused = policy.mode === 'ignored';
-	} catch {
-		stockMonitoringPaused = false;
-	}
+	const policy = await loadStockPolicy(rawDb, branchContext(normalizeBranch(requestedBranch)));
+	const stockMonitoringPaused = policy.mode === 'ignored';
 	// Seluruh fakta finansial (ringkasan, bulanan, harian, pembayaran,
 	// produk) berasal dari sumber kanonik yang sama dengan laporan: ringkasan
 	// POS harian + produk harian (bertahan setelah arsip), buku_kas manual aktif,
@@ -256,9 +251,11 @@ export async function fetchReportDataSql(
 					.catch(() => null)) as Promise<{ totalItem?: number; totalAsetStok?: number } | null>,
 
 		// 12. HPP & Margin Laba Kotor per Menu
-		rawDb
-			.prepare(
-				`SELECT
+		(stockMonitoringPaused
+			? Promise.resolve({ results: [] })
+			: rawDb
+					.prepare(
+						`SELECT
 					COALESCE(NULLIF(tk.nama_produk, ''), NULLIF(tk.nama_kustom, ''), NULLIF(p.nama, ''), 'Produk') AS nama,
 					SUM(tk.nominal) AS omzet,
 					SUM(COALESCE(tk.nominal_hpp, 0)) AS hpp,
@@ -274,12 +271,14 @@ export async function fetchReportDataSql(
 				WHERE tk.cabang_id = ? AND ${BK_WITA_DATE} >= ? AND ${BK_WITA_DATE} <= ?
 				GROUP BY 1
 				HAVING omzet > 0
+					AND COUNT(*) = COUNT(NULLIF(tk.snapshot_hpp, ''))
+					AND COUNT(*) = COUNT(tk.nominal_hpp)
 				ORDER BY marginPersen DESC
 				LIMIT 10`
-			)
-			.bind(requestedBranch, startYmd, endYmd)
-			.all()
-			.catch(() => ({ results: [] })) as Promise<{
+					)
+					.bind(requestedBranch, startYmd, endYmd)
+					.all()
+					.catch(() => ({ results: [] }))) as Promise<{
 			results?: Array<{
 				nama: string;
 				omzet: number;
@@ -672,6 +671,7 @@ export function buildReportContext(
 	rangeContext: RangeContext
 ): string {
 	if (!serverReportData) return 'Tidak ada data laporan tersedia.';
+	const stockMonitoringPaused = serverReportData.stokBahan?.monitoringPaused === true;
 
 	return `
 === KONTEKS RENTANG WAKTU ===
@@ -689,12 +689,12 @@ PERIODE YANG DIMINTA USER:
 Rentang Waktu: ${serverReportData.startDate} s.d. ${serverReportData.endDate}
 - Pendapatan: Rp ${formatRupiah(serverReportData.summary?.pendapatan) || '0'}
 - Pengeluaran: Rp ${formatRupiah(serverReportData.summary?.pengeluaran) || '0'}
-- Laba Kotor: Rp ${formatRupiah(serverReportData.summary?.labaKotor) || '0'}
+${stockMonitoringPaused ? '- Selisih pendapatan dan pengeluaran tercatat' : '- Laba Kotor'}: Rp ${formatRupiah(serverReportData.summary?.labaKotor) || '0'}
 - Pajak: Rp ${formatRupiah(serverReportData.summary?.pajak) || '0'}
-- Laba Bersih: Rp ${formatRupiah(serverReportData.summary?.labaBersih) || '0'}
+${stockMonitoringPaused ? '- Selisih tercatat setelah pajak (bukan laba bersih aktual)' : '- Laba Bersih'}: Rp ${formatRupiah(serverReportData.summary?.labaBersih) || '0'}
 - Total Transaksi: ${serverReportData.summary?.totalTransaksi || '0'}
 
-PENTING: Data di atas sudah mencakup keseluruhan periode yang diminta. ANALISIS data yang tersedia, jangan katakan tidak ada data.
+PENTING: Analisis hanya metrik yang tersedia. Data biaya yang tidak tercatat bukan biaya nol; selisih tercatat tidak membuktikan profitabilitas aktual.
 
 === DATA PER BULAN UNTUK PERIODE YANG DIMINTA ===
 ${
@@ -704,7 +704,7 @@ ${
 Bulan ${month.monthName} (${month.month}):
 - Pendapatan: Rp ${formatRupiah(month.pemasukan)}
 - Pengeluaran: Rp ${formatRupiah(month.pengeluaran)}
-- Laba: Rp ${formatRupiah(month.laba)}
+${stockMonitoringPaused ? '- Selisih tercatat' : '- Laba'}: Rp ${formatRupiah(month.laba)}
 - Total Transaksi: ${month.transaksi}
 - Metode Pembayaran: ${formatPayments(month.paymentMethods).join(', ') || '-'}
 - Top 3 Produk Terlaris: ${month.topProducts.map((p) => `${p.nama} (${p.totalTerjual} terjual, Rp ${formatRupiah(p.totalPendapatan)})`).join(', ')}
@@ -789,8 +789,12 @@ ${(serverReportData.stokBahan?.bahanKritis || []).map((b, i) => `- ${i + 1}. ${b
 }
 
 === HPP & MARGIN KEUNTUNGAN MENU ===
-Top 10 Menu dengan Margin Laba Kotor Tertinggi:
-${(serverReportData.marginProduk || []).map((m, i) => `- ${i + 1}. ${m.nama}: Margin ${m.marginPersen}% • Omzet Rp ${formatRupiah(m.omzet)} • HPP Rp ${formatRupiah(m.hpp)} • Laba Kotor Rp ${formatRupiah(m.labaKotor)}`).join('\n') || '- (Data HPP transaksi belum tercatat)'}
+${
+	stockMonitoringPaused
+		? 'HPP dan margin tidak tersedia untuk analisis karena monitoring stok nonaktif. Jangan menghitung atau menyimpulkan margin, profitabilitas menu, maupun laba aktual. Fokus pada omzet, pengeluaran tercatat, volume penjualan, dan tren.'
+		: `Menu dengan snapshot HPP lengkap pada seluruh transaksi menu dalam periode (maksimal 10):
+${(serverReportData.marginProduk || []).map((m, i) => `- ${i + 1}. ${m.nama}: Margin ${m.marginPersen}% • Omzet Rp ${formatRupiah(m.omzet)} • HPP Rp ${formatRupiah(m.hpp)} • Laba Kotor Rp ${formatRupiah(m.labaKotor)}`).join('\n') || '- (Data HPP transaksi belum tercatat lengkap; margin tidak dapat disimpulkan)'}`
+}
 
 === PREFERENSI & SELERA KONSUMEN ===
 Pilihan Tingkat Kemanisan (Gula):
