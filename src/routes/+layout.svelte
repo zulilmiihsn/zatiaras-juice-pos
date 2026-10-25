@@ -263,8 +263,6 @@
 	});
 </script>
 
-<OrderNotificationBanner />
-
 <PwaUpdateBanner
 	available={layoutSt.pwaUpdateAvailable}
 	reloadRequired={layoutSt.pwaReloadRequired}
@@ -273,6 +271,8 @@
 	withNav={showNav}
 	onUpdate={layoutSt.updatePwa}
 />
+
+<OrderNotificationBanner withNav={showNav} />
 
 {#if layoutSt.pendingCount > 0}
 	<!-- md+: ditempel di kiri bawah (di kanan sidebar) agar tidak menutupi tombol Bayar keranjang samping -->

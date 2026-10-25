@@ -831,10 +831,14 @@ test('Antrean notification banner closes by swipe up or close button without cle
 	try {
 		const banner = b.page.getByRole('complementary', { name: 'Notifikasi pesanan baru' });
 		const unseen = async () => (await local(b.page))?.events.length ?? 0;
+		const pageHeight = () => b.page.evaluate(() => document.documentElement.scrollHeight);
+		const heightBefore = await pageHeight();
 		const first = await checkout(a.page, 'Banner geser pertama');
 		ids.push(first.transactionId);
 		await wake(b.page);
 		await expect(banner).toBeVisible();
+		// Banner melayang: tidak boleh mendorong halaman (pita putih di atas header).
+		expect(await pageHeight()).toBe(heightBefore);
 		// Menyeret dari teks (bukan tombol/link) lebih dari ambang geser ke atas.
 		const title = banner.getByText('Pesanan baru masuk', { exact: true });
 		const grip = await title.boundingBox();
