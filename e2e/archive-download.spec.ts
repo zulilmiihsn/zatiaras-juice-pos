@@ -126,7 +126,7 @@ test('archive retry download returns identical bytes', async ({ page }) => {
 	await page.getByRole('button', { name: /Unduh/ }).first().click();
 	const retryBytes = await readDownload(await retryWait);
 	expect(retryBytes).toBe(firstBytes);
-	expect(JSON.parse(retryBytes).meta.schema_version).toBe(3);
+	expect(JSON.parse(retryBytes).meta.schema_version).toBe(4);
 });
 
 // Respons hilang (reload) -> arsip ulang tahun sama -> resumed + tetap bisa unduh.

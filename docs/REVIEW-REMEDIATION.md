@@ -25,21 +25,21 @@ Ikuti "Aturan kerja agent" nomor 1–10 di
 
 Status: Todo, Sedang, Selesai, Tertahan. Model = model terendah yang cukup.
 
-| ID  | Judul                                                | Model  | Status   | Bergantung |
-| --- | ---------------------------------------------------- | ------ | -------- | ---------- |
-| R0  | Tracker ini                                          | Opus   | Selesai  | –          |
-| R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai  | –          |
-| R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai  | R1         |
-| R3  | Fallback nama toko di struk                          | Haiku  | Selesai  | –          |
-| R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Selesai  | –          |
-| R5  | Order offline langsung Diproses                      | Sonnet | Selesai  | –          |
-| R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Selesai  | –          |
-| R7  | Cek overflow kontrol Antrean                         | Haiku  | Selesai  | –          |
-| R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Tertahan | P3         |
-| R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai  | –          |
-| R10 | Sederhanakan `raster()`                              | Sonnet | Selesai  | R9         |
-| R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai  | –          |
-| R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Selesai  | R11        |
+| ID  | Judul                                                | Model  | Status  | Bergantung |
+| --- | ---------------------------------------------------- | ------ | ------- | ---------- |
+| R0  | Tracker ini                                          | Opus   | Selesai | –          |
+| R1  | PIN tahan selisih jam perangkat                      | Sonnet | Selesai | –          |
+| R2  | PIN terkunci lagi saat habis, `PIN_REQUIRED` sinkron | Sonnet | Selesai | R1         |
+| R3  | Fallback nama toko di struk                          | Haiku  | Selesai | –          |
+| R4  | Server lokal: tutup setelah terkirim = sukses        | Sonnet | Selesai | –          |
+| R5  | Order offline langsung Diproses                      | Sonnet | Selesai | –          |
+| R6  | Gagal simpan nama printer tidak menggagalkan cetak   | Haiku  | Selesai | –          |
+| R7  | Cek overflow kontrol Antrean                         | Haiku  | Selesai | –          |
+| R8  | Arsip menyimpan `preparation_started_at`             | Sonnet | Selesai | P3         |
+| R9  | Buang kode mati `EscPosBuilder`                      | Haiku  | Selesai | –          |
+| R10 | Sederhanakan `raster()`                              | Sonnet | Selesai | R9         |
+| R11 | Tes PIN tanpa `networkidle` (tidak dikerjakan)       | Sonnet | Selesai | –          |
+| R12 | Selidiki GET status PIN yang datang terlambat        | Sonnet | Selesai | R11        |
 
 Grup **A** = R1–R6 (bug), lalu staging. Pemilik menjalankan produksi dan P1.
 Grup **B** = R7, R9–R11 (perapian, perilaku tidak berubah), lalu staging.
@@ -190,7 +190,7 @@ dan dikunci tes di `e2e/antrean.spec.ts` (`previousWidth * 1.05`).
 - Kalau gagal: jangan ubah CSS. Status Tertahan, lalu tanya pemilik.
 - **Gerbang:** e2e `e2e/antrean.spec.ts`.
 
-**R8 Arsip `preparation_started_at` (Tertahan, menunggu P3).**
+**R8 Arsip `preparation_started_at` (disetujui pemilik di P3).**
 `ARCHIVE_BUKU_KAS_FIELDS` di `src/lib/server/archiveSnapshot.ts` tidak memuat
 kolom itu. Order yang di-restore dan belum selesai akan kembali ke Masuk.
 Memperbaikinya mengubah format arsip:
@@ -201,7 +201,7 @@ Memperbaikinya mengubah format arsip:
 - Arsip v3 dibaca dengan nilai `null`.
 - `src/tests/archive-version-tests.ts` diperbarui.
 
-Dampaknya kecil. Kerjakan hanya bila pemilik menyetujui di P3.
+Dampaknya kecil. Pemilik menyetujui di P3 pada 25 Oktober 2026.
 
 **R9 Buang kode mati `EscPosBuilder`.**
 Sejak `a77d85ff`, struk selalu dikirim sebagai raster. Bagian berikut di
@@ -279,7 +279,7 @@ menahan klik. Kartu ini mencari pemicu sebenarnya sebelum mengubah apa pun.
 - **P2:** data untuk teks acak di metode 4 (Server Lokal di PC Windows): nama dan
   versi program server, isi `server.json` (`PrintConnector.Type` dan `Params`),
   koneksi printer beserta driver Windows, dan foto hasil cetak.
-- **P3:** setujui atau tolak R8.
+- **P3:** setujui atau tolak R8. Disetujui pada 25 Oktober 2026.
 
 ## Verifikasi akhir
 
@@ -394,3 +394,16 @@ Sesi baru cukup diberi prompt ini:
   karena GET yang dibatalkan `reload()` tidak pernah memicu `requestfinished` atau
   `requestfailed`, jadi penghitung bocor; `networkidle` dipertahankan di tes itu. Dua
   spec PIN penuh (43 tes), `pnpm check`, dan `test:frontend-consistency` lulus.
+- 25 Oktober 2026: R8 selesai setelah pemilik menyetujui P3. Arsip kini versi 4:
+  `ARCHIVE_BUKU_KAS_FIELDS` dan `BK_FIELDS` memuat `preparation_started_at`,
+  `SUPPORTED_ARCHIVE_VERSIONS` menjadi `[1, 2, 3, 4]`, dan `validateDates` memeriksa
+  kolom baru. Counts kini wajib mulai v3 (sebelumnya hanya `=== 3`, jadi v4 lolos
+  tanpa counts). Arsip v3 yang sudah tersimpan tetap valid dan dipulihkan dengan
+  `null`; versi 5 tetap ditolak. Tes baru di `restore-apply-tests.ts`: order belum
+  selesai v4 mempertahankan waktu mulai, v4 tanpa kolom dan v3 menjadi `null`, dan
+  tanggal rusak ditolak. Mutasi (kolom dibuang dari `BK_FIELDS`) membuat tes itu
+  gagal. `test:unit` 170 lulus, `archive-*` dan `restore-*` lulus, e2e
+  `archive-download.spec.ts` (5 tes) lulus, `pnpm check` 0 galat. Rollback: kode lama
+  menolak arsip v4 lewat gerbang versi, jadi arsip yang ditulis setelah ini hanya bisa
+  dipulihkan oleh kode v4. Belum di-push: push akan membuat SHA produksi `5acce7ee`
+  ditolak `deploy.yml`.

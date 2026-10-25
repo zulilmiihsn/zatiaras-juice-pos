@@ -8,11 +8,11 @@ import { decodeReceiptSnapshot } from '../src/lib/utils/receiptSnapshot.ts';
 /**
  * Kontrak versi snapshot arsip. Writer kanonik
  * (src/lib/server/archiveSnapshot.ts ARCHIVE_SCHEMA_VERSION) hanya emit
- * versi terbaru. Decoder menerima 1-3; versi lebih baru DITOLAK sebelum
+ * versi terbaru. Decoder menerima 1-4; versi lebih baru DITOLAK sebelum
  * apply agar field baru (preparation/provenance/nomor/struk) tak hilang
- * diam-diam. Decoder era v2 (daftar [1, 2]) menolak v3 lewat gerbang sama.
+ * diam-diam. Decoder era v3 (daftar [1, 2, 3]) menolak v4 lewat gerbang sama.
  */
-export const SUPPORTED_ARCHIVE_VERSIONS = [1, 2, 3];
+export const SUPPORTED_ARCHIVE_VERSIONS = [1, 2, 3, 4];
 
 /**
  * Peta field per versi: required harus ada; defaulted diisi seperti
@@ -32,7 +32,12 @@ export const ARCHIVE_VERSION_CONTRACT = {
 		defaulted: ['preparation_revision', 'total_tambahan', 'nominal_hpp']
 	},
 	3: {
-		note: 'Versi kanonik penuh: semua field bisnis/stok/pesanan eksplisit.',
+		note: 'Semua field bisnis/stok/pesanan eksplisit.',
+		required: ['id'],
+		defaulted: ['preparation_revision', 'total_tambahan', 'nominal_hpp']
+	},
+	4: {
+		note: 'Versi kanonik penuh: v3 + preparation_started_at (status Diproses). v1-v3 dibaca null.',
 		required: ['id'],
 		defaulted: ['preparation_revision', 'total_tambahan', 'nominal_hpp']
 	}
@@ -128,7 +133,12 @@ function validateText(row, fields, errors) {
 }
 /** @param {Row} row @param {string[]} errors */
 function validateDates(row, errors) {
-	for (const field of ['created_at', 'updated_at', 'preparation_completed_at'])
+	for (const field of [
+		'created_at',
+		'updated_at',
+		'preparation_started_at',
+		'preparation_completed_at'
+	])
 		if (row[field] != null && !validTimestamp(row[field]))
 			errors.push(`Tanggal ${field} row ${row.id} tidak valid`);
 }
@@ -612,7 +622,8 @@ export function validateArchive(archive) {
 			buku_kas,
 			transaksi_kasir: []
 		};
-	if (version === 3 && archive.meta.counts == null) errors.push('Counts arsip v3 wajib lengkap');
+	if (version !== null && version >= 3 && archive.meta.counts == null)
+		errors.push(`Counts arsip v${version} wajib lengkap`);
 	if (
 		archive.meta.counts != null &&
 		(!record(archive.meta.counts) ||
@@ -736,6 +747,7 @@ export const BK_FIELDS = [
 	'stock_replay_disposition',
 	'preparation_state',
 	'preparation_revision',
+	'preparation_started_at',
 	'preparation_completed_at',
 	'preparation_completed_by',
 	'id_sesi_toko',

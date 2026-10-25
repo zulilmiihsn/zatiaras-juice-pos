@@ -19,10 +19,13 @@ import { createTestD1 } from './helpers/testD1';
 import { buildLaporanAggregate } from '../lib/server/reportQueries';
 
 // Kontrak versi snapshot + decoder.
-assert.equal(ARCHIVE_SCHEMA_VERSION, 3);
-assert.deepEqual(SUPPORTED_ARCHIVE_VERSIONS, [1, 2, 3]);
+assert.equal(ARCHIVE_SCHEMA_VERSION, 4);
+assert.deepEqual(SUPPORTED_ARCHIVE_VERSIONS, [1, 2, 3, 4]);
 assert.ok(
-	ARCHIVE_VERSION_CONTRACT[1] && ARCHIVE_VERSION_CONTRACT[2] && ARCHIVE_VERSION_CONTRACT[3]
+	ARCHIVE_VERSION_CONTRACT[1] &&
+		ARCHIVE_VERSION_CONTRACT[2] &&
+		ARCHIVE_VERSION_CONTRACT[3] &&
+		ARCHIVE_VERSION_CONTRACT[4]
 );
 // Daftar kolom exporter sama dengan kontrak restore (sumber tunggal via tes).
 assert.deepEqual([...ARCHIVE_BUKU_KAS_FIELDS.slice(1)], BK_FIELDS);
@@ -76,6 +79,7 @@ const fullBk = {
 	stock_replay_disposition: 'normal',
 	preparation_state: 'done',
 	preparation_revision: 3,
+	preparation_started_at: '2024-06-15T02:01:00.000Z',
 	preparation_completed_at: '2024-06-15T02:05:00.000Z',
 	preparation_completed_by: 'kasir',
 	id_sesi_toko: 'sesi-1',
@@ -124,7 +128,7 @@ const parsed = JSON.parse(snapshot.content) as {
 	buku_kas: Array<Record<string, unknown>>;
 	transaksi_kasir: Array<Record<string, unknown>>;
 };
-assert.equal(parsed.meta.schema_version, 3);
+assert.equal(parsed.meta.schema_version, 4);
 // Kunci baris tepat = kontrak (tanpa revision/token/updated_at/masa depan).
 assert.deepEqual(Object.keys(parsed.buku_kas[0]).sort(), [...ARCHIVE_BUKU_KAS_FIELDS].sort());
 assert.deepEqual(
@@ -135,16 +139,33 @@ assert.deepEqual(
 assert.deepEqual(parsed.items, [{ id: 'bk-full', transaction_id: 'tx-full', revision: 5 }]);
 assert.equal(snapshot.checksum, createHash('sha256').update(snapshot.content).digest('hex'));
 
-// Decoder v3 penuh: valid + restore utuh.
+// Decoder v4 penuh: valid + restore utuh.
 assert.equal(validateArchive(parsed).ok, true);
 
 // Versi lebih baru ditolak sebelum apply (tak ada omit diam-diam).
 const newer = structuredClone(parsed) as typeof parsed & { meta: { schema_version: number } };
-newer.meta.schema_version = 4;
+newer.meta.schema_version = 5;
 assert.equal(validateArchive(newer).ok, false);
 assert.throws(() => buildRestoreChunks(newer), /Versi arsip tidak didukung/);
-// Gerbang era v2 menolak v3 (kontrak upgrade eksplisit).
-assert.ok(![1, 2].includes(Number(parsed.meta.schema_version)));
+// Gerbang era v3 menolak v4 (kontrak upgrade eksplisit).
+assert.ok(![1, 2, 3].includes(Number(parsed.meta.schema_version)));
+
+// Arsip v3 yang sudah tersimpan tak punya preparation_started_at: tetap valid, dibaca null.
+const storedV3 = structuredClone(parsed) as typeof parsed;
+storedV3.meta.schema_version = 3;
+delete storedV3.buku_kas[0].preparation_started_at;
+assert.equal(validateArchive(storedV3).ok, true);
+// Counts tetap wajib sejak v3, termasuk v4.
+for (const version of [3, 4]) {
+	const noCounts = structuredClone(parsed) as unknown as { meta: Record<string, unknown> };
+	noCounts.meta.schema_version = version;
+	delete noCounts.meta.counts;
+	assert.equal(validateArchive(noCounts as unknown as typeof parsed).ok, false, `v${version}`);
+}
+// Timestamp mulai proses yang rusak ditolak seperti timestamp lain.
+const badStart = structuredClone(parsed) as typeof parsed;
+badStart.buku_kas[0].preparation_started_at = 'not-a-date';
+assert.equal(validateArchive(badStart).ok, false);
 
 // Legacy v1 jarang (tanpa preparation/nomor/receipt) tetap restorabel
 // dengan default, tanpa mengarang histori.
@@ -193,6 +214,7 @@ try {
 		'tanggal_nomor',
 		'preparation_state',
 		'preparation_revision',
+		'preparation_started_at',
 		'receipt_snapshot',
 		'idempotency_key'
 	]) {
@@ -224,7 +246,7 @@ try {
 		preparation_state: null,
 		nominal: 15000
 	});
-	console.log('archive-version-tests: v3 kontrak, round-trip, legacy, tolak-v4 passed');
+	console.log('archive-version-tests: v4 kontrak, round-trip, v3 terbaca, legacy, tolak-v5 passed');
 } finally {
 	await close();
 }

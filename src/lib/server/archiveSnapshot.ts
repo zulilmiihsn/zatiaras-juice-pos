@@ -51,7 +51,7 @@ export interface ArchiveSnapshot {
 }
 
 /** Versi skema snapshot kanonik. Writer hanya emit versi ini. */
-export const ARCHIVE_SCHEMA_VERSION = 3;
+export const ARCHIVE_SCHEMA_VERSION = 4;
 
 /**
  * Kolom ledger yang masuk snapshot. Sama dengan BK_FIELDS/
@@ -82,6 +82,7 @@ export const ARCHIVE_BUKU_KAS_FIELDS = [
 	'stock_replay_disposition',
 	'preparation_state',
 	'preparation_revision',
+	'preparation_started_at',
 	'preparation_completed_at',
 	'preparation_completed_by',
 	'id_sesi_toko',

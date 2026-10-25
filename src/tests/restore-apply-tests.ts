@@ -327,15 +327,17 @@ async function preflightInvariantRegressions() {
 		/tidak valid|tidak cocok/
 	);
 	assert.deepEqual(await snapshotRestoreState(), before);
-	assert.throws(
-		() =>
-			buildRestoreChunks({
-				...numberedArchive,
-				meta: { ...numberedArchive.meta, schema_version: 3, counts: undefined }
-			}),
-		/Counts/,
-		'Current v3 must declare full source counts'
-	);
+	for (const version of [3, 4]) {
+		assert.throws(
+			() =>
+				buildRestoreChunks({
+					...numberedArchive,
+					meta: { ...numberedArchive.meta, schema_version: version, counts: undefined }
+				}),
+			/Counts/,
+			`v${version} must declare full source counts`
+		);
+	}
 	for (const change of [
 		{ sumber: ['pos'] },
 		{ jenis: ['pendapatan_usaha'] },
@@ -656,6 +658,43 @@ async function numberedRestoreRegressions() {
 			'restored'
 		);
 	}
+
+	// An unfinished order keeps its Diproses mark; archives written before v4 never stored it.
+	const inFlight = {
+		...numberedHeader,
+		preparation_state: 'pending',
+		preparation_completed_at: null,
+		preparation_completed_by: null
+	};
+	for (const [version, startedAt, expected] of [
+		[4, '2025-12-01T01:00:00Z', '2025-12-01T01:00:00Z'],
+		[4, undefined, null],
+		[3, undefined, null]
+	] as const) {
+		await seedNumberedRestore();
+		await execute({
+			...numberedArchive,
+			meta: { ...numberedArchive.meta, schema_version: version },
+			buku_kas: [{ ...inFlight, preparation_started_at: startedAt }]
+		});
+		const stored = await db
+			.prepare('SELECT preparation_state,preparation_started_at FROM buku_kas')
+			.first();
+		assert.deepEqual(
+			stored && { ...stored },
+			{ preparation_state: 'pending', preparation_started_at: expected },
+			`v${version} in-flight order restore`
+		);
+	}
+	await seedNumberedRestore();
+	assert.throws(
+		() =>
+			buildRestoreChunks({
+				...numberedArchive,
+				buku_kas: [{ ...inFlight, preparation_started_at: 'not-a-date' }]
+			}),
+		/preparation_started_at/
+	);
 
 	// Legacy data stays unnumbered and never causes counter allocation.
 	for (const legacyFields of [{}, { nomor_harian: null, tanggal_nomor: null }]) {
