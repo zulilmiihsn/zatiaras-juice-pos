@@ -46,7 +46,6 @@
 	let androidApp: AndroidPrinterApp = $state('rawbt');
 	let paperSize: PaperSize = $state('58mm');
 	let printMode: PrintMode = $state('text');
-	let disconnectKb: number | null = $state(null);
 	let version = $state(0);
 	let events: LinkEvent[] = $state([]);
 	let stats: LinkStats | null = $state(null);
@@ -281,11 +280,6 @@
 		disconnectBluetooth();
 	}
 
-	$effect(() => {
-		settings.faults.bleDisconnectAfterBytes =
-			disconnectKb === null || Number.isNaN(disconnectKb) ? null : disconnectKb * 1024;
-	});
-
 	onMount(async () => {
 		try {
 			savedConfig = localStorage.getItem('pos_printer_config');
@@ -429,7 +423,7 @@
 
 	const ledClass = $derived(
 		live.status === 'off'
-			? 'bg-zinc-600'
+			? 'bg-slate-600'
 			: live.status === 'paper-out' || live.status === 'overheat'
 				? 'animate-pulse bg-orange-500'
 				: live.status === 'printing' || live.status === 'starved'
@@ -451,9 +445,9 @@
 
 <svelte:head><title>Simulator MTP-II</title></svelte:head>
 
-<div class="min-h-dvh bg-zinc-100 p-4 text-sm text-zinc-800">
+<div class="min-h-dvh bg-slate-100 p-4 text-sm text-slate-800">
 	<h1 class="mb-1 text-lg font-bold">Simulator printer MTP-II</h1>
-	<p class="mb-4 max-w-3xl text-xs text-zinc-500">
+	<p class="mb-4 max-w-3xl text-xs text-slate-500">
 		Kode cetak asli app (testPrintUnified → renderReceipt → ESC/POS gambar atau teks → jalur kirim)
 		berjalan apa adanya. Yang disimulasikan hanya perangkat keras: Bluetooth, USB, server lokal,
 		aplikasi Android, dan printernya. Halaman ini hanya ada di mode dev.
@@ -463,7 +457,7 @@
 		<!-- Kontrol -->
 		<section class="space-y-3 rounded-xl bg-white p-3 shadow-sm">
 			<div>
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Metode app</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Metode app</div>
 				{#each [['bluetooth', 'Bluetooth (Web Bluetooth/BLE)'], ['usb', 'USB (WebUSB)'], ['intent', 'Aplikasi Android'], ['server', 'Server Lokal (PC)']] as [value, label] (value)}
 					<label class="flex items-center gap-2 py-0.5">
 						<input type="radio" bind:group={method} {value} onchange={resetLink} disabled={busy} />
@@ -513,7 +507,7 @@
 			</label>
 
 			<div class="border-t pt-2">
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Kondisi printer</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Kondisi printer</div>
 				<label class="block"
 					>Baterai {live.battery.toFixed(0)}%
 					<input
@@ -563,7 +557,7 @@
 			</div>
 
 			<div class="border-t pt-2">
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Jalur (asumsi)</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Jalur (asumsi)</div>
 				<label class="block"
 					>Interval koneksi BLE (ms)
 					<input
@@ -598,14 +592,22 @@
 			</div>
 
 			<div class="border-t pt-2">
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Gangguan</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Gangguan</div>
 				<label class="block"
 					>BLE putus setelah (KB, kosong = tidak)
 					<input
 						type="number"
 						min="0"
 						class="w-full rounded border p-1"
-						bind:value={disconnectKb}
+						bind:value={
+							() => {
+								const bytes = settings.faults.bleDisconnectAfterBytes;
+								return bytes === null ? null : bytes / 1024;
+							},
+							(kb: number | null) =>
+								(settings.faults.bleDisconnectAfterBytes =
+									kb === null || Number.isNaN(kb) ? null : kb * 1024)
+						}
 					/>
 				</label>
 				<label class="flex gap-2"
@@ -628,7 +630,7 @@
 			>
 				{busy ? 'Mengirim…' : 'Cetak struk contoh'}
 			</button>
-			<p class="text-xs text-zinc-500">
+			<p class="text-xs text-slate-500">
 				Data: struk contoh dengan header toko dari Pengaturan (sama dengan tombol Tes Cetak).
 			</p>
 		</section>
@@ -662,11 +664,11 @@
 				></canvas>
 				<!-- Gigi sobek + badan printer -->
 				<div
-					class="h-1.5 bg-zinc-500"
+					class="h-1.5 bg-slate-500"
 					style="width: calc(62mm * {zoom}); clip-path: polygon(0 100%, 2% 0, 4% 100%, 6% 0, 8% 100%, 10% 0, 12% 100%, 14% 0, 16% 100%, 18% 0, 20% 100%, 22% 0, 24% 100%, 26% 0, 28% 100%, 30% 0, 32% 100%, 34% 0, 36% 100%, 38% 0, 40% 100%, 42% 0, 44% 100%, 46% 0, 48% 100%, 50% 0, 52% 100%, 54% 0, 56% 100%, 58% 0, 60% 100%, 62% 0, 64% 100%, 66% 0, 68% 100%, 70% 0, 72% 100%, 74% 0, 76% 100%, 78% 0, 80% 100%, 82% 0, 84% 100%, 86% 0, 88% 100%, 90% 0, 92% 100%, 94% 0, 96% 100%, 98% 0, 100% 100%)"
 				></div>
 			</div>
-			<div class="rounded-b-2xl bg-zinc-800 p-3 text-zinc-200" style="width: calc(78mm * {zoom})">
+			<div class="rounded-b-2xl bg-slate-800 p-3 text-slate-200" style="width: calc(78mm * {zoom})">
 				<div class="flex items-center justify-between text-xs">
 					<span class="font-bold tracking-wide">MTP-II</span>
 					<span class="flex items-center gap-1.5"
@@ -675,20 +677,20 @@
 						]}</span
 					>
 				</div>
-				<div class="mt-2 grid grid-cols-2 gap-1 text-[11px] text-zinc-400">
+				<div class="mt-2 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
 					<span>Baterai {live.battery.toFixed(1)}%</span>
 					<span>Kertas {live.paperM.toFixed(2)} m</span>
 					<span>Buffer {live.buffer}/{live.bufferSize} B</span>
 					<span>Kepala {live.temp.toFixed(0)} °C</span>
 				</div>
-				<div class="mt-1 h-1 w-full rounded bg-zinc-700">
+				<div class="mt-1 h-1 w-full rounded bg-slate-700">
 					<div
 						class="h-1 rounded bg-sky-400"
 						style="width: {(live.buffer / live.bufferSize) * 100}%"
 					></div>
 				</div>
 				{#if live.hiddenRows > 0}
-					<div class="mt-1 text-[11px] text-zinc-500">
+					<div class="mt-1 text-[11px] text-slate-500">
 						{(live.hiddenRows / DOTS_PER_MM).toFixed(1)} mm kertas masih di dalam printer (kepala → gigi
 						sobek).
 					</div>
@@ -696,7 +698,7 @@
 			</div>
 			{#if torn.length}
 				<div class="mt-3 w-full border-t pt-2">
-					<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">
+					<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">
 						Struk yang sudah disobek
 					</div>
 					<div class="flex gap-2 overflow-x-auto">
@@ -711,9 +713,9 @@
 		<!-- Hasil -->
 		<section class="space-y-3 rounded-xl bg-white p-3 shadow-sm">
 			<div>
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Pemeriksaan</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Pemeriksaan</div>
 				{#if checks.length === 0}
-					<p class="text-xs text-zinc-500">Tekan "Cetak struk contoh".</p>
+					<p class="text-xs text-slate-500">Tekan "Cetak struk contoh".</p>
 				{/if}
 				<ul class="space-y-1 text-xs" data-testid="checks">
 					{#each checks as check, i (i)}
@@ -725,7 +727,7 @@
 									? 'text-amber-700'
 									: check.level === 'ok'
 										? 'text-emerald-700'
-										: 'text-zinc-500'}"
+										: 'text-slate-500'}"
 						>
 							<span>{LEVEL_ICON[check.level]}</span><span>{check.text}</span>
 						</li>
@@ -748,9 +750,9 @@
 				</div>
 			{/if}
 			<div>
-				<div class="mb-1 text-xs font-semibold text-zinc-500 uppercase">Log</div>
+				<div class="mb-1 text-xs font-semibold text-slate-500 uppercase">Log</div>
 				<div
-					class="h-64 overflow-auto rounded bg-zinc-900 p-2 font-mono text-[11px] leading-snug text-zinc-200"
+					class="h-64 overflow-auto rounded bg-slate-900 p-2 font-mono text-[11px] leading-snug text-slate-200"
 				>
 					{#each events.slice().reverse() as e, i (i)}
 						<div
@@ -766,7 +768,7 @@
 				</div>
 			</div>
 			<details>
-				<summary class="cursor-pointer text-xs font-semibold text-zinc-500 uppercase"
+				<summary class="cursor-pointer text-xs font-semibold text-slate-500 uppercase"
 					>Spesifikasi &amp; asumsi</summary
 				>
 				<table class="mt-1 w-full text-[11px]">
@@ -774,7 +776,7 @@
 						{#each MTP2_ASSUMPTIONS as a (a.name)}
 							<tr class="border-t"
 								><td class="pr-1">{a.name}</td><td class="pr-1">{a.value}</td><td
-									class="text-zinc-500">{a.basis}</td
+									class="text-slate-500">{a.basis}</td
 								></tr
 							>
 						{/each}
@@ -799,18 +801,18 @@
 					: 'localhost ingin menyambung ke perangkat USB'}
 			</h2>
 			{#if chooser.names.length === 0}
-				<p class="py-4 text-center text-xs text-zinc-500">
+				<p class="py-4 text-center text-xs text-slate-500">
 					Mencari perangkat… Tidak ada perangkat yang kompatibel ditemukan.
 				</p>
 			{/if}
 			{#each chooser.names as name, i (name)}
 				<button
-					class="mb-1 block w-full rounded border p-2 text-left hover:bg-zinc-50"
+					class="mb-1 block w-full rounded border p-2 text-left hover:bg-slate-50"
 					onclick={() => pick(i)}>{name}</button
 				>
 			{/each}
 			<div class="mt-2 text-right">
-				<button class="rounded px-3 py-1 text-zinc-600 hover:bg-zinc-100" onclick={() => pick(null)}
+				<button class="rounded px-3 py-1 text-slate-600 hover:bg-slate-100" onclick={() => pick(null)}
 					>Batal</button
 				>
 			</div>

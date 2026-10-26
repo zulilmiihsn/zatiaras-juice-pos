@@ -656,47 +656,44 @@
 							/>
 						</label>
 					</div>
-				</div>
 
-				<fieldset
-					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
-				>
-					<legend class="sr-only">Mode cetak</legend>
-					<h3 class="mb-3 text-sm font-bold text-slate-800" aria-hidden="true">Mode Cetak</h3>
-					<div class="grid gap-3 sm:grid-cols-2">
-						{#each [{ value: 'image', label: 'Gambar', hint: 'Sama persis dengan pratinjau, data besar' }, { value: 'text', label: 'Teks printer', hint: 'Font bawaan printer, ±10× lebih cepat' }] as option}
-							<label
-								class="flex cursor-pointer items-center justify-between gap-3 rounded-xl border-[1.5px] p-3.5 transition-all {printMode ===
-								option.value
-									? 'border-pink-500 bg-pink-50/40 text-pink-700'
-									: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
-							>
-								<span class="min-w-0">
-									<span class="block text-sm font-bold">{option.label}</span>
-									<span class="block text-xs text-slate-500">{option.hint}</span>
-								</span>
-								<input
-									type="radio"
-									name="print-mode"
-									value={option.value}
-									bind:group={printMode}
-									class="h-4 w-4 shrink-0 accent-pink-500"
-								/>
-							</label>
-						{/each}
-					</div>
-					{#if printerMethod === 'intent' && androidApp !== 'rawbt'}
-						<p class="mt-3 text-xs leading-relaxed text-slate-500">
-							Helper print-intent selalu mencetak gambar. Mode teks berlaku untuk Bluetooth, USB,
-							Server Lokal, dan RawBT.
-						</p>
-					{:else if printMode === 'text'}
-						<p class="mt-3 text-xs leading-relaxed text-slate-500">
-							Huruf beraksen dicetak tanpa aksen dan emoji menjadi "?". Coba tes cetak dulu sebelum
-							dipakai kasir.
-						</p>
-					{/if}
-				</fieldset>
+					<fieldset class="mt-5 border-t border-pink-100 pt-4">
+						<legend class="mb-3 text-sm font-bold text-slate-800">Mode Cetak</legend>
+						<div class="grid gap-3 sm:grid-cols-2">
+							{#each [{ value: 'image', label: 'Gambar', hint: 'Sama persis dengan pratinjau, data besar' }, { value: 'text', label: 'Teks printer', hint: 'Font bawaan printer, ±10× lebih cepat' }] as option}
+								<label
+									class="flex cursor-pointer items-center justify-between gap-3 rounded-xl border-[1.5px] p-3.5 transition-all {printMode ===
+									option.value
+										? 'border-pink-500 bg-pink-50/40 text-pink-700'
+										: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
+								>
+									<span class="min-w-0">
+										<span class="block text-sm font-bold">{option.label}</span>
+										<span class="block text-xs text-slate-500">{option.hint}</span>
+									</span>
+									<input
+										type="radio"
+										name="print-mode"
+										value={option.value}
+										bind:group={printMode}
+										class="h-4 w-4 shrink-0 accent-pink-500"
+									/>
+								</label>
+							{/each}
+						</div>
+						{#if printerMethod === 'intent' && androidApp !== 'rawbt'}
+							<p class="mt-3 text-xs leading-relaxed text-slate-500">
+								Helper print-intent selalu mencetak gambar. Mode teks berlaku untuk Bluetooth, USB,
+								Server Lokal, dan RawBT.
+							</p>
+						{:else if printMode === 'text'}
+							<p class="mt-3 text-xs leading-relaxed text-slate-500">
+								Huruf beraksen dicetak tanpa aksen dan emoji menjadi "?". Coba tes cetak dulu
+								sebelum dipakai kasir.
+							</p>
+						{/if}
+					</fieldset>
+				</div>
 
 				<!-- Tombol Aksi -->
 				<div class="flex flex-col gap-3">
