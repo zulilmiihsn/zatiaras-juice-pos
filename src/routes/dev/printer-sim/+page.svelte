@@ -370,11 +370,14 @@
 					: { level: 'fail', text: `BLE: ${stats.violations} tulis melebihi 20 byte.` }
 			);
 		const unknown = job.commands.get('tidak dikenal') ?? 0;
-		const text = job.commands.get('teks') ?? 0;
+		const textLines = job.commands.get('teks') ?? 0;
 		out.push(
-			unknown || text
-				? { level: 'fail', text: `${unknown} byte tak dikenal, ${text} byte teks mentah.` }
-				: { level: 'ok', text: 'Semua byte adalah perintah ESC/POS yang dikenal MTP-II.' }
+			unknown
+				? { level: 'fail', text: `${unknown} byte tak dikenal MTP-II.` }
+				: {
+						level: 'ok',
+						text: `Semua byte adalah perintah ESC/POS yang dikenal MTP-II${textLines ? ` (${textLines} baris teks font printer)` : ''}.`
+					}
 		);
 		if (job.commands.get('GS V'))
 			out.push({
