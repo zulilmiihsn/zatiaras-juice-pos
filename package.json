@@ -133,6 +133,7 @@
 		"test:e2e:ci-c": "node scripts/run-playwright-local.mjs e2e/ai-category.spec.ts e2e/ai-mutation.spec.ts e2e/aichat-errors.spec.ts e2e/catat-recent.spec.ts e2e/catat-timezone.spec.ts e2e/dashboard-branch.spec.ts e2e/hpp-parse.spec.ts e2e/kulakan.spec.ts e2e/laporan-tax.spec.ts e2e/menu.spec.ts e2e/modal-focus.spec.ts e2e/pos.spec.ts e2e/security-settings.spec.ts e2e/sheet-enter.spec.ts e2e/stock-dialogs.spec.ts e2e/stock-generation.spec.ts e2e/stock-lifecycle.spec.ts e2e/tax.spec.ts",
 		"test:e2e:isolation": "node --test scripts/e2e-environment.test.mjs",
 		"test:receipt-output": "tsx src/tests/receipt-output-tests.ts",
+		"test:printer-sim": "tsx src/tests/printer-sim-tests.ts",
 		"test:report-grouping": "tsx src/tests/report-grouping-tests.ts",
 		"test:report-tax": "tsx src/tests/report-tax-tests.ts",
 		"test:service-pure": "tsx src/tests/service-pure-tests.ts",
