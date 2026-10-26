@@ -13,6 +13,13 @@ export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
 			)
 	);
 	await page.evaluate(() => {
+		const anchors = [document.documentElement, document.body].map((element) => ({
+			element,
+			value: element.style.getPropertyValue('overflow-anchor'),
+			priority: element.style.getPropertyPriority('overflow-anchor')
+		}));
+		for (const { element } of anchors)
+			element.style.setProperty('overflow-anchor', 'none', 'important');
 		document.body.style.minHeight = '2400px';
 		document.body.style.setProperty('position', 'relative', 'important');
 		document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
@@ -36,6 +43,11 @@ export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
 			'click',
 			() => {
 				fixture.backgroundScrollProbe = capture();
+				// The chat must retain production anchoring while gestures and token updates are tested.
+				for (const { element, value, priority } of anchors) {
+					if (value) element.style.setProperty('overflow-anchor', value, priority);
+					else element.style.removeProperty('overflow-anchor');
+				}
 			},
 			{ once: true, capture: true }
 		);

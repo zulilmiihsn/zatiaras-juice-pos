@@ -351,7 +351,7 @@ for (const engine of ['chromium', 'webkit'] as const) {
 			});
 			const before = await backgroundScrollProbe(page);
 			expect(before.y).toBe(300);
-			expect(before.actual).toBe(-300);
+			expect(before.actual).toBe(before.expected);
 			// Keep the prescribed page offset; a locator click first scrolls this trigger into view.
 			await page
 				.getByRole('button', { name: 'Buka Asisten AI', exact: true })
