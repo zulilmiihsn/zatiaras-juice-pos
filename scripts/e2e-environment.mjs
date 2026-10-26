@@ -9,6 +9,10 @@ export const E2E_OWNER_USERNAMES = Object.freeze([
 	...Array.from({ length: 7 }, (_, index) => `pemilik-e2e-${index + 1}`)
 ]);
 
+/**
+ * @param {string} title
+ * @returns {string}
+ */
 export function ownerUsernameForTest(title) {
 	if (title === 'legacy status intent without a token is staged and replayed') return 'pemilik';
 	let hash = 2166136261;
