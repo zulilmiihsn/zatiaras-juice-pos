@@ -6,17 +6,27 @@ import test from 'node:test';
 import { bestEffortCache } from '../lib/utils/cachePersistence';
 
 // parsePrinterConfig: murni, tak sentuh localStorage.
-assert.deepEqual(parsePrinterConfig(null), { method: 'intent', paperSize: '58mm', deviceName: '' });
+assert.deepEqual(parsePrinterConfig(null), {
+	method: 'intent',
+	paperSize: '58mm',
+	printMode: 'image',
+	deviceName: ''
+});
 assert.deepEqual(parsePrinterConfig('rusak'), {
 	method: 'intent',
 	paperSize: '58mm',
+	printMode: 'image',
 	deviceName: ''
 });
-assert.deepEqual(parsePrinterConfig({ method: 'server', paperSize: '80mm', deviceName: 'PC' }), {
-	method: 'server',
-	paperSize: '80mm',
-	deviceName: 'PC'
-});
+assert.deepEqual(
+	parsePrinterConfig({ method: 'server', paperSize: '80mm', printMode: 'text', deviceName: 'PC' }),
+	{
+		method: 'server',
+		paperSize: '80mm',
+		printMode: 'text',
+		deviceName: 'PC'
+	}
+);
 assert.deepEqual(
 	parsePrinterConfig({ method: 'fax', paperSize: 'A4', deviceName: 42 }).method,
 	'intent'
