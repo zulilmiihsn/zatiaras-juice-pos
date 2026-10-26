@@ -1,5 +1,49 @@
 import type { Page } from '@playwright/test';
 
+/** Measure the painted background, since iOS scroll locking fixes body in the viewport. */
+export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		document.body.style.minHeight = '2400px';
+		document.body.style.setProperty('position', 'relative', 'important');
+		document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+		const probe = document.createElement('div');
+		probe.id = 'modal-background-probe';
+		probe.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
+		document.body.appendChild(probe);
+		window.scrollTo({ top: 300, behavior: 'instant' });
+		const capture = () => ({
+			y: window.scrollY,
+			top: probe.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0)
+		});
+		const fixture = window as Window & { backgroundScrollProbe?: { y: number; top: number } };
+		fixture.backgroundScrollProbe = capture();
+		// Locator clicks can scroll their trigger into view before the modal opens.
+		document.addEventListener(
+			'click',
+			() => {
+				fixture.backgroundScrollProbe = capture();
+			},
+			{ once: true, capture: true }
+		);
+	});
+}
+
+export async function backgroundScrollProbe(
+	page: Page
+): Promise<{ actual: number; expected: number; y: number }> {
+	return page.evaluate(() => {
+		const probe = document.getElementById('modal-background-probe');
+		const origin = (window as Window & { backgroundScrollProbe?: { y: number; top: number } })
+			.backgroundScrollProbe;
+		if (!probe || !origin) throw new Error('Background scroll fixture is unavailable');
+		return {
+			actual: probe.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0),
+			expected: origin.top,
+			y: origin.y
+		};
+	});
+}
+
 /**
  * Buka halaman lalu tunggu konten hasil render client (hidrasi + data).
  * Klik tombol SSR sebelum hidrasi tidak memicu handler Svelte; selalu

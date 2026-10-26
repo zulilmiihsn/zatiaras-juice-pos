@@ -1,6 +1,11 @@
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { gotoHydrated, ownerUsernameForTest } from './helpers';
+import {
+	backgroundScrollProbe,
+	gotoHydrated,
+	ownerUsernameForTest,
+	prepareBackgroundScrollProbe
+} from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -43,12 +48,13 @@ async function focusedLabel(page: Page): Promise<string> {
 }
 
 async function prepareScrollableBackground(page: Page) {
-	// Room above and below the viewport exposes scroll chaining in either direction.
-	await page.evaluate(() => {
-		document.body.style.minHeight = '2400px';
-		window.scrollTo({ top: 300, behavior: 'instant' });
-	});
+	await prepareBackgroundScrollProbe(page);
 	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+}
+
+async function expectBackgroundUnmoved(page: Page) {
+	const probe = await backgroundScrollProbe(page);
+	expect(probe.actual).toBeCloseTo(probe.expected, 0);
 }
 
 async function wheelAndSettle(page: Page, delta: number) {
@@ -64,16 +70,18 @@ async function wheelAndSettle(page: Page, delta: number) {
 async function expectWheelContained(page: Page, target: Locator, delta: number) {
 	await target.hover();
 	await wheelAndSettle(page, delta);
-	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	await expectBackgroundUnmoved(page);
 }
 
 async function expectBackgroundRestored(page: Page, dialog: Locator) {
+	const origin = await backgroundScrollProbe(page);
 	await page.keyboard.press('Escape');
 	await expect(dialog).toHaveCount(0);
-	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	expect(await page.evaluate(() => window.scrollY)).toBe(origin.y);
+	await expectBackgroundUnmoved(page);
 	await page.mouse.move(5, 5);
 	await page.mouse.wheel(0, 400);
-	await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(origin.y);
 }
 
 // AppModal logout — initial focus, Tab trap, Escape, restore.
@@ -286,16 +294,17 @@ for (const viewport of [
 			.getByRole('link', { name: 'Laporan', exact: true })
 			.click();
 		await expect(page).toHaveURL(/\/laporan$/);
+		await prepareScrollableBackground(page);
 		await page.getByRole('button', { name: 'Filter laporan', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Filter Laporan', exact: true });
 		await expect(dialog).toBeVisible();
-		await prepareScrollableBackground(page);
+
 		const heading = dialog.getByRole('heading', { name: 'Filter Laporan', exact: true });
 		await expectWheelContained(page, heading, -400);
 		await expectWheelContained(page, heading, 400);
 		await page.mouse.move(5, 5);
 		await wheelAndSettle(page, 400);
-		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundUnmoved(page);
 		await expectBackgroundRestored(page, dialog);
 	});
 
@@ -308,10 +317,11 @@ for (const viewport of [
 			.getByRole('link', { name: 'Kasir', exact: true })
 			.click();
 		await expect(page).toHaveURL(/\/pos$/);
+		await prepareScrollableBackground(page);
 		await page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ }).click();
 		const dialog = page.getByRole('dialog', { name: 'Es Teh UAT', exact: true });
 		await expect(dialog).toBeVisible();
-		await prepareScrollableBackground(page);
+
 		const content = dialog.locator('.sheet-content');
 		await expect
 			.poll(() => content.evaluate((node) => node.scrollHeight - node.clientHeight))
@@ -319,7 +329,7 @@ for (const viewport of [
 		await content.hover();
 		await page.mouse.wheel(0, 100);
 		await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
-		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundUnmoved(page);
 		for (const delta of [-400, 400]) {
 			await dialog.locator('.sheet-content, .addon-modal-content').evaluateAll((nodes, delta) => {
 				for (const node of nodes) node.scrollTop = delta < 0 ? 0 : node.scrollHeight;
@@ -333,7 +343,7 @@ for (const viewport of [
 		);
 		await page.mouse.move(5, 5);
 		await wheelAndSettle(page, 400);
-		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundUnmoved(page);
 		await expectBackgroundRestored(page, dialog);
 	});
 }
@@ -348,10 +358,11 @@ test('AppModal keeps long stock forms scrollable without moving the background',
 		.getByRole('link', { name: 'Stok', exact: true })
 		.click();
 	await expect(page).toHaveURL(/\/stok$/);
+	await prepareScrollableBackground(page);
 	await page.getByRole('button', { name: 'Tambah Bahan Baku', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Tambah Bahan Baku', exact: true });
 	await expect(dialog).toBeVisible();
-	await prepareScrollableBackground(page);
+
 	const form = dialog.locator('form');
 	await expect
 		.poll(() => form.evaluate((node) => node.scrollHeight - node.clientHeight))
@@ -359,7 +370,7 @@ test('AppModal keeps long stock forms scrollable without moving the background',
 	await form.hover();
 	await page.mouse.wheel(0, 100);
 	await expect.poll(() => form.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
-	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	await expectBackgroundUnmoved(page);
 	for (const delta of [-400, 400]) {
 		await form.evaluate((node, delta) => {
 			node.scrollTop = delta < 0 ? 0 : node.scrollHeight;
@@ -436,6 +447,40 @@ test('transaction option sheet traps keyboard focus and restores its trigger', a
 	await expect(dialog).toHaveCount(0);
 	await expect(trigger).toBeFocused();
 	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+});
+
+test('browser back and forward preserve page positions when leaving an open modal', async ({
+	page
+}) => {
+	await loginAsOwner(page);
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await page.evaluate(() => {
+		document.body.style.minHeight = '3000px';
+		document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+		window.scrollTo({ top: 500, behavior: 'auto' });
+	});
+	expect(await page.evaluate(() => window.scrollY)).toBe(500);
+	// Activate without Playwright scrolling the navigation link into view first.
+	await page
+		.getByRole('navigation', { name: 'Navigasi utama' })
+		.getByRole('link', { name: 'Laporan', exact: true })
+		.evaluate((node) => node.click());
+	await expect(page).toHaveURL(/\/laporan$/);
+	await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'auto' }));
+	expect(await page.evaluate(() => window.scrollY)).toBe(300);
+	await page
+		.getByRole('button', { name: 'Buka Asisten AI', exact: true })
+		.evaluate((node) => node.click());
+	await expect(
+		page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true })
+	).toBeVisible();
+	await page.goBack();
+	await expect(page).toHaveURL(/\/$/);
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(500);
+	await page.goForward();
+	await expect(page).toHaveURL(/\/laporan$/);
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+	expect(await page.evaluate(() => document.body.style.position)).not.toBe('fixed');
 });
 
 test('cropper cancellation leaves its parent menu dialog locked and usable', async ({ page }) => {

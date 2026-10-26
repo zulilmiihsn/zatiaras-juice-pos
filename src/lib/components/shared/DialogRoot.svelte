@@ -3,7 +3,8 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { modalFocus } from '$lib/utils/modalFocus';
+	import { beforeNavigate, onNavigate } from '$app/navigation';
+	import { modalFocus, prepareModalNavigation } from '$lib/utils/modalFocus';
 
 	type Props = Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'onclick' | 'role'> & {
 		open?: boolean;
@@ -26,6 +27,9 @@
 		children,
 		...attributes
 	}: Props = $props();
+
+	beforeNavigate((navigation) => prepareModalNavigation(navigation.complete));
+	onNavigate((navigation) => prepareModalNavigation(navigation.complete));
 
 	function portal(node: HTMLElement) {
 		// Header stacking/transform contexts can otherwise put page content above a fixed sheet.

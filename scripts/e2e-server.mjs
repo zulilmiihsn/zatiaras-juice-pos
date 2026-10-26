@@ -35,6 +35,13 @@ try {
 	if (server.httpServer) {
 		server.httpServer.keepAliveTimeout = 120_000;
 		server.httpServer.headersTimeout = 121_000;
+		server.httpServer.on('connection', (socket) => {
+			// WebKit can reset an upgraded dev connection when its context closes on Windows.
+			// The connection owns this expected disconnect; other socket failures still fail the run.
+			socket.on('error', (error) => {
+				if (error.code !== 'ECONNRESET') throw error;
+			});
+		});
 	}
 	await server.listen();
 	const address = server.httpServer?.address();

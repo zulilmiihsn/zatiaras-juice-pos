@@ -1,6 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
+import { devices, expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
-import { csrfPost, ownerUsernameForTest } from './helpers';
+import {
+	backgroundScrollProbe,
+	csrfPost,
+	ownerUsernameForTest,
+	prepareBackgroundScrollProbe
+} from './helpers';
 
 function readUatPassword(): string {
 	if (process.env.UAT_PASSWORD) return process.env.UAT_PASSWORD;
@@ -28,7 +33,13 @@ async function loginAsOwner(page: Page, title: string) {
 	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 	const response = await loginResponse;
 	expect(response.ok()).toBe(true);
-	await expect(page).toHaveURL(/\/$/);
+	// Cold WebKit navigation loads the application after the login response and success overlay.
+	await page.waitForURL(/\/$/, { timeout: 60_000 });
+}
+
+async function expectBackgroundUnmoved(page: Page) {
+	const probe = await backgroundScrollProbe(page);
+	expect(probe.actual).toBeCloseTo(probe.expected, 0);
 }
 
 async function installReportStreamFixture(page: Page, initialText = '') {
@@ -178,10 +189,295 @@ test('report context changes clear old messages and navigation cancels the activ
 	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
 });
 
+test('native mobile swipes stay inside the chat while tokens arrive continuously', async ({
+	browser,
+	baseURL
+}) => {
+	const context = await browser.newContext({ ...devices['Pixel 7'], baseURL });
+	const page = await context.newPage();
+	try {
+		await installReportStreamFixture(page, 'Awal jawaban.');
+		await loginAsOwner(page, test.info().title);
+		await page
+			.getByRole('navigation', { name: 'Navigasi utama' })
+			.getByRole('link', { name: 'Laporan', exact: true })
+			.click();
+		await expect(page).toHaveURL(/\/laporan$/);
+		await prepareBackgroundScrollProbe(page);
+		await page.getByRole('button', { name: 'Buka Asisten AI', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
+		await dialog
+			.getByPlaceholder('Ketik pertanyaan untuk asisten AI...')
+			.fill('Analisis dengan sentuhan');
+		await dialog.getByPlaceholder('Ketik pertanyaan untuk asisten AI...').press('Enter');
+		await expect(dialog.getByText('Awal jawaban.', { exact: true })).toBeVisible();
+		const chat = dialog.locator('div.overflow-y-auto');
+		const cdp = await context.newCDPSession(page);
+		await chat.evaluate((node) => {
+			const starts: Array<{ target: EventTarget | null; top: number }> = [];
+			(window as Window & { touchStarts?: typeof starts }).touchStarts = starts;
+			node.addEventListener(
+				'touchstart',
+				(event) => starts.push({ target: event.target, top: node.scrollTop }),
+				{ passive: true }
+			);
+		});
+		async function swipe(direction: number) {
+			const previousStarts = await page.evaluate(
+				() => (window as Window & { touchStarts?: unknown[] }).touchStarts?.length ?? 0
+			);
+			const box = await chat.boundingBox();
+			if (!box) throw new Error('Chat viewport is unavailable');
+			const x = box.x + box.width / 2;
+			const y = box.y + box.height / 2;
+			const distance = Math.min(120, box.height / 3) * direction;
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+			await expect
+				.poll(() =>
+					page.evaluate(
+						() => (window as Window & { touchStarts?: unknown[] }).touchStarts?.length ?? 0
+					)
+				)
+				.toBeGreaterThan(previousStarts);
+			const topAtStart = await page.evaluate(
+				() =>
+					(window as Window & { touchStarts?: Array<{ top: number }> }).touchStarts?.at(-1)?.top ??
+					0
+			);
+			for (let step = 1; step <= 8; step++) {
+				await cdp.send('Input.dispatchTouchEvent', {
+					type: 'touchMove',
+					touchPoints: [{ x, y: y + (distance * step) / 8 }]
+				});
+				await page.evaluate(
+					() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+				);
+				expect(
+					await page.evaluate(() => {
+						const target = (
+							window as Window & { touchStarts?: Array<{ target: Node }> }
+						).touchStarts?.at(-1)?.target;
+						return target?.isConnected;
+					})
+				).toBe(true);
+			}
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+			await page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+					)
+			);
+			return topAtStart;
+		}
+		await swipe(-1);
+		await expectBackgroundUnmoved(page);
+		await page.evaluate(() => {
+			const fixture = window as Window & {
+				aiStream?: ReadableStreamDefaultController<Uint8Array>;
+				streamFrame?: number;
+				streamTicks?: number;
+			};
+			fixture.streamTicks = 0;
+			fixture.aiStream?.enqueue(
+				new TextEncoder().encode(
+					`data: ${JSON.stringify({ type: 'token', text: '\n\nJawaban panjang untuk pengujian.'.repeat(40) })}\n\n`
+				)
+			);
+			const pump = () => {
+				fixture.aiStream?.enqueue(
+					new TextEncoder().encode(
+						`data: ${JSON.stringify({ type: 'token', text: '\n\nToken baru terus masuk.' })}\n\n`
+					)
+				);
+				fixture.streamTicks = (fixture.streamTicks ?? 0) + 1;
+				if (fixture.streamTicks < 240) fixture.streamFrame = requestAnimationFrame(pump);
+			};
+			fixture.streamFrame = requestAnimationFrame(pump);
+		});
+		await expect
+			.poll(() => chat.evaluate((node) => node.scrollHeight - node.clientHeight))
+			.toBeGreaterThan(400);
+		await expect
+			.poll(() => chat.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop))
+			.toBeLessThanOrEqual(2);
+		const before = await swipe(1);
+		await expect(dialog.getByRole('button', { name: 'Hentikan respons AI' })).toBeVisible();
+		await expectBackgroundUnmoved(page);
+		expect(await chat.evaluate((node) => node.scrollTop)).toBeLessThan(before - 20);
+		await page.evaluate(() => {
+			const fixture = window as Window & {
+				aiStream?: ReadableStreamDefaultController<Uint8Array>;
+				streamFrame?: number;
+			};
+			if (fixture.streamFrame !== undefined) cancelAnimationFrame(fixture.streamFrame);
+			fixture.aiStream?.enqueue(new TextEncoder().encode('data: {"type":"done"}\n\n'));
+			fixture.aiStream?.close();
+		});
+	} finally {
+		await context.close();
+	}
+});
+
+for (const engine of ['chromium', 'webkit'] as const) {
+	const iphone = devices['iPhone 13'];
+	const iphoneTest = test.extend({
+		browserName: engine,
+		viewport: iphone.viewport,
+		userAgent: iphone.userAgent,
+		deviceScaleFactor: iphone.deviceScaleFactor,
+		isMobile: iphone.isMobile,
+		hasTouch: iphone.hasTouch
+	});
+	iphoneTest(
+		`${engine} keeps the page visually locked while an active AI response receives viewport scrolling`,
+		async ({ page }) => {
+			const errors: string[] = [];
+			page.on('pageerror', (error) => errors.push(error.message));
+			await installReportStreamFixture(page, 'Jawaban sedang dibuat.');
+			await test.step('Authenticate the iPhone browser context', () =>
+				loginAsOwner(page, test.info().title));
+			await page
+				.getByRole('navigation', { name: 'Navigasi utama' })
+				.getByRole('link', { name: 'Laporan', exact: true })
+				.click();
+			await expect(page).toHaveURL(/\/laporan$/);
+			await page.evaluate(() => {
+				document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+				document.body.style.setProperty('position', 'relative', 'important');
+				document.body.style.minHeight = '2400px';
+				const probe = document.createElement('div');
+				probe.id = 'page-scroll-probe';
+				probe.style.cssText =
+					'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
+				document.body.appendChild(probe);
+				window.scrollTo({ top: 300, behavior: 'instant' });
+			});
+			const position = () =>
+				page.locator('#page-scroll-probe').evaluate((node) => node.getBoundingClientRect().top);
+			const before = await position();
+			// Keep the prescribed page offset; a locator click first scrolls this trigger into view.
+			await page
+				.getByRole('button', { name: 'Buka Asisten AI', exact: true })
+				.evaluate((node) => node.click());
+			const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
+			await dialog
+				.getByPlaceholder('Ketik pertanyaan untuk asisten AI...')
+				.fill('Periksa posisi halaman');
+			await dialog.getByPlaceholder('Ketik pertanyaan untuk asisten AI...').press('Enter');
+			await expect(dialog.getByRole('button', { name: 'Hentikan respons AI' })).toBeVisible();
+			await page.evaluate(() => window.scrollTo({ top: 650, behavior: 'instant' }));
+			await page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+					)
+			);
+			expect(await position()).toBeCloseTo(before, 0);
+			await dialog.getByRole('button', { name: 'Hentikan respons AI' }).click();
+			await dialog.getByRole('button', { name: 'Tutup Asisten AI' }).click();
+			await expect(dialog).toHaveCount(0);
+			expect(await page.evaluate(() => window.scrollY)).toBe(300);
+			expect(await page.evaluate(() => document.body.style.position)).toBe('relative');
+			expect(await page.evaluate(() => document.body.style.getPropertyPriority('position'))).toBe(
+				'important'
+			);
+			expect(await page.evaluate(() => document.documentElement.style.overflowY)).toBe('auto');
+			expect(errors).toEqual([]);
+		}
+	);
+}
+
 for (const viewport of [
 	{ width: 1280, height: 800 },
 	{ width: 390, height: 844 }
 ]) {
+	test(`active AI stream contains wheel gestures with an explicit document scroller at ${viewport.width}px`, async ({
+		page
+	}) => {
+		await page.setViewportSize(viewport);
+		await installReportStreamFixture(page, 'Awal jawaban.');
+		await loginAsOwner(page, test.info().title);
+		await page
+			.getByRole('navigation', { name: 'Navigasi utama' })
+			.getByRole('link', { name: 'Laporan', exact: true })
+			.click();
+		await expect(page).toHaveURL(/\/laporan$/);
+		await prepareBackgroundScrollProbe(page);
+		await page.evaluate(() =>
+			document.documentElement.style.setProperty('overflow-y', 'auto', 'important')
+		);
+		await page.getByRole('button', { name: 'Buka Asisten AI', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
+		const input = dialog.getByPlaceholder('Ketik pertanyaan untuk asisten AI...');
+		await input.fill('Analisis sambil membaca');
+		await input.press('Enter');
+		await expect(dialog.getByText('Awal jawaban.', { exact: true })).toBeVisible();
+		const chat = dialog.locator('div.overflow-y-auto');
+		const stop = dialog.getByRole('button', { name: 'Hentikan respons AI' });
+		await expect(stop).toBeVisible();
+		await chat.hover();
+		await page.mouse.wheel(0, 400);
+		await page.evaluate(
+			() =>
+				new Promise<void>((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+				)
+		);
+		await expectBackgroundUnmoved(page);
+		await page.evaluate(() => {
+			const fixture = window as Window & {
+				aiStream?: ReadableStreamDefaultController<Uint8Array>;
+				streamFrame?: number;
+				streamTicks?: number;
+			};
+			fixture.streamTicks = 0;
+			const pump = () => {
+				fixture.aiStream?.enqueue(
+					new TextEncoder().encode(
+						`data: ${JSON.stringify({ type: 'token', text: '\n\nBagian jawaban terus bertambah.' })}\n\n`
+					)
+				);
+				fixture.streamTicks = (fixture.streamTicks ?? 0) + 1;
+				fixture.streamFrame = requestAnimationFrame(pump);
+			};
+			fixture.aiStream?.enqueue(
+				new TextEncoder().encode(
+					`data: ${JSON.stringify({ type: 'token', text: '\n\nIsi jawaban panjang.'.repeat(40) })}\n\n`
+				)
+			);
+			fixture.streamFrame = requestAnimationFrame(pump);
+		});
+		await expect
+			.poll(() => chat.evaluate((node) => node.scrollHeight - node.clientHeight))
+			.toBeGreaterThan(400);
+		await chat.hover();
+		await page.mouse.wheel(0, -300);
+		await expect
+			.poll(() => chat.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop))
+			.toBeGreaterThan(100);
+		await expect(stop).toBeVisible();
+		await expectBackgroundUnmoved(page);
+		await page.evaluate(() => {
+			const fixture = window as Window & {
+				aiStream?: ReadableStreamDefaultController<Uint8Array>;
+				streamFrame?: number;
+			};
+			if (fixture.streamFrame !== undefined) cancelAnimationFrame(fixture.streamFrame);
+			fixture.aiStream?.enqueue(new TextEncoder().encode('data: {"type":"done"}\n\n'));
+			fixture.aiStream?.close();
+		});
+		await expect(stop).toHaveCount(0);
+		await dialog.getByRole('button', { name: 'Tutup Asisten AI' }).click();
+		await expect(dialog).toHaveCount(0);
+		expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflowY)).toBe(
+			'auto'
+		);
+		await page.mouse.move(5, 5);
+		await page.mouse.wheel(0, 400);
+		await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+	});
+
 	test(`AI streaming preserves manual scroll at ${viewport.width}px`, async ({ page }) => {
 		await page.setViewportSize(viewport);
 		await installReportStreamFixture(page);
@@ -279,10 +575,7 @@ for (const viewport of [
 			.click();
 		await expect(page).toHaveURL(/\/laporan$/);
 		// A long report with room to scroll in either direction exposes chaining at both edges.
-		await page.evaluate(() => {
-			document.body.style.minHeight = '2400px';
-			window.scrollTo({ top: 300, behavior: 'instant' });
-		});
+		await prepareBackgroundScrollProbe(page);
 		await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
 		await page.getByRole('button', { name: 'Buka Asisten AI', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
@@ -312,7 +605,7 @@ for (const viewport of [
 						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 					)
 			);
-			expect(await page.evaluate(() => window.scrollY)).toBe(300);
+			await expectBackgroundUnmoved(page);
 		}
 
 		await dialog.getByRole('heading', { name: 'Asisten AI Zatiaras' }).hover();
@@ -323,10 +616,10 @@ for (const viewport of [
 					requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 				)
 		);
-		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundUnmoved(page);
 		await dialog.getByRole('button', { name: 'Tutup Asisten AI' }).click();
 		await expect(dialog).toHaveCount(0);
-		expect(await page.evaluate(() => window.scrollY)).toBe(300);
+		await expectBackgroundUnmoved(page);
 		await page.mouse.move(10, viewport.height / 2);
 		await page.mouse.wheel(0, 400);
 		await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);

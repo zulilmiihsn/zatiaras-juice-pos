@@ -68,6 +68,9 @@ Saat jawaban asisten laporan sedang streaming, auto-scroll mengikuti jawaban
 terbaru hanya selama pengguna tetap di bagian bawah percakapan. Scroll ke atas
 menghentikan auto-scroll, termasuk saat respons selesai atau gagal. Scroll kembali
 ke bawah atau mengirim pertanyaan baru mengaktifkannya kembali.
+Sentuhan menghentikan auto-scroll sejak gesture dimulai. Selama streaming, kartu
+jawaban tidak menerima pointer agar pembaruan HTML tidak melepas target sentuhan
+native; baris pesan tetap menjadi target scroll yang stabil.
 Scroll pada batas atas/bawah percakapan maupun area modal tidak diteruskan ke
 halaman laporan di belakangnya.
 
@@ -76,8 +79,12 @@ dialog, integrasi `modalFocus`, backdrop, dan pembatas scroll. `AppModal` mengat
 presentasi dialog; `ModalSheet` mengatur presentasi sheet dan gesture swipe.
 Dialog fitur memakai fondasi tersebut, termasuk PIN, cropper, login, dan dropdown.
 Konten panjang tetap bisa discroll tanpa meneruskan scroll ke halaman belakang.
-`modalFocus` menahan scroll halaman selama stack dialog belum kosong dan memulihkan
-nilai serta prioritas style `overflow` sebelumnya ketika dialog terakhir dibuang.
+`modalFocus` menahan posisi halaman dengan body fixed selama stack dialog belum
+kosong, termasuk pada iPhone yang masih dapat menggeser viewport meski overflow
+disembunyikan. Posisi halaman, nilai dan prioritas style body/root dipulihkan ketika
+dialog terakhir dibuang. `DialogRoot` melepas posisi fixed sebelum router mencatat
+scroll navigasi dan menguncinya kembali setelah navigasi bila dialog masih terbuka,
+agar Back/Forward tidak menyimpan posisi nol dari body fixed.
 Dialog bertumpuk tetap menjebak fokus dan Escape hanya ditangani dialog teratas.
 Lapisan dialog baru ditempatkan di atas stack aktif, termasuk sheet yang token
 `z-index` awalnya lebih rendah daripada induknya. Style lapisan semula dipulihkan
@@ -95,7 +102,9 @@ Persetujuan transaksi tetap dimiliki `AutoApplyService`, terpisah dari fondasi U
 Guard AST konsistensi frontend menolak dialog produksi yang membuat root sendiri.
 Tes state/transport AI dapat dijalankan dengan `pnpm test:ai-report-state`; kontrak
 DOM dialog dan lifecycle dibuktikan oleh `e2e/modal-focus.spec.ts` dan
-`e2e/aichat-errors.spec.ts`.
+`e2e/aichat-errors.spec.ts`, termasuk gesture native Chromium saat token terus
+masuk serta penguncian viewport WebKit dalam konteks iPhone. Tes ini tidak
+menggantikan verifikasi Safari/PWA pada iPhone fisik.
 
 ### 3.1 Checkout online
 

@@ -29,24 +29,102 @@ function focusablesOf(node: HTMLElement): HTMLElement[] {
 // Hanya dialog teratas yang menangani Escape/Tab.
 const dialogStack: HTMLElement[] = [];
 const inertTouched = new Set<Element>();
-let bodyOverflow: { value: string; priority: string } | null = null;
+type StyleSnapshot = { property: string; value: string; priority: string };
+let backgroundScroll: {
+	x: number;
+	y: number;
+	fixed: boolean;
+	position: StyleSnapshot[];
+	body: StyleSnapshot[];
+	root: StyleSnapshot[];
+} | null = null;
+let activeNavigation: Promise<void> | null = null;
+
+function captureStyles(element: HTMLElement, properties: string[]): StyleSnapshot[] {
+	return properties.map((property) => ({
+		property,
+		value: element.style.getPropertyValue(property),
+		priority: element.style.getPropertyPriority(property)
+	}));
+}
+
+function restoreStyles(element: HTMLElement, snapshot: StyleSnapshot[]): void {
+	for (const { property, value, priority } of snapshot) {
+		if (value) element.style.setProperty(property, value, priority);
+		else element.style.removeProperty(property);
+	}
+}
+
+function restoreViewport(x: number, y: number): void {
+	const behavior = captureStyles(document.documentElement, ['scroll-behavior']);
+	// The application enables smooth scrolling; restoring a modal must be synchronous.
+	document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+	window.scrollTo({ left: x, top: y, behavior: 'auto' });
+	restoreStyles(document.documentElement, behavior);
+}
+
+function fixBackgroundPosition(): void {
+	if (!backgroundScroll || backgroundScroll.fixed) return;
+	backgroundScroll.position = captureStyles(document.body, ['position', 'top', 'left', 'width']);
+	document.body.style.setProperty('position', 'fixed', 'important');
+	document.body.style.setProperty('top', `${-backgroundScroll.y}px`, 'important');
+	document.body.style.setProperty('left', `${-backgroundScroll.x}px`, 'important');
+	document.body.style.setProperty('width', '100%', 'important');
+	backgroundScroll.fixed = true;
+}
+
+function releaseBackgroundPosition(): void {
+	if (!backgroundScroll?.fixed) return;
+	restoreStyles(document.body, backgroundScroll.position);
+	backgroundScroll.fixed = false;
+	restoreViewport(backgroundScroll.x, backgroundScroll.y);
+}
 
 function lockBackgroundScroll(): void {
-	bodyOverflow = {
-		value: document.body.style.getPropertyValue('overflow'),
-		priority: document.body.style.getPropertyPriority('overflow')
+	backgroundScroll = {
+		x: window.scrollX,
+		y: window.scrollY,
+		fixed: false,
+		position: [],
+		body: captureStyles(document.body, ['overflow-x', 'overflow-y']),
+		root: captureStyles(document.documentElement, [
+			'overflow-x',
+			'overflow-y',
+			'overscroll-behavior-y'
+		])
 	};
-	document.body.style.setProperty('overflow', 'hidden', 'important');
+	for (const element of [document.body, document.documentElement]) {
+		element.style.setProperty('overflow-x', 'hidden', 'important');
+		element.style.setProperty('overflow-y', 'hidden', 'important');
+	}
+	document.documentElement.style.setProperty('overscroll-behavior-y', 'none', 'important');
+	// iOS can pan the viewport despite body overflow:hidden, especially with focused inputs.
+	if (!activeNavigation) fixBackgroundPosition();
 }
 
 function restoreBackgroundScroll(): void {
-	if (!bodyOverflow) return;
-	if (bodyOverflow.value) {
-		document.body.style.setProperty('overflow', bodyOverflow.value, bodyOverflow.priority);
-	} else {
-		document.body.style.removeProperty('overflow');
-	}
-	bodyOverflow = null;
+	if (!backgroundScroll) return;
+	releaseBackgroundPosition();
+	restoreStyles(document.body, backgroundScroll.body);
+	restoreStyles(document.documentElement, backgroundScroll.root);
+	backgroundScroll = null;
+}
+
+/** Let the router record/restore real page offsets before reacquiring the visual lock. */
+export function prepareModalNavigation(completion: Promise<void>): void {
+	if (activeNavigation === completion) return;
+	activeNavigation = completion;
+	releaseBackgroundPosition();
+	const finish = () => {
+		if (activeNavigation !== completion) return;
+		activeNavigation = null;
+		if (backgroundScroll && !backgroundScroll.fixed && dialogStack.length) {
+			backgroundScroll.x = window.scrollX;
+			backgroundScroll.y = window.scrollY;
+			fixBackgroundPosition();
+		}
+	};
+	void completion.then(finish, finish);
 }
 
 function markInert(element: Element): void {

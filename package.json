@@ -125,7 +125,7 @@
 		"test:quantity-decimal": "tsx src/tests/quantity-decimal-tests.ts",
 		"test:yield": "tsx src/tests/ingredient-yield-tests.ts",
 		"test:pos-integrity:local": "node scripts/uat-pos-integrity.mjs",
-		"test:e2e:install": "playwright install chromium",
+		"test:e2e:install": "playwright install chromium webkit",
 		"test:e2e:pos": "node scripts/run-playwright-local.mjs e2e/pos.spec.ts",
 		"test:e2e:all": "node scripts/run-playwright-local.mjs",
 		"test:e2e:ci-a": "node scripts/run-playwright-local.mjs e2e/antrean.spec.ts e2e/a11y.spec.ts e2e/archive.spec.ts e2e/auth.spec.ts e2e/offline.spec.ts e2e/pwa-updater.spec.ts e2e/reports.spec.ts",

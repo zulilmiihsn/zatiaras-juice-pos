@@ -27,6 +27,10 @@
 	let chatContainer = $state<HTMLDivElement | null>(null);
 	let followLatest = true;
 	let lastScrollTop = 0;
+	let touchY: number | null = null;
+	let touchMoved = false;
+	let touchDirection = 0;
+	let followedBeforeTouch = false;
 	let copiedId = $state<string | null>(null);
 	let copyFailedId = $state<string | null>(null);
 
@@ -111,13 +115,55 @@
 
 	function handleChatScroll() {
 		if (!chatContainer) return;
-		const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+		const { scrollTop } = chatContainer;
 		if (scrollTop < lastScrollTop) {
 			followLatest = false;
-		} else if (scrollTop > lastScrollTop && scrollHeight - clientHeight - scrollTop <= 24) {
+		} else if (touchY === null && scrollTop > lastScrollTop && isNearBottom()) {
 			followLatest = true;
 		}
 		lastScrollTop = scrollTop;
+	}
+
+	function isNearBottom() {
+		return (
+			chatContainer !== null &&
+			chatContainer.scrollHeight - chatContainer.clientHeight - chatContainer.scrollTop <= 24
+		);
+	}
+
+	function handleScrollIntent(delta: number) {
+		// Native panning and token rendering can run before the resulting scroll event reaches JS.
+		if (delta < 0) followLatest = false;
+		else if (delta > 0 && isNearBottom()) followLatest = true;
+	}
+
+	function handleTouchStart(event: TouchEvent) {
+		touchY = event.touches.length === 1 ? event.touches[0].clientY : null;
+		touchMoved = false;
+		touchDirection = 0;
+		followedBeforeTouch = followLatest;
+		if (touchY !== null) followLatest = false;
+	}
+
+	function handleTouchMove(event: TouchEvent) {
+		const next = event.touches.length === 1 ? event.touches[0].clientY : null;
+		if (touchY !== null && next !== null) {
+			if (touchY !== next) {
+				touchMoved = true;
+				touchDirection = touchY - next;
+			}
+			handleScrollIntent(touchDirection);
+		}
+		touchY = next;
+	}
+
+	function handleTouchEnd(event: TouchEvent) {
+		if (
+			event.type === 'touchend' &&
+			((!touchMoved && followedBeforeTouch) || (touchDirection > 0 && isNearBottom()))
+		)
+			followLatest = true;
+		touchY = null;
 	}
 
 	function scrollToBottom() {
@@ -250,7 +296,14 @@
 	<!-- Body Konten Percakapan / Saran Bersih -->
 	<div
 		bind:this={chatContainer}
+		role="region"
+		aria-label="Percakapan Asisten AI"
 		onscroll={handleChatScroll}
+		onwheel={(event) => handleScrollIntent(event.deltaY)}
+		ontouchstart={handleTouchStart}
+		ontouchmove={handleTouchMove}
+		ontouchend={handleTouchEnd}
+		ontouchcancel={handleTouchEnd}
 		class="bg-canvas flex flex-1 flex-col gap-3.5 overflow-y-auto overscroll-y-contain p-4 sm:p-5"
 	>
 		{#if s.messages.length === 0}
@@ -323,7 +376,9 @@
 								<Bot size={15} class="stroke-[2.2]" />
 							{/if}
 						</div>
+						<!-- Replacing streaming HTML must not detach the native gesture's hit target. -->
 						<div
+							class:pointer-events-none={msg.isStreaming}
 							class="min-w-0 flex-1 overflow-hidden rounded-2xl rounded-tl-xs border border-slate-200/80 bg-white p-3.5 shadow-sm sm:p-4"
 						>
 							{#if (msg.dateRange?.start && msg.dateRange?.end) || msg.webSearch}
