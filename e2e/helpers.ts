@@ -1,11 +1,25 @@
 import type { Page } from '@playwright/test';
+// Browser runs share one local IP; spread logins across isolated UAT owners below the per-user limit.
+export { ownerUsernameForTest } from '../scripts/e2e-environment.mjs';
 
 /** Measure the painted background, since iOS scroll locking fixes body in the viewport. */
 export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
+	await page.getByRole('dialog').waitFor({ state: 'detached' });
+	// URL changes precede the router's final scroll restoration and the outgoing dialog's cleanup.
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			)
+	);
 	await page.evaluate(() => {
 		document.body.style.minHeight = '2400px';
 		document.body.style.setProperty('position', 'relative', 'important');
 		document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+		// Report data can grow after mount; test gestures must be the only source of viewport movement.
+		const background = document.querySelector('main');
+		if (!background) throw new Error('Background page content is unavailable');
+		background.style.setProperty('overflow-anchor', 'none', 'important');
 		const probe = document.createElement('div');
 		probe.id = 'modal-background-probe';
 		probe.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
@@ -52,19 +66,6 @@ export async function backgroundScrollProbe(
 export async function gotoHydrated(page: Page, url: string, clientMarker: string): Promise<void> {
 	await page.goto(url);
 	await page.locator(clientMarker).first().waitFor({ timeout: 60000 });
-}
-
-// Browser runs share one local IP; spread logins across isolated UAT owners below the per-user limit.
-export function ownerUsernameForTest(title: string): string {
-	if (title === 'legacy status intent without a token is staged and replayed') return 'pemilik';
-
-	let hash = 2166136261;
-	for (const character of title) {
-		hash ^= character.charCodeAt(0);
-		hash = Math.imul(hash, 16777619);
-	}
-	const slot = (hash >>> 0) % 4;
-	return slot === 0 ? 'pemilik' : `pemilik-e2e-${slot}`;
 }
 
 /**

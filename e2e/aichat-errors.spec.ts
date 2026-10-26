@@ -342,25 +342,24 @@ for (const engine of ['chromium', 'webkit'] as const) {
 				.getByRole('link', { name: 'Laporan', exact: true })
 				.click();
 			await expect(page).toHaveURL(/\/laporan$/);
+			await expect(
+				page.getByRole('button', { name: 'Buka Asisten AI', exact: true })
+			).toBeVisible();
+			await prepareBackgroundScrollProbe(page);
 			await page.evaluate(() => {
 				document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-				document.body.style.setProperty('position', 'relative', 'important');
-				document.body.style.minHeight = '2400px';
-				const probe = document.createElement('div');
-				probe.id = 'page-scroll-probe';
-				probe.style.cssText =
-					'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
-				document.body.appendChild(probe);
-				window.scrollTo({ top: 300, behavior: 'instant' });
 			});
-			const position = () =>
-				page.locator('#page-scroll-probe').evaluate((node) => node.getBoundingClientRect().top);
-			const before = await position();
+			const before = await backgroundScrollProbe(page);
+			expect(before.y).toBe(300);
+			expect(before.actual).toBe(-300);
 			// Keep the prescribed page offset; a locator click first scrolls this trigger into view.
 			await page
 				.getByRole('button', { name: 'Buka Asisten AI', exact: true })
 				.evaluate((node) => node.click());
 			const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
+			await expect(dialog).toBeVisible();
+			await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+			await expect(page.locator('body')).toHaveCSS('top', '-300px');
 			await dialog
 				.getByPlaceholder('Ketik pertanyaan untuk asisten AI...')
 				.fill('Periksa posisi halaman');
@@ -373,7 +372,9 @@ for (const engine of ['chromium', 'webkit'] as const) {
 						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 					)
 			);
-			expect(await position()).toBeCloseTo(before, 0);
+			const locked = await backgroundScrollProbe(page);
+			expect(locked.expected).toBe(before.actual);
+			expect(locked.actual).toBeCloseTo(before.actual, 0);
 			await dialog.getByRole('button', { name: 'Hentikan respons AI' }).click();
 			await dialog.getByRole('button', { name: 'Tutup Asisten AI' }).click();
 			await expect(dialog).toHaveCount(0);

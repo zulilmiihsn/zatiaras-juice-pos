@@ -15,8 +15,25 @@ import { EventEmitter } from 'node:events';
 import { fork, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { ensureE2eApplicationReady } from './e2e-readiness.mjs';
-import { createE2eEnvironment, resolveE2eSelections } from './e2e-environment.mjs';
+import {
+	createE2eEnvironment,
+	resolveE2eSelections,
+	E2E_OWNER_USERNAMES,
+	ownerUsernameForTest
+} from './e2e-environment.mjs';
 import { runE2e } from './run-playwright-local.mjs';
+
+test('UI owner assignment is deterministic, seeded and distributed without bypassing auth limits', () => {
+	const titles = Array.from({ length: 1000 }, (_, index) => `Isolated owner behavior ${index}`);
+	const assignments = titles.map(ownerUsernameForTest);
+	assert.deepEqual(assignments, titles.map(ownerUsernameForTest));
+	assert.ok(assignments.every((username) => E2E_OWNER_USERNAMES.includes(username)));
+	assert.equal(new Set(assignments).size, E2E_OWNER_USERNAMES.length);
+	assert.equal(
+		ownerUsernameForTest('legacy status intent without a token is staged and replayed'),
+		'pemilik'
+	);
+});
 
 test('parallel E2E environments own different state and cleanup preserves neighbours', () => {
 	const parent = mkdtempSync(

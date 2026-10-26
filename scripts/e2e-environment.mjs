@@ -3,6 +3,22 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+// The same identities seed the disposable database and distribute UI logins without relaxing limits.
+export const E2E_OWNER_USERNAMES = Object.freeze([
+	'pemilik',
+	...Array.from({ length: 7 }, (_, index) => `pemilik-e2e-${index + 1}`)
+]);
+
+export function ownerUsernameForTest(title) {
+	if (title === 'legacy status intent without a token is staged and replayed') return 'pemilik';
+	let hash = 2166136261;
+	for (const character of title) {
+		hash ^= character.charCodeAt(0);
+		hash = Math.imul(hash, 16777619);
+	}
+	return E2E_OWNER_USERNAMES[(hash >>> 0) % E2E_OWNER_USERNAMES.length];
+}
+
 /** Full gate shares the CI inventory, but never shares its auth limiter state across cohorts. */
 export function resolveE2eSelections(argv, options = {}) {
 	if (argv.length) return [{ name: 'selected', args: [...argv] }];
@@ -113,18 +129,18 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 					.bind(passwordHash)
 					.run();
 				await db.batch(
-					[1, 2, 3].map((slot) =>
+					E2E_OWNER_USERNAMES.slice(1).map((username, index) =>
 						db
 							.prepare(
 								'INSERT INTO profil (id, cabang_id, role, username, password, nama_lengkap) VALUES (?, ?, ?, ?, ?, ?)'
 							)
 							.bind(
-								`uat-pemilik-samarinda-e2e-${slot}`,
+								`uat-pemilik-samarinda-e2e-${index + 1}`,
 								'samarinda',
 								'pemilik',
-								`pemilik-e2e-${slot}`,
+								username,
 								passwordHash,
-								`Pemilik UAT E2E ${slot}`
+								`Pemilik UAT E2E ${index + 1}`
 							)
 					)
 				);
