@@ -8,9 +8,33 @@ export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
 	// URL changes precede the router's final scroll restoration and the outgoing dialog's cleanup.
 	await page.evaluate(
 		() =>
-			new Promise<void>((resolve) =>
-				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-			)
+			new Promise<void>((resolve) => {
+				// Native smooth scrolling can outlive the navigation's URL and DOM updates.
+				const position = () => {
+					const viewport = window.visualViewport;
+					const main = document.querySelector('main');
+					return [
+						window.scrollX,
+						window.scrollY,
+						viewport?.offsetTop ?? 0,
+						viewport?.scale ?? 1,
+						main?.getBoundingClientRect().top ?? 0,
+						main?.scrollTop ?? 0
+					];
+				};
+				let previous = position();
+				let stableFrames = 0;
+				const check = () => {
+					const current = position();
+					stableFrames = current.every((value, index) => value === previous[index])
+						? stableFrames + 1
+						: 0;
+					previous = current;
+					if (stableFrames >= 3) resolve();
+					else requestAnimationFrame(check);
+				};
+				requestAnimationFrame(check);
+			})
 	);
 	await page.evaluate(() => {
 		const background = document.querySelector('main');
