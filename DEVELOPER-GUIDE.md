@@ -85,6 +85,8 @@ disembunyikan. Posisi halaman, nilai dan prioritas style body/root dipulihkan ke
 dialog terakhir dibuang. `DialogRoot` melepas posisi fixed sebelum router mencatat
 scroll navigasi dan menguncinya kembali setelah navigasi bila dialog masih terbuka,
 agar Back/Forward tidak menyimpan posisi nol dari body fixed.
+Smooth scroll halaman dinonaktifkan selama lock agar router menuntaskan pemulihan
+scroll sebelum posisi tujuan dikunci; nilai dan prioritas semula tetap dipulihkan.
 Dialog bertumpuk tetap menjebak fokus dan Escape hanya ditangani dialog teratas.
 Lapisan dialog baru ditempatkan di atas stack aktif, termasuk sheet yang token
 `z-index` awalnya lebih rendah daripada induknya. Style lapisan semula dipulihkan

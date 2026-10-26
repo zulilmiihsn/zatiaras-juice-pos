@@ -90,7 +90,8 @@ function lockBackgroundScroll(): void {
 		root: captureStyles(document.documentElement, [
 			'overflow-x',
 			'overflow-y',
-			'overscroll-behavior-y'
+			'overscroll-behavior-y',
+			'scroll-behavior'
 		])
 	};
 	for (const element of [document.body, document.documentElement]) {
@@ -98,6 +99,8 @@ function lockBackgroundScroll(): void {
 		element.style.setProperty('overflow-y', 'hidden', 'important');
 	}
 	document.documentElement.style.setProperty('overscroll-behavior-y', 'none', 'important');
+	// Router scroll restoration must finish before a surviving dialog captures the new offset.
+	document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
 	// iOS can pan the viewport despite body overflow:hidden, especially with focused inputs.
 	if (!activeNavigation) fixBackgroundPosition();
 }

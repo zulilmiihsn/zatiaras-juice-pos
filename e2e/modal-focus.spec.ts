@@ -449,6 +449,69 @@ test('transaction option sheet traps keyboard focus and restores its trigger', a
 	expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
 });
 
+test('modal navigation restores destination offsets with smooth scrolling and overlapping completions', async ({
+	page
+}) => {
+	await page.goto('/login');
+	const result = await page.evaluate(async () => {
+		const modulePath = '/src/lib/utils/modalFocus.ts';
+		const { modalFocus, prepareModalNavigation } = await import(/* @vite-ignore */ modulePath);
+		document.body.style.minHeight = '3000px';
+		document.documentElement.style.setProperty('scroll-behavior', 'smooth', 'important');
+		window.scrollTo({ top: 500, behavior: 'instant' });
+		const node = document.createElement('div');
+		node.style.cssText = 'position:fixed;inset:0';
+		document.body.appendChild(node);
+		const action = modalFocus(node);
+		try {
+			const first = Promise.withResolvers<void>();
+			prepareModalNavigation(first.promise);
+			window.scrollTo(0, 300);
+			first.resolve();
+			await first.promise;
+			const firstTop = document.body.style.top;
+			const old = Promise.withResolvers<void>();
+			const current = Promise.withResolvers<void>();
+			prepareModalNavigation(old.promise);
+			prepareModalNavigation(current.promise);
+			window.scrollTo(0, 200);
+			old.resolve();
+			await old.promise;
+			const pendingPosition = document.body.style.position;
+			current.resolve();
+			await current.promise;
+			const cancelled = Promise.withResolvers<void>();
+			prepareModalNavigation(cancelled.promise);
+			cancelled.reject(new Error('Cancelled navigation fixture'));
+			await cancelled.promise.catch(() => undefined);
+			const finalTop = document.body.style.top;
+			action.destroy();
+			node.remove();
+			return {
+				firstTop,
+				pendingPosition,
+				finalTop,
+				y: window.scrollY,
+				behavior: document.documentElement.style.scrollBehavior,
+				priority: document.documentElement.style.getPropertyPriority('scroll-behavior')
+			};
+		} finally {
+			if (node.isConnected) {
+				action.destroy();
+				node.remove();
+			}
+		}
+	});
+	expect(result).toEqual({
+		firstTop: '-300px',
+		pendingPosition: '',
+		finalTop: '-200px',
+		y: 200,
+		behavior: 'smooth',
+		priority: 'important'
+	});
+});
+
 test('browser back and forward preserve page positions when leaving an open modal', async ({
 	page
 }) => {
