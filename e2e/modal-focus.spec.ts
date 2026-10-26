@@ -48,6 +48,7 @@ async function focusedLabel(page: Page): Promise<string> {
 }
 
 async function prepareScrollableBackground(page: Page) {
+	// Room above and below the viewport exposes scroll chaining in either direction.
 	await prepareBackgroundScrollProbe(page);
 	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
 }

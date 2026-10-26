@@ -13,7 +13,9 @@ export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
 			)
 	);
 	await page.evaluate(() => {
-		const anchors = [document.documentElement, document.body].map((element) => ({
+		const background = document.querySelector('main');
+		if (!background) throw new Error('Background page content is unavailable');
+		const anchors = [document.documentElement, document.body, background].map((element) => ({
 			element,
 			value: element.style.getPropertyValue('overflow-anchor'),
 			priority: element.style.getPropertyPriority('overflow-anchor')
@@ -23,20 +25,21 @@ export async function prepareBackgroundScrollProbe(page: Page): Promise<void> {
 		document.body.style.minHeight = '2400px';
 		document.body.style.setProperty('position', 'relative', 'important');
 		document.documentElement.style.setProperty('scroll-behavior', 'auto', 'important');
+		document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
 		// Report data can grow after mount; test gestures must be the only source of viewport movement.
-		const background = document.querySelector('main');
-		if (!background) throw new Error('Background page content is unavailable');
-		background.style.setProperty('overflow-anchor', 'none', 'important');
-		const probe = document.createElement('div');
-		probe.id = 'modal-background-probe';
-		probe.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none';
-		document.body.appendChild(probe);
 		window.scrollTo({ top: 300, behavior: 'instant' });
 		const capture = () => ({
 			y: window.scrollY,
-			top: probe.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0)
+			// Body formatting changes under position:fixed; measure actual page content, including its own scroller.
+			top:
+				background.getBoundingClientRect().top -
+				background.scrollTop -
+				(window.visualViewport?.offsetTop ?? 0),
+			node: background
 		});
-		const fixture = window as Window & { backgroundScrollProbe?: { y: number; top: number } };
+		const fixture = window as Window & {
+			backgroundScrollProbe?: { y: number; top: number; node: HTMLElement };
+		};
 		fixture.backgroundScrollProbe = capture();
 		// Locator clicks can scroll their trigger into view before the modal opens.
 		document.addEventListener(
@@ -58,12 +61,15 @@ export async function backgroundScrollProbe(
 	page: Page
 ): Promise<{ actual: number; expected: number; y: number }> {
 	return page.evaluate(() => {
-		const probe = document.getElementById('modal-background-probe');
-		const origin = (window as Window & { backgroundScrollProbe?: { y: number; top: number } })
-			.backgroundScrollProbe;
-		if (!probe || !origin) throw new Error('Background scroll fixture is unavailable');
+		const origin = (
+			window as Window & { backgroundScrollProbe?: { y: number; top: number; node: HTMLElement } }
+		).backgroundScrollProbe;
+		if (!origin?.node.isConnected) throw new Error('Background scroll fixture is unavailable');
 		return {
-			actual: probe.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0),
+			actual:
+				origin.node.getBoundingClientRect().top -
+				origin.node.scrollTop -
+				(window.visualViewport?.offsetTop ?? 0),
 			expected: origin.top,
 			y: origin.y
 		};

@@ -346,9 +346,6 @@ for (const engine of ['chromium', 'webkit'] as const) {
 				page.getByRole('button', { name: 'Buka Asisten AI', exact: true })
 			).toBeVisible();
 			await prepareBackgroundScrollProbe(page);
-			await page.evaluate(() => {
-				document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-			});
 			const before = await backgroundScrollProbe(page);
 			expect(before.y).toBe(300);
 			expect(before.actual).toBe(before.expected);
@@ -405,9 +402,6 @@ for (const viewport of [
 			.click();
 		await expect(page).toHaveURL(/\/laporan$/);
 		await prepareBackgroundScrollProbe(page);
-		await page.evaluate(() =>
-			document.documentElement.style.setProperty('overflow-y', 'auto', 'important')
-		);
 		await page.getByRole('button', { name: 'Buka Asisten AI', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Asisten AI Zatiaras', exact: true });
 		const input = dialog.getByPlaceholder('Ketik pertanyaan untuk asisten AI...');

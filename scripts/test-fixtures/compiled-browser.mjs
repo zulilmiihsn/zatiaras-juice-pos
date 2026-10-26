@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
 import { validateRenderedLoginResponse } from '../e2e-readiness.mjs';
+import { E2E_OWNER_USERNAMES } from '../e2e-environment.mjs';
 
 const require = createRequire(import.meta.url);
 const excluded = new Set(['_headers', '_redirects', '_routes.json']);
@@ -136,7 +137,8 @@ export async function seedCompiledBrowser(db) {
 		)
 		.bind(passwordHash)
 		.run();
-	for (const slot of [1, 2, 3]) {
+	for (const [index, username] of E2E_OWNER_USERNAMES.slice(1).entries()) {
+		const slot = index + 1;
 		await db
 			.prepare(
 				'INSERT INTO profil(id,cabang_id,username,password,role,nama_lengkap)VALUES(?,?,?,?,?,?)'
@@ -144,7 +146,7 @@ export async function seedCompiledBrowser(db) {
 			.bind(
 				`compiled-owner-${slot}`,
 				'samarinda',
-				`pemilik-e2e-${slot}`,
+				username,
 				passwordHash,
 				'pemilik',
 				`Compiled owner ${slot}`
