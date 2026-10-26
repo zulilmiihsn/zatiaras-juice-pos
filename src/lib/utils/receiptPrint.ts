@@ -189,7 +189,20 @@ export async function buildPrintIntentUrl(html: string): Promise<string> {
 	return `intent://#Intent;scheme=print-intent;S.content=${uint8ToBase64(gzipped)};end`;
 }
 
+let intentLauncher: ((url: string) => void) | null = null;
+
+/** Simulator printer (hanya dev) menerima intent di sini; tanpa simulator, browser bernavigasi biasa. */
+export function setIntentLauncher(launcher: ((url: string) => void) | null): void {
+	intentLauncher = launcher;
+}
+
+/** Serahkan URL intent ke aplikasi helper Android. */
+export function launchIntent(url: string): void {
+	if (intentLauncher) intentLauncher(url);
+	else window.location.href = url;
+}
+
 /** Kirim HTML struk ke printer via Android print-intent (gzip + base64). */
 export async function printViaIntent(html: string): Promise<void> {
-	window.location.href = await buildPrintIntentUrl(html);
+	launchIntent(await buildPrintIntentUrl(html));
 }

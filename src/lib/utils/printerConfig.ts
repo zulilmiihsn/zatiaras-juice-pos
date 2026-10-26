@@ -1,10 +1,13 @@
 export type PrinterMethod = 'bluetooth' | 'usb' | 'intent' | 'server';
 export type PaperSize = '58mm' | '80mm';
 export type AndroidPrinterApp = 'rawbt' | 'print-intent';
+/** image = seluruh struk sebagai gambar; text = font bawaan printer + logo, ±10× lebih sedikit data. */
+export type PrintMode = 'image' | 'text';
 
 export interface PrinterConfig {
 	method: PrinterMethod;
 	paperSize: PaperSize;
+	printMode: PrintMode;
 	deviceName?: string;
 	androidApp?: AndroidPrinterApp;
 }
@@ -12,6 +15,7 @@ export interface PrinterConfig {
 export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
 	method: 'intent',
 	paperSize: '58mm',
+	printMode: 'image',
 	deviceName: ''
 };
 
@@ -26,6 +30,7 @@ export function parsePrinterConfig(raw: unknown): PrinterConfig {
 				? method
 				: DEFAULT_PRINTER_CONFIG.method,
 		paperSize: parsed.paperSize === '80mm' ? '80mm' : '58mm',
+		printMode: parsed.printMode === 'text' ? 'text' : 'image',
 		deviceName: typeof parsed.deviceName === 'string' ? parsed.deviceName : '',
 		...(parsed.androidApp === 'rawbt' || parsed.androidApp === 'print-intent'
 			? { androidApp: parsed.androidApp }

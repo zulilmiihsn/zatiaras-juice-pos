@@ -3,6 +3,8 @@
  * Standar generator byte binary untuk printer thermal kasir (58mm / 80mm).
  * Zero-dependency murni TypeScript (Uint8Array).
  */
+import { ROM_CELL_HEIGHT, TEXT_LINE_GAP, type ReceiptTextBlock } from './receiptText.js';
+
 export interface ReceiptBitmap {
 	width: number;
 	height: number;
@@ -40,11 +42,37 @@ export class EscPosBuilder {
 		return this;
 	}
 
+	/** ESC E: huruf tebal (double strike pada printer mini). */
+	bold(on: boolean): this {
+		this.buffer.push(0x1b, 0x45, on ? 1 : 0);
+		return this;
+	}
+
+	/** GS !: perbesar huruf sama lebar dan tinggi, 1–8×. */
+	scale(times: number): this {
+		if (!Number.isInteger(times) || times < 1 || times > 8)
+			throw new Error('Ukuran huruf struk tidak valid.');
+		this.buffer.push(0x1d, 0x21, (times - 1) * 0x11);
+		return this;
+	}
+
+	/** Teks ASCII cetak; byte kontrol tidak boleh lolos menjadi perintah printer. */
+	text(value: string): this {
+		for (let i = 0; i < value.length; i++) {
+			const code = value.charCodeAt(i);
+			if (code < 0x20 || code > 0x7e) throw new Error('Teks struk berisi karakter tidak dikenal.');
+			this.buffer.push(code);
+		}
+		return this;
+	}
+
 	/** Raster bands stay small enough for the input buffers of common thermal printers. */
 	raster(bitmap: ReceiptBitmap): this {
 		const bytesPerRow = bitmap.width / 8;
 		if (
-			![384, 576].includes(bitmap.width) ||
+			!Number.isInteger(bytesPerRow) ||
+			bitmap.width < 8 ||
+			bitmap.width > 576 ||
 			!Number.isInteger(bitmap.height) ||
 			bitmap.height < 1 ||
 			bitmap.height > 16_384 ||
@@ -88,9 +116,13 @@ export class EscPosBuilder {
 		return this;
 	}
 
-	/** ESC J feeds n dots (1/203 inch on 203 dpi thermal heads); 255 is the most one command moves. */
-	private feedDots(dots: number): void {
+	/**
+	 * ESC J prints the pending text line and moves the paper n dots from that line's top
+	 * (1/203 inch on 203 dpi thermal heads); 255 is the most one command moves.
+	 */
+	feedDots(dots: number): this {
 		for (let left = dots; left > 0; left -= 255) this.buffer.push(0x1b, 0x4a, Math.min(left, 255));
+		return this;
 	}
 
 	/** Perintah potong kertas otomatis (Auto Cut) + feed */
@@ -112,5 +144,26 @@ export function buildReceiptEscPos(bitmap: ReceiptBitmap): Uint8Array {
 	builder.align('left').raster(bitmap);
 	// Potong Kertas
 	builder.cut();
+	return builder.toBytes();
+}
+
+/** Struk mode teks: logo sebagai gambar kecil, isi dengan font printer, jarak baris lewat ESC J. */
+export function buildReceiptTextEscPos(
+	blocks: ReceiptTextBlock[],
+	logo: ReceiptBitmap
+): Uint8Array {
+	const builder = new EscPosBuilder();
+	for (const block of blocks) {
+		if (block.type === 'logo') builder.align('left').raster(logo);
+		else if (block.type === 'feed') builder.feedDots(block.dots);
+		else
+			builder
+				.align(block.align)
+				.bold(block.bold)
+				.scale(block.scale)
+				.text(block.text)
+				.feedDots(ROM_CELL_HEIGHT * block.scale + TEXT_LINE_GAP);
+	}
+	builder.bold(false).scale(1).align('left').cut();
 	return builder.toBytes();
 }

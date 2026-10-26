@@ -16,7 +16,18 @@ import {
 import { toReceiptLines } from '../lib/utils/receiptLines.js';
 import { formatNomorHarian } from '../lib/utils/orderNumber.js';
 import { formatLevelLabel, formatOrderDetails } from '../lib/utils/orderDetails.js';
-import { buildReceiptEscPos } from '../lib/utils/escposBuilder.js';
+import {
+	buildReceiptEscPos,
+	buildReceiptTextEscPos,
+	EscPosBuilder
+} from '../lib/utils/escposBuilder.js';
+import {
+	buildReceiptTextBlocks,
+	logoRasterWidth,
+	receiptTextContent,
+	toPrinterAscii,
+	wrapColumns
+} from '../lib/utils/receiptText.js';
 import { buildHistoryEscPosData, prepareHistoryReceipt } from '../lib/utils/historyReceipt.js';
 import { buildOfflineReceipt, buildSaleReceiptPrint } from '../lib/utils/saleReceipt.js';
 import { parsePrinterConfig } from '../lib/utils/printerConfig.js';
@@ -716,8 +727,50 @@ assert.throws(
 assert.deepEqual(parsePrinterConfig({ method: 'intent', paperSize: '58mm' }), {
 	method: 'intent',
 	paperSize: '58mm',
+	printMode: 'image',
 	deviceName: ''
 });
+assert.equal(parsePrinterConfig({ printMode: 'text' }).printMode, 'text');
+assert.equal(parsePrinterConfig({ printMode: 'raw' }).printMode, 'image');
+
+// Printer-font receipt: ASCII only, fits the 32/48 columns, and carries the same amounts.
+assert.equal(toPrinterAscii('Café “Ñam” – 2×\u0007 测试'), 'Cafe "Nam" - 2x ??');
+assert.deepEqual(wrapColumns('  Catatan sangat panjang sekali', 12), [
+	'  Catatan',
+	'  sangat',
+	'  panjang',
+	'  sekali'
+]);
+assert.deepEqual(wrapColumns('ABCDEFGHIJKLMNOP', 6), ['ABCDEF', 'GHIJKL', 'MNOP']);
+{
+	const data = buildSampleReceipt(
+		{ nama_toko: 'Zatiaras Juice', alamat: 'Jalan Panjang '.repeat(6), ucapan: 'Terima kasih' },
+		new Date('2026-10-25T02:30:00.000Z')
+	);
+	data.items[0].name = 'Jus Mangga Jumbo dengan nama sangat panjang sekali';
+	data.items[0].details = 'Catatan\n<script>\u001b@</script> Café';
+	for (const paperSize of ['58mm', '80mm'] as const) {
+		const columns = paperSize === '80mm' ? 48 : 32;
+		const blocks = buildReceiptTextBlocks(data, paperSize);
+		const lines = blocks.flatMap((block) => (block.type === 'text' ? [block] : []));
+		for (const line of lines) {
+			assert.ok(line.text.length * line.scale <= columns, `${line.text} fits ${paperSize}`);
+			assert.match(line.text, /^[\x20-\x7e]*$/);
+		}
+		const content = receiptTextContent(blocks).join('\n');
+		for (const expected of ['NOMOR PESANAN', '007', 'Rp39.000', 'Rp50.000', 'Rp11.000', 'Rp4.000'])
+			assert.ok(content.includes(expected), `${expected} on ${paperSize}`);
+		assert.equal(lines.find((line) => line.text === '007')?.scale, 3);
+		const width = logoRasterWidth(paperSize);
+		const logo = { width, height: 96, bytes: new Uint8Array((width / 8) * 96) };
+		const bytes = buildReceiptTextEscPos(blocks, logo);
+		// Only the logo raster may carry bytes outside printable ASCII and the known commands.
+		assert.ok(bytes.length < 4_000 + logo.bytes.length, `${bytes.length} bytes on ${paperSize}`);
+		assert.deepEqual([...bytes.slice(-4)], [0x1d, 0x56, 0x41, 0x10]);
+	}
+}
+assert.throws(() => new EscPosBuilder().text('a\u001bb'), /karakter tidak dikenal/);
+assert.throws(() => new EscPosBuilder().scale(9), /Ukuran huruf/);
 assert.equal(parsePrinterConfig({ androidApp: 'rawbt' }).androidApp, 'rawbt');
 assert.equal(parsePrinterConfig({ androidApp: 'print-intent' }).androidApp, 'print-intent');
 assert.equal(parsePrinterConfig({ androidApp: 'unknown' }).androidApp, undefined);

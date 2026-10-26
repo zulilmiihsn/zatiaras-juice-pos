@@ -8,11 +8,11 @@
  */
 
 import { browser } from '$app/environment';
-import { buildReceiptEscPos } from '$lib/utils/escposBuilder';
 import {
 	buildRawBtIntentUrl,
 	buildSampleReceipt,
 	DEFAULT_RECEIPT_SETTINGS,
+	launchIntent,
 	printViaIntent
 } from '$lib/utils/receiptPrint';
 import { renderReceipt } from '$lib/utils/receiptRaster';
@@ -22,10 +22,11 @@ import {
 	parsePrinterConfig,
 	type PaperSize,
 	type PrinterConfig,
-	type PrinterMethod
+	type PrinterMethod,
+	type PrintMode
 } from '$lib/utils/printerConfig';
 
-export type { PaperSize, PrinterConfig, PrinterMethod };
+export type { PaperSize, PrinterConfig, PrinterMethod, PrintMode };
 export type { AndroidPrinterApp } from '$lib/utils/printerConfig';
 
 // Known BLE Service UUIDs used by common 58mm/80mm thermal printers
@@ -529,8 +530,14 @@ async function executePrint(data: ReceiptData, config: PrinterConfig): Promise<v
 			throw new Error(
 				'Metode Aplikasi Android membutuhkan perangkat Android dan aplikasi helper. Pilih USB atau Server Lokal untuk komputer.'
 			);
-		const rendered = await renderReceipt(data, config.paperSize);
-		const bytes = buildReceiptEscPos(rendered.bitmap);
+		// The HTML print-intent helper prints a picture, so it never takes the printer-font mode.
+		const htmlOnly = config.method === 'intent' && config.androidApp !== 'rawbt';
+		const rendered = await renderReceipt(
+			data,
+			config.paperSize,
+			htmlOnly ? 'image' : config.printMode
+		);
+		const bytes = rendered.escpos;
 		switch (config.method) {
 			case 'bluetooth':
 				if (!activeBluetoothCharacteristic) throw new Error('Printer Bluetooth belum terhubung.');
@@ -551,7 +558,7 @@ async function executePrint(data: ReceiptData, config: PrinterConfig): Promise<v
 						throw new Error(
 							'Struk terlalu panjang untuk RawBT Android. Gunakan USB atau Bluetooth langsung.'
 						);
-					window.location.href = intent;
+					launchIntent(intent);
 				} else {
 					await printViaIntent(rendered.html);
 				}
@@ -584,7 +591,8 @@ export async function testPrintUnified(
 	method: PrinterMethod,
 	paperSize: PaperSize,
 	data: ReceiptData = buildSampleReceipt(DEFAULT_RECEIPT_SETTINGS),
-	androidApp: PrinterConfig['androidApp'] = getPrinterConfig().androidApp
+	androidApp: PrinterConfig['androidApp'] = getPrinterConfig().androidApp,
+	printMode: PrintMode = getPrinterConfig().printMode
 ): Promise<void> {
-	await executePrint(data, { ...getPrinterConfig(), method, paperSize, androidApp });
+	await executePrint(data, { ...getPrinterConfig(), method, paperSize, androidApp, printMode });
 }

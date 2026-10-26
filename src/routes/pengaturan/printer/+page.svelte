@@ -28,7 +28,8 @@
 		isUsbSupported,
 		type PrinterMethod,
 		type AndroidPrinterApp,
-		type PaperSize
+		type PaperSize,
+		type PrintMode
 	} from '$lib/services/printerEngine';
 
 	let namaToko = $state('');
@@ -43,6 +44,7 @@
 	// State Koneksi Printer
 	let printerMethod = $state<PrinterMethod>('intent');
 	let paperSize = $state<PaperSize>('58mm');
+	let printMode = $state<PrintMode>('image');
 	let androidApp = $state<AndroidPrinterApp>('print-intent');
 	let deviceName = $state('');
 	let isConnectingHardware = $state(false);
@@ -76,11 +78,12 @@
 		if (activeTab !== 'preview') return;
 		const data = sampleReceipt;
 		const size = paperSize;
+		const mode = printMode;
 		void previewRevision;
 		let cancelled = false;
 		previewLoading = true;
 		previewError = '';
-		void renderReceipt(data, size)
+		void renderReceipt(data, size, mode)
 			.then((result) => {
 				if (!cancelled) preview = result;
 			})
@@ -118,6 +121,7 @@
 		const config = getPrinterConfig();
 		printerMethod = config.method;
 		paperSize = config.paperSize;
+		printMode = config.printMode;
 		androidApp = config.androidApp ?? 'print-intent';
 		deviceName = config.deviceName || '';
 	}
@@ -175,6 +179,7 @@
 			savePrinterConfig({
 				method: printerMethod,
 				paperSize,
+				printMode,
 				androidApp,
 				deviceName
 			});
@@ -228,7 +233,7 @@
 	async function handleTestPrint() {
 		isTestingPrint = true;
 		try {
-			await testPrintUnified(printerMethod, paperSize, sampleReceipt, androidApp);
+			await testPrintUnified(printerMethod, paperSize, sampleReceipt, androidApp, printMode);
 			toastManager.showToastNotification('Perintah tes cetak terkirim!', 'success');
 		} catch (err: unknown) {
 			toastManager.showToastNotification(
@@ -653,6 +658,46 @@
 					</div>
 				</div>
 
+				<fieldset
+					class="rounded-2xl border-[1.5px] border-pink-100 bg-white p-5 shadow-[0_2px_8px_-2px_rgba(236,72,153,0.05)]"
+				>
+					<legend class="sr-only">Mode cetak</legend>
+					<h3 class="mb-3 text-sm font-bold text-slate-800" aria-hidden="true">Mode Cetak</h3>
+					<div class="grid gap-3 sm:grid-cols-2">
+						{#each [{ value: 'image', label: 'Gambar', hint: 'Sama persis dengan pratinjau, data besar' }, { value: 'text', label: 'Teks printer', hint: 'Font bawaan printer, ±10× lebih cepat' }] as option}
+							<label
+								class="flex cursor-pointer items-center justify-between gap-3 rounded-xl border-[1.5px] p-3.5 transition-all {printMode ===
+								option.value
+									? 'border-pink-500 bg-pink-50/40 text-pink-700'
+									: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
+							>
+								<span class="min-w-0">
+									<span class="block text-sm font-bold">{option.label}</span>
+									<span class="block text-xs text-slate-500">{option.hint}</span>
+								</span>
+								<input
+									type="radio"
+									name="print-mode"
+									value={option.value}
+									bind:group={printMode}
+									class="h-4 w-4 shrink-0 accent-pink-500"
+								/>
+							</label>
+						{/each}
+					</div>
+					{#if printerMethod === 'intent' && androidApp !== 'rawbt'}
+						<p class="mt-3 text-xs leading-relaxed text-slate-500">
+							Helper print-intent selalu mencetak gambar. Mode teks berlaku untuk Bluetooth, USB,
+							Server Lokal, dan RawBT.
+						</p>
+					{:else if printMode === 'text'}
+						<p class="mt-3 text-xs leading-relaxed text-slate-500">
+							Huruf beraksen dicetak tanpa aksen dan emoji menjadi "?". Coba tes cetak dulu sebelum
+							dipakai kasir.
+						</p>
+					{/if}
+				</fieldset>
+
 				<!-- Tombol Aksi -->
 				<div class="flex flex-col gap-3">
 					<button
@@ -723,10 +768,30 @@
 					<div>
 						<h2 class="text-base font-bold text-slate-800">Periksa sebelum mencetak</h2>
 						<p class="mt-2 text-sm leading-relaxed text-slate-600">
-							Pratinjau dan semua metode cetak memakai gambar struk yang sama, termasuk logo dan
-							pemisahan baris.
+							{printMode === 'text'
+								? 'Pratinjau memakai perkiraan font printer. Ukuran, posisi, dan pemisahan baris sama dengan hasil cetak; bentuk huruf asli printer bisa sedikit berbeda.'
+								: 'Pratinjau dan semua metode cetak memakai gambar struk yang sama, termasuk logo dan pemisahan baris.'}
 						</p>
 					</div>
+					<fieldset>
+						<legend class="mb-2 text-sm font-semibold text-slate-800">Mode cetak pratinjau</legend>
+						<div class="flex gap-3">
+							{#each [{ value: 'image', label: 'Gambar' }, { value: 'text', label: 'Teks printer' }] as option}
+								<label
+									class="flex flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm"
+								>
+									<span>{option.label}</span>
+									<input
+										type="radio"
+										name="preview-print-mode"
+										value={option.value}
+										bind:group={printMode}
+										class="accent-pink-500"
+									/>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
 					<fieldset>
 						<legend class="mb-2 text-sm font-semibold text-slate-800"
 							>Ukuran kertas pratinjau</legend
@@ -754,6 +819,13 @@
 							? '72'
 							: '48'} mm. Printer Bluetooth/USB perlu mendukung gambar ESC/POS.
 					</p>
+					{#if preview}
+						<p class="text-xs text-slate-500" data-testid="receipt-bytes">
+							Data ke printer: <strong class="text-slate-700"
+								>{preview.escpos.length.toLocaleString('id-ID')} byte</strong
+							>
+						</p>
+					{/if}
 					<div class="border-y border-slate-100 py-3 text-sm leading-relaxed text-slate-600">
 						<p>Total contoh <strong class="text-slate-800">Rp39.000</strong></p>
 						<p>Dibayar Rp50.000, kembalian Rp11.000.</p>
@@ -762,7 +834,7 @@
 						type="button"
 						onclick={simpanKoneksiPrinter}
 						class="w-full rounded-xl bg-pink-500 px-4 py-3 text-sm font-bold text-white transition-transform active:scale-[0.98]"
-						>Simpan ukuran dan metode</button
+						>Simpan ukuran, mode, dan metode</button
 					>
 					<button
 						type="button"
@@ -781,10 +853,9 @@
 							<summary class="cursor-pointer font-semibold text-slate-800">Isi contoh struk</summary
 							>
 							<pre
-								class="mt-3 text-xs leading-relaxed break-words whitespace-pre-wrap">{preview.layout.nodes
-									.filter((node) => node.type === 'text')
-									.map((node) => node.text)
-									.join('\n')}</pre>
+								class="mt-3 text-xs leading-relaxed break-words whitespace-pre-wrap">{preview.lines.join(
+									'\n'
+								)}</pre>
 						</details>
 					{/if}
 				</aside>
