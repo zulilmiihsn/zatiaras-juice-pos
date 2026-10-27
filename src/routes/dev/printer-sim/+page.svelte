@@ -812,8 +812,9 @@
 				>
 			{/each}
 			<div class="mt-2 text-right">
-				<button class="rounded px-3 py-1 text-slate-600 hover:bg-slate-100" onclick={() => pick(null)}
-					>Batal</button
+				<button
+					class="rounded px-3 py-1 text-slate-600 hover:bg-slate-100"
+					onclick={() => pick(null)}>Batal</button
 				>
 			</div>
 		</div>
