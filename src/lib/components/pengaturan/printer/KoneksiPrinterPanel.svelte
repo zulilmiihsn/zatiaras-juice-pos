@@ -101,61 +101,65 @@
 		<fieldset class="space-y-3">
 			<legend class="sr-only">Metode printer</legend>
 			{#each METHODS as option (option.value)}
-				<label
-					class="flex cursor-pointer items-start gap-3.5 rounded-xl border-[1.5px] p-4 transition-colors has-focus-visible:ring-4 has-focus-visible:ring-pink-500/20 {method ===
-					option.value
+				{@const selected = method === option.value}
+				<!-- Tombol hubungkan berada di dalam kartu, tetapi di luar label: kontrol di dalam label
+					akan ikut memilih radio dan membingungkan pembaca layar. -->
+				<div
+					class="rounded-xl border-[1.5px] p-4 transition-colors has-focus-visible:ring-4 has-focus-visible:ring-pink-500/20 {selected
 						? 'border-pink-500 bg-pink-50/40'
 						: 'border-slate-200 bg-white hover:border-pink-200'}"
 				>
-					<input
-						type="radio"
-						name="printer-method"
-						value={option.value}
-						bind:group={method}
-						{onchange}
-						class="mt-1 h-4 w-4 shrink-0 accent-pink-500"
-					/>
-					<span class="min-w-0 flex-1">
-						<span class="flex items-center gap-2 text-sm font-bold text-slate-800">
-							<option.icon class="h-4 w-4 text-pink-500" aria-hidden="true" />
-							{option.label}
+					<label class="flex cursor-pointer items-start gap-3.5">
+						<input
+							type="radio"
+							name="printer-method"
+							value={option.value}
+							bind:group={method}
+							{onchange}
+							class="mt-1 h-4 w-4 shrink-0 accent-pink-500"
+						/>
+						<span class="min-w-0 flex-1">
+							<span class="flex items-center gap-2 text-sm font-bold text-slate-800">
+								<option.icon class="h-4 w-4 text-pink-500" aria-hidden="true" />
+								{option.label}
+							</span>
+							<span class="mt-1 block text-xs leading-relaxed text-slate-500"
+								>{option.description}</span
+							>
 						</span>
-						<span class="mt-1 block text-xs leading-relaxed text-slate-500"
-							>{option.description}</span
-						>
-					</span>
-				</label>
-			{/each}
-		</fieldset>
-
-		{#if method === 'bluetooth' || method === 'usb'}
-			{@const supported = method === 'bluetooth' ? bluetoothSupported : usbSupported}
-			<div class="mt-4 rounded-xl border border-pink-100 bg-pink-50/40 p-4">
-				<div class="flex flex-wrap items-center gap-3">
-					<button
-						type="button"
-						onclick={method === 'bluetooth' ? onpairbluetooth : onpairusb}
-						disabled={connecting || !supported}
-						class="btn-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 active:scale-[0.98]"
-					>
-						{#if connecting}
-							Mencari printer…
-						{:else}
-							{method === 'bluetooth' ? 'Hubungkan printer Bluetooth' : 'Pilih printer USB'}
-						{/if}
-					</button>
-					{#if deviceName}
-						<span class="text-sm font-semibold text-pink-700">Terhubung: {deviceName}</span>
+					</label>
+					{#if selected && (option.value === 'bluetooth' || option.value === 'usb')}
+						{@const supported = option.value === 'bluetooth' ? bluetoothSupported : usbSupported}
+						<div class="mt-3 ml-7.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+							<button
+								type="button"
+								onclick={option.value === 'bluetooth' ? onpairbluetooth : onpairusb}
+								disabled={connecting || !supported}
+								class="inline-flex min-h-9 cursor-pointer items-center rounded-lg bg-pink-600 px-3 text-xs font-bold text-white transition-colors hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{#if connecting}
+									Mencari printer…
+								{:else}
+									{option.value === 'bluetooth' ? 'Hubungkan printer' : 'Pilih printer USB'}
+								{/if}
+							</button>
+							{#if deviceName}
+								<span class="min-w-0 text-xs font-semibold break-words text-pink-700"
+									>Terhubung: {deviceName}</span
+								>
+							{/if}
+							{#if !supported}
+								<p class="w-full text-xs font-medium text-amber-700">
+									Browser ini tidak mendukung {option.value === 'bluetooth'
+										? 'Web Bluetooth'
+										: 'WebUSB'}. Buka lewat Chrome atau Edge.
+								</p>
+							{/if}
+						</div>
 					{/if}
 				</div>
-				{#if !supported}
-					<p class="mt-2 text-xs font-medium text-amber-700">
-						Browser ini tidak mendukung {method === 'bluetooth' ? 'Web Bluetooth' : 'WebUSB'}. Buka
-						lewat Chrome atau Edge.
-					</p>
-				{/if}
-			</div>
-		{/if}
+			{/each}
+		</fieldset>
 	</section>
 
 	<section
