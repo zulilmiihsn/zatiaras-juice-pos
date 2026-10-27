@@ -890,6 +890,9 @@ for (const width of [1440, 320]) {
 		const preview = page.getByTestId('receipt-preview');
 		await expect(preview).toBeVisible();
 		await expect(preview).toHaveAttribute('width', '384');
+		// The default print-intent helper can only print a picture, so the text mode is offered disabled.
+		await expect(page.getByRole('radio', { name: /^Teks printer/ })).toBeDisabled();
+		await expect(page.getByRole('radio', { name: /^Gambar/ })).toBeChecked();
 		await preview.screenshot({ path: test.info().outputPath(`receipt-${width}-58mm-paper.png`) });
 		const first = await preview.getAttribute('src');
 		await page.getByRole('radio', { name: /^80 mm/ }).check();

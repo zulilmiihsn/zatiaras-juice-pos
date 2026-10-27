@@ -36,14 +36,22 @@
 	bind:value={paperSize}
 	{onchange}
 />
+<!-- Helper print-intent hanya bisa mencetak gambar: yang ditampilkan adalah mode yang benar-benar
+	dipakai, sedangkan pilihan teks yang tersimpan kembali berlaku saat metode lain dipilih. -->
 <ChoiceCards
 	legend="Mode cetak"
 	name="print-mode"
-	options={MODE_OPTIONS}
-	bind:value={printMode}
+	options={htmlOnly
+		? MODE_OPTIONS.map((option) =>
+				option.value === 'text'
+					? { ...option, disabled: true, hint: 'Tidak tersedia untuk helper print-intent' }
+					: option
+			)
+		: MODE_OPTIONS}
+	bind:value={() => (htmlOnly ? 'image' : printMode), (mode) => (printMode = mode)}
 	{onchange}
 	note={htmlOnly
-		? 'Helper print-intent selalu mencetak gambar. Mode teks berlaku untuk Bluetooth, USB, Server Lokal, dan RawBT.'
+		? 'Helper print-intent selalu mencetak gambar. Pilih Bluetooth, USB, Server Lokal, atau RawBT untuk memakai mode teks.'
 		: printMode === 'text'
 			? 'Huruf beraksen dicetak tanpa aksen dan emoji menjadi "?".'
 			: undefined}

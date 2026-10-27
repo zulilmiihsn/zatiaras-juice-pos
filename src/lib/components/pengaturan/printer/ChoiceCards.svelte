@@ -4,6 +4,8 @@
 		value: T;
 		label: string;
 		hint?: string;
+		/** Pilihan terlihat tetapi tidak bisa dipilih; `hint` menjelaskan alasannya. */
+		disabled?: boolean;
 	}
 
 	let {
@@ -29,10 +31,11 @@
 	<div class="grid gap-3 @md:grid-cols-2">
 		{#each options as option (option.value)}
 			<label
-				class="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-xl border-[1.5px] p-3.5 transition-colors has-focus-visible:ring-4 has-focus-visible:ring-pink-500/20 {value ===
-				option.value
-					? 'border-pink-500 bg-pink-50/40 text-pink-700'
-					: 'border-slate-200 text-slate-700 hover:border-pink-200'}"
+				class="flex min-h-14 items-center justify-between gap-3 rounded-xl border-[1.5px] p-3.5 transition-colors has-focus-visible:ring-4 has-focus-visible:ring-pink-500/20 {option.disabled
+					? 'cursor-not-allowed border-dashed border-slate-200 bg-slate-50 text-slate-400'
+					: value === option.value
+						? 'cursor-pointer border-pink-500 bg-pink-50/40 text-pink-700'
+						: 'cursor-pointer border-slate-200 text-slate-700 hover:border-pink-200'}"
 			>
 				<span class="min-w-0">
 					<span class="block text-sm font-bold">{option.label}</span>
@@ -45,8 +48,9 @@
 					{name}
 					value={option.value}
 					bind:group={value}
+					disabled={option.disabled}
 					onchange={() => onchange?.(option.value)}
-					class="h-4 w-4 shrink-0 accent-pink-500"
+					class="h-4 w-4 shrink-0 accent-pink-500 disabled:cursor-not-allowed"
 				/>
 			</label>
 		{/each}
