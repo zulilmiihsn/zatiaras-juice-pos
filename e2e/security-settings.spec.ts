@@ -456,10 +456,13 @@ test('receipt printer settings report blocked storage', async ({ page }) => {
 		};
 	});
 	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
-	await page.getByRole('button', { name: 'Simpan Metode Printer', exact: true }).click();
+	// Every choice saves at once; a blocked save reports it and restores the stored choice,
+	// so click (not check, which insists the box stays checked).
+	await page.locator('input[value="server"]').click();
 	await expect(
 		page.getByText('Pengaturan printer tidak dapat disimpan.', { exact: false })
 	).toBeVisible();
+	await expect(page.locator('input[value="server"]')).not.toBeChecked();
 	expect(errors).toEqual([]);
 });
 
@@ -467,14 +470,12 @@ test('receipt Android method reports unsupported desktop instead of claiming pri
 	page
 }) => {
 	await openPrinterSettings(page);
-	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
-	await page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true }).click();
+	await page.getByRole('button', { name: 'Tampilan Struk', exact: true }).click();
+	await page.getByRole('button', { name: 'Cetak contoh ini', exact: true }).click();
 	await expect(
 		page.getByText('Metode Aplikasi Android membutuhkan perangkat Android', { exact: false })
 	).toBeVisible();
-	await expect(
-		page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true })
-	).toBeEnabled();
+	await expect(page.getByRole('button', { name: 'Cetak contoh ini', exact: true })).toBeEnabled();
 });
 
 test('receipt server times out and releases loading state', async ({ page }) => {
@@ -522,7 +523,9 @@ test('receipt server times out and releases loading state', async ({ page }) => 
 		);
 	await page.getByRole('button', { name: 'Koneksi Printer POS', exact: true }).click();
 	await page.locator('input[value="server"]').check();
-	const button = page.getByRole('button', { name: 'Coba Tes Cetak Struk', exact: true });
+	await page.getByRole('button', { name: 'Tampilan Struk', exact: true }).click();
+	const button = page.getByRole('button', { name: 'Cetak contoh ini', exact: true });
+	await expect(button).toBeEnabled();
 	await button.click();
 	await expect.poll(async () => (await state()).sockets).toBe(1);
 	await page.clock.runFor(5_001);
@@ -889,13 +892,13 @@ for (const width of [1440, 320]) {
 		await expect(preview).toHaveAttribute('width', '384');
 		await preview.screenshot({ path: test.info().outputPath(`receipt-${width}-58mm-paper.png`) });
 		const first = await preview.getAttribute('src');
-		await page.getByRole('radio', { name: '80 mm', exact: true }).check();
+		await page.getByRole('radio', { name: /^80 mm/ }).check();
 		await expect(preview).toHaveAttribute('width', '576');
 		expect(await preview.getAttribute('src')).not.toBe(first);
-		await page.getByText('Isi contoh struk', { exact: true }).click();
-		await expect(page.locator('pre')).toContainText('Rp39.000');
-		await expect(page.locator('pre')).toContainText('Rp11.000');
-		await expect(page.locator('pre')).toContainText(/NOMOR PESANAN\s+007/);
+		const text = page.getByTestId('receipt-text');
+		await expect(text).toContainText('Rp39.000');
+		await expect(text).toContainText('Rp11.000');
+		await expect(text).toContainText(/NOMOR PESANAN\s*007/);
 		await preview.screenshot({ path: test.info().outputPath(`receipt-${width}-80mm-paper.png`) });
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
