@@ -130,7 +130,7 @@ menunjukkan `nestedStyle` 0, dan compile berkas itu menghasilkan CSS.
 
 **F2 Menu `/pengaturan`.** Di `src/routes/pengaturan/+page.svelte`, empat tombol
 menu adalah salinan markup yang sama. Ganti dengan satu array data + `{#each}`.
-Antrean, Draft Struk, dan Riwayat menjadi `<a href>`; Install PWA tetap `<button>`
+Antrean, Pengaturan Printer, dan Riwayat menjadi `<a href>`; Install PWA tetap `<button>`
 (itu aksi). Item yang tidak diizinkan dirender sebagai elemen non-link dengan
 `aria-disabled="true"`. Kelas `.settings-menu-item` dan `.settings-menu-icon`
 diganti utilitas Tailwind dengan perilaku sama (satu kolom di HP, dua kolom md,

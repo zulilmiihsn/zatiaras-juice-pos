@@ -190,10 +190,13 @@ yang dipakai cabang.
 
 ### Pemeriksaan struk
 
-Di **Pengaturan > Draft Struk > Tampilan Struk**, pilih ukuran kertas yang sama
-dengan printer. Preview dan semua metode cetak memakai satu gambar monokrom;
-58 mm memakai area cetak 48 mm (384 titik), 80 mm memakai 72 mm (576 titik),
-untuk printer thermal 203 dpi. Bluetooth/USB membutuhkan dukungan raster ESC/POS.
+Di **Pengaturan > Pengaturan Printer > Tampilan Struk**, pilih ukuran kertas yang
+sama dengan printer. 58 mm memakai area cetak 48 mm (384 titik), 80 mm memakai
+72 mm (576 titik), untuk printer thermal 203 dpi. **Mode cetak Gambar** mengirim
+seluruh struk sebagai satu gambar monokrom (Bluetooth/USB membutuhkan dukungan
+raster ESC/POS). **Mode cetak Teks printer** memakai font bawaan printer dan hanya
+mengirim logo sebagai gambar, sekitar 8× lebih sedikit data; huruf beraksen
+dicetak tanpa aksen. Pilihan printer tersimpan otomatis di perangkat ini.
 Samakan ukuran kertas pada aplikasi helper Android atau RawBT Print Server;
 matikan penyesuaian ukuran yang mengubah skala gambar.
 Izinkan akses jaringan lokal jika browser meminta izin untuk server printer.

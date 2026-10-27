@@ -264,7 +264,7 @@
 				<ArrowLeft class="h-5 w-5 stroke-[2.2]" />
 			</HeaderBackButton>
 			<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-xs">
-				Pengaturan Struk & Printer
+				Pengaturan Printer
 			</h1>
 			<div class="h-10 w-10"></div>
 		</div>

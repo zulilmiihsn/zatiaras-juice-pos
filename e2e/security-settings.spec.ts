@@ -996,7 +996,7 @@ for (const viewport of [
 		await expect(items).toHaveCount(4);
 		await expect(items).toHaveText([
 			/Antrean.*Notifikasi/,
-			/Draft Struk.*Thermal/,
+			/Pengaturan Printer.*Thermal/,
 			/Riwayat.*Hari Ini/,
 			/Install PWA.*App Offline/
 		]);
@@ -1058,7 +1058,7 @@ test('cashier settings preserve menu actions without owner access', async ({ pag
 
 	for (const [menu, path] of [
 		['Antrean', '/pengaturan/antrean'],
-		['Draft Struk', '/pengaturan/printer'],
+		['Pengaturan Printer', '/pengaturan/printer'],
 		['Riwayat', '/pengaturan/riwayat']
 	]) {
 		await gotoHydrated(page, '/pengaturan', 'h2:text-is("Kasir Kios")');

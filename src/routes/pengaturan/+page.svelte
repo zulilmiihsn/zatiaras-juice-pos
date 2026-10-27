@@ -34,7 +34,7 @@
 			allowed: isStaffRole(s.currentUserRole)
 		},
 		{
-			label: 'Draft Struk',
+			label: 'Pengaturan Printer',
 			sub: 'Thermal',
 			icon: Printer,
 			iconClass: 'border-emerald-100 bg-emerald-50 text-emerald-600',

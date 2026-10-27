@@ -239,7 +239,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 		await expect(menus.getByRole('button')).toHaveCount(1);
 		for (const [role, name, color] of [
 			['link', /^Antrean /, 'pink'],
-			['link', /^Draft Struk /, 'emerald'],
+			['link', /^Pengaturan Printer /, 'emerald'],
 			['link', /^Riwayat /, 'amber'],
 			['button', /^Install PWA /, 'pink']
 		] as const) {
@@ -247,7 +247,7 @@ test('Antrean settings matches the settings shell, adapts to mobile, and keeps d
 			await expect(icon).toHaveCSS('color', theme.colors[color]);
 		}
 		const antreanCard = menus.getByRole('link', { name: /^Antrean / });
-		const printerCard = menus.getByRole('link', { name: /^Draft Struk / });
+		const printerCard = menus.getByRole('link', { name: /^Pengaturan Printer / });
 		for (const width of [320, 390, 1280]) {
 			await page.setViewportSize({ width, height: 900 });
 			const [antreanBox, printerBox] = await Promise.all([
