@@ -133,6 +133,9 @@ jobs:
       - name: Run Receipt Output Suite
         run: pnpm test:receipt-output
 
+      - name: Run Printer Simulator Suite
+        run: pnpm test:printer-sim
+
       - name: Run Report Grouping Suite
         run: pnpm test:report-grouping
 
