@@ -3,7 +3,12 @@
  * Standar generator byte binary untuk printer thermal kasir (58mm / 80mm).
  * Zero-dependency murni TypeScript (Uint8Array).
  */
-import { ROM_CELL_HEIGHT, TEXT_LINE_GAP, type ReceiptTextBlock } from './receiptText.js';
+import {
+	ROM_CELL_HEIGHT,
+	TEXT_LINE_GAP,
+	textBlockRuns,
+	type ReceiptTextBlock
+} from './receiptText.js';
 
 export interface ReceiptBitmap {
 	width: number;
@@ -156,13 +161,11 @@ export function buildReceiptTextEscPos(
 	for (const block of blocks) {
 		if (block.type === 'logo') builder.align('left').raster(logo);
 		else if (block.type === 'feed') builder.feedDots(block.dots);
-		else
-			builder
-				.align(block.align)
-				.bold(block.bold)
-				.scale(block.scale)
-				.text(block.text)
-				.feedDots(ROM_CELL_HEIGHT * block.scale + TEXT_LINE_GAP);
+		else {
+			builder.align(block.align).bold(block.bold);
+			for (const run of textBlockRuns(block)) builder.scale(run.scale).text(run.text);
+			builder.feedDots(ROM_CELL_HEIGHT * block.scale + TEXT_LINE_GAP);
+		}
 	}
 	builder.bold(false).scale(1).align('left').cut();
 	return builder.toBytes();

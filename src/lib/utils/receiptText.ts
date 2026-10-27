@@ -14,6 +14,11 @@ export const ROM_CELL_WIDTH = 12;
 export const ROM_CELL_HEIGHT = 24;
 /** Jarak antarbaris di bawah tinggi huruf, dikirim lewat ESC J agar tidak bergantung jarak LF printer. */
 export const TEXT_LINE_GAP = 6;
+/**
+ * Jarak kiri-kanan isi struk: satu spasi ukuran normal (12 titik ≈ 1,5 mm), sama dengan mode
+ * gambar. Spasi dipakai, bukan GS L, karena dukungan perintah margin di printer mini tidak pasti.
+ */
+const TEXT_MARGIN = ' ';
 export const LOGO_SIZE = 96;
 const LOGO_GAP = 8;
 
@@ -95,7 +100,7 @@ export function buildReceiptTextBlocks(
 	data: ReceiptData,
 	paperSize: PaperSize = '58mm'
 ): ReceiptTextBlock[] {
-	const columns = paperDots(paperSize) / ROM_CELL_WIDTH;
+	const columns = paperDots(paperSize) / ROM_CELL_WIDTH - 2 * TEXT_MARGIN.length;
 	const blocks: ReceiptTextBlock[] = [{ type: 'logo' }, { type: 'feed', dots: LOGO_GAP }];
 	const text = (
 		value: string,
@@ -175,6 +180,23 @@ export interface RomChar {
 	scaleY: number;
 }
 
+export interface TextRun {
+	text: string;
+	scale: 1 | 2 | 3;
+}
+
+/**
+ * Isi satu baris sebagai potongan berukuran: spasi margin selalu ukuran normal agar jaraknya
+ * tetap 12 titik, juga pada baris yang diperbesar. Baris tengah tidak butuh margin.
+ */
+export function textBlockRuns(block: Extract<ReceiptTextBlock, { type: 'text' }>): TextRun[] {
+	const content: TextRun = { text: block.text, scale: block.scale };
+	const margin: TextRun = { text: TEXT_MARGIN, scale: 1 };
+	if (block.align === 'left') return [margin, content];
+	if (block.align === 'right') return [content, margin];
+	return [content];
+}
+
 /**
  * Baris titik untuk satu baris teks, persis seperti printer membakarnya: huruf diperbesar dengan
  * mengulang titik, rata bawah, dan lebar baris diratakan menurut ESC a. Dipakai pratinjau dan simulator.
@@ -232,12 +254,14 @@ export function rasterizeReceiptText(
 		} else if (block.type === 'feed') {
 			for (let i = 0; i < block.dots; i++) rows.push(new Uint8Array(bytesPerRow));
 		} else {
-			const chars = Array.from(block.text, (character) => ({
-				code: character.charCodeAt(0),
-				bold: block.bold,
-				scaleX: block.scale,
-				scaleY: block.scale
-			}));
+			const chars = textBlockRuns(block).flatMap((run) =>
+				Array.from(run.text, (character) => ({
+					code: character.charCodeAt(0),
+					bold: block.bold,
+					scaleX: run.scale,
+					scaleY: run.scale
+				}))
+			);
 			rows.push(...renderRomLine(chars, block.align, width, glyph));
 			for (let i = 0; i < TEXT_LINE_GAP; i++) rows.push(new Uint8Array(bytesPerRow));
 		}

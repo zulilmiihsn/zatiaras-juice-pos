@@ -24,6 +24,7 @@ import {
 import {
 	buildReceiptTextBlocks,
 	logoRasterWidth,
+	rasterizeReceiptText,
 	receiptTextContent,
 	toPrinterAscii,
 	wrapColumns
@@ -750,7 +751,8 @@ assert.deepEqual(wrapColumns('ABCDEFGHIJKLMNOP', 6), ['ABCDEF', 'GHIJKL', 'MNOP'
 	data.items[0].name = 'Jus Mangga Jumbo dengan nama sangat panjang sekali';
 	data.items[0].details = 'Catatan\n<script>\u001b@</script> Café';
 	for (const paperSize of ['58mm', '80mm'] as const) {
-		const columns = paperSize === '80mm' ? 48 : 32;
+		// One normal-size space (12 dots) stays blank on each side, like the image layout's padding.
+		const columns = paperSize === '80mm' ? 46 : 30;
 		const blocks = buildReceiptTextBlocks(data, paperSize);
 		const lines = blocks.flatMap((block) => (block.type === 'text' ? [block] : []));
 		for (const line of lines) {
@@ -767,6 +769,21 @@ assert.deepEqual(wrapColumns('ABCDEFGHIJKLMNOP', 6), ['ABCDEF', 'GHIJKL', 'MNOP'
 		// Only the logo raster may carry bytes outside printable ASCII and the known commands.
 		assert.ok(bytes.length < 4_000 + logo.bytes.length, `${bytes.length} bytes on ${paperSize}`);
 		assert.deepEqual([...bytes.slice(-4)], [0x1d, 0x56, 0x41, 0x10]);
+		// With every glyph dot inked, nothing may reach the outer 12 dots of the head.
+		const solid = (code: number) => new Uint8Array(48).fill(code === 0x20 ? 0 : 0xff);
+		const paper = rasterizeReceiptText(blocks, logo, paperSize, solid);
+		const perRow = paper.width / 8;
+		let edgeInk = 0;
+		let contentInk = 0;
+		for (let r = 0; r < paper.height; r++)
+			for (let x = 0; x < paper.width; x++) {
+				const inked = paper.bytes[r * perRow + (x >> 3)] & (0x80 >> (x & 7));
+				if (!inked) continue;
+				if (x < 12 || x >= paper.width - 12) edgeInk++;
+				else contentInk++;
+			}
+		assert.equal(edgeInk, 0, `text touches the paper edge on ${paperSize}`);
+		assert.ok(contentInk > 0);
 	}
 }
 assert.throws(() => new EscPosBuilder().text('a\u001bb'), /karakter tidak dikenal/);
