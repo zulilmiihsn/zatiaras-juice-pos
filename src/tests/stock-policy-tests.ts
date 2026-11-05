@@ -296,6 +296,20 @@ try {
 		((await ownerGet.json()) as { data: { can_manage_policy: boolean } }).data.can_manage_policy,
 		true
 	);
+	const otherBranchGet = (await GET(
+		event(
+			'GET',
+			'pemilik',
+			'https://test.invalid/api/pengaturan/stok?branch=samarinda2',
+			undefined,
+			'samarinda2'
+		) as unknown as Parameters<typeof GET>[0]
+	)) as unknown as Response;
+	assert.equal(
+		((await otherBranchGet.json()) as { data: { can_manage_policy: boolean } }).data
+			.can_manage_policy,
+		true
+	);
 
 	await db
 		.prepare('DELETE FROM stock_policy_transitions WHERE cabang_id = ?')
