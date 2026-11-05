@@ -151,6 +151,7 @@
 		"test:request-body": "tsx src/tests/request-body-tests.ts",
 		"test:ops-alert": "tsx src/tests/ops-alert-tests.ts",
 		"test:pin-service": "tsx src/tests/pin-service-tests.ts",
+		"test:pengaturan-service": "tsx src/tests/pengaturan-service-tests.ts",
 		"test:auth-service": "tsx src/tests/auth-service-tests.ts"
 	},
 	"devDependencies": {

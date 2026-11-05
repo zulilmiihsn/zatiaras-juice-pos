@@ -67,29 +67,26 @@ export async function insertPengaturanRows(
 		throw kitError(400, 'Kolom kunci/nilai/pajak hanya via endpoint khusus');
 	}
 
-	await db.insert(pengaturan).values(
-		requestedRows.map((r) => {
-			const { kunci: _k, nilai: _n, pajak_config: _p, ...rest } = r as Record<string, unknown>;
-			return {
-				...rest,
-				kunci: null,
-				nilai: null,
-				cabang_id: branch
-			} as typeof pengaturan.$inferInsert;
-		})
+	// Satu baris utama per cabang (index unik parsial idx_pengaturan_branch_main), jadi hanya
+	// baris pertama yang dipakai. Klien (halaman Pengaturan Printer) tidak mengirim id dan
+	// kolom id NOT NULL: server yang membuatnya, dan hanya kolom detail yang diterima.
+	const clean = sanitizeUpdatePayload(requestedRows[0] ?? {});
+	const fields = Object.fromEntries(
+		Object.entries(clean).filter(([k, v]) => DETAIL_UPDATE_ALLOW.has(k) && v !== undefined)
 	);
-	await publish(platform, branch, 'pengaturan', 'insert', {
-		id: (requestedRows[0] as { id?: string | number })?.id
-	});
-	await auditDataChange(
-		rawDb,
-		branch,
-		session,
-		'pengaturan',
-		'insert',
-		(requestedRows[0] as { id?: string | number })?.id
-	);
-	return { ok: true, data: requestedRows };
+	const id = crypto.randomUUID();
+	const inserted = await db
+		.insert(pengaturan)
+		.values({ ...fields, id, cabang_id: branch, kunci: null, nilai: null })
+		.onConflictDoNothing()
+		.returning({ id: pengaturan.id });
+	if (inserted.length === 0) {
+		throw kitError(409, 'Pengaturan cabang sudah ada. Muat ulang halaman lalu coba lagi.');
+	}
+
+	await publish(platform, branch, 'pengaturan', 'insert', { id });
+	await auditDataChange(rawDb, branch, session, 'pengaturan', 'insert', id);
+	return { ok: true, data: [{ ...fields, id }] };
 }
 
 /**
