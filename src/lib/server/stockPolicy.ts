@@ -43,41 +43,6 @@ const DEFAULT_POLICY: StockPolicy = {
 	updated_at: null
 };
 
-export const STOCK_MONITORING_FEATURE = 'stock_monitoring';
-
-/**
- * Daftar cabang pilot dibaca dari D1 (`stock_feature_rollout`), bukan env.
- * Env dashboard terbukti tidak sampai ke runtime Pages sehingga gate wajib
- * berbasis database. Fail-closed: error/row hilang = tidak ada cabang diizinkan.
- */
-export async function loadStockRolloutBranches(db: D1Database): Promise<string[]> {
-	try {
-		const row = await db
-			.prepare('SELECT branches FROM stock_feature_rollout WHERE feature = ? LIMIT 1')
-			.bind(STOCK_MONITORING_FEATURE)
-			.first<{ branches?: unknown }>();
-		if (!row || typeof row.branches !== 'string') return [];
-		return row.branches
-			.split(',')
-			.map((value) => value.trim())
-			.filter(Boolean);
-	} catch {
-		return [];
-	}
-}
-
-export async function stockRolloutAllowsBranch(db: D1Database, branch: string): Promise<boolean> {
-	const branches = await loadStockRolloutBranches(db);
-	return branches.includes('*') || branches.includes(branch);
-}
-
-export function branchStockRolloutAllows(
-	platform: App.Platform | undefined,
-	branch: BranchContext
-): Promise<boolean> {
-	return stockRolloutAllowsBranch(getRawDb(platform, branch), branch);
-}
-
 function nullableString(value: unknown): value is string | null {
 	return value === null || typeof value === 'string';
 }

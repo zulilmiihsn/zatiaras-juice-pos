@@ -3,7 +3,6 @@ import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAnyRole, requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import { isOwnerRole } from '$lib/utils/roles';
 import {
-	branchStockRolloutAllows,
 	loadBranchStockPolicy,
 	StockPolicyConflictError,
 	updateBranchStockPolicy,
@@ -61,11 +60,10 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	validateQuery(url);
 	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
 	const policy = await loadBranchStockPolicy(platform, branch);
-	const rolloutOpen = await branchStockRolloutAllows(platform, branch);
 	return json({
 		ok: true,
 		data: {
-			can_manage_policy: isOwnerRole(session.role) && rolloutOpen,
+			can_manage_policy: isOwnerRole(session.role),
 			...policy
 		}
 	});
@@ -76,9 +74,6 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	requireAnyRole(session.role, ['pemilik']);
 	const parsed = parsePutBody(await parseBody(request));
 	const branch = requireSessionBranch(locals, parsed.branch);
-	if (!(await branchStockRolloutAllows(platform, branch))) {
-		throw kitError(403, 'Perubahan monitoring stok belum tersedia untuk cabang ini');
-	}
 
 	let result;
 	try {

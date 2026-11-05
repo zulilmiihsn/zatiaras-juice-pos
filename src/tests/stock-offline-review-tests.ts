@@ -200,13 +200,6 @@ try {
 	assert.equal(catalogEpoch.revision, 0);
 
 	// Review API: owner list, kasir denied, approve via route, withdraw via route.
-	await db
-		.prepare(
-			`INSERT INTO stock_feature_rollout (feature, branches, updated_at)
-			 VALUES ('stock_monitoring', 'samarinda', '2026-09-24T00:00:00.000Z')
-			 ON CONFLICT(feature) DO UPDATE SET branches = excluded.branches`
-		)
-		.run();
 	const listResponse = (await REVIEWS_GET({
 		url: new URL('https://test.invalid/api/pengaturan/stok/offline-reviews'),
 		platform: { env: { DB_SAMARINDA_GROUP: db } },

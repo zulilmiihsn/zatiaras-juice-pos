@@ -4,8 +4,7 @@ import { requireAuthSession, requireSessionBranch } from '$lib/server/apiAuth';
 import {
 	mapReconciliationError,
 	parseCreateReconciliationBody,
-	requireReconciliationOwner,
-	requireReconciliationRollout
+	requireReconciliationOwner
 } from '$lib/server/stockReconciliationApi';
 import { cancelBranchStockReconciliation } from '$lib/server/stockReconciliation';
 import type { RequestHandler } from './$types';
@@ -16,7 +15,6 @@ export const DELETE: RequestHandler = async ({ request, params, platform, locals
 	if (!params.id?.trim()) throw kitError(400, 'ID job rekonsiliasi wajib diisi');
 	const body = parseCreateReconciliationBody(await parseBody(request));
 	const branch = requireSessionBranch(locals, body.branch);
-	await requireReconciliationRollout(platform, branch);
 	try {
 		const job = await cancelBranchStockReconciliation(platform, branch, session, params.id);
 		return json({ ok: true, data: job });

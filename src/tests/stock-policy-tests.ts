@@ -71,19 +71,7 @@ async function expectStatus(run: () => unknown, status: number): Promise<void> {
 	);
 }
 
-async function seedRollout(branches: string): Promise<void> {
-	await db
-		.prepare(
-			`INSERT INTO stock_feature_rollout (feature, branches, updated_at)
-			 VALUES ('stock_monitoring', ?, '2026-09-24T00:00:00.000Z')
-			 ON CONFLICT(feature) DO UPDATE SET branches = excluded.branches`
-		)
-		.bind(branches)
-		.run();
-}
-
 try {
-	await seedRollout('samarinda');
 	assert.deepEqual(await loadStockPolicy(db, samarinda), {
 		mode: 'tracked',
 		revision: 0,
@@ -296,7 +284,7 @@ try {
 		403
 	);
 
-	// Rollout gate berbasis D1: pemilik di cabang pilot boleh, di luar daftar ditolak.
+	// Pemilik boleh mengelola kebijakan stok di cabang mana pun (tanpa gate pilot).
 	const ownerGet = (await GET(
 		event(
 			'GET',
@@ -308,30 +296,6 @@ try {
 		((await ownerGet.json()) as { data: { can_manage_policy: boolean } }).data.can_manage_policy,
 		true
 	);
-	await seedRollout('');
-	const closedGet = (await GET(
-		event(
-			'GET',
-			'pemilik',
-			'https://test.invalid/api/pengaturan/stok?branch=samarinda'
-		) as unknown as Parameters<typeof GET>[0]
-	)) as unknown as Response;
-	assert.equal(
-		((await closedGet.json()) as { data: { can_manage_policy: boolean } }).data.can_manage_policy,
-		false
-	);
-	await expectStatus(
-		() =>
-			PUT(
-				event('PUT', 'pemilik', undefined, {
-					branch: 'samarinda',
-					expected_revision: 1,
-					mode: 'ignored'
-				}) as unknown as Parameters<typeof PUT>[0]
-			),
-		403
-	);
-	await seedRollout('samarinda');
 
 	await db
 		.prepare('DELETE FROM stock_policy_transitions WHERE cabang_id = ?')
