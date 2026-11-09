@@ -121,6 +121,38 @@ buku kas, mutasi bahan tanpa bahan induk, dan stok negatif.
 - Exit 2: pemeriksaan tidak dapat dijalankan (argumen, file, atau skema dump). Bukan tanda bersih.
 - Daftar temuan dibatasi 100 baris per jenis; bila terpotong, hasilnya diberi catatan.
 
+### 3.2 Migrasi 0045: FK `transaksi_kasir` → `buku_kas` (Fase 1)
+
+Menambah FK komposit `(cabang_id, buku_kas_id)` → `buku_kas(cabang_id, id)` tanpa cascade. Tabel
+dibangun ulang, tetapi tidak ada baris yang diubah atau dibuang. Data yatim atau lintas cabang
+menggagalkan seluruh migrasi: di D1 satu file dibatalkan utuh (tabel lama, indeks, dan catatan
+`d1_migrations` tidak berubah), dan migrasi aman diulang. Pengaman hitung-baris menolak membuang
+tabel lama bila salinan tidak lengkap.
+
+Urutan wajib:
+
+1. **Staging dengan salinan produksi.** Backup (§1), muat tiap file ke D1 staging (§4a langkah 2,
+   pilihan A), lalu `pnpm d1:migrate:staging`. Latihan ini sekaligus menjadi preflight pada data asli.
+2. **Produksi.** Backup terverifikasi, `pnpm d1:health` bersih untuk ketiga shard (§3.1), lalu
+   `pnpm d1:migrate:live`. Berhenti pada kegagalan pertama; shard yang belum termigrasi tetap
+   berfungsi karena aplikasi berjalan dengan skema lama maupun baru.
+3. **Verifikasi per shard** (hitung baris harus sama dengan sebelum migrasi):
+   ```sql
+   SELECT COUNT(*) FROM transaksi_kasir;
+   SELECT "table", "from", "to", on_delete FROM pragma_foreign_key_list('transaksi_kasir');
+   SELECT * FROM pragma_foreign_key_check;
+   ```
+   Daftar FK harus berisi dua baris ke `buku_kas` dengan `NO ACTION`, dan `foreign_key_check` kosong.
+
+Bila gagal dengan `FOREIGN KEY constraint failed`, ada detail yatim atau lintas cabang.
+`pnpm d1:health` menampilkan barisnya. Jangan dedup atau hapus otomatis. Koreksi yang bersifat
+menambah (memulihkan header yang hilang) atau keputusan pemilik, lalu ulangi migrasi.
+
+**Rollback:** `scripts/rollback-0045-transaksi-kasir-fk.sql` melepas FK tanpa membuang baris
+(dijalankan per shard dengan `wrangler d1 execute --file`, lihat komentar di file). Pakai ini lebih
+dulu daripada restore backup, yang membuang transaksi masuk sesudah backup. Fase 2 (`bahan_mutasi`
+→ `bahan`) belum dikerjakan; lihat ADR 0003.
+
 ## 4. Deploy aplikasi
 
 1. Pastikan CI hijau pada commit HEAD `main`. Workflow Deploy menolak SHA selain HEAD.

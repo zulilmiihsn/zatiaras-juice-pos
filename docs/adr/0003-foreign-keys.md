@@ -26,5 +26,21 @@ Tunda penambahan constraint FK pada relasi legacy sampai preflight/approval migr
   Perintahnya `pnpm d1:health` (`scripts/data-health.mjs`), dijelaskan di
   [runbook §3.1](../OPERATOR-RUNBOOK.md).
 - Unique index yang sudah ada (idempotency, summary harian) dipertahankan.
+
+## Pembaruan: Fase 1 dan Fase 2
+
+**Fase 1 (migrasi 0045): `transaksi_kasir` → `buku_kas`.** FK komposit `(cabang_id, buku_kas_id)`
+tanpa cascade. Kode aplikasi tidak perlu berubah: checkout, arsip, void, kulakan, dan rekonsiliasi
+lulus seluruh tesnya dengan FK menyala, dan arsip serta void sudah menghapus anak sebelum induk.
+Prosedur dan rollback ada di [runbook §3.2](../OPERATOR-RUNBOOK.md).
+
+**Fase 2 (`bahan_mutasi` → `bahan`) belum dikerjakan** dan butuh keputusan produk lebih dulu.
+`deleteBahanRow` menghapus `bahan` tanpa menyentuh `bahan_mutasi`, jadi aplikasi sendiri
+menghasilkan mutasi yatim saat bahan berriwayat dihapus, dan `e2e/kulakan.spec.ts` bergantung pada
+perilaku itu. Dengan FK, penghapusan itu akan gagal. Syarat sebelum Fase 2: aturan hapus bahan
+berriwayat disepakati (rekomendasi: tolak dengan 409 dan arahkan ke nonaktifkan, tanpa cascade
+agar riwayat stok tidak hilang), orphan yang sudah ada di produksi diketahui lewat `pnpm d1:health`,
+dan keputusan atas orphan itu diambil tanpa penghapusan otomatis.
+
 - Constraint baru hanya diizinkan bila: didahului preflight hijau pada data
   produksi, forward-only, dan punya rollback/forward-fix guidance.
