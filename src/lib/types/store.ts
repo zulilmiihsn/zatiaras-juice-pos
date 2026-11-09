@@ -19,23 +19,3 @@ export interface TokoSession {
 	waktu_tutup?: string;
 	is_active: boolean;
 }
-
-/**
- * Ringkasan untuk modal tutup toko.
- */
-export interface TutupTokoSummary {
-	modalAwal: number;
-	totalPenjualan: number;
-	pemasukanTunai: number;
-	pengeluaranTunai: number;
-	uangKasir: number;
-}
-
-// ============================================================================
-// 🔐 SECURITY SETTINGS
-// ============================================================================
-
-export interface SecuritySettingsData {
-	pin: string;
-	halaman_terkunci: string[];
-}

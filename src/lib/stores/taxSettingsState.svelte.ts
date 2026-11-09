@@ -236,5 +236,3 @@ export function createTaxSettingsState() {
 		compute
 	};
 }
-
-export const globalTaxSettings = createTaxSettingsState();

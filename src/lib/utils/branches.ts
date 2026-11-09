@@ -10,8 +10,6 @@ const BRANCH_LABELS = {
 	balikpapan2: 'Balikpapan 2'
 } as const;
 
-export type BranchLabelId = keyof typeof BRANCH_LABELS;
-
 export function branchLabel(branch: unknown): string | null {
 	const key = String(branch ?? '')
 		.trim()

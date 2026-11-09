@@ -42,15 +42,6 @@ export function normalizeBranch(input: unknown): BranchId {
 	return branch;
 }
 
-export function isValidBranch(input: unknown): input is BranchId {
-	try {
-		normalizeBranch(input);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
 export function getBranchDbBinding(branch: BranchId): BranchDbBinding {
 	for (const [binding, branches] of Object.entries(BRANCH_GROUPS)) {
 		if ((branches as readonly string[]).includes(branch)) {

@@ -60,27 +60,3 @@ export async function validateRoleWithBackend(): Promise<'valid' | 'invalid' | '
 		return 'network_error';
 	}
 }
-
-/**
- * Mendapatkan peran pengguna saat ini.
- */
-export async function getCurrentRole(): Promise<UserRole | null> {
-	if (userRole.value) return userRole.value;
-
-	const validationStatus = await validateRoleWithBackend();
-	if (validationStatus === 'valid') return userRole.value;
-
-	return null;
-}
-
-/**
- * Mendapatkan profil pengguna saat ini.
- */
-export async function getCurrentProfile(): Promise<unknown | null> {
-	if (userProfile.value) return userProfile.value;
-
-	const validationStatus = await validateRoleWithBackend();
-	if (validationStatus === 'valid') return userProfile.value;
-
-	return null;
-}

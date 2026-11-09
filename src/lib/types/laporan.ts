@@ -123,11 +123,6 @@ export interface ReceiptSettings {
 
 export type FilterType = 'harian' | 'mingguan' | 'bulanan' | 'tahunan';
 
-export interface ReportDateRange {
-	startDate: string;
-	endDate: string;
-}
-
 // ============================================================================
 // 💹 DASHBOARD STATS
 // ============================================================================

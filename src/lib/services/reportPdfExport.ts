@@ -19,7 +19,6 @@ export interface GeneratePdfOptions {
 	transactions: BukuKasRecord[];
 }
 
-export type TableCell = CellInput;
 export type TableRow = CellInput[];
 
 interface JsPdfWithAutoTable {

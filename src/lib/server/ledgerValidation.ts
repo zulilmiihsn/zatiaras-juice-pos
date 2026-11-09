@@ -23,11 +23,9 @@ export class LedgerValidationError extends Error {
 	}
 }
 
-export const MANUAL_LEDGER_TIPE = ['in', 'out'] as const;
 export const MANUAL_LEDGER_JENIS = ['pendapatan_usaha', 'beban_usaha', 'lainnya'] as const;
 /** Sumber tulis manual yang sah lewat route. `pos` ditolak terpisah (409). */
 export const MANUAL_LEDGER_SUMBER = ['catat', 'stok'] as const;
-export const MANUAL_LEDGER_METODE = ['tunai', 'non-tunai', 'qris'] as const;
 
 export type ManualLedgerRow = Record<string, unknown>;
 

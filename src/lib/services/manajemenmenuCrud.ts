@@ -1,13 +1,6 @@
 import { productService } from '$lib/services/productService';
 import { transactionService } from '$lib/services/transactionService';
-import type {
-	AddOn,
-	Category,
-	HppSettings,
-	Ingredient,
-	Product,
-	ProductRecipe
-} from '$lib/types/product';
+import type { AddOn, HppSettings, Ingredient, ProductRecipe } from '$lib/types/product';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { calculateEffectiveUnitCost } from '$lib/utils/ingredientCost';
 
@@ -198,6 +191,3 @@ export function createHppState() {
 		}
 	};
 }
-
-export type MenuEntity = Product;
-export type KategoriEntity = Category;

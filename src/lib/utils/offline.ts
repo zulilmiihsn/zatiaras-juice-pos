@@ -1,4 +1,4 @@
-import { get as idbGet, update as idbUpdate, del as idbDel } from 'idb-keyval';
+import { get as idbGet, update as idbUpdate } from 'idb-keyval';
 import { pendingTransactionStore } from '$lib/utils/idbStores';
 import {
 	normalizePendingTransaction,
@@ -186,10 +186,5 @@ export async function retryPendingTransaction(queueId: string): Promise<void> {
 			}),
 		pendingTransactionStore
 	);
-	notifyPendingChanged();
-}
-
-export async function clearPendingTransactions(): Promise<void> {
-	await idbDel(PENDING_KEY, pendingTransactionStore);
 	notifyPendingChanged();
 }

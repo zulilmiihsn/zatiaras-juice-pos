@@ -155,29 +155,6 @@ export function witaToUtcRange(dateStr: string): { startUtc: string; endUtc: str
 	}
 }
 
-// STANDAR: Konversi range tanggal WITA ke UTC range untuk query database
-export function witaRangeToUtcRange(
-	startDate: string,
-	endDate: string
-): { startUtc: string; endUtc: string } {
-	// Input: 'YYYY-MM-DD', 'YYYY-MM-DD' (range tanggal WITA)
-	// Output: { startUtc: 'YYYY-MM-DDTHH:mm:ss.sssZ', endUtc: 'YYYY-MM-DDTHH:mm:ss.sssZ' }
-
-	try {
-		// Start: 00:00:00 WITA tanggal pertama
-		const startDateObj = new Date(startDate + 'T00:00:00+08:00');
-		// End: 23:59:59.999 WITA tanggal terakhir
-		const endDateObj = new Date(endDate + 'T23:59:59.999+08:00');
-
-		return {
-			startUtc: startDateObj.toISOString(),
-			endUtc: endDateObj.toISOString()
-		};
-	} catch (error) {
-		throw new Error(`Failed to convert date range: ${startDate} to ${endDate}`);
-	}
-}
-
 // Format UTC ke string waktu WITA untuk tampilan
 export function formatWitaDateTime(dateStr: string | Date, opts?: Intl.DateTimeFormatOptions) {
 	const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
@@ -191,29 +168,6 @@ export function witaToUtcISO(dateStr: string, timeStr: string = '00:00:00'): str
 	// WITA = UTC+8, jadi UTC = WITA-8
 	const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second || 0));
 	return utcDate.toISOString();
-}
-
-// STANDAR: Konversi range tanggal WITA ke format WITA untuk query database
-export function witaRangeToWitaQuery(
-	startDate: string,
-	endDate: string
-): { startWita: string; endWita: string } {
-	// Input: 'YYYY-MM-DD', 'YYYY-MM-DD' (range tanggal WITA)
-	// Output: { startWita: 'YYYY-MM-DDTHH:mm:ss+08:00', endWita: 'YYYY-MM-DDTHH:mm:ss+08:00' }
-
-	try {
-		// Start: 00:00:00 WITA tanggal pertama
-		const startWita = startDate + 'T00:00:00+08:00';
-		// End: 23:59:59 WITA tanggal terakhir
-		const endWita = endDate + 'T23:59:59+08:00';
-
-		return {
-			startWita: startWita,
-			endWita: endWita
-		};
-	} catch (error) {
-		throw new Error(`Failed to convert date range to WITA: ${startDate} to ${endDate}`);
-	}
 }
 
 export function getLast7DaysLabelsWITA(): string[] {

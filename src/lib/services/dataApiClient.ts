@@ -19,7 +19,6 @@ export type DataMutationResult<T extends DataRecord = DataRecord> = {
 };
 
 const PAGE_SIZE = 200;
-const MAX_ACCUMULATED_ROWS = 50_000;
 
 function currentBranch(): string {
 	return selectedBranch.value || 'default';
@@ -167,23 +166,6 @@ export async function dbGetPage<T extends DataRecord = DataRecord>(
 	const response = await fetch(`${url}?${query.toString()}`, { cache: 'no-store' });
 	if (!response.ok) throw await parseError(response, `GET ${table} page`);
 	return parsePage<T>(await response.json(), `GET ${table} page`);
-}
-
-export async function dbGetAll<T extends DataRecord = DataRecord>(
-	table: 'buku_kas' | 'transaksi_kasir',
-	params: Record<string, string> = {}
-): Promise<T[]> {
-	const rows: T[] = [];
-	let cursor: string | null = null;
-	do {
-		const page: DataPage<T> = await dbGetPage<T>(table, params, cursor);
-		rows.push(...page.data);
-		if (rows.length > MAX_ACCUMULATED_ROWS) {
-			throw new Error(`GET ${table} melebihi batas ${MAX_ACCUMULATED_ROWS} baris`);
-		}
-		cursor = page.nextCursor;
-	} while (cursor);
-	return rows;
 }
 
 // ─── POST (write) helper ───────────────────────────────────────────────────

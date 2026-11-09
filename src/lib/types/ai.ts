@@ -49,13 +49,6 @@ export interface AiRecommendation {
 	priority: 'high' | 'medium' | 'low';
 }
 
-export interface AiChatState {
-	isOpen: boolean;
-	messages: AiChatMessage[];
-	isLoading: boolean;
-	currentAnalysis?: TransactionAnalysis;
-}
-
 export interface AutoApplyResult {
 	success: boolean;
 	appliedRecommendations: string[];

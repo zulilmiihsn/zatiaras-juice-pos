@@ -1,6 +1,3 @@
-import type { D1Database } from '@cloudflare/workers-types';
-import type { BranchId } from '$lib/server/branchResolver';
-
 // ── Input types ─────────────────────────────────────────────────────────────
 
 export interface PosTransactionItemInput {
@@ -168,13 +165,3 @@ export interface CheckoutResultData {
 export type CheckoutResult =
 	| { idempotent: true; d1Meta: null; data: CheckoutResultData }
 	| { idempotent: false; d1Meta: string | null; data: CheckoutResultData };
-
-// ── Context passed through the checkout pipeline ────────────────────────────
-
-export interface CheckoutContext {
-	db: D1Database;
-	branch: BranchId;
-	capabilities: CheckoutCapabilities;
-	session: { userId: string; username?: string; role: string };
-	platform: App.Platform | undefined;
-}
