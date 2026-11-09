@@ -44,19 +44,3 @@ export function clearUserRole() {
 	userRole.value = null;
 	userProfile.value = null;
 }
-
-export async function validateRoleWithBackend(): Promise<'valid' | 'invalid' | 'network_error'> {
-	try {
-		const res = await fetch('/api/session');
-		if (!res.ok) return 'network_error';
-		const data = await res.json();
-		if (!data?.user) {
-			clearUserRole();
-			return 'invalid';
-		}
-		setUserRole(data.user.role, data.user);
-		return 'valid';
-	} catch {
-		return 'network_error';
-	}
-}
