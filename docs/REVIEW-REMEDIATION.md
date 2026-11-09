@@ -1,5 +1,9 @@
 # Perbaikan hasil review
 
+> **Tracker historis.** Kartu berstatus Selesai menggambarkan kode saat kartu itu dikerjakan, bukan
+> instruksi aktif. Contoh: R9 membuang `text`/`bold` dari `EscPosBuilder`, lalu keduanya ditambahkan
+> lagi di `a93dc43c` untuk mode cetak teks.
+
 Tanggal mulai: 24 Oktober 2026. `/code-review high 7263dd1f..main` (33 commit, 135
 berkas, pekerjaan 22–24 Oktober) menghasilkan 10 kandidat temuan. Delapan sudah
 dicek langsung di kode dan memang ada. Selain itu ada tiga masalah clean code.

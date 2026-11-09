@@ -1,5 +1,9 @@
 # Penilaian Kualitas Proyek
 
+> **Dokumen historis (snapshot 2026-10-18).** Skor dan catatan di bawah, termasuk "sampai besok" dan
+> "state klien masih hanya E2E", tidak mencerminkan kondisi sekarang. Pekerjaan sesudahnya dicatat
+> di [QUALITY-EXECUTION.md](QUALITY-EXECUTION.md).
+
 Catatan posisi kualitas ZatiarasPOS per 2026-10-18. Skor di sini adalah penilaian subjektif
 hasil telaah kode oleh asisten AI, bukan hasil ukur otomatis. Selisih 0,1 antar aspek berada
 di dalam derau penilaian. Gunakan dokumen ini untuk melihat arah dan penahan terbesar, bukan

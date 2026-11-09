@@ -1,5 +1,9 @@
 # Roadmap kualitas ZatiarasPOS menuju 9,8
 
+> **Dokumen perencanaan (19 Oktober 2026).** Bagian "Baseline yang sudah diketahui" menggambarkan
+> kondisi saat itu, bukan daftar masalah aktif. Progres pelaksanaan ada di
+> [QUALITY-EXECUTION.md](QUALITY-EXECUTION.md).
+
 Tanggal: 19 Oktober 2026.
 Baseline kode yang diperiksa: `480ff5861241dfc91ebb33f6839ae1d0862fa26a`.
 Status: rencana pelaksanaan berdasarkan validasi ulang; bukan pernyataan bahwa target sudah tercapai.
