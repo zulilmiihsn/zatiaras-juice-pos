@@ -102,6 +102,25 @@ Bila terpaksa (darurat), catat nama file itu ke `d1_migrations` di shard yang sa
 Rollback schema memakai `node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run`
 (default dry-run; `--live --apply` hanya dengan persetujuan).
 
+### 3.1 Kesehatan data sebelum migrasi enforcement
+
+Wajib sebelum menambah constraint apa pun (FK, unique, check); lihat
+[ADR 0003](adr/0003-foreign-keys.md). Perintah ini hanya membaca backup dan tidak menyentuh
+produksi. Jalankan per shard terhadap file backup hasil §1:
+
+```powershell
+pnpm d1:health -- --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP
+```
+
+Ulangi untuk `db_balikpapan_group.sql` (`DB_BALIKPAPAN_GROUP`) dan `db_berau_group.sql`
+(`DB_BERAU_GROUP`). Perintah memeriksa setiap cabang pada shard itu: detail transaksi tanpa header
+buku kas, mutasi bahan tanpa bahan induk, dan stok negatif.
+
+- Exit 0: semua cabang bersih, migrasi boleh dilanjutkan untuk shard itu.
+- Exit 1: ada temuan. Hentikan. Perbaiki manual; dilarang dedup atau hapus otomatis.
+- Exit 2: pemeriksaan tidak dapat dijalankan (argumen, file, atau skema dump). Bukan tanda bersih.
+- Daftar temuan dibatasi 100 baris per jenis; bila terpotong, hasilnya diberi catatan.
+
 ## 4. Deploy aplikasi
 
 1. Pastikan CI hijau pada commit HEAD `main`. Workflow Deploy menolak SHA selain HEAD.

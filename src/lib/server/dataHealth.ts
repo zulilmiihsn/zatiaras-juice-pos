@@ -4,6 +4,7 @@
  * Dipakai operator SEBELUM menambah constraint/uniqueness: bila detector
  * menemukan baris, migrasi enforcement harus berhenti dan data diperbaiki
  * manual (jangan dedup/hapus otomatis). Lihat docs/adr/0003-foreign-keys.md.
+ * Operator menjalankannya terhadap backup lewat `pnpm d1:health` (scripts/data-health.mjs).
  */
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from './branchResolver';
@@ -25,7 +26,9 @@ export interface NegativeStock {
 	kind: 'produk' | 'bahan';
 }
 
-const LIMIT = 100;
+/** Batas baris per detektor; hasil sepanjang ini kemungkinan terpotong. */
+export const DATA_HEALTH_LIMIT = 100;
+const LIMIT = DATA_HEALTH_LIMIT;
 
 /** Detail transaksi yang header buku_kas-nya hilang (cabang sama). */
 export async function findOrphanTransaksiKasir(

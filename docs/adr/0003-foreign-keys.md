@@ -23,9 +23,8 @@ Tunda penambahan constraint FK pada relasi legacy sampai preflight/approval migr
   `findOrphanBahanMutasi`, `findNegativeStock`) terhadap backup produksi dan
   mencapai `clean: true` per cabang. Temuan diperbaiki manual — dilarang
   dedup/hapus otomatis.
-  Detector ini baru dipanggil oleh tesnya (`src/tests/data-health-tests.ts`); belum ada
-  perintah operator untuk menjalankannya pada backup. Perintah itu harus dibuat sebelum
-  migrasi enforcement pertama dimulai.
+  Perintahnya `pnpm d1:health` (`scripts/data-health.mjs`), dijelaskan di
+  [runbook §3.1](../OPERATOR-RUNBOOK.md).
 - Unique index yang sudah ada (idempotency, summary harian) dipertahankan.
 - Constraint baru hanya diizinkan bila: didahului preflight hijau pada data
   produksi, forward-only, dan punya rollback/forward-fix guidance.
