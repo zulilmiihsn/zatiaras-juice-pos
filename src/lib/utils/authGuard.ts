@@ -196,7 +196,7 @@ export class AuthGuard {
 // Export singleton instance
 export const authGuard = AuthGuard.getInstance();
 
-// Legacy function exports for backward compatibility
+// Fungsi bebas di atas singleton; masih dipakai layout, halaman login, dan pengaturan antrean.
 export async function requireAuth(): Promise<boolean> {
 	return authGuard.requireAuth();
 }

@@ -2,8 +2,8 @@
 //
 // Subsistem sinkronisasi transaksi offline: replay antrian pending ke server
 // (idempoten via idempotency_key), single-flight, backoff, klasifikasi gagal.
-// Dipisah dari dataService agar tanggung jawab jelas. Listener window di akhir
-// mendaftar otomatis saat modul ini dimuat (di-load via re-export di dataService).
+// Listener window di akhir file mendaftar otomatis saat modul pertama kali dimuat;
+// pemanggil mengimpor syncPendingTransactions langsung dari sini.
 
 import {
 	getPendingTransactions,
