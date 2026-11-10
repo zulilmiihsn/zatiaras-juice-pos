@@ -362,7 +362,7 @@
 	<DeleteConfirmDialog
 		open={s.showDeleteBahanModal}
 		title="Hapus Bahan?"
-		description="Bahan tidak bisa dihapus kalau masih dipakai resep menu."
+		description="Bahan tidak bisa dihapus jika masih dipakai resep menu atau memiliki riwayat stok."
 		onCancel={s.cancelDeleteBahan}
 		onConfirm={s.doDeleteBahan}
 	/>
