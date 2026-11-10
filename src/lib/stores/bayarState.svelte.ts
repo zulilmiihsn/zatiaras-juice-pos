@@ -98,7 +98,7 @@ export function createBayarState() {
 			paymentMethod &&
 			customerName.trim() &&
 			cart.length > 0 &&
-			(!isOffline || paymentMethod === 'tunai')
+			(!isOffline || paymentMethod === 'tunai' || paymentMethod === 'qris')
 		)
 	);
 
@@ -245,10 +245,6 @@ export function createBayarState() {
 				}
 			}
 		}
-		if (isOffline && paymentMethod !== 'tunai') {
-			showErrorNotif('Saat offline, pembayaran hanya tersedia untuk tunai.');
-			return;
-		}
 		if (isOffline && !hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
 			showErrorNotif('Katalog harga offline tidak valid atau kedaluwarsa. Hubungkan perangkat.');
 			return;
@@ -265,7 +261,13 @@ export function createBayarState() {
 		}
 	}
 	async function confirmQrisChecked() {
-		if (!activeQuoteToken || Date.parse(quoteExpiresAt) <= Date.now()) {
+		if (isOffline || !navigator.onLine) {
+			if (!hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
+				showQrisWarning = false;
+				showErrorNotif('Katalog harga offline tidak valid atau kedaluwarsa. Hubungkan perangkat.');
+				return;
+			}
+		} else if (!activeQuoteToken || Date.parse(quoteExpiresAt) <= Date.now()) {
 			showQrisWarning = false;
 			showErrorNotif('Quote harga kedaluwarsa. Konfirmasi pembayaran ulang.');
 			return;
@@ -502,8 +504,8 @@ export function createBayarState() {
 		else handleKeypad(key);
 	}
 	function handleSetPaymentMethod(id: string) {
-		if (isOffline && id !== 'tunai') {
-			showErrorNotif('QRIS membutuhkan koneksi internet.');
+		if (isOffline && id !== 'tunai' && id !== 'qris') {
+			showErrorNotif('Metode pembayaran tidak tersedia saat offline.');
 			return;
 		}
 		paymentMethod = id;
@@ -524,7 +526,8 @@ export function createBayarState() {
 			activeQuoteToken = '';
 			quoteExpiresAt = '';
 			quotedTotal = null;
-			if (paymentMethod && paymentMethod !== 'tunai') paymentMethod = 'tunai';
+			if (paymentMethod && paymentMethod !== 'tunai' && paymentMethod !== 'qris')
+				paymentMethod = 'tunai';
 		}
 	}
 

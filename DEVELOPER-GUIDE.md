@@ -131,7 +131,7 @@ menggantikan verifikasi Safari/PWA pada iPhone fisik.
   tidak boleh membuang hasil jaringan yang valid. Snapshot lama dipakai saat
   sumber jaringan gagal atau perangkat offline. Penulisan antrean transaksi
   tetap wajib berhasil sebelum transaksi dinyatakan tersimpan lokal.
-- Offline hanya untuk tunai dan hanya bila katalog bertoken masih berlaku di perangkat.
+- Offline mendukung tunai dan pencatatan QRIS hanya bila katalog bertoken masih berlaku di perangkat. Pembayaran QRIS diproses di luar aplikasi; kasir wajib memastikan dana telah diterima. Transaksi tetap menunggu sinkronisasi dan bisa memerlukan peninjauan jika replay gagal.
 - Transaksi disimpan di IndexedDB dengan `mode: 'offline_replay'`, `queued_at`, dan
   `idempotency_key` asli; `offlineSync.ts` memutar ulang saat online.
 - Server memverifikasi token harga pada waktu `queued_at`, tetapi `queued_at` berasal

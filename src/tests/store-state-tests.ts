@@ -102,13 +102,13 @@ export function dispose() { smartCache.destroy(); }`;
 		}
 	});
 
-	// Offline mode fallback: QRIS is disabled or falls back to tunai
-	await test('actual offline transition requires cash and retains checkout prerequisites', () => {
-		for (const paymentMethod of ['qris', 'transfer', 'tunai']) {
+	await test('offline transition preserves QRIS and cash with checkout prerequisites', () => {
+		for (const paymentMethod of ['qris', 'tunai']) {
 			const actual = state({ paymentMethod });
-			assert.equal(actual['offline-method'], 'tunai');
+			assert.equal(actual['offline-method'], paymentMethod);
 			assert.equal(actual['offline-can-pay'], 'true');
 		}
+		assert.equal(state({ paymentMethod: 'transfer' })['offline-method'], 'tunai');
 		assert.equal(state({ emptyCart: true })['offline-can-pay'], 'false');
 		assert.equal(state({ customerName: '' })['offline-can-pay'], 'false');
 	});

@@ -113,16 +113,14 @@ async function verifyOfflineItem(
 	};
 }
 
-/** Transaksi offline tunai tanpa quote: harga dibangun dari token katalog per item. */
+/** Transaksi offline tanpa quote: harga dibangun dari token katalog per item. */
 async function rebuildOfflineQuote(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
 	body: PosTransactionInput,
 	queuedAt: number
 ): Promise<PosQuoteTokenData> {
-	if (normalizePaymentMethod(body.metode_bayar) !== 'tunai') {
-		fail(409, 'Transaksi offline tanpa quote hanya boleh tunai');
-	}
+	normalizePaymentMethod(body.metode_bayar);
 	const itemError = checkoutItemCountError(body.items);
 	if (itemError) fail(400, itemError);
 

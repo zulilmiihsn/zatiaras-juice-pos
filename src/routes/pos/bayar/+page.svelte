@@ -218,12 +218,8 @@
 									class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 transition-all duration-150 active:scale-95 {s.paymentMethod ===
 									opt.id
 										? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-md shadow-pink-500/10'
-										: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'} {s.isOffline &&
-									opt.id !== 'tunai'
-										? 'cursor-not-allowed opacity-45'
-										: ''}"
+										: 'border-slate-100 bg-white text-slate-600 hover:border-slate-200'}"
 									onclick={() => s.handleSetPaymentMethod(opt.id)}
-									disabled={s.isOffline && opt.id !== 'tunai'}
 								>
 									<div
 										class="flex h-11 w-11 items-center justify-center rounded-xl {s.paymentMethod ===
@@ -237,9 +233,7 @@
 											<CreditCard class="h-5.5 w-5.5" />
 										{/if}
 									</div>
-									<span class="text-xs font-bold md:text-sm"
-										>{opt.label}{s.isOffline && opt.id !== 'tunai' ? ' (online)' : ''}</span
-									>
+									<span class="text-xs font-bold md:text-sm">{opt.label}</span>
 								</button>
 							{/each}
 						</div>
@@ -407,9 +401,9 @@
 			Periksa Pembayaran QRIS
 		</div>
 		<div class="text-center text-xs leading-relaxed text-slate-600">
-			Pastikan kasir sudah <span class="font-bold text-pink-600">memeriksa nama merchant</span>
-			dan <span class="font-bold text-pink-600">nominal pembayaran</span> di aplikasi konsumen sebelum
-			melanjutkan.
+			Pastikan pembayaran QRIS telah berhasil diterima. Periksa nama merchant dan nominal melalui
+			bukti pembayaran atau aplikasi merchant sebelum melanjutkan. Aplikasi ini tidak memverifikasi
+			pembayaran QRIS.
 		</div>
 		<button
 			class="warning-btn mt-2 min-h-[46px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 to-rose-500 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-[0.98]"
