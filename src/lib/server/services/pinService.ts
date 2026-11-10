@@ -26,7 +26,7 @@ type PinRow = {
 	pin_hash: string | null;
 };
 
-export type PinVerifyResult =
+type PinVerifyResult =
 	| { ok: true; expiresAt: number }
 	| { ok: false; message: string; status: number; retryAfterSeconds?: number };
 

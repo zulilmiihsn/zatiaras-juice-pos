@@ -8,8 +8,8 @@ import { setIntentLauncher } from '$lib/utils/receiptPrint';
 import { buildReceiptEscPos } from '$lib/utils/escposBuilder';
 import { BYTES_PER_LINE, DOTS_PER_LINE, type VirtualMtp2 } from './mtp2';
 
-export type BleProfile = 'ae00' | 'unknown-uuid' | 'spp-only';
-export type CashierDevice = 'android' | 'pc';
+type BleProfile = 'ae00' | 'unknown-uuid' | 'spp-only';
+type CashierDevice = 'android' | 'pc';
 
 export interface LinkSettings {
 	bleProfile: BleProfile;
@@ -62,7 +62,7 @@ export interface LinkStats {
 	violations: number;
 }
 
-export interface SimHost {
+interface SimHost {
 	printer: VirtualMtp2;
 	settings: LinkSettings;
 	/** Shows the browser's device chooser; resolves to the picked index or null when cancelled. */

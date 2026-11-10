@@ -2,10 +2,9 @@ import { createHash } from 'node:crypto';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from '$lib/server/branchResolver';
 
-export const ARCHIVE_LEASE_MS = 10 * 60 * 1000;
+const ARCHIVE_LEASE_MS = 10 * 60 * 1000;
 
-export type ArchiveJobStatus =
-	'claimed' | 'uploading' | 'finalizing' | 'completed' | 'failed' | 'orphan';
+type ArchiveJobStatus = 'claimed' | 'uploading' | 'finalizing' | 'completed' | 'failed' | 'orphan';
 
 export interface ArchiveJob {
 	id: string;

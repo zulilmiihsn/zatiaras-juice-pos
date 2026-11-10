@@ -6,7 +6,7 @@ import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { userRole, userProfile } from '$lib/stores/userRole.svelte';
 import { getOfflineSessionRevision } from '$lib/auth/offlineSession';
 
-export type PinVerificationResult = {
+type PinVerificationResult = {
 	ok: boolean;
 	message?: string;
 	expiresAt?: number;

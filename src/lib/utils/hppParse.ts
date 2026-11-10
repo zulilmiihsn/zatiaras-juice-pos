@@ -1,4 +1,4 @@
-export type HppBaseUnit = 'gram' | 'ml' | 'pcs' | 'buah';
+type HppBaseUnit = 'gram' | 'ml' | 'pcs' | 'buah';
 
 export interface HppParsedPurchase {
 	nama: string;

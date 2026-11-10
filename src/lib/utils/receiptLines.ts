@@ -8,7 +8,7 @@
  * - nominal = subtotal baris (harga x jumlah)
  * - snapshot_tambahan = daftar tambahan per unit
  */
-export interface ReceiptAddOnLine {
+interface ReceiptAddOnLine {
 	nama: string;
 	unit: number;
 	total: number;

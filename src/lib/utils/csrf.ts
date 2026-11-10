@@ -27,7 +27,7 @@ export async function getCsrfToken(forceRefresh: boolean = false): Promise<strin
 	return token;
 }
 
-export async function buildCsrfHeaders(baseHeaders: HeadersInit = {}): Promise<HeadersInit> {
+async function buildCsrfHeaders(baseHeaders: HeadersInit = {}): Promise<HeadersInit> {
 	const token = await getCsrfToken();
 	return {
 		...baseHeaders,

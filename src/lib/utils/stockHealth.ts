@@ -7,7 +7,7 @@
  * Tanpa import Svelte/store/browser — dapat diuji langsung.
  */
 
-export type StockHealthStatus = 'out' | 'critical' | 'warning' | 'half' | 'full';
+type StockHealthStatus = 'out' | 'critical' | 'warning' | 'half' | 'full';
 
 export interface StockHealth {
 	status: StockHealthStatus;
@@ -20,7 +20,7 @@ export interface StockHealth {
 	percent: number;
 }
 
-export interface StockHealthInput {
+interface StockHealthInput {
 	stok_saat_ini?: unknown;
 	ambang_stok?: unknown;
 	jumlah_beli_terakhir?: unknown;

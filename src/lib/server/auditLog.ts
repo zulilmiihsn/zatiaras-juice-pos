@@ -1,32 +1,10 @@
 import type { BranchId, BranchContext } from '$lib/server/branchResolver';
 import type { D1Database } from '@cloudflare/workers-types';
-import {
-	auditValues,
-	buildAuditPayload,
-	parseAuditPayload,
-	type AuditLogInput
-} from './auditEnvelope';
+import { buildAuditPayload, type AuditLogInput } from './auditEnvelope';
 import { drainAuditOutbox } from './auditDrain';
 export { buildAuditPayload } from './auditEnvelope';
 export type { AuditLogInput } from './auditEnvelope';
 
-export function auditLogStatement(
-	db: D1Database,
-	branch: BranchId,
-	input: AuditLogInput,
-	id = crypto.randomUUID()
-) {
-	return db
-		.prepare(
-			`INSERT INTO audit_logs(id,cabang_id,actor_user_id,actor_username,actor_role,action,entity_type,entity_id,transaction_id,amount,metadata,ip_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
-		)
-		.bind(
-			id,
-			branch,
-			...auditValues(parseAuditPayload(buildAuditPayload(input), branch)),
-			new Date().toISOString()
-		);
-}
 /** Durability belongs to the business batch; delivery/retention must not require another sale. */
 export function auditIntentStatement(
 	db: D1Database,

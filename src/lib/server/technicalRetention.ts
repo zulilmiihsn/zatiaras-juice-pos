@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from './branchResolver';
 import type { AuditBudget } from './auditDrain';
-export const TECHNICAL_RETENTION_DAYS = 90;
+const TECHNICAL_RETENTION_DAYS = 90;
 // One bounded DELETE per table/branch/day must outpace inflow: request_metrics gains one row per
 // authenticated request, so the page sits well above daily volume while staying a single cheap statement.
 export const RETENTION_ROWS_PER_TABLE = 5000;

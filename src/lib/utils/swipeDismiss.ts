@@ -4,7 +4,7 @@
 
 export type SwipeDirection = 'up' | 'left' | 'right';
 
-export interface SwipeDismissOptions {
+interface SwipeDismissOptions {
 	/** Jarak geser minimum (px) per arah. Arah yang tidak tercantum tidak menutup. */
 	thresholds: Partial<Record<SwipeDirection, number>>;
 	onStart?: () => void;

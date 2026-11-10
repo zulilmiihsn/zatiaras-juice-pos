@@ -1,4 +1,4 @@
-export type CachedStockPolicyMode = 'tracked' | 'ignored';
+type CachedStockPolicyMode = 'tracked' | 'ignored';
 
 export interface CachedStockPolicy {
 	mode: CachedStockPolicyMode;

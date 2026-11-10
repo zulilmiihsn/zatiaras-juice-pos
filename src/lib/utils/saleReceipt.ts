@@ -34,7 +34,7 @@ export interface CommittedReceipt {
 	settings?: ReceiptSettings | null;
 }
 
-export interface SaleTotals {
+interface SaleTotals {
 	totalAmount: number;
 	totalQty: number;
 	cashReceived: number;
@@ -92,7 +92,7 @@ export function buildOfflineReceipt(
 	};
 }
 
-export interface SaleReceiptPrintInput {
+interface SaleReceiptPrintInput {
 	/** Struk komit; null = cetak dari keranjang yang masih terbuka. */
 	receipt: CommittedReceipt | null;
 	cart: CartItem[];

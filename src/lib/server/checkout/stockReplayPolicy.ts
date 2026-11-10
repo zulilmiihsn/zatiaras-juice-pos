@@ -7,7 +7,7 @@ import type { InventoryApplication, PosTransactionInput, StockReplayDisposition 
 import { CheckoutUseCaseError } from './utils';
 import { POS_PRICING_CLOCK_SKEW_MS } from '../posPricingToken';
 
-export interface StockReplayDecision {
+interface StockReplayDecision {
 	inventoryApplication: InventoryApplication;
 	replayDisposition: StockReplayDisposition;
 }

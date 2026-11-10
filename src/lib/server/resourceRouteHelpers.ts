@@ -39,7 +39,7 @@ export async function parseBody<T = WriteBody>(request: Request): Promise<T | nu
 }
 
 /** Ambil `payload` non-kosong dari body, lempar 400 bila absen. */
-export function requirePayload(
+function requirePayload(
 	body: WriteBody | null
 ): Record<string, unknown> | Record<string, unknown>[] {
 	if (!body?.payload) throw kitError(400, 'Payload tidak valid');

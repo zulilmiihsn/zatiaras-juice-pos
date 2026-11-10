@@ -18,7 +18,7 @@ import { rentangHariWitaUtc } from '$lib/utils/dateTime';
 export type Database = ReturnType<typeof getDb>;
 export type SessionUser = App.Locals['authSession'];
 
-export interface BukuKasFilter {
+interface BukuKasFilter {
 	startTime?: string | null;
 	endTime?: string | null;
 	sumber?: string | null;

@@ -49,7 +49,7 @@ type TextNode = {
 	align: 'left' | 'center' | 'right';
 };
 
-export type ReceiptNode =
+type ReceiptNode =
 	| TextNode
 	| { type: 'logo'; x: number; y: number; size: number }
 	| { type: 'divider'; x: number; y: number; width: number };
@@ -61,7 +61,7 @@ export interface ReceiptLayout {
 	nodes: ReceiptNode[];
 }
 
-export type MeasureReceiptText = (text: string, size: number, bold: boolean) => number;
+type MeasureReceiptText = (text: string, size: number, bold: boolean) => number;
 
 // Thick sans-serif strokes survive 1-bit thermal output; Android maps "Courier New" to a hairline typewriter face.
 export const RECEIPT_FONT = 'Arial, Roboto, "Helvetica Neue", "Liberation Sans", sans-serif';
@@ -227,7 +227,7 @@ export function buildReceiptLayout(
 	return { width, height: y, paperSize, nodes };
 }
 
-export function escapeReceiptHtml(value: string): string {
+function escapeReceiptHtml(value: string): string {
 	return cleanReceiptText(value)
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')

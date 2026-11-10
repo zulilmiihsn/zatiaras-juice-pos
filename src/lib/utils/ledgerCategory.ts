@@ -41,8 +41,7 @@ function containsKeyword(text: string, keywords: string[]): boolean {
 	return keywords.some((keyword) => lowered.includes(keyword));
 }
 
-export type CategoryResolution =
-	{ jenis: LedgerJenis } | { needsConfirmation: true; reason: string };
+type CategoryResolution = { jenis: LedgerJenis } | { needsConfirmation: true; reason: string };
 
 export function resolveLedgerCategory(input: {
 	type: unknown;

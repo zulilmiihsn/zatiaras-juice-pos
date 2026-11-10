@@ -8,7 +8,7 @@ import { error as kitError } from '@sveltejs/kit';
 
 export type SessionUser = App.Locals['authSession'];
 
-export interface TransaksiKasirFilter {
+interface TransaksiKasirFilter {
 	startTime?: string | null;
 	endTime?: string | null;
 	id?: string | null;
@@ -19,7 +19,7 @@ export interface TransaksiKasirFilter {
 /**
  * Mengambil daftar baris transaksi_kasir (item POS).
  */
-export async function getTransaksiKasirList(
+async function getTransaksiKasirList(
 	rawDb: D1Database,
 	branch: string,
 	filter: TransaksiKasirFilter,

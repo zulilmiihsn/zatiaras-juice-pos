@@ -5,17 +5,17 @@
 // bukan default diam. Murni tanpa dependensi (unit-testable).
 import { decodeMoneyAmount, normalizeMoney } from './currency';
 
-export const AI_RECOMMENDATION_ACTIONS = [
+const AI_RECOMMENDATION_ACTIONS = [
 	'create_transaction',
 	'update_transaction',
 	'create_category'
 ] as const;
 
-export type AiRecommendationAction = (typeof AI_RECOMMENDATION_ACTIONS)[number];
+type AiRecommendationAction = (typeof AI_RECOMMENDATION_ACTIONS)[number];
 
 export const AI_TRANSACTION_TYPES = ['pemasukan', 'pengeluaran', 'penjualan'] as const;
 
-export type AiTransactionType = (typeof AI_TRANSACTION_TYPES)[number];
+type AiTransactionType = (typeof AI_TRANSACTION_TYPES)[number];
 
 const TYPE_ALIASES: Record<string, AiTransactionType> = {
 	income: 'pemasukan',
@@ -30,7 +30,7 @@ const MAX_DESKRIPSI = 500;
 const MAX_ID = 200;
 const MAX_NAMA = 100;
 
-export interface ValidatedCreateTransaction {
+interface ValidatedCreateTransaction {
 	kind: 'create_transaction';
 	type: AiTransactionType;
 	amount: number;
@@ -41,7 +41,7 @@ export interface ValidatedCreateTransaction {
 	metode_bayar: string | null;
 }
 
-export interface ValidatedUpdateTransaction {
+interface ValidatedUpdateTransaction {
 	kind: 'update_transaction';
 	id: string;
 	type: AiTransactionType;
@@ -50,16 +50,16 @@ export interface ValidatedUpdateTransaction {
 	category: unknown;
 }
 
-export interface ValidatedCreateCategory {
+interface ValidatedCreateCategory {
 	kind: 'create_category';
 	nama: string;
 	deskripsi: string | null;
 }
 
-export type ValidatedRecommendation =
+type ValidatedRecommendation =
 	ValidatedCreateTransaction | ValidatedUpdateTransaction | ValidatedCreateCategory;
 
-export type RecommendationValidation =
+type RecommendationValidation =
 	{ ok: true; value: ValidatedRecommendation } | { ok: false; reason: string };
 
 function cleanText(value: unknown, max: number): string | null {

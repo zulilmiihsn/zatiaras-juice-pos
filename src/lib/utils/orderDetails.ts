@@ -4,7 +4,7 @@ type OrderCustomization = {
 	catatan?: string | null;
 };
 
-export const ORDER_OPTION_LABELS: Record<'gula' | 'es', Record<string, string>> = {
+const ORDER_OPTION_LABELS: Record<'gula' | 'es', Record<string, string>> = {
 	gula: {
 		no: 'Tanpa Gula',
 		less: 'Sedikit Gula',

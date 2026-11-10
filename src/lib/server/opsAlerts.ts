@@ -13,21 +13,21 @@ import type { OpsAlertPushMessage, OrderPushSubscription } from '../types/orderN
 // Path relatif: modul ini ikut dibundel Worker realtime (wrangler tidak mengenal alias $lib).
 import { branchLabel } from '../utils/branches';
 
-export const OPS_ALERT_WINDOW_MS = 5 * 60 * 1000;
+const OPS_ALERT_WINDOW_MS = 5 * 60 * 1000;
 export const OPS_ALERT_COOLDOWN_MS = 30 * 60 * 1000;
 /** Respons 5xx dalam jendela yang dianggap lonjakan. */
-export const OPS_ALERT_SERVER_ERRORS = 5;
+const OPS_ALERT_SERVER_ERRORS = 5;
 /** p95 latensi API yang dianggap lambat, hanya bila sampel cukup. */
-export const OPS_ALERT_P95_MS = 3000;
-export const OPS_ALERT_MIN_REQUESTS = 20;
+const OPS_ALERT_P95_MS = 3000;
+const OPS_ALERT_MIN_REQUESTS = 20;
 
-export interface BranchHealth {
+interface BranchHealth {
 	requests: number;
 	serverErrors: number;
 	p95Ms: number;
 }
 
-export async function readBranchHealth(
+async function readBranchHealth(
 	db: D1Database,
 	branch: BranchContext,
 	now: number

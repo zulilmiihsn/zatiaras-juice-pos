@@ -6,7 +6,7 @@ import type {
 	OrderPushMessage
 } from '../types/orderNotifications';
 
-export interface LocalNotificationEvent {
+interface LocalNotificationEvent {
 	sequence: number;
 	event_id: string;
 	order_id: string;
@@ -34,7 +34,7 @@ interface NotificationSoundPreference {
 	revision: number;
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export function isNotificationDeviceIdentity(value: unknown): value is NotificationDeviceIdentity {
+function isNotificationDeviceIdentity(value: unknown): value is NotificationDeviceIdentity {
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as NotificationDeviceIdentity;
 	return (
@@ -63,7 +63,7 @@ export async function getNotificationDeviceIdentity(): Promise<NotificationDevic
 	);
 	return result!;
 }
-export function isNotificationContextCurrent(
+function isNotificationContextCurrent(
 	context: ActiveOrderNotificationContext | null | undefined,
 	now = Date.now()
 ): context is ActiveOrderNotificationContext {
@@ -150,7 +150,7 @@ export async function readNotificationContext(
 		);
 	return value;
 }
-export async function mutateNotificationContext(
+async function mutateNotificationContext(
 	contextId: string,
 	mutate: (context: ActiveOrderNotificationContext) => ActiveOrderNotificationContext
 ): Promise<ActiveOrderNotificationContext | null> {

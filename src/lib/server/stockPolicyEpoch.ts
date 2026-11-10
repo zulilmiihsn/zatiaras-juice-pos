@@ -4,7 +4,7 @@ const decoder = new TextDecoder();
 const EPOCH_VERSION = 1;
 const DOMAIN = 'stock-policy-epoch:v1';
 
-export class StockPolicyEpochError extends Error {
+class StockPolicyEpochError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'StockPolicyEpochError';

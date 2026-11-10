@@ -38,14 +38,14 @@ function fail(status: number, message: string): never {
 	throw new PurchaseUseCaseError(status, message);
 }
 
-export interface PurchaseKasInput {
+interface PurchaseKasInput {
 	nominal: unknown;
 	metode_bayar: unknown;
 	jenis: unknown;
 	deskripsi?: unknown;
 }
 
-export interface PurchaseHppInput {
+interface PurchaseHppInput {
 	jumlah_beli: unknown;
 	biaya_beli: unknown;
 }
@@ -63,7 +63,7 @@ export interface PurchaseInput {
 	hpp?: PurchaseHppInput | null;
 }
 
-export interface PurchaseResult {
+interface PurchaseResult {
 	ok: true;
 	duplicate: boolean;
 	mutasi_id: string;

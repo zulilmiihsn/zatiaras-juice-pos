@@ -1,4 +1,4 @@
-export const DEFAULT_INGREDIENT_YIELD_PERCENT = 100;
+const DEFAULT_INGREDIENT_YIELD_PERCENT = 100;
 
 export const roundFourDecimals = (value: number): number => Math.round(value * 10_000) / 10_000;
 

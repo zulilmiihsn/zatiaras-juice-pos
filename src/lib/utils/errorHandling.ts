@@ -178,7 +178,7 @@ function toUserMessage(normalized: NormalizedApiError): string {
 	return 'Permintaan tidak dapat diproses.';
 }
 
-export function normalizeApiErrorPayload(
+function normalizeApiErrorPayload(
 	payload: ApiErrorPayload | null | undefined,
 	status: number,
 	fallbackMessage: string

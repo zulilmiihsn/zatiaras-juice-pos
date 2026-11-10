@@ -12,7 +12,7 @@ import {
 } from '$lib/utils/orderQueueLocal';
 import type { TransitionOrderResult } from '$lib/server/orderQueue/types';
 
-export interface OrderStatusSyncResult {
+interface OrderStatusSyncResult {
 	synced: number;
 	failed: number;
 	conflicts: number;

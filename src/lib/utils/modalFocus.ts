@@ -3,7 +3,7 @@
 // Escape, background inert, restore trigger, cleanup.
 // Tanpa dependensi Svelte/store agar bisa dipakai action murni.
 
-export interface ModalFocusOptions {
+interface ModalFocusOptions {
 	onEscape?: () => void;
 }
 

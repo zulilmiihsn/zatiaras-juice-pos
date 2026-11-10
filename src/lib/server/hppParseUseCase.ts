@@ -14,7 +14,7 @@ const HPP_MAX_TEXT = 2000;
 const HPP_RATE_LIMIT = 20;
 const HPP_RATE_WINDOW_MS = 10 * 60 * 1000;
 
-export type HppParseErrorCode =
+type HppParseErrorCode =
 	'EMPTY_TEXT' | 'RATE_LIMITED' | 'RATE_LIMITER_UNAVAILABLE' | 'UPSTREAM_ERROR' | 'EMPTY_RESULT';
 
 export class HppParseError extends Error {
@@ -29,13 +29,13 @@ export class HppParseError extends Error {
 	}
 }
 
-export interface HppParseSession {
+interface HppParseSession {
 	userId: string;
 	role: string;
 	branch: string;
 }
 
-export interface HppParseDeps {
+interface HppParseDeps {
 	rawDb: D1Database;
 	session: HppParseSession;
 	text: string;

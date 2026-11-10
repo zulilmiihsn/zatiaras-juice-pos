@@ -12,7 +12,7 @@ export type DataPage<T> = {
 	hasMore: boolean;
 };
 
-export type DataMutationResult<T extends DataRecord = DataRecord> = {
+type DataMutationResult<T extends DataRecord = DataRecord> = {
 	ok: boolean;
 	data?: T[];
 	duplicate?: boolean;

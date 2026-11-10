@@ -180,7 +180,7 @@ export interface RomChar {
 	scaleY: number;
 }
 
-export interface TextRun {
+interface TextRun {
 	text: string;
 	scale: 1 | 2 | 3;
 }

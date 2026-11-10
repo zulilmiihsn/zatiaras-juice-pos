@@ -3,7 +3,7 @@ import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import { calculateEngineTax, validateTaxSettings } from '$lib/tax/engine';
 import type { TaxSettings, TaxCalculationResult, TaxItemConfig, TaxType } from '$lib/types/pajak';
 
-export const TAX_STORAGE_KEY = 'zatiara_tax_settings';
+const TAX_STORAGE_KEY = 'zatiara_tax_settings';
 
 export const DEFAULT_TAX_SETTINGS: TaxSettings = {
 	isTaxEnabled: true,
@@ -213,7 +213,7 @@ export async function syncTaxSettingsWithServer(branch?: string): Promise<TaxSet
 	}
 }
 
-export type SaveTaxResult =
+type SaveTaxResult =
 	| { ok: true; revision: number; settings: TaxSettings }
 	| { ok: false; conflict: boolean; message: string };
 

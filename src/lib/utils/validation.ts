@@ -1,6 +1,6 @@
 // Validation utilities untuk sistem POS Zatiaras
 
-export interface ValidationRule {
+interface ValidationRule {
 	required?: boolean;
 	minLength?: number;
 	maxLength?: number;
@@ -10,7 +10,7 @@ export interface ValidationRule {
 	custom?: (value: string) => string | null;
 }
 
-export interface ValidationResult {
+interface ValidationResult {
 	isValid: boolean;
 	errors: string[];
 }
@@ -156,7 +156,7 @@ export function validateTime(time: string): ValidationResult {
 
 // ── Schema Runtime Validators ──────────────────────────────────
 
-export interface RuntimeValidation<T> {
+interface RuntimeValidation<T> {
 	success: boolean;
 	data?: T;
 	error?: string;

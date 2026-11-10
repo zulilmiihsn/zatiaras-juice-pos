@@ -19,7 +19,7 @@ export const DOTS_PER_LINE = 384;
 export const BYTES_PER_LINE = DOTS_PER_LINE / 8;
 export const DOTS_PER_MM = 8;
 
-export interface Mtp2Config {
+interface Mtp2Config {
 	/** Paper speed in mm/s. Listings give 50–80. */
 	speedMmS: number;
 	/** Input buffer in bytes (asumsi). */
@@ -34,7 +34,7 @@ export interface Mtp2Config {
 	batteryPct: number;
 }
 
-export const DEFAULT_MTP2_CONFIG: Mtp2Config = {
+const DEFAULT_MTP2_CONFIG: Mtp2Config = {
 	speedMmS: 60,
 	bufferBytes: 4096,
 	lineSpacingDots: 30,
@@ -59,9 +59,9 @@ export const MTP2_ASSUMPTIONS: Array<{ name: string; value: string; basis: strin
 	{ name: 'Pemotong kertas', value: 'tidak ada', basis: 'spesifikasi (gigi sobek manual)' }
 ];
 
-export type Mtp2Status = 'idle' | 'printing' | 'starved' | 'paper-out' | 'overheat' | 'off';
+type Mtp2Status = 'idle' | 'printing' | 'starved' | 'paper-out' | 'overheat' | 'off';
 
-export interface PaperRow {
+interface PaperRow {
 	/** 48 bytes of burned dots, or null for a fed (blank) row. */
 	bits: Uint8Array | null;
 	/** 0–1 darkness the head could deliver on this row. */
@@ -70,7 +70,7 @@ export interface PaperRow {
 	restart: boolean;
 }
 
-export type Mtp2Event =
+type Mtp2Event =
 	| { kind: 'command'; at: number; name: string; detail?: string }
 	| { kind: 'warning'; at: number; message: string }
 	| { kind: 'error'; at: number; message: string };

@@ -91,11 +91,7 @@ export async function verifyNotificationSession(): Promise<NotificationScope | n
 	persistOfflineSessionSnapshot(payload.user, Number(payload.expiresAt));
 	return getNotificationScope();
 }
-export async function notificationRequest<T>(
-	path: string,
-	body?: unknown,
-	method = 'POST'
-): Promise<T> {
+async function notificationRequest<T>(path: string, body?: unknown, method = 'POST'): Promise<T> {
 	const capturedContext = await readNotificationContext();
 	const response =
 		body === undefined

@@ -28,7 +28,7 @@ export async function uploadMenuImageFromDataUrl(
 
 const OUTBOX_STORAGE_KEY = 'zatiaras_r2_delete_outbox';
 
-export function getR2CleanupOutbox(): string[] {
+function getR2CleanupOutbox(): string[] {
 	if (typeof window === 'undefined') return [];
 	try {
 		const raw = localStorage.getItem(OUTBOX_STORAGE_KEY);
@@ -38,7 +38,7 @@ export function getR2CleanupOutbox(): string[] {
 	}
 }
 
-export function queueR2Cleanup(key: string): void {
+function queueR2Cleanup(key: string): void {
 	if (typeof window === 'undefined') return;
 	try {
 		const outbox = getR2CleanupOutbox();
@@ -51,7 +51,7 @@ export function queueR2Cleanup(key: string): void {
 	}
 }
 
-export async function processR2CleanupOutbox(): Promise<void> {
+async function processR2CleanupOutbox(): Promise<void> {
 	if (typeof window === 'undefined') return;
 	const outbox = getR2CleanupOutbox();
 	if (outbox.length === 0) return;
@@ -78,7 +78,7 @@ export async function processR2CleanupOutbox(): Promise<void> {
 	}
 }
 
-export function extractProductImageKey(imageUrl: string): string | null {
+function extractProductImageKey(imageUrl: string): string | null {
 	if (!imageUrl || typeof imageUrl !== 'string') return null;
 	const clean = imageUrl.trim();
 	const match = /produk\/([a-z0-9_-]+\/[0-9a-f-]+\.[a-z0-9]+)/i.exec(clean);

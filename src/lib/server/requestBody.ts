@@ -6,7 +6,7 @@
  */
 
 /** Cukup untuk checkout 100 item bertoken harga dan riwayat chat AI; jauh di bawah batas Cloudflare. */
-export const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
+const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 
 export class RequestBodyError extends Error {
 	constructor(

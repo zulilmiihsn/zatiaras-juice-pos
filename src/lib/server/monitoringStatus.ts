@@ -1,14 +1,14 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { getD1Database, type BranchContext } from './branchResolver';
 
-export const MONITORING_SOURCE_NAMES = [
+const MONITORING_SOURCE_NAMES = [
 	'requestMetrics',
 	'errorEvents',
 	'auditLogs',
 	'backupRuns'
 ] as const;
 
-export type MonitoringSourceName = (typeof MONITORING_SOURCE_NAMES)[number];
+type MonitoringSourceName = (typeof MONITORING_SOURCE_NAMES)[number];
 
 export function clampWindowMinutes(value: string | null): number {
 	const parsed = Number.parseInt(value || '', 10);
@@ -30,7 +30,7 @@ function average(values: number[]): number {
 	return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;
 }
 
-export function buildMonitoringSourceStatus(
+function buildMonitoringSourceStatus(
 	results: PromiseSettledResult<unknown>[]
 ): Record<MonitoringSourceName, { available: boolean }> {
 	if (results.length !== MONITORING_SOURCE_NAMES.length) {

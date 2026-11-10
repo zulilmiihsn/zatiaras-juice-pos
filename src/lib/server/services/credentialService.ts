@@ -33,7 +33,7 @@ function isStrongPassword(password: string): boolean {
 	return !commonPasswords.some((item) => lowered.includes(item));
 }
 
-export interface CredentialChangeResult {
+interface CredentialChangeResult {
 	status: number;
 	body: Record<string, unknown>;
 	headers?: Record<string, string>;

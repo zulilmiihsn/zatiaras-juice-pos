@@ -15,9 +15,9 @@ import type {
  * menampilkan 7 hari WITA terakhir. Pesanan menginap tanpa batas tanggal
  * tetap terlihat sampai diselesaikan. Data lama tetap utuh di database.
  */
-export const DONE_WINDOW_DAYS = 7;
+const DONE_WINDOW_DAYS = 7;
 
-export function doneWindowCutoff(now: Date = new Date()): string {
+function doneWindowCutoff(now: Date = new Date()): string {
 	return rentangHariWitaUtc(DONE_WINDOW_DAYS, formatDateYmdWita(now)).startUtc;
 }
 
@@ -207,7 +207,7 @@ function parseAddOns(raw: string | null): Array<{ id: string; nama: string; harg
 	}
 }
 
-export function toDetail(row: DetailRow): OrderQueueItemDetail {
+function toDetail(row: DetailRow): OrderQueueItemDetail {
 	return {
 		id: String(row.id),
 		produk_id: row.produk_id ? String(row.produk_id) : null,

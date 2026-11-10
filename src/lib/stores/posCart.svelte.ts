@@ -50,7 +50,7 @@ function loadCartFromStorage(): CartItem[] {
 	return [];
 }
 
-export function createPosCart() {
+function createPosCart() {
 	let cart = $state<CartItem[]>(loadCartFromStorage());
 
 	function saveToStorage(items: CartItem[]) {

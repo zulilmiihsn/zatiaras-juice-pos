@@ -28,7 +28,7 @@ export class NotificationError extends Error {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function parseIdentity(raw: unknown): NotificationDeviceIdentity {
+function parseIdentity(raw: unknown): NotificationDeviceIdentity {
 	if (!raw || typeof raw !== 'object')
 		throw new NotificationError(400, 'Identitas perangkat tidak valid');
 	const value = raw as Partial<NotificationDeviceIdentity>;
@@ -42,7 +42,7 @@ export function parseIdentity(raw: unknown): NotificationDeviceIdentity {
 		throw new NotificationError(400, 'Identitas perangkat tidak valid');
 	return { device_id: value.device_id, device_token: value.device_token };
 }
-export async function tokenHash(token: string): Promise<string> {
+async function tokenHash(token: string): Promise<string> {
 	const bytes = new Uint8Array(
 		await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
 	);

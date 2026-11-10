@@ -13,7 +13,7 @@ import { error as kitError } from '@sveltejs/kit';
 
 export type SessionUser = App.Locals['authSession'];
 
-export interface BranchTaxConfig {
+interface BranchTaxConfig {
 	enabled: boolean;
 	nama: string;
 	rate: number;
@@ -22,7 +22,7 @@ export interface BranchTaxConfig {
 	updated_at?: string;
 }
 
-export const DEFAULT_TAX_CONFIG: BranchTaxConfig = {
+const DEFAULT_TAX_CONFIG: BranchTaxConfig = {
 	enabled: true,
 	nama: 'PPh Final UMKM (0.5%)',
 	rate: 0.005,

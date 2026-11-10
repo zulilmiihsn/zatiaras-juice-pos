@@ -69,7 +69,7 @@ import { resolveStockReplay } from './stockReplayPolicy';
 export { CheckoutUseCaseError } from './utils';
 export type { CheckoutResult, CheckoutResultData, CheckoutSession } from './types';
 
-export interface CheckoutInput {
+interface CheckoutInput {
 	db: D1Database;
 	branch: BranchContext;
 	session: CheckoutSession;

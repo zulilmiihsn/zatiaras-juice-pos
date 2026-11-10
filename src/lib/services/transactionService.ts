@@ -9,7 +9,7 @@ import {
 	type PaginatedReadResource
 } from '$lib/services/dataApiClient';
 
-export class TransactionService {
+class TransactionService {
 	private static instance: TransactionService;
 
 	static getInstance(): TransactionService {

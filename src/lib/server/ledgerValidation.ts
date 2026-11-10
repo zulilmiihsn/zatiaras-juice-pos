@@ -87,12 +87,12 @@ export function validateExpectedLedgerRevision(value: unknown): number {
 	return revision;
 }
 
-export function validateLedgerTipe(value: unknown): 'in' | 'out' {
+function validateLedgerTipe(value: unknown): 'in' | 'out' {
 	if (value === 'in' || value === 'out') return value;
 	fail("Tipe harus 'in' atau 'out'");
 }
 
-export function validateLedgerJenis(value: unknown): (typeof MANUAL_LEDGER_JENIS)[number] {
+function validateLedgerJenis(value: unknown): (typeof MANUAL_LEDGER_JENIS)[number] {
 	if (value === 'pendapatan_usaha' || value === 'beban_usaha' || value === 'lainnya') return value;
 	fail('Jenis harus pendapatan_usaha, beban_usaha, atau lainnya');
 }
@@ -104,25 +104,25 @@ function checkJenisPairing(tipe: 'in' | 'out', jenis: (typeof MANUAL_LEDGER_JENI
 	if (!ok) fail(`Jenis ${jenis} tidak cocok untuk tipe ${tipe}`);
 }
 
-export function validateLedgerSumber(value: unknown): (typeof MANUAL_LEDGER_SUMBER)[number] {
+function validateLedgerSumber(value: unknown): (typeof MANUAL_LEDGER_SUMBER)[number] {
 	if (value === 'catat' || value === 'stok') return value;
 	fail('Sumber harus catat atau stok');
 }
 
-export function validateLedgerWaktu(value: unknown): string {
+function validateLedgerWaktu(value: unknown): string {
 	if (typeof value !== 'string' || value.trim() === '') fail('Waktu transaksi wajib diisi');
 	if (!Number.isFinite(Date.parse(value))) fail('Waktu transaksi tidak valid');
 	return value;
 }
 
 /** Metode dinormalisasi kanonik: qris -> non-tunai (sama seperti checkout). */
-export function validateLedgerMetode(value: unknown): 'tunai' | 'non-tunai' {
+function validateLedgerMetode(value: unknown): 'tunai' | 'non-tunai' {
 	if (value === 'tunai') return 'tunai';
 	if (value === 'non-tunai' || value === 'qris') return 'non-tunai';
 	fail('Metode bayar harus tunai atau non-tunai');
 }
 
-export function validateLedgerDeskripsi(value: unknown): string {
+function validateLedgerDeskripsi(value: unknown): string {
 	if (typeof value !== 'string' || value.trim() === '') fail('Deskripsi wajib diisi');
 	return value;
 }

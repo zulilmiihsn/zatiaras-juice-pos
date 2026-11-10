@@ -1,6 +1,6 @@
 import type { BranchId } from '$lib/server/branchResolver';
 
-export type RateLimitResult = {
+type RateLimitResult = {
 	allowed: boolean;
 	available: boolean;
 	backend: 'durable-object' | 'd1' | 'unavailable';
@@ -19,7 +19,7 @@ function rateLimitId(branch: BranchId, identifier: string) {
  * checkout/login. Timeout kembalikan null agar fallback D1 jalan;
  * stub abaikan-signal ditangani timer backstop + cleanup.
  */
-export const RATE_LIMIT_DO_TIMEOUT_MS = 2000;
+const RATE_LIMIT_DO_TIMEOUT_MS = 2000;
 
 async function consumeDurableRateLimit(
 	platform: App.Platform | undefined,

@@ -18,7 +18,7 @@ import {
 import type { Ingredient } from '$lib/types/product';
 
 export const DEFAULT_BAHAN_CATEGORY = 'Bahan Baku';
-export const NEW_CATEGORY_OPTION = '__new__';
+const NEW_CATEGORY_OPTION = '__new__';
 
 export type BahanForm = {
 	nama: string;
@@ -51,7 +51,7 @@ export type BahanPayload = {
 	biaya_per_satuan: number;
 };
 
-export type BahanPayloadResult = { ok: true; payload: BahanPayload } | { ok: false; error: string };
+type BahanPayloadResult = { ok: true; payload: BahanPayload } | { ok: false; error: string };
 
 export function emptyBahanForm(kategori = DEFAULT_BAHAN_CATEGORY): BahanForm {
 	return {
@@ -72,7 +72,7 @@ export function emptyBahanForm(kategori = DEFAULT_BAHAN_CATEGORY): BahanForm {
 }
 
 /** Susut kulit/biji hanya berlaku untuk tipe berat dan unit (sama dengan kontrol dialog). */
-export function supportsYield(tipe: UnitCategory): boolean {
+function supportsYield(tipe: UnitCategory): boolean {
 	return tipe === 'berat' || tipe === 'unit';
 }
 
@@ -106,7 +106,7 @@ export function bahanFormFromIngredient(bahan: Ingredient, knownCategories: stri
 	};
 }
 
-export type BahanCostPreview = {
+type BahanCostPreview = {
 	/** Jumlah beli dalam satuan dasar. */
 	baseQty: number;
 	/** Jumlah bersih setelah susut (satuan dasar). */

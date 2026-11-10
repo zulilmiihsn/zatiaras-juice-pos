@@ -10,7 +10,7 @@ import { LOGO_BASE64 } from '$lib/utils/logoBase64';
 import type { BukuKasRecord, LaporanSummary } from '$lib/types/laporan';
 import type { ReportGroups } from '$lib/utils/reportGrouping';
 
-export interface GeneratePdfOptions {
+interface GeneratePdfOptions {
 	branchName: string;
 	startDate: string;
 	endDate: string;
@@ -19,7 +19,7 @@ export interface GeneratePdfOptions {
 	transactions: BukuKasRecord[];
 }
 
-export type TableRow = CellInput[];
+type TableRow = CellInput[];
 
 interface JsPdfWithAutoTable {
 	lastAutoTable?: { finalY: number };

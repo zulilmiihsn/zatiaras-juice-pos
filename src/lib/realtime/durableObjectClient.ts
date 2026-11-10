@@ -199,13 +199,6 @@ export function subscribeToRealtimeTable(
 	};
 }
 
-export function resetRealtimeSocket() {
-	closeSocket();
-	if (subscriptions.size > 0) {
-		connectRealtimeSocket();
-	}
-}
-
 export function getRealtimeHealth() {
 	return { ...realtimeHealth };
 }

@@ -3,7 +3,7 @@
  * tidak boleh menggagalkan pembacaan jaringan atau mengembalikan data basi.
  * Jangan gunakan untuk antrean transaksi: penulisannya wajib berhasil.
  */
-export const CACHE_OPERATION_TIMEOUT_MS = 2000;
+const CACHE_OPERATION_TIMEOUT_MS = 2000;
 
 export async function bestEffortCache<T>(
 	operation: () => Promise<T>,

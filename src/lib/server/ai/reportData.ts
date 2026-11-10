@@ -8,7 +8,7 @@ import {
 import { loadStockPolicy } from '$lib/server/stockPolicy';
 import type { D1Database } from '@cloudflare/workers-types';
 
-export interface FormattedMonth {
+interface FormattedMonth {
 	month: string;
 	monthName: string;
 	pemasukan: number;
@@ -34,14 +34,14 @@ export interface RangeContext {
 	};
 }
 
-export interface DayAnalytics {
+interface DayAnalytics {
 	date: string;
 	revenue: number;
 	transactions: number;
 	avgTicket: number;
 }
 
-export interface ServerReportData {
+interface ServerReportData {
 	summary?: {
 		pendapatan?: number;
 		pengeluaran?: number;
@@ -111,7 +111,7 @@ export interface ServerReportData {
 	[key: string]: unknown;
 }
 
-export interface ReportSqlResult {
+interface ReportSqlResult {
 	hasData: boolean;
 	totalRecords: number;
 	serverReportData: ServerReportData;

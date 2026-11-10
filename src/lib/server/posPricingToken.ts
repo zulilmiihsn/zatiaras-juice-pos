@@ -4,9 +4,9 @@ const TOKEN_VERSION = 1;
 const MAX_TOKEN_LENGTH = 64 * 1024;
 export const POS_PRICING_CLOCK_SKEW_MS = 30_000;
 
-export type PosPricingTokenKind = 'catalog_product' | 'catalog_add_on' | 'checkout_quote';
+type PosPricingTokenKind = 'catalog_product' | 'catalog_add_on' | 'checkout_quote';
 
-export interface PosPricingTokenEnvelope<T> {
+interface PosPricingTokenEnvelope<T> {
 	v: number;
 	kid: string;
 	kind: PosPricingTokenKind;

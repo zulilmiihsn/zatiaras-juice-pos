@@ -4,14 +4,6 @@ export function newMutationToken(): string {
 	return crypto.randomUUID();
 }
 
-export function stripLedgerControlFields<T extends Record<string, unknown>>(
-	payload: T
-): Partial<T> {
-	const clean: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
-	for (const k of ['revision', 'mutation_token', 'cabang_id', 'id']) delete clean[k];
-	return clean as Partial<T>;
-}
-
 export function claimLedgerStatement(
 	rawDb: D1Database,
 	branch: string,
@@ -25,10 +17,6 @@ export function claimLedgerStatement(
 			 WHERE cabang_id = ? AND id = ? AND sumber = 'pos' AND revision = ?`
 		)
 		.bind(mutationToken, new Date().toISOString(), branch, headerId, expectedRevision);
-}
-
-export function guardExistsSql(): string {
-	return `EXISTS (SELECT 1 FROM buku_kas WHERE cabang_id = ? AND id = ? AND mutation_token = ?)`;
 }
 
 export function batchClaimChanges(results: unknown): number {

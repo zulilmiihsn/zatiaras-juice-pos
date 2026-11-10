@@ -1,7 +1,7 @@
 import { error as kitError } from '@sveltejs/kit';
 
-export const DEFAULT_DATA_LIMIT = 200;
-export const MAX_DATA_LIMIT = 500;
+const DEFAULT_DATA_LIMIT = 200;
+const MAX_DATA_LIMIT = 500;
 
 export type DataCursor = {
 	sortValue: string;
@@ -29,7 +29,7 @@ export function parseDataLimit(
 	return value;
 }
 
-export function encodeDataCursor(cursor: DataCursor): string {
+function encodeDataCursor(cursor: DataCursor): string {
 	return btoa(JSON.stringify(cursor));
 }
 

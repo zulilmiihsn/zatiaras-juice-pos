@@ -1,6 +1,6 @@
 /** Post-commit work is expendable; durable intent must already belong to the business batch. */
 export const POST_COMMIT_EFFECTS_TIMEOUT_MS = 5000;
-export type PostCommitTask = Promise<unknown> | ((signal: AbortSignal) => Promise<unknown>);
+type PostCommitTask = Promise<unknown> | ((signal: AbortSignal) => Promise<unknown>);
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
 
 /** Legacy promises remain supported, but cannot be cancelled. New I/O uses signal-aware factories. */

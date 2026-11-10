@@ -6,7 +6,7 @@ import { loadStockPolicy } from '$lib/server/stockPolicy';
 
 export type SessionUser = App.Locals['authSession'];
 
-export interface AtomicProductInput {
+interface AtomicProductInput {
 	id?: string | null;
 	nama: string;
 	harga: number;
@@ -21,7 +21,7 @@ export interface AtomicProductInput {
 	is_active?: boolean | number;
 }
 
-export interface AtomicRecipeInput {
+interface AtomicRecipeInput {
 	bahan_id: string;
 	porsi?: string | null;
 	jumlah_per_item: number;

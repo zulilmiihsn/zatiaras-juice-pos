@@ -32,13 +32,13 @@ import {
 const AI_WINDOW_MS = 15 * 60 * 1000;
 const AI_MAX_REQUESTS = 40;
 
-export interface AiRouteResult {
+interface AiRouteResult {
 	status: number;
 	body: Record<string, unknown>;
 	headers?: Record<string, string>;
 }
 
-export type AiSession = NonNullable<App.Locals['authSession']>;
+type AiSession = NonNullable<App.Locals['authSession']>;
 
 export async function checkAiChatRateLimit(
 	platform: App.Platform | undefined,
@@ -153,7 +153,7 @@ export async function handleAnalyzeTransaction(
 	}
 }
 
-export type RegularChatResult =
+type RegularChatResult =
 	| { kind: 'json'; status: number; body: Record<string, unknown> }
 	| { kind: 'stream'; stream: ReadableStream<Uint8Array> };
 

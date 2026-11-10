@@ -18,7 +18,7 @@ export type RentangRiwayat = 'hari-ini' | '7-hari';
  * (untuk tes deterministik); default tanggal WITA saat ini.
  * Definisi "7 hari" sama dengan tab Selesai Antrean: hari ini + 6 hari ke belakang.
  */
-export function rentangRiwayatUtc(
+function rentangRiwayatUtc(
 	rentang: RentangRiwayat = 'hari-ini',
 	todayYmd: string = getTodayWita()
 ): { startUtc: string; endUtc: string } {
@@ -52,7 +52,7 @@ function toHistoryItem(t: BukuKasRecord): HistoryItem {
 	};
 }
 
-export interface RiwayatPage {
+interface RiwayatPage {
 	items: HistoryItem[];
 	nextCursor: string | null;
 	hasMore: boolean;

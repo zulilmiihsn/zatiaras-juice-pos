@@ -498,7 +498,7 @@ function sendToLocalServerWs(intentUrl: string, url: string): Promise<boolean> {
 	});
 }
 
-export interface UnifiedPrintPayload {
+interface UnifiedPrintPayload {
 	receiptData: ReceiptData;
 }
 

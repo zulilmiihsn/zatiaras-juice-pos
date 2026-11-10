@@ -4,7 +4,7 @@ import { auditDataChange, getRawDb, publish } from '$lib/server/dataApiHelpers';
 import type { StockPolicyActor } from '$lib/server/stockPolicy';
 import { isOwnerRole } from '$lib/utils/roles';
 
-export type OfflineReviewStatus =
+type OfflineReviewStatus =
 	| 'pending'
 	| 'attached_to_reconciliation'
 	| 'approved_current'

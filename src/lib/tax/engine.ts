@@ -5,18 +5,18 @@
 import type { TaxCalculationResult, TaxItemBreakdown, TaxSettings } from '$lib/types/pajak';
 
 export const TAX_CONTRACT_VERSION = 2;
-export const TAX_THRESHOLD_DEFAULT = 500_000_000;
+const TAX_THRESHOLD_DEFAULT = 500_000_000;
 const ALLOWED_TYPES = ['pph_final', 'pbjt_restoran', 'ppn', 'custom'] as const;
-export type EngineTaxType = (typeof ALLOWED_TYPES)[number];
+type EngineTaxType = (typeof ALLOWED_TYPES)[number];
 
-export interface EngineInput {
+interface EngineInput {
 	settings: TaxSettings;
 	periodTurnover: number;
 	periodGrossProfit: number;
 	ytdTurnoverBefore: number;
 }
 
-export function isValidRate(p: unknown): p is number {
+function isValidRate(p: unknown): p is number {
 	return typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 100;
 }
 
@@ -55,7 +55,7 @@ export function validateTaxSettings(input: unknown): { ok: boolean; errors: stri
 	return { ok: errors.length === 0, errors };
 }
 
-export interface LegacyTaxConfig {
+interface LegacyTaxConfig {
 	enabled: boolean;
 	nama: string;
 	rate: number;

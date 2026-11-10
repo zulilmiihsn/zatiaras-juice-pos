@@ -30,7 +30,7 @@ export interface ArchiveRow {
 	[key: string]: unknown;
 }
 
-export interface ManualSummary {
+interface ManualSummary {
 	tanggal_wita: string;
 	tipe: string;
 	jenis: string;

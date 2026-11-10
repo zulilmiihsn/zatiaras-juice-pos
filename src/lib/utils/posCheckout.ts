@@ -5,7 +5,7 @@
 import type { CartItem } from '../types/cart.js';
 import type { CommittedReceipt } from './saleReceipt.js';
 
-export interface QuoteLine {
+interface QuoteLine {
 	source: Record<string, unknown>;
 	product_name: string;
 	product_price: number;
@@ -34,7 +34,7 @@ export interface CheckoutResult {
 }
 
 /** Item kustom kasir (id `custom-*`) tidak punya produk katalog maupun token harga. */
-export function isCustomCartItem(item: CartItem): boolean {
+function isCustomCartItem(item: CartItem): boolean {
 	return item.product.id.toString().startsWith('custom-');
 }
 

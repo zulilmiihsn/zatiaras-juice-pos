@@ -31,7 +31,7 @@ interface UpdateTransactionData {
 	revision: number;
 }
 
-export interface LedgerConsentBefore {
+interface LedgerConsentBefore {
 	readonly id: string;
 	readonly revision: number;
 	readonly nominal: number;

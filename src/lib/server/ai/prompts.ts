@@ -3,7 +3,7 @@
 // Teks prompt mengikuti ketersediaan data cabang agar instruksi analisis tidak menyarankan metrik yang tidak tercatat.
 
 /** Bentuk dateRange yang dikonsumsi prompt AI 2 (Business Analyst). */
-export interface BusinessAnalystDateRange {
+interface BusinessAnalystDateRange {
 	start?: string;
 	startFormatted?: string;
 	end?: string;

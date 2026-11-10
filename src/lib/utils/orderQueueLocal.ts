@@ -6,7 +6,7 @@ import type {
 	TransitionOrderResult
 } from '$lib/server/orderQueue/types';
 
-export type OrderTarget = PreparationState;
+type OrderTarget = PreparationState;
 
 export interface UiOrderItem {
 	nama: string;
@@ -322,14 +322,6 @@ export async function loadQueueSnapshot(
 		return snapshot;
 	} catch {
 		return null;
-	}
-}
-
-export async function clearQueueSnapshot(branch: string, userId: string): Promise<void> {
-	try {
-		await del(snapshotKey(branch, userId), orderQueueStore);
-	} catch {
-		// best-effort: cache lokal tidak boleh menggagalkan logout
 	}
 }
 

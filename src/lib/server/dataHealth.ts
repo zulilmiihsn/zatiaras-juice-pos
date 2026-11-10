@@ -9,12 +9,12 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchId } from './branchResolver';
 
-export interface OrphanDetail {
+interface OrphanDetail {
 	id: string;
 	buku_kas_id: string | null;
 }
 
-export interface OrphanMutasi {
+interface OrphanMutasi {
 	id: string;
 	bahan_id: string;
 }
@@ -95,7 +95,7 @@ export async function findNegativeStock(
 	];
 }
 
-export interface DataHealthReport {
+interface DataHealthReport {
 	orphanTransaksiKasir: OrphanDetail[];
 	orphanBahanMutasi: OrphanMutasi[];
 	negativeStock: NegativeStock[];

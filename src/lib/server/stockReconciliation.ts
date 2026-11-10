@@ -6,8 +6,8 @@ import { loadStockPolicy, type StockPolicyActor } from '$lib/server/stockPolicy'
 import { roundFourDecimals } from '$lib/utils/ingredientCost';
 import { isOwnerRole } from '$lib/utils/roles';
 
-export type StockReconciliationStatus = 'draft' | 'ready' | 'applied' | 'cancelled';
-export type StockReconciliationEntityType = 'produk' | 'bahan';
+type StockReconciliationStatus = 'draft' | 'ready' | 'applied' | 'cancelled';
+type StockReconciliationEntityType = 'produk' | 'bahan';
 
 export type StockReconciliationItem = {
 	job_id: string;
@@ -90,7 +90,7 @@ function sortInventory(left: InventoryRow, right: InventoryRow): number {
 	return left.entityId < right.entityId ? -1 : 1;
 }
 
-export function computeInventoryFingerprint(rows: InventoryRow[]): string {
+function computeInventoryFingerprint(rows: InventoryRow[]): string {
 	const canonical = [...rows]
 		.sort(sortInventory)
 		.map((row) => [row.entityType, row.entityId, row.marker]);

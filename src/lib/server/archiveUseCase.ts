@@ -37,7 +37,7 @@ export {
 } from './archiveChunkReader';
 export type { ArchiveBucket, ArchivePart } from './archiveChunkJob';
 
-export interface ArchivePreview {
+interface ArchivePreview {
 	branch: string;
 	before_year: number;
 	cutoff_wita: string;
@@ -373,7 +373,7 @@ export function runArchiveForBranch(
 	return runArchive(getRawDb(platform, branch), bucket, branch, year);
 }
 
-export interface ArchiveDownload {
+interface ArchiveDownload {
 	body: ReadableStream<Uint8Array>;
 	filename: string;
 	checksum: string | null;

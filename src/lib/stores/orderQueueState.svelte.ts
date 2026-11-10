@@ -145,7 +145,7 @@ async function recomputeBadge(): Promise<void> {
 	countFailed = false;
 }
 
-export function refreshOrderQueueBadge(): Promise<void> {
+function refreshOrderQueueBadge(): Promise<void> {
 	if (!browser) return Promise.resolve();
 	badgeRequested++;
 	if (badgePromise) return badgePromise;

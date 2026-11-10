@@ -18,7 +18,7 @@ import { getSesiAktif } from '$lib/services/sesiTokoService';
 import type { TokoSession } from '$lib/types';
 import type { NotifModalType } from '$lib/types';
 
-export interface CatatRecentTransaction {
+interface CatatRecentTransaction {
 	id?: string;
 	tipe: 'in' | 'out' | string;
 	deskripsi?: string;

@@ -28,7 +28,7 @@ async function hashIdentifier(value: string): Promise<string> {
 		.join('');
 }
 
-export interface LoginAttemptResult {
+interface LoginAttemptResult {
 	status: number;
 	body: Record<string, unknown>;
 	headers?: Record<string, string>;

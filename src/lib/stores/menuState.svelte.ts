@@ -11,7 +11,7 @@ import { convertToBaseUnit } from '$lib/utils/unitConversion';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 import type { Ingredient, Product } from '$lib/types/product';
 
-export interface RecipeItemState {
+interface RecipeItemState {
 	bahan_id: string | number;
 	porsi?: 'reguler' | 'jumbo';
 	jumlah_per_item: string;

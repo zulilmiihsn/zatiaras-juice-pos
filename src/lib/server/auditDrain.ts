@@ -4,8 +4,8 @@ import { auditValues, parseAuditPayload } from './auditEnvelope';
 // Relative import: the realtime Worker bundles this file without the $lib alias.
 import { MS_PER_DAY } from '../constants/time';
 
-export const AUDIT_PAGE_ROWS = 100;
-export const AUDIT_MAX_PAYLOAD_BYTES = 65536;
+const AUDIT_PAGE_ROWS = 100;
+const AUDIT_MAX_PAYLOAD_BYTES = 65536;
 const DOCUMENT_BYTES = 262144;
 const RETENTION_MS = 90 * MS_PER_DAY;
 // A sink row with the same id but different values never converges; stop retrying it after a few
@@ -17,7 +17,7 @@ export interface AuditBudget {
 	used: number;
 }
 
-export interface AuditDrainReport {
+interface AuditDrainReport {
 	selected: number;
 	delivered: number;
 	quarantined: number;

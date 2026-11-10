@@ -34,7 +34,7 @@ function isSessionPayload(value: unknown): value is SessionPayload {
  * Enhanced auth guard dengan security features
  * Implements session validation, rate limiting, dan security checks
  */
-export class AuthGuard {
+class AuthGuard {
 	private static instance: AuthGuard;
 	private loginAttempts: Map<string, number> = new Map();
 

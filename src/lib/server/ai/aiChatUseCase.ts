@@ -44,7 +44,7 @@ export interface AiDeps {
 }
 
 // AI 1: Data Requirement Analyzer (didukung konteks multi-turn & auto-fallback aman)
-export async function identifyDataRequirements(
+async function identifyDataRequirements(
 	question: string,
 	deps: AiDeps,
 	recentContext?: string
@@ -250,7 +250,7 @@ export async function analyzeTransactionText(
 	}
 }
 
-export interface ReportPipelineReady {
+interface ReportPipelineReady {
 	kind: 'ready';
 	stockMonitoringPaused: boolean;
 	dataRequirements: DataRequirements;
@@ -262,7 +262,7 @@ export interface ReportPipelineReady {
 	sanitizedHistory: ChatMessage[];
 }
 
-export interface ReportPipelineEmpty {
+interface ReportPipelineEmpty {
 	kind: 'empty';
 	payload: {
 		code: 'NO_DATA';

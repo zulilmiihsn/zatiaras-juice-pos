@@ -69,7 +69,7 @@ export function setStrictStockEnforcement(enabled: boolean): void {
 	localStorage.setItem(STRICT_STOCK_KEY, String(enabled));
 }
 
-export interface PosStockAvailability {
+interface PosStockAvailability {
 	isOutOfStock: boolean;
 	availableStock: number | null;
 	limitingReason?: string;
@@ -324,7 +324,7 @@ interface ExtendedNotificationOptions extends NotificationOptions {
 /**
  * Mengirim notifikasi ke status bar OS (Android, iOS PWA, Windows, macOS).
  */
-export async function sendSystemNotification(
+async function sendSystemNotification(
 	title: string,
 	options?: ExtendedNotificationOptions
 ): Promise<void> {

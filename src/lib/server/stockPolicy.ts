@@ -24,7 +24,7 @@ export type StockPolicyActor = {
 	role: string;
 };
 
-export type StockPolicyWrite = {
+type StockPolicyWrite = {
 	expectedRevision: number;
 	mode: StockPolicyMode;
 	actor: StockPolicyActor;

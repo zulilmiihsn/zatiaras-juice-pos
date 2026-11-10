@@ -26,11 +26,11 @@ import type {
 } from './types';
 import { PosPricingTokenError, signPosPricingToken } from '../posPricingToken';
 
-export const QUOTE_TTL_MS = 5 * 60 * 1000;
+const QUOTE_TTL_MS = 5 * 60 * 1000;
 const QUOTE_RATE_LIMIT = 60;
 const QUOTE_RATE_WINDOW_MS = 60 * 1000;
 
-export class QuoteUseCaseError extends CheckoutDomainError {
+class QuoteUseCaseError extends CheckoutDomainError {
 	constructor(status: number, message: string) {
 		super(status, message);
 		this.name = 'QuoteUseCaseError';

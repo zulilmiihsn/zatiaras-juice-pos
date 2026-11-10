@@ -12,7 +12,7 @@ import { loadStockPolicy } from '../stockPolicy';
 import { signStockPolicyEpoch } from '../stockPolicyEpoch';
 import { MS_PER_DAY } from '$lib/constants/time';
 
-export const CATALOG_TOKEN_TTL_MS = MS_PER_DAY;
+const CATALOG_TOKEN_TTL_MS = MS_PER_DAY;
 
 interface CatalogProductRow {
 	id: string;

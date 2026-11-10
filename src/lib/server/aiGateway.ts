@@ -23,7 +23,7 @@ export interface AiTool {
 	[key: string]: unknown;
 }
 
-export type AiGatewayErrorCode =
+type AiGatewayErrorCode =
 	| 'UPSTREAM_TIMEOUT'
 	| 'UPSTREAM_ERROR'
 	| 'INVALID_RESPONSE'
@@ -103,7 +103,7 @@ export function redactForLog(value: unknown, maxLength = 500): string {
 	return redacted.slice(0, maxLength);
 }
 
-export interface AiChatOptions {
+interface AiChatOptions {
 	title: string;
 	maxTokens: number;
 	temperature: number;
@@ -120,7 +120,7 @@ export interface AiChatOptions {
 }
 
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-export const OPENROUTER_TIMEOUT_MS = 25_000;
+const OPENROUTER_TIMEOUT_MS = 25_000;
 /**
  * Budget AI pemilik Rp 0, jadi hanya model `:free`
  * spesifik. Router `openrouter/free` tidak dipakai karena memilih model acak, termasuk
@@ -138,7 +138,7 @@ export function isFreeModel(model: string): boolean {
 }
 
 /** Tool server OpenRouter (`openrouter:*`, mis. web_search) ditagih per pemakaian. */
-export function isPaidTool(tool: AiTool): boolean {
+function isPaidTool(tool: AiTool): boolean {
 	return String(tool?.type ?? '').startsWith('openrouter:');
 }
 
@@ -165,9 +165,9 @@ export function isBudgetRefusal(error: unknown): boolean {
 }
 // Deadline body/stream. Body non-stream dibaca lewat pump yang sama
 // dengan stream (deadline, abort klien, reader dibatalkan) dan dibatasi ukuran.
-export const AI_BODY_MAX_BYTES = 1_000_000;
+const AI_BODY_MAX_BYTES = 1_000_000;
 // Anggaran total satu panggilan non-stream lintas retry/fallback.
-export const AI_CALL_BUDGET_MS = 60_000;
+const AI_CALL_BUDGET_MS = 60_000;
 export const AI_STREAM_TOTAL_MS = 120_000;
 export const AI_STREAM_IDLE_MS = 30_000;
 
