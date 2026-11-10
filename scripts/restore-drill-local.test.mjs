@@ -247,19 +247,35 @@ await test('kolom POS hilang GAGAL', async () =>
 		);
 		await assert.rejects(checkDrillDatabase(a), /kolom hilang/);
 	}));
-await test('detail yatim GAGAL', async () =>
+// Backup shard yang belum menerima 0045 tidak punya FK: hanya pemeriksaan domain yang menangkap yatim.
+const BEFORE_FK_MIGRATION = '0044_pos_orders_start_processing.sql';
+const ORPHAN_DETAIL = `INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES('tk-yatim','samarinda','tidak-ada',1,5000);`;
+const CROSS_BRANCH_DETAIL = `INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES('tk-cross','berau','bk1',1,5000);`;
+await test('detail yatim GAGAL pada backup skema sebelum FK', async () =>
 	withFixture(async (a) => {
-		a.db.exec(
-			`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES('tk-yatim','samarinda','tidak-ada',1,5000);`
+		a.db.exec(ORPHAN_DETAIL);
+		await assert.rejects(
+			checkDrillDatabase(a, 'full', { expectedMigration: BEFORE_FK_MIGRATION }),
+			/yatim/
 		);
-		await assert.rejects(checkDrillDatabase(a), /yatim/);
+	}, BEFORE_FK_MIGRATION));
+await test('parent cabang lain tidak menyembunyikan detail yatim pada skema sebelum FK', async () =>
+	withFixture(async (a) => {
+		a.db.exec(CROSS_BRANCH_DETAIL);
+		await assert.rejects(
+			checkDrillDatabase(a, 'full', { expectedMigration: BEFORE_FK_MIGRATION }),
+			/yatim/
+		);
+	}, BEFORE_FK_MIGRATION));
+await test('detail yatim GAGAL oleh pemeriksaan FK pada skema ber-FK', async () =>
+	withFixture(async (a) => {
+		a.db.exec(ORPHAN_DETAIL);
+		await assert.rejects(checkDrillDatabase(a), /FK deklaratif/);
 	}));
-await test('parent cabang lain tidak menyembunyikan detail yatim', async () =>
+await test('detail lintas cabang GAGAL oleh pemeriksaan FK pada skema ber-FK', async () =>
 	withFixture(async (a) => {
-		a.db.exec(
-			`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES('tk-cross','berau','bk1',1,5000);`
-		);
-		await assert.rejects(checkDrillDatabase(a), /yatim/);
+		a.db.exec(CROSS_BRANCH_DETAIL);
+		await assert.rejects(checkDrillDatabase(a), /FK deklaratif/);
 	}));
 await test('stok negatif GAGAL', async () =>
 	withFixture(async (a) => {

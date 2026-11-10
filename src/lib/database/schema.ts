@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
 	check,
+	foreignKey,
 	index,
 	integer,
 	primaryKey,
@@ -480,6 +481,8 @@ export const bukuKas = sqliteTable(
 			table.id
 		),
 		uniqueIndex('idx_buku_kas_cabang_idempotency').on(table.cabang_id, table.idempotency_key),
+		// Target FK komposit transaksi_kasir (ADR 0003); id sudah unik, ini syarat SQLite untuk FK.
+		uniqueIndex('idx_buku_kas_cabang_id_unique').on(table.cabang_id, table.id),
 		uniqueIndex('idx_buku_kas_cabang_tanggal_nomor').on(
 			table.cabang_id,
 			table.tanggal_nomor,
@@ -744,7 +747,12 @@ export const transaksiKasir = sqliteTable(
 		index('idx_transaksi_kasir_branch_created').on(table.cabang_id, table.created_at),
 		index('idx_transaksi_kasir_branch_created_id').on(table.cabang_id, table.created_at, table.id),
 		index('idx_transaksi_kasir_branch_transaction').on(table.cabang_id, table.transaction_id),
-		index('idx_transaksi_kasir_branch_buku').on(table.cabang_id, table.buku_kas_id)
+		index('idx_transaksi_kasir_branch_buku').on(table.cabang_id, table.buku_kas_id),
+		// Detail wajib menunjuk header pada cabang yang sama; tanpa cascade agar tak ada hapus diam-diam.
+		foreignKey({
+			columns: [table.cabang_id, table.buku_kas_id],
+			foreignColumns: [bukuKas.cabang_id, bukuKas.id]
+		})
 	]
 );
 

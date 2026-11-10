@@ -134,6 +134,168 @@ assert.throws(
 	/UNIQUE constraint failed/
 );
 
+// 0045: FK transaksi_kasir -> buku_kas lewat rebuild tabel. Kontraknya: tidak ada baris yang
+// berubah atau hilang, dan data tidak konsisten menggagalkan migrasi, bukan dibuang diam-diam.
+const FK_MIGRATION = '0045_transaksi_kasir_fk_buku_kas.sql';
+const statementsOf = (file: string) =>
+	readFileSync(join(MIGRATIONS_DIR, file), 'utf8')
+		.split('--> statement-breakpoint')
+		.map((s) => s.trim())
+		.filter(Boolean);
+const plain = (rows: unknown[]) => JSON.parse(JSON.stringify(rows));
+function playBefore(stopBefore: string) {
+	const target = new DatabaseSync(':memory:');
+	for (const file of files) {
+		if (file === stopBefore) break;
+		for (const stmt of statementsOf(file)) target.exec(stmt);
+	}
+	return target;
+}
+const snapshotKasir = (target: DatabaseSync) => ({
+	rows: plain(target.prepare('SELECT * FROM transaksi_kasir ORDER BY id').all()),
+	columns: plain(target.prepare('PRAGMA table_info(transaksi_kasir)').all()),
+	indexes: (
+		target
+			.prepare(
+				"SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='transaksi_kasir' AND sql IS NOT NULL"
+			)
+			.all() as Array<{ name: string }>
+	)
+		.map((r) => r.name)
+		.sort(),
+	foreignKeys: plain(target.prepare('PRAGMA foreign_key_list(transaksi_kasir)').all())
+});
+const seedKas = (target: DatabaseSync) => {
+	for (const [id, cabang] of [
+		['bk-a', 'samarinda'],
+		['bk-b', 'samarinda2'],
+		['bk-c', 'berau']
+	])
+		target.exec(
+			`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,created_at,updated_at) VALUES('${id}','${cabang}','2026-10-01T00:00:00Z','catat','in','pendapatan_usaha',15000,'2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`
+		);
+};
+const seedDetails = (target: DatabaseSync) => {
+	target.exec(`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,produk_id,nama_produk,jumlah,nominal,harga,harga_dasar,total_tambahan,snapshot_tambahan,gula,es,catatan,snapshot_hpp,nominal_hpp,transaction_id,created_at,updated_at)
+		VALUES ('tk-full','samarinda','bk-a','p1','Jus Mangga',2,15000,7500,7000,500,'[{"id":"e1","nama":"Boba"}]','less','no','tanpa gula ''asli''','{"bahan":[]}',3333.3333,'trx-1','2026-10-01T00:00:01Z','2026-10-01T00:00:02Z')`);
+	target.exec(
+		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal,created_at,updated_at) VALUES ('tk-minimal','samarinda','bk-a',1,500,NULL,NULL)"
+	);
+	target.exec(
+		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,nama_kustom,jumlah,nominal) VALUES ('tk-kustom','samarinda2','bk-b','Item bebas',3,45000)"
+	);
+};
+
+{
+	const upgrade = playBefore(FK_MIGRATION);
+	seedKas(upgrade);
+	seedDetails(upgrade);
+	const before = snapshotKasir(upgrade);
+	assert.equal(before.rows.length, 3);
+	assert.deepEqual(before.foreignKeys, [], 'sebelum 0045 tidak ada FK');
+
+	for (const stmt of statementsOf(FK_MIGRATION)) upgrade.exec(stmt);
+	const after = snapshotKasir(upgrade);
+
+	assert.deepEqual(after.rows, before.rows, '0045 tidak mengubah/menghapus satu pun baris');
+	assert.deepEqual(after.columns, before.columns, 'urutan, tipe, default, dan NOT NULL kolom sama');
+	assert.deepEqual(after.indexes, before.indexes, 'semua indeks dibuat ulang');
+	assert.deepEqual(
+		after.foreignKeys.map((r: Record<string, unknown>) => [r.table, r.from, r.to, r.on_delete]),
+		[
+			['buku_kas', 'cabang_id', 'cabang_id', 'NO ACTION'],
+			['buku_kas', 'buku_kas_id', 'id', 'NO ACTION']
+		],
+		'FK komposit tanpa cascade'
+	);
+	assert.deepEqual(upgrade.prepare('PRAGMA foreign_key_check').all(), []);
+	const leftovers = upgrade
+		.prepare(
+			"SELECT name FROM sqlite_master WHERE name IN ('transaksi_kasir__new', '_fk_copy_guard')"
+		)
+		.all();
+	assert.deepEqual(leftovers, [], 'tabel sementara tidak tersisa');
+
+	// Penegakan: yatim dan lintas cabang ditolak; induk dengan anak tidak bisa dihapus diam-diam.
+	assert.throws(
+		() =>
+			upgrade.exec(
+				"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES ('x','samarinda','hilang',1,1)"
+			),
+		/FOREIGN KEY constraint failed/
+	);
+	assert.throws(
+		() =>
+			upgrade.exec(
+				"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES ('x','samarinda2','bk-a',1,1)"
+			),
+		/FOREIGN KEY constraint failed/,
+		'cabang berbeda dengan header ditolak'
+	);
+	assert.throws(
+		() => upgrade.exec("DELETE FROM buku_kas WHERE cabang_id='samarinda' AND id='bk-a'"),
+		/FOREIGN KEY constraint failed/
+	);
+	// Urutan arsip/void: anak dulu, baru induk.
+	upgrade.exec("DELETE FROM transaksi_kasir WHERE cabang_id='samarinda' AND buku_kas_id='bk-a'");
+	upgrade.exec("DELETE FROM buku_kas WHERE cabang_id='samarinda' AND id='bk-a'");
+	upgrade.close();
+}
+
+{
+	// Data yatim: migrasi berhenti tanpa membuang apa pun, lalu aman diulang setelah dikoreksi.
+	const blocked = playBefore(FK_MIGRATION);
+	seedKas(blocked);
+	seedDetails(blocked);
+	blocked.exec(
+		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES ('tk-yatim','samarinda','hilang',1,9000)"
+	);
+	const before = snapshotKasir(blocked);
+	assert.equal(before.rows.length, 4);
+
+	assert.throws(() => {
+		for (const stmt of statementsOf(FK_MIGRATION)) blocked.exec(stmt);
+	}, /FOREIGN KEY constraint failed/);
+	const afterFailure = snapshotKasir(blocked);
+	assert.deepEqual(afterFailure.rows, before.rows, 'baris yatim ikut utuh, tidak ada yang dibuang');
+	assert.deepEqual(afterFailure.foreignKeys, [], 'tabel lama tetap yang asli');
+	assert.deepEqual(afterFailure.columns, before.columns);
+
+	// Koreksi manual yang bersifat menambah (header yang hilang dipulihkan), lalu ulangi.
+	blocked.exec(
+		"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,created_at,updated_at) VALUES('hilang','samarinda','2026-10-01T00:00:00Z','catat','in','pendapatan_usaha',9000,'2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')"
+	);
+	for (const stmt of statementsOf(FK_MIGRATION)) blocked.exec(stmt);
+	const retried = snapshotKasir(blocked);
+	assert.deepEqual(retried.rows, before.rows, 'percobaan ulang menghasilkan data yang sama');
+	assert.equal(retried.foreignKeys.length, 2);
+	assert.deepEqual(blocked.prepare('PRAGMA foreign_key_check').all(), []);
+	blocked.close();
+}
+
+{
+	// Rollback 0045: FK terlepas, data dan bentuk tabel kembali persis seperti sebelum 0045.
+	const rollbackSql = readFileSync(resolve('scripts/rollback-0045-transaksi-kasir-fk.sql'), 'utf8')
+		.split('--> statement-breakpoint')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	const target = playBefore(FK_MIGRATION);
+	seedKas(target);
+	seedDetails(target);
+	const original = snapshotKasir(target);
+	for (const stmt of statementsOf(FK_MIGRATION)) target.exec(stmt);
+	assert.equal(snapshotKasir(target).foreignKeys.length, 2);
+
+	for (const stmt of rollbackSql) target.exec(stmt);
+	assert.deepEqual(snapshotKasir(target), original, 'rollback memulihkan data dan bentuk tabel');
+	// Aman diulang, dan migrasi maju tetap bisa diterapkan lagi sesudahnya.
+	for (const stmt of rollbackSql) target.exec(stmt);
+	for (const stmt of statementsOf(FK_MIGRATION)) target.exec(stmt);
+	assert.equal(snapshotKasir(target).foreignKeys.length, 2);
+	assert.deepEqual(snapshotKasir(target).rows, original.rows);
+	target.close();
+}
+
 // 1. Execute real PRAGMA quick_check on SQLite C-engine
 const quickCheckRows = db.prepare('PRAGMA quick_check;').all() as Array<{ quick_check?: string }>;
 assert.equal(quickCheckRows.length, 1, 'PRAGMA quick_check must return 1 row');

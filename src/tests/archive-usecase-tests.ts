@@ -147,6 +147,9 @@ try {
 				.bind(...row)
 		)
 	);
+	// Data rusak warisan (yatim, lintas cabang) tidak bisa lagi dibuat saat FK menyala; shard yang
+	// belum dimigrasi masih bisa memilikinya, jadi arsip tetap diuji terhadap keadaan itu.
+	await db.prepare('PRAGMA foreign_keys = OFF').run();
 	await db.batch(
 		[
 			['old-detail', 'samarinda', 'old-pos'],
@@ -162,6 +165,7 @@ try {
 				.bind(...row)
 		)
 	);
+	await db.prepare('PRAGMA foreign_keys = ON').run();
 	const inventory = async () =>
 		Promise.all(
 			['buku_kas', 'transaksi_kasir', 'archive_jobs'].map(async (table) => {

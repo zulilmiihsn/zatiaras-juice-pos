@@ -17,7 +17,9 @@ try {
 		clean: true
 	});
 
-	// Seed temuan: detail orphan, mutasi orphan, stok negatif.
+	// Seed temuan: detail orphan, mutasi orphan, stok negatif. Orphan transaksi_kasir hanya bisa
+	// dibuat tanpa FK; detektor tetap berguna untuk backup dari shard yang belum dimigrasi.
+	await db.prepare('PRAGMA foreign_keys = OFF').run();
 	await db.batch(
 		[
 			`INSERT INTO transaksi_kasir (id, cabang_id, buku_kas_id, jumlah, nominal) VALUES ('orphan-tk', 'samarinda', 'hilang', 1, 5000)`,
