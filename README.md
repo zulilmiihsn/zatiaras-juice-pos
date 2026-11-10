@@ -2,7 +2,7 @@
 
 Aplikasi point of sale internal Zatiaras untuk kasir dan pemilik di lima cabang
 (Samarinda, Samarinda 2, Balikpapan, Balikpapan 2, Berau). Berjalan sebagai PWA di
-Cloudflare Pages dan tetap bisa mencatat penjualan tunai saat offline.
+Cloudflare Pages dan tetap bisa mencatat penjualan tunai maupun QRIS saat offline.
 
 ## Fitur
 

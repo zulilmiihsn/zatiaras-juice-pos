@@ -16,6 +16,39 @@ import {
 	roundMoney
 } from '../lib/utils/currency';
 
+import { resolveCheckoutQuote } from '../lib/server/checkout/quoteResolution';
+import { branchContext } from '../lib/server/branchResolver';
+
+test('offline QRIS retains noncash payment while invalid methods remain rejected', async () => {
+	const now = Date.parse('2026-06-19T00:00:00.000Z');
+	const originalNow = Date.now;
+	Date.now = () => now;
+	try {
+		const body = {
+			queued_at: now,
+			metode_bayar: 'non-tunai',
+			items: [{ nama_kustom: 'Jus', custom_price: 10000, jumlah: 1, add_on_ids: [] }]
+		};
+		const quote = await resolveCheckoutQuote(
+			undefined,
+			branchContext('samarinda'),
+			body,
+			'offline_replay'
+		);
+		assert.equal(quote.total_amount, 10000);
+		await assert.rejects(
+			resolveCheckoutQuote(
+				undefined,
+				branchContext('samarinda'),
+				{ ...body, metode_bayar: 'invalid' },
+				'offline_replay'
+			)
+		);
+	} finally {
+		Date.now = originalNow;
+	}
+});
+
 type Fingerprint = (input: TransactionFingerprintInput) => string;
 
 function intent(): TransactionFingerprintInput {
