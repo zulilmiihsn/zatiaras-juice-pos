@@ -508,6 +508,92 @@ assert.throws(
 );
 assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get()?.stok, 0);
 
+{
+	const before = playBefore('0046_bahan_mutasi_fk_bahan.sql');
+	before.exec(
+		"INSERT INTO bahan(id,cabang_id,nama,satuan) VALUES ('fk-bahan','samarinda','Fixture','gram'); INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah,stok_setelah,sumber,catatan,operation_key,request_fingerprint) VALUES ('fk-history','samarinda','fk-bahan',2,2,'manual','preserve','key','fingerprint')"
+	);
+	const rows = plain(before.prepare('SELECT * FROM bahan_mutasi ORDER BY id').all());
+	const triggers = plain(
+		before
+			.prepare(
+				"SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='bahan_mutasi' ORDER BY name"
+			)
+			.all()
+	);
+	for (const statement of statementsOf('0046_bahan_mutasi_fk_bahan.sql')) before.exec(statement);
+	assert.deepEqual(plain(before.prepare('SELECT * FROM bahan_mutasi ORDER BY id').all()), rows);
+	assert.deepEqual(
+		plain(
+			before
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='bahan_mutasi' ORDER BY name"
+				)
+				.all()
+		),
+		triggers.map((row: { name: string }) => ({ name: row.name }))
+	);
+	assert.throws(
+		() =>
+			before.exec(
+				"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-other','samarinda2','fk-bahan',1)"
+			),
+		/FOREIGN KEY constraint failed/
+	);
+	const rollback = readFileSync(resolve('scripts/rollback-0046-bahan-mutasi-fk.sql'), 'utf8')
+		.split('--> statement-breakpoint')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	for (const statement of rollback) before.exec(statement);
+	assert.deepEqual(plain(before.prepare('SELECT * FROM bahan_mutasi ORDER BY id').all()), rows);
+	assert.equal(before.prepare('PRAGMA foreign_key_list(bahan_mutasi)').all().length, 0);
+	assert.equal(
+		before
+			.prepare(
+				"SELECT count(*) AS n FROM sqlite_master WHERE type='trigger' AND tbl_name='bahan_mutasi'"
+			)
+			.get()?.n,
+		triggers.length
+	);
+	before.close();
+
+	const orphan = playBefore('0046_bahan_mutasi_fk_bahan.sql');
+	orphan.exec(
+		"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('legacy-orphan','samarinda','missing',1)"
+	);
+	const original = plain(orphan.prepare('SELECT * FROM bahan_mutasi').all());
+	orphan.exec('BEGIN');
+	assert.throws(() => {
+		for (const statement of statementsOf('0046_bahan_mutasi_fk_bahan.sql')) orphan.exec(statement);
+	}, /CHECK constraint failed/);
+	orphan.exec('ROLLBACK');
+	assert.deepEqual(plain(orphan.prepare('SELECT * FROM bahan_mutasi').all()), original);
+	assert.equal(orphan.prepare('PRAGMA foreign_key_list(bahan_mutasi)').all().length, 0);
+	orphan.close();
+}
+
+const bahanForeignKeys = db.prepare('PRAGMA foreign_key_list(bahan_mutasi)').all();
+assert.equal(
+	bahanForeignKeys.length,
+	2,
+	'bahan_mutasi must reference bahan within the same branch'
+);
+assert.throws(
+	() =>
+		db.exec(
+			"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-orphan','samarinda','missing-bahan',1)"
+		),
+	/FOREIGN KEY constraint failed/
+);
+assert.throws(
+	() => db.exec("DELETE FROM bahan WHERE id='upgrade-purchase-bahan' AND cabang_id='berau'"),
+	/FOREIGN KEY constraint failed/
+);
+assert.equal(
+	db.prepare("SELECT count(*) AS n FROM bahan_mutasi WHERE id='upgrade-purchase-ledger'").get()?.n,
+	1
+);
+
 const reviewTriggers = (
 	db
 		.prepare(

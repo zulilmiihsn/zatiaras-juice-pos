@@ -109,7 +109,7 @@ Wajib sebelum menambah constraint apa pun (FK, unique, check); lihat
 produksi. Jalankan per shard terhadap file backup hasil §1:
 
 ```powershell
-pnpm d1:health -- --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP
+pnpm d1:health --file "<output-dir>\<run-id>\db_samarinda_group.sql" --shard DB_SAMARINDA_GROUP
 ```
 
 Ulangi untuk `db_balikpapan_group.sql` (`DB_BALIKPAPAN_GROUP`) dan `db_berau_group.sql`
@@ -150,8 +150,25 @@ menambah (memulihkan header yang hilang) atau keputusan pemilik, lalu ulangi mig
 
 **Rollback:** `scripts/rollback-0045-transaksi-kasir-fk.sql` melepas FK tanpa membuang baris
 (dijalankan per shard dengan `wrangler d1 execute --file`, lihat komentar di file). Pakai ini lebih
-dulu daripada restore backup, yang membuang transaksi masuk sesudah backup. Fase 2 (`bahan_mutasi`
-→ `bahan`) belum dikerjakan; lihat ADR 0003.
+dulu daripada restore backup, yang membuang transaksi masuk sesudah backup.
+
+### 3.3 Migrasi 0046: FK `bahan_mutasi` → `bahan` (Fase 2)
+
+FK komposit per cabang tanpa cascade mempertahankan riwayat; penghapusan bahan yang memiliki
+mutasi ditolak dengan 409. Sebelum migrasi, pastikan backup baru terverifikasi dan `d1:health`
+bersih pada setiap shard. Bila ada orphan, berhenti dan minta keputusan pemilik; jangan hapus
+atau perbaiki data otomatis. Perhitungkan kuota bersama sebelum drill atau impor data. Uji staging
+terlebih dahulu dan minta persetujuan produksi terpisah.
+
+Bandingkan seluruh isi `bahan_mutasi` sebelum dan sesudah, pastikan dua baris FK `NO ACTION`
+ke `bahan`, kedua trigger rekonsiliasi tetap ada, dan `PRAGMA foreign_key_check` kosong per shard.
+Uji juga penghapusan bahan tanpa riwayat dan penolakan bahan dengan riwayat pada data uji.
+
+Jika rollback diperlukan, hentikan penulisan, buat backup terverifikasi, dan uji
+`scripts/rollback-0046-bahan-mutasi-fk.sql` pada salinan sebelum menjalankannya per shard.
+Bandingkan ulang seluruh baris dan trigger. Rollback tidak menghapus catatan `d1_migrations`;
+rencanakan forward-fix secara terpisah dan jangan mengaktifkan kembali penulisan sampai verifikasi
+selesai.
 
 ## 4. Deploy aplikasi
 

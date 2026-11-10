@@ -101,6 +101,7 @@ export const bahan = sqliteTable(
 		index('idx_bahan_branch_created').on(table.cabang_id, table.created_at),
 		index('idx_bahan_branch_name').on(table.cabang_id, table.nama),
 		index('idx_bahan_branch_kategori').on(table.cabang_id, table.kategori),
+		uniqueIndex('idx_bahan_cabang_id_unique').on(table.cabang_id, table.id),
 		check('chk_bahan_yield_persen', sql`${table.yield_persen} > 0 AND ${table.yield_persen} <= 100`)
 	]
 );
@@ -330,8 +331,7 @@ export const resepProduk = sqliteTable(
 );
 
 // Ledger append-only: tidak punya updated_at karena baris koreksi ditulis sebagai mutasi baru.
-// stok_setelah nullable dan tanpa FK dipertahankan untuk kompatibilitas data D1 lama; service
-// wajib menjaga bahan_id tetap dalam cabang yang sama sampai migrasi constraint terjadwal.
+// stok_setelah tetap nullable untuk kompatibilitas histori.
 export const bahanMutasi = sqliteTable(
 	'bahan_mutasi',
 	{
@@ -353,6 +353,10 @@ export const bahanMutasi = sqliteTable(
 	(table) => [
 		index('idx_bahan_mutasi_branch_created').on(table.cabang_id, table.created_at),
 		index('idx_bahan_mutasi_branch_bahan').on(table.cabang_id, table.bahan_id),
+		foreignKey({
+			columns: [table.cabang_id, table.bahan_id],
+			foreignColumns: [bahan.cabang_id, bahan.id]
+		}),
 		// Partial unique: hanya baris purchase ber-kunci yang wajib unik per cabang.
 		uniqueIndex('idx_bahan_mutasi_branch_operation_key')
 			.on(table.cabang_id, table.operation_key)

@@ -34,13 +34,13 @@ tanpa cascade. Kode aplikasi tidak perlu berubah: checkout, arsip, void, kulakan
 lulus seluruh tesnya dengan FK menyala, dan arsip serta void sudah menghapus anak sebelum induk.
 Prosedur dan rollback ada di [runbook §3.2](../OPERATOR-RUNBOOK.md).
 
-**Fase 2 (`bahan_mutasi` → `bahan`) belum dikerjakan** dan butuh keputusan produk lebih dulu.
-`deleteBahanRow` menghapus `bahan` tanpa menyentuh `bahan_mutasi`, jadi aplikasi sendiri
-menghasilkan mutasi yatim saat bahan berriwayat dihapus, dan `e2e/kulakan.spec.ts` bergantung pada
-perilaku itu. Dengan FK, penghapusan itu akan gagal. Syarat sebelum Fase 2: aturan hapus bahan
-berriwayat disepakati (rekomendasi: tolak dengan 409 dan arahkan ke nonaktifkan, tanpa cascade
-agar riwayat stok tidak hilang), orphan yang sudah ada di produksi diketahui lewat `pnpm d1:health`,
-dan keputusan atas orphan itu diambil tanpa penghapusan otomatis.
+**Fase 2 (migrasi 0046): `bahan_mutasi` → `bahan`.** Kebijakan yang disepakati menolak
+penghapusan bahan yang memiliki riwayat stok dengan 409; bahan yang dipakai resep juga tetap
+terlindungi. FK komposit per cabang tanpa cascade melindungi riwayat, dan migrasi menggagalkan
+preflight bila ada orphan, tanpa memperbaiki atau menghapusnya. Sebelum penerapan pada shard
+mana pun, backup harus terverifikasi, `pnpm d1:health` harus bersih, dan uji D1/workerd serta
+staging dan approval terpisah wajib selesai. Rollback memakai `scripts/rollback-0046-bahan-mutasi-fk.sql`
+hanya dengan backup, write freeze, dan verifikasi paritas; catatan migrasi tidak dihapus otomatis.
 
 - Constraint baru hanya diizinkan bila: didahului preflight hijau pada data
   produksi, forward-only, dan punya rollback/forward-fix guidance.

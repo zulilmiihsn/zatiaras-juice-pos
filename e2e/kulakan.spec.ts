@@ -126,8 +126,11 @@ test('Kulakan satu perintah mencatat stok, kas, dan HPP sekaligus', async ({ pag
 	);
 	expect(bahanEdit.find((b) => b.id === bahanId)?.stok_saat_ini).toBe(2000);
 
-	// Bersih-bersih: hapus bahan uji (mutasi/kas terisolasi per run).
-	await api(page, `/api/bahan?branch=samarinda&id=${bahanId}`, 'DELETE');
+	// Riwayat kulakan mempertahankan bahan; database tes terisolasi dibuang oleh runner.
+	const deletion = await csrfMutate(page, 'DELETE', `/api/bahan?branch=samarinda&id=${bahanId}`);
+	expect(deletion.status()).toBe(409);
+	const retained = await api<{ id: string }[]>(page, '/api/bahan?branch=samarinda', 'GET');
+	expect(retained.some((item) => item.id === bahanId)).toBe(true);
 });
 
 test('Kulakan lost response retries immutable intent exactly once', async ({ page }) => {
@@ -221,10 +224,10 @@ test('Kulakan lost response retries immutable intent exactly once', async ({ pag
 		expect(
 			cash.filter((r) => r.idempotency_key === `purchase:${payload.operation_key}`)
 		).toHaveLength(1);
+		const removed = await csrfMutate(page, 'DELETE', `/api/bahan?id=${bahanId}`, undefined);
+		expect(removed.status()).toBe(409);
 	} finally {
 		await page.unroute('**/api/bahan/purchase');
-		const removed = await csrfMutate(page, 'DELETE', `/api/bahan?id=${bahanId}`, undefined);
-		expect(removed.ok()).toBe(true);
 	}
 });
 

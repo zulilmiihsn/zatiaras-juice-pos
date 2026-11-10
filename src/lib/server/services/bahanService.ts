@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, notExists, type SQL } from 'drizzle-orm';
 import { bahan, bahanMutasi } from '$lib/database/schema';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { BranchContext } from '$lib/server/branchResolver';
@@ -222,7 +222,29 @@ export async function deleteBahanRow(
 		.first();
 	if (used) throw kitError(409, 'Bahan masih dipakai di resep menu');
 
-	await db.delete(bahan).where(and(eq(bahan.cabang_id, branch), eq(bahan.id, id)));
+	// Periksa riwayat pada pernyataan hapus yang sama; FK menjaga insert paralel sesudahnya.
+	const deleted = await db
+		.delete(bahan)
+		.where(
+			and(
+				eq(bahan.cabang_id, branch),
+				eq(bahan.id, id),
+				notExists(
+					db
+						.select({ id: bahanMutasi.id })
+						.from(bahanMutasi)
+						.where(and(eq(bahanMutasi.cabang_id, branch), eq(bahanMutasi.bahan_id, id)))
+				)
+			)
+		)
+		.returning({ id: bahan.id });
+	if (!deleted.length) {
+		const history = await rawDb
+			.prepare('SELECT id FROM bahan_mutasi WHERE cabang_id = ? AND bahan_id = ? LIMIT 1')
+			.bind(branch, id)
+			.first();
+		if (history) throw kitError(409, 'Bahan memiliki riwayat stok dan tidak dapat dihapus');
+	}
 	await publish(platform, branch, 'bahan', 'delete', { id });
 	await auditDataChange(rawDb, branch, session, 'bahan', 'delete', id);
 	return { ok: true };
