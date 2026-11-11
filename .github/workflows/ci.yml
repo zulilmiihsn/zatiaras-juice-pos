@@ -193,6 +193,9 @@ jobs:
       - name: Run Catalog Route Suite
         run: pnpm test:catalog-routes
 
+      - name: Run Catalog Route and Ingredient FK Suite on D1
+        run: pnpm test:catalog-routes --d1
+
       - name: Run External Branch Seed Validation Suite
         run: pnpm test:seed-external-branches
 

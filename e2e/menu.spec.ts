@@ -159,7 +159,7 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await expect(card).toBeHidden({ timeout: 60_000 });
 	});
 
-	test('bahan form creates then deletes without leftovers', async ({ page }) => {
+	test('bahan form deletes unused ingredients and protects stock history', async ({ page }) => {
 		await loginAsOwner(page);
 		await page.goto('/pengaturan/pemilik/manajemenmenu');
 		await expect(page.getByRole('button', { name: 'Tambah Menu' })).toBeVisible({
@@ -173,6 +173,16 @@ test.describe('Menu Management Behavioral Flows', () => {
 		await tambahBahan.click();
 		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeVisible();
 
+		const unusedName = `Bahan kosong ${Date.now() % 100000}`;
+		await page.getByLabel('Nama Bahan').fill(unusedName);
+		await page.getByRole('button', { name: 'Simpan Bahan', exact: true }).click();
+		const unusedCard = managedCard(page, unusedName);
+		await expect(unusedCard).toBeVisible({ timeout: 60_000 });
+		await unusedCard.getByRole('button', { name: 'Hapus Bahan Baku', exact: true }).click();
+		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
+		await expect(unusedCard).toBeHidden({ timeout: 60_000 });
+		await tambahBahan.click();
+		await expect(page.getByRole('heading', { name: 'Tambah Bahan Baku' })).toBeVisible();
 		const name = `Bahan UAT ${Date.now() % 100000}`;
 		await page.getByLabel('Nama Bahan').fill(name);
 		await page.getByRole('button', { name: 'Simpan Bahan', exact: true }).click();
@@ -188,7 +198,15 @@ test.describe('Menu Management Behavioral Flows', () => {
 
 		await card.getByRole('button', { name: 'Hapus Bahan Baku', exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'Hapus Bahan?' })).toBeVisible();
+		const rejection = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'DELETE' && response.url().includes('/api/bahan')
+		);
 		await page.getByRole('button', { name: 'Hapus', exact: true }).click();
-		await expect(card).toBeHidden({ timeout: 60_000 });
+		expect((await rejection).status()).toBe(409);
+		await expect(card).toBeVisible();
+		await expect(
+			page.getByText(/Bahan memiliki riwayat stok dan tidak dapat dihapus/)
+		).toBeVisible();
 	});
 });

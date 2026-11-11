@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { DELETE as PRODUK_DELETE, PATCH as PRODUK_PATCH } from '../routes/api/produk/+server';
 import { DELETE as KATEGORI_DELETE } from '../routes/api/kategori/+server';
 import { DELETE as BAHAN_DELETE, POST as BAHAN_POST } from '../routes/api/bahan/+server';
@@ -137,6 +138,29 @@ try {
 		1
 	);
 
+	// Riwayat stok tidak boleh menjadi yatim ketika bahan dihapus.
+	await db
+		.prepare(
+			"INSERT INTO bahan_mutasi (id, cabang_id, bahan_id, delta_jumlah) VALUES ('mut-gula', 'samarinda', 'b-gula', 1)"
+		)
+		.run();
+	assert.equal(await del(BAHAN_DELETE, 'b-gula'), 409);
+	assert.equal(
+		await count("SELECT COUNT(*) AS n FROM bahan WHERE id = 'b-gula' AND cabang_id = 'samarinda'"),
+		1
+	);
+	assert.equal(
+		await count(
+			"SELECT COUNT(*) AS n FROM bahan_mutasi WHERE id = 'mut-gula' AND cabang_id = 'samarinda'"
+		),
+		1
+	);
+	assert.equal(await del(BAHAN_DELETE, 'b-s2'), 200);
+	assert.equal(
+		await count("SELECT COUNT(*) AS n FROM bahan WHERE id = 'b-s2' AND cabang_id = 'samarinda2'"),
+		1
+	);
+
 	// Bahan yang masih dipakai resep menu aktif tetap dilindungi.
 	assert.equal(await del(BAHAN_DELETE, 'b-1'), 409);
 	// Resep yatim dari penghapusan produk lama tidak memblokir hapus bahan.
@@ -154,6 +178,69 @@ try {
 	assert.equal(await del(PRODUK_DELETE, 'p-1'), 200);
 	assert.equal(await count("SELECT COUNT(*) AS n FROM resep_produk WHERE produk_id = 'p-1'"), 0);
 	assert.equal(await del(BAHAN_DELETE, 'b-1'), 200);
+
+	if (process.argv.includes('--d1')) {
+		await db
+			.prepare(
+				"INSERT INTO bahan(id,cabang_id,nama,satuan) VALUES ('b-race','samarinda','Race','gram')"
+			)
+			.run();
+		await Promise.allSettled([
+			del(BAHAN_DELETE, 'b-race'),
+			db
+				.prepare(
+					"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('m-race','samarinda','b-race',1)"
+				)
+				.run()
+		]);
+		assert.equal(
+			await count(
+				"SELECT count(*) AS n FROM bahan_mutasi m LEFT JOIN bahan b ON b.id=m.bahan_id AND b.cabang_id=m.cabang_id WHERE m.id='m-race' AND b.id IS NULL"
+			),
+			0,
+			'concurrent insert/delete cannot orphan history'
+		);
+		const statements = (path: string) =>
+			readFileSync(path, 'utf8')
+				.split('--> statement-breakpoint')
+				.map((s) => s.trim())
+				.filter(Boolean);
+		const snapshot = async () =>
+			JSON.stringify((await db.prepare('SELECT * FROM bahan_mutasi ORDER BY id').all()).results);
+		const original = await snapshot();
+		await db.batch(
+			statements('scripts/rollback-0046-bahan-mutasi-fk.sql').map((sql) => db.prepare(sql))
+		);
+		assert.equal(await snapshot(), original, 'rollback preserves all movement fields');
+		await db
+			.prepare(
+				"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fixture-orphan','samarinda','no-parent',1)"
+			)
+			.run();
+		const withOrphan = await snapshot();
+		await assert.rejects(
+			db.batch(statements('drizzle/0046_bahan_mutasi_fk_bahan.sql').map((sql) => db.prepare(sql)))
+		);
+		assert.equal(await snapshot(), withOrphan, 'failed D1 migration must preserve original rows');
+		await db
+			.prepare("DELETE FROM bahan_mutasi WHERE id='fixture-orphan' AND cabang_id='samarinda'")
+			.run();
+		await db.batch(
+			statements('drizzle/0046_bahan_mutasi_fk_bahan.sql').map((sql) => db.prepare(sql))
+		);
+		assert.equal(await snapshot(), original, 'D1 migration preserves movement fields');
+		assert.equal(
+			(await db.prepare('PRAGMA foreign_key_list(bahan_mutasi)').all()).results.length,
+			2
+		);
+		await assert.rejects(
+			db
+				.prepare(
+					"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-cross','samarinda2','b-gula',1)"
+				)
+				.run()
+		);
+	}
 
 	console.log(
 		'catalog-route-tests: field validation, recipes removed with product, atomic category delete'

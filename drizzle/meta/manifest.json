@@ -44,5 +44,6 @@
 	"0042_archive_restore_staging.sql": "144c8b34141001f120675e4529542c25c6c9b4ad27661fa8bf68315e2a4f6cbf",
 	"0043_order_preparation_started.sql": "8e5d667bc5c10d244acdee2114869963bd861812e25cea530f62476ad60e493b",
 	"0044_pos_orders_start_processing.sql": "70165ccf82e2eae86a675c7c325c64376d2f365100bcc3256b7491f4b142195a",
-	"0045_transaksi_kasir_fk_buku_kas.sql": "786fe76edc0978d9bc4bd46b0c9cc2b497b65cf1b018f96f802d22f02c36b7e1"
+	"0045_transaksi_kasir_fk_buku_kas.sql": "786fe76edc0978d9bc4bd46b0c9cc2b497b65cf1b018f96f802d22f02c36b7e1",
+	"0046_bahan_mutasi_fk_bahan.sql": "58864759e733c0f20af2de4dae9aeddd956b3e0e61446189484aff7c7d97294a"
 }
