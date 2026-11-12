@@ -84,6 +84,100 @@ test('berau session never shows Samarinda label', async ({ page }) => {
 	await expect(page.getByText('Samarinda', { exact: true })).toHaveCount(0);
 });
 
+test('dashboard resumes with fresh totals without visiting another page', async ({ page }) => {
+	let amount = 800_000;
+	let statsRequests = 0;
+	let hold = false;
+	let held = false;
+	let release!: () => void;
+	let unavailable = false;
+	await page.route('**/api/dashboard/**', async (route) => {
+		const path = new URL(route.request().url()).pathname;
+		const responseAmount = amount;
+		if (path.endsWith('/stats')) {
+			statsRequests++;
+			if (hold) {
+				hold = false;
+				held = true;
+				await new Promise<void>((resolve) => {
+					release = resolve;
+				});
+			}
+			if (unavailable) {
+				await route.fulfill({ status: 503, json: { message: 'Uji gangguan jaringan' } });
+				return;
+			}
+		}
+		await route.fulfill({
+			json: path.endsWith('/stats')
+				? {
+						summary: [
+							{
+								jumlah_item: 2,
+								jumlah_transaksi: 2,
+								penjualan_kotor: responseAmount,
+								total_hpp: 0,
+								penjualan_tunai: responseAmount,
+								penjualan_nontunai: 0
+							}
+						]
+					}
+				: []
+		});
+	});
+	await loginBranch(page, 'berau', 'owner-e2e');
+	await expect(page.getByText('Rp 800.000', { exact: true }).first()).toBeVisible({
+		timeout: 30_000
+	});
+	amount = 1_100_000;
+	await page.evaluate(() => {
+		Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+		document.dispatchEvent(new Event('visibilitychange'));
+		Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+		document.dispatchEvent(new Event('visibilitychange'));
+		window.dispatchEvent(new Event('focus'));
+		window.dispatchEvent(new Event('pageshow'));
+	});
+	await expect(page.getByText('Rp 1.100.000', { exact: true }).first()).toBeVisible({
+		timeout: 15_000
+	});
+	expect(statsRequests).toBeGreaterThan(1);
+	await expect(page).toHaveURL(/\/$/);
+	await page.clock.install();
+	// A reconnect during a held refresh must queue another authoritative read.
+	amount = 1_200_000;
+	hold = true;
+	await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+	await expect.poll(() => held).toBe(true);
+	amount = 1_300_000;
+	await page.evaluate(() => window.dispatchEvent(new Event('realtime-connected')));
+	// Advance the debounce deterministically while the first response remains held.
+	await page.clock.runFor(350);
+	release();
+	await expect(page.getByText('Rp 1.300.000', { exact: true }).first()).toBeVisible();
+	const beforeOffline = statsRequests;
+	await page.evaluate(() => {
+		Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+		window.dispatchEvent(new Event('focus'));
+	});
+	// Negative assertion: offline activation must not schedule a request.
+	await page.clock.runFor(350);
+	expect(statsRequests).toBe(beforeOffline);
+	unavailable = true;
+	await page.evaluate(() => {
+		Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+		window.dispatchEvent(new Event('online'));
+	});
+	await expect(
+		page.getByText('Gagal memuat data dashboard').filter({ visible: true }).first()
+	).toBeVisible();
+	await expect(page.getByText('Rp 1.300.000', { exact: true }).first()).toBeVisible();
+	unavailable = false;
+	amount = 1_400_000;
+	await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+	await expect(page.getByText('Rp 1.400.000', { exact: true }).first()).toBeVisible();
+});
+
 test('cashier dashboard loads without a configured PIN', async ({ page }) => {
 	const failures: string[] = [];
 	page.on('response', (response) => {

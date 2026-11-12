@@ -121,6 +121,8 @@ function connectRealtimeSocket() {
 		realtimeHealth.lastOpenAt = Date.now();
 		clearReconnectTimer();
 		startHeartbeat();
+		// Events missed while disconnected are not replayed; mounted views must reconcile.
+		window.dispatchEvent(new Event('realtime-connected'));
 	};
 
 	socket.onmessage = (event) => {

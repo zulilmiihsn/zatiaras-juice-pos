@@ -159,7 +159,7 @@ export class DashboardService {
 		return DashboardService.instance;
 	}
 
-	async getDashboardStats() {
+	async getDashboardStats(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
 		const epoch = selectedBranch.contextEpoch;
 		const guard = smartCache.createCommitGuard(
@@ -409,12 +409,14 @@ export class DashboardService {
 					bestSellers: []
 				};
 			},
-			{ ttl: CACHE_TTL_MS.DASHBOARD_OVERVIEW, backgroundRefresh: true, guard }
+			{ ttl: CACHE_TTL_MS.DASHBOARD_OVERVIEW, backgroundRefresh: true, forceRefresh, guard }
 		);
 	}
 
-	async getBestSellers() {
+	async getBestSellers(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
+		const epoch = selectedBranch.contextEpoch;
+		const guard = () => selectedBranch.value === branch && selectedBranch.contextEpoch === epoch;
 		return smartCache.get(
 			`${CACHE_KEYS.BEST_SELLERS}_${branch}`,
 			async () => {
@@ -422,7 +424,11 @@ export class DashboardService {
 				const { startUtc } = witaToUtcRange(labels[0]);
 				const { endUtc } = witaToUtcRange(labels[6]);
 
-				const summaryItems = await dbGet('best_sellers_summary', { start: startUtc, end: endUtc });
+				const summaryItems = await dbGet(
+					'best_sellers_summary',
+					{ start: startUtc, end: endUtc },
+					branch
+				);
 				if (summaryItems.length) {
 					const combined = new Map<string, { nama: string; image: string; total_qty: number }>();
 					for (const item of summaryItems) {
@@ -443,10 +449,14 @@ export class DashboardService {
 						.slice(0, 3);
 				}
 
-				const items = await dbGet<DashboardRow>('transaksi_kasir', {
-					start: startUtc,
-					end: endUtc
-				});
+				const items = await dbGet<DashboardRow>(
+					'transaksi_kasir',
+					{
+						start: startUtc,
+						end: endUtc
+					},
+					branch
+				);
 				const grouped: Record<string, number> = {};
 				for (const item of items) {
 					const productId = stringField(item, 'produk_id');
@@ -460,7 +470,7 @@ export class DashboardService {
 					.map(([id]) => id);
 				if (!topIds.length) return [];
 
-				const allProducts = await dbGet<DashboardRow>('produk', {});
+				const allProducts = await dbGet<DashboardRow>('produk', {}, branch);
 				return topIds.map((id) => {
 					const prod = allProducts.find((p) => p.id === id);
 					const cleanName = stringField(prod ?? {}, 'nama', '-')
@@ -473,12 +483,14 @@ export class DashboardService {
 					};
 				});
 			},
-			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true, forceRefresh, guard }
 		);
 	}
 
-	async getWeeklyIncome() {
+	async getWeeklyIncome(forceRefresh = false) {
 		const branch = selectedBranch.value || 'default';
+		const epoch = selectedBranch.contextEpoch;
+		const guard = () => selectedBranch.value === branch && selectedBranch.contextEpoch === epoch;
 		return smartCache.get(
 			`${CACHE_KEYS.WEEKLY_INCOME}_${branch}`,
 			async () => {
@@ -491,10 +503,14 @@ export class DashboardService {
 				const { startUtc } = witaToUtcRange(labels[0]);
 				const { endUtc } = witaToUtcRange(labels[6]);
 
-				const summaryRows = await dbGet('weekly_income_summary', {
-					start: startUtc,
-					end: endUtc
-				});
+				const summaryRows = await dbGet(
+					'weekly_income_summary',
+					{
+						start: startUtc,
+						end: endUtc
+					},
+					branch
+				);
 				if (summaryRows.length) {
 					for (const row of summaryRows) {
 						const tanggal = String(row.tanggal_penjualan || '');
@@ -504,12 +520,16 @@ export class DashboardService {
 					return { weeklyIncome, weeklyMax: Math.max(1, ...weeklyIncome) };
 				}
 
-				const rows = await dbGet<DashboardRow>('buku_kas', {
-					start: startUtc,
-					end: endUtc,
-					sumber: 'pos',
-					tipe: 'in'
-				});
+				const rows = await dbGet<DashboardRow>(
+					'buku_kas',
+					{
+						start: startUtc,
+						end: endUtc,
+						sumber: 'pos',
+						tipe: 'in'
+					},
+					branch
+				);
 				for (const t of rows) {
 					const d = new Date(String(t.waktu ?? ''));
 					if (isNaN(d.getTime())) continue;
@@ -520,7 +540,7 @@ export class DashboardService {
 				const weeklyIncome = labels.map((l) => perHari[l] || 0);
 				return { weeklyIncome, weeklyMax: Math.max(1, ...weeklyIncome) };
 			},
-			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true }
+			{ ttl: CACHE_TTL_MS.STANDARD, backgroundRefresh: true, forceRefresh, guard }
 		);
 	}
 

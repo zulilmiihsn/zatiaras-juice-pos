@@ -321,6 +321,15 @@ menghapus file unduhan. Jika terputus, pilih rentang yang sama untuk melanjutkan
 bila tidak ada transaksi aktif tersisa, bagian arsip rentang yang sama tersedia
 untuk diunduh ulang. Arsip lama berbasis batas tahun tetap dapat dipulihkan.
 
+### Dashboard saat PWA dibuka kembali
+
+Dashboard meminta data terbaru saat halaman kembali terlihat/fokus, dipulihkan browser,
+koneksi internet kembali, atau koneksi realtime tersambung ulang. Event yang berdekatan
+digabung; event saat refresh berjalan memicu pembacaan lanjutan, bukan dibuang. Refresh
+ini membaca data, tidak mengulang transaksi. Saat offline, aktivasi tidak memaksa request;
+jika refresh gagal, angka terakhir tetap dipertahankan dan kegagalan ditampilkan.
+Jangan hapus cache/IndexedDB sebagai langkah pemulihan karena antrean offline harus utuh.
+
 ### Pemeriksaan akses kasir
 
 Untuk memeriksa akses kasir, buka **Pengaturan > Riwayat**. Daftar pesanan POS

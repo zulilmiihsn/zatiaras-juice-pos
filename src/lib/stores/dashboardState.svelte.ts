@@ -1,7 +1,7 @@
+import { untrack } from 'svelte';
 import { dashboardService } from '$lib/services/dashboardService';
 import { handlePinRequired } from '$lib/services/pinAccessService';
 import { realtimeManager } from '$lib/realtime/realtimeManager';
-import { cacheOrchestrator } from '$lib/utils/cacheOrchestrator';
 import { reportCacheMetrics } from '$lib/utils/cacheMetrics';
 import { selectedBranch } from '$lib/stores/selectedBranch.svelte';
 import { refreshBus } from '$lib/utils/refreshBus';
@@ -33,6 +33,10 @@ export function createDashboardState() {
 	let dashboardRefreshInFlight = false;
 	let lastDashboardPayloadFingerprint = '';
 
+	let active = false;
+	let generation = 0;
+	let refreshRequested = false;
+	let forceRequested = false;
 	let isInitialLoad = true;
 
 	function computeDashboardPayloadFingerprint(
@@ -102,27 +106,46 @@ export function createDashboardState() {
 		weeklyMax = weeklyData?.weeklyMax || 1;
 	}
 
-	async function loadDashboardData() {
+	async function loadDashboardData(forceRefresh = false) {
+		refreshRequested = true;
+		forceRequested ||= forceRefresh;
+		if (dashboardRefreshInFlight || !active) return;
+		dashboardRefreshInFlight = true;
 		try {
-			// Load dashboard stats dengan cache
-			const dashboardStats = await dashboardService.getDashboardStats();
-
-			// Load best sellers dengan cache
-			isLoadingBestSellers = true;
-			const nextBestSellers = await dashboardService.getBestSellers();
-			isLoadingBestSellers = false;
-
-			// Load weekly income dengan cache
-			const weeklyData = await dashboardService.getWeeklyIncome();
-			applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
-			errorBestSellers = '';
-			await reportCacheMetrics('dashboard');
-		} catch (error) {
-			// Izin buka habis: layar PIN muncul dan dashboard dimuat ulang setelah dibuka.
-			if (!handlePinRequired(error)) errorBestSellers = 'Gagal memuat data dashboard';
+			while (active && refreshRequested) {
+				refreshRequested = false;
+				const force = forceRequested;
+				forceRequested = false;
+				const flightGeneration = generation;
+				const branch = selectedBranch.value;
+				const epoch = selectedBranch.contextEpoch;
+				const current = () =>
+					active &&
+					generation === flightGeneration &&
+					selectedBranch.value === branch &&
+					selectedBranch.contextEpoch === epoch;
+				try {
+					const dashboardStats = await dashboardService.getDashboardStats(force);
+					if (!current()) continue;
+					const nextBestSellers = await dashboardService.getBestSellers(force);
+					if (!current()) continue;
+					const weeklyData = await dashboardService.getWeeklyIncome(force);
+					if (!current()) continue;
+					applyDashboardPayload(dashboardStats, nextBestSellers, weeklyData);
+					errorBestSellers = '';
+					await reportCacheMetrics('dashboard');
+				} catch (error) {
+					if (current() && !handlePinRequired(error))
+						errorBestSellers = 'Gagal memuat data dashboard';
+				} finally {
+					if (current()) {
+						isLoadingDashboard = false;
+						isLoadingBestSellers = false;
+					}
+				}
+			}
 		} finally {
-			isLoadingDashboard = false;
-			isLoadingBestSellers = false;
+			dashboardRefreshInFlight = false;
 		}
 	}
 
@@ -133,14 +156,7 @@ export function createDashboardState() {
 
 		dashboardRefreshTimer = setTimeout(async () => {
 			dashboardRefreshTimer = null;
-			if (dashboardRefreshInFlight) return;
-
-			dashboardRefreshInFlight = true;
-			try {
-				await loadDashboardData();
-			} finally {
-				dashboardRefreshInFlight = false;
-			}
+			await loadDashboardData(true);
 		}, delayMs);
 	}
 
@@ -155,60 +171,67 @@ export function createDashboardState() {
 	}
 
 	$effect(() => {
-		let offDashboardRefreshBus: (() => void) | null = null;
-
-		(async () => {
-			if (typeof window !== 'undefined' && !localStorage.getItem('zatiaras_session')) {
-				return;
-			}
-			await loadDashboardData();
+		const branch = selectedBranch.value;
+		const epoch = selectedBranch.contextEpoch;
+		if (typeof window === 'undefined' || !localStorage.getItem('zatiaras_session')) return;
+		active = true;
+		generation++;
+		lastDashboardPayloadFingerprint = '';
+		const force = !isInitialLoad;
+		isInitialLoad = false;
+		omzet = jumlahTransaksi = profit = itemTerjual = totalItem = avgTransaksi = 0;
+		penjualanTunai = penjualanNonTunai = lowStockCount = 0;
+		lowStockNames = [];
+		topIngredients = [];
+		jamRamai = '';
+		weeklyIncome = [];
+		weeklyMax = 1;
+		bestSellers = [];
+		isLoadingDashboard = isLoadingBestSellers = true;
+		untrack(() => {
 			setupRealtimeSubscriptions();
-			offDashboardRefreshBus = refreshBus.on('dashboard', () => {
-				scheduleDashboardRealtimeRefresh();
-			});
-		})();
+			void loadDashboardData(force);
+		});
+		const offDashboardRefreshBus = refreshBus.on('dashboard', () =>
+			scheduleDashboardRealtimeRefresh()
+		);
+		const onResume = () => {
+			if (
+				document.visibilityState !== 'visible' ||
+				!navigator.onLine ||
+				selectedBranch.value !== branch ||
+				selectedBranch.contextEpoch !== epoch
+			)
+				return;
+			scheduleDashboardRealtimeRefresh();
+		};
+		document.addEventListener('visibilitychange', onResume);
+		window.addEventListener('focus', onResume);
+		window.addEventListener('pageshow', onResume);
+		window.addEventListener('online', onResume);
+		window.addEventListener('realtime-connected', onResume);
 
 		return () => {
+			active = false;
+			generation++;
+			refreshRequested = forceRequested = false;
+			document.removeEventListener('visibilitychange', onResume);
+			window.removeEventListener('focus', onResume);
+			window.removeEventListener('pageshow', onResume);
+			window.removeEventListener('online', onResume);
+			window.removeEventListener('realtime-connected', onResume);
 			realtimeDisposers.forEach((d) => d());
 			realtimeDisposers = [];
 			if (dashboardRefreshTimer) {
 				clearTimeout(dashboardRefreshTimer);
 				dashboardRefreshTimer = null;
 			}
-			if (offDashboardRefreshBus) {
-				offDashboardRefreshBus();
-				offDashboardRefreshBus = null;
-			}
+			offDashboardRefreshBus();
 		};
 	});
 
-	$effect(() => {
-		const _branch = selectedBranch.value;
-		if (isInitialLoad) {
-			isInitialLoad = false;
-			return;
-		}
-
-		omzet = 0;
-		jumlahTransaksi = 0;
-		profit = 0;
-		itemTerjual = 0;
-		totalItem = 0;
-		avgTransaksi = 0;
-		jamRamai = '';
-		weeklyIncome = [];
-		weeklyMax = 1;
-		bestSellers = [];
-		isLoadingDashboard = true;
-		// Async dalam effect: jalankan via fire-and-forget
-		(async () => {
-			await cacheOrchestrator.invalidateDashboardCaches();
-			await loadDashboardData();
-		})();
-	});
-
 	async function refreshDashboardData() {
-		await loadDashboardData();
+		await loadDashboardData(true);
 	}
 
 	return {
