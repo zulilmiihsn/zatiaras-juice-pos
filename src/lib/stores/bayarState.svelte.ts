@@ -49,6 +49,8 @@ export function createBayarState() {
 	let isOffline = $state(false);
 	let showCancelModal = $state(false);
 	let showCashModal = $state(false);
+	let isProcessingPayment = $state(false);
+	let paymentTakingLong = $state(false);
 	let cashReceived = $state('');
 	let showSuccessModal = $state(false);
 	let isPrinting = $state(false);
@@ -287,9 +289,10 @@ export function createBayarState() {
 		cashReceived = (totalHarga > 0 ? totalHarga : 0).toString();
 	}
 	function closeCashModal() {
-		showCashModal = false;
+		if (!isProcessingPayment) showCashModal = false;
 	}
 	async function finishCash() {
+		if (isProcessingPayment) return;
 		const cashValidation = validateNumber(cashReceived, { required: true, min: totalHarga });
 		if (!cashValidation.isValid) {
 			showErrorNotif(`Error: ${cashValidation.errors.join(', ')}`);
@@ -299,18 +302,27 @@ export function createBayarState() {
 			showErrorNotif('Terlalu banyak transaksi. Silakan tunggu sebentar.');
 			return;
 		}
-		if (await catatTransaksiKeLaporan()) {
-			securityUtils.logSecurityEvent('payment_completed', {
-				paymentMethod,
-				totalAmount: totalHarga,
-				cashReceived: parseInt(cashReceived.trim()),
-				change: kembalian,
-				itemsCount: cart.length,
-				queuedOffline: transactionQueuedOffline
-			});
-			clearCartStorage();
-			showCashModal = false;
-			showSuccessModal = true;
+		isProcessingPayment = true;
+		paymentTakingLong = false;
+		const timer = setTimeout(() => (paymentTakingLong = true), 8000);
+		try {
+			if (await catatTransaksiKeLaporan()) {
+				securityUtils.logSecurityEvent('payment_completed', {
+					paymentMethod,
+					totalAmount: totalHarga,
+					cashReceived: parseInt(cashReceived.trim()),
+					change: kembalian,
+					itemsCount: cart.length,
+					queuedOffline: transactionQueuedOffline
+				});
+				clearCartStorage();
+				showCashModal = false;
+				showSuccessModal = true;
+			}
+		} finally {
+			clearTimeout(timer);
+			isProcessingPayment = false;
+			paymentTakingLong = false;
 		}
 	}
 	function handleKeypad(val: string | number) {
@@ -388,12 +400,22 @@ export function createBayarState() {
 				notify('Gagal mencatat transaksi: ' + ErrorHandler.extractErrorMessage(error), 'error');
 				return false;
 			}
-			await cacheOrchestrator.invalidateCacheOnChange('buku_kas');
-			await cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir');
-			await cacheOrchestrator.invalidateCacheOnChange('bahan');
-			await cacheOrchestrator.invalidateCacheOnChange('produk');
-			refreshBus.emit('dashboard');
-			refreshBus.emit('stok');
+			// The server has committed; persistent cache cleanup must not delay or undo success.
+			void (async () => {
+				try {
+					await Promise.all([
+						cacheOrchestrator.invalidateCacheOnChange('buku_kas'),
+						cacheOrchestrator.invalidateCacheOnChange('transaksi_kasir'),
+						cacheOrchestrator.invalidateCacheOnChange('bahan'),
+						cacheOrchestrator.invalidateCacheOnChange('produk')
+					]);
+				} catch (error) {
+					ErrorHandler.logError(error, 'checkout cache invalidation');
+				} finally {
+					refreshBus.emit('dashboard');
+					refreshBus.emit('stok');
+				}
+			})();
 		} else {
 			try {
 				committedReceipt = buildOfflineCommittedReceipt();
@@ -561,6 +583,12 @@ export function createBayarState() {
 		},
 		get showCashModal() {
 			return showCashModal;
+		},
+		get isProcessingPayment() {
+			return isProcessingPayment;
+		},
+		get paymentTakingLong() {
+			return paymentTakingLong;
 		},
 		get cashReceived() {
 			return cashReceived;

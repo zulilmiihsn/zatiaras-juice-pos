@@ -120,6 +120,75 @@ test('offline QRIS checkout queues noncash and replays idempotently', async ({ p
 	}
 });
 
+test('lost checkout response preserves the committed sale and replays the same intent once', async ({
+	page
+}) => {
+	await loginAsOwner(page);
+	let transactionId = '';
+	try {
+		await page.goto('/pos');
+		const product = page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ });
+		await expect(product).toBeVisible({ timeout: 60_000 });
+		await product.click();
+		await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
+		await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
+		await page.getByRole('button', { name: /^Bayar Rp/ }).click();
+		await expect(page).toHaveURL(/\/pos\/bayar$/);
+		await page.getByLabel('Nama Pelanggan').fill('UAT respons terputus');
+		await page.getByRole('button', { name: 'Tunai', exact: true }).click();
+		await page.getByRole('button', { name: 'Konfirmasi & Proses Transaksi' }).click();
+		await page.getByPlaceholder('0', { exact: true }).fill('12000');
+
+		let requestBody = '';
+		await page.route('**/api/pos/transaction', async (route) => {
+			requestBody = route.request().postData() || '';
+			const response = await route.fetch();
+			expect(response.ok()).toBe(true);
+			const payload = await response.json();
+			transactionId = payload.data?.transaction_id || '';
+			await route.abort('failed');
+		});
+		await page.getByRole('button', { name: 'Selesai', exact: true }).click();
+		await expect(page.getByText('Tersimpan di perangkat dan menunggu sinkronisasi.')).toBeVisible();
+		expect(transactionId).toBeTruthy();
+		const queued = await page.evaluate(async () => {
+			const path = '/src/lib/utils/offline.ts';
+			const offline = await import(/* @vite-ignore */ path);
+			return (await offline.getPendingTransactions()).find(
+				(entry: { request?: { nama_pelanggan?: string } }) =>
+					entry.request?.nama_pelanggan === 'UAT respons terputus'
+			);
+		});
+		expect(queued?.request?.idempotency_key).toBe(JSON.parse(requestBody).idempotency_key);
+		await page.unroute('**/api/pos/transaction');
+		const replay = await page.evaluate(async (body) => {
+			const csrf = await (await fetch('/api/csrf')).json();
+			const response = await fetch('/api/pos/transaction', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+				body
+			});
+			return { status: response.status, body: await response.json() };
+		}, requestBody);
+		expect(replay.status).toBe(200);
+		expect(replay.body.data?.transaction_id).toBe(transactionId);
+		expect(replay.body.idempotent).toBe(true);
+	} finally {
+		await page.unroute('**/api/pos/transaction');
+		if (transactionId) await cleanupTransaction(page, transactionId);
+		await page.evaluate(async () => {
+			const path = '/src/lib/utils/offline.ts';
+			const offline = await import(/* @vite-ignore */ path);
+			const pending = await offline.getPendingTransactions();
+			for (const entry of pending) {
+				if (entry.request?.nama_pelanggan === 'UAT respons terputus') {
+					await offline.removePendingTransaction(entry.queue_id);
+				}
+			}
+		});
+	}
+});
+
 test('POS header fills the catalog column and the cart is a side column flush to the right edge', async ({
 	page
 }) => {
@@ -223,11 +292,47 @@ for (const viewport of [
 			await expect(cashInput).toHaveValue('10.000');
 			await cashInput.fill('12000');
 			await expect(cashInput).toHaveValue('12.000');
+			if (viewport.name === 'desktop') {
+				await page.evaluate(async () => {
+					const path = '/src/lib/utils/cacheOrchestrator.ts';
+					const { cacheOrchestrator } = await import(/* @vite-ignore */ path);
+					const original = cacheOrchestrator.invalidateCacheOnChange;
+					Object.assign(window, {
+						checkoutCacheCalls: 0,
+						restoreCheckoutCache: () => (cacheOrchestrator.invalidateCacheOnChange = original)
+					});
+					cacheOrchestrator.invalidateCacheOnChange = () => {
+						(window as unknown as { checkoutCacheCalls: number }).checkoutCacheCalls++;
+						return new Promise(() => {});
+					};
+				});
+			}
+			let releaseCheckout!: () => void;
+			const checkoutGate = new Promise<void>((resolve) => (releaseCheckout = resolve));
+			let checkoutRequests = 0;
+			await page.route('**/api/pos/transaction', async (route) => {
+				if (route.request().method() === 'POST') {
+					checkoutRequests++;
+					await checkoutGate;
+				}
+				await route.continue();
+			});
 			const checkoutResponse = page.waitForResponse(
 				(response) =>
 					response.url().endsWith('/api/pos/transaction') && response.request().method() === 'POST'
 			);
 			await page.getByRole('button', { name: 'Selesai', exact: true }).click();
+			try {
+				const processing = page.getByRole('button', { name: 'Memproses…', exact: true });
+				await expect(processing).toBeDisabled();
+				await processing.evaluate((button: HTMLButtonElement) => button.click());
+				await expect.poll(() => checkoutRequests).toBe(1);
+				await expect(
+					page.getByText('Transaksi masih diproses. Jangan tutup halaman atau buat transaksi baru.')
+				).toBeVisible({ timeout: 12_000 });
+			} finally {
+				releaseCheckout();
+			}
 			const response = await checkoutResponse;
 			expect(response.ok()).toBe(true);
 			const payload = (await response.json()) as {
@@ -250,6 +355,17 @@ for (const viewport of [
 			expect(payload.data?.receipt?.change).toBe(2_000);
 			expect(payload.data?.receipt?.items?.[0]?.nama).toBe('Es Teh UAT (Jumbo)');
 			await expect(page.getByText('Transaksi Berhasil!', { exact: true })).toBeVisible();
+			if (viewport.name === 'desktop') {
+				const cacheCalls = await page.evaluate(() => {
+					const state = window as unknown as {
+						checkoutCacheCalls: number;
+						restoreCheckoutCache: () => void;
+					};
+					state.restoreCheckoutCache();
+					return state.checkoutCacheCalls;
+				});
+				expect(cacheCalls).toBe(4);
+			}
 			expect(
 				await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 			).toBe(true);

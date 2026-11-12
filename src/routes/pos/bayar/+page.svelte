@@ -300,7 +300,7 @@
 
 {#if s.showCashModal}
 	<ModalSheet open={s.showCashModal} title="Pembayaran Tunai" onClose={s.closeCashModal}>
-		<div class="pb-6 md:min-h-[60vh] md:pb-8">
+		<fieldset disabled={s.isProcessingPayment} class="pb-6 md:min-h-[60vh] md:pb-8">
 			<div class="mb-4 text-center text-xs font-semibold text-slate-500 md:mb-6 md:text-sm">
 				Masukkan jumlah uang diterima dari pelanggan
 			</div>
@@ -349,7 +349,7 @@
 					{/each}
 				{/each}
 			</div>
-		</div>
+		</fieldset>
 		{#snippet footer()}
 			<div class="flex flex-col gap-2.5">
 				<div
@@ -362,12 +362,17 @@
 							: 'text-emerald-600'}">Rp {s.kembalian >= 0 ? formatRupiah(s.kembalian) : '0'}</span
 					>
 				</div>
+				{#if s.paymentTakingLong}
+					<p role="status" class="text-center text-sm text-slate-600">
+						Transaksi masih diproses. Jangan tutup halaman atau buat transaksi baru.
+					</p>
+				{/if}
 				<button
 					class="min-h-[48px] w-full cursor-pointer rounded-full bg-gradient-to-r from-pink-600 via-pink-500 to-rose-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
 					onclick={s.finishCash}
-					disabled={s.kembalian < 0 || !s.cashReceived}
+					disabled={s.isProcessingPayment || s.kembalian < 0 || !s.cashReceived}
 				>
-					Selesai
+					{s.isProcessingPayment ? 'Memproses…' : 'Selesai'}
 				</button>
 			</div>
 		{/snippet}
