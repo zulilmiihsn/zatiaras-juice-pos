@@ -103,7 +103,7 @@ function chime() {
 		const start = now + index * 0.2;
 		oscillator.frequency.value = CHIME_FREQUENCIES[index];
 		gain.gain.setValueAtTime(0, start);
-		gain.gain.linearRampToValueAtTime(0.13, start + 0.02);
+		gain.gain.linearRampToValueAtTime(0.5, start + 0.02);
 		gain.gain.exponentialRampToValueAtTime(0.001, start + 0.17);
 		oscillator.connect(gain);
 		gain.connect(audio.destination);

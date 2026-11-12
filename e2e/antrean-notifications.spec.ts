@@ -54,8 +54,22 @@ async function device(
 		else await route.abort();
 	});
 	await context.addInitScript(() => {
-		const observed = window as typeof window & { antreanChimeStarts: number };
+		const observed = window as typeof window & {
+			antreanChimeStarts: number;
+			antreanGainPeaks: number[];
+		};
 		observed.antreanChimeStarts = 0;
+		observed.antreanGainPeaks = [];
+		const createGain = AudioContext.prototype.createGain;
+		AudioContext.prototype.createGain = function () {
+			const gain = createGain.call(this);
+			const ramp = gain.gain.linearRampToValueAtTime.bind(gain.gain);
+			gain.gain.linearRampToValueAtTime = (value: number, time: number) => {
+				observed.antreanGainPeaks.push(value);
+				return ramp(value, time);
+			};
+			return gain;
+		};
 		const create = AudioContext.prototype.createOscillator;
 		AudioContext.prototype.createOscillator = function () {
 			const oscillator = create.call(this);
@@ -428,6 +442,10 @@ test('Antrean sound preference persists across tabs and devices remain independe
 		).toBe(true);
 		await a.page.getByRole('button', { name: 'Tes suara', exact: true }).click();
 		await expect(a.page.getByText('Audio siap di tab ini.', { exact: true })).toBeVisible();
+		const peaks = await a.page.evaluate(
+			() => (window as typeof window & { antreanGainPeaks: number[] }).antreanGainPeaks
+		);
+		expect(peaks.slice(-3)).toEqual([0.5, 0.5, 0.5]);
 	} finally {
 		await a.context.close();
 		await b.context.close();
