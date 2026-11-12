@@ -4,12 +4,13 @@ import { requireSessionBranch, requireAnyRole } from '$lib/server/apiAuth';
 import {
 	ArchiveUseCaseError,
 	previewArchiveForBranch,
+	previewArchiveRangeForBranch,
 	runArchiveForBranch
 } from '$lib/server/archiveUseCase';
 import type { RequestHandler } from './$types';
 
 /**
- * Preview arsip transaksi lama (sebelum tahun tertentu) tanpa mutasi data.
+ * Preview rentang tanggal atau batas tahun legacy, tanpa mutasi data.
  * Route hanya auth + parsing + response; logika di archiveUseCase.
  * Route tipis: SQL di use case via BranchContext.
  */
@@ -18,12 +19,21 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
+	const from = url.searchParams.get('from');
+	const through = url.searchParams.get('through');
 	const year = Number(url.searchParams.get('before_year'));
-	if (!Number.isInteger(year) || year < 2020 || year > 2100) {
+	if (
+		from === null &&
+		through === null &&
+		(!Number.isInteger(year) || year < 2020 || year > 2100)
+	) {
 		throw kitError(400, 'Parameter before_year tidak valid');
 	}
 	try {
-		const preview = await previewArchiveForBranch(platform, branch, year);
+		const preview =
+			from !== null || through !== null
+				? await previewArchiveRangeForBranch(platform, branch, from ?? '', through ?? '')
+				: await previewArchiveForBranch(platform, branch, year);
 		return json({ ok: true, preview: true, ...preview });
 	} catch (error) {
 		if (error instanceof ArchiveUseCaseError) throw kitError(error.status, error.message);
@@ -32,7 +42,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 };
 
 /**
- * Arsip transaksi lama (sebelum tahun tertentu) milik cabang aktif.
+ * Arsip rentang tanggal atau batas tahun legacy milik cabang aktif.
  * Orkestrasi (klaim, snapshot R2, readback, finalisasi atomik) di archiveUseCase.
  */
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
@@ -40,11 +50,30 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	const session = locals.authSession!;
 	requireAnyRole(session.role, ['pemilik']);
 
-	const body = (await parseBody(request)) as { before_year?: number } | null;
-	const year = Number(body?.before_year);
+	const body = (await parseBody(request)) as {
+		before_year?: number;
+		from?: unknown;
+		through?: unknown;
+	} | null;
+	if (body !== null && (typeof body !== 'object' || Array.isArray(body))) {
+		throw kitError(400, 'Parameter arsip tidak valid');
+	}
+	const hasRange = !!body && ('from' in body || 'through' in body);
+	if (
+		hasRange &&
+		(typeof body?.from !== 'string' || typeof body?.through !== 'string' || 'before_year' in body)
+	) {
+		throw kitError(400, 'Pilih rentang tanggal atau batas tahun, bukan keduanya');
+	}
+	const range = hasRange
+		? { from: body!.from as string, through: body!.through as string }
+		: undefined;
+	const year = range
+		? Math.min(2100, Number(range.through.slice(0, 4)) + 1)
+		: Number(body?.before_year);
 
 	try {
-		const result = await runArchiveForBranch(platform, branch, year);
+		const result = await runArchiveForBranch(platform, branch, year, range);
 		if (result.kind === 'empty') {
 			return json({ ok: true, count: 0, message: result.message });
 		}

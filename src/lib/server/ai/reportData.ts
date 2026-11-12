@@ -722,7 +722,7 @@ ${
 
 ${
 	serverReportData.rincianDetailAktifSaja
-		? `CATATAN CAKUPAN: transaksi sebelum ${serverReportData.rincianDetailAktifSaja.arsipSebelum} sudah diarsipkan. Ringkasan, data bulanan, harian, pembayaran, dan produk terlaris sudah mencakup arsip; jam ramai, margin HPP per menu, selera konsumen, dan rata-rata omzet per shift hanya dari transaksi yang belum diarsipkan.
+		? `CATATAN CAKUPAN: sebagian transaksi pada periode ini sudah diarsipkan (batas atas cakupan arsip ${serverReportData.rincianDetailAktifSaja.arsipSebelum}). Ringkasan, data bulanan, harian, pembayaran, dan produk terlaris sudah mencakup arsip; jam ramai, margin HPP per menu, selera konsumen, dan rata-rata omzet per shift hanya dari transaksi yang belum diarsipkan.
 `
 		: ''
 }=== POLA WAKTU ===

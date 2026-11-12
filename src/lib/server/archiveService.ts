@@ -143,7 +143,7 @@ export async function getCompletedJobForYear(
 ): Promise<ArchiveJob | null> {
 	return (await rawDb
 		.prepare(
-			`SELECT * FROM archive_jobs WHERE cabang_id = ? AND before_year = ? AND status = 'completed' ORDER BY updated_at DESC LIMIT 1`
+			`SELECT * FROM archive_jobs WHERE cabang_id = ? AND before_year = ? AND status = 'completed' AND (counts IS NULL OR (json_valid(counts) AND json_type(counts, '$.range') IS NULL)) ORDER BY updated_at DESC LIMIT 1`
 		)
 		.bind(branch, year)
 		.first()) as unknown as ArchiveJob | null;
@@ -220,11 +220,14 @@ export function manifestIntactSql(): string {
 export async function countEligibleRows(
 	rawDb: D1Database,
 	branch: string,
-	cutoff: string
+	cutoff: string,
+	start?: string
 ): Promise<number> {
 	const row = (await rawDb
-		.prepare(`SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id = ? AND waktu < ?`)
-		.bind(branch, cutoff)
+		.prepare(
+			`SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id = ? AND ${start ? 'julianday(waktu) < julianday(?) AND julianday(waktu) >= julianday(?)' : 'waktu < ?'}`
+		)
+		.bind(branch, cutoff, ...(start ? [start] : []))
 		.first()) as { n?: number } | null;
 	return Number(row?.n || 0);
 }

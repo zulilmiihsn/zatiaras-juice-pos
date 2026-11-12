@@ -52,15 +52,19 @@ export function validateArchiveYear(year: number): void {
 	}
 }
 
-/** Preview arsip tanpa mutasi. */
-export async function previewArchive(
+async function previewArchiveCounts(
 	rawDb: D1Database,
 	branch: BranchContext,
-	year: number
-): Promise<ArchivePreview> {
-	validateArchiveYear(year);
-	const { cutoff } = cutoffForYear(year);
-
+	cutoff: string,
+	start?: string
+) {
+	const timeBound = start
+		? 'julianday(waktu) < julianday(?) AND julianday(waktu) >= julianday(?)'
+		: 'waktu < ?';
+	const joinedTimeBound = start
+		? 'julianday(bk.waktu) < julianday(?) AND julianday(bk.waktu) >= julianday(?)'
+		: 'bk.waktu < ?';
+	const bounds = start ? [branch, cutoff, start] : [branch, cutoff];
 	const [bukuKasStats, transaksiCount, pendingOrders] = await Promise.all([
 		rawDb
 			.prepare(
@@ -71,9 +75,9 @@ export async function previewArchive(
 					SUM(CASE WHEN tipe = 'in' THEN nominal ELSE 0 END) as total_in,
 					SUM(CASE WHEN tipe = 'out' THEN nominal ELSE 0 END) as total_out
 				 FROM buku_kas
-				 WHERE cabang_id = ? AND waktu < ?`
+				 WHERE cabang_id = ? AND ${timeBound}`
 			)
-			.bind(branch, cutoff)
+			.bind(...bounds)
 			.first() as Promise<{
 			total_rows?: number;
 			pos_count?: number;
@@ -86,24 +90,21 @@ export async function previewArchive(
 				`SELECT COUNT(*) as count
 				 FROM transaksi_kasir tk
 				 INNER JOIN buku_kas bk ON bk.cabang_id = tk.cabang_id AND bk.id = tk.buku_kas_id
-				 WHERE tk.cabang_id = ? AND bk.waktu < ?`
+				 WHERE tk.cabang_id = ? AND ${joinedTimeBound}`
 			)
-			.bind(branch, cutoff)
+			.bind(...bounds)
 			.first() as Promise<{ count?: number } | null>,
 		rawDb
 			.prepare(
 				`SELECT COUNT(*) as count FROM buku_kas
-				 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?`
+				 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND ${timeBound}`
 			)
-			.bind(branch, cutoff)
+			.bind(...bounds)
 			.first()
 			.catch(() => null) as Promise<{ count?: number } | null>
 	]);
 
 	return {
-		branch,
-		before_year: year,
-		cutoff_wita: cutoffForYear(year).cutoffWita.toISOString(),
 		counts: {
 			buku_kas: bukuKasStats?.total_rows || 0,
 			pos: bukuKasStats?.pos_count || 0,
@@ -116,6 +117,60 @@ export async function previewArchive(
 		},
 		pending_orders: Number(pendingOrders?.count ?? 0)
 	};
+}
+
+/** Preview arsip tanpa mutasi. */
+export async function previewArchive(
+	rawDb: D1Database,
+	branch: BranchContext,
+	year: number
+): Promise<ArchivePreview> {
+	validateArchiveYear(year);
+	const { cutoff } = cutoffForYear(year);
+	return {
+		branch,
+		before_year: year,
+		cutoff_wita: cutoff,
+		...(await previewArchiveCounts(rawDb, branch, cutoff))
+	};
+}
+
+function archiveDate(value: string): Date {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+		throw new ArchiveUseCaseError(400, 'Tanggal arsip tidak valid');
+	const [year, month, day] = value.split('-').map(Number);
+	if (year < 2020 || year > 2100) throw new ArchiveUseCaseError(400, 'Tanggal arsip tidak valid');
+	const utc = new Date(Date.UTC(year, month - 1, day));
+	if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== month - 1 || utc.getUTCDate() !== day)
+		throw new ArchiveUseCaseError(400, 'Tanggal arsip tidak valid');
+	return utc;
+}
+
+export interface ArchiveDateRange {
+	from: string;
+	through: string;
+}
+
+function rangeBounds(range: ArchiveDateRange) {
+	const first = archiveDate(range.from),
+		last = archiveDate(range.through);
+	if (first > last)
+		throw new ArchiveUseCaseError(400, 'Tanggal awal harus sebelum atau sama dengan tanggal akhir');
+	return {
+		start: new Date(first.getTime() - 8 * 60 * 60 * 1000).toISOString(),
+		cutoff: new Date(last.getTime() + 16 * 60 * 60 * 1000).toISOString()
+	};
+}
+
+/** Inclusive WITA dates represented by a half-open UTC interval. */
+export async function previewArchiveRange(
+	rawDb: D1Database,
+	branch: BranchContext,
+	from: string,
+	through: string
+) {
+	const { start, cutoff } = rangeBounds({ from, through });
+	return { branch, from, through, ...(await previewArchiveCounts(rawDb, branch, cutoff, start)) };
 }
 
 export type ArchiveResult =
@@ -296,23 +351,63 @@ export async function runArchive(
 	bucket: ArchiveBucket | undefined,
 	branch: BranchContext,
 	year: number,
-	options?: { chunkHeaders?: number; maxChunks?: number }
+	options?: { chunkHeaders?: number; maxChunks?: number; range?: ArchiveDateRange }
 ): Promise<ArchiveResult> {
 	validateArchiveYear(year);
-	const { cutoffWita, cutoff } = cutoffForYear(year);
+	const bounds = options?.range ? rangeBounds(options.range) : cutoffForYear(year);
+	const { cutoff } = bounds;
+	const start = 'start' in bounds ? bounds.start : undefined;
+	const cutoffWita = new Date(cutoff);
+	const empty = async (): Promise<ArchiveResult> => {
+		if (!options?.range) return resumedOrEmpty(rawDb, branch, year);
+		const jobs = await rawDb
+			.prepare(
+				`SELECT id, object_key, checksum, counts FROM archive_jobs WHERE cabang_id = ? AND status = 'completed' AND json_valid(counts) AND json_extract(counts, '$.range.from') = ? AND json_extract(counts, '$.range.through') = ? ORDER BY created_at, id`
+			)
+			.bind(branch, options.range.from, options.range.through)
+			.all<{ id: string; object_key: string; checksum: string; counts: string }>();
+		const parts = jobs.results.map((job) => {
+			const counts = JSON.parse(job.counts) as {
+				total: number;
+				buku_kas: number;
+				transaksi_kasir: number;
+			};
+			return {
+				jobId: job.id,
+				key: job.object_key,
+				filename: job.object_key.split('/').pop()!,
+				checksum: job.checksum,
+				count: counts.total,
+				counts: { buku_kas: counts.buku_kas, transaksi_kasir: counts.transaksi_kasir }
+			};
+		});
+		if (!parts.length)
+			return { kind: 'empty', message: 'Tidak ada transaksi aktif dalam rentang tanggal ini.' };
+		return {
+			kind: 'completed',
+			parts,
+			count: parts.reduce((n, p) => n + p.count, 0),
+			key: parts[0].key,
+			filename: parts[0].filename,
+			counts: {
+				buku_kas: parts.reduce((n, p) => n + p.counts.buku_kas, 0),
+				transaksi_kasir: parts.reduce((n, p) => n + p.counts.transaksi_kasir, 0)
+			}
+		};
+	};
 	if (!bucket) throw new ArchiveUseCaseError(503, 'Storage tidak tersedia');
 
 	// Eligible recount dulu: resume hanya bila tak ada row baru.
-	const eligible = await countEligibleRows(rawDb, branch, cutoff);
-	if (eligible === 0) return resumedOrEmpty(rawDb, branch, year);
+	const eligible = await countEligibleRows(rawDb, branch, cutoff, start);
+	if (eligible === 0) return empty();
 
 	const { chunkHeaders, maxChunks } = resolveChunkLimits(options);
 	const { parts, exhausted, interrupted } = await runChunks(
-		{ rawDb, bucket, branch, year, cutoff, cutoffWita },
+		{ rawDb, bucket, branch, year, cutoff, cutoffWita, start, range: options?.range },
 		chunkHeaders,
 		maxChunks
 	);
-	if (parts.length === 0) return resumedOrEmpty(rawDb, branch, year);
+	if (parts.length === 0) return empty();
 
 	const archivedCount = parts.reduce((sum, part) => sum + part.count, 0);
 	if (parts.length === 1 && exhausted) {
@@ -328,7 +423,7 @@ export async function runArchive(
 		};
 	}
 	// Cap tercapai tanpa tanda habis = recount jujur; 0 = selesai.
-	const remaining = exhausted ? 0 : await countEligibleRows(rawDb, branch, cutoff);
+	const remaining = exhausted ? 0 : await countEligibleRows(rawDb, branch, cutoff, start);
 	// Interupsi selalu dilaporkan, walau recount 0 (mis. baris chunk gagal di-void).
 	if (remaining > 0 || interrupted) {
 		return {
@@ -364,13 +459,23 @@ export function previewArchiveForBranch(
 	return previewArchive(getRawDb(platform, branch), branch, year);
 }
 
+export function previewArchiveRangeForBranch(
+	platform: App.Platform | undefined,
+	branch: BranchContext,
+	from: string,
+	through: string
+) {
+	return previewArchiveRange(getRawDb(platform, branch), branch, from, through);
+}
+
 export function runArchiveForBranch(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
-	year: number
+	year: number,
+	range?: ArchiveDateRange
 ) {
 	const bucket = platform?.env?.STORAGE as ArchiveBucket | undefined;
-	return runArchive(getRawDb(platform, branch), bucket, branch, year);
+	return runArchive(getRawDb(platform, branch), bucket, branch, year, { range });
 }
 
 interface ArchiveDownload {

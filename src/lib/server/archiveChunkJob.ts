@@ -50,6 +50,8 @@ export interface ArchiveChunkContext {
 	year: number;
 	cutoff: string;
 	cutoffWita: Date;
+	start?: string;
+	range?: { from: string; through: string };
 }
 
 export type ArchiveChunkOutcome =
@@ -70,7 +72,8 @@ interface FittedChunk {
 async function assertArchivePreconditions(
 	rawDb: D1Database,
 	branch: BranchContext,
-	cutoff: string
+	cutoff: string,
+	start?: string
 ): Promise<void> {
 	const activeSessionPre = (await rawDb
 		.prepare(`SELECT id FROM sesi_toko WHERE cabang_id = ? AND is_active = 1 LIMIT 1`)
@@ -89,9 +92,9 @@ async function assertArchivePreconditions(
 	const pendingOrdersPre = (await rawDb
 		.prepare(
 			`SELECT count(*) as cnt FROM buku_kas
-			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?`
+			 WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND ${start ? 'julianday(waktu) < julianday(?) AND julianday(waktu) >= julianday(?)' : 'waktu < ?'}`
 		)
-		.bind(branch, cutoff)
+		.bind(branch, cutoff, ...(start ? [start] : []))
 		.first()
 		.catch(() => null)) as { cnt?: number } | null;
 	if (pendingOrdersPre && Number(pendingOrdersPre.cnt) > 0) {
@@ -135,6 +138,7 @@ function fitChunkToBudget(
 			archiveJobId,
 			bukuKas,
 			transaksiKasir,
+			range: ctx.range,
 			partSuffix: partSeq
 		});
 
@@ -227,7 +231,7 @@ function buildFinalizeStatements(
 				 AND lease_expires_at > ?
 				 AND NOT EXISTS (SELECT 1 FROM sesi_toko WHERE cabang_id = ? AND is_active = 1)
 				 AND NOT EXISTS (SELECT 1 FROM buku_kas
-					WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND waktu < ?)
+					WHERE cabang_id = ? AND sumber = 'pos' AND preparation_state = 'pending' AND ${ctx.start ? 'julianday(waktu) < julianday(?) AND julianday(waktu) >= julianday(?)' : 'waktu < ?'})
 				 AND ${manifestOk}
 				 AND (SELECT COUNT(*) FROM archive_job_items WHERE job_id = ? AND cabang_id = ?) = ?
 				 AND (SELECT COUNT(*) FROM transaksi_kasir tk
@@ -245,6 +249,7 @@ function buildFinalizeStatements(
 				branch,
 				branch,
 				cutoff,
+				...(ctx.start ? [ctx.start] : []),
 				branch,
 				archiveJobId,
 				archiveJobId,
@@ -328,7 +333,8 @@ function buildFinalizeStatements(
 				JSON.stringify({
 					total,
 					buku_kas: bukuKas.length,
-					transaksi_kasir: transaksiKasir.length
+					transaksi_kasir: transaksiKasir.length,
+					...(ctx.range ? { range: ctx.range } : {})
 				}),
 				new Date().toISOString(),
 				archiveJobId,
@@ -346,6 +352,7 @@ async function writeLegacyPointer(
 	total: number
 ): Promise<void> {
 	const { rawDb, branch, year } = ctx;
+	if (ctx.range) return; // A bounded archive must not masquerade as a legacy before-year archive.
 	await rawDb
 		.prepare(
 			`INSERT INTO pengaturan (id, cabang_id, kunci, nilai, updated_at)
@@ -397,11 +404,18 @@ export async function runArchiveChunkJob(
 	const { rawDb, branch, cutoff } = ctx;
 
 	// Pra-kondisi segar per chunk (sesi aktif, pesanan Antrean).
-	await assertArchivePreconditions(rawDb, branch, cutoff);
+	await assertArchivePreconditions(rawDb, branch, cutoff, ctx.start);
 
 	// Baca chunk dulu (tanpa job): kosong = selesai tanpa job sampah.
 	// Row hilang antara recount dan baca (void/concurrent delete) ikut tertangani.
-	const peek = await readArchiveChunk(rawDb, branch, cutoff, chunkCursor, headersPerChunk);
+	const peek = await readArchiveChunk(
+		rawDb,
+		branch,
+		cutoff,
+		chunkCursor,
+		headersPerChunk,
+		ctx.start
+	);
 	if (peek.bukuKas.length === 0) return { empty: true };
 
 	const job = await claimChunkJob(ctx);

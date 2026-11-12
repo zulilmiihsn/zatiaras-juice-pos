@@ -177,6 +177,30 @@ try {
 			})
 		);
 	const before = await inventory();
+	const { previewArchiveRange } = await import('../lib/server/archiveUseCase');
+	const range = await previewArchiveRange(
+		db,
+		branchContext('samarinda'),
+		'2025-12-01',
+		'2025-12-01'
+	);
+	assert.deepEqual(range.counts, { buku_kas: 1, pos: 0, manual: 1, transaksi_kasir: 0 });
+	assert.equal(range.financials.total_in, 10);
+	assert.equal(range.pending_orders, 0);
+	const boundary = await previewArchiveRange(
+		db,
+		branchContext('samarinda'),
+		'2026-01-01',
+		'2026-01-01'
+	);
+	assert.equal(boundary.counts.buku_kas, 1);
+	assert.equal(boundary.pending_orders, 1);
+	await assert.rejects(
+		previewArchiveRange(db, branchContext('samarinda'), '2026-02-30', '2026-03-01')
+	);
+	await assert.rejects(
+		previewArchiveRange(db, branchContext('samarinda'), '2026-01-02', '2026-01-01')
+	);
 	assert.deepEqual(await previewArchive(db, branchContext('samarinda'), 2026), {
 		branch: 'samarinda',
 		before_year: 2026,

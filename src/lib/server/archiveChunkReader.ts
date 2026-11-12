@@ -57,12 +57,16 @@ export async function readArchiveChunk(
 	branch: BranchContext,
 	cutoff: string,
 	cursor: ArchiveChunkCursor | null,
-	limit: number
+	limit: number,
+	start?: string
 ): Promise<{
 	bukuKas: ArchiveRow[];
 	transaksiKasir: Array<Record<string, unknown>>;
 	hasMore: boolean;
 }> {
+	const rangeSql = start ? 'AND julianday(bk.waktu) >= julianday(?)' : '';
+	const rangeBinds = start ? [start] : [];
+	const upperSql = start ? 'julianday(bk.waktu) < julianday(?)' : 'bk.waktu < ?';
 	const cursorSql = cursor ? 'AND ((bk.waktu > ?) OR (bk.waktu = ? AND bk.id > ?))' : '';
 	const cursorBinds = cursor ? [cursor.waktu, cursor.waktu, cursor.id] : [];
 	const groupBytes = archiveGroupReadBytes();
@@ -72,10 +76,10 @@ export async function readArchiveChunk(
 		.prepare(
 			`SELECT CAST(bk.rowid AS TEXT) AS row_key,
 		${groupBytes} AS bytes, ${detailCount} AS detail_count
-		FROM buku_kas bk WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
+		FROM buku_kas bk WHERE bk.cabang_id = ? AND ${upperSql} ${rangeSql} ${cursorSql}
 		ORDER BY bk.waktu ASC, bk.id ASC LIMIT ?`
 		)
-		.bind(branch, cutoff, ...cursorBinds, limit + 1)
+		.bind(branch, cutoff, ...rangeBinds, ...cursorBinds, limit + 1)
 		.all<{ row_key: string; bytes: number; detail_count: number }>();
 	const selected: Array<{ rowKey: string; bytes: number; detailCount: number }> = [];
 	let usedBytes = 4096; // Bounded v3 metadata, array punctuation and job/key fields.
@@ -107,7 +111,7 @@ export async function readArchiveChunk(
 	const guarded = `WITH selected AS MATERIALIZED (
 		SELECT bk.rowid AS row_key FROM json_each(?) chosen CROSS JOIN buku_kas bk
 		ON bk.rowid = CAST(json_extract(chosen.value, '$.rowKey') AS INTEGER)
-		WHERE bk.cabang_id = ? AND bk.waktu < ? ${cursorSql}
+		WHERE bk.cabang_id = ? AND ${upperSql} ${rangeSql} ${cursorSql}
 		AND ${groupBytes} <= json_extract(chosen.value, '$.bytes')
 		AND ${detailCount} = json_extract(chosen.value, '$.detailCount'))`;
 	const selection = JSON.stringify(selected);
@@ -118,7 +122,7 @@ export async function readArchiveChunk(
 			FROM selected CROSS JOIN buku_kas bk ON bk.rowid = selected.row_key
 			WHERE bk.cabang_id = ? ORDER BY bk.waktu ASC, bk.id ASC`
 			)
-			.bind(selection, branch, cutoff, ...cursorBinds, branch),
+			.bind(selection, branch, cutoff, ...rangeBinds, ...cursorBinds, branch),
 		rawDb
 			.prepare(
 				`${guarded} SELECT ${ARCHIVE_TRANSAKSI_KASIR_FIELDS.map((f) => `tk.${f}`).join(', ')}
@@ -126,7 +130,7 @@ export async function readArchiveChunk(
 			CROSS JOIN transaksi_kasir tk ON tk.buku_kas_id = bk.id AND tk.cabang_id = bk.cabang_id
 			WHERE tk.cabang_id = ? ORDER BY tk.id ASC`
 			)
-			.bind(selection, branch, cutoff, ...cursorBinds, branch)
+			.bind(selection, branch, cutoff, ...rangeBinds, ...cursorBinds, branch)
 	]);
 	if (
 		headers.results.length !== selected.length ||

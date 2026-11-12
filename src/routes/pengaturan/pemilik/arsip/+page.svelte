@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/shared/PageHeader.svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import HeaderBackButton from '$lib/components/shared/HeaderBackButton.svelte';
@@ -8,11 +8,51 @@
 	import Download from '@lucide/svelte/icons/download';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+	import { formatDateYmdWita } from '$lib/utils/dateTime';
 
-	const currentYear = new Date().getFullYear();
-	const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
-
-	let beforeYear = $state(currentYear - 1);
+	const today = formatDateYmdWita(new Date());
+	const currentYear = Number(today.slice(0, 4));
+	const years = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
+	let hydrated = $state(false);
+	onMount(() => {
+		hydrated = true;
+	});
+	let period = $state(String(currentYear));
+	let from = $state(`${currentYear}-01-01`);
+	let through = $state(today);
+	let preview = $state<{
+		counts: { buku_kas: number; transaksi_kasir: number };
+		pending_orders: number;
+	} | null>(null);
+	let previewError = $state('');
+	let previewLoading = $state(false);
+	const validRange = $derived(Boolean(from && through && from <= through && through <= today));
+	function changePeriod() {
+		preview = null;
+		showConfirm = false;
+		if (period !== 'custom') {
+			from = `${period}-01-01`;
+			through = Number(period) === currentYear ? today : `${period}-12-31`;
+		}
+	}
+	async function reviewArchive() {
+		if (!validRange || previewLoading) return;
+		previewLoading = true;
+		previewError = '';
+		const selected = `${from}/${through}`;
+		try {
+			const response = await fetch(`/api/archive?${new URLSearchParams({ from, through })}`);
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.message || 'Gagal memeriksa periode arsip');
+			if (selected !== `${from}/${through}` || destroyed) return;
+			preview = data;
+			showConfirm = true;
+		} catch (error) {
+			previewError = error instanceof Error ? error.message : 'Gagal memeriksa periode arsip';
+		} finally {
+			previewLoading = false;
+		}
+	}
 	let loading = $state(false);
 	let showConfirm = $state(false);
 	let result = $state<{
@@ -63,6 +103,8 @@
 	}
 
 	async function doArchive() {
+		if (!validRange || loading || !preview || preview.pending_orders > 0) return;
+		const selectedRange = { from, through };
 		showConfirm = false;
 		loading = true;
 		result = null;
@@ -96,7 +138,7 @@
 				const res = await fetchWithCsrfRetry('/api/archive', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ before_year: beforeYear })
+					body: JSON.stringify(selectedRange)
 				});
 				const data = await res.json();
 				if (!res.ok) throw new Error(data?.message || 'Gagal mengarsipkan');
@@ -146,7 +188,7 @@
 	}
 </script>
 
-<div class="page-content bg-canvas flex min-h-dvh flex-col pb-12">
+<div data-hydrated={hydrated} class="page-content bg-canvas flex min-h-dvh flex-col pb-12">
 	<PageHeader variant="compact">
 		<div class="mx-auto flex w-full max-w-5xl items-center justify-between">
 			<HeaderBackButton href="/pengaturan/pemilik" label="Kembali ke Pengaturan Pemilik">
@@ -195,38 +237,97 @@
 
 			<!-- Pilih tahun + tombol -->
 			<div class="soft-float-card p-5">
-				<label for="thn" class="mb-2 block text-xs font-bold text-slate-700">
-					Arsipkan semua transaksi <b>sebelum tahun:</b>
-				</label>
+				<h2 class="mb-1 text-base font-bold text-slate-800">Pilih Periode Arsip</h2>
+				<p class="mb-5 text-xs leading-relaxed text-slate-500">
+					Tentukan transaksi yang ingin dipindahkan. Tanggal awal dan akhir termasuk dalam periode,
+					mengikuti waktu WITA.
+				</p>
+				<label for="thn" class="mb-2 block text-xs font-bold text-slate-700">Periode</label>
 				<select
 					id="thn"
-					bind:value={beforeYear}
-					disabled={loading}
+					bind:value={period}
+					onchange={changePeriod}
+					disabled={!hydrated || loading || previewLoading}
 					class="mb-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base focus:border-emerald-500 focus:outline-none disabled:opacity-60"
 				>
 					{#each years as y}
-						<option value={y}>{y}</option>
+						<option value={String(y)}
+							>Sepanjang {y}{y === currentYear ? ' (sampai hari ini)' : ''}</option
+						>
 					{/each}
+					<option value="custom">Rentang tanggal sendiri</option>
 				</select>
-
+				<fieldset
+					disabled={loading || previewLoading}
+					class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
+				>
+					<div>
+						<label for="archive-from" class="mb-2 block text-xs font-bold text-slate-700"
+							>Tanggal mulai</label
+						>
+						<input
+							id="archive-from"
+							type="date"
+							min="2020-01-01"
+							max={through || today}
+							bind:value={from}
+							onchange={() => {
+								period = 'custom';
+								preview = null;
+								showConfirm = false;
+							}}
+							class="w-full min-w-0 rounded-xl border-2 border-pink-100 bg-pink-50/30 px-3 py-3 text-sm text-slate-800 outline-none focus:border-pink-500"
+						/>
+					</div>
+					<div>
+						<label for="archive-through" class="mb-2 block text-xs font-bold text-slate-700"
+							>Tanggal akhir</label
+						>
+						<input
+							id="archive-through"
+							type="date"
+							min={from || '2020-01-01'}
+							max={today}
+							bind:value={through}
+							onchange={() => {
+								period = 'custom';
+								preview = null;
+								showConfirm = false;
+							}}
+							class="w-full min-w-0 rounded-xl border-2 border-pink-100 bg-pink-50/30 px-3 py-3 text-sm text-slate-800 outline-none focus:border-pink-500"
+						/>
+					</div>
+				</fieldset>
+				<p class="mb-4 rounded-xl bg-pink-50 px-3 py-3 text-xs leading-relaxed text-pink-800">
+					Tutup sesi toko dan pastikan antrean offline seluruh perangkat cabang sudah tersinkron
+					sebelum mengarsipkan.
+				</p>
+				{#if !validRange}<p role="alert" class="mb-3 text-xs text-rose-600">
+						Pilih tanggal awal dan akhir yang valid, paling lambat hari ini.
+					</p>{/if}
+				{#if previewError}<p role="alert" class="mb-3 text-xs text-rose-600">{previewError}</p>{/if}
 				{#if !showConfirm}
 					<button
-						onclick={() => (showConfirm = true)}
-						disabled={loading}
-						class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-98 disabled:opacity-50"
+						onclick={reviewArchive}
+						disabled={!hydrated || loading || previewLoading || !validRange}
+						class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-600 to-rose-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 transition-all hover:brightness-105 active:scale-98 disabled:opacity-50"
 					>
 						<Download class="h-4 w-4" />
 						{#if loading}
 							Mengarsipkan...
 						{:else}
-							Mulai Arsipkan
+							{previewLoading ? 'Memeriksa periode…' : 'Periksa Periode Arsip'}
 						{/if}
 					</button>
 				{:else}
 					<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
 						<p class="mb-3 text-xs text-amber-800">
-							Yakin arsipkan transaksi <b>sebelum {beforeYear}</b>? Salinan arsip dapat diunduh
-							setelah tersimpan di cloud.
+							Periode <b>{from} sampai {through} (WITA)</b>: {preview?.counts.buku_kas ?? 0} transaksi
+							dan {preview?.counts.transaksi_kasir ?? 0} detail kasir. Salinan diverifikasi di cloud sebelum
+							data aktif dihapus.
+							{#if preview?.pending_orders}<span class="mt-2 block font-bold"
+									>Selesaikan {preview.pending_orders} pesanan Antrean terlebih dahulu.</span
+								>{/if}
 						</p>
 						<div class="flex gap-2">
 							<button
@@ -237,6 +338,7 @@
 							</button>
 							<button
 								onclick={doArchive}
+								disabled={!preview || preview.pending_orders > 0}
 								class="flex-1 cursor-pointer rounded-lg bg-red-600 py-2 text-xs font-semibold text-white hover:bg-red-700"
 							>
 								Ya, Lanjutkan

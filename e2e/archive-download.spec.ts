@@ -37,25 +37,18 @@ async function readDownload(download: import('@playwright/test').Download): Prom
 	return fs.readFile(path, 'utf8');
 }
 
-// Klik Svelte hanya sah sesudah hidrasi; klik SSR buta = no-op.
-// Helper ini klik ulang sampai dialog konfirmasi benar muncul.
+// Wait for hydration before changing dates; SSR controls do not yet own state.
 async function openArchiveConfirm(page: Page) {
 	await page.goto('/pengaturan/pemilik/arsip');
-	await expect(page.getByRole('button', { name: 'Mulai Arsipkan' })).toBeVisible({
+	await expect(page.getByRole('button', { name: 'Periksa Periode Arsip' })).toBeVisible({
 		timeout: 60_000
 	});
-	for (let attempt = 0; attempt < 3; attempt++) {
-		await page.getByRole('button', { name: 'Mulai Arsipkan' }).click();
-		if (
-			await page
-				.getByText(/Yakin arsipkan transaksi/)
-				.waitFor({ timeout: 10_000 })
-				.then(() => true)
-				.catch(() => false)
-		)
-			return;
-	}
-	await expect(page.getByText(/Yakin arsipkan transaksi/)).toBeVisible({ timeout: 10_000 });
+	await expect(page.locator('.page-content[data-hydrated="true"]')).toBeVisible();
+	await page.locator('#thn').selectOption('2024');
+	await expect(page.getByLabel('Tanggal mulai')).toHaveValue('2024-01-01');
+	await expect(page.getByLabel('Tanggal akhir')).toHaveValue('2024-12-31');
+	await page.getByRole('button', { name: 'Periksa Periode Arsip' }).click();
+	await expect(page.getByText(/Periode.*sampai.*WITA/)).toBeVisible({ timeout: 10_000 });
 }
 
 // Tutup sesi toko seed agar prekondisi arsip lolos.
@@ -106,6 +99,21 @@ test('archive retry download returns identical bytes', async ({ page }) => {
 	await closeOpenSession(page);
 	await seedOldRow(page, 'dl-seed-1', 12000);
 	await openArchiveConfirm(page);
+	await page.getByRole('button', { name: 'Batal', exact: true }).click();
+	await page.getByLabel('Tanggal mulai').fill('2024-06-01');
+	await page.getByLabel('Tanggal akhir').fill('2024-06-01');
+	await page.getByRole('button', { name: 'Periksa Periode Arsip' }).click();
+	await expect(page.getByText(/Periode.*2024-06-01 sampai 2024-06-01/)).toBeVisible();
+	for (const width of [390, 1280]) {
+		await page.setViewportSize({ width, height: 844 });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+			true
+		);
+		await page.screenshot({
+			path: test.info().outputPath(`archive-period-${width}.png`),
+			fullPage: true
+		});
+	}
 	const auto = page.waitForEvent('download', { timeout: 120000 });
 	const committed = page.waitForResponse(
 		(response) => response.url().endsWith('/api/archive') && response.request().method() === 'POST'
@@ -114,7 +122,12 @@ test('archive retry download returns identical bytes', async ({ page }) => {
 		response.url().includes('/api/archive/download?')
 	);
 	await page.getByRole('button', { name: 'Ya, Lanjutkan' }).click();
-	const metadata = (await (await committed).json()) as Record<string, unknown>;
+	const committedResponse = await committed;
+	expect(committedResponse.request().postDataJSON()).toEqual({
+		from: '2024-06-01',
+		through: '2024-06-01'
+	});
+	const metadata = (await committedResponse.json()) as Record<string, unknown>;
 	expect(Object.hasOwn(metadata, 'content')).toBe(false);
 	expect((await nativeDownload).status()).toBe(200);
 	await expect(page.getByText(/baris.*berhasil diarsipkan/).first()).toBeVisible({
@@ -127,6 +140,11 @@ test('archive retry download returns identical bytes', async ({ page }) => {
 	const retryBytes = await readDownload(await retryWait);
 	expect(retryBytes).toBe(firstBytes);
 	expect(JSON.parse(retryBytes).meta.schema_version).toBe(4);
+	expect(JSON.parse(retryBytes).meta.date_range).toEqual({
+		from: '2024-06-01',
+		through: '2024-06-01',
+		timezone: 'Asia/Makassar'
+	});
 });
 
 // Respons hilang (reload) -> arsip ulang tahun sama -> resumed + tetap bisa unduh.

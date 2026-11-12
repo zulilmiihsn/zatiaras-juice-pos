@@ -141,6 +141,22 @@ assert.equal(snapshot.checksum, createHash('sha256').update(snapshot.content).di
 
 // Decoder v4 penuh: valid + restore utuh.
 assert.equal(validateArchive(parsed).ok, true);
+const rangeSnapshot = buildArchiveSnapshot({
+	branch: 'samarinda',
+	year: 2025,
+	cutoffWita: new Date('2024-06-15T16:00:00.000Z'),
+	archiveJobId: 'job-range-test-1234',
+	bukuKas: [fullBk],
+	transaksiKasir: [fullTk],
+	range: { from: '2024-06-15', through: '2024-06-15' },
+	now: new Date('2026-09-16T00:00:00.000Z')
+});
+const rangeParsed = JSON.parse(rangeSnapshot.content);
+assert.equal(validateArchive(rangeParsed).ok, true);
+assert.deepEqual(rangeParsed.buku_kas, parsed.buku_kas);
+assert.deepEqual(rangeParsed.transaksi_kasir, parsed.transaksi_kasir);
+assert.ok(rangeSnapshot.filename.includes('2024-06-15-sampai-2024-06-15'));
+assert.ok(buildRestoreChunks(rangeParsed).totalRows === 2);
 
 // Versi lebih baru ditolak sebelum apply (tak ada omit diam-diam).
 const newer = structuredClone(parsed) as typeof parsed & { meta: { schema_version: number } };
@@ -246,6 +262,45 @@ try {
 		preparation_state: null,
 		nominal: 15000
 	});
+	const rangeDb = await createTestD1();
+	try {
+		await rangeDb.db.batch([
+			rangeDb.db
+				.prepare(
+					`INSERT INTO archive_jobs(id,cabang_id,before_year,cutoff,status,owner_token,lease_expires_at,counts,created_at,updated_at) VALUES('job-range-test-1234','samarinda',2025,'2024-06-15T16:00:00.000Z','completed','t',0,?, '2026-09-16','2026-09-16')`
+				)
+				.bind(
+					JSON.stringify({
+						total: 2,
+						buku_kas: 1,
+						transaksi_kasir: 1,
+						range: { from: '2024-06-15', through: '2024-06-15' }
+					})
+				),
+			rangeDb.db.prepare(
+				`INSERT INTO ringkasan_penjualan_harian(id,cabang_id,tanggal_penjualan,jumlah_transaksi,jumlah_item,penjualan_kotor,penjualan_tunai,penjualan_nontunai,total_hpp) VALUES('day','samarinda','2024-06-15',1,2,40000,40000,0,12000)`
+			),
+			rangeDb.db.prepare(
+				`INSERT INTO penjualan_produk_harian(id,cabang_id,tanggal_penjualan,produk_id,nama_produk,jumlah,penjualan_kotor,penjualan_tunai,penjualan_nontunai,jumlah_transaksi) VALUES('pday','samarinda','2024-06-15','jus-1','Jus',2,40000,40000,0,1)`
+			)
+		]);
+		await applyRestorePlan(rangeDb.db, buildRestoreChunks(rangeParsed));
+		const rangeRow = await rangeDb.db
+			.prepare("SELECT * FROM buku_kas WHERE id='bk-full'")
+			.first<Record<string, unknown>>();
+		assert.ok(rangeRow);
+		for (const field of BK_FIELDS)
+			assert.deepEqual(rangeRow[field], restored[field], `range restore ${field}`);
+		const rangeDetail = await rangeDb.db
+			.prepare('SELECT * FROM transaksi_kasir WHERE id=?')
+			.bind(fullTk.id)
+			.first<Record<string, unknown>>();
+		assert.ok(rangeDetail);
+		for (const field of TK_FIELDS)
+			assert.deepEqual(rangeDetail[field], detail[field], `range detail restore ${field}`);
+	} finally {
+		await rangeDb.close();
+	}
 	console.log('archive-version-tests: v4 kontrak, round-trip, v3 terbaca, legacy, tolak-v5 passed');
 } finally {
 	await close();

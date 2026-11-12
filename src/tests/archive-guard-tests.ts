@@ -74,6 +74,82 @@ async function totals() {
 	};
 }
 try {
+	// A preview range must never be silently ignored by the legacy mutating endpoint.
+	await reset(1);
+	await assert.rejects(
+		async () =>
+			POST({
+				request: new Request('https://test.invalid/api/archive', {
+					method: 'POST',
+					body: JSON.stringify({ before_year: 2026, from: '2025-12-02', through: '2025-12-03' })
+				}),
+				locals: {
+					authSession: {
+						id: 's',
+						userId: 'u',
+						username: 'owner',
+						role: 'pemilik',
+						branch: 'samarinda'
+					}
+				},
+				platform: { env: { DB_SAMARINDA_GROUP: db, STORAGE: storage } }
+			} as unknown as Parameters<typeof POST>[0]),
+		(e: { status?: number }) => e.status === 400
+	);
+	assert.deepEqual(await totals(), { rows: 1, amount: 0, active: 0 });
+	assert.equal(objects.size, 0);
+	const { runArchive } = await import('../lib/server/archiveUseCase');
+	const { branchContext } = await import('../lib/server/branchResolver');
+	await db
+		.prepare(
+			"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal) VALUES('range-in','samarinda','2025-12-02T00:00:00+08:00','catat','in','pendapatan_usaha',17),('range-end','samarinda','2025-12-02T15:59:59.999Z','catat','in','pendapatan_usaha',19),('range-after','samarinda','2025-12-02T16:00:00.000Z','catat','in','pendapatan_usaha',23)"
+		)
+		.run();
+	const rangeResult = await runArchive(db, storage, branchContext('samarinda'), 2026, {
+		range: { from: '2025-12-02', through: '2025-12-02' },
+		chunkHeaders: 1,
+		maxChunks: 3
+	});
+	assert.equal(rangeResult.kind, 'completed');
+	assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 2);
+	assert.equal(
+		await db
+			.prepare("SELECT COUNT(*) AS n FROM buku_kas WHERE id IN ('bk0','range-after')")
+			.first('n'),
+		2
+	);
+	assert.equal((await totals()).amount, 36);
+	for (const content of objects.values()) {
+		const snapshot = JSON.parse(content);
+		assert.equal(snapshot.meta.date_range.from, '2025-12-02');
+		assert.equal(snapshot.meta.date_range.through, '2025-12-02');
+		assert.equal(snapshot.buku_kas.length, 1);
+	}
+	const emptyRange = await runArchive(db, storage, branchContext('samarinda'), 2026, {
+		range: { from: '2025-12-02', through: '2025-12-02' }
+	});
+	assert.equal(emptyRange.kind, 'completed');
+	if (emptyRange.kind === 'completed') assert.equal(emptyRange.parts.length, 2);
+	await reset(1);
+	corrupt = true;
+	await assert.rejects(() =>
+		runArchive(db, storage, branchContext('samarinda'), 2026, {
+			range: { from: '2025-12-01', through: '2025-12-01' }
+		})
+	);
+	assert.deepEqual(await totals(), { rows: 1, amount: 0, active: 0 });
+	await reset(1);
+	onUpload = async () => {
+		await db.prepare("UPDATE buku_kas SET revision = revision + 1 WHERE id='bk0'").run();
+	};
+	await assert.rejects(
+		() =>
+			runArchive(db, storage, branchContext('samarinda'), 2026, {
+				range: { from: '2025-12-01', through: '2025-12-01' }
+			}),
+		(e: { status?: number }) => e.status === 409
+	);
+	assert.deepEqual(await totals(), { rows: 1, amount: 0, active: 0 });
 	// ARCHIVE_CHUNK_HEADERS + 1: batas chunk dan respons completed multi-bagian.
 	for (const count of [1, 20, 21, 45, 101, ARCHIVE_CHUNK_HEADERS + 1]) {
 		await reset(count);

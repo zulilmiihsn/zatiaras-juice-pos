@@ -305,6 +305,22 @@ Jangan logout atau menghapus data situs/IndexedDB untuk memperbaiki koneksi: ant
 offline dapat hilang. Apabila status masih tidak jelas, cocokkan dengan pemilik sebelum
 membuat transaksi baru.
 
+### Arsip berdasarkan periode
+
+Di **Pengaturan Pemilik > Arsip**, pilih **Sepanjang [tahun]** atau **Rentang tanggal
+sendiri**, lalu isi tanggal mulai dan akhir. Tahun berjalan berakhir pada hari ini;
+kedua tanggal termasuk dalam rentang berdasarkan WITA, bukan zona waktu perangkat.
+Tekan **Periksa Periode Arsip** untuk melihat jumlah transaksi/detail dan pesanan
+Antrean yang belum selesai sebelum konfirmasi. Preview hanya membaca dan tidak
+menjamin data tetap sama; server tetap memeriksa konflik saat apply.
+
+Tutup sesi toko dan sinkronkan antrean offline seluruh perangkat cabang terlebih
+dahulu. Hanya transaksi dalam rentang yang dipindahkan, setelah snapshot cloud
+berhasil dibaca ulang dan diverifikasi. Rentang besar diproses per bagian; jangan
+menghapus file unduhan. Jika terputus, pilih rentang yang sama untuk melanjutkan;
+bila tidak ada transaksi aktif tersisa, bagian arsip rentang yang sama tersedia
+untuk diunduh ulang. Arsip lama berbasis batas tahun tetap dapat dipulihkan.
+
 ### Pemeriksaan akses kasir
 
 Untuk memeriksa akses kasir, buka **Pengaturan > Riwayat**. Daftar pesanan POS

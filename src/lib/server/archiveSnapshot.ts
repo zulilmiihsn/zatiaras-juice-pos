@@ -127,6 +127,7 @@ export function buildArchiveSnapshot(input: {
 	now?: Date;
 	/** Nomor part chunk. null = objek tunggal dengan key legacy. */
 	partSuffix?: number | null;
+	range?: { from: string; through: string };
 }): ArchiveSnapshot {
 	const { branch, year, cutoffWita, archiveJobId, bukuKas, transaksiKasir } = input;
 	const partSuffix = input.partSuffix ?? null;
@@ -166,6 +167,7 @@ export function buildArchiveSnapshot(input: {
 			job_id: archiveJobId,
 			branch,
 			before_year: year,
+			...(input.range ? { date_range: { ...input.range, timezone: 'Asia/Makassar' } } : {}),
 			cutoff_wita: cutoffWita.toISOString(),
 			exported_at: now.toISOString(),
 			counts: { buku_kas: snapshotBukuKas.length, transaksi_kasir: snapshotTransaksiKasir.length }
@@ -176,7 +178,10 @@ export function buildArchiveSnapshot(input: {
 	};
 	const content = JSON.stringify(archive);
 	const checksum = sha256Hex(content);
-	const baseFilename = `arsip-${branch}-sebelum-${year}-${archiveJobId.slice(0, 8)}.json`;
+	const period = input.range
+		? `${input.range.from}-sampai-${input.range.through}`
+		: `sebelum-${year}`;
+	const baseFilename = `arsip-${branch}-${period}-${archiveJobId.slice(0, 8)}.json`;
 	const filename =
 		partSuffix === null
 			? baseFilename
