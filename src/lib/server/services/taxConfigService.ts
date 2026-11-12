@@ -179,8 +179,6 @@ export async function saveTaxConfig(
 	// CAS atomik pada nilai mentah pembacaan PERTAMA (bukan baca ulang sesudah
 	// hitung payload). Baris baru (old NULL): INSERT biasa. Konflik -> 409.
 	const oldNilai = stored.rawNilai;
-	// CAS atomik: tulis hanya bila nilai masih sama seperti dibaca.
-	// Baris baru (old NULL): INSERT biasa. Konflik nilai -> changes 0 -> 409.
 	const applied = (await rawDb
 		.prepare(
 			oldNilai === null

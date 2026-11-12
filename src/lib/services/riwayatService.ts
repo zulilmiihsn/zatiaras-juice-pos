@@ -2,7 +2,7 @@
  * Service data Riwayat transaksi (DRY) — dipakai oleh riwayat umum/kasir/pemilik.
  *
  * Murni data: tidak menyentuh state komponen (loading/toast). Caller yang bungkus
- * loading + try/catch + notifikasi. Lihat CONVENTIONS.md §3.
+ * loading + try/catch + notifikasi.
  */
 import { getTodayWita, rentangHariWitaUtc } from '$lib/utils/dateTime';
 import { transactionService } from '$lib/services/transactionService';

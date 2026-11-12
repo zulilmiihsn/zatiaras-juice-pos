@@ -1921,7 +1921,7 @@ test('latest status from another tab survives a committed request with a lost re
 			)
 		).toBeVisible();
 		// Intent cleanup in shared IndexedDB is async after both responses; the contract is that
-		// the superseded intent eventually drains (a single read raced it on CI, run 38488492850).
+		// the superseded intent eventually drains; a single read can race the acknowledgement.
 		await expect
 			.poll(() =>
 				page.evaluate(async () => {

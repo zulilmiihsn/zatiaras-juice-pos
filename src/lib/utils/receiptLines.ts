@@ -1,5 +1,5 @@
 /**
- * Adapter snapshot transaksi -> baris tampil struk (F17/F18).
+ * Adapter snapshot transaksi -> baris tampil struk.
  * Satu adapter dipakai HTML dan ESC/POS agar konsisten.
  *
  * Kontrak snapshot server (financials.ts):

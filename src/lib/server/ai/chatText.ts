@@ -30,7 +30,7 @@ export function toYMDWita(date: Date): string {
 }
 
 /**
- * Fast-path intent & date resolver (F27): periode eksplisit dulu, lalu intent.
+ * Fast-path intent & date resolver: periode eksplisit dulu, lalu intent.
  * Ambigu/tak dikenali -> null agar analyzer lanjutan dipakai.
  */
 export function fastResolveRequirements(

@@ -1,5 +1,5 @@
 /**
- * Mesin pajak murni (F07/F12/F13). Tanpa browser/localStorage/fetch.
+ * Mesin pajak murni. Tanpa browser/localStorage/fetch.
  * Satu kalkulator dipakai client simulasi, server laporan, dan AI.
  */
 import type { TaxCalculationResult, TaxItemBreakdown, TaxSettings } from '$lib/types/pajak';

@@ -309,7 +309,7 @@ export async function buildLaporanAggregate(
 	const posGross = Number(summaryRow?.gross || 0);
 	const pemasukan = transactions.filter((t) => t.tipe === 'in');
 	const pengeluaran = transactions.filter((t) => t.tipe === 'out');
-	// F12: pemasukanUsaha sudah mencakup baris POS (sumber pos dari agregat
+	// pemasukanUsaha sudah mencakup baris POS (sumber pos dari agregat
 	// produk). Jangan tambah posGross ke seluruhnya tanpa kecuali POS.
 	const manualUsaha = pemasukan.filter((t) => t.jenis === 'pendapatan_usaha' && t.sumber !== 'pos');
 	const pemasukanUsaha = pemasukan.filter((t) => t.jenis === 'pendapatan_usaha');
@@ -323,7 +323,7 @@ export async function buildLaporanAggregate(
 	const labaKotor = totalPemasukan - totalPengeluaran;
 
 	// Pajak via mesin kanonik + config persisted (v2 atau legacy).
-	// Omzet usaha = POS + manual usaha aktif + arsip manual (F12, tanpa ganda).
+	// Omzet usaha = POS + manual usaha aktif + arsip manual, tanpa ganda.
 	// Rentang lintas tahun dipecah per tahun pajak; threshold reset tiap Januari.
 	async function turnoverBetween(from: string, to: string): Promise<number> {
 		if (from > to) return 0;

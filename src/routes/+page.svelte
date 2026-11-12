@@ -225,8 +225,6 @@
 	});
 </script>
 
-<!-- PinModal removed -->
-
 <!-- Toast Notification -->
 <ToastNotification
 	show={toastManager.showToast}

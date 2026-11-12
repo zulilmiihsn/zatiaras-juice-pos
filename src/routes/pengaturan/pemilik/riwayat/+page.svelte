@@ -218,7 +218,6 @@
 			document.body.classList.add('hide-nav');
 		}
 		await fetchTransaksiHariIni();
-		// pollingInterval = setInterval(fetchTransaksiHariIni, 5000); // HAPUS polling otomatis
 		// Dengarkan event global agar riwayat auto-refresh ketika rekomendasi AI diterapkan
 		aiHandler = async () => {
 			await fetchTransaksiHariIni();
@@ -236,7 +235,6 @@
 		if (typeof window !== 'undefined') {
 			document.body.classList.remove('hide-nav');
 		}
-		// clearInterval(pollingInterval); // HAPUS polling otomatis
 		if (typeof window !== 'undefined' && aiHandler) {
 			window.removeEventListener('ai-recommendations-applied', aiHandler);
 			if (offRiwayat) offRiwayat();

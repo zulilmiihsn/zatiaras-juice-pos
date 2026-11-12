@@ -1,6 +1,5 @@
 /**
- * 📊 ZatiarasPOS - Executive Financial PDF Generator
- * Menghasilkan Laporan Keuangan & Arus Kas standar korporat & akuntansi resmi (Minimalist, Clean, Audit-Ready).
+ * Ekspor laporan keuangan dan arus kas ke PDF.
  */
 
 import jsPDF from 'jspdf';

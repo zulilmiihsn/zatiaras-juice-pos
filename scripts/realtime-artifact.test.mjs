@@ -1282,7 +1282,7 @@ async function compiledTests() {
 					.bind(role)
 					.run();
 				const archive = await pageResponse('/pengaturan/pemilik/arsip', credentials.samarinda);
-				// Admin setara pemilik di halaman arsip (F17).
+				// Admin setara pemilik di halaman arsip.
 				const canOpenArchive = role === 'pemilik' || role === 'admin';
 				assert.equal(archive.status, canOpenArchive ? 200 : 303);
 				if (!canOpenArchive) assert.equal(archive.headers.get('Location'), '/unauthorized');

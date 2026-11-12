@@ -9,7 +9,7 @@ import { createTestD1 } from './helpers/testD1';
 
 const { db, close } = await createTestD1();
 try {
-	// Database fresh hasil 30 migrasi: bersih.
+	// Database fresh dengan skema terkini: bersih.
 	assert.deepEqual(await checkDataHealth(db, 'samarinda'), {
 		orphanTransaksiKasir: [],
 		orphanBahanMutasi: [],

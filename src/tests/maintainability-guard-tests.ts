@@ -21,7 +21,7 @@ assert.equal(metrics.emptyCatch, 0, `empty catch ditemukan (${metrics.emptyCatch
 const ALLOWED_ROUTE_DB_IMPORTS: string[] = [];
 assert.deepEqual(metrics.routeDbImportFiles, ALLOWED_ROUTE_DB_IMPORTS);
 
-// File terbesar saat ini aiChatUseCase.ts (~1220 baris). Jangan biarkan tumbuh; pecah dulu.
+// File terbesar tidak boleh melewati batas; pecah modul sebelum menambahkannya.
 const maxFile = metrics.topFiles[0];
 assert.ok(
 	maxFile.lines <= 1250,

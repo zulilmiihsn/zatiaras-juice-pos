@@ -1,8 +1,5 @@
 /**
- * Util cetak struk bersama (DRY) — dipakai oleh riwayat umum/kasir/pemilik.
- * Mengganti builder HTML struk yang sebelumnya diduplikasi verbatim di 3 file.
- *
- * Sumber kebenaran: lihat CONVENTIONS.md §2.
+ * Util cetak struk bersama untuk riwayat umum, kasir, dan pemilik.
  */
 import type { ReceiptSettings, HistoryItem } from '../types/laporan.js';
 import { formatOrderDetails } from './orderDetails.js';

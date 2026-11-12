@@ -54,8 +54,7 @@ function normalizeUnitQty(
 	}
 	if (['buah'].includes(s)) return { satuan: 'buah', qty: qty };
 	if (['pcs', 'pc', 'biji', 'buah-buahan'].includes(s)) return { satuan: 'pcs', qty: qty };
-	// Satuan tak dikenal: tolak, jangan tebak pcs diam-diam bila qty besar?
-	// Kontrak kanonik hanya 4 satuan dasar; selain itu tolak.
+	// Kontrak hanya menerima empat satuan dasar; jangan menebak satuan yang tidak dikenal.
 	if (['gram', 'ml', 'pcs', 'buah'].includes(s)) return { satuan: s as HppBaseUnit, qty };
 	return null;
 }

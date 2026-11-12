@@ -1,5 +1,5 @@
 /**
- * Resolver periode + intent murni untuk fast-path AI (F27).
+ * Resolver periode + intent murni untuk fast-path AI.
  * Periode eksplisit di-resolve DULU; shortcut intent tak boleh menimpanya.
  * Tak dikenali/ambigu -> null agar analyzer lanjutan dipakai.
  */

@@ -72,7 +72,7 @@ export const { GET, POST, PATCH, DELETE } = makeResourceRoute({
 		return { entityId: id, publishExtra: { id } };
 	},
 	remove: async ({ db, branch }, id) => {
-		// Resep ikut terhapus dalam satu batch; resep yatim membuat bahannya tak bisa dihapus.
+		// Resep produk ikut terhapus dalam batch yang sama.
 		await db.batch([
 			db
 				.delete(resepProduk)

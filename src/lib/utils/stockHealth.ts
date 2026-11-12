@@ -1,9 +1,8 @@
 /**
  * Presentasi kesehatan stok murni.
  *
- * Dipindah verbatim dari `src/routes/stok/+page.svelte` tanpa ubah perilaku:
- * satu kebijakan tampilan untuk badge/bar/kartu, predikat low-stock tunggal
- * (sebelumnya ganda di dua derived), filter + hitung kategori terpusat.
+ * Satu kebijakan tampilan untuk badge/bar/kartu, predikat low-stock tunggal,
+ * serta filter dan hitung kategori terpusat.
  * Tanpa import Svelte/store/browser — dapat diuji langsung.
  */
 

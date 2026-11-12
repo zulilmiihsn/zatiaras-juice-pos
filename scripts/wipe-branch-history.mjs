@@ -33,8 +33,7 @@ export const WIPE_TABLES = Object.freeze([
 ]);
 // stock_reconciliations/_items sengaja TIDAK dihapus. Item dilindungi trigger 0032
 // `trg_stock_reconciliation_item_delete_guard` (RAISE STOCK_RECONCILIATION_ITEMS_IMMUTABLE);
-// header tidak punya trigger/FK, tetapi dipertahankan agar item tidak yatim. Dulu tercantum di
-// sini dan membuat wipe live gagal-atomik (14 Okt 2026).
+// header dipertahankan agar item tidak yatim.
 export const ARCHIVE_GUARD_TABLES = Object.freeze([
 	'archive_jobs',
 	'archive_job_items',
@@ -216,9 +215,8 @@ export function buildWipeSql(branch, source) {
 	)
 		throw new Error('WIPE_BUDGET_BLOCKED: atomic budget, perlu ADR/owner; jangan partial wipe');
 	return {
-		// D1 remote menolak BEGIN/COMMIT di file ("use state.storage.transaction()"); eksekusi
-		// --file D1 sudah atomik sendiri (gagal = kembali ke state awal), dibuktikan live 14 Okt 2026.
-		// Guard memicu error, jadi kegagalan mana pun membatalkan seluruh file.
+		// D1 remote menolak BEGIN/COMMIT di file. Guard menghentikan eksekusi saat gagal;
+		// jangan mengandalkan rollback seluruh file, dan verifikasi hasil setelah eksekusi.
 		sql: ['-- ZatiarasPOS Wipe Branch History (atomic per D1 file execution)', ...statements].join(
 			'\n'
 		),

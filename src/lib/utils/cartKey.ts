@@ -1,5 +1,5 @@
 /**
- * Identitas kanonik item keranjang (F08). Mencakup product ID, porsi
+ * Identitas kanonik item keranjang. Mencakup product ID, porsi
  * (default reguler), sorted add-on IDs, gula, es, catatan ternormalisasi.
  * Encoding tuple JSON agar tidak ambigu. Kuantitas BUKAN identitas.
  */

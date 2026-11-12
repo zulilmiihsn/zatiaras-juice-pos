@@ -1,5 +1,4 @@
-// State UI, perintah, dan lifecycle halaman POS (sebelumnya inline di
-// routes/pos/+page.svelte). Data katalog/keranjang tetap di store pos/cart.
+// State UI, perintah, dan lifecycle halaman POS. Katalog dan keranjang ada di store pos/cart.
 import { isKasirRole } from '$lib/utils/roles';
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';

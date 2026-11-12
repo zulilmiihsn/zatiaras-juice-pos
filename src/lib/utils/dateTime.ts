@@ -143,7 +143,7 @@ export function witaToUtcRange(dateStr: string): { startUtc: string; endUtc: str
 	try {
 		// Start: 00:00:00 WITA = 16:00:00 UTC hari sebelumnya
 		const startUtc = new Date(Date.UTC(year, month - 1, day - 1, 16, 0, 0));
-		// End: 23:59:59.999 WITA = 15:59:59.999 UTC hari berikutnya
+		// End: 23:59:59.999 WITA = 15:59:59.999 UTC pada tanggal yang sama
 		const endUtc = new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
 
 		return {

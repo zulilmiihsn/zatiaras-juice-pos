@@ -31,7 +31,7 @@ try {
 	});
 	// Default Node menutup socket keep-alive yang diam 5 detik. Tes yang menahan respons
 	// lebih lama membuat klien Playwright memakai ulang socket yang sedang ditutup
-	// (ECONNRESET, CI run 39009800989). Server tes tidak boleh menutup lebih dulu.
+	// (ECONNRESET). Server tes tidak boleh menutup lebih dulu.
 	if (server.httpServer) {
 		server.httpServer.keepAliveTimeout = 120_000;
 		server.httpServer.headersTimeout = 121_000;

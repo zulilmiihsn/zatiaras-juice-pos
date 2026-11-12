@@ -201,7 +201,7 @@ export async function updateBahanRow(
 }
 
 /**
- * Menghapus bahan dengan proteksi foreign key bila masih dipakai di resep_produk.
+ * Menolak penghapusan bahan yang dipakai resep aktif atau memiliki riwayat stok.
  */
 export async function deleteBahanRow(
 	db: Database,

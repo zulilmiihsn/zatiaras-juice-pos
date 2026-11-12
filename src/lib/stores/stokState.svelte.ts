@@ -1,5 +1,4 @@
-// State, perintah, dan lifecycle halaman Stok (sebelumnya inline di
-// routes/stok/+page.svelte). Halaman hanya merender; komponen dialog menerima `s`.
+// State, perintah, dan lifecycle halaman Stok; komponen dialog menerima `s`.
 import { productService } from '$lib/services/productService';
 import { transactionService } from '$lib/services/transactionService';
 import { fetchWithCsrfRetry } from '$lib/utils/csrf';
@@ -68,7 +67,7 @@ export function createStokState() {
 	}
 
 	// Toast state
-	// Toast kanonik (timer + reset show) seperti halaman lain; dulu show tak pernah direset.
+	// Toast kanonik mengelola timer dan reset tampilan.
 	const toastManager = createToastManager();
 	function notify(message: string, type: 'success' | 'error' | 'info' = 'success') {
 		toastManager.showToastNotification(message, type);
@@ -103,7 +102,6 @@ export function createStokState() {
 		}
 	}
 
-	// Form Tambah/Edit Bahan
 	// Form Tambah/Edit Bahan
 	let showBahanModal = $state(false);
 	let editBahanId = $state<string | number | null>(null);
