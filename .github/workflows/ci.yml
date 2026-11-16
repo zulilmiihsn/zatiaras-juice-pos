@@ -274,6 +274,9 @@ jobs:
       - name: Run Antrean Suite
         run: pnpm test:antrean
 
+      - name: Run Web Orders Suite
+        run: pnpm test:web-orders
+
       - name: Run Antrean Notification Suite
         run: pnpm test:antrean-notifications
 

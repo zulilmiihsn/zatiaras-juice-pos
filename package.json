@@ -86,6 +86,7 @@
 		"test:stock-write-guards": "tsx src/tests/stock-write-guards-tests.ts",
 		"test:signing-key": "tsx src/tests/signing-key-tests.ts",
 		"test:antrean": "tsx src/tests/antrean-tests.ts",
+		"test:web-orders": "tsx src/tests/web-orders-tests.ts",
 		"test:antrean-notifications": "tsx src/tests/antrean-notification-tests.ts",
 		"test:stock-policy-cache": "tsx src/tests/stock-policy-cache-tests.ts",
 		"test:a11y": "tsx src/tests/a11y-focus-tests.ts",

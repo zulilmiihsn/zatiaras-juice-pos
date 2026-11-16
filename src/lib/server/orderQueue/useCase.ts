@@ -1,5 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { getD1Database, type BranchContext } from '$lib/server/branchResolver';
+import { scheduleBestEffort, syncWebOrderProgress } from '$lib/server/webOrders/useCase';
 import { auditDataChange, publish } from '$lib/server/dataApiHelpers';
 import {
 	countPendingOrders as countPending,
@@ -307,6 +308,10 @@ export async function transitionOrderPreparation(
 	} catch (error) {
 		console.warn('[antrean] publish/audit best-effort gagal', error);
 	}
+	// Pesanan dari situs pesan: pelanggan ikut melihat Diproses / Siap diambil.
+	void scheduleBestEffort(platform, 'sinkron status pesanan web', () =>
+		syncWebOrderProgress(platform, branch, idempotencyKey, target)
+	);
 	return {
 		idempotency_key: idempotencyKey,
 		transaction_id: String(header.transaction_id),

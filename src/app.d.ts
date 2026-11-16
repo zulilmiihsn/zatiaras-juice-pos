@@ -40,6 +40,10 @@ declare global {
 				VAPID_PUBLIC_KEY?: string;
 				VAPID_PRIVATE_KEY?: string;
 				VAPID_SUBJECT?: string;
+				/** Situs pesan (zatiarasjuice) tempat pesanan web menunggu cek QRIS. HTTPS wajib. */
+				WEB_ORDERS_URL?: string;
+				/** Rahasia bersama dengan POS_API_TOKEN di situs pesan. */
+				WEB_ORDERS_TOKEN?: string;
 			};
 			context?: { waitUntil(promise: Promise<unknown>): void };
 		}

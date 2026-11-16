@@ -429,3 +429,27 @@ membuat password baru untuk akun kasir dan pemilik di semua cabang dan menulis f
 terima di luar repo. Verifikasi file itu dengan `--live --verify-handoff <file>`. Untuk kunci harga POS,
 isi `POS_PRICE_SIGNING_KEY_PREVIOUS`/`_PREVIOUS_ID` dengan kunci lama agar antrean offline
 yang masih membawa token lama tetap terverifikasi, lalu hapus setelah antrean kosong.
+
+## Pesanan web (zatiarasjuice) di tab Masuk
+
+Pesanan dari situs pesan menunggu di tab Masuk sebagai "menunggu cek QRIS". Belum menjadi penjualan.
+Kasir mencocokkan nominal (harga menu + kode unik) dengan notifikasi QRIS, lalu menekan Terima
+(checkout QRIS biasa, kartu pindah ke Diproses) atau Tolak.
+
+- Secret Cloudflare Pages POS: `WEB_ORDERS_URL` (alamat HTTPS situs pesan) dan `WEB_ORDERS_TOKEN`
+  (minimal 24 karakter, nilainya sama dengan `POS_API_TOKEN` di situs pesan). Tanpa keduanya fitur mati
+  dan Antrean kasir tidak berubah.
+- Pemetaan cabang: samarinda = juanda, samarinda2 = slamet-riyadi, berau = merah-delima,
+  balikpapan = mt-haryono. balikpapan2 tidak menerima pesanan web.
+- Nama menu di web harus sama dengan nama produk aktif di POS (huruf besar/kecil diabaikan). Nama yang
+  tidak cocok atau ganda membuat Terima ditolak dengan pesan jelas.
+- Harga web harus sama dengan harga POS; beda = Terima ditolak (Tolak lalu kembalikan uang manual).
+- Omzet tercatat sebesar harga menu. Kode unik (Rp1-99) tidak masuk POS.
+- Tes: `pnpm test:web-orders`.
+
+### Menu hidup untuk situs pesan
+
+`GET /api/public/menu?outlet=<id outlet>` (Bearer `WEB_ORDERS_TOKEN`) mengembalikan nama, harga, harga jumbo,
+dan ketersediaan produk aktif per cabang. Produk dengan stok dilacak dan stok 0 dianggap tidak tersedia.
+Situs pesan menyimpan hasilnya di cache 2 menit per outlet, jadi bacaan D1 POS kecil. Di situs pesan isi
+`POS_MENU_URL` (alamat HTTPS POS) dan `POS_API_TOKEN` (nilai sama dengan `WEB_ORDERS_TOKEN`).

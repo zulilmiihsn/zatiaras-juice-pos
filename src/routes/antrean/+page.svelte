@@ -19,6 +19,7 @@
 	import { formatNomorHarian } from '$lib/utils/orderNumber';
 	import NomorPesananLabel from '$lib/components/shared/NomorPesananLabel.svelte';
 	import OrderItemsList from '$lib/components/antrean/OrderItemsList.svelte';
+	import WebOrdersPanel from '$lib/components/antrean/WebOrdersPanel.svelte';
 
 	const s = createOrderQueueState();
 	let selectedKey = $state<string | null>(null);
@@ -301,6 +302,9 @@
 					{s.statusSyncing ? 'Menyinkronkan status' : 'Sinkronkan status'}
 				</button>
 			</section>
+		{/if}
+		{#if s.activeTab === 'pending'}
+			<WebOrdersPanel onAccepted={() => s.setTab('processing')} />
 		{/if}
 		{#if s.error}
 			<div
