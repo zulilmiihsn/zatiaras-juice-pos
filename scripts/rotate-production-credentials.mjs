@@ -30,11 +30,11 @@ const OS_ENV_KEYS = [
 const GROUPS = [
 	{
 		binding: 'DB_SAMARINDA_GROUP',
-		branches: ['samarinda', 'samarinda2']
+		branches: ['samarinda']
 	},
 	{
 		binding: 'DB_BALIKPAPAN_GROUP',
-		branches: ['balikpapan', 'balikpapan2']
+		branches: ['balikpapan']
 	},
 	{
 		binding: 'DB_BERAU_GROUP',

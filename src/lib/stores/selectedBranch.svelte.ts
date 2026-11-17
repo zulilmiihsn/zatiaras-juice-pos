@@ -1,14 +1,8 @@
 import { untrack } from 'svelte';
 
-export type BranchType = 'samarinda' | 'berau' | 'balikpapan' | 'samarinda2' | 'balikpapan2';
+export type BranchType = 'samarinda' | 'berau' | 'balikpapan';
 
-const VALID_BRANCHES: BranchType[] = [
-	'samarinda',
-	'berau',
-	'balikpapan',
-	'samarinda2',
-	'balikpapan2'
-];
+const VALID_BRANCHES: BranchType[] = ['samarinda', 'berau', 'balikpapan'];
 
 class BranchState {
 	#value = $state<BranchType>('samarinda');

@@ -255,15 +255,15 @@ await test('distinct shard scopes retain misplaced tenant rows and drain backlog
 					)
 			)
 		);
-		await enqueue(f.sam, 'owned-sibling', 'samarinda2');
-		await enqueue(f.bal, 'owned-bal', 'balikpapan2');
+		await enqueue(f.sam, 'owned-sam', 'samarinda');
+		await enqueue(f.bal, 'owned-bal', 'balikpapan');
 		await tick(f.env);
 		assert.equal(await count(f.ber, 'audit_logs', "cabang_id='berau'"), 1000);
 		assert.equal(await count(f.ber, 'audit_log_outbox', "cabang_id='berau'"), 101);
 		assert.equal(await count(f.ber, 'audit_log_outbox', "id='owned-misplaced'"), 1);
 		assert.equal(await count(f.ber, 'audit_logs', "id='owned-misplaced-log'"), 1);
-		assert.equal(await count(f.sam, 'audit_logs', "cabang_id='samarinda2'"), 1);
-		assert.equal(await count(f.bal, 'audit_logs', "cabang_id='balikpapan2'"), 1);
+		assert.equal(await count(f.sam, 'audit_logs', "cabang_id='samarinda'"), 1);
+		assert.equal(await count(f.bal, 'audit_logs', "cabang_id='balikpapan'"), 1);
 		await tick(f.env);
 		assert.equal(await count(f.ber, 'audit_logs', "cabang_id='berau'"), 1101);
 		assert.equal(await count(f.ber, 'audit_log_outbox', "cabang_id='berau'"), 0);

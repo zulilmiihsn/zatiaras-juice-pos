@@ -58,7 +58,6 @@ describe('data-health CLI', () => {
 		const result = run('--file', file, '--shard', 'DB_SAMARINDA_GROUP');
 		assert.equal(result.status, 0, result.stderr);
 		assert.match(result.stdout, /samarinda: BERSIH/);
-		assert.match(result.stdout, /samarinda2: BERSIH/);
 		assert.doesNotMatch(result.stdout, /balikpapan/);
 	});
 
@@ -69,7 +68,6 @@ describe('data-health CLI', () => {
 		for (const id of ['orphan-tk', 'orphan-m', 'neg-p', 'neg-b'])
 			assert.match(samarinda.stdout, new RegExp(`\\b${id}\\b`));
 		assert.doesNotMatch(samarinda.stdout, /orphan-tk2/);
-		assert.match(samarinda.stdout, /samarinda2: BERSIH/);
 
 		const balikpapan = run('--file', file, '--shard', 'DB_BALIKPAPAN_GROUP');
 		assert.equal(balikpapan.status, 1, balikpapan.stderr);

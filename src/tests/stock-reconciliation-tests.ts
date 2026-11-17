@@ -20,7 +20,7 @@ import { createTestD1 } from './helpers/testD1';
 
 const { db, close } = await createTestD1();
 const samarinda = branchContext('samarinda');
-const samarinda2 = branchContext('samarinda2');
+const balikpapan = branchContext('balikpapan');
 const owner = { userId: 'owner-reconciliation', role: 'pemilik' };
 
 async function expectReconciliationStatus(run: () => unknown, status: number): Promise<void> {
@@ -68,7 +68,8 @@ function routeEvent(
 		locals: { authSession: session(role, branch) },
 		platform: {
 			env: {
-				DB_SAMARINDA_GROUP: db
+				DB_SAMARINDA_GROUP: db,
+				DB_BALIKPAPAN_GROUP: db
 			}
 		}
 	};
@@ -94,7 +95,7 @@ try {
 				('p-tracked', 'samarinda', 'Tracked', 1000, 5, 1, 1, '2026-09-24T00:00:00.000Z'),
 				('p-inactive', 'samarinda', 'Inactive tracked', 1000, 2, 1, 0, '2026-09-24T00:00:01.000Z'),
 				('p-untracked', 'samarinda', 'Untracked', 1000, 9, 0, 1, '2026-09-24T00:00:02.000Z'),
-				('p-route', 'samarinda2', 'Route product', 1000, 1, 1, 1, '2026-09-24T00:00:03.000Z')`
+				('p-route', 'balikpapan', 'Route product', 1000, 1, 1, 1, '2026-09-24T00:00:03.000Z')`
 		),
 		db.prepare(
 			`INSERT INTO bahan (
@@ -116,7 +117,7 @@ try {
 		actor: owner,
 		now: '2026-09-24T01:01:00.000Z'
 	});
-	await writeStockPolicy(db, samarinda2, {
+	await writeStockPolicy(db, balikpapan, {
 		expectedRevision: 0,
 		mode: 'ignored',
 		actor: owner,
@@ -140,7 +141,7 @@ try {
 		() => createStockReconciliation(db, samarinda, owner, '2026-09-24T02:01:00.000Z'),
 		409
 	);
-	await expectReconciliationStatus(() => loadStockReconciliation(db, samarinda2, firstJob.id), 404);
+	await expectReconciliationStatus(() => loadStockReconciliation(db, balikpapan, firstJob.id), 404);
 
 	for (const invalid of [
 		[{ entityType: 'produk' as const, entityId: 'p-tracked', countedQuantity: 1.5 }],
@@ -381,23 +382,23 @@ try {
 	await expectHttpStatus(
 		() =>
 			CREATE(
-				routeEvent('POST', 'kasir', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+				routeEvent('POST', 'kasir', { branch: 'balikpapan' }, { branch: 'balikpapan' }) as never
 			),
 		403
 	);
 	await expectHttpStatus(
 		() =>
 			CREATE(
-				routeEvent('POST', 'kasir', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+				routeEvent('POST', 'kasir', { branch: 'balikpapan' }, { branch: 'balikpapan' }) as never
 			),
 		403
 	);
 	await expectHttpStatus(
-		() => CREATE(routeEvent('POST', 'pemilik', { branch: 'samarinda2' }) as never),
+		() => CREATE(routeEvent('POST', 'pemilik', { branch: 'balikpapan' }) as never),
 		403
 	);
 	const createResponse = await CREATE(
-		routeEvent('POST', 'pemilik', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+		routeEvent('POST', 'pemilik', { branch: 'balikpapan' }, { branch: 'balikpapan' }) as never
 	);
 	const routeJob = (await createResponse.json()) as { data: { id: string; status: string } };
 	assert.equal(routeJob.data.status, 'draft');
@@ -408,11 +409,11 @@ try {
 					'PUT',
 					'pemilik',
 					{
-						branch: 'samarinda2',
+						branch: 'balikpapan',
 						job_id: routeJob.data.id,
 						items: [{ entity_type: 'produk', entity_id: 'p-route', counted_quantity: 3 }]
 					},
-					{ branch: 'samarinda2', id: routeJob.data.id }
+					{ branch: 'balikpapan', id: routeJob.data.id }
 				) as never
 			),
 		400
@@ -422,10 +423,10 @@ try {
 			'PUT',
 			'pemilik',
 			{
-				branch: 'samarinda2',
+				branch: 'balikpapan',
 				items: [{ entity_type: 'produk', entity_id: 'p-route', counted_quantity: 3 }]
 			},
-			{ branch: 'samarinda2', id: routeJob.data.id }
+			{ branch: 'balikpapan', id: routeJob.data.id }
 		) as never
 	);
 	assert.equal(itemsResponse.status, 200);
@@ -435,8 +436,8 @@ try {
 				routeEvent(
 					'POST',
 					'kasir',
-					{ branch: 'samarinda2', expected_policy_revision: 1 },
-					{ branch: 'samarinda2', id: routeJob.data.id }
+					{ branch: 'balikpapan', expected_policy_revision: 1 },
+					{ branch: 'balikpapan', id: routeJob.data.id }
 				) as never
 			),
 		403
@@ -445,8 +446,8 @@ try {
 		routeEvent(
 			'POST',
 			'pemilik',
-			{ branch: 'samarinda2', expected_policy_revision: 1 },
-			{ branch: 'samarinda2', id: routeJob.data.id }
+			{ branch: 'balikpapan', expected_policy_revision: 1 },
+			{ branch: 'balikpapan', id: routeJob.data.id }
 		) as never
 	);
 	assert.equal(finalizeResponse.status, 200);
@@ -455,14 +456,14 @@ try {
 		3
 	);
 
-	await writeStockPolicy(db, samarinda2, {
+	await writeStockPolicy(db, balikpapan, {
 		expectedRevision: 2,
 		mode: 'ignored',
 		actor: owner,
 		now: '2026-09-24T06:00:00.000Z'
 	});
 	const cancelCreateResponse = await CREATE(
-		routeEvent('POST', 'pemilik', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+		routeEvent('POST', 'pemilik', { branch: 'balikpapan' }, { branch: 'balikpapan' }) as never
 	);
 	const cancelJob = (await cancelCreateResponse.json()) as { data: { id: string } };
 	for (let attempt = 0; attempt < 2; attempt++) {
@@ -470,8 +471,8 @@ try {
 			routeEvent(
 				'DELETE',
 				'pemilik',
-				{ branch: 'samarinda2' },
-				{ branch: 'samarinda2', id: cancelJob.data.id }
+				{ branch: 'balikpapan' },
+				{ branch: 'balikpapan', id: cancelJob.data.id }
 			) as never
 		);
 		assert.equal(response.status, 200);
@@ -481,14 +482,15 @@ try {
 		);
 	}
 
-	function activeEvent(role: string, branch = 'samarinda2') {
+	function activeEvent(role: string, branch = 'balikpapan') {
 		return {
 			url: new URL('https://test.invalid/api/pengaturan/stok/reconciliation/active'),
 			params: {},
 			locals: { authSession: session(role, branch) },
 			platform: {
 				env: {
-					DB_SAMARINDA_GROUP: db
+					DB_SAMARINDA_GROUP: db,
+					DB_BALIKPAPAN_GROUP: db
 				}
 			}
 		};
@@ -500,7 +502,7 @@ try {
 	await expectHttpStatus(() => ACTIVE(activeEvent('kasir') as never), 403);
 
 	const activeCreate = await CREATE(
-		routeEvent('POST', 'pemilik', { branch: 'samarinda2' }, { branch: 'samarinda2' }) as never
+		routeEvent('POST', 'pemilik', { branch: 'balikpapan' }, { branch: 'balikpapan' }) as never
 	);
 	const activeJob = (await activeCreate.json()) as { data: { id: string } };
 	const foundActive = (await ACTIVE(activeEvent('pemilik') as never)) as Response;
@@ -512,8 +514,8 @@ try {
 		routeEvent(
 			'DELETE',
 			'pemilik',
-			{ branch: 'samarinda2' },
-			{ branch: 'samarinda2', id: activeJob.data.id }
+			{ branch: 'balikpapan' },
+			{ branch: 'balikpapan', id: activeJob.data.id }
 		) as never
 	);
 	const goneActive = (await ACTIVE(activeEvent('pemilik') as never)) as Response;

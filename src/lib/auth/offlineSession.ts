@@ -81,13 +81,7 @@ export function isOfflineAntreanPath(pathname: string): boolean {
 	return pathname === '/antrean' || pathname.startsWith('/antrean/');
 }
 
-const VALID_OFFLINE_BRANCHES = new Set([
-	'samarinda',
-	'samarinda2',
-	'balikpapan',
-	'balikpapan2',
-	'berau'
-]);
+const VALID_OFFLINE_BRANCHES = new Set(['samarinda', 'balikpapan', 'berau']);
 
 /** Cabang tervalidasi dari snapshot sesi offline; null bila tak ada/kedaluwarsa/invalid. */
 export function getOfflineSessionBranch(snapshot: OfflineSessionSnapshot | null): string | null {

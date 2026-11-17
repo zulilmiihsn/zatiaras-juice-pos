@@ -19,7 +19,7 @@ import {
 
 const { db, close } = await createTestD1();
 const samarinda = branchContext('samarinda');
-const samarinda2 = branchContext('samarinda2');
+const balikpapan = branchContext('balikpapan');
 const actor = { userId: 'owner-1', role: 'pemilik' };
 
 function event(
@@ -53,6 +53,7 @@ function event(
 		platform: {
 			env: {
 				DB_SAMARINDA_GROUP: db,
+				DB_BALIKPAPAN_GROUP: db,
 				REALTIME_HUB: realtimeFail
 					? {
 							idFromName: () => 'id',
@@ -136,14 +137,14 @@ try {
 		}
 	);
 
-	assert.deepEqual(await loadStockPolicy(db, samarinda2), {
+	assert.deepEqual(await loadStockPolicy(db, balikpapan), {
 		mode: 'tracked',
 		revision: 0,
 		disabled_at: null,
 		reconciled_at: null,
 		updated_at: null
 	});
-	await writeStockPolicy(db, samarinda2, {
+	await writeStockPolicy(db, balikpapan, {
 		expectedRevision: 0,
 		mode: 'ignored',
 		actor,
@@ -152,19 +153,19 @@ try {
 	assert.equal((await loadStockPolicy(db, samarinda)).updated_at, first.updated_at);
 	const emptyJob = await createStockReconciliation(
 		db,
-		samarinda2,
+		balikpapan,
 		actor,
 		'2026-09-24T02:15:00.000Z'
 	);
 	await finalizeStockReconciliation(
 		db,
-		samarinda2,
+		balikpapan,
 		emptyJob.id,
 		1,
 		actor,
 		'2026-09-24T02:30:00.000Z'
 	);
-	const existingTracked = await writeStockPolicy(db, samarinda2, {
+	const existingTracked = await writeStockPolicy(db, balikpapan, {
 		expectedRevision: 2,
 		mode: 'ignored',
 		actor,
@@ -221,7 +222,7 @@ try {
 				event(
 					'GET',
 					'kasir',
-					'https://test.invalid/api/pengaturan/stok?branch=samarinda2'
+					'https://test.invalid/api/pengaturan/stok?branch=balikpapan'
 				) as unknown as Parameters<typeof GET>[0]
 			),
 		403
@@ -276,7 +277,7 @@ try {
 		() =>
 			PUT(
 				event('PUT', 'pemilik', undefined, {
-					branch: 'samarinda2',
+					branch: 'balikpapan',
 					expected_revision: 3,
 					mode: 'ignored'
 				}) as unknown as Parameters<typeof PUT>[0]
@@ -300,9 +301,9 @@ try {
 		event(
 			'GET',
 			'pemilik',
-			'https://test.invalid/api/pengaturan/stok?branch=samarinda2',
+			'https://test.invalid/api/pengaturan/stok?branch=balikpapan',
 			undefined,
-			'samarinda2'
+			'balikpapan'
 		) as unknown as Parameters<typeof GET>[0]
 	)) as unknown as Response;
 	assert.equal(
@@ -383,6 +384,7 @@ try {
 
 		const checkoutEnv = {
 			DB_SAMARINDA_GROUP: checkoutDb,
+			DB_BALIKPAPAN_GROUP: checkoutDb,
 			POS_PRICE_SIGNING_KEY: 'stock-policy-checkout-test-key-32-bytes-minimum',
 			POS_PRICE_SIGNING_KEY_ID: 'test'
 		} as App.Platform['env'];

@@ -55,7 +55,7 @@ try {
 	const verified = await verifyStockPolicyEpoch(signingEnv, token, 'samarinda');
 	assert.equal(verified.mode, 'ignored');
 	assert.equal(verified.revision, 3);
-	await assert.rejects(verifyStockPolicyEpoch(signingEnv, token, 'samarinda2'));
+	await assert.rejects(verifyStockPolicyEpoch(signingEnv, token, 'balikpapan'));
 	await assert.rejects(verifyStockPolicyEpoch(signingEnv, `${token}x`, 'samarinda'));
 
 	// Pending quarantine: create, idempotent same fingerprint, conflict on different.

@@ -5,9 +5,7 @@
 const BRANCH_LABELS = {
 	samarinda: 'Samarinda',
 	berau: 'Berau',
-	balikpapan: 'Balikpapan',
-	samarinda2: 'Samarinda 2',
-	balikpapan2: 'Balikpapan 2'
+	balikpapan: 'Balikpapan'
 } as const;
 
 export function branchLabel(branch: unknown): string | null {

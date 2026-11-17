@@ -1,8 +1,8 @@
 /**
- * Seed External Branches Catalog: Balikpapan 1, Balikpapan 2, and Berau.
+ * Seed External Branches Catalog: Balikpapan and Berau.
  *
  * Targets:
- * - Balikpapan 1 ('balikpapan') & Balikpapan 2 ('balikpapan2') on DB_BALIKPAPAN_GROUP (zatiaras-balikpapan-group)
+ * - Balikpapan ('balikpapan') on DB_BALIKPAPAN_GROUP (zatiaras-balikpapan-group)
  * - Berau ('berau') on DB_BERAU_GROUP (zatiaras-berau-group)
  *
  * Requirements:
@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { parseExtraIds } from './seed-external-branches-utils.mjs';
 
 const rawProducts = JSON.parse(
@@ -1221,12 +1221,6 @@ function buildRecipeForDrink(productName) {
 	};
 }
 
-// Generate deterministically mapped UUID for branch 2
-function deterministicUuid(seed) {
-	const hash = createHash('sha256').update(seed).digest('hex');
-	return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
-}
-
 function generateBranchSql(branchId, bahanPrefix, idTransformer = (id) => id) {
 	const lines = [
 		`-- Seed Catalog for branch: ${branchId}`,
@@ -1399,26 +1393,18 @@ function executeD1(dbTarget, sqlContent, isRemoteTarget) {
 }
 
 async function main() {
-	console.log(
-		`=== STARTING SEED FOR BALIKPAPAN, BALIKPAPAN 2, AND BERAU (${isRemote ? 'REMOTE' : 'LOCAL'}) ===`
-	);
+	console.log(`=== STARTING SEED FOR BALIKPAPAN AND BERAU (${isRemote ? 'REMOTE' : 'LOCAL'}) ===`);
 
-	// 1. Generate SQL for Balikpapan 1
-	console.log('\n[1/3] Generating catalog for Balikpapan 1 (balikpapan)...');
+	// 1. Generate SQL for Balikpapan
+	console.log('\n[1/2] Generating catalog for Balikpapan (balikpapan)...');
 	const sqlBpp1 = generateBranchSql('balikpapan', 'bpp', (id) => id);
 
-	// 2. Generate SQL for Balikpapan 2
-	console.log('\n[2/3] Generating catalog for Balikpapan 2 (balikpapan2)...');
-	const sqlBpp2 = generateBranchSql('balikpapan2', 'bpp2', (id) => deterministicUuid(`bpp2:${id}`));
-
-	// 3. Generate Berau before any D1 write so bad catalog input cannot leave a partial seed.
-	console.log('\n[3/3] Generating catalog for Berau (berau)...');
+	// 2. Generate Berau before any D1 write so bad catalog input cannot leave a partial seed.
+	console.log('\n[2/2] Generating catalog for Berau (berau)...');
 	const sqlBerau = generateBranchSql('berau', 'bru', (id) => id);
 
-	// Combine Balikpapan 1 and 2 for DB_BALIKPAPAN_GROUP
-	const combinedBppSql = `${sqlBpp1}\n\n${sqlBpp2}`;
 	const bppDbTarget = isRemote ? 'zatiaras-balikpapan-group' : 'DB_BALIKPAPAN_GROUP';
-	executeD1(bppDbTarget, combinedBppSql, isRemote);
+	executeD1(bppDbTarget, sqlBpp1, isRemote);
 
 	const berauDbTarget = isRemote ? 'zatiaras-berau-group' : 'DB_BERAU_GROUP';
 	executeD1(berauDbTarget, sqlBerau, isRemote);

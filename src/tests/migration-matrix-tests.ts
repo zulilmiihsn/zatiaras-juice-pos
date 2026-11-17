@@ -168,7 +168,7 @@ const snapshotKasir = (target: DatabaseSync) => ({
 const seedKas = (target: DatabaseSync) => {
 	for (const [id, cabang] of [
 		['bk-a', 'samarinda'],
-		['bk-b', 'samarinda2'],
+		['bk-b', 'balikpapan'],
 		['bk-c', 'berau']
 	])
 		target.exec(
@@ -182,7 +182,7 @@ const seedDetails = (target: DatabaseSync) => {
 		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal,created_at,updated_at) VALUES ('tk-minimal','samarinda','bk-a',1,500,NULL,NULL)"
 	);
 	target.exec(
-		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,nama_kustom,jumlah,nominal) VALUES ('tk-kustom','samarinda2','bk-b','Item bebas',3,45000)"
+		"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,nama_kustom,jumlah,nominal) VALUES ('tk-kustom','balikpapan','bk-b','Item bebas',3,45000)"
 	);
 };
 
@@ -227,7 +227,7 @@ const seedDetails = (target: DatabaseSync) => {
 	assert.throws(
 		() =>
 			upgrade.exec(
-				"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES ('x','samarinda2','bk-a',1,1)"
+				"INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,nominal) VALUES ('x','balikpapan','bk-a',1,1)"
 			),
 		/FOREIGN KEY constraint failed/,
 		'cabang berbeda dengan header ditolak'
@@ -412,7 +412,7 @@ db.exec(`
 	INSERT INTO produk (id, cabang_id, nama, harga, stok, lacak_stok) VALUES
 		('ledger-product', 'samarinda', 'Ledger Product', 10000, 1, 1),
 		('ledger-product-2', 'samarinda', 'Ledger Product 2', 10000, 3, 1),
-		('other-product', 'samarinda2', 'Other Product', 10000, 5, 1);
+		('other-product', 'balikpapan', 'Other Product', 10000, 5, 1);
 	INSERT INTO buku_kas (
 		id, cabang_id, waktu, sumber, tipe, jenis, nominal, jumlah, transaction_id,
 		stock_policy_mode, stock_policy_revision, stock_replay_disposition
@@ -427,27 +427,27 @@ assert.throws(
 		db.exec(`INSERT INTO buku_kas (
 			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
 			stock_policy_mode, stock_policy_revision
-		) VALUES ('missing-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+		) VALUES ('missing-policy', 'balikpapan', '2026-09-24', 'pos', 'in',
 			'pendapatan_usaha', 1, 'missing-policy', NULL, NULL)`),
 	/STOCK_POLICY_CONFLICT/
 );
 
 db.exec(`INSERT INTO stock_policy (
 	cabang_id, mode, revision, disabled_at, updated_at, updated_by, updated_by_role
-) VALUES ('samarinda2', 'ignored', 1, '2026-09-24', '2026-09-24', 'owner', 'pemilik')`);
+) VALUES ('balikpapan', 'ignored', 1, '2026-09-24', '2026-09-24', 'owner', 'pemilik')`);
 assert.throws(
 	() =>
 		db.exec(`INSERT INTO buku_kas (
 			id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
 			stock_policy_mode, stock_policy_revision
-		) VALUES ('stale-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+		) VALUES ('stale-policy', 'balikpapan', '2026-09-24', 'pos', 'in',
 			'pendapatan_usaha', 1, 'stale-policy', 'tracked', 0)`),
 	/STOCK_POLICY_CONFLICT/
 );
 db.exec(`INSERT INTO buku_kas (
 	id, cabang_id, waktu, sumber, tipe, jenis, nominal, transaction_id,
 	stock_policy_mode, stock_policy_revision, restored_from_archive
-) VALUES ('restored-policy', 'samarinda2', '2026-09-24', 'pos', 'in',
+) VALUES ('restored-policy', 'balikpapan', '2026-09-24', 'pos', 'in',
 	'pendapatan_usaha', 1, 'restored-policy', NULL, NULL, 1)`);
 
 db.exec(`INSERT INTO produk_mutasi (
@@ -536,7 +536,7 @@ assert.equal(db.prepare("SELECT stok FROM produk WHERE id='ledger-product'").get
 	assert.throws(
 		() =>
 			before.exec(
-				"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-other','samarinda2','fk-bahan',1)"
+				"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-other','balikpapan','fk-bahan',1)"
 			),
 		/FOREIGN KEY constraint failed/
 	);

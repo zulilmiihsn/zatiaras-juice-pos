@@ -3,12 +3,10 @@ import type { PosTransactionItemInput } from '../checkout/types';
 import type { WebOrder } from './types';
 
 /**
- * Cabang POS ke outlet situs pesan. Jenderal Sudirman (balikpapan2) tidak menerima pesanan web:
- * Balikpapan di situs hanya MT Haryono (keputusan owner 16 Nov 2026).
+ * Cabang POS ke outlet situs pesan.
  */
 const BRANCH_OUTLET: Partial<Record<BranchId, string>> = {
 	samarinda: 'juanda',
-	samarinda2: 'slamet-riyadi',
 	berau: 'merah-delima',
 	balikpapan: 'mt-haryono'
 };

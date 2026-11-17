@@ -3,8 +3,8 @@ import { drizzle } from 'drizzle-orm/d1';
 import type { D1Database } from '@cloudflare/workers-types';
 
 export const BRANCH_GROUPS = {
-	DB_SAMARINDA_GROUP: ['samarinda', 'samarinda2'],
-	DB_BALIKPAPAN_GROUP: ['balikpapan', 'balikpapan2'],
+	DB_SAMARINDA_GROUP: ['samarinda'],
+	DB_BALIKPAPAN_GROUP: ['balikpapan'],
 	DB_BERAU_GROUP: ['berau']
 } as const;
 
@@ -26,9 +26,7 @@ export function branchContext(branch: BranchId): BranchContext {
 
 const BRANCH_ALIASES: Record<string, BranchId> = {
 	samarinda: 'samarinda',
-	samarinda2: 'samarinda2',
 	balikpapan: 'balikpapan',
-	balikpapan2: 'balikpapan2',
 	berau: 'berau'
 };
 

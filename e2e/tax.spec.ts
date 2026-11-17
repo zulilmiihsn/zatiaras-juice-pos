@@ -7,7 +7,7 @@ test.describe('Tax Settings Behavioral Flows', () => {
 	test('tax API rejects malformed identities and foreign branch writes without changing configuration', async ({
 		page
 	}) => {
-		const branch = 'samarinda2';
+		const branch = 'balikpapan';
 		const settings = {
 			isTaxEnabled: true,
 			taxes: [{ id: 'tax-api-test', nama: 'Pajak', tipe: 'ppn', persentase: 11, isEnabled: true }]

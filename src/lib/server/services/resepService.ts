@@ -43,8 +43,8 @@ type RecipeRow = {
 
 /**
  * Normalisasi baris resep dari klien: hanya kolom resep, jumlah wajib angka positif, porsi
- * reguler/jumbo. Bahan dan produk wajib milik cabang yang sama; samarinda dan samarinda2
- * berbagi satu shard, jadi ID cabang lain bisa saja ada di database yang sama.
+ * reguler/jumbo. Bahan dan produk wajib milik cabang yang sama; ID milik cabang lain
+ * bisa saja ada di database yang sama bila satu shard berisi beberapa cabang.
  */
 async function normalizeRecipeRows(
 	rawDb: D1Database,

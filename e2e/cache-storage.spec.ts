@@ -288,7 +288,7 @@ test('late dashboard follow-up queries retain the captured branch', async ({ pag
 	try {
 		await page.evaluate(async () => {
 			(await import('/src/lib/stores/selectedBranch.svelte.ts')).selectedBranch.value =
-				'samarinda2';
+				'balikpapan';
 		});
 	} finally {
 		release();

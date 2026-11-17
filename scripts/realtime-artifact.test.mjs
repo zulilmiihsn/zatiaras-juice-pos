@@ -235,7 +235,7 @@ async function sourceTests() {
 					if (mutation === 'unknown-role') f.sqlite.exec("UPDATE profil SET role='supervisor'");
 					if (mutation === 'deleted-profile') f.sqlite.exec('DELETE FROM profil');
 					if (mutation === 'wrong-profile-branch')
-						f.sqlite.exec("UPDATE profil SET cabang_id='samarinda2'");
+						f.sqlite.exec("UPDATE profil SET cabang_id='balikpapan'");
 					if (mutation === 'expired-session')
 						f.sqlite.prepare('UPDATE auth_sessions SET expires_at=?').run(NOW);
 					if (mutation === 'revoked-session') f.sqlite.exec('DELETE FROM auth_sessions');
@@ -253,7 +253,7 @@ async function sourceTests() {
 				originalNow = Date.now;
 			Date.now = () => NOW;
 			try {
-				assert.equal((await handler(f.request('samarinda2'), f.env)).status, 403);
+				assert.equal((await handler(f.request('balikpapan'), f.env)).status, 403);
 				assert.equal(f.visits.length, 0);
 				// Cross-site WebSocket hijacking: a valid session cookie from a foreign page never reaches the DO.
 				const foreign = f.request();
@@ -325,7 +325,7 @@ async function sourceTests() {
 				);
 				assert.equal(await handler(new Request('https://local.invalid/login'), f.env), null);
 				f.sqlite.exec(
-					"UPDATE auth_sessions SET cabang_id='samarinda2'; UPDATE profil SET cabang_id='samarinda2'"
+					"UPDATE auth_sessions SET cabang_id='balikpapan'; UPDATE profil SET cabang_id='balikpapan'"
 				);
 				assert.equal(await getAuthSession({ env: f.env }, f.sid), null);
 				assert.equal((await handler(f.request(), f.env)).status, 401);
@@ -623,9 +623,9 @@ async function compiledLedgerHttpTests({ wireResponse, WorkerRequest, databases,
 			1
 		);
 	});
-	await test('compiled native ledger HTTP: five branches canonical create/same-intent replay/PATCH', async () => {
+	await test('compiled native ledger HTTP: three branches canonical create/same-intent replay/PATCH', async () => {
 		for (const branch of Object.keys(branches)) {
-			// buku_kas.id is globally unique within a shard, including its sibling branches.
+			// buku_kas.id is globally unique within a shard, including other branches.
 			const id = `owned-http-canonical-${branch}`;
 			for (let attempt = 0; attempt < 2; attempt++) {
 				const response = await request(branch, 'POST', '/api/buku-kas', { payload: row(id) });
@@ -745,7 +745,7 @@ async function compiledLedgerHttpTests({ wireResponse, WorkerRequest, databases,
 			).status,
 			409
 		);
-		for (const foreign of ['samarinda2', 'berau']) {
+		for (const foreign of ['balikpapan', 'berau']) {
 			for (const role of ['pemilik', 'admin']) {
 				await databases.DB_SAMARINDA_GROUP.prepare(
 					'UPDATE profil SET role=? WHERE cabang_id=? AND id=?'
@@ -786,7 +786,7 @@ async function compiledLedgerHttpTests({ wireResponse, WorkerRequest, databases,
 		const mutations = [
 			["UPDATE profil SET role='supervisor' WHERE id=?", actor.id],
 			['DELETE FROM profil WHERE id=?', actor.id],
-			["UPDATE profil SET cabang_id='samarinda2' WHERE id=?", actor.id],
+			["UPDATE profil SET cabang_id='balikpapan' WHERE id=?", actor.id],
 			['UPDATE auth_sessions SET expires_at=0 WHERE id=?', actor.sid],
 			['DELETE FROM auth_sessions WHERE id=?', actor.sid]
 		];
@@ -1197,9 +1197,7 @@ async function compiledTests() {
 		}
 		const branches = {
 			samarinda: 'DB_SAMARINDA_GROUP',
-			samarinda2: 'DB_SAMARINDA_GROUP',
 			balikpapan: 'DB_BALIKPAPAN_GROUP',
-			balikpapan2: 'DB_BALIKPAPAN_GROUP',
 			berau: 'DB_BERAU_GROUP'
 		};
 		const credentials = {};
@@ -1297,9 +1295,8 @@ async function compiledTests() {
 		await test('actual built entry + external real DO: all branches connect, heartbeat, fanout, isolation and reconnect', async () => {
 			const a = await connect('samarinda'),
 				b = await connect('samarinda'),
-				sibling = await connect('samarinda2'),
+				sibling = await connect('balikpapan'),
 				foreign = await connect('berau');
-			for (const branch of ['balikpapan', 'balikpapan2']) await connect(branch);
 			const pong = socketMessage(a, 'pong');
 			a.send('ping');
 			await pong;
@@ -1359,11 +1356,11 @@ async function compiledTests() {
 			for (const mutation of [
 				"UPDATE profil SET role='supervisor' WHERE id='owned-samarinda'",
 				"DELETE FROM profil WHERE id='owned-samarinda'",
-				"UPDATE profil SET cabang_id='samarinda2' WHERE id='owned-samarinda'",
+				"UPDATE profil SET cabang_id='balikpapan' WHERE id='owned-samarinda'",
 				"UPDATE auth_sessions SET expires_at=0 WHERE user_id='owned-samarinda'",
 				[
-					"UPDATE auth_sessions SET cabang_id='samarinda2' WHERE user_id='owned-samarinda'",
-					"UPDATE profil SET cabang_id='samarinda2' WHERE id='owned-samarinda'"
+					"UPDATE auth_sessions SET cabang_id='balikpapan' WHERE user_id='owned-samarinda'",
+					"UPDATE profil SET cabang_id='balikpapan' WHERE id='owned-samarinda'"
 				]
 			]) {
 				const statements = Array.isArray(mutation) ? mutation : [mutation];
@@ -1374,7 +1371,7 @@ async function compiledTests() {
 				await db.prepare("DELETE FROM profil WHERE id='owned-samarinda'").run();
 				await repair();
 			}
-			for (const foreignBranch of ['samarinda2', 'berau']) {
+			for (const foreignBranch of ['balikpapan', 'berau']) {
 				const denied = await wireResponse('pages', request(foreignBranch, sid));
 				assert.equal(denied.status, 403);
 				assert.doesNotMatch(denied.body, /SELECT|auth_sessions|database_id/);

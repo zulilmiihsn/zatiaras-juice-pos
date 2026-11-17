@@ -135,7 +135,7 @@ try {
 		['old-in', 'samarinda', '2025-12-01T00:00:00.000Z', 'catat', 'in', 10, null],
 		['old-out', 'samarinda', '2025-12-02T00:00:00.000Z', 'catat', 'out', 25, null],
 		['at-cutoff', 'samarinda', '2025-12-31T16:00:00.000Z', 'pos', 'in', 1000, 'pending'],
-		['foreign', 'samarinda2', '2025-12-01T00:00:00.000Z', 'pos', 'in', 9000, 'pending']
+		['foreign', 'berau', '2025-12-01T00:00:00.000Z', 'pos', 'in', 9000, 'pending']
 	] as const;
 	await db.batch(
 		rows.map((row) =>
@@ -154,8 +154,8 @@ try {
 		[
 			['old-detail', 'samarinda', 'old-pos'],
 			['cutoff-detail', 'samarinda', 'at-cutoff'],
-			['foreign-detail', 'samarinda2', 'foreign'],
-			['foreign-link', 'samarinda2', 'old-pos'],
+			['foreign-detail', 'berau', 'foreign'],
+			['foreign-link', 'berau', 'old-pos'],
 			['orphan-detail', 'samarinda', 'missing']
 		].map((row) =>
 			db

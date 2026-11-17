@@ -51,7 +51,9 @@ assert.equal(sessionCookieOptions(true, 90_500).maxAge, 90);
 assert.equal(sessionCookieOptions(false).maxAge, TTL / 1000);
 
 const { db, close } = await createTestD1();
-const platform = { env: { DB_SAMARINDA_GROUP: db } } as unknown as App.Platform;
+const platform = {
+	env: { DB_SAMARINDA_GROUP: db, DB_BALIKPAPAN_GROUP: db }
+} as unknown as App.Platform;
 
 type CookieCall = { name: string; value: string; options: { maxAge?: number; secure?: boolean } };
 function fakeCookies() {
@@ -122,7 +124,9 @@ try {
 		}
 	}) as D1Database;
 	const failing = fakeCookies();
-	const failingPlatform = { env: { DB_SAMARINDA_GROUP: failingDb } } as unknown as App.Platform;
+	const failingPlatform = {
+		env: { DB_SAMARINDA_GROUP: failingDb, DB_BALIKPAPAN_GROUP: failingDb }
+	} as unknown as App.Platform;
 	assert.equal(await refreshSessionCookie(failingPlatform, failing.cookies, stale, true), stale);
 	assert.deepEqual(failing.calls, []);
 	const logged = await db
@@ -147,7 +151,7 @@ try {
 	assert.deepEqual((await reload()).unlockedPages, ['menu'], 'Expired unlocks are not retained');
 	await grantSessionPageUnlock(
 		platform,
-		{ ...(await reload()), branch: 'samarinda2' },
+		{ ...(await reload()), branch: 'balikpapan' },
 		'laporan',
 		now + MS_PER_HOUR
 	);
@@ -158,11 +162,11 @@ try {
 	);
 	await db
 		.prepare(
-			"INSERT INTO profil(id,cabang_id,role,username,password) VALUES('other-kasir','samarinda2','kasir','other-kasir','x')"
+			"INSERT INTO profil(id,cabang_id,role,username,password) VALUES('other-kasir','balikpapan','kasir','other-kasir','x')"
 		)
 		.run();
 	const other = await createAuthSession(platform, {
-		branch: 'samarinda2',
+		branch: 'balikpapan',
 		userId: 'other-kasir',
 		username: 'other-kasir',
 		role: 'kasir'

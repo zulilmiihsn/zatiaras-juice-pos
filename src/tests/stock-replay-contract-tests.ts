@@ -28,7 +28,7 @@ const env = {
 } as App.Platform['env'];
 const platform = { env } as App.Platform;
 const unchangedBranch = branchContext('samarinda');
-const transitionedBranch = branchContext('samarinda2');
+const transitionedBranch = branchContext('balikpapan');
 const foreignBranch = branchContext('berau');
 const { db, close } = await createTestD1();
 console.log(
@@ -84,7 +84,7 @@ const quarantined = (error: unknown) =>
 try {
 	await db
 		.prepare(
-			`INSERT INTO produk (id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('replay-product','samarinda2','Jus Jambu',15000,3,1,0,1)`
+			`INSERT INTO produk (id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('replay-product','balikpapan','Jus Jambu',15000,3,1,0,1)`
 		)
 		.run();
 	const tracking = await activateTracking(transitionedBranch);

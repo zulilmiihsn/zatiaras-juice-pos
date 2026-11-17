@@ -42,7 +42,7 @@ async function activeCount(branch = 'berau') {
 	return Number(row?.n ?? 0);
 }
 
-function postEvent(branch: 'berau' | 'samarinda' | 'samarinda2', id: string) {
+function postEvent(branch: 'berau' | 'samarinda' | 'balikpapan', id: string) {
 	return {
 		request: new Request('https://test.invalid/api/sesi-toko', {
 			method: 'POST',
@@ -55,7 +55,7 @@ function postEvent(branch: 'berau' | 'samarinda' | 'samarinda2', id: string) {
 }
 
 function patchEvent(
-	branch: 'berau' | 'samarinda' | 'samarinda2',
+	branch: 'berau' | 'samarinda' | 'balikpapan',
 	id: string,
 	payload: Record<string, unknown>
 ) {
@@ -70,12 +70,12 @@ function patchEvent(
 	};
 }
 
-function openViaPost(branch: 'berau' | 'samarinda' | 'samarinda2', id: string) {
+function openViaPost(branch: 'berau' | 'samarinda' | 'balikpapan', id: string) {
 	return openSessionPost(postEvent(branch, id) as unknown as Parameters<typeof openSessionPost>[0]);
 }
 
 function closeViaPatch(
-	branch: 'berau' | 'samarinda' | 'samarinda2',
+	branch: 'berau' | 'samarinda' | 'balikpapan',
 	id: string,
 	payload: Record<string, unknown>
 ) {
@@ -175,12 +175,12 @@ try {
 	await insertSesiTokoRows(
 		drizzleDb,
 		db,
-		'samarinda2',
-		{ ...session, branch: 'samarinda2' },
+		'balikpapan',
+		{ ...session, branch: 'balikpapan' },
 		undefined,
 		openPayload(siblingBranchId)
 	);
-	assert.equal(await activeCount('samarinda2'), 1);
+	assert.equal(await activeCount('balikpapan'), 1);
 
 	// Handler HTTP asli juga memetakan kontensi ke satu 200 dan satu 409.
 	await db
@@ -353,7 +353,7 @@ try {
 			.run();
 	}
 	await db
-		.prepare(`DELETE FROM sesi_toko WHERE cabang_id = 'samarinda2' AND id = ?`)
+		.prepare(`DELETE FROM sesi_toko WHERE cabang_id = 'balikpapan' AND id = ?`)
 		.bind(siblingBranchId)
 		.run();
 	await close();

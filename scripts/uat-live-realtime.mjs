@@ -40,9 +40,7 @@ const OS_ENV_KEYS = Object.freeze([
 ]);
 const BRANCH_BINDINGS = Object.freeze({
 	samarinda: 'DB_SAMARINDA_GROUP',
-	samarinda2: 'DB_SAMARINDA_GROUP',
 	balikpapan: 'DB_BALIKPAPAN_GROUP',
-	balikpapan2: 'DB_BALIKPAPAN_GROUP',
 	berau: 'DB_BERAU_GROUP'
 });
 const IDEMPOTENCY_PATTERN = /^uat-live-[0-9]{13}-[0-9a-f]{16}$/;

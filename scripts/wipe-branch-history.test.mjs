@@ -395,7 +395,7 @@ await test('actual SQLite/D1 middle/end rollback, full-field guards, sibling and
 		try {
 			mem.exec(SQL);
 			mem.exec(
-				"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,created_at,updated_at) VALUES('sibling','samarinda2','2025-01-01','catat','in','pendapatan_usaha',4321,'2025-01-01','2025-01-01');"
+				"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,created_at,updated_at) VALUES('sibling','berau','2025-01-01','catat','in','pendapatan_usaha',4321,'2025-01-01','2025-01-01');"
 			);
 			let adapter, batch;
 			if (backend === 'D1') {

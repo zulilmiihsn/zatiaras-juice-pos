@@ -599,7 +599,7 @@ export function validateArchive(archive) {
 		};
 	}
 	const branch = archive.meta.branch || '';
-	if (!['samarinda', 'samarinda2', 'balikpapan', 'balikpapan2', 'berau'].includes(branch))
+	if (!['samarinda', 'balikpapan', 'berau'].includes(branch))
 		errors.push('Cabang arsip tidak valid');
 	const version = decodeDecimalNumber(
 		archive.meta.schema_version === undefined ? 1 : archive.meta.schema_version

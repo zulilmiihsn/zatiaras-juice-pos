@@ -64,9 +64,7 @@ async function loginBranch(page: Page, branch: string, username: string) {
 for (const [branch, username, label] of [
 	['samarinda', 'pemilik', 'Samarinda'],
 	['berau', 'owner-e2e', 'Berau'],
-	['balikpapan', 'owner-e2e', 'Balikpapan'],
-	['samarinda2', 'owner-e2e', 'Samarinda 2'],
-	['balikpapan2', 'owner-e2e', 'Balikpapan 2']
+	['balikpapan', 'owner-e2e', 'Balikpapan']
 ] as const) {
 	test(`header shows ${label} for ${branch} session`, async ({ page }) => {
 		await loginBranch(page, branch, username);

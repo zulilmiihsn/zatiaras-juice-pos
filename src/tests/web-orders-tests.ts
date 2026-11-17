@@ -106,10 +106,11 @@ try {
 	assert.ok(
 		readWebOrdersConfig({ WEB_ORDERS_URL: 'http://localhost:5173', WEB_ORDERS_TOKEN: TOKEN })
 	);
-	assert.deepEqual(
-		['samarinda', 'samarinda2', 'berau', 'balikpapan', 'balikpapan2'].map(outletForBranch),
-		['juanda', 'slamet-riyadi', 'merah-delima', 'mt-haryono', null]
-	);
+	assert.deepEqual((['samarinda', 'berau', 'balikpapan'] as const).map(outletForBranch), [
+		'juanda',
+		'merah-delima',
+		'mt-haryono'
+	]);
 	assert.equal(webOrderIdFromKey(webKey('ZT-ABC234')), 'ZT-ABC234');
 	assert.equal(webOrderIdFromKey('antrean-1'), null);
 

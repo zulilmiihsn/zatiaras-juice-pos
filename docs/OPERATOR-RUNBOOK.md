@@ -439,8 +439,7 @@ Kasir mencocokkan nominal (harga menu + kode unik) dengan notifikasi QRIS, lalu 
 - Secret Cloudflare Pages POS: `WEB_ORDERS_URL` (alamat HTTPS situs pesan) dan `WEB_ORDERS_TOKEN`
   (minimal 24 karakter, nilainya sama dengan `POS_API_TOKEN` di situs pesan). Tanpa keduanya fitur mati
   dan Antrean kasir tidak berubah.
-- Pemetaan cabang: samarinda = juanda, samarinda2 = slamet-riyadi, berau = merah-delima,
-  balikpapan = mt-haryono. balikpapan2 tidak menerima pesanan web.
+- Pemetaan cabang: samarinda = juanda, berau = merah-delima, balikpapan = mt-haryono.
 - Nama menu di web harus sama dengan nama produk aktif di POS (huruf besar/kecil diabaikan). Nama yang
   tidak cocok atau ganda membuat Terima ditolak dengan pesan jelas.
 - Harga web harus sama dengan harga POS; beda = Terima ditolak (Tolak lalu kembalikan uang manual).

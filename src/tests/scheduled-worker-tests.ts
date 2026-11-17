@@ -185,8 +185,8 @@ if (!process.argv.includes('--compiled')) {
 		};
 		await test('actual compiled scheduled controller: >1000 backlog, original envelope, poison, shard isolation and retry', async () => {
 			for (const [db, branch, id] of [
-				[sam, 'samarinda2', 'sam-sibling'],
-				[bal, 'balikpapan2', 'bal-sibling']
+				[sam, 'samarinda', 'sam-sibling'],
+				[bal, 'balikpapan', 'bal-sibling']
 			] as const)
 				await db
 					.prepare(

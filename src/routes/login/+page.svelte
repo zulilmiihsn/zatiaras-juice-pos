@@ -265,8 +265,6 @@
 						<option value="samarinda">Samarinda</option>
 						<option value="berau">Berau</option>
 						<option value="balikpapan">Balikpapan</option>
-						<option value="samarinda2">Samarinda 2</option>
-						<option value="balikpapan2">Balikpapan 2</option>
 					</select>
 					<span
 						class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400"

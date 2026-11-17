@@ -85,14 +85,14 @@ test('parseArgs: dry-run lokal secara default, konflik dan argumen asing ditolak
 
 test('planMigration: hanya host Supabase, id aman, cabang sesuai shard', () => {
 	const entries = planMigration({
-		DB_SAMARINDA_GROUP: [row('p1', 'samarinda', 'a.jpg'), row('p2', 'samarinda2', 'a.jpg')],
-		DB_BALIKPAPAN_GROUP: []
+		DB_SAMARINDA_GROUP: [row('p1', 'samarinda', 'a.jpg')],
+		DB_BALIKPAPAN_GROUP: [row('p2', 'balikpapan', 'a.jpg')]
 	});
 	assert.deepEqual(
 		entries.map((e) => [e.binding, e.id, e.branch]),
 		[
 			['DB_SAMARINDA_GROUP', 'p1', 'samarinda'],
-			['DB_SAMARINDA_GROUP', 'p2', 'samarinda2']
+			['DB_BALIKPAPAN_GROUP', 'p2', 'balikpapan']
 		]
 	);
 	assert.throws(
@@ -121,7 +121,7 @@ test('targetKey: deterministik, lolos kebijakan kunci, terisolasi per cabang', (
 	assert.ok(isPublicProductImageKey(key));
 	assert.equal(extractBranchFromProductImageKey(key), 'samarinda');
 	assert.ok(key.endsWith('.jpg'));
-	assert.notEqual(key, targetKey('samarinda2', url, 'image/jpeg'));
+	assert.notEqual(key, targetKey('balikpapan', url, 'image/jpeg'));
 	assert.ok(isPublicProductImageKey(targetKey('berau', url, 'image/webp')));
 });
 
@@ -138,13 +138,9 @@ test('SQL: compare-and-swap pada nilai lama, kutip digandakan, rollback adalah k
 });
 
 const fixtureRows = () => ({
-	DB_SAMARINDA_GROUP: [
-		row('p1', 'samarinda', 'a.png'),
-		row('p2', 'samarinda2', 'a.png'),
-		row('p3', 'samarinda', 'b.jpg')
-	],
+	DB_SAMARINDA_GROUP: [row('p1', 'samarinda', 'a.png'), row('p3', 'samarinda', 'b.jpg')],
 	DB_BALIKPAPAN_GROUP: [{ id: 'p9', cabang_id: 'balikpapan', gambar: '/api/upload?key=sudah-r2' }],
-	DB_BERAU_GROUP: []
+	DB_BERAU_GROUP: [row('p2', 'berau', 'a.png')]
 });
 const fixtureImages = () => ({ [`${HOST}/a.png`]: PNG, [`${HOST}/b.jpg`]: JPEG });
 
@@ -173,12 +169,16 @@ test('apply: unggah+verifikasi semua objek, backup sebelum D1, lalu baca ulang b
 	assert.ok(order.indexOf('writeBackup') < order.indexOf('execSql'), 'backup sebelum UPDATE D1');
 	assert.deepEqual(
 		calls.find((c) => c[0] === 'writeBackup')[2],
-		['DB_SAMARINDA_GROUP'],
+		['DB_SAMARINDA_GROUP', 'DB_BERAU_GROUP'],
 		'hanya shard yang berubah mendapat SQL rollback'
 	);
 	for (const r of state.DB_SAMARINDA_GROUP) {
-		assert.match(r.gambar, /^\/api\/upload\?key=produk%2F(samarinda2?)%2F[0-9a-f-]+\.(png|jpg)$/);
+		assert.match(r.gambar, /^\/api\/upload\?key=produk%2Fsamarinda%2F[0-9a-f-]+\.(png|jpg)$/);
 	}
+	assert.match(
+		state.DB_BERAU_GROUP[0].gambar,
+		/^\/api\/upload\?key=produk%2Fberau%2F[0-9a-f-]+\.png$/
+	);
 	assert.equal(state.DB_BALIKPAPAN_GROUP[0].gambar, '/api/upload?key=sudah-r2');
 });
 
@@ -214,12 +214,12 @@ test('baris yang diedit bersamaan tidak ditimpa dan dilaporkan sebagai sisa', as
 	const { deps, state } = harness({ rows: fixtureRows(), images: fixtureImages() });
 	const original = deps.execSql;
 	deps.execSql = (binding, sql) => {
-		state.DB_SAMARINDA_GROUP[2].gambar = `${HOST}/diedit-pengguna.jpg`;
+		state.DB_SAMARINDA_GROUP[1].gambar = `${HOST}/diedit-pengguna.jpg`;
 		original(binding, sql);
 	};
 	const result = await migrate({ apply: true }, deps);
 	assert.equal(result.remaining, 1);
-	assert.equal(state.DB_SAMARINDA_GROUP[2].gambar, `${HOST}/diedit-pengguna.jpg`);
+	assert.equal(state.DB_SAMARINDA_GROUP[1].gambar, `${HOST}/diedit-pengguna.jpg`);
 });
 
 test('tanpa gambar Supabase: tidak ada yang dilakukan', async () => {

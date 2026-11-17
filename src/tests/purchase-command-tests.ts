@@ -403,7 +403,7 @@ try {
 
 	// Cabang sibling dalam satu shard dapat memakai key sama tanpa data saling mengambil.
 	const siblingKey = 'purchase-sibling-isolation';
-	for (const tenant of ['samarinda', 'samarinda2'] as const) {
+	for (const tenant of ['samarinda', 'balikpapan'] as const) {
 		const id = `${tenant}-purchase-isolation`;
 		await db
 			.prepare(
@@ -427,7 +427,7 @@ try {
 	}
 	const siblingRows = await db
 		.prepare('SELECT cabang_id FROM bahan_mutasi WHERE operation_key = ? AND cabang_id IN (?, ?)')
-		.bind(siblingKey, 'samarinda', 'samarinda2')
+		.bind(siblingKey, 'samarinda', 'balikpapan')
 		.all();
 	assert.equal(siblingRows.results.length, 2);
 

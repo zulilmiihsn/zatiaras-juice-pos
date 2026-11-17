@@ -153,9 +153,7 @@ export function createE2eEnvironment(baseDirectory = process.env.ZATIARAS_TEST_T
 				// Aditif per-run, unik per (cabang, username), tak menyentuh seed lain.
 				for (const [binding, id, cabang] of [
 					['DB_BERAU_GROUP', 'uat-owner-berau-e2e', 'berau'],
-					['DB_BALIKPAPAN_GROUP', 'uat-owner-balikpapan-e2e', 'balikpapan'],
-					['DB_SAMARINDA_GROUP', 'uat-owner-samarinda2-e2e', 'samarinda2'],
-					['DB_BALIKPAPAN_GROUP', 'uat-owner-balikpapan2-e2e', 'balikpapan2']
+					['DB_BALIKPAPAN_GROUP', 'uat-owner-balikpapan-e2e', 'balikpapan']
 				]) {
 					const shardDb = /** @type {import('@cloudflare/workers-types').D1Database} */ (
 						proxy.env[binding]

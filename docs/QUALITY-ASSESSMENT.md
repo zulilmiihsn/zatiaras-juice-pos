@@ -65,6 +65,6 @@ sebagai ambang lulus.
 
 - Sekitar 24 jam setelah migrasi gambar (2026-10-19): buang host Supabase dari `img-src` dan
   dari `csp-policy-tests.ts`, lalu hapus skrip migrasi sekali-pakai beserta tesnya. Sebelum
-  itu, pastikan gambar menu kasir Samarinda dan Samarinda 2 tampil normal di perangkat nyata.
+  itu, pastikan gambar menu kasir Samarinda tampil normal di perangkat nyata.
 - File asli di Supabase tidak dihapus oleh proses mana pun. Itu keputusan pemilik setelah CSP
   baru stabil.

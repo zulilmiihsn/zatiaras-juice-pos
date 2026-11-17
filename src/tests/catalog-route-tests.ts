@@ -73,9 +73,9 @@ try {
 		db.prepare(
 			"INSERT INTO bahan (id, cabang_id, nama, satuan) VALUES ('b-yatim', 'samarinda', 'Jeruk', 'gram')"
 		),
-		// samarinda2 berbagi shard dengan samarinda: ID-nya ada di database yang sama.
+		// balikpapan berbagi shard dengan samarinda: ID-nya ada di database yang sama.
 		db.prepare(
-			"INSERT INTO bahan (id, cabang_id, nama, satuan) VALUES ('b-s2', 'samarinda2', 'Susu', 'ml')"
+			"INSERT INTO bahan (id, cabang_id, nama, satuan) VALUES ('b-s2', 'balikpapan', 'Susu', 'ml')"
 		),
 		db.prepare(
 			`INSERT INTO resep_produk (id, cabang_id, produk_id, bahan_id, jumlah_per_item)
@@ -105,7 +105,7 @@ try {
 	assert.equal(await resep([{ bahan_id: 'b-s2', jumlah_per_item: 10 }]), 400);
 	assert.equal(
 		await resep([
-			{ bahan_id: 'b-1', jumlah_per_item: 120, porsi: 'jumbo', cabang_id: 'samarinda2' }
+			{ bahan_id: 'b-1', jumlah_per_item: 120, porsi: 'jumbo', cabang_id: 'balikpapan' }
 		]),
 		200
 	);
@@ -157,7 +157,7 @@ try {
 	);
 	assert.equal(await del(BAHAN_DELETE, 'b-s2'), 200);
 	assert.equal(
-		await count("SELECT COUNT(*) AS n FROM bahan WHERE id = 'b-s2' AND cabang_id = 'samarinda2'"),
+		await count("SELECT COUNT(*) AS n FROM bahan WHERE id = 'b-s2' AND cabang_id = 'balikpapan'"),
 		1
 	);
 
@@ -236,7 +236,7 @@ try {
 		await assert.rejects(
 			db
 				.prepare(
-					"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-cross','samarinda2','b-gula',1)"
+					"INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah) VALUES ('fk-cross','balikpapan','b-gula',1)"
 				)
 				.run()
 		);
