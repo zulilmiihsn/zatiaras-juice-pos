@@ -28,3 +28,12 @@ overrides:
   # devalue dinaikkan ke 5.9.4 (GHSA-j22f-vq7h-c4qm + GHSA-mcm9-63f2-9j32 +
   # GHSA-x5rw-q4pp-hg5g, gate audit CI). Tetap lini v5 sesuai svelte 5.
   devalue@<5.9.3: 5.9.4
+# Pengecualian gate audit CI (ditinjau ulang saat ada tambalan atau saat pindah ke kit 3.x):
+# - GHSA-3r8g-jcqq-3p5j (@sveltejs/kit <=3.1.0): DoS pada remote function `form`. Tambalan
+#   hanya di kit >=3.1.1 (major). Remote functions tidak diaktifkan dan tidak dipakai di repo ini.
+# - GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7): ReDoS extglob. Belum ada versi tambalan. Hanya
+#   lewat toolchain build (vite), tidak ada di runtime produksi.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-3r8g-jcqq-3p5j
+    - GHSA-fc5q-39xc-vjpf
