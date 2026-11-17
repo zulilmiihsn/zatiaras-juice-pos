@@ -319,7 +319,7 @@ try {
 		(e: unknown) => e instanceof WebOrderError && e.status === 404
 	);
 	// Endpoint: tanpa token, token salah, dan token benar.
-	const callMenu = (authorization?: string) =>
+	const callMenu = async (authorization?: string) =>
 		MenuGet({
 			request: new Request('https://pos.test/api/public/menu?outlet=juanda', {
 				headers: authorization ? { authorization } : {}
