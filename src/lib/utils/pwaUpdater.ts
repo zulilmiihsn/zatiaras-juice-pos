@@ -86,11 +86,12 @@ export function createPwaUpdater(deps: PwaUpdaterDeps) {
 		},
 		apply() {
 			if (disposed || reloadStarted) return;
-			if (state === 'reload' || state === 'retry') {
+			if (state === 'reload') {
 				reload();
 				return;
 			}
-			if (state !== 'available') return;
+			// Reload saja saat worker masih waiting akan menawarkan rilis yang sama lagi.
+			if (state !== 'available' && state !== 'retry') return;
 			const waiting = deps.getWaiting();
 			if (!waiting) {
 				// Worker sudah diaktifkan di tempat lain; halaman ini masih memakai JS lama.

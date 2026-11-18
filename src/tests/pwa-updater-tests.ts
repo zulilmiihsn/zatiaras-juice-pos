@@ -105,6 +105,9 @@ test('aktivasi tertunda: tersedia pemulihan muat ulang tanpa toast gagal', () =>
 		h.updater.sync();
 		assert.equal(h.updater.state, 'retry', 'pesan pemulihan tetap terlihat');
 		h.updater.apply();
+		assert.equal(h.reloads(), 0);
+		assert.equal(h.posted.length, 2);
+		h.worker().transition('activated');
 		assert.equal(h.reloads(), 1);
 	} finally {
 		mock.timers.reset();
@@ -191,7 +194,8 @@ test('postMessage melempar error: pemulihan muat ulang tersedia tanpa toast gaga
 	assert.equal(updater.state, 'retry');
 	assert.equal(reloads, 0);
 	updater.apply();
-	assert.equal(reloads, 1);
+	assert.equal(updater.state, 'retry');
+	assert.equal(reloads, 0);
 });
 
 test('worker redundant menyediakan pemulihan, tanpa mengaku update berhasil', () => {

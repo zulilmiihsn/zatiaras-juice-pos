@@ -391,7 +391,7 @@ duplikat; event realtime lintas cabang.
 - Aktivasi dari tab lain menampilkan **Aplikasi sudah diperbarui** dan tombol **Muat ulang**,
   tanpa memuat ulang tab kasir otomatis.
 - Bila belum ada konfirmasi dalam 5 detik, banner tetap tersedia dengan pesan
-  **Pembaruan belum selesai** dan tombol **Muat ulang**. Pengguna tetap dapat bekerja atau
+  **Pembaruan belum selesai** dan tombol **Coba lagi**. Bila worker masih menunggu, klik mengulang permintaan aktivasi, bukan sekadar memuat ulang halaman. Pengguna tetap dapat bekerja atau
   menunda; aktivasi yang terlambat menunggu klik baru agar tidak memotong transaksi.
 - Tab yang masih menjalankan kode updater lama perlu sekali muat ulang setelah rilis
   perbaikan. Jangan menghapus data situs untuk memperbarui: antrean offline dan identitas

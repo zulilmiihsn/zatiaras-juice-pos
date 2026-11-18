@@ -27,13 +27,13 @@
 	);
 	const description = $derived(
 		delayed
-			? 'Aplikasi tetap bisa dipakai. Muat ulang saat pesanan selesai untuk mencoba lagi.'
+			? 'Aplikasi tetap bisa dipakai. Setelah pesanan selesai, coba aktifkan pembaruan lagi.'
 			: reloadRequired
 				? 'Muat ulang untuk memakai versi terbaru.'
 				: 'Selesaikan pesanan yang sedang dibuat, lalu perbarui.'
 	);
 	const actionLabel = $derived(
-		updating ? 'Memperbarui…' : reloadRequired || delayed ? 'Muat ulang' : 'Perbarui'
+		updating ? 'Memperbarui…' : reloadRequired ? 'Muat ulang' : delayed ? 'Coba lagi' : 'Perbarui'
 	);
 </script>
 
