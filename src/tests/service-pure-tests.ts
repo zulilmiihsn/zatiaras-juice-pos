@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { parsePrinterConfig } from '../lib/utils/printerConfig.js';
-import { selectSyncablePendings } from '../lib/utils/offlineQueue.js';
+import { nextPendingSyncAt, selectSyncablePendings } from '../lib/utils/offlineQueue.js';
 import type { PendingTransaction } from '../lib/utils/offlineQueue.js';
 import test from 'node:test';
 import { bestEffortCache } from '../lib/utils/cachePersistence';
@@ -61,6 +61,9 @@ assert.deepEqual(
 	selectSyncablePendings(mixed, { activeBranch: 'samarinda' }).map((i) => i.queue_id),
 	['ok']
 );
+assert.equal(nextPendingSyncAt(mixed.slice(1), 'samarinda'), now + 3600_000);
+assert.equal(nextPendingSyncAt(mixed.slice(1, 5), 'samarinda'), null);
+assert.equal(nextPendingSyncAt([item({ status: 'syncing' })], 'samarinda'), now + 300_000);
 // Force tetap hormati review/cabang/permanen.
 assert.deepEqual(
 	selectSyncablePendings(mixed, { activeBranch: 'samarinda', force: true }).map((i) => i.queue_id),

@@ -15,6 +15,7 @@ import {
 import {
 	classifySyncFailure,
 	getRetryDelayMs,
+	nextPendingSyncAt,
 	selectSyncablePendings
 } from '$lib/utils/offlineQueue';
 import { dbPost } from '$lib/services/dataApiClient';
@@ -81,13 +82,12 @@ function schedulePendingSync(delayMs: number): void {
 	);
 }
 
-async function scheduleNextPendingSync(): Promise<void> {
-	const retryable = (await getPendingTransactions()).filter(
-		(item) => item.failure_kind !== 'auth' && item.failure_kind !== 'conflict'
-	);
-	if (!retryable.length) return;
-	const nextAttemptAt = Math.min(...retryable.map((item) => item.next_attempt_at));
-	schedulePendingSync(Math.max(250, nextAttemptAt - Date.now()));
+function scheduleNextPendingSync(
+	items: Awaited<ReturnType<typeof getPendingTransactions>>,
+	branch: string
+): void {
+	const next = nextPendingSyncAt(items, branch);
+	if (next !== null) schedulePendingSync(next - Date.now());
 }
 
 /**
@@ -103,12 +103,16 @@ async function runPendingTransactionSync(
 	const sessionBranch = getOfflineSessionBranch(readOfflineSessionSnapshot());
 	if (sessionBranch !== activeBranch) return;
 
-	const pendings = selectSyncablePendings(await getPendingTransactions(), {
+	const items = await getPendingTransactions();
+	const pendings = selectSyncablePendings(items, {
 		activeBranch,
 		force,
 		queueIds
 	});
-	if (!pendings.length) return;
+	if (!pendings.length) {
+		scheduleNextPendingSync(items, activeBranch);
+		return;
+	}
 	let synced = 0;
 	let failed = 0;
 
@@ -143,7 +147,7 @@ async function runPendingTransactionSync(
 
 	window.dispatchEvent(new CustomEvent('pending-sync-result', { detail: { synced, failed } }));
 	if (synced > 0) window.dispatchEvent(new CustomEvent('pending-synced'));
-	await scheduleNextPendingSync();
+	scheduleNextPendingSync(await getPendingTransactions(), activeBranch);
 }
 
 export async function syncPendingTransactions(
@@ -176,6 +180,8 @@ export async function syncPendingTransactions(
 }
 
 if (typeof window !== 'undefined') {
+	// Timer hilang saat tab ditutup, tetapi antrean dan tenggat retry tetap ada di IndexedDB.
+	schedulePendingSync(250);
 	window.addEventListener('online', () => void syncPendingTransactions());
 	window.addEventListener('pending-changed', () => schedulePendingSync(500));
 	window.addEventListener('auth-session-refreshed', () => {
