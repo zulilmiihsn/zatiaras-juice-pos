@@ -89,6 +89,9 @@ async function assertCheckoutAvailable(
 	platform: App.Platform | undefined
 ): Promise<CheckoutCapabilities> {
 	const capabilities = await getCheckoutCapabilities(db, branch);
+	if (!capabilities.idempotencyAvailable) {
+		fail(503, 'Skema idempotency checkout belum tersedia. Periksa migrasi cabang.');
+	}
 	if (!capabilities.nomorHarianAvailable) {
 		fail(
 			503,

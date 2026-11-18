@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { branchContext } from '../lib/server/branchResolver';
+import { branchContext, getD1Database } from '../lib/server/branchResolver';
 import { buildCheckoutStatements } from '../lib/server/checkout/statementBuilder';
 import {
 	countPendingOrders,
@@ -1212,6 +1212,22 @@ try {
 			`hanya satu capability mati ${kasus.nama}`
 		);
 	}
+
+	assert.throws(() => getD1Database({ DB: db }, 'berau'), { status: 503 });
+	assert.equal(getD1Database({ DB_BERAU_GROUP: db }, 'berau'), db);
+	await assert.rejects(
+		executeCheckout({
+			db: fakeCapsDb({ ...skemaPenuh, bukuKas: ['nomor_harian', 'tanggal_nomor'] }),
+			branch: samarinda,
+			session: { userId: 'owner-antrean', role: 'pemilik' },
+			platform: undefined,
+			rawBody: null
+		}),
+		(error: unknown) =>
+			error instanceof CheckoutUseCaseError &&
+			error.status === 503 &&
+			/idempotency/.test(error.message)
+	);
 
 	// Q11: tanpa skema 0036, checkout gagal tertutup 503 dengan pesan jelas.
 	assert.equal((await getCheckoutCapabilities(db, samarinda)).nomorHarianAvailable, true);

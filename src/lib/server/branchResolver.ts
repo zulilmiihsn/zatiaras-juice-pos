@@ -54,7 +54,7 @@ export function getD1Database(
 	branch: BranchId
 ): D1Database {
 	const binding = getBranchDbBinding(branch);
-	const db = env?.[binding] || env?.DB;
+	const db = env?.[binding];
 	if (!db) {
 		throw error(503, `Database binding ${binding} tidak tersedia`);
 	}
