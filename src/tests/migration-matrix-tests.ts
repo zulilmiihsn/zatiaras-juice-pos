@@ -322,7 +322,6 @@ const expectedTables = [
 	'stock_reconciliations',
 	'stock_reconciliation_items',
 	'offline_stock_reviews',
-	'stock_feature_rollout',
 	'pos_nomor_harian'
 ];
 for (const expected of expectedTables) {
@@ -606,10 +605,11 @@ assert.ok(
 	'offline reviews must have transition guard'
 );
 
-const rolloutSeed = db
-	.prepare("SELECT branches FROM stock_feature_rollout WHERE feature = 'stock_monitoring'")
-	.get() as { branches?: string } | undefined;
-assert.equal(rolloutSeed?.branches, '', 'rollout starts closed for every branch');
+assert.equal(
+	tables.includes('stock_feature_rollout'),
+	false,
+	'gate pilot stock_feature_rollout dihapus oleh migrasi 0047'
+);
 
 db.exec(`INSERT INTO offline_stock_reviews (
 	cabang_id, idempotency_key, request_fingerprint, queued_at,

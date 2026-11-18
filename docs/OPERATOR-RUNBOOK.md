@@ -348,7 +348,7 @@ duplikat; event realtime lintas cabang.
 ## 7. Monitoring stok per cabang
 
 - Diubah pemilik di `/pengaturan/pemilik/stok`. Tersedia untuk semua cabang; gate pilot
-  `stock_feature_rollout` tidak lagi dibaca aplikasi.
+  `stock_feature_rollout` sudah dihapus (migrasi 0047).
 - Sebelum menonaktifkan, pastikan antrean offline semua perangkat cabang kosong. Sisa
   antrean akan dikarantina (428) dan perlu persetujuan pemilik.
 - Mengaktifkan ulang wajib rekonsiliasi fisik di halaman yang sama sampai finalisasi.
