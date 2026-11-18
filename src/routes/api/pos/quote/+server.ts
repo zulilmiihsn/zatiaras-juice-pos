@@ -1,4 +1,5 @@
 import { error as kitError, json } from '@sveltejs/kit';
+import { isD1DailyLimit, dailyLimitResponse } from '$lib/server/d1DailyLimit';
 import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { buildPosQuote } from '$lib/server/checkout/quoteUseCase';
@@ -21,6 +22,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			await buildPosQuote(platform, branch, { userId: session.userId, role: session.role }, body)
 		);
 	} catch (error) {
+		if (isD1DailyLimit(error)) return dailyLimitResponse();
 		if (error instanceof CheckoutDomainError) throw kitError(error.status, error.message);
 		throw error;
 	}

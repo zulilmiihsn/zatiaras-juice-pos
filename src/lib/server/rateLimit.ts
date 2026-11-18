@@ -1,3 +1,4 @@
+import { isD1DailyLimit } from './d1DailyLimit';
 import type { BranchId } from '$lib/server/branchResolver';
 
 type RateLimitResult = {
@@ -144,7 +145,8 @@ export async function consumeRateLimit(
 			retryAfterSeconds: allowed ? 0 : Math.max(0, Math.ceil((rowResetAt - now) / 1000)),
 			resetAt: rowResetAt
 		};
-	} catch {
+	} catch (error) {
+		if (identifier.startsWith('checkout:') && isD1DailyLimit(error)) throw error;
 		return {
 			allowed: false,
 			available: false,

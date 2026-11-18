@@ -17,6 +17,23 @@ import {
 } from '../lib/utils/currency';
 
 import { resolveCheckoutQuote } from '../lib/server/checkout/quoteResolution';
+import { isD1DailyLimit } from '../lib/server/d1DailyLimit';
+
+test('only explicit D1 daily exhaustion can defer checkout', () => {
+	assert.equal(
+		isD1DailyLimit(new Error('D1_ERROR', { cause: new Error('D1 DB exceeded its daily limits.') })),
+		true
+	);
+	for (const message of [
+		'D1_ERROR: database unavailable',
+		'rate limit exceeded',
+		'INSUFFICIENT_STOCK',
+		'SQLITE_FULL'
+	]) {
+		assert.equal(isD1DailyLimit(new Error(message)), false);
+	}
+});
+
 import { branchContext } from '../lib/server/branchResolver';
 
 test('offline QRIS retains noncash payment while invalid methods remain rejected', async () => {

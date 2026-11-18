@@ -110,7 +110,7 @@
 							<div>
 								<div class="text-xs font-bold">Mode Offline Aktif</div>
 								<div class="mt-0.5 text-xs text-amber-800">
-									Pembayaran tunai akan disimpan lokal sampai koneksi internet kembali.
+									Penjualan disimpan di perangkat sampai server dapat menerima transaksi kembali.
 								</div>
 							</div>
 						</div>

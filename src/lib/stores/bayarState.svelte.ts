@@ -188,6 +188,13 @@ export function createBayarState() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ items: buildCheckoutItems(cart) })
 			});
+			if (response.status === 503 && response.headers.get('x-pos-defer') === 'd1-daily-limit') {
+				setOffline(true);
+				if (!hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
+					throw new Error('Kuota D1 habis dan katalog harga lokal tidak valid.');
+				}
+				return 'ready';
+			}
 			if (!response.ok) {
 				throw new Error(await parseApiError(response, `Quote gagal: HTTP ${response.status}`));
 			}
@@ -367,7 +374,9 @@ export function createBayarState() {
 			quote_token: activeQuoteToken,
 			store_session_id: id_sesi_toko
 		};
-		if (navigator.onLine) {
+		if (navigator.onLine && !isOffline) {
+			let deferForQuota = false;
+			const attemptedAt = Date.now();
 			try {
 				const response = await fetchWithCsrfRetry('/api/pos/transaction', {
 					method: 'POST',
@@ -375,6 +384,8 @@ export function createBayarState() {
 					body: JSON.stringify(requestPayload)
 				});
 				if (!response.ok) {
+					deferForQuota =
+						response.status === 503 && response.headers.get('x-pos-defer') === 'd1-daily-limit';
 					throw new Error(await parseApiError(response, `HTTP ${response.status}`));
 				}
 				const result = parseCheckoutResponse(await response.json());
@@ -382,12 +393,16 @@ export function createBayarState() {
 				quotedTotal = result.total_amount;
 				nomorPesanan = result.nomor_harian ?? null;
 			} catch (error) {
-				if (error instanceof TypeError || !navigator.onLine) {
+				if (deferForQuota || error instanceof TypeError || !navigator.onLine) {
+					if (deferForQuota && !(Date.parse(quoteExpiresAt) > attemptedAt)) {
+						notify('Quote kedaluwarsa. Konfirmasi ulang pembayaran.', 'error');
+						return false;
+					}
 					try {
 						await queueCurrentPosTransaction({
 							...requestPayload,
 							mode: 'offline_replay',
-							queued_at: Date.now()
+							queued_at: attemptedAt
 						});
 					} catch (queueError) {
 						notify(ErrorHandler.extractErrorMessage(queueError), 'error');

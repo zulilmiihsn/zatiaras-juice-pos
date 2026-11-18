@@ -15,10 +15,14 @@ function readUatPassword(): string {
 }
 
 async function loginAsOwner(page: Page) {
+	return loginAs(page, ownerUsernameForTest(test.info().title));
+}
+
+async function loginAs(page: Page, username: string) {
 	await page.goto('/login');
 	await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 60_000 });
 	await page.getByLabel('Pilih Cabang').selectOption('samarinda');
-	await page.getByPlaceholder('Masukkan username').fill(ownerUsernameForTest(test.info().title));
+	await page.getByPlaceholder('Masukkan username').fill(username);
 	await page.getByPlaceholder('Masukkan password').fill(readUatPassword());
 	const loginResponse = page.waitForResponse(
 		(response) =>
@@ -44,79 +48,182 @@ async function cleanupTransaction(page: Page, transactionId: string) {
 	expect(result.ok, `Cleanup transaksi gagal: ${result.status}`).toBe(true);
 }
 
-test('offline QRIS checkout queues noncash and replays idempotently', async ({ page, context }) => {
-	await loginAsOwner(page);
-	let transactionId = '';
-	try {
-		await page.goto('/pos');
-		const product = page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ });
-		await expect(product).toBeVisible({ timeout: 60_000 });
-		await product.click();
-		await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
-		await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
-		await page.getByRole('button', { name: /^Bayar Rp/ }).click();
-		await expect(page).toHaveURL(/\/pos\/bayar$/);
-		await page.getByLabel('Nama Pelanggan').fill('UAT QRIS Offline');
-		await context.setOffline(true);
-		await expect(page.getByRole('button', { name: 'QRIS', exact: true })).toBeEnabled();
-		await page.getByRole('button', { name: 'QRIS', exact: true }).click();
-		await page.getByRole('button', { name: 'Konfirmasi & Proses Transaksi' }).click();
-		await expect(page.getByRole('dialog', { name: 'Periksa Pembayaran QRIS' })).toBeVisible();
-		await page.getByRole('button', { name: 'Sudah Diperiksa' }).click();
-		await expect(page.getByText('Tersimpan di perangkat dan menunggu sinkronisasi.')).toBeVisible();
-		const queued = await page.evaluate(async () => {
-			const path = '/src/lib/utils/offline.ts';
-			const offline = await import(/* @vite-ignore */ path);
-			return (await offline.getPendingTransactions()).find(
-				(entry: { request?: { nama_pelanggan?: string } }) =>
-					entry.request?.nama_pelanggan === 'UAT QRIS Offline'
+for (const outage of ['offline', 'D1 quota at quote', 'D1 quota at commit'] as const) {
+	test(`${outage} QRIS checkout queues noncash and replays idempotently`, async ({
+		page,
+		context
+	}) => {
+		await loginAsOwner(page);
+		let transactionId = '';
+		try {
+			await page.goto('/pos');
+			const product = page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ });
+			await expect(product).toBeVisible({ timeout: 60_000 });
+			await product.click();
+			await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
+			await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
+			await page.getByRole('button', { name: /^Bayar Rp/ }).click();
+			await expect(page).toHaveURL(/\/pos\/bayar$/);
+			await page.getByLabel('Nama Pelanggan').fill('UAT QRIS Offline');
+			if (outage === 'offline') await context.setOffline(true);
+			else {
+				const denied = { status: 503, headers: { 'x-pos-defer': 'd1-daily-limit' }, body: '{}' };
+				await page.route('**/api/pos/transaction', (route) => route.fulfill(denied));
+				if (outage === 'D1 quota at quote')
+					await page.route('**/api/pos/quote', (route) => route.fulfill(denied));
+			}
+			await expect(page.getByRole('button', { name: 'QRIS', exact: true })).toBeEnabled();
+			await page.getByRole('button', { name: 'QRIS', exact: true }).click();
+			await page.getByRole('button', { name: 'Konfirmasi & Proses Transaksi' }).click();
+			await expect(page.getByRole('dialog', { name: 'Periksa Pembayaran QRIS' })).toBeVisible();
+			await page.getByRole('button', { name: 'Sudah Diperiksa' }).click();
+			await expect(
+				page.getByText('Tersimpan di perangkat dan menunggu sinkronisasi.')
+			).toBeVisible();
+			const queued = await page.evaluate(async () => {
+				const path = '/src/lib/utils/offline.ts';
+				const offline = await import(/* @vite-ignore */ path);
+				return (await offline.getPendingTransactions()).find(
+					(entry: { request?: { nama_pelanggan?: string } }) =>
+						entry.request?.nama_pelanggan === 'UAT QRIS Offline'
+				);
+			});
+			expect(queued?.request).toMatchObject({
+				metode_bayar: 'non-tunai',
+				mode: 'offline_replay',
+				cash_received: 10000
+			});
+			expect(queued?.request?.idempotency_key).toBeTruthy();
+			const responsePromise = page.waitForResponse(
+				(response) =>
+					response.url().endsWith('/api/pos/transaction') && response.request().method() === 'POST',
+				{ timeout: 60_000 }
 			);
+			if (outage === 'offline') await context.setOffline(false);
+			else await page.unroute('**/api/pos/transaction');
+			const response = await responsePromise;
+			expect(response.ok(), await response.text()).toBe(true);
+			const result = await response.json();
+			transactionId = result.data?.transaction_id || '';
+			expect(transactionId).toBeTruthy();
+			expect(result.data?.receipt?.metode_bayar).toBe('non-tunai');
+			const replay = await page.evaluate(async (request) => {
+				const csrf = await (await fetch('/api/csrf')).json();
+				const response = await fetch('/api/pos/transaction', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+					body: JSON.stringify(request)
+				});
+				return { status: response.status, body: await response.json() };
+			}, queued.request);
+			expect(replay.status).toBe(200);
+			expect(replay.body.data?.transaction_id).toBe(transactionId);
+			const invalidTokenStatus = await page.evaluate(async (request) => {
+				const csrf = await (await fetch('/api/csrf')).json();
+				const invalid = structuredClone(request);
+				invalid.idempotency_key = crypto.randomUUID();
+				delete invalid.quote_token;
+				invalid.items[0].product_price_token = 'invalid';
+				const response = await fetch('/api/pos/transaction', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+					body: JSON.stringify(invalid)
+				});
+				return response.status;
+			}, queued.request);
+			expect(invalidTokenStatus).toBe(400);
+		} finally {
+			await context.setOffline(false);
+			if (transactionId) await cleanupTransaction(page, transactionId);
+		}
+	});
+}
+
+test('cashier quota recovery after closing the tab reconciles cash and QRIS', async ({
+	page,
+	context,
+	browser
+}) => {
+	const observer = await browser.newPage({ baseURL: test.info().project.use.baseURL });
+	const ids = new Set<string>();
+	try {
+		await loginAsOwner(observer);
+		const shift = await observer.evaluate(async () => {
+			const rows = await (await fetch('/api/sesi-toko?is_active=1')).json();
+			return rows.find((row: { is_active: boolean }) => row.is_active)?.id;
 		});
-		expect(queued?.request).toMatchObject({
-			metode_bayar: 'non-tunai',
-			mode: 'offline_replay',
-			cash_received: 10000
-		});
-		expect(queued?.request?.idempotency_key).toBeTruthy();
-		const responsePromise = page.waitForResponse(
-			(response) =>
-				response.url().endsWith('/api/pos/transaction') && response.request().method() === 'POST',
+		expect(shift).toBeTruthy();
+		const summary = () =>
+			observer.evaluate(async (id) => {
+				const res = await fetch(`/api/sesi-toko?summary=1&id=${encodeURIComponent(id)}`);
+				if (!res.ok) throw new Error(`summary ${res.status}`);
+				return res.json();
+			}, shift);
+		const before = await summary();
+		await loginAs(page, 'kasir');
+		await context.route('**/api/pos/transaction', (route) =>
+			route.fulfill({ status: 503, headers: { 'x-pos-defer': 'd1-daily-limit' }, body: '{}' })
+		);
+		for (const method of ['Tunai', 'QRIS']) {
+			await page.goto('/pos');
+			await page.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ }).click();
+			await page.getByRole('button', { name: 'Jumbo Rp 10.000', exact: true }).click();
+			await page.getByRole('button', { name: 'Tambah Rp 10.000', exact: true }).click();
+			await page.getByRole('button', { name: /^Bayar Rp/ }).click();
+			await page.getByLabel('Nama Pelanggan').fill(`UAT shift quota ${method}`);
+			await page.getByRole('button', { name: method, exact: true }).click();
+			await page.getByRole('button', { name: 'Konfirmasi & Proses Transaksi' }).click();
+			if (method === 'Tunai') {
+				await page.getByPlaceholder('0', { exact: true }).fill('12000');
+				await page.getByRole('button', { name: 'Selesai', exact: true }).click();
+			} else await page.getByRole('button', { name: 'Sudah Diperiksa' }).click();
+			await expect(
+				page.getByText('Tersimpan di perangkat dan menunggu sinkronisasi.')
+			).toBeVisible();
+		}
+		await page.close();
+		const reopened = await context.newPage();
+		await reopened.goto('/pos');
+		await expect(reopened.getByRole('button', { name: /(?:Pilih|Tambah) Es Teh UAT/ })).toBeVisible(
 			{ timeout: 60_000 }
 		);
-		await context.setOffline(false);
-		const response = await responsePromise;
-		expect(response.ok(), await response.text()).toBe(true);
-		const result = await response.json();
-		transactionId = result.data?.transaction_id || '';
-		expect(transactionId).toBeTruthy();
-		expect(result.data?.receipt?.metode_bayar).toBe('non-tunai');
-		const replay = await page.evaluate(async (request) => {
-			const csrf = await (await fetch('/api/csrf')).json();
-			const response = await fetch('/api/pos/transaction', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
-				body: JSON.stringify(request)
+		const pending = () =>
+			reopened.evaluate(async () => {
+				const path = '/src/lib/utils/offline.ts';
+				return (await (await import(/* @vite-ignore */ path)).getPendingTransactions()).map(
+					(row: { request: { idempotency_key: string } }) => row.request
+				);
 			});
-			return { status: response.status, body: await response.json() };
-		}, queued.request);
-		expect(replay.status).toBe(200);
-		expect(replay.body.data?.transaction_id).toBe(transactionId);
-		const invalidTokenStatus = await page.evaluate(async (request) => {
-			const csrf = await (await fetch('/api/csrf')).json();
-			const invalid = structuredClone(request);
-			invalid.idempotency_key = crypto.randomUUID();
-			invalid.items[0].product_price_token = 'invalid';
-			const response = await fetch('/api/pos/transaction', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
-				body: JSON.stringify(invalid)
-			});
-			return response.status;
-		}, queued.request);
-		expect(invalidTokenStatus).toBe(400);
+		const requests = await pending();
+		expect(requests).toHaveLength(2);
+		expect(await summary()).toEqual(before);
+		await context.unroute('**/api/pos/transaction');
+		// Restore service without toggling connectivity or manually draining the queue.
+		await expect.poll(async () => (await pending()).length, { timeout: 60000 }).toBe(0);
+		for (const request of requests) {
+			const result = await reopened.evaluate(async (body) => {
+				const { token } = await (await fetch('/api/csrf')).json();
+				return (
+					await fetch('/api/pos/transaction', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+						body: JSON.stringify(body)
+					})
+				).json();
+			}, request);
+			expect(result.idempotent).toBe(true);
+			ids.add(result.data.transaction_id);
+		}
+		expect(ids.size).toBe(2);
+		expect(await summary()).toMatchObject({
+			uangKasir: before.uangKasir + 10000,
+			pemasukanTunai: before.pemasukanTunai + 10000,
+			pemasukanNonTunai: before.pemasukanNonTunai + 10000,
+			baris: before.baris + 2
+		});
 	} finally {
-		await context.setOffline(false);
-		if (transactionId) await cleanupTransaction(page, transactionId);
+		for (const id of ids) await cleanupTransaction(observer, id);
+		await observer.close();
 	}
 });
 

@@ -4,6 +4,8 @@ Aplikasi point of sale internal Zatiaras untuk kasir dan pemilik di tiga cabang
 (Samarinda, Balikpapan, Berau). Berjalan sebagai PWA di
 Cloudflare Pages dan tetap bisa mencatat penjualan tunai maupun QRIS saat offline.
 
+Jika API checkout melaporkan kuota harian D1 habis, penjualan dapat masuk antrean perangkat meski internet tersambung. Pastikan sesi toko dan harga masih valid. Pesan **tersimpan lokal** berarti belum masuk laporan pusat. Jangan hapus data browser; buka kembali aplikasi di perangkat dan cabang yang sama agar antrean bisa disinkronkan setelah D1 pulih.
+
 ## Fitur
 
 - **POS**: tunai dan non-tunai, porsi biasa/jumbo, tambahan, gula/es/catatan, item
