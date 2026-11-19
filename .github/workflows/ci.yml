@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, development]
+    branches: [main, development, 'release/**']
   pull_request:
     branches: [main]
 
@@ -558,12 +558,15 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      # Preview and development runs test the bundle but are not deployable refs.
       - name: Record Release Manifest
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
         env:
           RELEASE_COMMIT_SHA: ${{ github.sha }}
         run: pnpm deploy:manifest
 
       - name: Upload Release Artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
         uses: actions/upload-artifact@v5
         with:
           name: release-${{ github.sha }}
