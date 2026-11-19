@@ -23,15 +23,19 @@ export function ownerUsernameForTest(title) {
 	return E2E_OWNER_USERNAMES[(hash >>> 0) % E2E_OWNER_USERNAMES.length];
 }
 
+// These specs run against the compiled Pages worker, not the Vite dev server.
+export const COMPILED_ONLY_E2E_SPECS = Object.freeze(['e2e/compiled-offline-launch.spec.ts']);
+
 /** Full gate shares the CI inventory, but never shares its auth limiter state across cohorts. */
 export function resolveE2eSelections(argv, options = {}) {
 	if (argv.length) return [{ name: 'selected', args: [...argv] }];
 	const scripts = options.scripts || JSON.parse(readFileSync('package.json', 'utf8')).scripts;
-	const specFiles =
+	const discoveredSpecs =
 		options.specFiles ||
 		readdirSync('e2e', { recursive: true })
 			.filter((file) => /\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file))
 			.map((file) => `e2e/${file.replaceAll('\\', '/')}`);
+	const specFiles = discoveredSpecs.filter((file) => !COMPILED_ONLY_E2E_SPECS.includes(file));
 	const prefix = 'node scripts/run-playwright-local.mjs ';
 	const selections = ['a', 'b', 'c'].map((cohort) => {
 		const command = scripts[`test:e2e:ci-${cohort}`];

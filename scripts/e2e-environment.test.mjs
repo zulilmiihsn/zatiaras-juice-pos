@@ -17,6 +17,7 @@ import { createServer } from 'node:http';
 import { ensureE2eApplicationReady } from './e2e-readiness.mjs';
 import {
 	createE2eEnvironment,
+	COMPILED_ONLY_E2E_SPECS,
 	resolveE2eSelections,
 	E2E_OWNER_USERNAMES,
 	ownerUsernameForTest
@@ -223,7 +224,8 @@ test('default full runner owns fresh state per canonical CI cohort with exact wh
 		.filter((file) => file.endsWith('.spec.ts'))
 		.map((file) => `e2e/${file}`)
 		.sort();
-	assert.deepEqual(selected, inventory);
+	for (const file of COMPILED_ONLY_E2E_SPECS) assert.ok(inventory.includes(file), file);
+	assert.deepEqual([...selected, ...COMPILED_ONLY_E2E_SPECS].sort(), inventory);
 	assert.equal(new Set(selected).size, selected.length);
 	for (const key of ['ZATIARAS_E2E_STATE', 'E2E_OUTPUT_DIR', 'PLAYWRIGHT_HTML_OUTPUT_DIR']) {
 		assert.equal(new Set(controlled.invocations.map(({ options }) => options.env[key])).size, 3);
@@ -295,6 +297,9 @@ test('full coverage rejects a missing, duplicate, unknown or invalid canonical s
 		},
 		(copy) => {
 			copy['test:e2e:ci-a'] += ' e2e/not-present.spec.ts';
+		},
+		(copy) => {
+			copy['test:e2e:ci-a'] += ' ' + COMPILED_ONLY_E2E_SPECS[0];
 		},
 		(copy) => {
 			copy['test:e2e:ci-b'] += ' e2e/pos.spec.ts';

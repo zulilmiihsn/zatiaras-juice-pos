@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
 import { validateRenderedLoginResponse } from '../e2e-readiness.mjs';
-import { E2E_OWNER_USERNAMES } from '../e2e-environment.mjs';
+import { COMPILED_ONLY_E2E_SPECS, E2E_OWNER_USERNAMES } from '../e2e-environment.mjs';
 
 const require = createRequire(import.meta.url);
 const excluded = new Set(['_headers', '_redirects', '_routes.json']);
@@ -185,7 +185,7 @@ export async function runCompiledBrowser({ address, password, startupStarted, ce
 	const args = [
 		require.resolve('@playwright/test/cli'),
 		'test',
-		'e2e/compiled-offline-launch.spec.ts',
+		...COMPILED_ONLY_E2E_SPECS,
 		'e2e/catat-recent.spec.ts',
 		'e2e/ai-mutation.spec.ts',
 		'e2e/ledger-callers.spec.ts',

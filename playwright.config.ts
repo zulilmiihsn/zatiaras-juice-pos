@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { COMPILED_ONLY_E2E_SPECS } from './scripts/e2e-environment.mjs';
 
 // Runner E2E (scripts/run-playwright-local.mjs) mengisi E2E_PORT dengan port
 // bebas + menjalankan dev server sendiri. Tanpa env ini perilaku lama dipakai.
@@ -23,7 +24,7 @@ if (compiledLocalTLS) {
 
 export default defineConfig({
 	testDir: './e2e',
-	testIgnore: compiledLocalTLS ? [] : ['**/compiled-offline-launch.spec.ts'],
+	testIgnore: compiledLocalTLS ? [] : COMPILED_ONLY_E2E_SPECS.map((file) => `**/${file}`),
 	outputDir: process.env.E2E_OUTPUT_DIR || 'test-results',
 	fullyParallel: false,
 	workers: 1,
