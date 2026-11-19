@@ -17,6 +17,9 @@ import {
 } from '../lib/utils/currency';
 
 import { resolveCheckoutQuote } from '../lib/server/checkout/quoteResolution';
+import { POST as quotePost } from '../routes/api/pos/quote/+server';
+import { POST as transactionPost } from '../routes/api/pos/transaction/+server';
+import { createTestD1 } from './helpers/testD1';
 import { isD1DailyLimit } from '../lib/server/d1DailyLimit';
 
 test('only explicit D1 daily exhaustion can defer checkout', () => {
@@ -35,6 +38,50 @@ test('only explicit D1 daily exhaustion can defer checkout', () => {
 });
 
 import { branchContext } from '../lib/server/branchResolver';
+
+test('quote and transaction signal only explicit daily exhaustion from the D1 limiter', async () => {
+	const { db, close } = await createTestD1();
+	try {
+		for (const name of ['quote', 'transaction'] as const) {
+			const post = () => {
+				const event = {
+					request: new Request(`http://localhost/api/pos/${name}`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: '{}'
+					}),
+					locals: { authSession: { userId: 'quota-test', branch: 'samarinda', role: 'kasir' } },
+					platform: { env: { DB_SAMARINDA_GROUP: db } }
+				};
+				return name === 'quote'
+					? quotePost(event as unknown as Parameters<typeof quotePost>[0])
+					: transactionPost(event as unknown as Parameters<typeof transactionPost>[0]);
+			};
+			await db
+				.prepare(
+					"CREATE TRIGGER quota_failure BEFORE INSERT ON rate_limits BEGIN SELECT RAISE(ABORT, 'D1 DB exceeded its daily limits.'); END"
+				)
+				.run();
+			const response = await post();
+			assert.equal(response.status, 503);
+			assert.equal(response.headers.get('x-pos-defer'), 'd1-daily-limit');
+			await db.prepare('DROP TRIGGER quota_failure').run();
+			await db
+				.prepare(
+					"CREATE TRIGGER generic_failure BEFORE INSERT ON rate_limits BEGIN SELECT RAISE(ABORT, 'database unavailable'); END"
+				)
+				.run();
+			await assert.rejects(async () => post(), { status: 503 });
+			await db.prepare('DROP TRIGGER generic_failure').run();
+			await assert.rejects(async () => post(), { status: 400 });
+			await db.prepare("UPDATE rate_limits SET count=10000 WHERE cabang_id='samarinda'").run();
+			await assert.rejects(async () => post(), { status: 429 });
+		}
+		assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
+	} finally {
+		await close();
+	}
+});
 
 test('offline QRIS retains noncash payment while invalid methods remain rejected', async () => {
 	const now = Date.parse('2026-06-19T00:00:00.000Z');

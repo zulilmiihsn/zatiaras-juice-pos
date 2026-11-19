@@ -21,7 +21,7 @@ import {
 } from '../realtimePublisher';
 import { settlePostCommitEffects } from '../postCommit';
 import { auditIntentStatement, type AuditLogInput } from '../auditLog';
-import { consumeRateLimit } from '../rateLimit';
+import { consumePosRateLimit } from './posRateLimit';
 import { buildOrderCreatedStatement } from '../orderNotifications/repository';
 import { resolveCheckoutNotificationOrigin } from '../orderNotifications/useCase';
 import { kickOrderNotifications } from '../orderNotifications/delivery';
@@ -99,7 +99,7 @@ async function assertCheckoutAvailable(
 		);
 	}
 
-	const limit = await consumeRateLimit(
+	const limit = await consumePosRateLimit(
 		db,
 		branch,
 		`checkout:${session.userId}`,

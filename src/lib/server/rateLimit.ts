@@ -1,7 +1,7 @@
-import { isD1DailyLimit } from './d1DailyLimit';
 import type { BranchId } from '$lib/server/branchResolver';
 
 type RateLimitResult = {
+	unavailableCause?: unknown;
 	allowed: boolean;
 	available: boolean;
 	backend: 'durable-object' | 'd1' | 'unavailable';
@@ -146,8 +146,8 @@ export async function consumeRateLimit(
 			resetAt: rowResetAt
 		};
 	} catch (error) {
-		if (identifier.startsWith('checkout:') && isD1DailyLimit(error)) throw error;
 		return {
+			unavailableCause: error,
 			allowed: false,
 			available: false,
 			backend: 'unavailable',
