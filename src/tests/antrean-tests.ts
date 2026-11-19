@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { fakeCapsDb } from './helpers/fakeCapsDb';
 import { branchContext, getD1Database } from '../lib/server/branchResolver';
 import { buildCheckoutStatements } from '../lib/server/checkout/statementBuilder';
 import {
@@ -1110,30 +1111,6 @@ try {
 		transactionSnapshotAvailable: true,
 		nomorHarianAvailable: true
 	});
-	type CapsDb = Parameters<typeof getCheckoutCapabilities>[0];
-	function fakeCapsDb(opts: {
-		tables: string[];
-		bukuKas: string[];
-		produk: string[];
-		transaksiKasir: string[];
-	}): CapsDb {
-		const pick = (sql: string): Array<{ name: string }> => {
-			const rows = sql.includes('sqlite_master')
-				? opts.tables
-				: sql.includes('buku_kas')
-					? opts.bukuKas
-					: sql.includes('produk')
-						? opts.produk
-						: opts.transaksiKasir;
-			return rows.map((name) => ({ name }));
-		};
-		return {
-			prepare: (sql: string) => ({
-				bind: (..._args: unknown[]) => ({ all: async () => ({ results: pick(sql) }) }),
-				all: async () => ({ results: pick(sql) })
-			})
-		} as unknown as CapsDb;
-	}
 	const skemaPenuh = {
 		tables: [
 			'pos_nomor_harian',
