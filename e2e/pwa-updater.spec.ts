@@ -18,9 +18,10 @@ async function startFixture() {
 			// Match the production worker's prompt protocol, including no clients.claim().
 			response.end(`// fixture version ${version}
                 self.addEventListener('message', event => {
-                    if (${responds} && event.data?.type === 'SKIP_WAITING') {
+                    if (event.data?.type === 'SKIP_WAITING' && (${responds} || self.alreadyAttempted)) {
                         event.waitUntil(self.skipWaiting());
                     }
+                    if (event.data?.type === 'SKIP_WAITING') self.alreadyAttempted = true;
                 });`);
 		} else if (request.url === '/updater.js') {
 			response.setHeader('Content-Type', 'application/javascript');
@@ -107,6 +108,15 @@ test('PWA update reloads an uncontrolled tab after activation without controller
 		await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
 		expect(await page.evaluate(() => sessionStorage.getItem('reloads'))).toBe('1');
 		expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+		// Rilis tidak berubah: cek berkala dan membuka ulang aplikasi tidak boleh meminta update lagi.
+		await page.evaluate(async () => (await navigator.serviceWorker.ready).update());
+		await page.reload();
+		await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+		expect(
+			await page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).waiting))
+		).toBe(false);
+		await expect(page.locator('#state')).toHaveText('idle');
+		await expect(page.getByRole('button', { name: 'Perbarui' })).toBeDisabled();
 	} finally {
 		await fixture.close();
 	}
@@ -132,7 +142,7 @@ test('PWA activation from another tab waits for consent before reloading an unco
 	}
 });
 
-test('PWA worker without a response offers manual reload after the bounded wait', async ({
+test('PWA retry activates the same waiting worker instead of reloading prematurely', async ({
 	context,
 	page
 }) => {
@@ -146,6 +156,11 @@ test('PWA worker without a response offers manual reload after the bounded wait'
 		expect(await page.evaluate(() => sessionStorage.getItem('reloads'))).toBeNull();
 		await page.getByRole('button', { name: 'Perbarui' }).click();
 		await expect(page.locator('#version')).toHaveText('2');
+		// Retry harus mengaktifkan worker yang sama; reload saja membuat banner muncul lagi.
+		await expect(page.locator('#state')).toHaveText('idle');
+		expect(
+			await page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).waiting))
+		).toBe(false);
 		expect(await page.evaluate(() => sessionStorage.getItem('reloads'))).toBe('1');
 	} finally {
 		await fixture.close();

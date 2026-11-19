@@ -126,10 +126,22 @@ export function getRetryDelayMs(attemptCount: number): number {
 	return Math.min(5 * 60_000, 1_000 * 2 ** Math.min(safeAttempt - 1, 9));
 }
 
+function pendingRetryAt(item: PendingTransaction): number {
+	return item.status === 'syncing' ? Date.parse(item.updated_at) + 300_000 : item.next_attempt_at;
+}
+
+export function nextPendingSyncAt(
+	items: PendingTransaction[],
+	activeBranch: string
+): number | null {
+	const eligible = selectSyncablePendings(items, { activeBranch, force: true });
+	const times = eligible.map(pendingRetryAt).filter(Number.isFinite);
+	return times.length ? Math.min(...times) : null;
+}
+
 export function isPendingReady(item: PendingTransaction, now = Date.now()): boolean {
-	if (item.status === 'syncing') return now - Date.parse(item.updated_at) >= 5 * 60_000;
 	if (item.failure_kind === 'auth' || item.failure_kind === 'conflict') return false;
-	return item.next_attempt_at <= now;
+	return pendingRetryAt(item) <= now;
 }
 
 /**

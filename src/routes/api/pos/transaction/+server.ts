@@ -1,4 +1,5 @@
 import { json, error as kitError } from '@sveltejs/kit';
+import { isD1DailyLimit, dailyLimitResponse } from '$lib/server/d1DailyLimit';
 import { parseBody } from '$lib/server/resourceRouteHelpers';
 import { requireAnyRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { executeCheckoutForBranch } from '$lib/server/checkout/checkoutUseCase';
@@ -29,6 +30,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			{ headers: result.d1Meta ? { 'x-d1-meta': result.d1Meta } : undefined }
 		);
 	} catch (error) {
+		if (isD1DailyLimit(error)) return dailyLimitResponse();
 		if (error instanceof CheckoutDomainError) throw kitError(error.status, error.message);
 		throw error;
 	}
