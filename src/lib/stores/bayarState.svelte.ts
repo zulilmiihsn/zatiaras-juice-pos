@@ -180,6 +180,13 @@ export function createBayarState() {
 		showCancelModal = false;
 	}
 
+	function prepareLocalPrice(): 'ready' | 'failed' {
+		setOffline(true);
+		if (hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) return 'ready';
+		showErrorNotif('Katalog harga offline tidak valid atau kedaluwarsa. Hubungkan perangkat.');
+		return 'failed';
+	}
+
 	async function prepareOnlineQuote(): Promise<'ready' | 'changed' | 'failed'> {
 		const previousTotal = cartTotalHarga;
 		try {
@@ -187,13 +194,16 @@ export function createBayarState() {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ items: buildCheckoutItems(cart) })
+			}).catch((error: unknown) => {
+				// Wi-Fi dapat tersambung tanpa akses internet; navigator.onLine bukan bukti server bisa dijangkau.
+				if (error instanceof TypeError) return null;
+				throw error;
 			});
-			if (response.status === 503 && response.headers.get('x-pos-defer') === 'd1-daily-limit') {
-				setOffline(true);
-				if (!hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
-					throw new Error('Kuota D1 habis dan katalog harga lokal tidak valid.');
-				}
-				return 'ready';
+			if (
+				!response ||
+				(response.status === 503 && response.headers.get('x-pos-defer') === 'd1-daily-limit')
+			) {
+				return prepareLocalPrice();
 			}
 			if (!response.ok) {
 				throw new Error(await parseApiError(response, `Quote gagal: HTTP ${response.status}`));
@@ -254,14 +264,8 @@ export function createBayarState() {
 				}
 			}
 		}
-		if (isOffline && !hasOfflinePriceTokens(cart, localStorage.getItem('pos_catalog_expires_at'))) {
-			showErrorNotif('Katalog harga offline tidak valid atau kedaluwarsa. Hubungkan perangkat.');
-			return;
-		}
-		if (!isOffline) {
-			const quoteStatus = await prepareOnlineQuote();
-			if (quoteStatus !== 'ready') return;
-		}
+		const quoteStatus = isOffline ? prepareLocalPrice() : await prepareOnlineQuote();
+		if (quoteStatus !== 'ready') return;
 		if (paymentMethod === 'tunai') {
 			showCashModal = true;
 			cashReceived = '';

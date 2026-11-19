@@ -23,6 +23,7 @@ if (compiledLocalTLS) {
 
 export default defineConfig({
 	testDir: './e2e',
+	testIgnore: compiledLocalTLS ? [] : ['**/compiled-offline-launch.spec.ts'],
 	outputDir: process.env.E2E_OUTPUT_DIR || 'test-results',
 	fullyParallel: false,
 	workers: 1,
@@ -35,6 +36,10 @@ export default defineConfig({
 		baseURL,
 		// Only the owned SDK development certificate; never relax production/browser auth policy.
 		ignoreHTTPSErrors: compiledLocalTLS,
+		launchOptions:
+			compiledLocalTLS && process.env.E2E_COMPILED_TLS_SPKI
+				? { args: [`--ignore-certificate-errors-spki-list=${process.env.E2E_COMPILED_TLS_SPKI}`] }
+				: undefined,
 		trace: 'retain-on-failure',
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',

@@ -5,7 +5,7 @@ import { request as httpRequest } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdtemp, writeFile, readFile, rm, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -1065,6 +1065,28 @@ async function compiledTests() {
 				modules.push({ type: 'ESModule', path: join(directory, 'bundle', file) });
 		}
 		assert.ok(modules.length, 'Dry-run must produce actual module bytes');
+		const browserModules = [...modules];
+		if (browserMode) {
+			const routes = JSON.parse(
+				await readFile(resolve('.svelte-kit/cloudflare/_routes.json'), 'utf8')
+			);
+			assert.ok(
+				routes.exclude.includes('/sw.js'),
+				'Pages serves /sw.js without invoking the application worker'
+			);
+			const workerPath = './' + relative(directory, modules[0].path).replaceAll('\\', '/');
+			const browserEntry = join(directory, 'pages-router.mjs');
+			await writeFile(
+				browserEntry,
+				`import app from ${JSON.stringify(workerPath)};
+				export default {fetch(request, env, ctx) {
+					const path = new URL(request.url).pathname;
+					if (${JSON.stringify(routes.exclude)}.some(rule => rule.endsWith('*') ? path.startsWith(rule.slice(0, -1)) : path === rule)) return env.ASSETS.fetch(request);
+					return app.fetch(request, env, ctx);
+				}};`
+			);
+			browserModules.unshift({ type: 'ESModule', path: browserEntry });
+		}
 		common.modulesRoot = directory;
 		const doSource = await readFile(resolve('src/lib/server/realtimeDurableObject.js'), 'utf8');
 		const doFile = join(directory, 'real-do.mjs');
@@ -1084,13 +1106,16 @@ async function compiledTests() {
 						...common,
 						name: 'pages',
 						routes: ['pages.compiled.invalid/*', ...(browserMode ? ['127.0.0.1/*'] : [])],
-						modules,
+						modules: browserMode ? browserModules : modules,
 						d1Databases,
 						durableObjects: {
 							REALTIME_HUB: { className: 'RealtimeDurableObject', scriptName: 'realtime' }
 						},
 						...(browserMode
-							? { assets: { directory: assetsPath, binding: 'ASSETS', run_worker_first: true } }
+							? {
+									assets: { directory: assetsPath, binding: 'ASSETS', run_worker_first: true },
+									bindings: { POS_PRICE_SIGNING_KEY: randomUUID() }
+								}
 							: { serviceBindings: { ASSETS: 'assets' } })
 					},
 					{

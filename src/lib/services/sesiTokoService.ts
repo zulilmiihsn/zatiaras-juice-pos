@@ -57,7 +57,11 @@ export async function getSesiAktif(): Promise<TokoSession | null> {
 	if (typeof navigator !== 'undefined' && !navigator.onLine) return getCachedActiveSession();
 	const qs = new URLSearchParams({ branch: branch() }).toString();
 	try {
-		const res = await fetch(`/api/sesi-toko?${qs}`);
+		const res = await fetch(`/api/sesi-toko?${qs}`).catch((error: unknown) => {
+			if (error instanceof TypeError) return null;
+			throw error;
+		});
+		if (!res) return getCachedActiveSession();
 		if (!res.ok) return null;
 		const rows: TokoSession[] = await res.json();
 		const active =

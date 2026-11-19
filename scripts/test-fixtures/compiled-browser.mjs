@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, X509Certificate } from 'node:crypto';
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -173,6 +173,9 @@ export async function runCompiledBrowser({ address, password, startupStarted, ce
 		...process.env,
 		E2E_EXTERNAL_SERVER: '1',
 		E2E_COMPILED_LOCAL_TLS: '1',
+		E2E_COMPILED_TLS_SPKI: createHash('sha256')
+			.update(new X509Certificate(certificate).publicKey.export({ type: 'spki', format: 'der' }))
+			.digest('base64'),
 		E2E_BASE_URL: baseURL,
 		E2E_OUTPUT_DIR: join('test-results', artifactId),
 		PLAYWRIGHT_HTML_OUTPUT_DIR: join('playwright-report', artifactId),
@@ -182,11 +185,12 @@ export async function runCompiledBrowser({ address, password, startupStarted, ce
 	const args = [
 		require.resolve('@playwright/test/cli'),
 		'test',
+		'e2e/compiled-offline-launch.spec.ts',
 		'e2e/catat-recent.spec.ts',
 		'e2e/ai-mutation.spec.ts',
 		'e2e/ledger-callers.spec.ts',
 		'--grep',
-		'recent card shows five newest rows|malicious recommendations cannot mutate|compiled caller'
+		'recent card shows five newest rows|malicious recommendations cannot mutate|compiled caller|compiled offline launch'
 	];
 	const child = spawn(process.execPath, args, { env, shell: false, stdio: 'inherit' });
 	let timer;
