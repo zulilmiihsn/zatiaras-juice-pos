@@ -6,7 +6,7 @@
  * rate-limit, load katalog, compute finansial, dan signing tinggal di sini.
  */
 import { getD1Database, type BranchContext } from '../branchResolver';
-import { consumeRateLimit } from '../rateLimit';
+import { consumePosRateLimit } from './posRateLimit';
 import {
 	checkoutItemCountError,
 	CheckoutDomainError,
@@ -45,7 +45,7 @@ export async function buildPosQuote(
 ) {
 	const db = getD1Database(platform?.env as Record<string, unknown> | undefined, branch);
 
-	const limit = await consumeRateLimit(
+	const limit = await consumePosRateLimit(
 		db,
 		branch,
 		`quote:${session.userId}`,
