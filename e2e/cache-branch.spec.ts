@@ -96,6 +96,65 @@ async function readOfflineProducts(page: Page, branch: string): Promise<unknown>
 	}, branch);
 }
 
+test('late shift reads cannot alter or return another branch cache', async ({ page }) => {
+	await mockSession(page);
+	await page.goto('/login');
+	await initializeDevModuleRuntime(page);
+	const result = await page.evaluate(async () => {
+		const [{ getSesiAktif }, { selectedBranch }] = await Promise.all([
+			import('/src/lib/services/sesiTokoService.ts'),
+			import('/src/lib/stores/selectedBranch.svelte.ts')
+		]);
+		const key = (branch: string) => `active_store_session_${branch}`;
+		const cached = (id: string) =>
+			JSON.stringify({ session: { id, is_active: true }, expiresAt: 4102444800000 });
+		const berau = cached('shift-berau');
+		const samarinda = cached('shift-samarinda');
+		localStorage.setItem(key('berau'), berau);
+		localStorage.setItem(key('samarinda'), samarinda);
+		const originalFetch = window.fetch;
+		try {
+			const stale = [];
+			const queriedBranches = [];
+			for (const outcome of ['success', 'network-failure', 'switch-back'] as const) {
+				selectedBranch.value = 'samarinda';
+				const pending = Promise.withResolvers<Response>();
+				window.fetch = (url, init) => {
+					if (typeof url !== 'string' || !url.startsWith('/api/sesi-toko?'))
+						return originalFetch(url, init);
+					queriedBranches.push(new URL(url, location.origin).searchParams.get('branch'));
+					return pending.promise;
+				};
+				const read = getSesiAktif();
+				selectedBranch.value = 'berau';
+				if (outcome === 'switch-back') selectedBranch.value = 'samarinda';
+				if (outcome === 'network-failure') pending.reject(new TypeError('network unavailable'));
+				else pending.resolve(Response.json([{ id: 'stale-shift', is_active: true }]));
+				stale.push(await read);
+			}
+			selectedBranch.value = 'berau';
+			window.fetch = () => Promise.reject(new TypeError('network unavailable'));
+			const active = await getSesiAktif();
+			return {
+				stale,
+				queriedBranches,
+				fallbackId: active?.id,
+				cachesIntact:
+					localStorage.getItem(key('berau')) === berau &&
+					localStorage.getItem(key('samarinda')) === samarinda
+			};
+		} finally {
+			window.fetch = originalFetch;
+		}
+	});
+	expect(result).toEqual({
+		stale: [null, null, null],
+		queriedBranches: ['samarinda', 'samarinda', 'samarinda'],
+		fallbackId: 'shift-berau',
+		cachesIntact: true
+	});
+});
+
 // Respons cabang lama yang tiba belakangan tak boleh menimpa cache cabang baru.
 test('late samarinda response cannot overwrite berau cache', async ({ page }) => {
 	await mockSession(page);
