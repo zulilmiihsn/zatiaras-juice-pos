@@ -27,7 +27,11 @@ test('only explicit D1 daily exhaustion can defer checkout', () => {
 		isD1DailyLimit(new Error('D1_ERROR', { cause: new Error('D1 DB exceeded its daily limits.') })),
 		true
 	);
+	for (const quota of ['read', 'write', 'rows read', 'rows written']) {
+		assert.equal(isD1DailyLimit(new Error(`D1_ERROR: daily ${quota} limit exceeded`)), true);
+	}
 	for (const message of [
+		'D1_ERROR: daily read limit configuration unavailable',
 		'D1_ERROR: database unavailable',
 		'rate limit exceeded',
 		'INSUFFICIENT_STOCK',

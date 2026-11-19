@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { isD1DailyLimit } from '$lib/server/d1DailyLimit';
 import { createAuthSession } from '$lib/server/sessionStore';
 import {
 	getD1Database,
@@ -49,6 +50,7 @@ export async function attemptLogin(
 	clientIp: string
 ): Promise<LoginAttemptResult> {
 	let branchId: BranchId | null = null;
+	let resolvingCredentialOrSession = false;
 	let username = '';
 	const ipHash = await hashIdentifier(clientIp);
 
@@ -142,6 +144,7 @@ export async function attemptLogin(
 		}
 
 		const db = getDrizzleDb(platform, branchId);
+		resolvingCredentialOrSession = true;
 		const user = await db
 			.select({
 				id: profil.id,
@@ -152,6 +155,8 @@ export async function attemptLogin(
 			.from(profil)
 			.where(and(eq(profil.cabang_id, branchId), eq(profil.username, username)))
 			.get();
+
+		resolvingCredentialOrSession = false;
 
 		// Aturan tepi spasi (terdokumentasi): password di-trim di
 		// create/change/verify agar konsisten dengan hash tersimpan.
@@ -224,6 +229,7 @@ export async function attemptLogin(
 			};
 		}
 
+		resolvingCredentialOrSession = true;
 		const authSession = await createAuthSession(platform, {
 			userId: user.id,
 			username: user.username,
@@ -231,6 +237,7 @@ export async function attemptLogin(
 			branch: branchId
 		});
 
+		resolvingCredentialOrSession = false;
 		await appendAuditLog(rawDb, branchId, {
 			action: 'login.success',
 			entityType: 'profil',
@@ -263,6 +270,18 @@ export async function attemptLogin(
 			username
 		};
 	} catch (e) {
+		// Audit failures and rejected credentials must never authorize a fallback attempt.
+		if (resolvingCredentialOrSession && isD1DailyLimit(e)) {
+			return {
+				status: 503,
+				body: {
+					success: false,
+					message: 'Kuota harian database habis. Login pusat sementara tidak tersedia.'
+				},
+				headers: { 'x-kiosk-login': 'd1-daily-limit', 'Cache-Control': 'no-store' },
+				username
+			};
+		}
 		await recordErrorEvent(platform, branchId, {
 			source: 'POST /api/veriflogin',
 			error: e,

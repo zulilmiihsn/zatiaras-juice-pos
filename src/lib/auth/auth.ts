@@ -62,6 +62,13 @@ export async function loginWithUsername(username: string, password: string, bran
 	// Server rotated the CSRF cookie with the new session; drop the pre-login token.
 	clearCsrfTokenCache();
 
+	if (result.scope === 'operasional') {
+		clearUserRole();
+		clearSecuritySettings();
+		if (browser) clearOfflineSessionSnapshot();
+		return { scope: 'operasional' };
+	}
+
 	// Kunci halaman PIN hanya berlaku untuk kasir.
 	if (isKasirRole(result.user.role)) {
 		try {

@@ -8,6 +8,39 @@ import {
 } from '../routes/api/sesi-toko/+server';
 import { createTestD1 } from './helpers/testD1';
 
+import { branchContext } from '../lib/server/branchResolver';
+import { formatDateYmdWita } from '../lib/utils/dateTime';
+import { readKioskOrderHandoff } from '../lib/server/kioskOrderHandoff';
+import { allocateNomorHarian } from '../lib/server/checkout/nomorHarian';
+import { projectKioskEvent } from '../lib/server/kioskD1Projection';
+import { signPosPricingToken } from '../lib/server/posPricingToken';
+import { openCoordinatedShift } from '../lib/server/coordinatedShift';
+
+// Identitas akun sama, tetapi dua HP mengirim ID operasi berbeda.
+const memory = new Map<string, unknown>();
+const tx = {
+	get: async <T>(key: string) => memory.get(key) as T | undefined,
+	put: async <T>(key: string, value: T) => {
+		memory.set(key, value);
+	}
+};
+const firstOpen = { id: 'hp1', userId: 'kasir', openingCash: 100000, openedAt: 1000 };
+assert.equal((await openCoordinatedShift(tx, firstOpen)).status, 'uninitialized');
+memory.set('shift:active', null);
+assert.equal((await openCoordinatedShift(tx, firstOpen)).status, 'opened');
+assert.equal((await openCoordinatedShift(tx, { ...firstOpen, id: 'hp2' })).status, 'already-open');
+assert.equal(
+	(await openCoordinatedShift(tx, { ...firstOpen, id: 'hp2', openingCash: 20000 })).status,
+	'conflict'
+);
+assert.equal((await openCoordinatedShift(tx, { ...firstOpen, openedAt: 2000 })).status, 'replayed');
+assert.equal((await openCoordinatedShift(tx, { ...firstOpen, openingCash: 0 })).status, 'conflict');
+assert.equal(memory.get('projection:tail'), 1, 'one event for the shared shift');
+assert.ok(memory.has('shift:request:hp1') && memory.has('shift:request:hp2'));
+memory.set('shift:active', null);
+assert.equal((await openCoordinatedShift(tx, { ...firstOpen, id: 'hp2' })).status, 'replayed');
+assert.equal(memory.get('shift:active'), null, 'a delayed replay cannot reopen the shop');
+
 // Satu sesi aktif per cabang: buka atomik, kalah 409, retry stabil.
 
 const { db, close } = await createTestD1();
@@ -92,6 +125,153 @@ async function expectStatus(run: () => unknown, status: number) {
 }
 
 try {
+	// Persiapan alih jalur hanya setelah cabang tutup. Marker tidak boleh mengubah shift lama.
+	const pause = (branch: string) =>
+		db.prepare('INSERT INTO kiosk_shift_cutover (cabang_id) VALUES (?)').bind(branch).run();
+	await pause('berau');
+	await assert.rejects(
+		async () => openViaPost('berau', `cutover-${randomUUID()}`),
+		/KIOS_CUTOVER_PAUSED/
+	);
+	assert.equal(await activeCount('berau'), 0);
+	await db.prepare('DELETE FROM kiosk_shift_cutover WHERE cabang_id=?').bind('berau').run();
+
+	const coordinatedId = randomUUID();
+	const branch = branchContext('berau');
+	const platform = { env: { DB_BERAU_GROUP: db, POS_PRICE_SIGNING_KEY: randomUUID() } };
+	const openedAt = Date.now() - 10_000;
+	const shift = { id: coordinatedId, userId: 'kasir', openingCash: 100000, openedAt };
+	const opening = { sequence: 1, kind: 'shift-opened', record: { shift } } as const;
+	await assert.rejects(() => projectKioskEvent(platform, branch, opening), /belum dialihkan/);
+	const numberingDate = formatDateYmdWita(new Date(openedAt));
+	await assert.rejects(() => readKioskOrderHandoff(db, branch, openedAt), /belum dapat dialihkan/);
+	const legacyNumber = await allocateNomorHarian(db, branch, numberingDate);
+	assert.equal(legacyNumber, 1);
+	const productId = randomUUID();
+	await db
+		.prepare(
+			`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active)
+		VALUES (?,'berau','Jus',10000,5,1,0,1)`
+		)
+		.bind(productId)
+		.run();
+	await pause('berau');
+	await assert.rejects(
+		() =>
+			db
+				.prepare('UPDATE produk SET stok=99 WHERE cabang_id=? AND id=?')
+				.bind(branch, productId)
+				.run(),
+		/KIOS_INVENTORY_FENCED/
+	);
+	await assert.rejects(
+		() => allocateNomorHarian(db, branch, numberingDate),
+		/Alokasi nomor harian gagal/
+	);
+	assert.deepEqual(await readKioskOrderHandoff(db, branch, openedAt), {
+		date: numberingDate,
+		lastNumber: legacyNumber
+	});
+	await projectKioskEvent(platform, branch, opening);
+	await projectKioskEvent(platform, branch, opening);
+	assert.equal(await activeCount('berau'), 1);
+	await assert.rejects(
+		async () =>
+			closeViaPatch('berau', coordinatedId, {
+				is_active: false,
+				waktu_tutup: new Date(openedAt + 5000).toISOString()
+			}),
+		{ status: 409 }
+	);
+	const soldAt = openedAt + 2000;
+	const priceToken = await signPosPricingToken(platform.env, {
+		kind: 'catalog_product',
+		branch,
+		data: { id: productId, nama: 'Jus', harga: 10000 },
+		now: openedAt,
+		ttlMs: 60000
+	});
+	const saleId = randomUUID();
+	const sale = {
+		sequence: 2,
+		kind: 'sale-recorded',
+		record: {
+			userId: 'kasir',
+			orderNumber: 7,
+			orderDate: formatDateYmdWita(new Date(soldAt).toISOString()),
+			request: {
+				id: saleId,
+				shiftId: coordinatedId,
+				payment: 'tunai',
+				cash: 12000,
+				items: [{ product_id: productId, jumlah: 1, product_price_token: priceToken }]
+			},
+			receipt: { total_amount: 10000, total_qty: 1, committed_at: new Date(soldAt).toISOString() }
+		}
+	} as const;
+	await projectKioskEvent(platform, branch, sale);
+	await projectKioskEvent(platform, branch, sale);
+	const projected = await db
+		.prepare(
+			'SELECT COUNT(*) AS count FROM buku_kas WHERE cabang_id=? AND idempotency_key=? AND id_sesi_toko=? AND nomor_harian=7'
+		)
+		.bind(branch, `kiosk:${saleId}`, coordinatedId)
+		.first<{ count: number }>();
+	assert.equal(projected?.count, 1);
+	const inventory = await db
+		.prepare('SELECT stok FROM produk WHERE cabang_id=? AND id=?')
+		.bind(branch, productId)
+		.first<{ stok: number }>();
+	assert.equal(inventory?.stok, 4, 'projection retry cannot deduct stock twice');
+	await assert.rejects(
+		() =>
+			db.batch([
+				db
+					.prepare('INSERT INTO kiosk_inventory_projection_permit(cabang_id) VALUES (?)')
+					.bind(branch),
+				db.prepare('UPDATE produk SET stok=42 WHERE cabang_id=? AND id=?').bind(branch, productId),
+				db
+					.prepare('INSERT INTO kiosk_inventory_projection_permit(cabang_id) VALUES (?)')
+					.bind(branch)
+			]),
+		/UNIQUE/
+	);
+	assert.equal(
+		(
+			await db
+				.prepare('SELECT stok FROM produk WHERE cabang_id=? AND id=?')
+				.bind(branch, productId)
+				.first<{ stok: number }>()
+		)?.stok,
+		4
+	);
+	assert.equal(
+		await db
+			.prepare('SELECT cabang_id FROM kiosk_inventory_projection_permit WHERE cabang_id=?')
+			.bind(branch)
+			.first(),
+		null
+	);
+	await assert.rejects(
+		() =>
+			db
+				.prepare('UPDATE produk SET stok=99 WHERE cabang_id=? AND id=?')
+				.bind(branch, productId)
+				.run(),
+		/KIOS_INVENTORY_FENCED/
+	);
+	const closing = {
+		sequence: 3,
+		kind: 'shift-closed',
+		record: { ...shift, closedAt: openedAt + 5000 }
+	} as const;
+	await projectKioskEvent(platform, branch, closing);
+	await projectKioskEvent(platform, branch, closing);
+	await projectKioskEvent(platform, branch, opening);
+	assert.equal(await activeCount('berau'), 0, 'late open replay cannot reopen a closed shift');
+	await db.prepare('DELETE FROM kiosk_shift_cutover WHERE cabang_id=?').bind('berau').run();
+	openedIds.push(coordinatedId);
+
 	// 1. Buka pertama sukses.
 	const id1 = `sesi-${randomUUID()}`;
 	const first = await insertSesiTokoRows(
@@ -103,6 +283,10 @@ try {
 		openPayload(id1, 50000.4)
 	);
 	openedIds.push(id1);
+	await assert.rejects(() => pause('berau'), /KIOS_SHIFT_STILL_OPEN/);
+	await pause('samarinda');
+	assert.equal(await activeCount('berau'), 1);
+	await db.prepare('DELETE FROM kiosk_shift_cutover WHERE cabang_id=?').bind('samarinda').run();
 	assert.equal(first.ok, true);
 	assert.equal((first.data[0] as { kas_awal: number }).kas_awal, 50000);
 	assert.equal(await activeCount(), 1);

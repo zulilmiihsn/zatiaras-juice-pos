@@ -55,33 +55,41 @@ function cacheActiveSession(storeBranch: string, session: TokoSession | null): v
 	);
 }
 
-export async function getSesiAktif(): Promise<TokoSession | null> {
-	const storeBranch = branch();
-	const epoch = selectedBranch.contextEpoch;
+// undefined means the server could not confirm the shift; null means it confirmed no shift.
+async function fetchActiveShift(
+	storeBranch: string,
+	epoch: number,
+	offlineFallback = false
+): Promise<TokoSession | null | undefined> {
 	const fallback = () =>
-		epoch === selectedBranch.contextEpoch ? getCachedActiveSession(storeBranch) : null;
+		offlineFallback && epoch === selectedBranch.contextEpoch
+			? getCachedActiveSession(storeBranch)
+			: undefined;
 	if (typeof navigator !== 'undefined' && !navigator.onLine) return fallback();
-	const qs = new URLSearchParams({ branch: storeBranch }).toString();
+	const qs = new URLSearchParams({ branch: storeBranch, is_active: 'true', limit: '1' });
 	try {
 		const res = await fetch(`/api/sesi-toko?${qs}`).catch((error: unknown) => {
 			if (error instanceof TypeError) return null;
 			throw error;
 		});
 		if (!res) return fallback();
-		if (!res.ok) return null;
+		if (!res.ok) return undefined;
 		const rows: TokoSession[] = await res.json();
-		// A switch away and back still invalidates an earlier read.
-		if (epoch !== selectedBranch.contextEpoch) return null;
-		const active =
-			rows
-				.filter((r) => r.is_active)
-				.sort((a, b) => new Date(b.waktu_buka).getTime() - new Date(a.waktu_buka).getTime())[0] ||
-			null;
+		if (epoch !== selectedBranch.contextEpoch) return undefined;
+		const active = rows.find((row) => row.is_active) ?? null;
 		cacheActiveSession(storeBranch, active);
 		return active;
 	} catch {
-		return typeof navigator !== 'undefined' && !navigator.onLine ? fallback() : null;
+		return typeof navigator !== 'undefined' && !navigator.onLine ? fallback() : undefined;
 	}
+}
+
+export function readActiveShift() {
+	return fetchActiveShift(branch(), selectedBranch.contextEpoch);
+}
+
+export async function getSesiAktif(): Promise<TokoSession | null> {
+	return (await fetchActiveShift(branch(), selectedBranch.contextEpoch, true)) ?? null;
 }
 
 export interface SesiSummary {

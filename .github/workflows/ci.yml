@@ -330,6 +330,8 @@ jobs:
 
       - name: Run Sesi Toko Suite
         run: pnpm test:sesi-toko
+      - name: Concurrent shift without D1 (local workerd)
+        run: pnpm test:shift-workerd
 
       - name: Run Sesi Toko Workerd Suite
         run: pnpm exec tsx src/tests/sesi-toko-tests.ts --d1
@@ -540,6 +542,9 @@ jobs:
 
       - name: Install Chromium for Compiled Ledger Callers
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Kiosk browser recovery (two Chromium contexts, local D1)
+        run: pnpm test:kiosk-browser
 
       - name: Compiled Ledger Browser Callers (owned Pages assets/workerd)
         run: |

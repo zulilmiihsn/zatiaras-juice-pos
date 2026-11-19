@@ -31,6 +31,16 @@ interface ComputeItemParams {
 	transactionId: string;
 }
 
+export function selectRecipe<T extends { porsi?: string | null }>(all: T[], jumbo: boolean): T[] {
+	const requested = jumbo ? 'jumbo' : 'reguler';
+	const exact = all.filter((row) => (row.porsi || 'reguler').toLowerCase() === requested);
+	if (exact.length) return exact;
+	const regular = jumbo
+		? all.filter((row) => (row.porsi || 'reguler').toLowerCase() === 'reguler')
+		: [];
+	return regular.length ? regular : all;
+}
+
 export function computeItemFinancials(params: ComputeItemParams): ComputedTransactionItem {
 	const {
 		input,
@@ -85,17 +95,7 @@ export function computeItemFinancials(params: ComputeItemParams): ComputedTransa
 			(product.lacak_bahan === true || product.lacak_bahan === 1)
 		) {
 			const allRecipes = recipesByProduct.get(productId) || [];
-			const requestedPorsi = isJumbo ? 'jumbo' : 'reguler';
-			let recipe = allRecipes.filter(
-				(r) => (r.porsi || 'reguler').toLowerCase() === requestedPorsi
-			);
-			if (!recipe.length && isJumbo) {
-				// Fallback to reguler if jumbo recipe not explicitly specified
-				recipe = allRecipes.filter((r) => (r.porsi || 'reguler').toLowerCase() === 'reguler');
-			}
-			if (!recipe.length) {
-				recipe = allRecipes;
-			}
+			const recipe = selectRecipe(allRecipes, isJumbo);
 			if (!recipe.length) {
 				throw new CheckoutDomainError(409, `Resep bahan belum diatur untuk ${productName}`);
 			}

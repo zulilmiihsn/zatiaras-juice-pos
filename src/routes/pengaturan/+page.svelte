@@ -9,6 +9,7 @@
 	import BellRing from '@lucide/svelte/icons/bell-ring';
 	import Download from '@lucide/svelte/icons/download';
 	import History from '@lucide/svelte/icons/history';
+	import EnrollKioskDevice from '$lib/components/dashboard/EnrollKioskDevice.svelte';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Printer from '@lucide/svelte/icons/printer';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
@@ -173,6 +174,10 @@
 				{/if}
 			{/each}
 		</nav>
+
+		{#if isOwner}
+			<EnrollKioskDevice />
+		{/if}
 
 		<!-- Logout Section -->
 		<div

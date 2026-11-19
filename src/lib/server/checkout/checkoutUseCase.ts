@@ -75,6 +75,7 @@ interface CheckoutInput {
 	session: CheckoutSession;
 	platform: App.Platform | undefined;
 	rawBody: unknown;
+	kioskProjection?: { orderNumber: number; orderDate: string };
 }
 
 function fail(status: number, message: string): never {
@@ -191,6 +192,8 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 
 	const idempotencyKey = sanitizeShortText(body.idempotency_key, 120);
 	if (!idempotencyKey || idempotencyKey.length < 8) fail(400, 'idempotency_key tidak valid');
+	if (idempotencyKey.startsWith('kiosk:') !== Boolean(input.kioskProjection))
+		fail(400, 'ID transaksi tidak sesuai sumber checkout');
 
 	const paymentMethod = normalizePaymentMethod(body.metode_bayar);
 	const customerName = sanitizeShortText(body.nama_pelanggan, 60);
@@ -320,7 +323,15 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 	// Nomor antrean harian dialokasi paling akhir sebelum commit: request yang
 	// gagal validasi di atas tidak menghabiskan nomor.
 	const salesDate = formatDateYmdWita(soldAt);
-	const nomorHarian = await allocateNomorHarian(db, branch, salesDate);
+	if (
+		input.kioskProjection &&
+		(input.kioskProjection.orderDate !== salesDate ||
+			!Number.isSafeInteger(input.kioskProjection.orderNumber) ||
+			input.kioskProjection.orderNumber < 1)
+	)
+		fail(409, 'Nomor antrean jurnal tidak valid');
+	const nomorHarian =
+		input.kioskProjection?.orderNumber ?? (await allocateNomorHarian(db, branch, salesDate));
 
 	const catalogTotal = currentCatalogTotal(normalizedInputs, productsById, addOnsById);
 	const auditInput: AuditLogInput = {
@@ -381,6 +392,15 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 		inventoryApplication,
 		replayDisposition
 	});
+	if (input.kioskProjection)
+		statements.push(
+			db
+				.prepare(
+					`INSERT INTO pos_nomor_harian (cabang_id,tanggal,terakhir)
+		VALUES (?,?,?) ON CONFLICT(cabang_id,tanggal) DO UPDATE SET terakhir=MAX(terakhir,excluded.terakhir)`
+				)
+				.bind(branch, salesDate, nomorHarian)
+		);
 	const notificationOrigin = await resolveCheckoutNotificationOrigin(
 		platform?.env as Record<string, unknown> | undefined,
 		branch,
@@ -397,6 +417,16 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 			createdAt
 		})
 	);
+
+	if (input.kioskProjection) {
+		// A serialized D1 batch opens and removes the permit together; a rollback leaves neither.
+		statements.unshift(
+			db.prepare('INSERT INTO kiosk_inventory_projection_permit(cabang_id) VALUES (?)').bind(branch)
+		);
+		statements.push(
+			db.prepare('DELETE FROM kiosk_inventory_projection_permit WHERE cabang_id=?').bind(branch)
+		);
+	}
 
 	let d1Meta: string | null = null;
 	try {

@@ -76,7 +76,11 @@
 		try {
 			// Store cabang harus sama dengan cabang yang dipakai login walau pilihan tak diubah.
 			selectedBranch.value = branch;
-			await loginWithUsername(trimmedUsername, password, branch);
+			const user = await loginWithUsername(trimmedUsername, password, branch);
+			if (user?.scope === 'operasional') {
+				await goto('/operasional');
+				return;
+			}
 			showSuccessModal = true;
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			// Navigasi wajib await: relogin harus tiba di `/` atau gagal eksplisit,

@@ -23,11 +23,11 @@ export async function allocateNomorHarian(
 	const row = (await db
 		.prepare(
 			`INSERT INTO pos_nomor_harian (cabang_id, tanggal, terakhir)
-			 VALUES (?, ?, 1)
+			 SELECT ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM kiosk_shift_cutover WHERE cabang_id = ?)
 			 ON CONFLICT(cabang_id, tanggal) DO UPDATE SET terakhir = terakhir + 1
 			 RETURNING terakhir`
 		)
-		.bind(branch, tanggalWita)
+		.bind(branch, tanggalWita, branch)
 		.first()) as { terakhir?: number | null } | null;
 	const nomor = Number(row?.terakhir);
 	if (!Number.isInteger(nomor) || nomor < 1) {

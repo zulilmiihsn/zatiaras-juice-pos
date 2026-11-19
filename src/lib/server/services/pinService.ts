@@ -174,9 +174,10 @@ export async function changePinForBranch(
 		.prepare(
 			`UPDATE pengaturan
 			 SET pin_hash = ?, pin = NULL, updated_at = ?
-			 WHERE cabang_id = ? AND id = ? AND kunci IS NULL`
+			 WHERE cabang_id = ? AND id = ? AND kunci IS NULL
+			 AND NOT EXISTS (SELECT 1 FROM kiosk_shift_cutover WHERE cabang_id = ?)`
 		)
-		.bind(pinHash, new Date().toISOString(), branch, String(settings.id))
+		.bind(pinHash, new Date().toISOString(), branch, String(settings.id), branch)
 		.run()) as unknown as { meta?: { changes?: number } };
 	if (!Number(updateResult?.meta?.changes ?? 0)) throw kitError(409, 'Pengaturan cabang berubah');
 	try {
