@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { COMPILED_ONLY_E2E_SPECS } from './scripts/e2e-environment.mjs';
 
 // Runner E2E (scripts/run-playwright-local.mjs) mengisi E2E_PORT dengan port
 // bebas + menjalankan dev server sendiri. Tanpa env ini perilaku lama dipakai.
@@ -23,6 +24,7 @@ if (compiledLocalTLS) {
 
 export default defineConfig({
 	testDir: './e2e',
+	testIgnore: compiledLocalTLS ? [] : COMPILED_ONLY_E2E_SPECS.map((file) => `**/${file}`),
 	outputDir: process.env.E2E_OUTPUT_DIR || 'test-results',
 	fullyParallel: false,
 	workers: 1,
@@ -35,6 +37,10 @@ export default defineConfig({
 		baseURL,
 		// Only the owned SDK development certificate; never relax production/browser auth policy.
 		ignoreHTTPSErrors: compiledLocalTLS,
+		launchOptions:
+			compiledLocalTLS && process.env.E2E_COMPILED_TLS_SPKI
+				? { args: [`--ignore-certificate-errors-spki-list=${process.env.E2E_COMPILED_TLS_SPKI}`] }
+				: undefined,
 		trace: 'retain-on-failure',
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',

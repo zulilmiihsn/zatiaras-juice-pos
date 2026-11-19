@@ -1,14 +1,9 @@
 /// <reference lib="webworker" />
 
-import {
-	precacheAndRoute,
-	cleanupOutdatedCaches,
-	PrecacheFallbackPlugin
-} from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
+import { NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
-import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import type { PrecacheEntry } from 'workbox-precaching';
 import type { OpsAlertPushMessage, OrderPushMessage } from './lib/types/orderNotifications';
 import {
@@ -26,23 +21,18 @@ registerRoute(({ url }) => /^\/api(?:\/|$)/.test(url.pathname), new NetworkOnly(
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-for (const [path, cacheName] of [
-	[/^\/pos(?:\/|$)/, 'pos-navigation-v1'],
-	[/^\/antrean(?:\/|$)/, 'antrean-navigation-v1']
-] as const) {
-	registerRoute(
-		({ request, url }) => request.mode === 'navigate' && path.test(url.pathname),
-		new NetworkFirst({
-			cacheName,
-			networkTimeoutSeconds: 3,
-			plugins: [
-				new CacheableResponsePlugin({ statuses: [0, 200] }),
-				new ExpirationPlugin({ maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 }),
-				new PrecacheFallbackPlugin({ fallbackURL: '/offline' })
-			]
-		})
-	);
-}
+// Shell kasir sudah diprecache. Navigasi lain tetap mengutamakan server tanpa menyimpan HTML privat.
+registerRoute(
+	({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin,
+	async ({ request, url }) => {
+		try {
+			return await fetch(request);
+		} catch {
+			if (url.pathname === '/') return Response.redirect(new URL('/pos', url.origin).href);
+			return Response.redirect(new URL('/offline', url.origin).href);
+		}
+	}
+);
 registerRoute(
 	/\.(?:png|jpg|jpeg|svg|webp|avif)$/,
 	new StaleWhileRevalidate({

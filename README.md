@@ -6,6 +6,8 @@ Cloudflare Pages dan tetap bisa mencatat penjualan tunai maupun QRIS saat offlin
 
 Jika API checkout melaporkan kuota harian D1 habis, penjualan dapat masuk antrean perangkat meski internet tersambung. Pastikan sesi toko dan harga masih valid. Pesan **tersimpan lokal** berarti belum masuk laporan pusat. Jangan hapus data browser; buka kembali aplikasi di perangkat dan cabang yang sama agar antrean bisa disinkronkan setelah D1 pulih.
 
+Pada pembukaan pertama dengan internet, service worker mengunduh tampilan POS, pembayaran, dan antrean tanpa harus mengunjungi halaman tersebut satu per satu. Tunggu pemasangan selesai, login, buka shift dan muat katalog cabang sebelum bekerja offline. Ikon aplikasi membuka kasir jika beranda tidak dapat dijangkau. Laporan dan pengaturan tetap memerlukan server; cache tampilan tidak menggantikan sesi, harga bertanda tangan, atau data transaksi.
+
 ## Fitur
 
 - **POS**: tunai dan non-tunai, porsi biasa/jumbo, tambahan, gula/es/catatan, item
