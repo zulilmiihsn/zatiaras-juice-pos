@@ -327,8 +327,8 @@ try {
 				)
 				.run();
 			assert.equal((await post(branch, 'activate', null)).failed, true);
-			const { catalog } = await post(branch, 'sale-token', null);
-			await post(branch, 'device/catalog', { branch, catalog });
+			// Provision a disposable Worker key without publishing a Pages catalog.
+			await post(branch, 'sale-token', null);
 			await db
 				.prepare(
 					"INSERT INTO pengaturan(id,cabang_id,kunci,pin) VALUES ('kiosk-pin-fixture','balikpapan',NULL,'9876')"

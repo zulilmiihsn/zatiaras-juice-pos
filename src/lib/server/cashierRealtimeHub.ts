@@ -10,6 +10,7 @@ import { recordCoordinatedSale } from './checkout/coordinatedSale';
 import { CheckoutDomainError, normalizePaymentMethod } from './checkout/utils';
 import { KIOSK_CATALOG_KEY, readKioskCatalog, publishKioskCatalog } from './kioskCatalog';
 import { authorizeKioskShift, KIOSK_SHIFT_PIN } from './kioskShiftPin';
+import { buildKioskCatalog } from './prepareKioskCatalog';
 import { initializeStagingKiosk, isStagingKioskPilot } from './activateStagingKiosk';
 import { initializeKioskShift } from './initializeKioskShift';
 import { readKioskInventorySeed } from './kioskInventory';
@@ -75,10 +76,24 @@ export class RealtimeDurableObject extends RealtimeHub {
 			);
 			return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
 		}
+		if (url.pathname === '/device/refresh-staging-catalog') {
+			const branch = branchContext(normalizeBranch(body.branch));
+			if (!isStagingKioskPilot(this.env, branch))
+				return Response.json({ ok: false }, { status: 404 });
+			const catalog = await buildKioskCatalog({ env: this.env }, branch);
+			const result = await publishKioskCatalog(this.state.storage, branch, catalog, Date.now());
+			return Response.json(result, {
+				status: result.ok ? 200 : 409,
+				headers: { 'cache-control': 'no-store' }
+			});
+		}
 		if (url.pathname === '/device/catalog') {
+			const branch = normalizeBranch(body.branch);
+			if (isStagingKioskPilot(this.env, branch))
+				return Response.json({ ok: false }, { status: 409 });
 			const outcome = await publishKioskCatalog(
 				this.state.storage,
-				normalizeBranch(body.branch),
+				branch,
 				body.catalog,
 				Date.now()
 			);

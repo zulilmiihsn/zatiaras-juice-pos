@@ -1,14 +1,14 @@
 import { error } from '@sveltejs/kit';
-import { getD1Database, type BranchContext } from './branchResolver';
-import { prepareKioskCatalog } from './prepareKioskCatalog';
-import { KIOSK_CATALOG_KEY, readKioskCatalog } from './kioskCatalog';
+import { getD1Database, type BranchContext, type BranchId } from './branchResolver';
+import { buildKioskCatalog } from './prepareKioskCatalog';
+import { publishKioskCatalog, readKioskCatalog } from './kioskCatalog';
 import { verifyPosPricingToken } from './posPricingToken';
 import { readKioskInventorySeed } from './kioskInventory';
 import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandoff';
 import { initializeKioskShift } from './initializeKioskShift';
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
-export function isStagingKioskPilot(env: App.Platform['env'] | undefined, branch: BranchContext) {
+export function isStagingKioskPilot(env: App.Platform['env'] | undefined, branch: BranchId) {
 	return branch === 'balikpapan' && env?.KIOSK_STAGING_PILOT === 'balikpapan';
 }
 
@@ -19,7 +19,6 @@ export async function activateStagingKiosk(
 	if (!isStagingKioskPilot(platform?.env, branch)) throw error(404, 'Pilot staging tidak tersedia');
 	const hub = platform?.env.REALTIME_HUB;
 	if (!hub) throw error(503, 'Koordinator kios belum tersedia');
-	await prepareKioskCatalog(platform, branch);
 	const response = await hub.get(hub.idFromName(`cashier:${branch}`)).fetch(
 		new Request('https://cashier.internal/projection/activate-staging', {
 			method: 'POST',
@@ -48,12 +47,14 @@ export async function initializeStagingKiosk(
 		await readKioskOrderHandoff(db, branch, now);
 		return { status: 'already-initialized' } as const;
 	}
-	const products = readKioskCatalog(await storage.get(KIOSK_CATALOG_KEY), branch, now);
+	const catalog = await buildKioskCatalog({ env }, branch);
+	const checkedAt = Date.now();
+	const products = readKioskCatalog(catalog, branch, checkedAt);
 	if (!products?.length) throw new Error('Katalog valid belum tersedia');
 	await verifyPosPricingToken(env, products[0].price_token, {
 		kind: 'catalog_product',
 		branch,
-		now
+		now: checkedAt
 	});
 	const settings = await db
 		.prepare('SELECT pin, pin_hash FROM pengaturan WHERE cabang_id=? AND kunci IS NULL LIMIT 1')
@@ -62,6 +63,8 @@ export async function initializeStagingKiosk(
 	if (settings?.pin && settings.pin !== '1234' && !settings.pin_hash)
 		throw new Error('PIN lama harus dimigrasikan dahulu');
 	await readKioskInventorySeed(db, branch);
+	if (!(await publishKioskCatalog(storage, branch, catalog, checkedAt)).ok)
+		throw new Error('Katalog kios belum dapat disimpan');
 	// The INSERT trigger rechecks for an open shift at the point of the write.
 	await db
 		.prepare(
