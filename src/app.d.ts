@@ -33,6 +33,8 @@ declare global {
 					get(id: unknown): { fetch(request: Request): Promise<Response> };
 				};
 				R2_PUBLIC_URL?: string;
+				KIOSK_STAGING_PILOT?: string;
+				KIOSK_PROJECTION_BRANCHES?: string;
 				POS_PRICE_SIGNING_KEY?: string;
 				POS_PRICE_SIGNING_KEY_ID?: string;
 				POS_PRICE_SIGNING_KEY_PREVIOUS?: string;

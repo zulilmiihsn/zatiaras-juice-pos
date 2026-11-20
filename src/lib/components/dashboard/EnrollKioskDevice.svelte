@@ -1,9 +1,32 @@
 <script lang="ts">
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
+	let { stagingKioskPilot = false }: { stagingKioskPilot?: boolean } = $props();
+	let confirmed = $state(false);
 	let account = $state<'self' | 'cashier'>('cashier');
 	let username = $state('');
 	let busy = $state(false);
 	let message = $state('');
+	async function activatePilot() {
+		if (busy || !confirmed) return;
+		busy = true;
+		try {
+			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ confirm: 'balikpapan-staging' })
+			});
+			const result = await res.json().catch(() => null);
+			message =
+				res.ok && result?.success === true
+					? 'Balikpapan staging aktif. Gunakan tautan login uji pada dua HP terdaftar.'
+					: result?.message || 'Aktivasi belum terkonfirmasi. Jangan buka shift.';
+		} catch {
+			message =
+				'Aktivasi belum terkonfirmasi. Periksa koneksi sebelum mengulang persiapan yang sama.';
+		} finally {
+			busy = false;
+		}
+	}
 	async function prepareCatalog() {
 		if (busy) return;
 		busy = true;
@@ -79,5 +102,20 @@
 	<button type="button" class="btn-brand-primary mt-3" disabled={busy} onclick={prepareCatalog}
 		>Siapkan Katalog Kios</button
 	>
+	{#if stagingKioskPilot}
+		<div class="mt-4 grid gap-2">
+			<label
+				><input type="checkbox" bind:checked={confirmed} disabled={busy} /> Shift lama tutup, antrean
+				kedua HP uji kosong, dan stok sudah dicocokkan.</label
+			>
+			<button
+				type="button"
+				class="btn-brand-primary"
+				disabled={busy || !confirmed}
+				onclick={activatePilot}>Aktifkan Balikpapan staging</button
+			>
+			<a href="/login?kiosk=staging" class="underline">Login uji Balikpapan staging</a>
+		</div>
+	{/if}
 	<p role="status" class="text-sm">{message}</p>
 </details>

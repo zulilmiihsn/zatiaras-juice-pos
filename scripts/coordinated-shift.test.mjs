@@ -326,25 +326,44 @@ try {
 					"INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','balikpapan','Jus',10000,5,1,0,1)"
 				)
 				.run();
-			await db.prepare("INSERT INTO kiosk_shift_cutover(cabang_id) VALUES ('balikpapan')").run();
-			assert.equal((await post(branch, 'initialize', null)).failed, true);
+			assert.equal((await post(branch, 'activate', null)).failed, true);
 			const { catalog } = await post(branch, 'sale-token', null);
 			await post(branch, 'device/catalog', { branch, catalog });
-			assert.equal((await post(branch, 'handoff', null)).ok, true);
 			await db
 				.prepare(
 					"INSERT INTO pengaturan(id,cabang_id,kunci,pin) VALUES ('kiosk-pin-fixture','balikpapan',NULL,'9876')"
 				)
 				.run();
-			assert.match((await post(branch, 'initialize', null)).error, /PIN aktif/);
+			assert.match((await post(branch, 'activate', null)).error, /PIN lama/);
+			assert.equal(
+				await db
+					.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
+					.first(),
+				null
+			);
 			await db
 				.prepare(
 					"UPDATE pengaturan SET pin=NULL,pin_hash=? WHERE cabang_id='balikpapan' AND id='kiosk-pin-fixture'"
 				)
 				.bind(await post(branch, 'fixture-pin-hash', '9876'))
 				.run();
-			assert.deepEqual(await post(branch, 'initialize', null), { ok: true, status: 'initialized' });
-			assert.deepEqual(await post(branch, 'initialize', null), {
+			await db
+				.prepare(
+					"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('pilot-legacy-open','balikpapan','2026-01-01T00:00:00Z',0,1)"
+				)
+				.run();
+			assert.match((await post(branch, 'activate', null)).error, /KIOS_SHIFT_STILL_OPEN/);
+			assert.equal(
+				await db
+					.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
+					.first(),
+				null
+			);
+			await db
+				.prepare("DELETE FROM sesi_toko WHERE id='pilot-legacy-open' AND cabang_id='balikpapan'")
+				.run();
+			assert.deepEqual(await post(branch, 'activate', null), { ok: true, status: 'initialized' });
+			assert.deepEqual(await post(branch, 'activate', null), {
 				ok: true,
 				status: 'already-initialized'
 			});

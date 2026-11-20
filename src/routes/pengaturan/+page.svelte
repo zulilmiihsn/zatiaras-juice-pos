@@ -9,6 +9,7 @@
 	import BellRing from '@lucide/svelte/icons/bell-ring';
 	import Download from '@lucide/svelte/icons/download';
 	import History from '@lucide/svelte/icons/history';
+	import type { PageProps } from './$types';
 	import EnrollKioskDevice from '$lib/components/dashboard/EnrollKioskDevice.svelte';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Printer from '@lucide/svelte/icons/printer';
@@ -16,6 +17,7 @@
 	import AppModal from '$lib/components/shared/AppModal.svelte';
 	import ToastNotification from '$lib/components/shared/ToastNotification.svelte';
 
+	let { data }: PageProps = $props();
 	const s = createPengaturanState();
 	const isOwner = $derived(isOwnerRole(s.currentUserRole));
 	const RoleIcon = $derived(s.roleIcon);
@@ -176,7 +178,7 @@
 		</nav>
 
 		{#if isOwner}
-			<EnrollKioskDevice />
+			<EnrollKioskDevice stagingKioskPilot={data.stagingKioskPilot} />
 		{/if}
 
 		<!-- Logout Section -->

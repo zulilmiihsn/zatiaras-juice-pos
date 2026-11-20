@@ -47,11 +47,16 @@ export const auth = {
 	}
 };
 
-export async function loginWithUsername(username: string, password: string, branch: string) {
+export async function loginWithUsername(
+	username: string,
+	password: string,
+	branch: string,
+	stagingKiosk = false
+) {
 	const res = await fetchWithCsrfRetry('/api/veriflogin', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password, branch })
+		body: JSON.stringify({ username, password, branch, ...(stagingKiosk ? { stagingKiosk } : {}) })
 	});
 	const result = await res.json().catch(() => ({}));
 	if (!res.ok || !result.success) {

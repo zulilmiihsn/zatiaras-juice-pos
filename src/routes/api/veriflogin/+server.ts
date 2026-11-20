@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { dev } from '$app/environment';
-import { openKioskSession } from '$lib/server/kioskSession';
+import { parseKioskSession, openKioskSession, readKioskSession } from '$lib/server/kioskSession';
 import { attemptLogin } from '$lib/server/services/authService';
 import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
 import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/sessionStore';
@@ -23,9 +23,28 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 	}
 	const result = await attemptLogin(platform, body, clientIp);
 
-	if (result.headers?.['x-kiosk-login'] === 'd1-daily-limit') {
+	const stagingRequested =
+		platform?.env.KIOSK_STAGING_PILOT === 'balikpapan' &&
+		body !== null &&
+		typeof body === 'object' &&
+		'branch' in body &&
+		body.branch === 'balikpapan' &&
+		'stagingKiosk' in body &&
+		body.stagingKiosk === true;
+	if (
+		result.headers?.['x-kiosk-login'] === 'd1-daily-limit' ||
+		(stagingRequested && result.sessionId)
+	) {
 		const session = await openKioskSession(platform, cookies, body);
-		if (session) {
+		const scope = parseKioskSession(session?.id);
+		const kiosk =
+			stagingRequested && scope ? await readKioskSession(platform, cookies, scope) : null;
+		if (
+			session &&
+			(!stagingRequested ||
+				kiosk?.shiftStatus.state === 'closed' ||
+				kiosk?.shiftStatus.state === 'open')
+		) {
 			cookies.set(
 				SESSION_COOKIE,
 				session.id,
@@ -38,6 +57,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 			);
 		}
 	}
+
+	if (stagingRequested && result.sessionId)
+		return Response.json(
+			{ success: false, message: 'HP belum terdaftar atau pilot staging belum siap.' },
+			{ status: 409, headers: { 'Cache-Control': 'no-store' } }
+		);
 
 	if (result.sessionId) {
 		cookies.set(SESSION_COOKIE, result.sessionId, sessionCookieOptions(!dev));

@@ -69,7 +69,12 @@ export class ShiftFixture {
 			await this.ctx.storage.put('fixture:quota', await req.json());
 			return Response.json(true);
 		}
-		if (actionName === 'project' || actionName === 'handoff' || actionName === 'initialize') {
+		if (
+			actionName === 'project' ||
+			actionName === 'handoff' ||
+			actionName === 'initialize' ||
+			actionName === 'activate'
+		) {
 			const quota = await this.ctx.storage.get<string>('fixture:quota');
 			const d1 = this.env.DB_BALIKPAPAN_GROUP;
 			const db =
@@ -87,6 +92,7 @@ export class ShiftFixture {
 				{
 					DB_BALIKPAPAN_GROUP: db,
 					KIOSK_PROJECTION_BRANCHES: 'balikpapan',
+					KIOSK_STAGING_PILOT: 'balikpapan',
 					POS_PRICE_SIGNING_KEY: await this.ctx.storage.get('fixture:price-key')
 				}
 			);
@@ -98,7 +104,9 @@ export class ShiftFixture {
 								? 'drain'
 								: actionName === 'initialize'
 									? 'initialize'
-									: 'prepare-numbering'),
+									: actionName === 'activate'
+										? 'activate-staging'
+										: 'prepare-numbering'),
 						{
 							method: 'POST',
 							body: JSON.stringify({ branch })

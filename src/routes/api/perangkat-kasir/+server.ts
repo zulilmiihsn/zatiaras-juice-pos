@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
+import { activateStagingKiosk } from '$lib/server/activateStagingKiosk';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ locals, platform }) => {
@@ -10,6 +11,27 @@ export const PUT: RequestHandler = async ({ locals, platform }) => {
 	await prepareKioskCatalog(platform, branch);
 	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
 };
+export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
+	requireExactRole(requireAuthSession(locals).role, ['pemilik']);
+	const branch = requireSessionBranch(locals);
+	let body: unknown;
+	try {
+		body = await readJsonBody(request, 256);
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
+	}
+	if (
+		!body ||
+		typeof body !== 'object' ||
+		!('confirm' in body) ||
+		body.confirm !== 'balikpapan-staging'
+	)
+		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
+	await activateStagingKiosk(platform, branch);
+	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+};
+
 export const POST: RequestHandler = async ({ locals, request, platform, cookies }) => {
 	const owner = requireAuthSession(locals);
 	requireExactRole(owner.role, ['pemilik']);

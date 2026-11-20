@@ -78,6 +78,36 @@ test('pendaftaran perangkat hanya pemilik cabang; verifier tidak masuk respons b
 	}
 });
 
+test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan konfirmasi', async () => {
+	const { PATCH } = await import('../routes/api/perangkat-kasir/+server');
+	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
+	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'PATCH'), true);
+	const activate = (role: string, branch: string, flag?: string, confirm?: string) =>
+		PATCH({
+			locals: { authSession: { role, branch } },
+			platform: { env: { KIOSK_STAGING_PILOT: flag } },
+			request: new Request('https://test.invalid/api/perangkat-kasir', {
+				method: 'PATCH',
+				body: JSON.stringify({ confirm })
+			})
+		} as never);
+	await assert.rejects(
+		async () => activate('kasir', 'balikpapan', 'balikpapan', 'balikpapan-staging'),
+		{ status: 403 }
+	);
+	await assert.rejects(
+		async () => activate('pemilik', 'berau', 'balikpapan', 'balikpapan-staging'),
+		{ status: 404 }
+	);
+	await assert.rejects(
+		async () => activate('pemilik', 'balikpapan', undefined, 'balikpapan-staging'),
+		{ status: 404 }
+	);
+	await assert.rejects(async () => activate('pemilik', 'balikpapan', 'balikpapan'), {
+		status: 400
+	});
+});
+
 test('hanya pemilik menyiapkan katalog harga untuk cabangnya', async () => {
 	const { PUT } = await import('../routes/api/perangkat-kasir/+server');
 	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');

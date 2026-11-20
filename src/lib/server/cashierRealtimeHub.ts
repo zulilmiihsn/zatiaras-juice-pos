@@ -10,6 +10,7 @@ import { recordCoordinatedSale } from './checkout/coordinatedSale';
 import { CheckoutDomainError, normalizePaymentMethod } from './checkout/utils';
 import { KIOSK_CATALOG_KEY, readKioskCatalog, publishKioskCatalog } from './kioskCatalog';
 import { authorizeKioskShift, KIOSK_SHIFT_PIN } from './kioskShiftPin';
+import { initializeStagingKiosk, isStagingKioskPilot } from './activateStagingKiosk';
 import { initializeKioskShift } from './initializeKioskShift';
 import { readKioskInventorySeed } from './kioskInventory';
 import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandoff';
@@ -33,6 +34,13 @@ export class RealtimeDurableObject extends RealtimeHub {
 		if (request.method !== 'POST') return new Response(null, { status: 405 });
 		const body = await request.json().catch(() => null);
 		if (!body || typeof body !== 'object') return new Response(null, { status: 400 });
+		if (url.pathname === '/projection/activate-staging') {
+			const branch = branchContext(normalizeBranch(body.branch));
+			if (!isStagingKioskPilot(this.env, branch))
+				return Response.json({ ok: false }, { status: 404 });
+			const result = await initializeStagingKiosk(this.env, this.state.storage, branch, Date.now());
+			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
+		}
 		if (url.pathname === '/projection/prepare-numbering') {
 			const branch = branchContext(normalizeBranch(body.branch));
 			const seed = await readKioskOrderHandoff(getD1Database(this.env, branch), branch, Date.now());
