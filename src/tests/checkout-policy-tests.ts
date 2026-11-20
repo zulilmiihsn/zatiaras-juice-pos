@@ -30,7 +30,18 @@ test('only explicit D1 daily exhaustion can defer checkout', () => {
 	for (const quota of ['read', 'write', 'rows read', 'rows written']) {
 		assert.equal(isD1DailyLimit(new Error(`D1_ERROR: daily ${quota} limit exceeded`)), true);
 	}
+	for (const quota of ['read', 'write']) {
+		assert.equal(
+			isD1DailyLimit(
+				new Error(
+					`Your account has exceeded D1's free tier daily row ${quota} limit. Upgrade to a paid plan or wait until tomorrow (midnight UTC) to continue.`
+				)
+			),
+			true
+		);
+	}
 	for (const message of [
+		"D1's free tier daily row read limit configuration unavailable",
 		'D1_ERROR: daily read limit configuration unavailable',
 		'D1_ERROR: database unavailable',
 		'rate limit exceeded',
