@@ -153,6 +153,45 @@ test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan ko
 	assert.deepEqual(await result.json(), { success: true });
 });
 
+test('login pusat hanya mengalihkan kasir pada cabang pilot yang telah beralih', async () => {
+	const { shouldRouteCentralLoginToKiosk } = await import('../lib/server/kioskLoginPolicy');
+	const { db, close } = await createTestD1();
+	try {
+		const user = { role: 'kasir', branch: 'balikpapan' };
+		const platform = { env: { DB_BALIKPAPAN_GROUP: db, KIOSK_PRODUCTION_PILOT: 'balikpapan' } };
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), false);
+		await db.prepare("INSERT INTO kiosk_shift_cutover(cabang_id) VALUES ('balikpapan')").run();
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), true);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk(platform, { ...user, role: 'pemilik' }),
+			false
+		);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk(platform, { ...user, branch: 'berau' }),
+			false
+		);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk({ env: { DB_BALIKPAPAN_GROUP: db } }, user),
+			false
+		);
+		const quota = {
+			env: {
+				...platform.env,
+				DB_BALIKPAPAN_GROUP: {
+					prepare() {
+						throw new Error('D1_ERROR: daily read limit exceeded');
+					}
+				} as unknown as typeof db
+			}
+		};
+		assert.equal(await shouldRouteCentralLoginToKiosk(quota, user), true);
+		await db.prepare("DELETE FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'").run();
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), false);
+	} finally {
+		await close();
+	}
+});
+
 test('hanya pemilik menyiapkan katalog harga untuk cabangnya', async () => {
 	const { PUT } = await import('../routes/api/perangkat-kasir/+server');
 	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
