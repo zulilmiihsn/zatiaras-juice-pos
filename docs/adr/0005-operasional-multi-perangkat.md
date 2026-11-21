@@ -30,7 +30,7 @@ Masuk dari dua HP terdaftar dengan cabang Balikpapan lewat `/login?kiosk=staging
 
 ## Kembali ke jalur pusat
 
-Prosedur privat staging `/projection/rollback-staging` menolak rollback jika shift masih aktif atau antrean proyeksi belum habis. Jika aman, koordinator dijeda secara atomik sebelum penanda pusat dilepas. Bila D1 tidak tersedia setelah jeda, ulangi rollback saat D1 pulih, jangan hapus penanda manual. Data penjualan dan struk tetap disimpan. Pilot yang sudah di-rollback tidak dapat diaktifkan ulang dengan snapshot stok lama. Prosedur ini baru diuji dengan Workerd dan D1 lokal, bukan dijalankan pada pilot staging yang aktif.
+Pemilik Balikpapan staging dapat meminta rollback dari **Pengaturan → Daftarkan HP kios ini → Kembali ke kasir lama (staging)**, setelah mengonfirmasi shift kios sudah tutup. Prosedur privat `/projection/rollback-staging` tetap menolak rollback jika shift masih aktif atau antrean proyeksi belum habis. Jika aman, koordinator dijeda secara atomik sebelum penanda pusat dilepas. Bila D1 tidak tersedia setelah jeda, ulangi rollback saat D1 pulih, jangan hapus penanda manual. Data penjualan dan struk tetap disimpan. Pilot yang sudah di-rollback tidak dapat diaktifkan ulang dengan snapshot stok lama. Prosedur ini baru diuji dengan Workerd dan D1 lokal, bukan dijalankan pada pilot staging yang aktif.
 
 Sebelum pilot produksi, sambungkan prosedur ini ke kontrol operator yang diautentikasi dan uji rute produksi untuk kasir terdaftar saat D1 sehat maupun ketika kuota habis. Jalur login uji `?kiosk=staging` bukan jalur produksi. Jangan memasang penanda produksi sebelum peralihan dan pencocokan data dari dua perangkat lulus di staging.
 

@@ -82,10 +82,29 @@ test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan ko
 	const { PATCH } = await import('../routes/api/perangkat-kasir/+server');
 	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
 	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'PATCH'), true);
-	const activate = (role: string, branch: string, flag?: string, confirm?: string) =>
+	const activate = (
+		role: string,
+		branch: string,
+		flag?: string,
+		confirm?: string,
+		fetch?: (request: Request) => Promise<Response>
+	) =>
 		PATCH({
 			locals: { authSession: { role, branch } },
-			platform: { env: { KIOSK_STAGING_PILOT: flag } },
+			platform: {
+				env: {
+					KIOSK_STAGING_PILOT: flag,
+					REALTIME_HUB: fetch
+						? {
+								idFromName: (name: string) => name,
+								get: (name: string) => {
+									assert.equal(name, 'cashier:balikpapan');
+									return { fetch };
+								}
+							}
+						: undefined
+				}
+			},
 			request: new Request('https://test.invalid/api/perangkat-kasir', {
 				method: 'PATCH',
 				body: JSON.stringify({ confirm })
@@ -106,6 +125,32 @@ test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan ko
 	await assert.rejects(async () => activate('pemilik', 'balikpapan', 'balikpapan'), {
 		status: 400
 	});
+	const confirmation = 'rollback-balikpapan-staging';
+	await assert.rejects(async () => activate('kasir', 'balikpapan', 'balikpapan', confirmation), {
+		status: 403
+	});
+	await assert.rejects(async () => activate('pemilik', 'berau', 'balikpapan', confirmation), {
+		status: 404
+	});
+	await assert.rejects(
+		async () =>
+			activate('pemilik', 'balikpapan', 'balikpapan', confirmation, async () =>
+				Response.json({ ok: true })
+			),
+		{ status: 409 }
+	);
+	const result = await activate(
+		'pemilik',
+		'balikpapan',
+		'balikpapan',
+		confirmation,
+		async (request) => {
+			assert.equal(request.url, 'https://cashier.internal/projection/rollback-staging');
+			assert.deepEqual(await request.json(), { branch: 'balikpapan' });
+			return Response.json({ ok: true, status: 'rolled-back' });
+		}
+	);
+	assert.deepEqual(await result.json(), { success: true });
 });
 
 test('hanya pemilik menyiapkan katalog harga untuk cabangnya', async () => {

@@ -12,24 +12,36 @@ export function isStagingKioskPilot(env: App.Platform['env'] | undefined, branch
 	return branch === 'balikpapan' && env?.KIOSK_STAGING_PILOT === 'balikpapan';
 }
 
-export async function activateStagingKiosk(
+export async function changeStagingKiosk(
 	platform: App.Platform | undefined,
-	branch: BranchContext
+	branch: BranchContext,
+	action: 'activate' | 'rollback'
 ) {
 	if (!isStagingKioskPilot(platform?.env, branch)) throw error(404, 'Pilot staging tidak tersedia');
 	const hub = platform?.env.REALTIME_HUB;
 	if (!hub) throw error(503, 'Koordinator kios belum tersedia');
-	const response = await hub.get(hub.idFromName(`cashier:${branch}`)).fetch(
-		new Request('https://cashier.internal/projection/activate-staging', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ branch })
-		})
-	);
-	if (!response.ok)
+	const response = await hub
+		.get(hub.idFromName(`cashier:${branch}`))
+		.fetch(
+			new Request(`https://cashier.internal/projection/${action}-staging`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ branch })
+			})
+		)
+		.catch(() => null);
+	const result = response?.ok ? await response.json().catch(() => null) : null;
+	if (
+		result?.ok !== true ||
+		(action === 'rollback'
+			? result.status !== 'rolled-back'
+			: !['initialized', 'already-initialized'].includes(result.status))
+	)
 		throw error(
 			409,
-			'Peralihan belum terkonfirmasi. Jangan buka toko. Periksa status lalu ulangi persiapan staging.'
+			action === 'rollback'
+				? 'Kembali ke kasir lama belum terkonfirmasi. Pastikan shift kios tutup dan sinkronisasi selesai.'
+				: 'Peralihan belum terkonfirmasi. Jangan buka toko. Periksa status lalu ulangi persiapan staging.'
 		);
 }
 

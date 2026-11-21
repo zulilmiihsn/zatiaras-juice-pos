@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
-import { activateStagingKiosk } from '$lib/server/activateStagingKiosk';
+import { changeStagingKiosk } from '$lib/server/activateStagingKiosk';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ locals, platform }) => {
@@ -25,10 +25,14 @@ export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
 		!body ||
 		typeof body !== 'object' ||
 		!('confirm' in body) ||
-		body.confirm !== 'balikpapan-staging'
+		(body.confirm !== 'balikpapan-staging' && body.confirm !== 'rollback-balikpapan-staging')
 	)
 		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
-	await activateStagingKiosk(platform, branch);
+	await changeStagingKiosk(
+		platform,
+		branch,
+		body.confirm === 'rollback-balikpapan-staging' ? 'rollback' : 'activate'
+	);
 	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
 };
 

@@ -2,27 +2,37 @@
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
 	let { stagingKioskPilot = false }: { stagingKioskPilot?: boolean } = $props();
 	let confirmed = $state(false);
+	let rollbackConfirmed = $state(false);
 	let account = $state<'self' | 'cashier'>('cashier');
 	let username = $state('');
 	let busy = $state(false);
 	let message = $state('');
-	async function activatePilot() {
-		if (busy || !confirmed) return;
+	async function changePilot(action: 'activate' | 'rollback') {
+		const rollback = action === 'rollback';
+		if (busy || !(rollback ? rollbackConfirmed : confirmed)) return;
 		busy = true;
 		try {
 			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ confirm: 'balikpapan-staging' })
+				body: JSON.stringify({
+					confirm: rollback ? 'rollback-balikpapan-staging' : 'balikpapan-staging'
+				})
 			});
 			const result = await res.json().catch(() => null);
 			message =
 				res.ok && result?.success === true
-					? 'Balikpapan staging aktif. Gunakan tautan login uji pada dua HP terdaftar.'
-					: result?.message || 'Aktivasi belum terkonfirmasi. Jangan buka shift.';
+					? rollback
+						? 'Kasir lama Balikpapan staging sudah bisa digunakan kembali.'
+						: 'Balikpapan staging aktif. Gunakan tautan login uji pada dua HP terdaftar.'
+					: result?.message || 'Peralihan belum terkonfirmasi. Jangan buka shift.';
+			if (res.ok && result?.success === true) {
+				confirmed = false;
+				rollbackConfirmed = false;
+			}
 		} catch {
 			message =
-				'Aktivasi belum terkonfirmasi. Periksa koneksi sebelum mengulang persiapan yang sama.';
+				'Peralihan belum terkonfirmasi. Periksa koneksi sebelum mengulang tindakan yang sama.';
 		} finally {
 			busy = false;
 		}
@@ -112,9 +122,18 @@
 				type="button"
 				class="btn-brand-primary"
 				disabled={busy || !confirmed}
-				onclick={activatePilot}>Aktifkan Balikpapan staging</button
+				onclick={() => changePilot('activate')}>Aktifkan Balikpapan staging</button
 			>
 			<a href="/login?kiosk=staging" class="underline">Login uji Balikpapan staging</a>
+			<label
+				><input type="checkbox" bind:checked={rollbackConfirmed} disabled={busy} /> Shift kios sudah tutup.
+				Saya ingin kembali ke kasir lama.</label
+			>
+			<button
+				type="button"
+				disabled={busy || !rollbackConfirmed}
+				onclick={() => changePilot('rollback')}>Kembali ke kasir lama (staging)</button
+			>
 		</div>
 	{/if}
 	<p role="status" class="text-sm">{message}</p>
