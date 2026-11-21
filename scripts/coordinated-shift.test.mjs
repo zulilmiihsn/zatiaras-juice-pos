@@ -475,7 +475,35 @@ try {
 			3 - 2 * index
 		);
 	}
-	assert.deepEqual(await post('balikpapan', 'rollback', null), { ok: true, status: 'rolled-back' });
+	if (process.argv.includes('--browser')) {
+		await db
+			.prepare(
+				"INSERT INTO profil(id,cabang_id,username,password,role) VALUES ('fixture-owner','balikpapan','pemilik-uji',?,'pemilik')"
+			)
+			.bind(profile.verifier)
+			.run();
+		const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
+		await exerciseKioskBrowser({
+			db,
+			username: 'pemilik-uji',
+			password,
+			rollback: true,
+			bridge: (path, body) => {
+				if (path !== '/projection/rollback-staging')
+					return Response.json({ ok: false }, { status: 404 });
+				assert.deepEqual(body, { branch: 'balikpapan' });
+				return runtime.dispatchFetch(new URL('/balikpapan/rollback', address), {
+					method: 'POST',
+					body: JSON.stringify(body)
+				});
+			}
+		});
+	} else {
+		assert.deepEqual(await post('balikpapan', 'rollback', null), {
+			ok: true,
+			status: 'rolled-back'
+		});
+	}
 	assert.deepEqual(await post('balikpapan', 'rollback', null), { ok: true, status: 'rolled-back' });
 	assert.match((await post('balikpapan', 'activate', null)).error, /snapshot stok lama/);
 	assert.equal(

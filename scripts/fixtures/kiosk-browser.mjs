@@ -5,7 +5,15 @@ import { resolve, sep } from 'node:path';
 import { getRequest, setResponse } from '@sveltejs/kit/node';
 import { chromium, expect } from '@playwright/test';
 
-export async function exerciseKioskBrowser({ db, quota, bridge, devices, password, username }) {
+export async function exerciseKioskBrowser({
+	db,
+	quota,
+	bridge,
+	devices,
+	password,
+	username,
+	rollback = false
+}) {
 	const { Server } = await import('../../.svelte-kit/output/server/index.js');
 	const { manifest } = await import('../../.svelte-kit/cloudflare-tmp/manifest.js');
 	const assets = resolve('.svelte-kit/cloudflare');
@@ -33,6 +41,7 @@ export async function exerciseKioskBrowser({ db, quota, bridge, devices, passwor
 				getClientAddress: () => '127.0.0.1',
 				platform: {
 					env: {
+						KIOSK_STAGING_PILOT: 'balikpapan',
 						REALTIME_HUB: {
 							idFromName: (name) => name,
 							get: () => ({
@@ -43,13 +52,15 @@ export async function exerciseKioskBrowser({ db, quota, bridge, devices, passwor
 								}
 							})
 						},
-						DB_BALIKPAPAN_GROUP: {
-							prepare: (sql) => {
-								if (quota === 'read' || !/^\s*SELECT\b/i.test(sql))
-									throw new Error(`D1_ERROR: daily ${quota} limit exceeded`);
-								return db.prepare(sql);
-							}
-						}
+						DB_BALIKPAPAN_GROUP: !quota
+							? db
+							: {
+									prepare: (sql) => {
+										if (quota === 'read' || !/^\s*SELECT\b/i.test(sql))
+											throw new Error(`D1_ERROR: daily ${quota} limit exceeded`);
+										return db.prepare(sql);
+									}
+								}
 					}
 				}
 			});
@@ -65,6 +76,32 @@ export async function exerciseKioskBrowser({ db, quota, bridge, devices, passwor
 	let browser;
 	try {
 		browser = await chromium.launch();
+		if (rollback) {
+			const page = await browser.newPage({ serviceWorkers: 'block' });
+			await page.goto(origin + '/login');
+			await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
+			await page.getByLabel('Pilih Cabang').selectOption('balikpapan');
+			await page.getByPlaceholder('Masukkan username').fill(username);
+			await page.getByPlaceholder('Masukkan password').fill(password);
+			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+			await expect(page).toHaveURL(origin + '/');
+			await page.goto(origin + '/pengaturan');
+			await page.getByText('Daftarkan HP kios ini', { exact: true }).click();
+			const action = page.getByRole('button', {
+				name: 'Kembali ke kasir lama (staging)',
+				exact: true
+			});
+			await expect(action).toBeDisabled();
+			await page.getByRole('checkbox', { name: /Saya ingin kembali ke kasir lama/ }).check();
+			await expect(action).toBeEnabled();
+			await action.click();
+			await expect(
+				page.getByText('Kasir lama Balikpapan staging sudah bisa digunakan kembali.', {
+					exact: true
+				})
+			).toBeVisible();
+			return;
+		}
 		const pages = await Promise.all(
 			devices.map(async (device) => {
 				const context = await browser.newContext({ serviceWorkers: 'block' });
