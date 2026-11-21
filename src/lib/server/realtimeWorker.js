@@ -2,8 +2,9 @@ import { dispatchOrderNotifications } from './orderNotifications/delivery';
 import { BRANCH_GROUPS, branchContext, getD1Database } from './branchResolver';
 import { drainAuditOutbox } from './auditDrain';
 import { cleanTechnicalRows, cleanLocalRegistryDevices } from './technicalRetention';
+import { drainConfiguredKioskBranch } from './scheduledKioskProjection';
 import { checkOpsAlerts } from './opsAlerts';
-export { RealtimeDurableObject } from './realtimeDurableObject.js';
+export { RealtimeDurableObject } from './cashierRealtimeHub';
 const DAILY_CRON = '0 3 * * *';
 const MINUTE_CRON = '* * * * *';
 const AUDIT_ROWS_PER_SHARD = 1000;
@@ -34,6 +35,7 @@ export default {
 		const now = event.scheduledTime ?? Date.now();
 		if (!Number.isFinite(now) || ![DAILY_CRON, MINUTE_CRON].includes(event.cron ?? '')) return;
 		for (const branch of Object.values(BRANCH_GROUPS).flat()) {
+			if (event.cron === MINUTE_CRON) await drainConfiguredKioskBranch(env, branch);
 			try {
 				await dispatchOrderNotifications(env, branchContext(branch), { now });
 			} catch {

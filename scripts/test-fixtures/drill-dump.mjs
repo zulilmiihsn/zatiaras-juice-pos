@@ -18,8 +18,8 @@ export async function drillFixtureBaselineOptions(
 	try {
 		if (db)
 			db.exec(
-				drillFixtureSql(migration).replaceAll(
-					'samarinda',
+				drillFixtureSql(
+					migration,
 					binding === 'DB_BERAU_GROUP'
 						? 'berau'
 						: binding === 'DB_BALIKPAPAN_GROUP'
@@ -52,7 +52,9 @@ export async function drillFixtureBaselineOptions(
 }
 
 /** Fully migrated synthetic dump; no credentials or production rows. */
-export function drillFixtureSql(lastMigration) {
+export function drillFixtureSql(lastMigration, branch = 'samarinda') {
+	if (!['samarinda', 'balikpapan', 'berau'].includes(branch))
+		throw new Error('Unknown fixture branch');
 	const directory = new URL('../../drizzle/', import.meta.url);
 	const journal = JSON.parse(readFileSync(new URL('meta/_journal.json', directory), 'utf8'));
 	const files = journal.entries.map((entry) => `${entry.tag}.sql`);
@@ -92,12 +94,12 @@ export function drillFixtureSql(lastMigration) {
 		...selected.map(
 			(file, i) => `INSERT INTO d1_migrations VALUES(${i + 1},'${file}','2025-01-01T00:00:00Z');`
 		),
-		`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,metode_bayar,created_at,updated_at) VALUES('bk1','samarinda','2025-01-01T00:00:00Z','catat','in','pendapatan_usaha',100000,'tunai','2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
-		`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,harga,harga_dasar,total_tambahan,nominal,created_at,updated_at) VALUES('tk1','samarinda','bk1',2,50000,50000,0,100000,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
-		`INSERT INTO bahan(id,cabang_id,nama,stok_saat_ini,created_at,updated_at) VALUES('b1','samarinda','Fixture',10,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
-		`INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah,stok_setelah,created_at) VALUES('m1','samarinda','b1',10,10,'2025-01-01T00:00:00Z');`,
-		`INSERT INTO pos_nomor_harian(cabang_id,tanggal,terakhir) VALUES('samarinda','2025-01-02',7);`,
-		`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,jumlah,metode_bayar,receipt_snapshot,nomor_harian,tanggal_nomor,idempotency_key,request_fingerprint,stock_policy_mode,stock_policy_revision,created_at,updated_at) VALUES('bk2','samarinda','2025-01-02T00:00:00Z','pos','in','pendapatan_usaha',20000,2,'tunai','${receipt}',7,'2025-01-02','fixture-sale','fixture-fingerprint','tracked',0,'2025-01-02T00:00:00Z','2025-01-02T00:00:00Z');`,
-		`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,nama_produk,jumlah,harga,harga_dasar,total_tambahan,nominal,created_at,updated_at) VALUES('tk2','samarinda','bk2','Fixture',2,10000,10000,0,20000,'2025-01-02T00:00:00Z','2025-01-02T00:00:00Z');`
+		`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,metode_bayar,created_at,updated_at) VALUES('bk1','${branch}','2025-01-01T00:00:00Z','catat','in','pendapatan_usaha',100000,'tunai','2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
+		`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,jumlah,harga,harga_dasar,total_tambahan,nominal,created_at,updated_at) VALUES('tk1','${branch}','bk1',2,50000,50000,0,100000,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
+		`INSERT INTO bahan(id,cabang_id,nama,stok_saat_ini,created_at,updated_at) VALUES('b1','${branch}','Fixture',10,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z');`,
+		`INSERT INTO bahan_mutasi(id,cabang_id,bahan_id,delta_jumlah,stok_setelah,created_at) VALUES('m1','${branch}','b1',10,10,'2025-01-01T00:00:00Z');`,
+		`INSERT INTO pos_nomor_harian(cabang_id,tanggal,terakhir) VALUES('${branch}','2025-01-02',7);`,
+		`INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,jenis,nominal,jumlah,metode_bayar,receipt_snapshot,nomor_harian,tanggal_nomor,idempotency_key,request_fingerprint,stock_policy_mode,stock_policy_revision,created_at,updated_at) VALUES('bk2','${branch}','2025-01-02T00:00:00Z','pos','in','pendapatan_usaha',20000,2,'tunai','${receipt}',7,'2025-01-02','fixture-sale','fixture-fingerprint','tracked',0,'2025-01-02T00:00:00Z','2025-01-02T00:00:00Z');`,
+		`INSERT INTO transaksi_kasir(id,cabang_id,buku_kas_id,nama_produk,jumlah,harga,harga_dasar,total_tambahan,nominal,created_at,updated_at) VALUES('tk2','${branch}','bk2','Fixture',2,10000,10000,0,20000,'2025-01-02T00:00:00Z','2025-01-02T00:00:00Z');`
 	].join('\n');
 }

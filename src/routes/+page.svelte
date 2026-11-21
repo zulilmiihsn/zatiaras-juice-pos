@@ -19,7 +19,7 @@
 	import DashboardOperationalStats from '$lib/components/dashboard/DashboardOperationalStats.svelte';
 	import DashboardBestSellers from '$lib/components/dashboard/DashboardBestSellers.svelte';
 	import { createToastManager } from '$lib/utils/ui';
-	import { getSesiAktif, getSesiSummary } from '$lib/services/sesiTokoService';
+	import { readActiveShift, getSesiSummary } from '$lib/services/sesiTokoService';
 	import { transactionService } from '$lib/services/transactionService';
 	import { formatRupiah } from '$lib/utils/currency';
 	import { refreshBus } from '$lib/utils/refreshBus';
@@ -76,6 +76,7 @@
 	let pinInputToko = $state('');
 	let pinErrorToko = $state('');
 	let tokoAktifLocal = $state(false);
+	let statusTokoDiketahui = $state(false);
 	let sesiAktif = $state<TokoSession | null>(null);
 	let sesiKasSummary = $state({
 		modalAwal: 0,
@@ -91,7 +92,10 @@
 	}
 
 	async function cekSesiToko() {
-		sesiAktif = await getSesiAktif();
+		const shift = await readActiveShift();
+		statusTokoDiketahui = shift !== undefined;
+		if (shift === undefined) return;
+		sesiAktif = shift;
 		updateTokoAktif(!!sesiAktif);
 		modalAwal = sesiAktif?.kas_awal ?? null;
 
@@ -203,6 +207,10 @@
 		}
 		// Non-kasir atau PIN belum disetup langsung buka modal (auto-bypass)
 		cekSesiToko().then(() => {
+			if (!statusTokoDiketahui) {
+				showToastNotification('Status kios belum bisa diperiksa. Coba cek lagi.', 'warning');
+				return;
+			}
 			isBukaToko = !tokoAktifLocal;
 			showTokoModal = true;
 		});
@@ -287,7 +295,11 @@
 				<div class="flex min-w-0 flex-col">
 					<div class="flex items-center gap-1.5 leading-tight">
 						<span class="truncate text-xs font-bold tracking-tight text-slate-900 md:text-sm">
-							{tokoAktifLocal ? 'Kios Buka' : 'Kios Tutup'}
+							{!statusTokoDiketahui
+								? 'Status kios belum diketahui'
+								: tokoAktifLocal
+									? 'Kios Buka'
+									: 'Kios Tutup'}
 						</span>
 						<span
 							class="inline-block h-2 w-2 shrink-0 rounded-full {tokoAktifLocal
@@ -296,7 +308,9 @@
 						></span>
 					</div>
 					<span class="mt-0.5 truncate text-[11px] font-medium text-slate-500 md:text-xs">
-						{#if tokoAktifLocal}
+						{#if !statusTokoDiketahui}
+							Ketuk untuk memeriksa status cabang
+						{:else if tokoAktifLocal}
 							Modal Kas: <span class="font-bold text-emerald-800"
 								>{modalAwal !== null ? `Rp ${formatRupiah(modalAwal)}` : 'Rp 0'}</span
 							>
@@ -312,7 +326,7 @@
 					? 'text-slate-400 hover:text-slate-600'
 					: 'text-pink-600 hover:text-pink-700'}"
 			>
-				{tokoAktifLocal ? 'Tutup Sesi ›' : 'Buka Sesi →'}
+				{!statusTokoDiketahui ? 'Cek status ›' : tokoAktifLocal ? 'Tutup Sesi ›' : 'Buka Sesi →'}
 			</span>
 		</button>
 	</PageHeader>

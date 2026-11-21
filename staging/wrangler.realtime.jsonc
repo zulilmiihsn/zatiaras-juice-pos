@@ -6,6 +6,7 @@
 	"main": "../src/lib/server/realtimeWorker.js",
 	"compatibility_date": "2026-06-29",
 	"compatibility_flags": ["nodejs_compat"],
+	"vars": { "KIOSK_STAGING_PILOT": "balikpapan", "KIOSK_PROJECTION_BRANCHES": "balikpapan" },
 
 	"durable_objects": {
 		"bindings": [

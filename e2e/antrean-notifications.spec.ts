@@ -166,7 +166,7 @@ async function cleanup(page: Page, ids: string[]) {
 			`/api/transaksi-kasir?transaction_id=${encodeURIComponent(id)}`,
 			undefined
 		);
-		expect(response.status()).toBe(200);
+		expect(response.status(), `Void cleanup failed for ${id}: ${await response.text()}`).toBe(200);
 	}
 }
 
@@ -384,12 +384,25 @@ test('Antrean checkout alerts same branch recipients, not origin, and visible qu
 		const card = tab.locator('article', { hasText: 'Notifikasi pertama' });
 		await selectTab(tab, 'Diproses');
 		await expect(card).toBeVisible();
+		const statusSaved = () =>
+			tab.waitForResponse(
+				(response) =>
+					new URL(response.url()).pathname === '/api/antrean/status' &&
+					response.request().method() === 'POST'
+			);
+		const completed = statusSaved();
 		await card.getByRole('button', { name: /tandai selesai/i }).click();
+		const completedResponse = await completed;
+		expect(completedResponse.ok(), await completedResponse.text()).toBe(true);
 		await tab.getByRole('tab', { name: 'Selesai', exact: true }).click();
+		const reopened = statusSaved();
 		await tab
 			.locator('article', { hasText: 'Notifikasi pertama' })
 			.getByRole('button', { name: /buka kembali/i })
 			.click();
+		// Status updates and void touch the same ledger row; do not race teardown with a pending transition.
+		const reopenedResponse = await reopened;
+		expect(reopenedResponse.ok(), await reopenedResponse.text()).toBe(true);
 		await wake(c.page);
 		expect(
 			(await local(c.page))?.events.map((event: { order_id: string }) => event.order_id).sort()

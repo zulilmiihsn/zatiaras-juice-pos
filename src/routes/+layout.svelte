@@ -62,7 +62,7 @@
 
 	// Turunan, bukan state yang disinkronkan lewat $effect: render SSR sudah benar sejak awal,
 	// jadi halaman tanpa nav tidak sempat tampil bergeser selebar sidebar sebelum hidrasi.
-	const noNavRoutes = ['/login', '/unauthorized', '/pos/bayar', '/offline'];
+	const noNavRoutes = ['/login', '/unauthorized', '/pos/bayar', '/offline', '/operasional'];
 	const showNav = $derived(
 		!(noNavRoutes.includes(page.url.pathname) || page.url.pathname.startsWith('/pengaturan'))
 	);
@@ -257,7 +257,8 @@
 
 	onMount(async () => {
 		await layoutSt.setupPwa();
-		const publicRoutes = ['/login', '/offline', '/unauthorized'];
+		// /operasional validates the device session in its server load, not the D1 guard.
+		const publicRoutes = ['/login', '/offline', '/unauthorized', '/operasional'];
 		if (!publicRoutes.includes(page.url.pathname) && !(await requireAuth())) return;
 		layoutSt.setupWindowListeners();
 	});

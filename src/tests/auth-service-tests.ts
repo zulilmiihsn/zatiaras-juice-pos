@@ -27,6 +27,311 @@ async function seedProfil(
 		.run();
 }
 
+test('pendaftaran perangkat hanya pemilik cabang; verifier tidak masuk respons browser', async () => {
+	const { POST } = await import('../routes/api/perangkat-kasir/+server');
+	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
+	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'POST'), true);
+	const { db, close } = await createTestD1();
+	try {
+		await seedProfil(db, 'kasir', crypto.randomUUID(), 'kasir');
+		const token = crypto.randomUUID();
+		const written: unknown[][] = [];
+		let enrolled = 0;
+		const submit = (role: string, branch: string) =>
+			POST({
+				request: new Request('https://test.invalid/api/perangkat-kasir', {
+					method: 'POST',
+					body: JSON.stringify({ username: 'kasir', branch })
+				}),
+				locals: { authSession: { role, branch: 'samarinda' } },
+				cookies: { set: (...items: unknown[]) => written.push(items) },
+				platform: {
+					env: {
+						DB_SAMARINDA_GROUP: db,
+						REALTIME_HUB: {
+							idFromName: (name: string) => name,
+							get: (name: string) => ({
+								fetch: async (req: Request) => {
+									assert.equal(name, 'cashier:samarinda');
+									const data = await req.json();
+									assert.equal(data.role, 'kasir');
+									assert.equal(data.userId, 'user-kasir');
+									assert.match(data.verifier, /^\$2/);
+									enrolled++;
+									return Response.json({ ok: true, token }, { status: 201 });
+								}
+							})
+						}
+					}
+				}
+			} as never);
+		await assert.rejects(async () => submit('kasir', 'samarinda'), { status: 403 });
+		await assert.rejects(async () => submit('pemilik', 'berau'), { status: 403 });
+		const res = await submit('pemilik', 'samarinda');
+		assert.equal(res.status, 201);
+		assert.deepEqual(await res.json(), { success: true });
+		assert.equal(enrolled, 1);
+		assert.equal(written[0][1], token);
+		assert.equal((written[0][2] as { httpOnly: boolean }).httpOnly, true);
+	} finally {
+		await close();
+	}
+});
+
+test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan konfirmasi', async () => {
+	const { PATCH } = await import('../routes/api/perangkat-kasir/+server');
+	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
+	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'PATCH'), true);
+	const activate = (
+		role: string,
+		branch: string,
+		flag?: string,
+		confirm?: string,
+		fetch?: (request: Request) => Promise<Response>
+	) =>
+		PATCH({
+			locals: { authSession: { role, branch } },
+			platform: {
+				env: {
+					KIOSK_STAGING_PILOT: flag,
+					REALTIME_HUB: fetch
+						? {
+								idFromName: (name: string) => name,
+								get: (name: string) => {
+									assert.equal(name, 'cashier:balikpapan');
+									return { fetch };
+								}
+							}
+						: undefined
+				}
+			},
+			request: new Request('https://test.invalid/api/perangkat-kasir', {
+				method: 'PATCH',
+				body: JSON.stringify({ confirm })
+			})
+		} as never);
+	await assert.rejects(
+		async () => activate('kasir', 'balikpapan', 'balikpapan', 'balikpapan-staging'),
+		{ status: 403 }
+	);
+	await assert.rejects(
+		async () => activate('pemilik', 'berau', 'balikpapan', 'balikpapan-staging'),
+		{ status: 404 }
+	);
+	await assert.rejects(
+		async () => activate('pemilik', 'balikpapan', undefined, 'balikpapan-staging'),
+		{ status: 404 }
+	);
+	await assert.rejects(async () => activate('pemilik', 'balikpapan', 'balikpapan'), {
+		status: 400
+	});
+	const confirmation = 'rollback-balikpapan-staging';
+	await assert.rejects(async () => activate('kasir', 'balikpapan', 'balikpapan', confirmation), {
+		status: 403
+	});
+	await assert.rejects(async () => activate('pemilik', 'berau', 'balikpapan', confirmation), {
+		status: 404
+	});
+	await assert.rejects(
+		async () =>
+			activate('pemilik', 'balikpapan', 'balikpapan', confirmation, async () =>
+				Response.json({ ok: true })
+			),
+		{ status: 409 }
+	);
+	const result = await activate(
+		'pemilik',
+		'balikpapan',
+		'balikpapan',
+		confirmation,
+		async (request) => {
+			assert.equal(request.url, 'https://cashier.internal/projection/rollback-staging');
+			assert.deepEqual(await request.json(), { branch: 'balikpapan' });
+			return Response.json({ ok: true, status: 'rolled-back' });
+		}
+	);
+	assert.deepEqual(await result.json(), { success: true });
+	await assert.rejects(
+		async () => activate('pemilik', 'balikpapan', 'balikpapan', 'balikpapan-production'),
+		{ status: 404 }
+	);
+	const production = await PATCH({
+		locals: { authSession: { role: 'pemilik', branch: 'balikpapan' } },
+		platform: {
+			env: {
+				KIOSK_PRODUCTION_PILOT: 'balikpapan',
+				REALTIME_HUB: {
+					idFromName: (name: string) => name,
+					get: () => ({
+						fetch: async (request: Request) => {
+							assert.equal(request.url, 'https://cashier.internal/projection/activate-production');
+							return Response.json({ ok: true, status: 'initialized' });
+						}
+					})
+				}
+			}
+		},
+		request: new Request('https://test.invalid/api/perangkat-kasir', {
+			method: 'PATCH',
+			body: JSON.stringify({ confirm: 'balikpapan-production' })
+		})
+	} as never);
+	assert.deepEqual(await production.json(), { success: true });
+});
+
+test('login pusat hanya mengalihkan kasir pada cabang pilot yang telah beralih', async () => {
+	const { shouldRouteCentralLoginToKiosk } = await import('../lib/server/kioskLoginPolicy');
+	const { db, close } = await createTestD1();
+	try {
+		const user = { role: 'kasir', branch: 'balikpapan' };
+		const platform = { env: { DB_BALIKPAPAN_GROUP: db, KIOSK_PRODUCTION_PILOT: 'balikpapan' } };
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), false);
+		await db.prepare("INSERT INTO kiosk_shift_cutover(cabang_id) VALUES ('balikpapan')").run();
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), true);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk(platform, { ...user, role: 'pemilik' }),
+			false
+		);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk(platform, { ...user, branch: 'berau' }),
+			false
+		);
+		assert.equal(
+			await shouldRouteCentralLoginToKiosk({ env: { DB_BALIKPAPAN_GROUP: db } }, user),
+			false
+		);
+		const quota = {
+			env: {
+				...platform.env,
+				DB_BALIKPAPAN_GROUP: {
+					prepare() {
+						throw new Error('D1_ERROR: daily read limit exceeded');
+					}
+				} as unknown as typeof db
+			}
+		};
+		assert.equal(await shouldRouteCentralLoginToKiosk(quota, user), true);
+		await db.prepare("DELETE FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'").run();
+		assert.equal(await shouldRouteCentralLoginToKiosk(platform, user), false);
+	} finally {
+		await close();
+	}
+});
+
+test('hanya pemilik menyiapkan katalog harga untuk cabangnya', async () => {
+	const { PUT } = await import('../routes/api/perangkat-kasir/+server');
+	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
+	const { verifyPosPricingToken } = await import('../lib/server/posPricingToken');
+	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'PUT'), true);
+	const { db, close } = await createTestD1();
+	try {
+		const id = crypto.randomUUID();
+		await db
+			.prepare(
+				`INSERT INTO produk(id,cabang_id,nama,harga,stok,is_active) VALUES (?,'samarinda','Jus Uji',10000,5,1)`
+			)
+			.bind(id)
+			.run();
+		const env = {
+			DB_SAMARINDA_GROUP: db,
+			POS_PRICE_SIGNING_KEY: crypto.randomUUID(),
+			REALTIME_HUB: {
+				idFromName: (name: string) => name,
+				get: (name: unknown) => ({
+					fetch: async (req: Request) => {
+						assert.equal(name, 'cashier:samarinda');
+						const { branch, catalog } = await req.json();
+						assert.equal(branch, 'samarinda');
+						assert.equal(catalog.branch, branch);
+						const product = catalog.products.find((item: { id: string }) => item.id === id);
+						const token = await verifyPosPricingToken<{ id: string; harga: number }>(
+							env,
+							product.price_token,
+							{ kind: 'catalog_product', branch }
+						);
+						assert.equal(token.data.id, id);
+						assert.equal(token.data.harga, 10000);
+						return Response.json({ ok: true, status: 'updated' });
+					}
+				})
+			}
+		};
+		const prepare = (role: string) =>
+			PUT({ locals: { authSession: { role, branch: 'samarinda' } }, platform: { env } } as never);
+		await assert.rejects(async () => prepare('kasir'), { status: 403 });
+		assert.deepEqual(await (await prepare('pemilik')).json(), { success: true });
+	} finally {
+		await close();
+	}
+});
+
+test('login membedakan kuota baca profil dari kesalahan DB biasa setelah rate limit lolos', async () => {
+	for (const [message, expected] of [
+		['D1_ERROR: daily read limit exceeded', 503],
+		['D1_ERROR: database unavailable', 500]
+	] as const) {
+		const { db, close } = await createTestD1();
+		try {
+			const wrapped = {
+				prepare(sql: string) {
+					if (/\bfrom\s+[`"]?profil\b/i.test(sql)) throw new Error(message);
+					return db.prepare(sql);
+				},
+				batch: db.batch.bind(db)
+			};
+			const result = await attemptLogin(
+				{ env: { DB_SAMARINDA_GROUP: wrapped } } as never,
+				{ username: 'kasir', password: 'fixture', branch: 'samarinda' },
+				'10.9.0.1'
+			);
+			assert.equal(result.status, expected);
+			assert.equal(result.sessionId, undefined);
+			assert.equal(
+				result.headers?.['x-kiosk-login'],
+				expected === 503 ? 'd1-daily-limit' : undefined
+			);
+		} finally {
+			await close();
+		}
+	}
+});
+
+test('kuota tulis sesi memicu mode kios hanya setelah password benar', async () => {
+	const { db, close } = await createTestD1();
+	try {
+		const password = crypto.randomUUID();
+		await seedProfil(db, 'kasir', password, 'kasir');
+		const platform = {
+			env: {
+				DB_SAMARINDA_GROUP: {
+					prepare(sql: string) {
+						if (/INSERT INTO auth_sessions/i.test(sql))
+							throw new Error('D1_ERROR: daily write limit exceeded');
+						return db.prepare(sql);
+					},
+					batch: db.batch.bind(db)
+				}
+			}
+		} as never;
+		const attempt = (value: string) =>
+			attemptLogin(
+				platform,
+				{ branch: 'samarinda', username: 'kasir', password: value },
+				'10.9.0.2'
+			);
+		assert.equal((await attempt('invalid')).headers?.['x-kiosk-login'], undefined);
+		assert.equal((await attempt(password)).headers?.['x-kiosk-login'], 'd1-daily-limit');
+		const { parseSessionBranch } = await import('../lib/server/authSessionReader');
+		const { parseKioskSession } = await import('../lib/server/kioskSession');
+		const sid = crypto.randomUUID();
+		const cookie = `operasional:samarinda:${sid}`;
+		assert.equal(parseSessionBranch(cookie), null);
+		assert.deepEqual(parseKioskSession(cookie), { branch: 'samarinda', sid });
+	} finally {
+		await close();
+	}
+});
+
 // 1. Sukses: 200 + sessionId + cookie payload user.
 {
 	const { db, close } = await createTestD1();

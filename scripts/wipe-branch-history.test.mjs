@@ -31,7 +31,7 @@ async function backupFixture(toy = false) {
 		const shards = bindings.map((binding, index) => {
 			const identity = drillDatabaseIdentity(binding);
 			const branch = ['samarinda', 'balikpapan', 'berau'][index];
-			const content = toy ? `CREATE TABLE t${index}(x);\n` : SQL.replaceAll('samarinda', branch);
+			const content = toy ? `CREATE TABLE t${index}(x);\n` : drillFixtureSql(undefined, branch);
 			const file = `db_${index}.sql`;
 			writeFileSync(join(dir, file), content);
 			return {

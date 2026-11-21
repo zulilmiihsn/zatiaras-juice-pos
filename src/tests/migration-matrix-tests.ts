@@ -344,7 +344,16 @@ const stockPolicyTriggers = (
 		.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='stock_policy'")
 		.all() as Array<{ name: string }>
 ).map((row) => row.name);
-assert.equal(stockPolicyTriggers.length, 5, 'stock policy must have guard and history triggers');
+assert.deepEqual(stockPolicyTriggers.sort(), [
+	'kiosk_inventory_stock_policy_delete',
+	'kiosk_inventory_stock_policy_insert',
+	'kiosk_inventory_stock_policy_update',
+	'trg_stock_policy_insert_guard',
+	'trg_stock_policy_reconciliation_job_guard',
+	'trg_stock_policy_transition_insert',
+	'trg_stock_policy_transition_update',
+	'trg_stock_policy_update_guard'
+]);
 
 const bukuKasColumns = (
 	db.prepare('PRAGMA table_info(buku_kas);').all() as Array<{ name: string }>

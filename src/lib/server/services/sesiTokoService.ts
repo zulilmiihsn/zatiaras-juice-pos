@@ -193,7 +193,7 @@ export async function updateSesiTokoRow(
 
 	const current = (await rawDb
 		.prepare(
-			'SELECT id, is_active, waktu_buka, waktu_tutup FROM sesi_toko WHERE cabang_id = ? AND id = ? LIMIT 1'
+			'SELECT id, is_active, waktu_buka, waktu_tutup, kiosk_managed FROM sesi_toko WHERE cabang_id = ? AND id = ? LIMIT 1'
 		)
 		.bind(branch, id)
 		.first()) as {
@@ -201,8 +201,11 @@ export async function updateSesiTokoRow(
 		is_active?: number | null;
 		waktu_buka?: string;
 		waktu_tutup?: string | null;
+		kiosk_managed?: number;
 	} | null;
 	if (!current?.id) throw kitError(404, 'Sesi tidak ditemukan');
+	if (current.kiosk_managed === 1)
+		throw kitError(409, 'Tutup shift ini dari mode operasional kios.');
 	const waktuBukaMs = Date.parse(String(current.waktu_buka ?? ''));
 	if (!Number.isFinite(waktuBukaMs) || waktuTutupMs < waktuBukaMs) {
 		throw kitError(400, 'Waktu tutup tidak boleh mendahului waktu buka');

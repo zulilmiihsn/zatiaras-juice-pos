@@ -337,6 +337,27 @@
 			"when": 1792972800000,
 			"tag": "0047_drop_stock_feature_rollout",
 			"breakpoints": true
+		},
+		{
+			"idx": 48,
+			"version": "6",
+			"when": 1793059200000,
+			"tag": "0048_shift_cutover_fence",
+			"breakpoints": true
+		},
+		{
+			"idx": 49,
+			"version": "6",
+			"when": 1793145600000,
+			"tag": "0049_kiosk_managed_shift",
+			"breakpoints": true
+		},
+		{
+			"idx": 50,
+			"version": "6",
+			"when": 1793232000000,
+			"tag": "0050_kiosk_inventory_fence",
+			"breakpoints": true
 		}
 	]
 }

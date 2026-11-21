@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { building, dev } from '$app/environment';
 import { getAuthSession, SESSION_COOKIE } from '$lib/server/sessionStore';
+import { dailyLimitResponse, isD1DailyLimit } from '$lib/server/d1DailyLimit';
 import { refreshSessionCookie } from '$lib/server/sessionRenewal';
 import {
 	branchFromObservation,
@@ -18,7 +19,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const startedAt = Date.now();
 	const sessionId = event.cookies.get(SESSION_COOKIE);
-	event.locals.authSession = await getAuthSession(event.platform, sessionId);
+	try {
+		// Public login and token issuance never consume the identity of the old cookie.
+		const entry =
+			(event.request.method === 'GET' && ['/login', '/api/csrf'].includes(event.url.pathname)) ||
+			(event.request.method === 'POST' && event.url.pathname === '/api/veriflogin');
+		event.locals.authSession = entry ? null : await getAuthSession(event.platform, sessionId);
+	} catch (error) {
+		// Session lookup can exhaust D1 before checkout's route-level handler runs.
+		if (
+			event.request.method === 'POST' &&
+			['/api/pos/transaction', '/api/pos/quote'].includes(event.url.pathname) &&
+			isD1DailyLimit(error)
+		)
+			return dailyLimitResponse();
+		throw error;
+	}
 	if (event.locals.authSession) {
 		event.locals.authSession = await refreshSessionCookie(
 			event.platform,

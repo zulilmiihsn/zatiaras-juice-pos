@@ -1,0 +1,65 @@
+import { json, error } from '@sveltejs/kit';
+import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
+import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
+import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
+import { changeKioskPilot } from '$lib/server/activateStagingKiosk';
+import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
+import type { RequestHandler } from './$types';
+export const PUT: RequestHandler = async ({ locals, platform }) => {
+	requireExactRole(requireAuthSession(locals).role, ['pemilik']);
+	const branch = requireSessionBranch(locals);
+	await prepareKioskCatalog(platform, branch);
+	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+};
+export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
+	requireExactRole(requireAuthSession(locals).role, ['pemilik']);
+	const branch = requireSessionBranch(locals);
+	let body: unknown;
+	try {
+		body = await readJsonBody(request, 256);
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
+	}
+	if (!body || typeof body !== 'object' || !('confirm' in body) || typeof body.confirm !== 'string')
+		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
+	const confirmation = /^(rollback-)?balikpapan-(staging|production)$/.exec(body.confirm);
+	if (!confirmation) throw error(400, 'Konfirmasi pilot tidak valid');
+	await changeKioskPilot(
+		platform,
+		branch,
+		confirmation[1] ? 'rollback' : 'activate',
+		confirmation[2] === 'staging' ? 'staging' : 'production'
+	);
+	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+};
+
+export const POST: RequestHandler = async ({ locals, request, platform, cookies }) => {
+	const owner = requireAuthSession(locals);
+	requireExactRole(owner.role, ['pemilik']);
+	let body: unknown;
+	try {
+		body = await readJsonBody(request, 2048);
+	} catch (cause) {
+		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
+		throw cause;
+	}
+	if (!body || typeof body !== 'object') throw error(400, 'Data perangkat tidak valid');
+	const target =
+		'self' in body && body.self === true
+			? { ownerId: owner.userId }
+			: 'username' in body && typeof body.username === 'string' && body.username.trim()
+				? { username: body.username.trim() }
+				: null;
+	if (!target) throw error(400, 'Isi username kasir');
+	const branch = requireSessionBranch(locals, 'branch' in body ? body.branch : undefined);
+	const token = await enrollCashierDevice(platform, branch, target);
+	cookies.set('zatiaras_kiosk_' + branch, token, {
+		path: '/',
+		httpOnly: true,
+		secure: true,
+		sameSite: 'strict',
+		maxAge: 48 * 60 * 60
+	});
+	return json({ success: true }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+};

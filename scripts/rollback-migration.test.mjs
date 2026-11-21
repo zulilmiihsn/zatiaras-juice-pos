@@ -39,6 +39,7 @@ await test('parse menolak flag tak dikenal dan dua sumber', () => {
 });
 
 const DRILL_SQL = drillFixtureSql();
+const BERAU_DRILL_SQL = drillFixtureSql(undefined, 'berau');
 
 async function drillFile(content = DRILL_SQL, migration, binding = 'DB_SAMARINDA_GROUP') {
 	const dir = mkdtempSync(join(tmpdir(), 'rollback-test-'));
@@ -118,11 +119,7 @@ await test('dry-run sukses uraikan target, nol mutasi', async () => {
 });
 
 await test('apply memakai satu spawn; gagal = exit 1', async () => {
-	const { dir, path, args } = await drillFile(
-		DRILL_SQL.replaceAll('samarinda', 'berau'),
-		undefined,
-		'DB_BERAU_GROUP'
-	);
+	const { dir, path, args } = await drillFile(BERAU_DRILL_SQL, undefined, 'DB_BERAU_GROUP');
 	const codeBefore = process.exitCode;
 	try {
 		const calls = [];
@@ -131,7 +128,7 @@ await test('apply memakai satu spawn; gagal = exit 1', async () => {
 				calls.push(a);
 				const snapshot = a[1].find((arg) => arg.startsWith('--file=')).slice(7);
 				assert.notEqual(snapshot, path);
-				assert.equal(readFileSync(snapshot, 'utf8'), DRILL_SQL.replaceAll('samarinda', 'berau'));
+				assert.equal(readFileSync(snapshot, 'utf8'), BERAU_DRILL_SQL);
 				return { status: 0, stdout: '', stderr: '' };
 			}
 		});

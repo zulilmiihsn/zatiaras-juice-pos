@@ -3,8 +3,11 @@ export function isD1DailyLimit(error: unknown): boolean {
 	for (let depth = 0; depth < 6 && error; depth++) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (
+			/\byour account has exceeded D1['’]s free tier daily row (?:read|write) limit\b/i.test(
+				message
+			) ||
 			/\bD1\b[^\n]{0,120}(?:exceeded|reached)[^\n]{0,40}daily limit/i.test(message) ||
-			/\bD1_ERROR\b[^\n]{0,160}daily (?:write |rows written )?limit[^\n]{0,40}(?:exceeded|reached)/i.test(
+			/\bD1_ERROR\b[^\n]{0,160}daily (?:(?:read|write|rows read|rows written) )?limit[^\n]{0,40}(?:exceeded|reached)/i.test(
 				message
 			)
 		)
