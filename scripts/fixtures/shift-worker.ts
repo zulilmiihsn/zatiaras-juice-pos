@@ -73,7 +73,8 @@ export class ShiftFixture {
 			actionName === 'project' ||
 			actionName === 'handoff' ||
 			actionName === 'initialize' ||
-			actionName === 'activate'
+			actionName === 'activate' ||
+			actionName === 'rollback'
 		) {
 			const quota = await this.ctx.storage.get<string>('fixture:quota');
 			const d1 = this.env.DB_BALIKPAPAN_GROUP;
@@ -106,7 +107,9 @@ export class ShiftFixture {
 									? 'initialize'
 									: actionName === 'activate'
 										? 'activate-staging'
-										: 'prepare-numbering'),
+										: actionName === 'rollback'
+											? 'rollback-staging'
+											: 'prepare-numbering'),
 						{
 							method: 'POST',
 							body: JSON.stringify({ branch })

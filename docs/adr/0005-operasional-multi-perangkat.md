@@ -28,6 +28,12 @@ Pemilik Balikpapan staging mendaftarkan dua HP uji dan memastikan shift lama tut
 
 Masuk dari dua HP terdaftar dengan cabang Balikpapan lewat `/login?kiosk=staging`. Ini menguji jalur sesi operasional dengan D1 tersedia tanpa menghabiskan kuota akun, bukan bukti kegagalan Cloudflare aktual. Flag pilot tidak ada di konfigurasi produksi.
 
+## Kembali ke jalur pusat
+
+Prosedur privat staging `/projection/rollback-staging` menolak rollback jika shift masih aktif atau antrean proyeksi belum habis. Jika aman, koordinator dijeda secara atomik sebelum penanda pusat dilepas. Bila D1 tidak tersedia setelah jeda, ulangi rollback saat D1 pulih, jangan hapus penanda manual. Data penjualan dan struk tetap disimpan. Pilot yang sudah di-rollback tidak dapat diaktifkan ulang dengan snapshot stok lama. Prosedur ini baru diuji dengan Workerd dan D1 lokal, bukan dijalankan pada pilot staging yang aktif.
+
+Sebelum pilot produksi, sambungkan prosedur ini ke kontrol operator yang diautentikasi dan uji rute produksi untuk kasir terdaftar saat D1 sehat maupun ketika kuota habis. Jalur login uji `?kiosk=staging` bukan jalur produksi. Jangan memasang penanda produksi sebelum peralihan dan pencocokan data dari dua perangkat lulus di staging.
+
 ## Bukti lokal dan uji penerimaan sebelum rilis
 
 `pnpm test:shift-workerd` menjalankan dua sesi perangkat melalui endpoint privat koordinator dan D1 lokal yang sudah dimigrasi. Untuk kegagalan baca dan tulis yang disimulasikan, keduanya login, menjual, dan menutup shift. Proyektor tidak menghapus entri saat D1 menolak operasi. Setelah pulih, sinkronisasi diverifikasi dari jumlah transaksi, omzet, dan stok. Untuk skenario pemulihan D1, tes memakai operasi privat `/projection/initialize` yang memeriksa konfigurasi proyeksi, penanda alih jalur, nomor antrean, stok, dan katalog valid. Untuk cabang berkunci, koordinator menggunakan hash PIN yang sudah tersimpan dan meminta PIN saat buka atau tutup shift. Batas 20 percobaan per jam berlaku untuk seluruh perangkat cabang. PIN lama yang belum di-hash harus dimigrasikan sebelum peralihan. Penggantian PIN melalui jalur pusat ditolak selama penanda alih jalur aktif. Pengulangan tidak mereset shift. `pnpm test:kiosk-browser` menambah uji dua konteks Chromium terhadap hasil build SvelteKit: login, buka shift dengan PIN, jualan bersamaan, struk, tutup shift, dan pencocokan D1 setelah pulih. Binding kuota disimulasikan, bukan kuota akun Cloudflare aktual.

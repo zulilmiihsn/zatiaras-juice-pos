@@ -44,6 +44,10 @@ export async function initializeStagingKiosk(
 		throw new Error('Pilot dan sinkronisasi Balikpapan staging belum dikonfigurasi');
 	const db = getD1Database(env, branch);
 	if ((await storage.get('shift:active')) !== undefined) {
+		if ((await storage.get('shift:open-policy')) === 'rolled-back')
+			throw new Error(
+				'Pilot sudah dikembalikan ke jalur pusat; jangan gunakan ulang snapshot stok lama'
+			);
 		await readKioskOrderHandoff(db, branch, now);
 		return { status: 'already-initialized' } as const;
 	}

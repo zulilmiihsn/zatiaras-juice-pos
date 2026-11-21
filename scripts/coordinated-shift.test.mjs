@@ -449,6 +449,8 @@ try {
 			);
 		}
 		const head = await post(branch, 'projection-peek', null);
+		assert.match((await post(branch, 'rollback', null)).error, /Sinkronisasi kios belum selesai/);
+		assert.deepEqual(await post(branch, 'projection-peek', null), head);
 		const shiftId = head.record.shift.id;
 		assert.equal((await post(branch, 'project', null)).failed, true);
 		assert.deepEqual(await post(branch, 'projection-peek', null), head);
@@ -473,9 +475,21 @@ try {
 			3 - 2 * index
 		);
 	}
-	console.log(
-		'coordinated-shift: two sessions, both D1 quota failures and recovery verified on local workerd'
+	assert.deepEqual(await post('balikpapan', 'rollback', null), { ok: true, status: 'rolled-back' });
+	assert.deepEqual(await post('balikpapan', 'rollback', null), { ok: true, status: 'rolled-back' });
+	assert.match((await post('balikpapan', 'activate', null)).error, /snapshot stok lama/);
+	assert.equal(
+		await db
+			.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
+			.first(),
+		null
 	);
+	await db
+		.prepare(
+			"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('legacy-after-rollback','balikpapan','2026-01-01T00:00:00Z',0,1)"
+		)
+		.run();
+	console.log('coordinated-shift: quota recovery and rollback verified on local workerd');
 } finally {
 	try {
 		await runtime?.dispose();

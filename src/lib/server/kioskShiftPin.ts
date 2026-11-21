@@ -10,7 +10,9 @@ export async function authorizeKioskShift(
 	now: number
 ) {
 	const result = await storage.transaction(async (tx) => {
-		if ((await tx.get('shift:open-policy')) === 'unlocked') return { unlocked: true } as const;
+		const policy = await tx.get('shift:open-policy');
+		if (policy === 'unlocked') return { unlocked: true } as const;
+		if (policy !== 'pin') return null;
 		const hash = await tx.get<string>(KIOSK_SHIFT_PIN);
 		if (!hash || typeof pin !== 'string' || !/^\d{4}$/.test(pin)) return null;
 		const key = 'shift:pin-budget';
