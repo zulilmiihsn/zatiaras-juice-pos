@@ -11,7 +11,8 @@ import { CheckoutDomainError, normalizePaymentMethod } from './checkout/utils';
 import { KIOSK_CATALOG_KEY, readKioskCatalog, publishKioskCatalog } from './kioskCatalog';
 import { authorizeKioskShift, KIOSK_SHIFT_PIN } from './kioskShiftPin';
 import { buildKioskCatalog } from './prepareKioskCatalog';
-import { initializeStagingKiosk, isStagingKioskPilot } from './activateStagingKiosk';
+import { initializeKioskPilot } from './activateStagingKiosk';
+import { kioskPilotEnvironment } from './kioskLoginPolicy';
 import { rollbackKioskPilot } from './rollbackKioskPilot';
 import { initializeKioskShift } from './initializeKioskShift';
 import { readKioskInventorySeed } from './kioskInventory';
@@ -36,18 +37,18 @@ export class RealtimeDurableObject extends RealtimeHub {
 		if (request.method !== 'POST') return new Response(null, { status: 405 });
 		const body = await request.json().catch(() => null);
 		if (!body || typeof body !== 'object') return new Response(null, { status: 400 });
-		if (url.pathname === '/projection/rollback-staging') {
+		const switchPath = /^\/projection\/(activate|rollback)-(staging|production)$/.exec(
+			url.pathname
+		);
+		if (switchPath) {
 			const branch = branchContext(normalizeBranch(body.branch));
-			if (!isStagingKioskPilot(this.env, branch))
+			const target = switchPath[2] === 'staging' ? 'staging' : 'production';
+			if (kioskPilotEnvironment(this.env, branch) !== target)
 				return Response.json({ ok: false }, { status: 404 });
-			const result = await rollbackKioskPilot(this.env, this.state.storage, branch);
-			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
-		}
-		if (url.pathname === '/projection/activate-staging') {
-			const branch = branchContext(normalizeBranch(body.branch));
-			if (!isStagingKioskPilot(this.env, branch))
-				return Response.json({ ok: false }, { status: 404 });
-			const result = await initializeStagingKiosk(this.env, this.state.storage, branch, Date.now());
+			const result =
+				switchPath[1] === 'rollback'
+					? await rollbackKioskPilot(this.env, this.state.storage, branch)
+					: await initializeKioskPilot(this.env, this.state.storage, branch, Date.now(), target);
 			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/projection/prepare-numbering') {
@@ -84,9 +85,9 @@ export class RealtimeDurableObject extends RealtimeHub {
 			);
 			return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
 		}
-		if (url.pathname === '/device/refresh-staging-catalog') {
+		if (url.pathname === '/device/refresh-pilot-catalog') {
 			const branch = branchContext(normalizeBranch(body.branch));
-			if (!isStagingKioskPilot(this.env, branch))
+			if (!kioskPilotEnvironment(this.env, branch))
 				return Response.json({ ok: false }, { status: 404 });
 			const catalog = await buildKioskCatalog({ env: this.env }, branch);
 			const result = await publishKioskCatalog(this.state.storage, branch, catalog, Date.now());
@@ -97,7 +98,7 @@ export class RealtimeDurableObject extends RealtimeHub {
 		}
 		if (url.pathname === '/device/catalog') {
 			const branch = normalizeBranch(body.branch);
-			if (isStagingKioskPilot(this.env, branch))
+			if (kioskPilotEnvironment(this.env, branch))
 				return Response.json({ ok: false }, { status: 409 });
 			const outcome = await publishKioskCatalog(
 				this.state.storage,

@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { BranchContext } from './branchResolver';
+import { kioskPilotEnvironment } from './kioskLoginPolicy';
 import { buildPosCatalogForBranch } from './checkout/catalogUseCase';
 
 export async function buildKioskCatalog(platform: App.Platform | undefined, branch: BranchContext) {
@@ -41,12 +42,12 @@ export async function prepareKioskCatalog(
 	const hub = platform?.env.REALTIME_HUB;
 	if (!hub) throw error(503, 'Layanan katalog kios belum tersedia.');
 	try {
-		// The staging pilot must not depend on the Pages key: queued legacy sales still need it.
-		const workerSigned = branch === 'balikpapan' && platform?.env.KIOSK_STAGING_PILOT === branch;
+		// The pilot must not depend on the Pages key: queued legacy sales still need it.
+		const workerSigned = kioskPilotEnvironment(platform?.env, branch) !== null;
 		const catalog = workerSigned ? undefined : await buildKioskCatalog(platform, branch);
 		const response = await hub.get(hub.idFromName('cashier:' + branch)).fetch(
 			new Request(
-				'https://cashier.internal/device/' + (workerSigned ? 'refresh-staging-catalog' : 'catalog'),
+				'https://cashier.internal/device/' + (workerSigned ? 'refresh-pilot-catalog' : 'catalog'),
 				{
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },

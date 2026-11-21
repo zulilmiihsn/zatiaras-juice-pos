@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
-	let { stagingKioskPilot = false }: { stagingKioskPilot?: boolean } = $props();
+	let { kioskPilot = null }: { kioskPilot?: 'staging' | 'production' | null } = $props();
+	const targetLabel = $derived(kioskPilot === 'production' ? 'produksi' : 'staging');
 	let confirmed = $state(false);
 	let rollbackConfirmed = $state(false);
 	let account = $state<'self' | 'cashier'>('cashier');
@@ -9,22 +10,22 @@
 	let message = $state('');
 	async function changePilot(action: 'activate' | 'rollback') {
 		const rollback = action === 'rollback';
-		if (busy || !(rollback ? rollbackConfirmed : confirmed)) return;
+		if (!kioskPilot || busy || !(rollback ? rollbackConfirmed : confirmed)) return;
 		busy = true;
 		try {
 			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					confirm: rollback ? 'rollback-balikpapan-staging' : 'balikpapan-staging'
+					confirm: `${rollback ? 'rollback-' : ''}balikpapan-${kioskPilot}`
 				})
 			});
 			const result = await res.json().catch(() => null);
 			message =
 				res.ok && result?.success === true
 					? rollback
-						? 'Kasir lama Balikpapan staging sudah bisa digunakan kembali.'
-						: 'Balikpapan staging aktif. Gunakan tautan login uji pada dua HP terdaftar.'
+						? `Kasir lama Balikpapan ${targetLabel} sudah bisa digunakan kembali.`
+						: `Balikpapan ${targetLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
 					: result?.message || 'Peralihan belum terkonfirmasi. Jangan buka shift.';
 			if (res.ok && result?.success === true) {
 				confirmed = false;
@@ -112,19 +113,21 @@
 	<button type="button" class="btn-brand-primary mt-3" disabled={busy} onclick={prepareCatalog}
 		>Siapkan Katalog Kios</button
 	>
-	{#if stagingKioskPilot}
+	{#if kioskPilot}
 		<div class="mt-4 grid gap-2">
 			<label
 				><input type="checkbox" bind:checked={confirmed} disabled={busy} /> Shift lama tutup, antrean
-				kedua HP uji kosong, dan stok sudah dicocokkan.</label
+				semua HP kosong, dan stok sudah dicocokkan.</label
 			>
 			<button
 				type="button"
 				class="btn-brand-primary"
 				disabled={busy || !confirmed}
-				onclick={() => changePilot('activate')}>Aktifkan Balikpapan staging</button
+				onclick={() => changePilot('activate')}>Aktifkan Balikpapan {targetLabel}</button
 			>
-			<a href="/login?kiosk=staging" class="underline">Login uji Balikpapan staging</a>
+			{#if kioskPilot === 'staging'}<a href="/login?kiosk=staging" class="underline"
+					>Login uji Balikpapan staging</a
+				>{/if}
 			<label
 				><input type="checkbox" bind:checked={rollbackConfirmed} disabled={busy} /> Shift kios sudah tutup.
 				Saya ingin kembali ke kasir lama.</label
@@ -132,7 +135,7 @@
 			<button
 				type="button"
 				disabled={busy || !rollbackConfirmed}
-				onclick={() => changePilot('rollback')}>Kembali ke kasir lama (staging)</button
+				onclick={() => changePilot('rollback')}>Kembali ke kasir lama ({targetLabel})</button
 			>
 		</div>
 	{/if}

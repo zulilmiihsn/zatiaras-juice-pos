@@ -1,8 +1,9 @@
+import { kioskPilotEnvironment } from '$lib/server/kioskLoginPolicy';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, platform }) => ({
-	stagingKioskPilot:
-		platform?.env.KIOSK_STAGING_PILOT === 'balikpapan' &&
-		locals.authSession?.branch === 'balikpapan' &&
-		locals.authSession.role === 'pemilik'
+	kioskPilot:
+		locals.authSession?.role === 'pemilik' && locals.authSession.branch === 'balikpapan'
+			? kioskPilotEnvironment(platform?.env, 'balikpapan')
+			: null
 });

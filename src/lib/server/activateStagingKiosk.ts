@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { getD1Database, type BranchContext, type BranchId } from './branchResolver';
+import { getD1Database, type BranchContext } from './branchResolver';
 import { buildKioskCatalog } from './prepareKioskCatalog';
 import { publishKioskCatalog, readKioskCatalog } from './kioskCatalog';
 import { verifyPosPricingToken } from './posPricingToken';
@@ -8,22 +8,22 @@ import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandof
 import { initializeKioskShift } from './initializeKioskShift';
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
-export function isStagingKioskPilot(env: App.Platform['env'] | undefined, branch: BranchId) {
-	return branch === 'balikpapan' && env?.KIOSK_STAGING_PILOT === 'balikpapan';
-}
+import { kioskPilotEnvironment } from './kioskLoginPolicy';
 
-export async function changeStagingKiosk(
+export async function changeKioskPilot(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
-	action: 'activate' | 'rollback'
+	action: 'activate' | 'rollback',
+	target: 'staging' | 'production'
 ) {
-	if (!isStagingKioskPilot(platform?.env, branch)) throw error(404, 'Pilot staging tidak tersedia');
+	if (kioskPilotEnvironment(platform?.env, branch) !== target)
+		throw error(404, 'Pilot kios tidak tersedia');
 	const hub = platform?.env.REALTIME_HUB;
 	if (!hub) throw error(503, 'Koordinator kios belum tersedia');
 	const response = await hub
 		.get(hub.idFromName(`cashier:${branch}`))
 		.fetch(
-			new Request(`https://cashier.internal/projection/${action}-staging`, {
+			new Request(`https://cashier.internal/projection/${action}-${target}`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ branch })
@@ -46,13 +46,14 @@ export async function changeStagingKiosk(
 }
 
 /** Only the private staging binding can fence the branch. Retry the same handoff on interruption. */
-export async function initializeStagingKiosk(
+export async function initializeKioskPilot(
 	env: App.Platform['env'],
 	storage: Pick<DurableObjectStorage, 'get' | 'transaction'>,
 	branch: BranchContext,
-	now: number
+	now: number,
+	target: 'staging' | 'production'
 ) {
-	if (!isStagingKioskPilot(env, branch) || env.KIOSK_PROJECTION_BRANCHES !== branch)
+	if (kioskPilotEnvironment(env, branch) !== target || env.KIOSK_PROJECTION_BRANCHES !== branch)
 		throw new Error('Pilot dan sinkronisasi Balikpapan staging belum dikonfigurasi');
 	const db = getD1Database(env, branch);
 	if ((await storage.get('shift:active')) !== undefined) {

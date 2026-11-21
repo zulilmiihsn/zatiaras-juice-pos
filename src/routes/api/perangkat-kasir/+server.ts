@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
-import { changeStagingKiosk } from '$lib/server/activateStagingKiosk';
+import { changeKioskPilot } from '$lib/server/activateStagingKiosk';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ locals, platform }) => {
@@ -21,17 +21,15 @@ export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
 		if (cause instanceof RequestBodyError) return bodyErrorResponse(cause);
 		throw cause;
 	}
-	if (
-		!body ||
-		typeof body !== 'object' ||
-		!('confirm' in body) ||
-		(body.confirm !== 'balikpapan-staging' && body.confirm !== 'rollback-balikpapan-staging')
-	)
+	if (!body || typeof body !== 'object' || !('confirm' in body) || typeof body.confirm !== 'string')
 		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
-	await changeStagingKiosk(
+	const confirmation = /^(rollback-)?balikpapan-(staging|production)$/.exec(body.confirm);
+	if (!confirmation) throw error(400, 'Konfirmasi pilot tidak valid');
+	await changeKioskPilot(
 		platform,
 		branch,
-		body.confirm === 'rollback-balikpapan-staging' ? 'rollback' : 'activate'
+		confirmation[1] ? 'rollback' : 'activate',
+		confirmation[2] === 'staging' ? 'staging' : 'production'
 	);
 	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
 };

@@ -1,5 +1,15 @@
-import { getD1Database, normalizeBranch } from './branchResolver';
+import { getD1Database, normalizeBranch, type BranchId } from './branchResolver';
 import { isD1DailyLimit } from './d1DailyLimit';
+
+export function kioskPilotEnvironment(
+	env: App.Platform['env'] | undefined,
+	branch: BranchId
+): 'staging' | 'production' | null {
+	if (branch !== 'balikpapan') return null;
+	const staging = env?.KIOSK_STAGING_PILOT === branch;
+	const production = env?.KIOSK_PRODUCTION_PILOT === branch;
+	return staging === production ? null : staging ? 'staging' : 'production';
+}
 
 /** Only a successfully authenticated cashier on the configured branch can be redirected
  * away from normal login. An owner retains central access while D1 is healthy. */
@@ -15,7 +25,11 @@ export async function shouldRouteCentralLoginToKiosk(
 		!('branch' in user)
 	)
 		return false;
-	if (user.branch !== 'balikpapan' || platform?.env.KIOSK_PRODUCTION_PILOT !== user.branch)
+	if (
+		user.branch !== 'balikpapan' ||
+		!platform ||
+		kioskPilotEnvironment(platform.env, user.branch) !== 'production'
+	)
 		return false;
 	const branch = normalizeBranch(user.branch);
 	try {

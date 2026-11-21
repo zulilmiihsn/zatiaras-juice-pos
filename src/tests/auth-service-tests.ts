@@ -151,6 +151,32 @@ test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan ko
 		}
 	);
 	assert.deepEqual(await result.json(), { success: true });
+	await assert.rejects(
+		async () => activate('pemilik', 'balikpapan', 'balikpapan', 'balikpapan-production'),
+		{ status: 404 }
+	);
+	const production = await PATCH({
+		locals: { authSession: { role: 'pemilik', branch: 'balikpapan' } },
+		platform: {
+			env: {
+				KIOSK_PRODUCTION_PILOT: 'balikpapan',
+				REALTIME_HUB: {
+					idFromName: (name: string) => name,
+					get: () => ({
+						fetch: async (request: Request) => {
+							assert.equal(request.url, 'https://cashier.internal/projection/activate-production');
+							return Response.json({ ok: true, status: 'initialized' });
+						}
+					})
+				}
+			}
+		},
+		request: new Request('https://test.invalid/api/perangkat-kasir', {
+			method: 'PATCH',
+			body: JSON.stringify({ confirm: 'balikpapan-production' })
+		})
+	} as never);
+	assert.deepEqual(await production.json(), { success: true });
 });
 
 test('login pusat hanya mengalihkan kasir pada cabang pilot yang telah beralih', async () => {
