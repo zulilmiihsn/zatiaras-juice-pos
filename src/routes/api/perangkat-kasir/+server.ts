@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
-import { changeKioskPilot } from '$lib/server/activateStagingKiosk';
+import { changeKioskPilot } from '$lib/server/activateKioskPilot';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ locals, platform }) => {
@@ -23,20 +23,24 @@ export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
 	}
 	if (!body || typeof body !== 'object' || !('confirm' in body) || typeof body.confirm !== 'string')
 		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
-	const confirmation = /^(rollback-)?balikpapan-(staging|production)$/.exec(body.confirm);
+	const confirmation = /^(rollback-)?(samarinda|balikpapan|berau)-(staging|production)$/.exec(
+		body.confirm
+	);
 	if (!confirmation) throw error(400, 'Konfirmasi pilot tidak valid');
+	if (confirmation[2] !== branch) throw error(404, 'Pilot kios tidak tersedia');
 	await changeKioskPilot(
 		platform,
 		branch,
 		confirmation[1] ? 'rollback' : 'activate',
-		confirmation[2] === 'staging' ? 'staging' : 'production'
+		confirmation[3] === 'staging' ? 'staging' : 'production'
 	);
 	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
 };
 
 export const POST: RequestHandler = async ({ locals, request, platform, cookies }) => {
-	const owner = requireAuthSession(locals);
-	requireExactRole(owner.role, ['pemilik']);
+	const session = requireAuthSession(locals);
+	const role = session.role;
+	if (role !== 'pemilik' && role !== 'kasir') throw error(403, 'Akses ditolak');
 	let body: unknown;
 	try {
 		body = await readJsonBody(request, 2048);
@@ -45,13 +49,16 @@ export const POST: RequestHandler = async ({ locals, request, platform, cookies 
 		throw cause;
 	}
 	if (!body || typeof body !== 'object') throw error(400, 'Data perangkat tidak valid');
-	const target =
+	const target: Parameters<typeof enrollCashierDevice>[2] | null =
 		'self' in body && body.self === true
-			? { ownerId: owner.userId }
-			: 'username' in body && typeof body.username === 'string' && body.username.trim()
+			? { userId: session.userId, role }
+			: role === 'pemilik' &&
+				  'username' in body &&
+				  typeof body.username === 'string' &&
+				  body.username.trim()
 				? { username: body.username.trim() }
 				: null;
-	if (!target) throw error(400, 'Isi username kasir');
+	if (!target) throw error(403, 'Daftarkan perangkat dengan akun yang sedang masuk');
 	const branch = requireSessionBranch(locals, 'branch' in body ? body.branch : undefined);
 	const token = await enrollCashierDevice(platform, branch, target);
 	cookies.set('zatiaras_kiosk_' + branch, token, {

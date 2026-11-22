@@ -8,7 +8,7 @@ import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandof
 import { initializeKioskShift } from './initializeKioskShift';
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
-import { kioskPilotEnvironment } from './kioskLoginPolicy';
+import { includesKioskBranch, kioskPilotEnvironment } from './kioskLoginPolicy';
 
 export async function changeKioskPilot(
 	platform: App.Platform | undefined,
@@ -41,11 +41,11 @@ export async function changeKioskPilot(
 			409,
 			action === 'rollback'
 				? 'Kembali ke kasir lama belum terkonfirmasi. Pastikan shift kios tutup dan sinkronisasi selesai.'
-				: 'Peralihan belum terkonfirmasi. Jangan buka toko. Periksa status lalu ulangi persiapan staging.'
+				: 'Peralihan belum terkonfirmasi. Jangan buka toko. Periksa status lalu ulangi persiapan.'
 		);
 }
 
-/** Only the private staging binding can fence the branch. Retry the same handoff on interruption. */
+/** Only the private coordinator binding can fence the branch. Retry the same handoff on interruption. */
 export async function initializeKioskPilot(
 	env: App.Platform['env'],
 	storage: Pick<DurableObjectStorage, 'get' | 'transaction'>,
@@ -53,8 +53,11 @@ export async function initializeKioskPilot(
 	now: number,
 	target: 'staging' | 'production'
 ) {
-	if (kioskPilotEnvironment(env, branch) !== target || env.KIOSK_PROJECTION_BRANCHES !== branch)
-		throw new Error('Pilot dan sinkronisasi Balikpapan staging belum dikonfigurasi');
+	if (
+		kioskPilotEnvironment(env, branch) !== target ||
+		!includesKioskBranch(env.KIOSK_PROJECTION_BRANCHES, branch)
+	)
+		throw new Error('Pilot dan sinkronisasi cabang belum dikonfigurasi');
 	const db = getD1Database(env, branch);
 	if ((await storage.get('shift:active')) !== undefined) {
 		if ((await storage.get('shift:open-policy')) === 'rolled-back')

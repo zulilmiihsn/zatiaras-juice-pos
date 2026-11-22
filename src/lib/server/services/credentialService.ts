@@ -10,6 +10,8 @@ import {
 import { publishBranchEvent } from '$lib/server/realtimePublisher';
 import { appendAuditLog } from '$lib/server/auditLog';
 import { consumeRateLimit } from '$lib/server/rateLimit';
+import { revokeKioskCredentialVersion } from '$lib/server/enrollCashierDevice';
+import { kioskPilotEnvironment } from '$lib/server/kioskLoginPolicy';
 
 const SECURITY_WINDOW_MS = 15 * 60 * 1000;
 const SECURITY_MAX_ATTEMPTS = 5;
@@ -185,7 +187,8 @@ export async function changeCredentials(input: {
 				id: profil.id,
 				username: profil.username,
 				password: profil.password,
-				role: profil.role
+				role: profil.role,
+				credentialVersion: profil.updated_at
 			})
 			.from(profil)
 			.where(and(...filters))
@@ -240,22 +243,49 @@ export async function changeCredentials(input: {
 			? await bcrypt.hash(cleanNewPassword, 10)
 			: user.password;
 
+		if (kioskPilotEnvironment(platform?.env, branchId)) {
+			// Do not commit a password change while the old password can still authorize offline sales.
+			await revokeKioskCredentialVersion(platform, branchId, user.id, user.credentialVersion);
+		}
+		const previousTime = Date.parse(user.credentialVersion ?? '');
+		const nextVersion = new Date(
+			Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)
+		).toISOString();
+
 		// Perubahan kredensial dan pencabutan seluruh sesi user secara atomik.
 		// UNIQUE (cabang_id, username) di DB adalah otoritas race; check-before-update
 		// di atas hanya fast-path ramah. Pelanggaran unik dipetakan ke USERNAME_EXISTS.
 		try {
-			await rawDb.batch([
+			const [updated] = await rawDb.batch([
 				rawDb
 					.prepare(
-						`UPDATE profil
-						 SET username = ?, password = ?, updated_at = ?
-						 WHERE cabang_id = ? AND id = ?`
+						`UPDATE profil SET username = ?, password = ?, updated_at = ?
+						 WHERE cabang_id = ? AND id = ? AND updated_at IS ?`
 					)
-					.bind(cleanNewUsername, finalHashedPassword, new Date().toISOString(), branchId, user.id),
+					.bind(
+						cleanNewUsername,
+						finalHashedPassword,
+						nextVersion,
+						branchId,
+						user.id,
+						user.credentialVersion
+					),
 				rawDb
-					.prepare('DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?')
-					.bind(branchId, user.id)
+					.prepare(
+						`DELETE FROM auth_sessions WHERE cabang_id = ? AND user_id = ?
+					 AND EXISTS (SELECT 1 FROM profil WHERE cabang_id = ? AND id = ? AND updated_at = ? AND username = ? AND password = ?)`
+					)
+					.bind(
+						branchId,
+						user.id,
+						branchId,
+						user.id,
+						nextVersion,
+						cleanNewUsername,
+						finalHashedPassword
+					)
 			]);
+			if (updated.meta.changes !== 1) throw new Error('Kredensial berubah bersamaan');
 		} catch (error) {
 			const message = String((error as { message?: unknown })?.message ?? error).toUpperCase();
 			if (message.includes('UNIQUE') || message.includes('CONSTRAINT')) {

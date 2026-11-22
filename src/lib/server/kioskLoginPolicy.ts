@@ -1,13 +1,16 @@
 import { getD1Database, normalizeBranch, type BranchId } from './branchResolver';
 import { isD1DailyLimit } from './d1DailyLimit';
 
+export function includesKioskBranch(config: string | undefined, branch: BranchId): boolean {
+	return config?.split(',').some((value) => value.trim() === branch) ?? false;
+}
+
 export function kioskPilotEnvironment(
 	env: App.Platform['env'] | undefined,
 	branch: BranchId
 ): 'staging' | 'production' | null {
-	if (branch !== 'balikpapan') return null;
-	const staging = env?.KIOSK_STAGING_PILOT === branch;
-	const production = env?.KIOSK_PRODUCTION_PILOT === branch;
+	const staging = branch === 'balikpapan' && env?.KIOSK_STAGING_PILOT === branch;
+	const production = includesKioskBranch(env?.KIOSK_PRODUCTION_PILOT, branch);
 	return staging === production ? null : staging ? 'staging' : 'production';
 }
 
@@ -25,13 +28,13 @@ export async function shouldRouteCentralLoginToKiosk(
 		!('branch' in user)
 	)
 		return false;
-	if (
-		user.branch !== 'balikpapan' ||
-		!platform ||
-		kioskPilotEnvironment(platform.env, user.branch) !== 'production'
-	)
-		return false;
-	const branch = normalizeBranch(user.branch);
+	let branch: BranchId;
+	try {
+		branch = normalizeBranch(user.branch);
+	} catch {
+		return false; // No authenticated branch to route.
+	}
+	if (!platform || kioskPilotEnvironment(platform.env, branch) !== 'production') return false;
 	try {
 		return Boolean(
 			await getD1Database(platform.env, branch)

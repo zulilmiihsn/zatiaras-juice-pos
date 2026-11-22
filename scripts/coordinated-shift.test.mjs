@@ -31,14 +31,18 @@ try {
 			modulesRoot: dir,
 			compatibilityDate: '2026-06-29',
 			compatibilityFlags: ['nodejs_compat'],
-			d1Databases: { DB_BALIKPAPAN_GROUP: 'kiosk-test' },
+			d1Databases: {
+				DB_SAMARINDA_GROUP: 'kiosk-test-samarinda',
+				DB_BALIKPAPAN_GROUP: 'kiosk-test-balikpapan',
+				DB_BERAU_GROUP: 'kiosk-test-berau'
+			},
 			resourcePersistencePath: join(dir, 'state'),
 			durableObjects: { SHIFT: { className: 'ShiftFixture', useSQLite: true } }
 		})
 	);
 	const address = await runtime.ready;
-	const post = async (branch, action, input) => {
-		const res = await runtime.dispatchFetch(new URL(`/${branch}/${action}`, address), {
+	const send = async (branch, action, input, scope = '') => {
+		const res = await runtime.dispatchFetch(new URL(`/${branch}/${action}${scope}`, address), {
 			method: 'POST',
 			body: JSON.stringify(input)
 		});
@@ -46,20 +50,25 @@ try {
 		assert.equal(res.status, body?.ok === false ? 401 : action === 'device/enroll' ? 201 : 200);
 		return body;
 	};
-	const db = await runtime.getD1Database('DB_BALIKPAPAN_GROUP');
-	for (const name of (await readdir('drizzle')).filter((name) => name.endsWith('.sql')).sort()) {
-		const statements = (await readFile(join('drizzle', name), 'utf8'))
-			.split('--> statement-breakpoint')
-			.map((sql) => sql.trim())
-			.filter(Boolean);
-		await db.batch(statements.map((sql) => db.prepare(sql)));
-	}
+	const post = send;
+	const initDb = async (branch) => {
+		const db = await runtime.getD1Database(`DB_${branch.toUpperCase()}_GROUP`);
+		for (const name of (await readdir('drizzle')).filter((name) => name.endsWith('.sql')).sort()) {
+			const statements = (await readFile(join('drizzle', name), 'utf8'))
+				.split('--> statement-breakpoint')
+				.map((sql) => sql.trim())
+				.filter(Boolean);
+			await db.batch(statements.map((sql) => db.prepare(sql)));
+		}
+		return db;
+	};
 	const { hash } = await import('bcryptjs');
 	const password = crypto.randomUUID();
 	const profile = {
 		userId: 'user-1',
 		username: 'kasir',
 		role: 'kasir',
+		credentialVersion: '2026-01-01T00:00:00.000Z',
 		verifier: await hash(password, 4)
 	};
 	const enroll = () => post('berau', 'device/enroll', profile);
@@ -302,7 +311,32 @@ try {
 	const identity = await check(ownerDevice.token, ownerSession.sid);
 	assert.equal(identity.userId, 'owner-1');
 	assert.equal(identity.scope, 'operasional');
+	const ownerProfile = { ...profile, username: 'pemilik', userId: 'owner-1', role: 'pemilik' };
+	const otherOwnerDevice = await post('berau', 'device/enroll', ownerProfile);
 	assert.equal(identity.role, undefined, 'never issue general owner authority');
+	const revoke = () =>
+		post('berau', 'device/revoke-credential', {
+			userId: ownerProfile.userId,
+			credentialVersion: ownerProfile.credentialVersion
+		});
+	assert.equal((await revoke()).ok, true);
+	assert.equal((await check(ownerDevice.token, ownerSession.sid)).ok, false);
+	assert.equal(
+		(await post('berau', 'device/login', { ...ownerLogin, token: otherOwnerDevice.token })).ok,
+		false
+	);
+	assert.equal((await post('berau', 'device/enroll', ownerProfile)).ok, false);
+	const newOwner = await post('berau', 'device/enroll', {
+		...ownerProfile,
+		credentialVersion: '2026-01-02T00:00:00.000Z'
+	});
+	assert.ok(newOwner.token);
+	assert.equal((await revoke()).ok, true);
+	assert.equal(
+		(await post('berau', 'device/login', { ...ownerLogin, token: newOwner.token })).ok,
+		true
+	);
+	assert.equal((await post('samarinda', 'device/enroll', ownerProfile)).ok, true);
 	const input = { id: 'hp1', userId: 'kasir', openingCash: 100000, openedAt: 1000 };
 	assert.equal((await post('balikpapan', 'open', input)).status, 'uninitialized');
 	await post('berau', 'seed-closed', null);
@@ -318,205 +352,296 @@ try {
 	);
 	assert.equal((await post('berau', 'open', input)).status, 'replayed');
 	assert.equal((await post('samarinda', 'open', input)).status, 'uninitialized');
-	for (const [index, quota] of ['read', 'write'].entries()) {
-		const branch = 'balikpapan';
-		if (index === 0) {
-			await db
-				.prepare(
-					"INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','balikpapan','Jus',10000,5,1,0,1)"
-				)
-				.run();
-			assert.equal((await post(branch, 'activate', null)).failed, true);
-			// Provision a disposable Worker key without publishing a Pages catalog.
-			await post(branch, 'sale-token', null);
-			await db
-				.prepare(
-					"INSERT INTO pengaturan(id,cabang_id,kunci,pin) VALUES ('kiosk-pin-fixture','balikpapan',NULL,'9876')"
-				)
-				.run();
-			assert.match((await post(branch, 'activate', null)).error, /PIN lama/);
-			assert.equal(
-				await db
-					.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
-					.first(),
-				null
-			);
-			await db
-				.prepare(
-					"UPDATE pengaturan SET pin=NULL,pin_hash=? WHERE cabang_id='balikpapan' AND id='kiosk-pin-fixture'"
-				)
-				.bind(await post(branch, 'fixture-pin-hash', '9876'))
-				.run();
-			await db
-				.prepare(
-					"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('pilot-legacy-open','balikpapan','2026-01-01T00:00:00Z',0,1)"
-				)
-				.run();
-			assert.match((await post(branch, 'activate', null)).error, /KIOS_SHIFT_STILL_OPEN/);
-			assert.equal(
-				await db
-					.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
-					.first(),
-				null
-			);
-			await db
-				.prepare("DELETE FROM sesi_toko WHERE id='pilot-legacy-open' AND cabang_id='balikpapan'")
-				.run();
-			assert.deepEqual(await post(branch, 'activate', null), { ok: true, status: 'initialized' });
-			assert.deepEqual(await post(branch, 'activate', null), {
-				ok: true,
-				status: 'already-initialized'
-			});
-		}
-		const devices = await Promise.all([
-			post(branch, 'device/enroll', profile),
-			post(branch, 'device/enroll', profile)
-		]);
-		await post(branch, 'quota', quota);
-		if (process.argv.includes('--browser')) {
-			if (index === 0)
+	for (const branch of ['balikpapan', 'samarinda', 'berau']) {
+		const db = await initDb(branch);
+		const post = (branch, action, input) => send(branch, action, input, '?recovery');
+		for (const [index, quota] of ['read', 'write'].entries()) {
+			if (index === 0) {
 				await db
 					.prepare(
-						"INSERT INTO profil(id,cabang_id,username,password,role) VALUES (?, 'balikpapan', ?, ?, 'kasir')"
+						`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','${branch}','Jus',10000,17,1,0,1)`
 					)
-					.bind(profile.userId, profile.username, profile.verifier)
 					.run();
-			const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
-			await exerciseKioskBrowser({
-				db,
-				quota,
-				devices,
-				password,
-				username: profile.username,
-				bridge: (path, body) =>
-					runtime.dispatchFetch(new URL(`/${branch}${path}`, address), {
-						method: 'POST',
-						body: JSON.stringify(body)
-					})
-			});
-		} else {
-			const sessions = await Promise.all(
-				devices.map((device) =>
-					post(branch, 'device/login', {
-						token: device.token,
-						username: profile.username,
-						password
-					})
-				)
-			);
-			assert.ok(sessions.every((session) => session.ok));
-			const fields = (i) => ({ branch, token: devices[i].token, sid: sessions[i].sid });
-			assert.equal((await post(branch, 'device/session', fields(0))).pinRequired, true);
-			assert.equal(
-				(
+				assert.equal((await post(branch, 'activate', null)).failed, true);
+				// Provision a disposable Worker key without publishing a Pages catalog.
+				await post(branch, 'sale-token', null);
+				await db
+					.prepare(
+						`INSERT INTO pengaturan(id,cabang_id,kunci,pin) VALUES ('kiosk-pin-fixture','${branch}',NULL,'9876')`
+					)
+					.run();
+				assert.match((await post(branch, 'activate', null)).error, /PIN lama/);
+				assert.equal(
+					await db
+						.prepare(`SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='${branch}'`)
+						.first(),
+					null
+				);
+				await db
+					.prepare(
+						`UPDATE pengaturan SET pin=NULL,pin_hash=? WHERE cabang_id='${branch}' AND id='kiosk-pin-fixture'`
+					)
+					.bind(await post(branch, 'fixture-pin-hash', '9876'))
+					.run();
+				await db
+					.prepare(
+						`INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('pilot-legacy-open','${branch}','2026-01-01T00:00:00Z',0,1)`
+					)
+					.run();
+				assert.match((await post(branch, 'activate', null)).error, /KIOS_SHIFT_STILL_OPEN/);
+				assert.equal(
+					await db
+						.prepare(`SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='${branch}'`)
+						.first(),
+					null
+				);
+				await db
+					.prepare(`DELETE FROM sesi_toko WHERE id='pilot-legacy-open' AND cabang_id='${branch}'`)
+					.run();
+				assert.deepEqual(await post(branch, 'activate', null), { ok: true, status: 'initialized' });
+				assert.deepEqual(await post(branch, 'activate', null), {
+					ok: true,
+					status: 'already-initialized'
+				});
+			}
+			await post(branch, 'quota', quota);
+			if (process.argv.includes('--browser')) {
+				if (index === 0)
+					await db
+						.prepare(
+							`INSERT INTO profil(id,cabang_id,username,password,role) VALUES (?, '${branch}', ?, ?, 'kasir')`
+						)
+						.bind(profile.userId, profile.username, profile.verifier)
+						.run();
+				const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
+				await exerciseKioskBrowser({
+					db,
+					branch,
+					quota,
+					password,
+					username: profile.username,
+					bridge: (path, body) =>
+						runtime.dispatchFetch(new URL(`/${branch}${path}?recovery`, address), {
+							method: 'POST',
+							body: JSON.stringify(body)
+						})
+				});
+			} else {
+				const devices = await Promise.all([
+					post(branch, 'device/enroll', profile),
+					post(branch, 'device/enroll', profile)
+				]);
+				const sessions = await Promise.all(
+					devices.map((device) =>
+						post(branch, 'device/login', {
+							token: device.token,
+							username: profile.username,
+							password
+						})
+					)
+				);
+				assert.ok(sessions.every((session) => session.ok));
+				const fields = (i) => ({ branch, token: devices[i].token, sid: sessions[i].sid });
+				assert.equal((await post(branch, 'device/session', fields(0))).pinRequired, true);
+				assert.equal(
+					(
+						await post(branch, 'device/shift-open', {
+							...fields(0),
+							id: `shift-${quota}`,
+							openingCash: 100000,
+							pin: '0000'
+						})
+					).status,
+					'policy-blocked'
+				);
+				const shift = (
 					await post(branch, 'device/shift-open', {
 						...fields(0),
 						id: `shift-${quota}`,
 						openingCash: 100000,
-						pin: '0000'
+						pin: '9876'
 					})
-				).status,
-				'policy-blocked'
-			);
-			const shift = (
-				await post(branch, 'device/shift-open', {
-					...fields(0),
-					id: `shift-${quota}`,
-					openingCash: 100000,
-					pin: '9876'
-				})
-			).shift;
-			const sales = await Promise.all(
-				[0, 1].map((i) =>
-					post(branch, 'device/sale', {
-						...fields(i),
-						id: `sale-${quota}-${i}`,
-						shiftId: shift.id,
-						productId: 'juice',
-						qty: 1,
-						unitPrice: 10000,
-						payment: 'tunai',
-						cash: 12000
-					})
+				).shift;
+				const sales = await Promise.all(
+					[0, 1].map((i) =>
+						post(branch, 'device/sale', {
+							...fields(i),
+							id: `sale-${quota}-${i}`,
+							shiftId: shift.id,
+							productId: 'juice',
+							qty: 1,
+							unitPrice: 10000,
+							payment: 'tunai',
+							cash: 12000
+						})
+					)
+				);
+				assert.ok(
+					sales.every((sale) => sale.status === 'recorded' && sale.receipt.change === 2000)
+				);
+				assert.equal(new Set(sales.map((sale) => sale.orderNumber)).size, 2);
+				assert.equal(
+					(await post(branch, 'device/shift-close', { ...fields(0), id: shift.id, pin: '9876' }))
+						.status,
+					'closed'
+				);
+			}
+			const head = await post(branch, 'projection-peek', null);
+			assert.match((await post(branch, 'rollback', null)).error, /Sinkronisasi kios belum selesai/);
+			assert.deepEqual(await post(branch, 'projection-peek', null), head);
+			const shiftId = head.record.shift.id;
+			assert.equal((await post(branch, 'project', null)).failed, true);
+			assert.deepEqual(await post(branch, 'projection-peek', null), head);
+			await post(branch, 'quota', null);
+			for (let tick = 0; tick < 3; tick++)
+				assert.deepEqual(await post(branch, 'project', null), { ok: true });
+			assert.equal(await post(branch, 'projection-peek', null), null);
+			const totals = await db
+				.prepare(
+					`SELECT COUNT(*) AS n,SUM(nominal) AS total FROM buku_kas WHERE cabang_id='${branch}' AND id_sesi_toko=?`
 				)
-			);
-			assert.ok(sales.every((sale) => sale.status === 'recorded' && sale.receipt.change === 2000));
-			assert.equal(new Set(sales.map((sale) => sale.orderNumber)).size, 2);
+				.bind(shiftId)
+				.first();
+			assert.equal(totals.n, 2);
+			assert.equal(totals.total, 20000);
 			assert.equal(
-				(await post(branch, 'device/shift-close', { ...fields(0), id: shift.id, pin: '9876' }))
-					.status,
-				'closed'
+				(
+					await db
+						.prepare(`SELECT stok FROM produk WHERE cabang_id='${branch}' AND id='juice'`)
+						.first()
+				).stok,
+				15 - 2 * index
 			);
 		}
-		const head = await post(branch, 'projection-peek', null);
-		assert.match((await post(branch, 'rollback', null)).error, /Sinkronisasi kios belum selesai/);
-		assert.deepEqual(await post(branch, 'projection-peek', null), head);
-		const shiftId = head.record.shift.id;
-		assert.equal((await post(branch, 'project', null)).failed, true);
-		assert.deepEqual(await post(branch, 'projection-peek', null), head);
-		await post(branch, 'quota', null);
-		for (let tick = 0; tick < 3; tick++)
-			assert.deepEqual(await post(branch, 'project', null), { ok: true });
-		assert.equal(await post(branch, 'projection-peek', null), null);
-		const totals = await db
-			.prepare(
-				"SELECT COUNT(*) AS n,SUM(nominal) AS total FROM buku_kas WHERE cabang_id='balikpapan' AND id_sesi_toko=?"
+		const device = await post(branch, 'device/enroll', profile);
+		const token = device.token;
+		const { sid } = await post(branch, 'device/login', {
+			token,
+			username: profile.username,
+			password
+		});
+		const fields = { branch, token, sid };
+		await post(branch, 'quota', 'write');
+		const backlogShift = await post(branch, 'device/shift-open', {
+			...fields,
+			id: 'backlog',
+			openingCash: 0,
+			pin: '9876'
+		});
+		assert.equal(backlogShift.status, 'opened');
+		const pendingSales = await Promise.all(
+			Array.from({ length: 12 }, (_, i) =>
+				post(branch, 'device/sale', {
+					...fields,
+					id: `backlog-${i}`,
+					shiftId: backlogShift.shift.id,
+					productId: 'juice',
+					qty: 1,
+					unitPrice: 10000,
+					payment: 'tunai',
+					cash: 10000
+				})
 			)
-			.bind(shiftId)
-			.first();
-		assert.equal(totals.n, 2);
-		assert.equal(totals.total, 20000);
+		);
+		assert.ok(pendingSales.every((sale) => sale.status === 'recorded'));
+		assert.equal(new Set(pendingSales.map((sale) => sale.orderNumber)).size, 12);
 		assert.equal(
 			(
-				await db
-					.prepare("SELECT stok FROM produk WHERE cabang_id='balikpapan' AND id='juice'")
-					.first()
-			).stok,
-			3 - 2 * index
+				await post(branch, 'device/shift-close', {
+					...fields,
+					id: backlogShift.shift.id,
+					pin: '9876'
+				})
+			).status,
+			'closed'
 		);
-	}
-	if (process.argv.includes('--browser')) {
+		assert.equal((await post(branch, 'project', null)).failed, true);
+		await post(branch, 'quota', null);
+		const countBacklog = () =>
+			db
+				.prepare('SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id=? AND id_sesi_toko=?')
+				.bind(branch, backlogShift.shift.id)
+				.first('n');
+		assert.equal(await countBacklog(), 0);
+		for (const expected of [2, 5, 8, 11, 12, 12]) {
+			assert.deepEqual(await post(branch, 'project-aged', null), { ok: true });
+			assert.equal(await countBacklog(), expected);
+		}
+		assert.equal(await post(branch, 'projection-peek', null), null);
+		assert.equal(
+			await db
+				.prepare("SELECT stok FROM produk WHERE cabang_id=? AND id='juice'")
+				.bind(branch)
+				.first('stok'),
+			1
+		);
+		await post(branch, 'fixture-catalog-retry-now', null);
+		const expiring = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+		assert.equal(await post(branch, 'fixture-catalog', expiring), expiring);
+		await post(branch, 'quota', 'read');
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.equal(await post(branch, 'fixture-catalog', null), expiring);
+		await post(branch, 'quota', null);
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.equal(await post(branch, 'fixture-catalog', null), expiring, 'respect retry budget');
+		await post(branch, 'fixture-catalog-retry-now', null);
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.ok(
+			Date.parse(await post(branch, 'fixture-catalog', null)) > Date.now() + 47 * 60 * 60 * 1000
+		);
+		if (process.argv.includes('--browser')) {
+			await db
+				.prepare(
+					`INSERT INTO profil(id,cabang_id,username,password,role) VALUES ('fixture-owner','${branch}','pemilik-uji',?,'pemilik')`
+				)
+				.bind(profile.verifier)
+				.run();
+			const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
+			await exerciseKioskBrowser({
+				db,
+				branch,
+				username: 'pemilik-uji',
+				password,
+				rollback: true,
+				bridge: (path, body) => {
+					if (path === '/device/enroll') {
+						assert.equal(body.userId, 'fixture-owner');
+						assert.equal(body.username, 'pemilik-uji');
+						return runtime.dispatchFetch(new URL(`/${branch}${path}?recovery`, address), {
+							method: 'POST',
+							body: JSON.stringify(body)
+						});
+					}
+					if (path !== '/projection/rollback-production')
+						return Response.json({ ok: false }, { status: 404 });
+					assert.deepEqual(body, { branch });
+					return runtime.dispatchFetch(new URL(`/${branch}/rollback?recovery`, address), {
+						method: 'POST',
+						body: JSON.stringify(body)
+					});
+				}
+			});
+		} else {
+			assert.deepEqual(await post(branch, 'rollback', null), {
+				ok: true,
+				status: 'rolled-back'
+			});
+		}
+		assert.deepEqual(await post(branch, 'rollback', null), { ok: true, status: 'rolled-back' });
+		assert.match((await post(branch, 'activate', null)).error, /snapshot stok lama/);
+		assert.equal(
+			await db
+				.prepare(`SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='${branch}'`)
+				.first(),
+			null
+		);
 		await db
 			.prepare(
-				"INSERT INTO profil(id,cabang_id,username,password,role) VALUES ('fixture-owner','balikpapan','pemilik-uji',?,'pemilik')"
+				`INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('legacy-after-rollback','${branch}','2026-01-01T00:00:00Z',0,1)`
 			)
-			.bind(profile.verifier)
 			.run();
-		const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
-		await exerciseKioskBrowser({
-			db,
-			username: 'pemilik-uji',
-			password,
-			rollback: true,
-			bridge: (path, body) => {
-				if (path !== '/projection/rollback-staging')
-					return Response.json({ ok: false }, { status: 404 });
-				assert.deepEqual(body, { branch: 'balikpapan' });
-				return runtime.dispatchFetch(new URL('/balikpapan/rollback', address), {
-					method: 'POST',
-					body: JSON.stringify(body)
-				});
-			}
-		});
-	} else {
-		assert.deepEqual(await post('balikpapan', 'rollback', null), {
-			ok: true,
-			status: 'rolled-back'
-		});
+		console.log(`coordinated-shift: ${branch} quota recovery and rollback verified`);
 	}
-	assert.deepEqual(await post('balikpapan', 'rollback', null), { ok: true, status: 'rolled-back' });
-	assert.match((await post('balikpapan', 'activate', null)).error, /snapshot stok lama/);
-	assert.equal(
-		await db
-			.prepare("SELECT cabang_id FROM kiosk_shift_cutover WHERE cabang_id='balikpapan'")
-			.first(),
-		null
-	);
-	await db
-		.prepare(
-			"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES ('legacy-after-rollback','balikpapan','2026-01-01T00:00:00Z',0,1)"
-		)
-		.run();
 	console.log('coordinated-shift: quota recovery and rollback verified on local workerd');
 } finally {
 	try {

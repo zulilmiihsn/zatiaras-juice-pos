@@ -10,7 +10,7 @@
 	import Download from '@lucide/svelte/icons/download';
 	import History from '@lucide/svelte/icons/history';
 	import type { PageProps } from './$types';
-	import EnrollKioskDevice from '$lib/components/dashboard/EnrollKioskDevice.svelte';
+	import KioskContinuitySettings from '$lib/components/dashboard/KioskContinuitySettings.svelte';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Printer from '@lucide/svelte/icons/printer';
 	import { createPengaturanState } from '$lib/stores/pengaturanState.svelte';
@@ -177,8 +177,8 @@
 			{/each}
 		</nav>
 
-		{#if isOwner}
-			<EnrollKioskDevice kioskPilot={data.kioskPilot} />
+		{#if data.kioskBranch}
+			<KioskContinuitySettings kioskPilot={data.kioskPilot} kioskBranch={data.kioskBranch} />
 		{/if}
 
 		<!-- Logout Section -->

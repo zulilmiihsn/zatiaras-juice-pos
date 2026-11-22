@@ -157,13 +157,14 @@ async function resolveOnlineQuote(
 async function resolveOfflineQuote(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
-	body: PosTransactionInput
+	body: PosTransactionInput,
+	trustedKioskProjection: boolean
 ): Promise<PosQuoteTokenData> {
 	const queuedAt = Number(body.queued_at);
 	if (!Number.isFinite(queuedAt) || queuedAt > Date.now() + QUEUED_AT_FUTURE_SKEW_MS) {
 		fail(409, 'Waktu antrean transaksi offline tidak valid');
 	}
-	if (queuedAt < Date.now() - OFFLINE_REPLAY_MAX_AGE_MS) {
+	if (!trustedKioskProjection && queuedAt < Date.now() - OFFLINE_REPLAY_MAX_AGE_MS) {
 		fail(409, 'Transaksi offline terlalu lama tersimpan dan perlu ditinjau pemilik');
 	}
 	try {
@@ -191,9 +192,10 @@ export function resolveCheckoutQuote(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
 	body: PosTransactionInput,
-	mode: 'online' | 'offline_replay'
+	mode: 'online' | 'offline_replay',
+	trustedKioskProjection = false
 ): Promise<PosQuoteTokenData> {
 	return mode === 'online'
 		? resolveOnlineQuote(platform, branch, body)
-		: resolveOfflineQuote(platform, branch, body);
+		: resolveOfflineQuote(platform, branch, body, trustedKioskProjection);
 }

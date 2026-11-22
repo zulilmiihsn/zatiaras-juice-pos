@@ -5,7 +5,11 @@ import type {
 	DurableObjectState,
 	Request as WorkerRequest
 } from '@cloudflare/workers-types';
-import type { BranchContext } from '../../src/lib/server/branchResolver';
+import {
+	getBranchDbBinding,
+	type BranchContext,
+	type BranchDbBinding
+} from '../../src/lib/server/branchResolver';
 import { recordCoordinatedSale } from '../../src/lib/server/checkout/coordinatedSale';
 import { CheckoutDomainError } from '../../src/lib/server/checkout/utils';
 import { signPosPricingToken } from '../../src/lib/server/posPricingToken';
@@ -15,6 +19,7 @@ import {
 } from '../../src/lib/server/kioskProjectionQueue';
 import { seedKioskOrderHandoff } from '../../src/lib/server/kioskOrderHandoff';
 import { formatDateYmdWita } from '../../src/lib/utils/dateTime';
+import { KIOSK_CATALOG_KEY, KIOSK_CATALOG_RETRY_KEY } from '../../src/lib/server/kioskCatalog';
 import { hashPin } from '../../src/lib/server/pinHash';
 import { openCoordinatedShift } from '../../src/lib/server/coordinatedShift';
 
@@ -23,7 +28,7 @@ import { RealtimeDurableObject } from '../../src/lib/server/cashierRealtimeHub';
 export class ShiftFixture {
 	constructor(
 		private ctx: DurableObjectState,
-		private env: { DB_BALIKPAPAN_GROUP?: D1Database }
+		private env: Partial<Record<BranchDbBinding, D1Database>>
 	) {}
 	async fetch(req: Request) {
 		if (new URL(req.url).pathname.endsWith('/seed-closed')) {
@@ -64,6 +69,19 @@ export class ShiftFixture {
 					}
 				)
 			);
+		if (actionName === 'fixture-catalog') {
+			const snapshot = await this.ctx.storage.get<{ expires_at: string }>(KIOSK_CATALOG_KEY);
+			const expiresAt = await req.json<string | null>();
+			if (snapshot && expiresAt) {
+				snapshot.expires_at = expiresAt;
+				await this.ctx.storage.put(KIOSK_CATALOG_KEY, snapshot);
+			}
+			return Response.json(snapshot?.expires_at ?? null);
+		}
+		if (actionName === 'fixture-catalog-retry-now') {
+			await this.ctx.storage.delete(KIOSK_CATALOG_RETRY_KEY);
+			return Response.json(true);
+		}
 		if (actionName === 'fixture-pin-hash') return Response.json(await hashPin(await req.json()));
 		if (actionName === 'quota') {
 			await this.ctx.storage.put('fixture:quota', await req.json());
@@ -71,13 +89,15 @@ export class ShiftFixture {
 		}
 		if (
 			actionName === 'project' ||
+			actionName === 'project-aged' ||
 			actionName === 'handoff' ||
 			actionName === 'initialize' ||
 			actionName === 'activate' ||
 			actionName === 'rollback'
 		) {
 			const quota = await this.ctx.storage.get<string>('fixture:quota');
-			const d1 = this.env.DB_BALIKPAPAN_GROUP;
+			const binding = getBranchDbBinding(branch);
+			const d1 = this.env[binding];
 			const db =
 				quota && d1
 					? {
@@ -91,24 +111,26 @@ export class ShiftFixture {
 			const hub = new RealtimeDurableObject(
 				this.ctx as unknown as ConstructorParameters<typeof RealtimeDurableObject>[0],
 				{
-					DB_BALIKPAPAN_GROUP: db,
-					KIOSK_PROJECTION_BRANCHES: 'balikpapan',
-					KIOSK_STAGING_PILOT: 'balikpapan',
+					[binding]: db,
+					KIOSK_PROJECTION_BRANCHES: 'samarinda,balikpapan,berau',
+					KIOSK_PRODUCTION_PILOT: actionName === 'project-aged' ? '' : 'samarinda,balikpapan,berau',
 					POS_PRICE_SIGNING_KEY: await this.ctx.storage.get('fixture:price-key')
 				}
 			);
+			const clock = Date.now;
+			if (actionName === 'project-aged') Date.now = () => clock() + 4 * 24 * 60 * 60 * 1000;
 			try {
 				return await hub.fetch(
 					new Request(
 						'https://cashier.internal/projection/' +
-							(actionName === 'project'
+							(actionName === 'project' || actionName === 'project-aged'
 								? 'drain'
 								: actionName === 'initialize'
 									? 'initialize'
 									: actionName === 'activate'
-										? 'activate-staging'
+										? 'activate-production'
 										: actionName === 'rollback'
-											? 'rollback-staging'
+											? 'rollback-production'
 											: 'prepare-numbering'),
 						{
 							method: 'POST',
@@ -121,6 +143,8 @@ export class ShiftFixture {
 					failed: true,
 					error: error instanceof Error ? error.message : 'Unknown'
 				});
+			} finally {
+				Date.now = clock;
 			}
 		}
 		if (actionName === 'projection-peek')
@@ -197,7 +221,9 @@ export class ShiftFixture {
 }
 export default {
 	fetch(req: WorkerRequest, env: { SHIFT: DurableObjectNamespace }) {
-		const branch = new URL(req.url).pathname.split('/')[1];
-		return env.SHIFT.get(env.SHIFT.idFromName(branch)).fetch(req);
+		const url = new URL(req.url);
+		const branch = url.pathname.split('/')[1];
+		const name = url.searchParams.has('recovery') ? `recovery:${branch}` : branch;
+		return env.SHIFT.get(env.SHIFT.idFromName(name)).fetch(req);
 	}
 };

@@ -5,7 +5,7 @@ import { buildPosCatalogForBranch } from './checkout/catalogUseCase';
 
 export async function buildKioskCatalog(platform: App.Platform | undefined, branch: BranchContext) {
 	const { version, products, addOns, fetched_at, expires_at, signing_key_id, stock_policy } =
-		await buildPosCatalogForBranch(platform, branch);
+		await buildPosCatalogForBranch(platform, branch, 'kiosk');
 	return {
 		version,
 		branch,

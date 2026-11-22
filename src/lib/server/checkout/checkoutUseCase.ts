@@ -184,7 +184,14 @@ export async function executeCheckout(input: CheckoutInput): Promise<CheckoutRes
 
 	const { body, mode } = parseCheckoutBody(rawBody);
 	const isOfflineReplay = mode === 'offline_replay';
-	const quote = await resolveCheckoutQuote(platform, branch, body, mode);
+	// Only the private coordinator projection can replay an older committed sale.
+	const quote = await resolveCheckoutQuote(
+		platform,
+		branch,
+		body,
+		mode,
+		Boolean(input.kioskProjection)
+	);
 
 	const rawItems = quote.items.map((item) => item.source);
 	const itemCountError = checkoutItemCountError(rawItems);

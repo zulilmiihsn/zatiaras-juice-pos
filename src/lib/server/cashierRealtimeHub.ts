@@ -8,10 +8,15 @@ import { branchContext, getD1Database, normalizeBranch } from './branchResolver'
 import { isPosCatalogSnapshot } from '$lib/types/posCatalog';
 import { recordCoordinatedSale } from './checkout/coordinatedSale';
 import { CheckoutDomainError, normalizePaymentMethod } from './checkout/utils';
-import { KIOSK_CATALOG_KEY, readKioskCatalog, publishKioskCatalog } from './kioskCatalog';
+import {
+	KIOSK_CATALOG_KEY,
+	readKioskCatalog,
+	publishKioskCatalog,
+	refreshKioskCatalogIfDue
+} from './kioskCatalog';
 import { authorizeKioskShift, KIOSK_SHIFT_PIN } from './kioskShiftPin';
 import { buildKioskCatalog } from './prepareKioskCatalog';
-import { initializeKioskPilot } from './activateStagingKiosk';
+import { initializeKioskPilot } from './activateKioskPilot';
 import { kioskPilotEnvironment } from './kioskLoginPolicy';
 import { rollbackKioskPilot } from './rollbackKioskPilot';
 import { initializeKioskShift } from './initializeKioskShift';
@@ -78,11 +83,18 @@ export class RealtimeDurableObject extends RealtimeHub {
 			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/projection/drain') {
-			await drainKioskProjection(
-				this.state.storage,
-				{ env: this.env },
-				branchContext(normalizeBranch(body.branch))
-			);
+			const branch = branchContext(normalizeBranch(body.branch));
+			if (kioskPilotEnvironment(this.env, branch)) {
+				try {
+					await refreshKioskCatalogIfDue(this.state.storage, branch, Date.now(), () =>
+						buildKioskCatalog({ env: this.env }, branch)
+					);
+				} catch {
+					// Keep the last valid snapshot and continue draining independently.
+					console.warn('[kiosk-catalog] Penyegaran tertunda', branch);
+				}
+			}
+			await drainKioskProjection(this.state.storage, { env: this.env }, branch);
 			return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/device/refresh-pilot-catalog') {
@@ -310,6 +322,9 @@ export class RealtimeDurableObject extends RealtimeHub {
 			}
 			case '/device/logout':
 				result = await auth.logout(body.token, body.sid);
+				break;
+			case '/device/revoke-credential':
+				result = auth.revokeCredential(body.userId, body.credentialVersion);
 				break;
 			case '/device/revoke':
 				result = await auth.revoke(body.token);

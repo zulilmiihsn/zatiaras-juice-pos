@@ -13,6 +13,7 @@ import { appendAuditLog } from '$lib/server/auditLog';
 import { consumeRateLimit } from '$lib/server/rateLimit';
 import { recordErrorEvent } from '$lib/server/observability';
 import { normalizeRole } from '$lib/utils/roles';
+import type { KioskDeviceProfile } from '$lib/server/enrollCashierDevice';
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_IP_ATTEMPTS = 60;
@@ -35,6 +36,8 @@ interface LoginAttemptResult {
 	headers?: Record<string, string>;
 	/** Id sesi untuk cookie; hanya ada saat sukses. */
 	sessionId?: string;
+	/** Internal only. Serialize body, never this verifier. */
+	verifiedKioskProfile?: { branch: BranchId; profile: KioskDeviceProfile };
 	/** Username untuk konteks error route (tak masuk respons). */
 	username: string;
 }
@@ -150,7 +153,8 @@ export async function attemptLogin(
 				id: profil.id,
 				username: profil.username,
 				password: profil.password,
-				role: profil.role
+				role: profil.role,
+				credentialVersion: profil.updated_at
 			})
 			.from(profil)
 			.where(and(eq(profil.cabang_id, branchId), eq(profil.username, username)))
@@ -267,6 +271,19 @@ export async function attemptLogin(
 				}
 			},
 			sessionId: authSession.id,
+			verifiedKioskProfile:
+				normalizedRole === 'kasir' || normalizedRole === 'pemilik'
+					? {
+							branch: branchId,
+							profile: {
+								userId: user.id,
+								username: user.username,
+								role: normalizedRole,
+								verifier: user.password,
+								credentialVersion: user.credentialVersion
+							}
+						}
+					: undefined,
 			username
 		};
 	} catch (e) {

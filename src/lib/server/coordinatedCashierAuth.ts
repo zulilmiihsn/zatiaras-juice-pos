@@ -10,27 +10,52 @@ async function digest(token: string) {
 	return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2, '0')).join('');
 }
 
-/** Private per-branch storage. Enrollment requires an owner-approved device and a current
- * D1 cashier profile supplied by the trusted caller, never a profile from a browser. */
+/** Private per-branch storage. Enrollment requires a current D1 cashier profile supplied by the trusted caller,
+ * never a profile from a browser. */
 export class CoordinatedCashierAuth {
 	constructor(private sql: SqlStorage) {
 		sql.exec(`CREATE TABLE IF NOT EXISTS cashier_device (
 			device TEXT PRIMARY KEY, user_id TEXT NOT NULL, username TEXT NOT NULL, verifier TEXT NOT NULL,
 			until_ms INTEGER NOT NULL, sid TEXT, session_end INTEGER NOT NULL DEFAULT 0,
 			attempts INTEGER NOT NULL DEFAULT 0, reset_ms INTEGER NOT NULL DEFAULT 0)`);
+		sql.exec(`CREATE TABLE IF NOT EXISTS cashier_revoked_credential (
+			user_id TEXT NOT NULL, credential_version TEXT NOT NULL,
+			PRIMARY KEY(user_id,credential_version))`);
 	}
 
-	async enroll(profile: { userId: string; username: string; role: string; verifier: string }) {
+	async enroll(profile: {
+		userId: string;
+		username: string;
+		role: string;
+		verifier: string;
+		credentialVersion: string | null;
+		previousToken?: unknown;
+	}) {
 		if (
 			!['kasir', 'pemilik'].includes(profile.role) ||
 			!profile.userId ||
 			!profile.username ||
+			(profile.credentialVersion !== null && typeof profile.credentialVersion !== 'string') ||
 			!/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(profile.verifier)
 		)
 			return DENIED;
 		const token = crypto.randomUUID();
 		const now = Date.now();
 		const device = await digest(token);
+		const previous =
+			typeof profile.previousToken === 'string' && profile.previousToken.length === 36
+				? await digest(profile.previousToken)
+				: null;
+		if (
+			this.sql
+				.exec(
+					'SELECT 1 FROM cashier_revoked_credential WHERE user_id=? AND credential_version=?',
+					profile.userId,
+					profile.credentialVersion ?? ''
+				)
+				.toArray().length
+		)
+			return DENIED;
 		this.sql.exec('DELETE FROM cashier_device WHERE until_ms <= ?', now);
 		this.sql.exec(
 			'INSERT INTO cashier_device(device,user_id,username,verifier,until_ms) VALUES(?,?,?,?,?)',
@@ -40,6 +65,7 @@ export class CoordinatedCashierAuth {
 			profile.verifier,
 			now + 48 * MS_PER_HOUR
 		);
+		if (previous) this.sql.exec('DELETE FROM cashier_device WHERE device=?', previous);
 		return { ok: true, token };
 	}
 
@@ -129,6 +155,25 @@ export class CoordinatedCashierAuth {
 			device,
 			key
 		);
+		return { ok: true };
+	}
+
+	revokeCredential(userId: unknown, credentialVersion: unknown) {
+		if (
+			typeof userId !== 'string' ||
+			!userId ||
+			(credentialVersion !== null && typeof credentialVersion !== 'string')
+		)
+			return DENIED;
+		// A stale central login may finish after revocation; do not let it re-enroll.
+		const revoked = this.sql
+			.exec(
+				'INSERT INTO cashier_revoked_credential(user_id,credential_version) VALUES(?,?) ON CONFLICT DO NOTHING RETURNING 1',
+				userId,
+				credentialVersion ?? ''
+			)
+			.toArray();
+		if (revoked.length) this.sql.exec('DELETE FROM cashier_device WHERE user_id=?', userId);
 		return { ok: true };
 	}
 

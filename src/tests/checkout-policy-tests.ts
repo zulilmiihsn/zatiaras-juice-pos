@@ -22,6 +22,26 @@ import { POST as transactionPost } from '../routes/api/pos/transaction/+server';
 import { createTestD1 } from './helpers/testD1';
 import { isD1DailyLimit } from '../lib/server/d1DailyLimit';
 
+test('browser replay retains age limit while trusted kiosk projection still validates price tokens', async () => {
+	const { resolveCheckoutQuote } = await import('../lib/server/checkout/quoteResolution');
+	const { branchContext } = await import('../lib/server/branchResolver');
+	const body = { queued_at: Date.now() - 4 * 24 * 60 * 60 * 1000, items: [] };
+	await assert.rejects(
+		() =>
+			resolveCheckoutQuote(undefined, branchContext('balikpapan'), body as never, 'offline_replay'),
+		/terlalu lama/
+	);
+	await assert.rejects(() =>
+		resolveCheckoutQuote(
+			undefined,
+			branchContext('balikpapan'),
+			body as never,
+			'offline_replay',
+			true
+		)
+	);
+});
+
 test('only explicit D1 daily exhaustion can defer checkout', () => {
 	assert.equal(
 		isD1DailyLimit(new Error('D1_ERROR', { cause: new Error('D1 DB exceeded its daily limits.') })),
