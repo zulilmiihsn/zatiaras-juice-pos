@@ -7,6 +7,7 @@ import { chromium, expect } from '@playwright/test';
 
 export async function exerciseKioskBrowser({
 	db,
+	branch,
 	quota,
 	bridge,
 	devices,
@@ -41,7 +42,7 @@ export async function exerciseKioskBrowser({
 				getClientAddress: () => '127.0.0.1',
 				platform: {
 					env: {
-						KIOSK_STAGING_PILOT: 'balikpapan',
+						KIOSK_PRODUCTION_PILOT: 'samarinda,balikpapan,berau',
 						REALTIME_HUB: {
 							idFromName: (name) => name,
 							get: () => ({
@@ -52,7 +53,7 @@ export async function exerciseKioskBrowser({
 								}
 							})
 						},
-						DB_BALIKPAPAN_GROUP: !quota
+						[`DB_${branch.toUpperCase()}_GROUP`]: !quota
 							? db
 							: {
 									prepare: (sql) => {
@@ -80,7 +81,7 @@ export async function exerciseKioskBrowser({
 			const page = await browser.newPage({ serviceWorkers: 'block' });
 			await page.goto(origin + '/login');
 			await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
-			await page.getByLabel('Pilih Cabang').selectOption('balikpapan');
+			await page.getByLabel('Pilih Cabang').selectOption(branch);
 			await page.getByPlaceholder('Masukkan username').fill(username);
 			await page.getByPlaceholder('Masukkan password').fill(password);
 			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
@@ -88,7 +89,7 @@ export async function exerciseKioskBrowser({
 			await page.goto(origin + '/pengaturan');
 			await page.getByText('Daftarkan HP kios ini', { exact: true }).click();
 			const action = page.getByRole('button', {
-				name: 'Kembali ke kasir lama (staging)',
+				name: 'Kembali ke kasir lama (produksi)',
 				exact: true
 			});
 			await expect(action).toBeDisabled();
@@ -96,7 +97,7 @@ export async function exerciseKioskBrowser({
 			await expect(action).toBeEnabled();
 			await action.click();
 			await expect(
-				page.getByText('Kasir lama Balikpapan staging sudah bisa digunakan kembali.', {
+				page.getByText(/Kasir lama .* produksi sudah bisa digunakan kembali\./, {
 					exact: true
 				})
 			).toBeVisible();
@@ -106,11 +107,14 @@ export async function exerciseKioskBrowser({
 			devices.map(async (device) => {
 				const context = await browser.newContext({ serviceWorkers: 'block' });
 				await context.addCookies([
-					{ name: 'zatiaras_kiosk_balikpapan', value: device.token, url: origin, httpOnly: true }
+					{ name: `zatiaras_kiosk_${branch}`, value: device.token, url: origin, httpOnly: true }
 				]);
+				await context.addInitScript(() => {
+					window.print = () => document.body.setAttribute('data-print-called', 'true');
+				});
 				const page = await context.newPage();
 				await page.goto(origin + '/login');
-				await page.locator('select').first().selectOption('balikpapan');
+				await page.locator('select').first().selectOption(branch);
 				await page.getByPlaceholder('Masukkan username').fill(username);
 				await page.getByPlaceholder('Masukkan password').fill(password);
 				await page.getByRole('button', { name: 'Masuk', exact: true }).click();
@@ -147,6 +151,9 @@ export async function exerciseKioskBrowser({
 				await page.getByRole('button', { name: 'Catat Pembayaran' }).click();
 				const receipt = page.getByRole('region', { name: 'Struk kios' });
 				await expect(receipt).toContainText('Kembalian: Rp2.000');
+				await expect(page.locator('main[data-hydrated="true"]')).toBeVisible();
+				await receipt.getByRole('button', { name: 'Cetak Struk' }).click();
+				await expect(page.locator('body')).toHaveAttribute('data-print-called', 'true');
 				return (await receipt.getByText(/Nomor pesanan:/).textContent()).trim();
 			})
 		);

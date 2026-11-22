@@ -5,7 +5,11 @@ import type {
 	DurableObjectState,
 	Request as WorkerRequest
 } from '@cloudflare/workers-types';
-import type { BranchContext } from '../../src/lib/server/branchResolver';
+import {
+	getBranchDbBinding,
+	type BranchContext,
+	type BranchDbBinding
+} from '../../src/lib/server/branchResolver';
 import { recordCoordinatedSale } from '../../src/lib/server/checkout/coordinatedSale';
 import { CheckoutDomainError } from '../../src/lib/server/checkout/utils';
 import { signPosPricingToken } from '../../src/lib/server/posPricingToken';
@@ -23,7 +27,7 @@ import { RealtimeDurableObject } from '../../src/lib/server/cashierRealtimeHub';
 export class ShiftFixture {
 	constructor(
 		private ctx: DurableObjectState,
-		private env: { DB_BALIKPAPAN_GROUP?: D1Database }
+		private env: Partial<Record<BranchDbBinding, D1Database>>
 	) {}
 	async fetch(req: Request) {
 		if (new URL(req.url).pathname.endsWith('/seed-closed')) {
@@ -77,7 +81,8 @@ export class ShiftFixture {
 			actionName === 'rollback'
 		) {
 			const quota = await this.ctx.storage.get<string>('fixture:quota');
-			const d1 = this.env.DB_BALIKPAPAN_GROUP;
+			const binding = getBranchDbBinding(branch);
+			const d1 = this.env[binding];
 			const db =
 				quota && d1
 					? {
@@ -91,9 +96,9 @@ export class ShiftFixture {
 			const hub = new RealtimeDurableObject(
 				this.ctx as unknown as ConstructorParameters<typeof RealtimeDurableObject>[0],
 				{
-					DB_BALIKPAPAN_GROUP: db,
-					KIOSK_PROJECTION_BRANCHES: 'balikpapan',
-					KIOSK_STAGING_PILOT: 'balikpapan',
+					[binding]: db,
+					KIOSK_PROJECTION_BRANCHES: 'samarinda,balikpapan,berau',
+					KIOSK_PRODUCTION_PILOT: 'samarinda,balikpapan,berau',
 					POS_PRICE_SIGNING_KEY: await this.ctx.storage.get('fixture:price-key')
 				}
 			);
@@ -106,9 +111,9 @@ export class ShiftFixture {
 								: actionName === 'initialize'
 									? 'initialize'
 									: actionName === 'activate'
-										? 'activate-staging'
+										? 'activate-production'
 										: actionName === 'rollback'
-											? 'rollback-staging'
+											? 'rollback-production'
 											: 'prepare-numbering'),
 						{
 							method: 'POST',
@@ -197,7 +202,9 @@ export class ShiftFixture {
 }
 export default {
 	fetch(req: WorkerRequest, env: { SHIFT: DurableObjectNamespace }) {
-		const branch = new URL(req.url).pathname.split('/')[1];
-		return env.SHIFT.get(env.SHIFT.idFromName(branch)).fetch(req);
+		const url = new URL(req.url);
+		const branch = url.pathname.split('/')[1];
+		const name = url.searchParams.has('recovery') ? `recovery:${branch}` : branch;
+		return env.SHIFT.get(env.SHIFT.idFromName(name)).fetch(req);
 	}
 };
