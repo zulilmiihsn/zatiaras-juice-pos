@@ -503,6 +503,14 @@ try {
 				password,
 				rollback: true,
 				bridge: (path, body) => {
+					if (path === '/device/enroll') {
+						assert.equal(body.userId, 'fixture-owner');
+						assert.equal(body.username, 'pemilik-uji');
+						return runtime.dispatchFetch(new URL(`/${branch}${path}?recovery`, address), {
+							method: 'POST',
+							body: JSON.stringify(body)
+						});
+					}
 					if (path !== '/projection/rollback-production')
 						return Response.json({ ok: false }, { status: 404 });
 					assert.deepEqual(body, { branch });

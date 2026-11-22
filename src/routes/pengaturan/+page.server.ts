@@ -3,9 +3,14 @@ import { kioskPilotEnvironment } from '$lib/server/kioskLoginPolicy';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, platform }) => {
-	const branch = locals.authSession?.role === 'pemilik' ? requireSessionBranch(locals) : null;
+	const session = locals.authSession;
+	const canManageKiosk = session?.role === 'pemilik';
+	const branch =
+		session && (canManageKiosk || session.role === 'kasir') ? requireSessionBranch(locals) : null;
 	return {
 		kioskBranch: branch,
-		kioskPilot: branch ? kioskPilotEnvironment(platform?.env, branch) : null
+		kioskAccount: branch ? (session?.username ?? null) : null,
+		canManageKiosk,
+		kioskPilot: canManageKiosk && branch ? kioskPilotEnvironment(platform?.env, branch) : null
 	};
 };

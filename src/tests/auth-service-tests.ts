@@ -27,7 +27,7 @@ async function seedProfil(
 		.run();
 }
 
-test('pendaftaran perangkat hanya pemilik cabang; verifier tidak masuk respons browser', async () => {
+test('kasir mendaftarkan akunnya sendiri; verifier tidak masuk respons browser', async () => {
 	const { POST } = await import('../routes/api/perangkat-kasir/+server');
 	const { isCsrfProtectedRequest } = await import('../lib/server/csrfPolicy');
 	assert.equal(isCsrfProtectedRequest('/api/perangkat-kasir', 'POST'), true);
@@ -37,13 +37,13 @@ test('pendaftaran perangkat hanya pemilik cabang; verifier tidak masuk respons b
 		const token = crypto.randomUUID();
 		const written: unknown[][] = [];
 		let enrolled = 0;
-		const submit = (role: string, branch: string) =>
+		const submit = (role: string, branch: string, self = false, userId = 'user-kasir') =>
 			POST({
 				request: new Request('https://test.invalid/api/perangkat-kasir', {
 					method: 'POST',
-					body: JSON.stringify({ username: 'kasir', branch })
+					body: JSON.stringify({ username: self ? 'akun-lain' : 'kasir', branch, self })
 				}),
-				locals: { authSession: { role, branch: 'samarinda' } },
+				locals: { authSession: { role, branch: 'samarinda', userId } },
 				cookies: { set: (...items: unknown[]) => written.push(items) },
 				platform: {
 					env: {
@@ -67,10 +67,20 @@ test('pendaftaran perangkat hanya pemilik cabang; verifier tidak masuk respons b
 			} as never);
 		await assert.rejects(async () => submit('kasir', 'samarinda'), { status: 403 });
 		await assert.rejects(async () => submit('pemilik', 'berau'), { status: 403 });
-		const res = await submit('pemilik', 'samarinda');
-		assert.equal(res.status, 201);
-		assert.deepEqual(await res.json(), { success: true });
-		assert.equal(enrolled, 1);
+		await assert.rejects(async () => submit('kasir', 'berau', true), { status: 403 });
+		await assert.rejects(async () => submit('karyawan', 'samarinda', true), { status: 403 });
+		await assert.rejects(async () => submit('kasir', 'samarinda', true, 'akun-hilang'), {
+			status: 400
+		});
+		assert.equal(enrolled, 0);
+		for (const res of [
+			await submit('kasir', 'samarinda', true),
+			await submit('pemilik', 'samarinda')
+		]) {
+			assert.equal(res.status, 201);
+			assert.deepEqual(await res.json(), { success: true });
+		}
+		assert.equal(enrolled, 2);
 		assert.equal(written[0][1], token);
 		assert.equal((written[0][2] as { httpOnly: boolean }).httpOnly, true);
 	} finally {

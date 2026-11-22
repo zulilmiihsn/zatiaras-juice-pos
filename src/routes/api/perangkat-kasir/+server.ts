@@ -38,8 +38,9 @@ export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
 };
 
 export const POST: RequestHandler = async ({ locals, request, platform, cookies }) => {
-	const owner = requireAuthSession(locals);
-	requireExactRole(owner.role, ['pemilik']);
+	const session = requireAuthSession(locals);
+	const role = session.role;
+	if (role !== 'pemilik' && role !== 'kasir') throw error(403, 'Akses ditolak');
 	let body: unknown;
 	try {
 		body = await readJsonBody(request, 2048);
@@ -48,13 +49,16 @@ export const POST: RequestHandler = async ({ locals, request, platform, cookies 
 		throw cause;
 	}
 	if (!body || typeof body !== 'object') throw error(400, 'Data perangkat tidak valid');
-	const target =
+	const target: Parameters<typeof enrollCashierDevice>[2] | null =
 		'self' in body && body.self === true
-			? { ownerId: owner.userId }
-			: 'username' in body && typeof body.username === 'string' && body.username.trim()
+			? { userId: session.userId, role }
+			: role === 'pemilik' &&
+				  'username' in body &&
+				  typeof body.username === 'string' &&
+				  body.username.trim()
 				? { username: body.username.trim() }
 				: null;
-	if (!target) throw error(400, 'Isi username kasir');
+	if (!target) throw error(403, 'Daftarkan perangkat dengan akun yang sedang masuk');
 	const branch = requireSessionBranch(locals, 'branch' in body ? body.branch : undefined);
 	const token = await enrollCashierDevice(platform, branch, target);
 	cookies.set('zatiaras_kiosk_' + branch, token, {

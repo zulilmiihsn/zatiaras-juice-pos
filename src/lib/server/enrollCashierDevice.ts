@@ -4,15 +4,19 @@ import { getD1Database, type BranchContext } from './branchResolver';
 export async function enrollCashierDevice(
 	platform: App.Platform | undefined,
 	branch: BranchContext,
-	target: { username: string } | { ownerId: string }
+	target: { username: string } | { userId: string; role: 'pemilik' | 'kasir' }
 ) {
 	const hub = platform?.env.REALTIME_HUB;
 	if (!hub) throw error(503, 'Layanan perangkat kios belum tersedia');
 	const profile = await getD1Database(platform?.env, branch)
 		.prepare(
-			`SELECT id AS userId, username, role, password AS verifier FROM profil WHERE cabang_id=? AND ${'ownerId' in target ? "id=? AND role='pemilik'" : "username=? AND role='kasir'"} LIMIT 2`
+			`SELECT id AS userId, username, role, password AS verifier FROM profil WHERE cabang_id=? AND ${'userId' in target ? 'id=?' : 'username=?'} AND role=? LIMIT 2`
 		)
-		.bind(branch, 'ownerId' in target ? target.ownerId : target.username)
+		.bind(
+			branch,
+			'userId' in target ? target.userId : target.username,
+			'role' in target ? target.role : 'kasir'
+		)
 		.all<{ userId: string; username: string; role: string; verifier: string }>();
 	if (profile.results.length !== 1)
 		throw error(400, 'Akun tidak ditemukan atau tidak unik di cabang ini');

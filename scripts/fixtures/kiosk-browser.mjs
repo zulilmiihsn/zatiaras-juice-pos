@@ -87,8 +87,12 @@ export async function exerciseKioskBrowser({
 			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 			await expect(page).toHaveURL(origin + '/');
 			await page.goto(origin + '/pengaturan');
+			const enrollment = page.getByRole('region', { name: 'Perangkat kasir' });
+			await expect(enrollment.getByText(/Akun saat ini: pemilik-uji/)).toBeVisible();
+			await expect(enrollment.getByRole('textbox')).toHaveCount(0);
+			await enrollment.getByRole('button', { name: 'Daftarkan HP ini', exact: true }).click();
 			await expect(
-				page.getByRole('button', { name: 'Daftarkan HP ini', exact: true })
+				enrollment.getByText('HP ini sudah terdaftar untuk akunmu selama 48 jam.')
 			).toBeVisible();
 			await page.getByText('Pengaturan mode cadangan', { exact: true }).click();
 			await page.getByText('Pemeliharaan', { exact: true }).click();
