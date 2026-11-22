@@ -20,6 +20,12 @@ Pertahankan origin dan URL aplikasi yang sekarang. Jangan gunakan API token D1 l
 3. Tolak cookie rute rusak, sesi cabang lain, target backend tak dikenal, akses langsung tanpa autentikasi antarlayanan dan CSRF tidak valid. Uji logout, perpindahan cabang pada HP yang sama, dan sesi kedaluwarsa tanpa pencarian lintas database.
 4. Simulasikan gangguan gateway secara terpisah. Dokumentasikan dampak bersama. Jangan menghabiskan kuota sungguhan untuk uji.
 
+## Bukti prototipe lokal
+
+Jalankan `pnpm build` lalu `pnpm exec node scripts/coordinated-shift.test.mjs --branch-origin`. Harness meneruskan login, SSR, dan form kasir ke tiga instans aplikasi dari satu origin lokal. Tiap instans aplikasi hanya menerima binding D1 dan koordinator cabangnya sendiri. Tes memutus baca, tulis, dan keduanya pada Samarinda; Balikpapan dan Berau masuk, mencatat dan mencetak struk lewat browser, menutup shift, lalu merekonsiliasi transaksi di D1 masing-masing. Tes juga menolak cabang tak dikenal dan cookie rute palsu.
+
+Ini bukan proxy produksi: belum ada transport antar-akun, autentikasi antarlayanan, peralihan sesi produksi, atau uji gateway gagal. Skenario kuota untuk prototipe ini belum digilir ke tiap cabang. Printer fisik tidak diuji.
+
 ## Prasyarat produksi
 
 Pastikan kelayakan penggunaan beberapa akun Free untuk satu usaha dengan Cloudflare. Uji backup/restore per akun dan cocokkan stok, nomor pesanan, omzet, serta struk. Pindahkan satu cabang setelah shift tutup dan semua antrean HP serta koordinator kosong. Jangan biarkan deployment lama dan baru menerima penjualan cabang yang sama. Setelah transaksi pertama di tujuan, rollback bukan sekadar mengganti tujuan gateway: rekonsiliasi perubahan dulu. Belum ada resource atau kredensial akun baru yang diperlukan untuk tahap lokal.
