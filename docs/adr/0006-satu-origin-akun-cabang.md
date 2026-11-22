@@ -24,7 +24,13 @@ Pertahankan origin dan URL aplikasi yang sekarang. Jangan gunakan API token D1 l
 
 Jalankan `pnpm build` lalu `pnpm exec node scripts/coordinated-shift.test.mjs --branch-origin`. Harness meneruskan login, SSR, dan form kasir ke tiga instans aplikasi dari satu origin lokal. Tiap instans aplikasi hanya menerima binding D1 dan koordinator cabangnya sendiri. Tes memutus baca, tulis, dan keduanya pada Samarinda; Balikpapan dan Berau masuk, mencatat dan mencetak struk lewat browser, menutup shift, lalu merekonsiliasi transaksi di D1 masing-masing. Tes juga menolak cabang tak dikenal dan cookie rute palsu.
 
-Ini bukan proxy produksi: belum ada transport antar-akun, autentikasi antarlayanan, peralihan sesi produksi, atau uji gateway gagal. Skenario kuota untuk prototipe ini belum digilir ke tiap cabang. Printer fisik tidak diuji.
+Harness lokal bukan proxy produksi. Skenario kuota untuk prototipe ini belum digilir ke tiap cabang. Printer fisik tidak diuji.
+
+## Bukti koneksi Cloudflare antar-akun
+
+Gateway Worker sementara di akun utama berhasil membaca dua penanda sintetis dari Worker di dua akun berbeda, masing-masing dengan binding D1 lokal ke akun backend. Backend menolak permintaan tanpa autentikasi, dan gateway menolak rute di luar daftar. Saat Worker uji Berau dihapus, gateway mengembalikan 502 untuk Berau, sementara rute Balikpapan tetap membaca penandanya. Semua Worker dan D1 uji sementara dibersihkan. Konfigurasi `workers.dev` akun uji dipertahankan.
+
+Ini membuktikan transport HTTPS dan isolasi kegagalan backend untuk probe baca-saja. Belum membuktikan login aplikasi, kompatibilitas sesi, penulisan transaksi, atau migrasi lintas akun di Cloudflare.
 
 ## Prasyarat produksi
 
