@@ -10,8 +10,8 @@ async function digest(token: string) {
 	return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2, '0')).join('');
 }
 
-/** Private per-branch storage. Enrollment requires an owner-approved device and a current
- * D1 cashier profile supplied by the trusted caller, never a profile from a browser. */
+/** Private per-branch storage. Enrollment requires a current D1 cashier profile supplied by the trusted caller,
+ * never a profile from a browser. */
 export class CoordinatedCashierAuth {
 	constructor(private sql: SqlStorage) {
 		sql.exec(`CREATE TABLE IF NOT EXISTS cashier_device (
@@ -20,7 +20,13 @@ export class CoordinatedCashierAuth {
 			attempts INTEGER NOT NULL DEFAULT 0, reset_ms INTEGER NOT NULL DEFAULT 0)`);
 	}
 
-	async enroll(profile: { userId: string; username: string; role: string; verifier: string }) {
+	async enroll(profile: {
+		userId: string;
+		username: string;
+		role: string;
+		verifier: string;
+		previousToken?: unknown;
+	}) {
 		if (
 			!['kasir', 'pemilik'].includes(profile.role) ||
 			!profile.userId ||
@@ -31,6 +37,10 @@ export class CoordinatedCashierAuth {
 		const token = crypto.randomUUID();
 		const now = Date.now();
 		const device = await digest(token);
+		const previous =
+			typeof profile.previousToken === 'string' && profile.previousToken.length === 36
+				? await digest(profile.previousToken)
+				: null;
 		this.sql.exec('DELETE FROM cashier_device WHERE until_ms <= ?', now);
 		this.sql.exec(
 			'INSERT INTO cashier_device(device,user_id,username,verifier,until_ms) VALUES(?,?,?,?,?)',
@@ -40,6 +50,7 @@ export class CoordinatedCashierAuth {
 			profile.verifier,
 			now + 48 * MS_PER_HOUR
 		);
+		if (previous) this.sql.exec('DELETE FROM cashier_device WHERE device=?', previous);
 		return { ok: true, token };
 	}
 

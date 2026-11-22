@@ -378,10 +378,6 @@ try {
 					status: 'already-initialized'
 				});
 			}
-			const devices = await Promise.all([
-				post(branch, 'device/enroll', profile),
-				post(branch, 'device/enroll', profile)
-			]);
 			await post(branch, 'quota', quota);
 			if (process.argv.includes('--browser')) {
 				if (index === 0)
@@ -396,7 +392,6 @@ try {
 					db,
 					branch,
 					quota,
-					devices,
 					password,
 					username: profile.username,
 					bridge: (path, body) =>
@@ -406,6 +401,10 @@ try {
 						})
 				});
 			} else {
+				const devices = await Promise.all([
+					post(branch, 'device/enroll', profile),
+					post(branch, 'device/enroll', profile)
+				]);
 				const sessions = await Promise.all(
 					devices.map((device) =>
 						post(branch, 'device/login', {

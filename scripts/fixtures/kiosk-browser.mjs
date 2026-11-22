@@ -10,7 +10,6 @@ export async function exerciseKioskBrowser({
 	branch,
 	quota,
 	bridge,
-	devices,
 	password,
 	username,
 	rollback = false
@@ -21,6 +20,7 @@ export async function exerciseKioskBrowser({
 	const app = new Server(manifest);
 	await app.init({ env: {}, read: (path) => readFile(resolve(assets, path)) });
 	const errors = [];
+	let outage = false;
 	const server = createServer(async (incoming, outgoing) => {
 		try {
 			const base = `http://localhost:${server.address().port}`;
@@ -53,7 +53,7 @@ export async function exerciseKioskBrowser({
 								}
 							})
 						},
-						[`DB_${branch.toUpperCase()}_GROUP`]: !quota
+						[`DB_${branch.toUpperCase()}_GROUP`]: !outage
 							? db
 							: {
 									prepare: (sql) => {
@@ -87,13 +87,8 @@ export async function exerciseKioskBrowser({
 			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 			await expect(page).toHaveURL(origin + '/');
 			await page.goto(origin + '/pengaturan');
-			const enrollment = page.getByRole('region', { name: 'Perangkat kasir' });
-			await expect(enrollment.getByText(/Akun saat ini: pemilik-uji/)).toBeVisible();
-			await expect(enrollment.getByRole('textbox')).toHaveCount(0);
-			await enrollment.getByRole('button', { name: 'Daftarkan HP ini', exact: true }).click();
-			await expect(
-				enrollment.getByText('HP ini sudah terdaftar untuk akunmu selama 48 jam.')
-			).toBeVisible();
+			await expect(page.getByRole('region', { name: 'Mode cadangan kasir' })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Daftarkan HP ini' })).toHaveCount(0);
 			await page.getByText('Pengaturan mode cadangan', { exact: true }).click();
 			await page.getByText('Pemeliharaan', { exact: true }).click();
 			const action = page.getByRole('button', {
@@ -118,25 +113,35 @@ export async function exerciseKioskBrowser({
 			).toBeVisible();
 			return;
 		}
+		const login = async (page) => {
+			await page.goto(origin + '/login');
+			await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
+			await page.getByLabel('Pilih Cabang').selectOption(branch);
+			await page.getByPlaceholder('Masukkan username').fill(username);
+			await page.getByPlaceholder('Masukkan password').fill(password);
+			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+			await expect(page).toHaveURL(/\/operasional$/);
+		};
 		const pages = await Promise.all(
-			devices.map(async (device) => {
+			[0, 1].map(async () => {
 				const context = await browser.newContext({ serviceWorkers: 'block' });
-				await context.addCookies([
-					{ name: `zatiaras_kiosk_${branch}`, value: device.token, url: origin, httpOnly: true }
-				]);
 				await context.addInitScript(() => {
 					window.print = () => document.body.setAttribute('data-print-called', 'true');
 				});
 				const page = await context.newPage();
-				await page.goto(origin + '/login');
-				await page.locator('select').first().selectOption(branch);
-				await page.getByPlaceholder('Masukkan username').fill(username);
-				await page.getByPlaceholder('Masukkan password').fill(password);
-				await page.getByRole('button', { name: 'Masuk', exact: true }).click();
-				await expect(page).toHaveURL(/\/operasional$/);
+				await login(page);
+				const cookie = (await context.cookies()).find(
+					({ name }) => name === `zatiaras_kiosk_${branch}`
+				);
+				expect(cookie?.httpOnly).toBe(true);
+				await expect(page.locator('main[data-hydrated="true"]')).toBeVisible();
+				await page.getByRole('button', { name: 'Keluar', exact: true }).click();
+				await expect(page).toHaveURL(/\/login$/);
 				return page;
 			})
 		);
+		outage = true;
+		await Promise.all(pages.map(login));
 		await pages[0].getByLabel(/Modal awal/).fill('100000');
 		await pages[0].getByLabel('PIN toko').fill('9876');
 		const opened = pages[0].waitForResponse(

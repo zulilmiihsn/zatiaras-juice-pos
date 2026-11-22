@@ -2,7 +2,11 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { bodyErrorResponse, readJsonBody, RequestBodyError } from '$lib/server/requestBody';
 import { dev } from '$app/environment';
 import { parseKioskSession, openKioskSession, readKioskSession } from '$lib/server/kioskSession';
-import { shouldRouteCentralLoginToKiosk } from '$lib/server/kioskLoginPolicy';
+import { enrollVerifiedKioskDevice } from '$lib/server/enrollCashierDevice';
+import {
+	kioskPilotEnvironment,
+	shouldRouteCentralLoginToKiosk
+} from '$lib/server/kioskLoginPolicy';
 import { attemptLogin } from '$lib/server/services/authService';
 import { newCsrfToken, setCsrfCookie } from '$lib/server/csrfPolicy';
 import { SESSION_COOKIE, sessionCookieOptions } from '$lib/server/sessionStore';
@@ -23,6 +27,28 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 		throw cause;
 	}
 	const result = await attemptLogin(platform, body, clientIp);
+	const verified = result.verifiedKioskProfile;
+	if (result.sessionId && verified && kioskPilotEnvironment(platform?.env, verified.branch)) {
+		const key = `zatiaras_kiosk_${verified.branch}`;
+		try {
+			const token = await enrollVerifiedKioskDevice(
+				platform,
+				verified.branch,
+				verified.profile,
+				cookies.get(key)
+			);
+			cookies.set(key, token, {
+				path: '/',
+				httpOnly: true,
+				secure: !dev,
+				sameSite: 'strict',
+				maxAge: 48 * 60 * 60
+			});
+		} catch {
+			// Coordinator enrollment is best effort; a healthy central login must still succeed.
+			console.warn('[kiosk] Persiapan perangkat belum berhasil', verified.branch);
+		}
+	}
 
 	const stagingRequested =
 		platform?.env.KIOSK_STAGING_PILOT === 'balikpapan' &&
@@ -60,7 +86,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress, cookies,
 
 	if (kioskRequested)
 		return Response.json(
-			{ success: false, message: 'HP belum terdaftar atau mode kios belum siap.' },
+			{
+				success: false,
+				message: 'Mode cadangan belum siap. Coba masuk lagi saat database tersedia.'
+			},
 			{ status: 409, headers: { 'Cache-Control': 'no-store' } }
 		);
 
