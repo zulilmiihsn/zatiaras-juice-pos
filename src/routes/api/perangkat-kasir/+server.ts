@@ -23,13 +23,16 @@ export const PATCH: RequestHandler = async ({ locals, platform, request }) => {
 	}
 	if (!body || typeof body !== 'object' || !('confirm' in body) || typeof body.confirm !== 'string')
 		throw error(400, 'Konfirmasi shift tutup dan antrean perangkat kosong diperlukan');
-	const confirmation = /^(rollback-)?balikpapan-(staging|production)$/.exec(body.confirm);
+	const confirmation = /^(rollback-)?(samarinda|balikpapan|berau)-(staging|production)$/.exec(
+		body.confirm
+	);
 	if (!confirmation) throw error(400, 'Konfirmasi pilot tidak valid');
+	if (confirmation[2] !== branch) throw error(404, 'Pilot kios tidak tersedia');
 	await changeKioskPilot(
 		platform,
 		branch,
 		confirmation[1] ? 'rollback' : 'activate',
-		confirmation[2] === 'staging' ? 'staging' : 'production'
+		confirmation[3] === 'staging' ? 'staging' : 'production'
 	);
 	return json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
 };

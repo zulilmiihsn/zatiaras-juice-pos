@@ -155,28 +155,35 @@ test('aktivasi pilot menolak selain pemilik Balikpapan staging dan memerlukan ko
 		async () => activate('pemilik', 'balikpapan', 'balikpapan', 'balikpapan-production'),
 		{ status: 404 }
 	);
-	const production = await PATCH({
-		locals: { authSession: { role: 'pemilik', branch: 'balikpapan' } },
-		platform: {
-			env: {
-				KIOSK_PRODUCTION_PILOT: 'balikpapan',
-				REALTIME_HUB: {
-					idFromName: (name: string) => name,
-					get: () => ({
-						fetch: async (request: Request) => {
-							assert.equal(request.url, 'https://cashier.internal/projection/activate-production');
-							return Response.json({ ok: true, status: 'initialized' });
-						}
-					})
+	for (const branch of ['samarinda', 'balikpapan', 'berau']) {
+		const production = await PATCH({
+			locals: { authSession: { role: 'pemilik', branch } },
+			platform: {
+				env: {
+					KIOSK_PRODUCTION_PILOT: 'samarinda, balikpapan, berau',
+					REALTIME_HUB: {
+						idFromName: (name: string) => name,
+						get: (name: string) => ({
+							fetch: async (request: Request) => {
+								assert.equal(name, `cashier:${branch}`);
+								assert.deepEqual(await request.json(), { branch });
+								assert.equal(
+									request.url,
+									'https://cashier.internal/projection/activate-production'
+								);
+								return Response.json({ ok: true, status: 'initialized' });
+							}
+						})
+					}
 				}
-			}
-		},
-		request: new Request('https://test.invalid/api/perangkat-kasir', {
-			method: 'PATCH',
-			body: JSON.stringify({ confirm: 'balikpapan-production' })
-		})
-	} as never);
-	assert.deepEqual(await production.json(), { success: true });
+			},
+			request: new Request('https://test.invalid/api/perangkat-kasir', {
+				method: 'PATCH',
+				body: JSON.stringify({ confirm: `${branch}-production` })
+			})
+		} as never);
+		assert.deepEqual(await production.json(), { success: true });
+	}
 });
 
 test('login pusat hanya mengalihkan kasir pada cabang pilot yang telah beralih', async () => {

@@ -178,7 +178,7 @@
 		</nav>
 
 		{#if isOwner}
-			<EnrollKioskDevice kioskPilot={data.kioskPilot} />
+			<EnrollKioskDevice kioskPilot={data.kioskPilot} kioskBranch={data.kioskBranch} />
 		{/if}
 
 		<!-- Logout Section -->

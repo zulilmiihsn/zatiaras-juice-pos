@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { fetchWithCsrfRetry } from '$lib/utils/csrf';
-	let { kioskPilot = null }: { kioskPilot?: 'staging' | 'production' | null } = $props();
+	let {
+		kioskPilot = null,
+		kioskBranch = null
+	}: { kioskPilot?: 'staging' | 'production' | null; kioskBranch?: string | null } = $props();
+	const branchLabel = $derived(
+		kioskBranch ? kioskBranch.charAt(0).toUpperCase() + kioskBranch.slice(1) : ''
+	);
 	const targetLabel = $derived(kioskPilot === 'production' ? 'produksi' : 'staging');
 	let confirmed = $state(false);
 	let rollbackConfirmed = $state(false);
@@ -10,22 +16,22 @@
 	let message = $state('');
 	async function changePilot(action: 'activate' | 'rollback') {
 		const rollback = action === 'rollback';
-		if (!kioskPilot || busy || !(rollback ? rollbackConfirmed : confirmed)) return;
+		if (!kioskPilot || !kioskBranch || busy || !(rollback ? rollbackConfirmed : confirmed)) return;
 		busy = true;
 		try {
 			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					confirm: `${rollback ? 'rollback-' : ''}balikpapan-${kioskPilot}`
+					confirm: `${rollback ? 'rollback-' : ''}${kioskBranch}-${kioskPilot}`
 				})
 			});
 			const result = await res.json().catch(() => null);
 			message =
 				res.ok && result?.success === true
 					? rollback
-						? `Kasir lama Balikpapan ${targetLabel} sudah bisa digunakan kembali.`
-						: `Balikpapan ${targetLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
+						? `Kasir lama ${branchLabel} ${targetLabel} sudah bisa digunakan kembali.`
+						: `${branchLabel} ${targetLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
 					: result?.message || 'Peralihan belum terkonfirmasi. Jangan buka shift.';
 			if (res.ok && result?.success === true) {
 				confirmed = false;
@@ -123,7 +129,7 @@
 				type="button"
 				class="btn-brand-primary"
 				disabled={busy || !confirmed}
-				onclick={() => changePilot('activate')}>Aktifkan Balikpapan {targetLabel}</button
+				onclick={() => changePilot('activate')}>Aktifkan {branchLabel} {targetLabel}</button
 			>
 			{#if kioskPilot === 'staging'}<a href="/login?kiosk=staging" class="underline"
 					>Login uji Balikpapan staging</a
