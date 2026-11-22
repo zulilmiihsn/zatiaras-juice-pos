@@ -336,6 +336,9 @@ jobs:
       - name: Run Sesi Toko Workerd Suite
         run: pnpm exec tsx src/tests/sesi-toko-tests.ts --d1
 
+      - name: Run Branch Ingress Security Suite
+        run: pnpm test:branch-ingress
+
       - name: Run Credential Username Suite
         run: pnpm test:credential-username
 

@@ -32,6 +32,12 @@ Gateway Worker sementara di akun utama berhasil membaca dua penanda sintetis dar
 
 Ini membuktikan transport HTTPS dan isolasi kegagalan backend untuk probe baca-saja. Belum membuktikan login aplikasi, kompatibilitas sesi, penulisan transaksi, atau migrasi lintas akun di Cloudflare.
 
+## Implementasi bertahap
+
+`src/lib/server/branchIngress.ts` memuat pemilihan tujuan dari konfigurasi, petunjuk rute bertanda tangan yang terikat ke cookie sesi, dan autentikasi antarlayanan dengan secret HTTPS berbeda per backend. Backend mengembalikan URL internal ke origin publik sebelum aplikasi memeriksa sesi dan CSRF. Gateway tidak mencoba backend lain ketika tujuan gagal. Jalankan `pnpm test:branch-ingress` untuk kontrak tersebut.
+
+Modul ini belum dipasang pada Worker staging. Wiring berikutnya perlu menyediakan aset, halaman login dan CSRF tanpa D1 di gateway, serta akses IP tepercaya untuk rate limit. Sebelum rilis, uji alur aplikasi dengan cookie dan redirect aktual di Worker, bukan hanya stub transport.
+
 ## Prasyarat produksi
 
 Pastikan kelayakan penggunaan beberapa akun Free untuk satu usaha dengan Cloudflare. Uji backup/restore per akun dan cocokkan stok, nomor pesanan, omzet, serta struk. Pindahkan satu cabang setelah shift tutup dan semua antrean HP serta koordinator kosong. Jangan biarkan deployment lama dan baru menerima penjualan cabang yang sama. Setelah transaksi pertama di tujuan, rollback bukan sekadar mengganti tujuan gateway: rekonsiliasi perubahan dulu. Belum ada resource atau kredensial akun baru yang diperlukan untuk tahap lokal.
