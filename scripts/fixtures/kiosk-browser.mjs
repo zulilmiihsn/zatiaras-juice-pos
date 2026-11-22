@@ -87,17 +87,28 @@ export async function exerciseKioskBrowser({
 			await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 			await expect(page).toHaveURL(origin + '/');
 			await page.goto(origin + '/pengaturan');
-			await page.getByText('Daftarkan HP kios ini', { exact: true }).click();
+			await expect(
+				page.getByRole('button', { name: 'Daftarkan HP ini', exact: true })
+			).toBeVisible();
+			await page.getByText('Pengaturan mode cadangan', { exact: true }).click();
+			await page.getByText('Pemeliharaan', { exact: true }).click();
 			const action = page.getByRole('button', {
-				name: 'Kembali ke kasir lama (produksi)',
+				name: 'Kembali ke kasir lama',
 				exact: true
 			});
 			await expect(action).toBeDisabled();
 			await page.getByRole('checkbox', { name: /Saya ingin kembali ke kasir lama/ }).check();
 			await expect(action).toBeEnabled();
+			const rollbackResponse = page.waitForResponse(
+				(response) =>
+					response.request().method() === 'PATCH' &&
+					new URL(response.url()).pathname === '/api/perangkat-kasir'
+			);
 			await action.click();
+			const response = await rollbackResponse;
+			expect(response.ok(), `${branch}: ${await response.text()} ${errors.join('; ')}`).toBe(true);
 			await expect(
-				page.getByText(/Kasir lama .* produksi sudah bisa digunakan kembali\./, {
+				page.getByText(/Kasir lama .* sudah bisa digunakan kembali\./, {
 					exact: true
 				})
 			).toBeVisible();

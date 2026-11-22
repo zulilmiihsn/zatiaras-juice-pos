@@ -7,17 +7,18 @@
 	const branchLabel = $derived(
 		kioskBranch ? kioskBranch.charAt(0).toUpperCase() + kioskBranch.slice(1) : ''
 	);
-	const targetLabel = $derived(kioskPilot === 'production' ? 'produksi' : 'staging');
 	let confirmed = $state(false);
 	let rollbackConfirmed = $state(false);
 	let account = $state<'self' | 'cashier'>('cashier');
 	let username = $state('');
 	let busy = $state(false);
 	let message = $state('');
+	let setupMessage = $state('');
 	async function changePilot(action: 'activate' | 'rollback') {
 		const rollback = action === 'rollback';
 		if (!kioskPilot || !kioskBranch || busy || !(rollback ? rollbackConfirmed : confirmed)) return;
 		busy = true;
+		setupMessage = '';
 		try {
 			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', {
 				method: 'PATCH',
@@ -27,18 +28,18 @@
 				})
 			});
 			const result = await res.json().catch(() => null);
-			message =
+			setupMessage =
 				res.ok && result?.success === true
 					? rollback
-						? `Kasir lama ${branchLabel} ${targetLabel} sudah bisa digunakan kembali.`
-						: `${branchLabel} ${targetLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
+						? `Kasir lama ${branchLabel} sudah bisa digunakan kembali.`
+						: `Mode cadangan ${branchLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
 					: result?.message || 'Peralihan belum terkonfirmasi. Jangan buka shift.';
 			if (res.ok && result?.success === true) {
 				confirmed = false;
 				rollbackConfirmed = false;
 			}
 		} catch {
-			message =
+			setupMessage =
 				'Peralihan belum terkonfirmasi. Periksa koneksi sebelum mengulang tindakan yang sama.';
 		} finally {
 			busy = false;
@@ -49,11 +50,11 @@
 		busy = true;
 		try {
 			const res = await fetchWithCsrfRetry('/api/perangkat-kasir', { method: 'PUT' });
-			message = res.ok
+			setupMessage = res.ok
 				? 'Katalog bersama siap hingga masa berlaku harga habis. Cabang tidak diaktifkan otomatis.'
 				: 'Katalog belum siap. Periksa database pusat dan coba lagi.';
 		} catch {
-			message = 'Katalog belum terkonfirmasi. Periksa koneksi lalu coba lagi.';
+			setupMessage = 'Katalog belum terkonfirmasi. Periksa koneksi lalu coba lagi.';
 		} finally {
 			busy = false;
 		}
@@ -78,7 +79,7 @@
 				);
 			}
 			message =
-				'HP ini terdaftar untuk akun yang dipilih selama 48 jam. Pendaftaran bukan konfirmasi bahwa penjualan sudah tersinkron.';
+				'Browser ini siap dipakai oleh akun yang dipilih selama 48 jam. Ulangi pendaftaran di setiap HP kasir.';
 		} catch (cause) {
 			message = cause instanceof Error ? cause.message : 'Pendaftaran gagal.';
 		} finally {
@@ -87,63 +88,91 @@
 	}
 </script>
 
-<details class="soft-float-card p-4">
-	<summary class="cursor-pointer font-bold">Daftarkan HP kios ini</summary>
-	<p class="my-2 text-sm">
-		Gunakan hanya pada HP tepercaya saat database cabang tersedia. Pendaftaran mengganti akun
-		operasional yang dipilih untuk HP ini di cabang ini.
-	</p>
+<section class="soft-float-card space-y-4 p-4" aria-label="Perangkat kasir">
+	<header>
+		<h2 class="text-lg font-bold">Perangkat kasir{branchLabel ? ` · ${branchLabel}` : ''}</h2>
+		<p class="mt-1 text-sm">
+			Daftarkan browser ini supaya akun yang dipilih bisa tetap masuk saat database pusat terganggu.
+		</p>
+	</header>
 	<form onsubmit={enroll} class="grid gap-3">
-		<label
-			>Akun perangkat <select bind:value={account} disabled={busy}
-				><option value="cashier">Kasir cabang</option><option value="self">Akun pemilik saya</option
-				></select
-			></label
-		>
-		{#if account === 'cashier'}<label
-				>Username kasir <input
+		<label class="grid gap-1 text-sm font-semibold">
+			Siapa yang akan memakai HP ini?
+			<select bind:value={account} disabled={busy}>
+				<option value="cashier">Kasir</option>
+				<option value="self">Saya sendiri (pemilik)</option>
+			</select>
+		</label>
+		{#if account === 'cashier'}
+			<label class="grid gap-1 text-sm font-semibold">
+				Username kasir
+				<input
 					required
 					bind:value={username}
 					disabled={busy}
 					autocapitalize="none"
 					spellcheck="false"
-				/></label
-			>{/if}
+				/>
+			</label>
+		{/if}
+		<p class="text-sm">
+			Gunakan browser yang biasa dipakai untuk jualan. Satu akun boleh dipakai di beberapa HP.
+		</p>
 		<button
 			type="submit"
-			class="btn-brand-primary"
+			class="btn-brand-primary w-fit"
 			disabled={busy || (account === 'cashier' && !username.trim())}
-			>{busy ? 'Mendaftarkan…' : 'Daftarkan HP ini'}</button
 		>
+			{busy ? 'Tunggu sebentar…' : 'Daftarkan HP ini'}
+		</button>
+		<p role="status" class="text-sm">{message}</p>
 	</form>
-	<button type="button" class="btn-brand-primary mt-3" disabled={busy} onclick={prepareCatalog}
-		>Siapkan Katalog Kios</button
-	>
-	{#if kioskPilot}
-		<div class="mt-4 grid gap-2">
-			<label
-				><input type="checkbox" bind:checked={confirmed} disabled={busy} /> Shift lama tutup, antrean
-				semua HP kosong, dan stok sudah dicocokkan.</label
-			>
-			<button
-				type="button"
-				class="btn-brand-primary"
-				disabled={busy || !confirmed}
-				onclick={() => changePilot('activate')}>Aktifkan {branchLabel} {targetLabel}</button
-			>
-			{#if kioskPilot === 'staging'}<a href="/login?kiosk=staging" class="underline"
-					>Login uji Balikpapan staging</a
-				>{/if}
-			<label
-				><input type="checkbox" bind:checked={rollbackConfirmed} disabled={busy} /> Shift kios sudah tutup.
-				Saya ingin kembali ke kasir lama.</label
-			>
-			<button
-				type="button"
-				disabled={busy || !rollbackConfirmed}
-				onclick={() => changePilot('rollback')}>Kembali ke kasir lama ({targetLabel})</button
-			>
+	<details class="border-t pt-3">
+		<summary class="cursor-pointer text-sm font-semibold">Pengaturan mode cadangan</summary>
+		<div class="mt-3 grid gap-4 text-sm">
+			{#if kioskPilot}
+				<div class="grid gap-2">
+					<p>Aktifkan sekali untuk cabang ini setelah semua HP kasir didaftarkan.</p>
+					<label class="flex items-start gap-2">
+						<input type="checkbox" bind:checked={confirmed} disabled={busy} />
+						<span>Shift sudah tutup, antrean semua HP kosong, dan stok sudah dicocokkan.</span>
+					</label>
+					<button
+						type="button"
+						class="btn-brand-primary w-fit"
+						disabled={busy || !confirmed}
+						onclick={() => changePilot('activate')}
+					>
+						Aktifkan mode cadangan
+					</button>
+				</div>
+				{#if kioskPilot === 'staging'}
+					<a href="/login?kiosk=staging" class="underline">Login uji Balikpapan</a>
+				{/if}
+			{/if}
+			<details class="border-t pt-3">
+				<summary class="cursor-pointer font-semibold">Pemeliharaan</summary>
+				<div class="mt-3 grid gap-3">
+					<button type="button" class="w-fit underline" disabled={busy} onclick={prepareCatalog}>
+						Perbarui katalog mode cadangan
+					</button>
+					{#if kioskPilot}
+						<label class="flex items-start gap-2">
+							<input type="checkbox" bind:checked={rollbackConfirmed} disabled={busy} />
+							<span>Shift kios sudah tutup. Saya ingin kembali ke kasir lama.</span>
+						</label>
+						<button
+							type="button"
+							class="w-fit underline"
+							disabled={busy || !rollbackConfirmed}
+							onclick={() => changePilot('rollback')}
+						>
+							Kembali ke kasir lama
+						</button>
+					{/if}
+				</div>
+			</details>
+			<p role="status">{setupMessage}</p>
 		</div>
-	{/if}
-	<p role="status" class="text-sm">{message}</p>
-</details>
+	</details>
+</section>
