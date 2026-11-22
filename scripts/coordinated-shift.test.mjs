@@ -564,7 +564,7 @@ try {
 				.first('n');
 		assert.equal(await countBacklog(), 0);
 		for (const expected of [2, 5, 8, 11, 12, 12]) {
-			assert.deepEqual(await post(branch, 'project', null), { ok: true });
+			assert.deepEqual(await post(branch, 'project-aged', null), { ok: true });
 			assert.equal(await countBacklog(), expected);
 		}
 		assert.equal(await post(branch, 'projection-peek', null), null);
@@ -575,6 +575,7 @@ try {
 				.first('stok'),
 			1
 		);
+		await post(branch, 'fixture-catalog-retry-now', null);
 		const expiring = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 		assert.equal(await post(branch, 'fixture-catalog', expiring), expiring);
 		await post(branch, 'quota', 'read');

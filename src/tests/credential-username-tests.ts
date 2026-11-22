@@ -171,10 +171,23 @@ try {
 	const previous = await readKioskFixture();
 	assert.ok(previous);
 	let coordinatorAvailable = false;
+	let failCredentialBatch = true;
 	let revoked = 0;
+	const failingDb = new Proxy(db, {
+		get(target, property) {
+			if (property === 'batch')
+				return async (...args: Parameters<typeof db.batch>) => {
+					if (failCredentialBatch) throw new Error('injected D1 write failure');
+					return db.batch(...args);
+				};
+			const value = Reflect.get(target, property, target);
+			return typeof value === 'function' ? value.bind(target) : value;
+		}
+	});
 	const kioskPlatform = {
 		env: {
 			...platform.env,
+			DB_SAMARINDA_GROUP: failingDb,
 			KIOSK_PRODUCTION_PILOT: branch,
 			REALTIME_HUB: {
 				idFromName: (name: string) => name,
@@ -212,8 +225,12 @@ try {
 	assert.equal((await changeKioskPassword()).status, 500);
 	assert.equal((await readKioskFixture())?.password, previous.password);
 	coordinatorAvailable = true;
-	assert.equal((await changeKioskPassword()).status, 200);
+	assert.equal((await changeKioskPassword()).status, 500);
 	assert.equal(revoked, 1);
+	assert.equal((await readKioskFixture())?.password, previous.password);
+	failCredentialBatch = false;
+	assert.equal((await changeKioskPassword()).status, 200);
+	assert.equal(revoked, 2);
 	const current = await readKioskFixture();
 	assert.ok(current && current.updated_at !== previous.updated_at);
 	assert.ok(await bcrypt.compare('BaruKuat2', current.password));

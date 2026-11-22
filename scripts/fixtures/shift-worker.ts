@@ -89,6 +89,7 @@ export class ShiftFixture {
 		}
 		if (
 			actionName === 'project' ||
+			actionName === 'project-aged' ||
 			actionName === 'handoff' ||
 			actionName === 'initialize' ||
 			actionName === 'activate' ||
@@ -112,15 +113,17 @@ export class ShiftFixture {
 				{
 					[binding]: db,
 					KIOSK_PROJECTION_BRANCHES: 'samarinda,balikpapan,berau',
-					KIOSK_PRODUCTION_PILOT: 'samarinda,balikpapan,berau',
+					KIOSK_PRODUCTION_PILOT: actionName === 'project-aged' ? '' : 'samarinda,balikpapan,berau',
 					POS_PRICE_SIGNING_KEY: await this.ctx.storage.get('fixture:price-key')
 				}
 			);
+			const clock = Date.now;
+			if (actionName === 'project-aged') Date.now = () => clock() + 4 * 24 * 60 * 60 * 1000;
 			try {
 				return await hub.fetch(
 					new Request(
 						'https://cashier.internal/projection/' +
-							(actionName === 'project'
+							(actionName === 'project' || actionName === 'project-aged'
 								? 'drain'
 								: actionName === 'initialize'
 									? 'initialize'
@@ -140,6 +143,8 @@ export class ShiftFixture {
 					failed: true,
 					error: error instanceof Error ? error.message : 'Unknown'
 				});
+			} finally {
+				Date.now = clock;
 			}
 		}
 		if (actionName === 'projection-peek')
