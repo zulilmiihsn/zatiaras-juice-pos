@@ -6,7 +6,10 @@
 	"compatibility_date": "2026-06-29",
 	"compatibility_flags": ["nodejs_compat"],
 	"pages_build_output_dir": "../.svelte-kit/cloudflare",
-	"vars": { "KIOSK_STAGING_PILOT": "balikpapan" },
+	"vars": {
+		"KIOSK_STAGING_PILOT": "balikpapan",
+		"KIOSK_PRODUCTION_PILOT": "samarinda,berau"
+	},
 
 	"d1_databases": [
 		{
