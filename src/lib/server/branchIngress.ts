@@ -5,6 +5,8 @@ import { constantTimeEqual } from './secureCompare';
 const ROUTE_COOKIE = '__Host-zatiaras_branch';
 const RELAY_KEY = 'x-zatiaras-relay-key';
 const RELAY_BRANCH = 'x-zatiaras-relay-branch';
+const RELAY_CLIENT_IP = 'x-zatiaras-relay-client-ip';
+const EDGE_CLIENT_IP = 'cf-connecting-ip';
 const LOGIN_PATH = '/api/veriflogin';
 const LOGIN_BODY_LIMIT = 8 * 1024;
 const encoder = new TextEncoder();
@@ -110,6 +112,7 @@ export function createBranchIngress(options: IngressOptions) {
 		const headers = new Headers(request.headers);
 		headers.delete(RELAY_KEY);
 		headers.delete(RELAY_BRANCH);
+		headers.delete(RELAY_CLIENT_IP);
 		headers.delete('host');
 		const incoming = new Request(request, { headers });
 		const login = request.method === 'POST' && url.pathname === LOGIN_PATH;
@@ -166,6 +169,10 @@ export function createBranchIngress(options: IngressOptions) {
 		const relay = new Request(withOrigin(url, backend.origin), proxied);
 		relay.headers.set(RELAY_KEY, backend.secret);
 		relay.headers.set(RELAY_BRANCH, branch);
+		// Cloudflare may replace the IP header on cross-account subrequests.
+		const clientIp = request.headers.get(EDGE_CLIENT_IP);
+		if (clientIp && /^[a-f0-9:.]{3,45}$/i.test(clientIp))
+			relay.headers.set(RELAY_CLIENT_IP, clientIp);
 		let response: Response;
 		try {
 			// Redirects must go back to the browser, never resend service credentials upstream.
@@ -203,5 +210,7 @@ export function acceptBranchRelay(
 	);
 	internal.headers.delete(RELAY_KEY);
 	internal.headers.delete(RELAY_BRANCH);
+	internal.headers.delete(RELAY_CLIENT_IP);
+	internal.headers.set(EDGE_CLIENT_IP, request.headers.get(RELAY_CLIENT_IP) ?? '0.0.0.0');
 	return internal;
 }

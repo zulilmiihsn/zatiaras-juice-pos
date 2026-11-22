@@ -36,7 +36,9 @@ Ini membuktikan transport HTTPS dan isolasi kegagalan backend untuk probe baca-s
 
 `src/lib/server/branchIngress.ts` memuat pemilihan tujuan dari konfigurasi, petunjuk rute bertanda tangan yang terikat ke cookie sesi, dan autentikasi antarlayanan dengan secret HTTPS berbeda per backend. Backend mengembalikan URL internal ke origin publik sebelum aplikasi memeriksa sesi dan CSRF. Gateway tidak mencoba backend lain ketika tujuan gagal. Jalankan `pnpm test:branch-ingress` untuk kontrak tersebut.
 
-Modul ini belum dipasang pada Worker staging. Wiring berikutnya perlu menyediakan aset, halaman login dan CSRF tanpa D1 di gateway, serta akses IP tepercaya untuk rate limit. Sebelum rilis, uji alur aplikasi dengan cookie dan redirect aktual di Worker, bukan hanya stub transport.
+`staging/branch-account-worker.mjs` membungkus adapter hasil build SvelteKit. Mode `gateway` melayani aset publik, login, dan CSRF tanpa binding data; mode `backend` memvalidasi relay lalu menjalankan aplikasi dengan satu D1 sesuai `BRANCH_ACCOUNT_IDENTITY` dan koordinator lokal. IP dari header edge diteruskan lewat relay terautentikasi untuk rate limit. Cron staging hanya menguras proyeksi cabang backend; pemeliharaan selain POS belum dipindahkan.
+
+Wrapper lolos `wrangler deploy --dry-run` secara lokal. Deployment Cloudflare masih memerlukan konfigurasi staging terisolasi yang mengikat aset publik saja, secret unik untuk tiap relay, D1 dan koordinator per cabang, serta data uji. Sebelum rilis, uji alur aplikasi dengan cookie dan redirect aktual di Worker, bukan hanya stub transport.
 
 ## Prasyarat produksi
 

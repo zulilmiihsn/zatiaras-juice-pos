@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { acceptBranchRelay, createBranchIngress } from '../lib/server/branchIngress';
+import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployment';
 import type { BranchId } from '../lib/server/branchResolver';
 
 const origin = 'https://kasir.example.test';
@@ -15,7 +16,13 @@ const reply = () => new Response(null, { status: 204 });
 const loginRequest = (branch: string) =>
 	new Request(`${origin}/api/veriflogin`, {
 		method: 'POST',
-		headers: { origin, 'content-type': 'application/json', 'x-zatiaras-relay-key': 'spoofed' },
+		headers: {
+			origin,
+			'content-type': 'application/json',
+			'x-zatiaras-relay-key': 'spoofed',
+			'cf-connecting-ip': '192.0.2.1',
+			'x-zatiaras-relay-client-ip': '192.0.2.100'
+		},
 		body: JSON.stringify({ branch, username: 'kasir', password: 'uji' })
 	});
 
@@ -47,6 +54,8 @@ function fixture() {
 			if (outages.has(branch)) throw new Error('Backend offline');
 			if (url.pathname === '/api/veriflogin') {
 				assert.equal(internal.headers.get('origin'), origin);
+				assert.equal(internal.headers.get('cf-connecting-ip'), '192.0.2.1');
+				assert.equal(internal.headers.get('x-zatiaras-relay-client-ip'), null);
 				assert.deepEqual(await internal.json(), { branch, username: 'kasir', password: 'uji' });
 				const response = Response.json({ success: true });
 				response.headers.append(
@@ -122,6 +131,42 @@ test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie',
 	assert.equal(failure.headers.has('set-cookie'), false);
 	assert.equal((await handle(loginRequest('balikpapan'))).status, 200);
 	assert.deepEqual(called, ['samarinda', 'balikpapan']);
+});
+
+test('konfigurasi gagal tertutup bila gateway atau backend membawa binding cabang lain', () => {
+	const common = { BRANCH_PUBLIC_ORIGIN: origin };
+	const gateway = { ...common, BRANCH_ACCOUNT_MODE: 'gateway', BRANCH_ROUTE_SECRET: routeSecret };
+	const gatewayWithRoutes = Object.assign(
+		gateway,
+		Object.fromEntries(
+			[...backends].flatMap(([branch, backend]) => [
+				[`BRANCH_ORIGIN_${branch.toUpperCase()}`, backend.origin],
+				[`BRANCH_RELAY_${branch.toUpperCase()}`, backend.secret]
+			])
+		)
+	);
+	assert.equal(readBranchAccountDeployment(gatewayWithRoutes).mode, 'gateway');
+	assert.throws(
+		() => readBranchAccountDeployment({ ...gatewayWithRoutes, DB_SAMARINDA_GROUP: {} }),
+		/gateway tidak boleh/i
+	);
+	const backend = {
+		...common,
+		BRANCH_ACCOUNT_MODE: 'backend',
+		BRANCH_ACCOUNT_IDENTITY: 'berau',
+		BRANCH_RELAY_SECRET: 'b'.repeat(32),
+		REALTIME_HUB: {},
+		DB_BERAU_GROUP: {}
+	};
+	assert.equal(readBranchAccountDeployment(backend).mode, 'backend');
+	assert.throws(
+		() => readBranchAccountDeployment({ ...backend, DB_SAMARINDA_GROUP: {} }),
+		/koordinator cabangnya sendiri/i
+	);
+	assert.throws(
+		() => readBranchAccountDeployment({ ...backend, BRANCH_ACCOUNT_IDENTITY: 'samarinda' }),
+		/koordinator cabangnya sendiri/i
+	);
 });
 
 test('backend menolak akses langsung dan identitas cabang yang tidak cocok', () => {
