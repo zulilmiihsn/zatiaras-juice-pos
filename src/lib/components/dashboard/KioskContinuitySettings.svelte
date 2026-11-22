@@ -8,12 +8,10 @@
 		kioskBranch ? kioskBranch.charAt(0).toUpperCase() + kioskBranch.slice(1) : ''
 	);
 	let confirmed = $state(false);
-	let rollbackConfirmed = $state(false);
 	let busy = $state(false);
 	let setupMessage = $state('');
-	async function changePilot(action: 'activate' | 'rollback') {
-		const rollback = action === 'rollback';
-		if (!kioskPilot || !kioskBranch || busy || !(rollback ? rollbackConfirmed : confirmed)) return;
+	async function activatePilot() {
+		if (!kioskPilot || !kioskBranch || busy || !confirmed) return;
 		busy = true;
 		setupMessage = '';
 		try {
@@ -21,20 +19,15 @@
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					confirm: `${rollback ? 'rollback-' : ''}${kioskBranch}-${kioskPilot}`
+					confirm: `${kioskBranch}-${kioskPilot}`
 				})
 			});
 			const result = await res.json().catch(() => null);
 			setupMessage =
 				res.ok && result?.success === true
-					? rollback
-						? `Kasir lama ${branchLabel} sudah bisa digunakan kembali.`
-						: `Mode cadangan ${branchLabel} aktif. Masuk lagi dari HP yang sudah terdaftar.`
+					? `Mode cadangan ${branchLabel} aktif. Kasir bisa masuk seperti biasa.`
 					: result?.message || 'Peralihan belum terkonfirmasi. Jangan buka shift.';
-			if (res.ok && result?.success === true) {
-				confirmed = false;
-				rollbackConfirmed = false;
-			}
+			if (res.ok && result?.success === true) confirmed = false;
 		} catch {
 			setupMessage =
 				'Peralihan belum terkonfirmasi. Periksa koneksi sebelum mengulang tindakan yang sama.';
@@ -80,7 +73,7 @@
 						type="button"
 						class="btn-brand-primary w-fit"
 						disabled={busy || !confirmed}
-						onclick={() => changePilot('activate')}
+						onclick={activatePilot}
 					>
 						Aktifkan mode cadangan
 					</button>
@@ -95,20 +88,6 @@
 					<button type="button" class="w-fit underline" disabled={busy} onclick={prepareCatalog}>
 						Perbarui katalog mode cadangan
 					</button>
-					{#if kioskPilot}
-						<label class="flex items-start gap-2">
-							<input type="checkbox" bind:checked={rollbackConfirmed} disabled={busy} />
-							<span>Shift kios sudah tutup. Saya ingin kembali ke kasir lama.</span>
-						</label>
-						<button
-							type="button"
-							class="w-fit underline"
-							disabled={busy || !rollbackConfirmed}
-							onclick={() => changePilot('rollback')}
-						>
-							Kembali ke kasir lama
-						</button>
-					{/if}
 				</div>
 			</details>
 			<p role="status">{setupMessage}</p>

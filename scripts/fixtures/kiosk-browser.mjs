@@ -91,26 +91,14 @@ export async function exerciseKioskBrowser({
 			await expect(page.getByRole('button', { name: 'Daftarkan HP ini' })).toHaveCount(0);
 			await page.getByText('Pengaturan mode cadangan', { exact: true }).click();
 			await page.getByText('Pemeliharaan', { exact: true }).click();
-			const action = page.getByRole('button', {
-				name: 'Kembali ke kasir lama',
-				exact: true
+			await expect(page.getByRole('button', { name: 'Kembali ke kasir lama' })).toHaveCount(0);
+			const csrf = await page.request.get(origin + '/api/csrf');
+			expect(csrf.ok()).toBe(true);
+			const response = await page.request.patch(origin + '/api/perangkat-kasir', {
+				headers: { origin, 'x-csrf-token': (await csrf.json()).token },
+				data: { confirm: `rollback-${branch}-production` }
 			});
-			await expect(action).toBeDisabled();
-			await page.getByRole('checkbox', { name: /Saya ingin kembali ke kasir lama/ }).check();
-			await expect(action).toBeEnabled();
-			const rollbackResponse = page.waitForResponse(
-				(response) =>
-					response.request().method() === 'PATCH' &&
-					new URL(response.url()).pathname === '/api/perangkat-kasir'
-			);
-			await action.click();
-			const response = await rollbackResponse;
 			expect(response.ok(), `${branch}: ${await response.text()} ${errors.join('; ')}`).toBe(true);
-			await expect(
-				page.getByText(/Kasir lama .* sudah bisa digunakan kembali\./, {
-					exact: true
-				})
-			).toBeVisible();
 			return;
 		}
 		const login = async (page) => {
