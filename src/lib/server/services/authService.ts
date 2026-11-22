@@ -153,7 +153,8 @@ export async function attemptLogin(
 				id: profil.id,
 				username: profil.username,
 				password: profil.password,
-				role: profil.role
+				role: profil.role,
+				credentialVersion: profil.updated_at
 			})
 			.from(profil)
 			.where(and(eq(profil.cabang_id, branchId), eq(profil.username, username)))
@@ -278,7 +279,8 @@ export async function attemptLogin(
 								userId: user.id,
 								username: user.username,
 								role: normalizedRole,
-								verifier: user.password
+								verifier: user.password,
+								credentialVersion: user.credentialVersion
 							}
 						}
 					: undefined,

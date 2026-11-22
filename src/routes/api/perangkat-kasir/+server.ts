@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
-import { changeKioskPilot } from '$lib/server/activateStagingKiosk';
+import { changeKioskPilot } from '$lib/server/activateKioskPilot';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ locals, platform }) => {

@@ -83,11 +83,14 @@ function parseIds(value: CatalogProductRow['ekstra_ids']): Array<string | number
 export async function buildPosCatalog(
 	db: D1Database,
 	branch: BranchContext,
-	platform: App.Platform | undefined
+	platform: App.Platform | undefined,
+	channel: 'pos' | 'kiosk' = 'pos'
 ) {
+	// Preserve a full D1 quota day of signed prices between successful kiosk refreshes.
+	const ttlMs = channel === 'kiosk' ? 2 * CATALOG_TOKEN_TTL_MS : CATALOG_TOKEN_TTL_MS;
 	const now = Date.now();
 	const fetchedAt = new Date(now).toISOString();
-	const expiresAt = new Date(now + CATALOG_TOKEN_TTL_MS).toISOString();
+	const expiresAt = new Date(now + ttlMs).toISOString();
 
 	const [productResult, categoryResult, addOnResult, ingredientResult, recipeResult] =
 		await Promise.all([
@@ -145,7 +148,7 @@ export async function buildPosCatalog(
 			price_token: await signPosPricingToken(platform?.env, {
 				kind: 'catalog_product',
 				branch,
-				ttlMs: CATALOG_TOKEN_TTL_MS,
+				ttlMs,
 				now,
 				data: {
 					id: product.id,
@@ -176,7 +179,7 @@ export async function buildPosCatalog(
 			price_token: await signPosPricingToken(platform?.env, {
 				kind: 'catalog_add_on',
 				branch,
-				ttlMs: CATALOG_TOKEN_TTL_MS,
+				ttlMs,
 				now,
 				data: {
 					id: addOn.id,
@@ -229,11 +232,13 @@ export async function buildPosCatalog(
 // boundary server agar route tidak masuk allowlist import DB langsung.
 export function buildPosCatalogForBranch(
 	platform: App.Platform | undefined,
-	branch: BranchContext
+	branch: BranchContext,
+	channel: 'pos' | 'kiosk' = 'pos'
 ) {
 	return buildPosCatalog(
 		getD1Database(platform?.env as Record<string, unknown> | undefined, branch),
 		branch,
-		platform
+		platform,
+		channel
 	);
 }

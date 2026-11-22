@@ -162,7 +162,64 @@ try {
 	const retryJson = (await retry.json()) as { code?: string };
 	assert.equal(retryJson.code, 'USERNAME_EXISTS');
 
-	console.log('credential-username-tests: unique per cabang, race 409, session utuh passed');
+	await seedUser('u-kiosk', 'kios-uji', 'KuatPass1');
+	const readKioskFixture = () =>
+		db
+			.prepare('SELECT password, updated_at FROM profil WHERE cabang_id=? AND id=?')
+			.bind(branch, 'u-kiosk')
+			.first<{ password: string; updated_at: string }>();
+	const previous = await readKioskFixture();
+	assert.ok(previous);
+	let coordinatorAvailable = false;
+	let revoked = 0;
+	const kioskPlatform = {
+		env: {
+			...platform.env,
+			KIOSK_PRODUCTION_PILOT: branch,
+			REALTIME_HUB: {
+				idFromName: (name: string) => name,
+				get: (name: string) => ({
+					fetch: async (request: Request) => {
+						if (new URL(request.url).pathname === '/rate-limit')
+							return Response.json({ allowed: true });
+						if (new URL(request.url).pathname !== '/device/revoke-credential')
+							return Response.json({ ok: true });
+						assert.equal(name, `cashier:${branch}`);
+						assert.deepEqual(await request.json(), {
+							userId: 'u-kiosk',
+							credentialVersion: previous.updated_at
+						});
+						assert.ok(await bcrypt.compare('KuatPass1', (await readKioskFixture())!.password));
+						if (!coordinatorAvailable) return Response.json({ ok: false }, { status: 503 });
+						revoked++;
+						return Response.json({ ok: true });
+					}
+				})
+			}
+		}
+	};
+	const changeKioskPassword = () =>
+		POST({
+			...postEvent({
+				usernameLama: 'kios-uji',
+				passwordLama: 'KuatPass1',
+				passwordBaru: 'BaruKuat2',
+				branch
+			}),
+			getClientAddress: () => '127.0.0.2',
+			platform: kioskPlatform
+		} as never);
+	assert.equal((await changeKioskPassword()).status, 500);
+	assert.equal((await readKioskFixture())?.password, previous.password);
+	coordinatorAvailable = true;
+	assert.equal((await changeKioskPassword()).status, 200);
+	assert.equal(revoked, 1);
+	const current = await readKioskFixture();
+	assert.ok(current && current.updated_at !== previous.updated_at);
+	assert.ok(await bcrypt.compare('BaruKuat2', current.password));
+	console.log(
+		'credential-username-tests: unique per cabang, race dan pencabutan perangkat kios lulus'
+	);
 } finally {
 	await close();
 }

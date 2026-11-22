@@ -68,6 +68,7 @@ try {
 		userId: 'user-1',
 		username: 'kasir',
 		role: 'kasir',
+		credentialVersion: '2026-01-01T00:00:00.000Z',
 		verifier: await hash(password, 4)
 	};
 	const enroll = () => post('berau', 'device/enroll', profile);
@@ -310,7 +311,32 @@ try {
 	const identity = await check(ownerDevice.token, ownerSession.sid);
 	assert.equal(identity.userId, 'owner-1');
 	assert.equal(identity.scope, 'operasional');
+	const ownerProfile = { ...profile, username: 'pemilik', userId: 'owner-1', role: 'pemilik' };
+	const otherOwnerDevice = await post('berau', 'device/enroll', ownerProfile);
 	assert.equal(identity.role, undefined, 'never issue general owner authority');
+	const revoke = () =>
+		post('berau', 'device/revoke-credential', {
+			userId: ownerProfile.userId,
+			credentialVersion: ownerProfile.credentialVersion
+		});
+	assert.equal((await revoke()).ok, true);
+	assert.equal((await check(ownerDevice.token, ownerSession.sid)).ok, false);
+	assert.equal(
+		(await post('berau', 'device/login', { ...ownerLogin, token: otherOwnerDevice.token })).ok,
+		false
+	);
+	assert.equal((await post('berau', 'device/enroll', ownerProfile)).ok, false);
+	const newOwner = await post('berau', 'device/enroll', {
+		...ownerProfile,
+		credentialVersion: '2026-01-02T00:00:00.000Z'
+	});
+	assert.ok(newOwner.token);
+	assert.equal((await revoke()).ok, true);
+	assert.equal(
+		(await post('berau', 'device/login', { ...ownerLogin, token: newOwner.token })).ok,
+		true
+	);
+	assert.equal((await post('samarinda', 'device/enroll', ownerProfile)).ok, true);
 	const input = { id: 'hp1', userId: 'kasir', openingCash: 100000, openedAt: 1000 };
 	assert.equal((await post('balikpapan', 'open', input)).status, 'uninitialized');
 	await post('berau', 'seed-closed', null);
@@ -333,7 +359,7 @@ try {
 			if (index === 0) {
 				await db
 					.prepare(
-						`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','${branch}','Jus',10000,5,1,0,1)`
+						`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','${branch}','Jus',10000,17,1,0,1)`
 					)
 					.run();
 				assert.equal((await post(branch, 'activate', null)).failed, true);
@@ -484,9 +510,84 @@ try {
 						.prepare(`SELECT stok FROM produk WHERE cabang_id='${branch}' AND id='juice'`)
 						.first()
 				).stok,
-				3 - 2 * index
+				15 - 2 * index
 			);
 		}
+		const device = await post(branch, 'device/enroll', profile);
+		const token = device.token;
+		const { sid } = await post(branch, 'device/login', {
+			token,
+			username: profile.username,
+			password
+		});
+		const fields = { branch, token, sid };
+		await post(branch, 'quota', 'write');
+		const backlogShift = await post(branch, 'device/shift-open', {
+			...fields,
+			id: 'backlog',
+			openingCash: 0,
+			pin: '9876'
+		});
+		assert.equal(backlogShift.status, 'opened');
+		const pendingSales = await Promise.all(
+			Array.from({ length: 12 }, (_, i) =>
+				post(branch, 'device/sale', {
+					...fields,
+					id: `backlog-${i}`,
+					shiftId: backlogShift.shift.id,
+					productId: 'juice',
+					qty: 1,
+					unitPrice: 10000,
+					payment: 'tunai',
+					cash: 10000
+				})
+			)
+		);
+		assert.ok(pendingSales.every((sale) => sale.status === 'recorded'));
+		assert.equal(new Set(pendingSales.map((sale) => sale.orderNumber)).size, 12);
+		assert.equal(
+			(
+				await post(branch, 'device/shift-close', {
+					...fields,
+					id: backlogShift.shift.id,
+					pin: '9876'
+				})
+			).status,
+			'closed'
+		);
+		assert.equal((await post(branch, 'project', null)).failed, true);
+		await post(branch, 'quota', null);
+		const countBacklog = () =>
+			db
+				.prepare('SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id=? AND id_sesi_toko=?')
+				.bind(branch, backlogShift.shift.id)
+				.first('n');
+		assert.equal(await countBacklog(), 0);
+		for (const expected of [2, 5, 8, 11, 12, 12]) {
+			assert.deepEqual(await post(branch, 'project', null), { ok: true });
+			assert.equal(await countBacklog(), expected);
+		}
+		assert.equal(await post(branch, 'projection-peek', null), null);
+		assert.equal(
+			await db
+				.prepare("SELECT stok FROM produk WHERE cabang_id=? AND id='juice'")
+				.bind(branch)
+				.first('stok'),
+			1
+		);
+		const expiring = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+		assert.equal(await post(branch, 'fixture-catalog', expiring), expiring);
+		await post(branch, 'quota', 'read');
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.equal(await post(branch, 'fixture-catalog', null), expiring);
+		await post(branch, 'quota', null);
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.equal(await post(branch, 'fixture-catalog', null), expiring, 'respect retry budget');
+		await post(branch, 'fixture-catalog-retry-now', null);
+		assert.deepEqual(await post(branch, 'project', null), { ok: true });
+		assert.ok(
+			Date.parse(await post(branch, 'fixture-catalog', null)) > Date.now() + 47 * 60 * 60 * 1000
+		);
 		if (process.argv.includes('--browser')) {
 			await db
 				.prepare(

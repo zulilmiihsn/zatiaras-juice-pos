@@ -6,6 +6,7 @@ export type KioskDeviceProfile = {
 	username: string;
 	role: string;
 	verifier: string;
+	credentialVersion: string | null;
 };
 
 export async function enrollCashierDevice(
@@ -15,7 +16,7 @@ export async function enrollCashierDevice(
 ) {
 	const profile = await getD1Database(platform?.env, branch)
 		.prepare(
-			`SELECT id AS userId, username, role, password AS verifier FROM profil WHERE cabang_id=? AND ${'userId' in target ? 'id=?' : 'username=?'} AND role=? LIMIT 2`
+			`SELECT id AS userId, username, role, password AS verifier, updated_at AS credentialVersion FROM profil WHERE cabang_id=? AND ${'userId' in target ? 'id=?' : 'username=?'} AND role=? LIMIT 2`
 		)
 		.bind(
 			branch,
@@ -26,6 +27,25 @@ export async function enrollCashierDevice(
 	if (profile.results.length !== 1)
 		throw error(400, 'Akun tidak ditemukan atau tidak unik di cabang ini');
 	return enrollVerifiedKioskDevice(platform, branch, profile.results[0]);
+}
+
+export async function revokeKioskCredentialVersion(
+	platform: App.Platform | undefined,
+	branch: BranchId,
+	userId: string,
+	credentialVersion: string | null
+) {
+	const hub = platform?.env.REALTIME_HUB;
+	if (!hub) throw new Error('Koordinator kios belum tersedia');
+	const response = await hub.get(hub.idFromName('cashier:' + branch)).fetch(
+		new Request('https://cashier.internal/device/revoke-credential', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ userId, credentialVersion }),
+			signal: AbortSignal.timeout(3000)
+		})
+	);
+	if (!response.ok) throw new Error('Pencabutan perangkat kios belum terkonfirmasi');
 }
 
 export async function enrollVerifiedKioskDevice(

@@ -1,9 +1,11 @@
+import { MS_PER_HOUR } from '$lib/constants/time';
 import { isPosCatalogSnapshot } from '$lib/types/posCatalog';
 import type { BranchId } from './branchResolver';
 
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
 export const KIOSK_CATALOG_KEY = 'sale:catalog';
+export const KIOSK_CATALOG_RETRY_KEY = 'sale:catalog-refresh-retry-at';
 
 export async function publishKioskCatalog(
 	storage: Pick<DurableObjectStorage, 'transaction'>,
@@ -11,7 +13,7 @@ export async function publishKioskCatalog(
 	snapshot: unknown,
 	now: number
 ) {
-	if (!isPosCatalogSnapshot(snapshot) || !readKioskCatalog(snapshot, branch, now))
+	if (!isPosCatalogSnapshot(snapshot) || !readKioskCatalog(snapshot, branch, now)?.length)
 		return { ok: false } as const;
 	const fetchedAt = Date.parse(snapshot.fetched_at);
 	if (
@@ -31,6 +33,36 @@ export async function publishKioskCatalog(
 		await tx.put(KIOSK_CATALOG_KEY, snapshot);
 		return { ok: true, status: 'updated' } as const;
 	});
+}
+
+/** Reserve an attempt before touching D1 so quota outages do not trigger a rebuild every minute. */
+export async function refreshKioskCatalogIfDue(
+	storage: Pick<DurableObjectStorage, 'transaction'>,
+	branch: BranchId,
+	now: number,
+	build: () => Promise<unknown>
+) {
+	const due = await storage.transaction(async (tx) => {
+		if (
+			(await tx.get('shift:active')) === undefined ||
+			(await tx.get('shift:open-policy')) === 'rolled-back'
+		)
+			return false;
+		const current = await tx.get(KIOSK_CATALOG_KEY);
+		if (
+			isPosCatalogSnapshot(current) &&
+			current.branch === branch &&
+			Date.parse(current.expires_at) > now + 36 * MS_PER_HOUR
+		)
+			return false;
+		const retryAt = (await tx.get<number>(KIOSK_CATALOG_RETRY_KEY)) ?? 0;
+		if (retryAt > now) return false;
+		await tx.put(KIOSK_CATALOG_RETRY_KEY, now + MS_PER_HOUR);
+		return true;
+	});
+	if (!due) return;
+	const result = await publishKioskCatalog(storage, branch, await build(), Date.now());
+	if (!result.ok) throw new Error('Katalog kios baru tidak valid');
 }
 
 /** A server-prepared snapshot only. Missing/expired catalog never enables checkout. */

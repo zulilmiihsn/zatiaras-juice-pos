@@ -19,6 +19,7 @@ import {
 } from '../../src/lib/server/kioskProjectionQueue';
 import { seedKioskOrderHandoff } from '../../src/lib/server/kioskOrderHandoff';
 import { formatDateYmdWita } from '../../src/lib/utils/dateTime';
+import { KIOSK_CATALOG_KEY, KIOSK_CATALOG_RETRY_KEY } from '../../src/lib/server/kioskCatalog';
 import { hashPin } from '../../src/lib/server/pinHash';
 import { openCoordinatedShift } from '../../src/lib/server/coordinatedShift';
 
@@ -68,6 +69,19 @@ export class ShiftFixture {
 					}
 				)
 			);
+		if (actionName === 'fixture-catalog') {
+			const snapshot = await this.ctx.storage.get<{ expires_at: string }>(KIOSK_CATALOG_KEY);
+			const expiresAt = await req.json<string | null>();
+			if (snapshot && expiresAt) {
+				snapshot.expires_at = expiresAt;
+				await this.ctx.storage.put(KIOSK_CATALOG_KEY, snapshot);
+			}
+			return Response.json(snapshot?.expires_at ?? null);
+		}
+		if (actionName === 'fixture-catalog-retry-now') {
+			await this.ctx.storage.delete(KIOSK_CATALOG_RETRY_KEY);
+			return Response.json(true);
+		}
 		if (actionName === 'fixture-pin-hash') return Response.json(await hashPin(await req.json()));
 		if (actionName === 'quota') {
 			await this.ctx.storage.put('fixture:quota', await req.json());
