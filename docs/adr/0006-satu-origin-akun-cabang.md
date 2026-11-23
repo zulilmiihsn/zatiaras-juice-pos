@@ -42,6 +42,12 @@ Jalankan `pnpm build` lalu `pnpm test:branch-account-compiled` untuk membundel w
 
 `scripts/branch-account-staging-config.mjs` menghasilkan empat konfigurasi Wrangler staging dari inventori yang diberikan operator. Gateway tidak punya binding data; backend harus berada di tiga akun berbeda dan masing-masing hanya membawa satu D1 dan satu koordinator. Secret tidak dimasukkan ke konfigurasi. Sebelum menerapkan konfigurasi, cocokkan ID dan nama D1 dengan inventori resource uji di akun tujuan; validasi format ID saja bukan bukti bahwa database aman dipakai.
 
+## Deploy staging lintas akun
+
+Gunakan workflow **Deploy** dengan target `branch-account-staging`, SHA dan run CI dari `release/branch-account-staging`. Jalankan `dry_run=true` untuk memverifikasi artefak, lalu `dry_run=false` untuk menerapkannya. Environment GitHub `branch-account-staging` memerlukan variabel `BRANCH_STAGING_INVENTORY` serta secret `BRANCH_STAGING_KEY` (32 byte acak dalam hex) dan `BRANCH_CF_TOKEN_SAMARINDA`, `BRANCH_CF_TOKEN_BALIKPAPAN`, `BRANCH_CF_TOKEN_BERAU`. Gunakan token terbatas ke akun masing-masing. Jangan ganti kunci antar-deploy biasa; kunci itu menurunkan secret relay, cookie rute, dan tanda tangan harga staging secara terpisah.
+
+Workflow memverifikasi identitas D1 dari API sebelum deploy, menyalin hanya aset publik, lalu memasang backend terlebih dahulu dan gateway terakhir. Tidak ada perubahan skema atau penghapusan database di workflow. Apabila deploy terhenti sebagian, periksa Worker yang sudah terpasang lalu ulangi SHA yang sama dengan inventori dan kunci yang sama. Jangan jalankan target `staging` biasa untuk stack lintas akun.
+
 ## Prasyarat produksi
 
 Pastikan kelayakan penggunaan beberapa akun Free untuk satu usaha dengan Cloudflare. Uji backup/restore per akun dan cocokkan stok, nomor pesanan, omzet, serta struk. Pindahkan satu cabang setelah shift tutup dan semua antrean HP serta koordinator kosong. Jangan biarkan deployment lama dan baru menerima penjualan cabang yang sama. Setelah transaksi pertama di tujuan, rollback bukan sekadar mengganti tujuan gateway: rekonsiliasi perubahan dulu. Belum ada resource atau kredensial akun baru yang diperlukan untuk tahap lokal.

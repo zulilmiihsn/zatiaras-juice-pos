@@ -21,6 +21,7 @@ on:
         options:
           - production
           - staging
+          - branch-account-staging
       staging_ref:
         description: Ref staging (main atau release/*; diabaikan untuk produksi)
         required: false
@@ -29,7 +30,7 @@ on:
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
   RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
-  RELEASE_SOURCE_REF: ${{ inputs.target == 'staging' && inputs.staging_ref || 'main' }}
+  RELEASE_SOURCE_REF: ${{ inputs.target != 'production' && inputs.staging_ref || 'main' }}
 
 jobs:
   verify:
@@ -47,7 +48,7 @@ jobs:
           [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
           [[ "$RELEASE_CI_RUN_ID" =~ ^[0-9]+$ ]] || (echo "Invalid CI run ID" && exit 1)
           case "$RELEASE_TARGET" in
-            production|staging) ;;
+            production|staging|branch-account-staging) ;;
             *) echo "Invalid deployment target"; exit 1 ;;
           esac
           case "$RELEASE_SOURCE_REF" in
@@ -132,6 +133,16 @@ jobs:
 
       - name: Verify Artifact Provenance
         run: node scripts/preflight-release.mjs --verify-only
+
+      - name: Deploy isolated branch account staging
+        if: inputs.target == 'branch-account-staging'
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/deploy-branch-account-staging.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
