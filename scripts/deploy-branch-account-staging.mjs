@@ -23,7 +23,7 @@ if (Object.values(tokens).some((token) => !token))
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const temporary = await mkdtemp(join(tmpdir(), 'zpos-branch-deploy-'));
 
-function wrangler(config, token, args, input) {
+function wrangler(name, config, token, args, input) {
 	const run = wranglerInvocation([...args, '--config', config]);
 	// Only the credential of the current deployment crosses the subprocess boundary.
 	const env = Object.fromEntries(
@@ -42,8 +42,22 @@ function wrangler(config, token, args, input) {
 		input,
 		timeout: 90_000
 	});
-	if (result.error || result.status !== 0)
-		throw new Error(`Wrangler ${args.join(' ')} gagal (${result.error?.code ?? result.status})`);
+	if (result.error || result.status !== 0) {
+		// Secret upload receives derived values on stdin; never include its CLI output in logs.
+		const details =
+			input === undefined
+				? (result.stderr ?? '')
+						.replaceAll(token, '[REDACTED]')
+						.replaceAll('\u001b', '')
+						.replace(/https?:\/\/[^\s)\]"']+/g, '[URL]')
+						.replaceAll('\r', '')
+						.trim()
+						.slice(-1800)
+				: '';
+		throw new Error(
+			`${name}: Wrangler ${args.join(' ')} gagal (${result.error?.code ?? result.status})${details ? `\n${details}` : ''}`
+		);
+	}
 }
 
 try {
@@ -83,8 +97,8 @@ try {
 	async function deploy(name, config, token, secrets) {
 		const file = join(temporary, `${name}.json`);
 		await writeFile(file, JSON.stringify(config), { flag: 'wx', mode: 0o600 });
-		wrangler(file, token, ['deploy']);
-		wrangler(file, token, ['secret', 'bulk'], JSON.stringify(secrets));
+		wrangler(name, file, token, ['deploy']);
+		wrangler(name, file, token, ['secret', 'bulk'], JSON.stringify(secrets));
 		console.log(`${name}: Worker dan secret staging tersedia`);
 	}
 	for (const branch of branches) {
