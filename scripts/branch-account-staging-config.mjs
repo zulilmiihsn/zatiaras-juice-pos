@@ -43,6 +43,9 @@ export function buildBranchStagingConfigs({ gateway, backends, main, publicAsset
 		vars: { BRANCH_ACCOUNT_MODE: mode, BRANCH_PUBLIC_ORIGIN: publicOrigin }
 	});
 	const frontend = common(gateway, 'gateway');
+	const colocated = accounts.indexOf(gateway.accountId);
+	frontend.services = [{ binding: 'BRANCH_LOCAL_BACKEND', service: targets[colocated].name }];
+	frontend.vars.BRANCH_LOCAL_ORIGIN = origins[colocated];
 	for (const [index, branch] of branches.entries())
 		frontend.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`] = origins[index];
 	const backendConfigs = {};

@@ -37,7 +37,12 @@ export default {
 				backends: deployment.backends,
 				routeSecret: deployment.routeSecret,
 				sessionCookie: SESSION_COOKIE,
-				servePublic: (incoming) => app.fetch(incoming, env, context)
+				servePublic: (incoming) => app.fetch(incoming, env, context),
+				// Same-account workers.dev requests use the private service binding.
+				forward: (outgoing) =>
+					new URL(outgoing.url).origin === env.BRANCH_LOCAL_ORIGIN
+						? env.BRANCH_LOCAL_BACKEND.fetch(outgoing)
+						: fetch(outgoing)
 			});
 		} catch {
 			return new Response('Konfigurasi gateway belum siap', { status: 503 });

@@ -119,14 +119,26 @@ try {
 					...common,
 					name: 'gateway',
 					routes: [publicOrigin + '/*'],
+					serviceBindings: {
+						BRANCH_LOCAL_BACKEND: async (request) => {
+							if (new URL(request.url).origin !== backendOrigin('samarinda'))
+								return new Response(null, { status: 502 });
+							return runtime.dispatchFetch(request);
+						}
+					},
 					outboundService: async (request) => {
-						if (!branches.some((branch) => backendOrigin(branch) === new URL(request.url).origin))
+						if (
+							!branches
+								.slice(1)
+								.some((branch) => backendOrigin(branch) === new URL(request.url).origin)
+						)
 							return new Response(null, { status: 502 });
 						return runtime.dispatchFetch(request);
 					},
 					bindings: {
 						...shared,
 						BRANCH_ACCOUNT_MODE: 'gateway',
+						BRANCH_LOCAL_ORIGIN: backendOrigin('samarinda'),
 						BRANCH_ROUTE_SECRET: secret(),
 						...Object.fromEntries(
 							branches.flatMap((branch) => [
