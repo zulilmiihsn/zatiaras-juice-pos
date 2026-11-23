@@ -19,6 +19,7 @@ const relayKeys = Object.fromEntries(branches.map((branch) => [branch, secret()]
 const dbBinding = (branch) => `DB_${branch.toUpperCase()}_GROUP`;
 const fixtures = await mkdtemp(join(tmpdir(), 'zpos-branch-compiled-'));
 let runtime;
+let unavailableBackend = backendOrigin('berau');
 
 async function buildWorker() {
 	const name = 'owned-branch-account-test';
@@ -127,6 +128,8 @@ try {
 						}
 					},
 					outboundService: async (request) => {
+						if (new URL(request.url).origin === unavailableBackend)
+							return new Response('Backend is down', { status: 503 });
 						if (
 							!branches
 								.slice(1)
@@ -186,17 +189,25 @@ try {
 	assert.equal(asset.status, 200);
 	await asset.body?.cancel();
 	for (const branch of branches) {
+		if (branch === 'berau') unavailableBackend = '';
 		const { db } = await seed(branch, passwordHash, migrations);
 		assert.equal((await runtime.dispatchFetch(backendOrigin(branch) + '/login')).status, 401);
 		const browser = browserCaller();
 		const csrf = await browser.fetch('/api/csrf');
 		assert.equal(csrf.status, 200);
 		const { token } = await csrf.json();
-		const login = await browser.fetch('/api/veriflogin', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json', 'x-csrf-token': token },
-			body: JSON.stringify({ branch, username: 'kasir', password })
-		});
+		const loginTo = (target) =>
+			browser.fetch('/api/veriflogin', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'x-csrf-token': token },
+				body: JSON.stringify({ branch: target, username: 'kasir', password })
+			});
+		if (unavailableBackend) {
+			const down = await loginTo('berau');
+			assert.equal(down.status, 503);
+			assert.equal(await down.text(), 'Backend is down');
+		}
+		const login = await loginTo(branch);
 		assert.equal(login.status, 200, `${branch}: login ${await login.clone().text()}`);
 		assert.deepEqual(await login.json(), { success: true, scope: 'operasional' });
 		assert.match(browser.cookies.get('__Host-zatiaras_branch'), new RegExp(`^${branch}\\.`));
