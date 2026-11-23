@@ -26,6 +26,10 @@ on:
         description: Ref staging (main atau release/*; diabaikan untuk produksi)
         required: false
         default: main
+      branch_smoke:
+        description: Uji isolasi branch-account-staging tanpa deploy ulang
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
@@ -44,7 +48,11 @@ jobs:
       - name: Validate Release Inputs
         env:
           RELEASE_TARGET: ${{ inputs.target }}
+          BRANCH_SMOKE: ${{ inputs.branch_smoke }}
         run: |
+          if [[ "$BRANCH_SMOKE" == true ]]; then
+            [[ "$RELEASE_TARGET" == branch-account-staging && "$RELEASE_SOURCE_REF" == release/branch-account-staging && "$GITHUB_REF" == refs/heads/release/branch-account-staging ]] || exit 1
+          fi
           [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
           [[ "$RELEASE_CI_RUN_ID" =~ ^[0-9]+$ ]] || (echo "Invalid CI run ID" && exit 1)
           case "$RELEASE_TARGET" in
@@ -97,6 +105,9 @@ jobs:
     needs: [verify]
     if: inputs.dry_run == 'false'
     environment: ${{ inputs.target }}
+    concurrency:
+      group: deploy-${{ inputs.target }}
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: read
@@ -135,7 +146,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging'
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -143,6 +154,21 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/deploy-branch-account-staging.mjs
+
+      - name: Smoke test isolated branch account staging
+        if: inputs.target == 'branch-account-staging' && inputs.branch_smoke
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/smoke-branch-account-staging.mjs
+
+      - name: Recover Berau staging if smoke was interrupted
+        if: always() && inputs.target == 'branch-account-staging' && inputs.branch_smoke
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/smoke-branch-account-staging.mjs --restore
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
