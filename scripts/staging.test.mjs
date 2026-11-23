@@ -64,6 +64,7 @@ await test('branch staging gateway has no data bindings and backends are account
 			[`DB_${branch.toUpperCase()}_GROUP`]
 		);
 		assert.equal(config.vars.KIOSK_PROJECTION_BRANCHES, branch);
+		assert.equal(config.triggers, undefined);
 		assert.equal(
 			config.vars.BRANCH_PUBLIC_ORIGIN,
 			'https://zpos-gateway-staging.samarinda.workers.dev'

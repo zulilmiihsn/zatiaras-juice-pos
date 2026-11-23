@@ -1,18 +1,33 @@
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
 type Storage = Pick<DurableObjectStorage, 'transaction'>;
-interface Tx {
+export interface ProjectionTransaction extends Partial<
+	Pick<DurableObjectStorage, 'getAlarm' | 'setAlarm'>
+> {
 	get<T>(key: string): Promise<T | undefined>;
 	put<T>(key: string, value: T): Promise<void>;
 }
 type Kind = 'shift-opened' | 'sale-recorded' | 'shift-closed';
 
+/** Never delay a previously armed alarm when new sales arrive. */
+export async function armKioskProjection(tx: ProjectionTransaction, at: number) {
+	if (!tx.getAlarm || !tx.setAlarm) throw new Error('Alarm proyeksi tidak tersedia');
+	const current = await tx.getAlarm();
+	if (current === null || current > at) await tx.setAlarm(at);
+}
+
 /** Outbox references immutable records written in the same transaction. */
-export async function enqueueKioskProjection(tx: Tx, kind: Kind, recordKey: string) {
+export async function enqueueKioskProjection(
+	tx: ProjectionTransaction,
+	kind: Kind,
+	recordKey: string,
+	alarmAt?: number
+) {
 	const sequence = ((await tx.get<number>('projection:tail')) ?? 0) + 1;
 	if (!Number.isSafeInteger(sequence)) throw new Error('Antrean sinkronisasi melebihi batas aman');
 	await tx.put(`projection:event:${sequence}`, { sequence, kind, recordKey });
 	await tx.put('projection:tail', sequence);
+	if (alarmAt !== undefined) await armKioskProjection(tx, alarmAt);
 }
 
 export interface KioskProjectionEvent {

@@ -65,7 +65,6 @@ export function buildBranchStagingConfigs({ gateway, backends, main, publicAsset
 			bindings: [{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' }]
 		};
 		config.migrations = [{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] }];
-		config.triggers = { crons: ['* * * * *'] };
 		backendConfigs[branch] = config;
 	}
 	return { gateway: frontend, backends: backendConfigs };

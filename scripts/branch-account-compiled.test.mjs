@@ -5,6 +5,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import bcrypt from 'bcryptjs';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { snapshotBuiltAssets } from './test-fixtures/compiled-browser.mjs';
@@ -70,7 +71,7 @@ async function seed(branch, passwordHash, migrations) {
 	const activation = await project('activate-production');
 	assert.equal(activation.status, 200, `${branch}: aktivasi fixture`);
 	assert.deepEqual(await activation.json(), { ok: true, status: 'initialized' });
-	return { db, project };
+	return { db };
 }
 
 function browserCaller() {
@@ -173,7 +174,7 @@ try {
 	assert.equal(asset.status, 200);
 	await asset.body?.cancel();
 	for (const branch of branches) {
-		const { db, project } = await seed(branch, passwordHash, migrations);
+		const { db } = await seed(branch, passwordHash, migrations);
 		assert.equal((await runtime.dispatchFetch(backendOrigin(branch) + '/login')).status, 401);
 		const browser = browserCaller();
 		const csrf = await browser.fetch('/api/csrf');
@@ -214,7 +215,14 @@ try {
 		const closed = await action('close', { id: shiftId, confirm: 'yes' });
 		assert.equal(closed.status, 200, `${branch}: tutup shift`);
 		assert.match(await closed.text(), /Shift ditutup/);
-		assert.equal((await project('drain')).status, 200);
+		// No Cron or private drain call: the durable alarm must project the entire shift.
+		const closedRow = () =>
+			db
+				.prepare('SELECT is_active FROM sesi_toko WHERE cabang_id=? AND id=?')
+				.bind(branch, shiftId)
+				.first('is_active');
+		const deadline = performance.now() + 20_000;
+		while ((await closedRow()) !== 0 && performance.now() < deadline) await sleep(250);
 		const total = await db
 			.prepare(
 				'SELECT COUNT(*) AS n,SUM(nominal) AS total FROM buku_kas WHERE cabang_id=? AND id_sesi_toko=?'

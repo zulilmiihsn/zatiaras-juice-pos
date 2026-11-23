@@ -3,7 +3,6 @@ import pagesRoutes from '../.svelte-kit/cloudflare/_routes.json';
 import { createBranchIngress, acceptBranchRelay } from '../src/lib/server/branchIngress.ts';
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
 import { SESSION_COOKIE } from '../src/lib/server/sessionStore.ts';
-import { drainConfiguredKioskBranch } from '../src/lib/server/scheduledKioskProjection.ts';
 export { RealtimeDurableObject } from '../src/lib/server/cashierRealtimeHub.ts';
 
 const isPublicAsset = (path) =>
@@ -44,11 +43,5 @@ export default {
 			return new Response('Konfigurasi gateway belum siap', { status: 503 });
 		}
 		return ingress(request);
-	},
-	async scheduled(event, env) {
-		const deployment = readBranchAccountDeployment(env);
-		// This staging stack only hosts POS projection; shared maintenance is not enabled.
-		if (deployment.mode === 'backend' && event.cron === '* * * * *')
-			await drainConfiguredKioskBranch(env, deployment.branch);
 	}
 };
