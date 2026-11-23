@@ -106,6 +106,8 @@ try {
 		compatibilityDate: '2026-06-29',
 		compatibilityFlags: ['nodejs_compat'],
 		scriptPath,
+		// Workerd resolves bundled module names relative to this root, not the repo cwd.
+		modulesRoot: fixtures,
 		assets: { directory: assetDirectory, binding: 'ASSETS', run_worker_first: true }
 	};
 	const shared = { BRANCH_PUBLIC_ORIGIN: publicOrigin };
