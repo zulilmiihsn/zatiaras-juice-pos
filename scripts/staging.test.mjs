@@ -8,6 +8,8 @@ import {
 	STAGING_DATABASES
 } from './staging.mjs';
 
+import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
+
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const production = ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc'].map(read);
 const productionIds = new Set(
@@ -29,6 +31,66 @@ await test('staging configs never point at production resources', () => {
 				`${file}: ${name[1]} bukan resource staging`
 			);
 	}
+});
+
+await test('branch staging gateway has no data bindings and backends are account-scoped', () => {
+	const branches = ['samarinda', 'balikpapan', 'berau'];
+	const backends = Object.fromEntries(
+		branches.map((branch, index) => [
+			branch,
+			{
+				name: `zpos-${branch}-staging`,
+				subdomain: branch,
+				accountId: String(index + 1).repeat(32),
+				databaseId: `${String(index + 1).repeat(8)}-1111-4111-8111-111111111111`
+			}
+		])
+	);
+	const input = {
+		gateway: { ...backends.samarinda, name: 'zpos-gateway-staging' },
+		backends,
+		main: '/fixture/worker.mjs',
+		publicAssets: '/fixture/assets'
+	};
+	const configs = buildBranchStagingConfigs(input);
+	assert.equal(configs.gateway.d1_databases, undefined);
+	assert.equal(configs.gateway.durable_objects, undefined);
+	assert.equal(configs.gateway.triggers, undefined);
+	for (const branch of branches) {
+		const config = configs.backends[branch];
+		assert.equal(config.account_id, backends[branch].accountId);
+		assert.deepEqual(
+			config.d1_databases.map((item) => item.binding),
+			[`DB_${branch.toUpperCase()}_GROUP`]
+		);
+		assert.equal(config.vars.KIOSK_PROJECTION_BRANCHES, branch);
+		assert.equal(
+			config.vars.BRANCH_PUBLIC_ORIGIN,
+			'https://zpos-gateway-staging.samarinda.workers.dev'
+		);
+		assert.equal(
+			configs.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`],
+			`https://zpos-${branch}-staging.${branch}.workers.dev`
+		);
+		assert.equal(config.assets.run_worker_first, true);
+		assert.ok(!Object.keys(config.vars).some((key) => /SECRET|RELAY/.test(key)));
+	}
+	assert.throws(
+		() =>
+			buildBranchStagingConfigs({
+				...input,
+				backends: {
+					...backends,
+					berau: { ...backends.berau, accountId: backends.balikpapan.accountId }
+				}
+			}),
+		/akun backend berbeda/
+	);
+	assert.throws(
+		() =>
+			buildBranchStagingConfigs({ ...input, gateway: { ...input.gateway, name: 'zatiaraspos' } }),
+		/staging tidak valid/
+	);
 });
 
 await test('every staging config binds all three shards', () => {
