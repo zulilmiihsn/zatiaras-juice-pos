@@ -102,6 +102,7 @@
 		"test:sesi-toko": "tsx src/tests/sesi-toko-tests.ts",
 		"test:shift-workerd": "node scripts/coordinated-shift.test.mjs",
 		"test:kiosk-browser": "node scripts/coordinated-shift.test.mjs --browser",
+		"test:branch-account-compiled": "node scripts/branch-account-compiled.test.mjs",
 		"test:branch-ingress": "tsx --test src/tests/branch-ingress-tests.ts",
 		"test:credential-username": "tsx src/tests/credential-username-tests.ts",
 		"test:telemetry-scope": "tsx src/tests/telemetry-scope-tests.ts",

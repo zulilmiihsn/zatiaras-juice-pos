@@ -546,6 +546,9 @@ jobs:
       - name: Install Chromium for Compiled Ledger Callers
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Compiled Branch Account POS (owned local workerd)
+        run: pnpm test:branch-account-compiled
+
       - name: Kiosk browser recovery (two Chromium contexts, local D1)
         run: pnpm test:kiosk-browser
 

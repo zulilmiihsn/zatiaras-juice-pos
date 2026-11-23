@@ -38,7 +38,7 @@ Ini membuktikan transport HTTPS dan isolasi kegagalan backend untuk probe baca-s
 
 `staging/branch-account-worker.mjs` membungkus adapter hasil build SvelteKit. Mode `gateway` melayani aset publik, login, dan CSRF tanpa binding data; mode `backend` memvalidasi relay lalu menjalankan aplikasi dengan satu D1 sesuai `BRANCH_ACCOUNT_IDENTITY` dan koordinator lokal. IP dari header edge diteruskan lewat relay terautentikasi untuk rate limit. Cron staging hanya menguras proyeksi cabang backend; pemeliharaan selain POS belum dipindahkan.
 
-Wrapper lolos `wrangler deploy --dry-run` secara lokal. Deployment Cloudflare masih memerlukan konfigurasi staging terisolasi yang mengikat aset publik saja, secret unik untuk tiap relay, D1 dan koordinator per cabang, serta data uji. Sebelum rilis, uji alur aplikasi dengan cookie dan redirect aktual di Worker, bukan hanya stub transport.
+Jalankan `pnpm build` lalu `pnpm test:branch-account-compiled` untuk membundel wrapper dengan dry-run Wrangler dan menjalankan gateway serta tiga backend dengan D1 dan koordinator terpisah di Workerd lokal. Tes mengirim login dan formulir kasir lewat satu origin, memeriksa cookie rute, penolakan akses langsung ke backend, respons struk, stok, dan laporan serta status shift di D1. Transport antar-host diarahkan secara lokal; printer dan deployment lintas akun tidak diuji oleh suite ini. Deployment Cloudflare masih memerlukan konfigurasi staging terisolasi yang mengikat aset publik saja, secret unik untuk tiap relay, D1 dan koordinator per cabang, serta data uji. Sebelum rilis, uji alur aplikasi dengan cookie dan redirect aktual di Worker, bukan hanya stub transport.
 
 ## Prasyarat produksi
 
