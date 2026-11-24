@@ -34,6 +34,10 @@ on:
         description: Uji backup dan restore branch-account-staging ke D1 sementara
         type: boolean
         default: false
+      branch_r2_check:
+        description: Periksa akses R2 staging (baca saja, tanpa deploy atau billing)
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
@@ -54,9 +58,14 @@ jobs:
           RELEASE_TARGET: ${{ inputs.target }}
           BRANCH_SMOKE: ${{ inputs.branch_smoke }}
           BRANCH_RESTORE: ${{ inputs.branch_restore }}
+          BRANCH_R2_CHECK: ${{ inputs.branch_r2_check }}
         run: |
-          if [[ "$BRANCH_SMOKE" == true && "$BRANCH_RESTORE" == true ]]; then exit 1; fi
-          if [[ "$BRANCH_SMOKE" == true || "$BRANCH_RESTORE" == true ]]; then
+          branch_modes=0
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK"; do
+            if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
+          done
+          if (( branch_modes > 1 )); then exit 1; fi
+          if (( branch_modes == 1 )); then
             [[ "$RELEASE_TARGET" == branch-account-staging && "$RELEASE_SOURCE_REF" == release/branch-account-staging && "$GITHUB_REF" == refs/heads/release/branch-account-staging ]] || exit 1
           fi
           [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
@@ -152,7 +161,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -184,6 +193,15 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/drill-branch-account-staging.mjs
+
+      - name: Check existing R2 access without changes
+        if: inputs.target == 'branch-account-staging' && inputs.branch_r2_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/check-branch-account-r2.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
