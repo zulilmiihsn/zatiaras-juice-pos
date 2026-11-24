@@ -27,6 +27,7 @@ export async function dispatchOrderNotifications(
 	branch: BranchContext,
 	opts: { now?: number; send?: PushSender; limit?: number } = {}
 ): Promise<void> {
+	if (env?.BRANCH_ACCOUNT_MODE === 'backend') return;
 	const now = opts.now ?? Date.now();
 	const limit = Math.max(1, Math.min(100, opts.limit ?? 100));
 	if (!opts.send && !(await notificationConfig(env)).push_configured) return;

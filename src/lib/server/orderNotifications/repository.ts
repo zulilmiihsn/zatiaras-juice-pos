@@ -1,5 +1,5 @@
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
-import { getD1Database, type BranchContext } from '../branchResolver';
+import { getD1Database, normalizeBranch, type BranchContext } from '../branchResolver';
 import { isStaffRole } from '$lib/utils/roles';
 
 export type NotificationEnv = Record<string, unknown> | undefined;
@@ -31,6 +31,8 @@ export interface EventRow {
 	is_pending: number;
 }
 export function registryDb(env: NotificationEnv): D1Database {
+	if (env?.BRANCH_ACCOUNT_MODE === 'backend')
+		return getD1Database(env, normalizeBranch(env.BRANCH_ACCOUNT_IDENTITY));
 	const db = env?.DB_SAMARINDA_GROUP || env?.DB;
 	if (!db) throw new Error('Penyimpanan notifikasi tidak tersedia');
 	return db as D1Database;

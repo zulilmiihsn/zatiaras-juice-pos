@@ -215,6 +215,61 @@ try {
 		vapid_public_key: null
 	});
 	assert.equal((await notificationConfig(env)).push_configured, true);
+	// A device can reuse its identity after changing branches without sharing cursors or sessions.
+	const localSamarinda = {
+		...env,
+		BRANCH_ACCOUNT_MODE: 'backend',
+		BRANCH_ACCOUNT_IDENTITY: 'samarinda',
+		DB_BALIKPAPAN_GROUP: undefined
+	};
+	const localBalikpapan = {
+		...env,
+		BRANCH_ACCOUNT_MODE: 'backend' as const,
+		BRANCH_ACCOUNT_IDENTITY: 'balikpapan' as const,
+		DB_SAMARINDA_GROUP: undefined
+	};
+	const moving = identity(901);
+	const oldSession = session(901);
+	const newSession = session(901, 'balikpapan');
+	assert.equal((await notificationConfig(localBalikpapan)).push_configured, false);
+	await assert.rejects(
+		() =>
+			registerNotificationDevice(localBalikpapan, other, newSession, {
+				...moving,
+				sound_enabled: true,
+				subscription
+			}),
+		{ status: 503 }
+	);
+	await registerNotificationDevice(localSamarinda, branch, oldSession, {
+		...moving,
+		sound_enabled: true
+	});
+	await registerNotificationDevice(localBalikpapan, other, newSession, {
+		...moving,
+		sound_enabled: true
+	});
+	assert.equal((await deviceById(localBalikpapan, moving.device_id))?.session_id, newSession.id);
+	assert.equal((await deviceById(localSamarinda, moving.device_id))?.session_id, oldSession.id);
+	await assert.rejects(
+		() => listNotifications(localBalikpapan, other, oldSession, moving, 0, 100),
+		{ status: 403 }
+	);
+	assert.deepEqual(
+		(await listNotifications(localBalikpapan, other, newSession, moving, 0, 100)).items,
+		[]
+	);
+	await revokeNotificationSession({ env: localBalikpapan }, other, newSession.id);
+	assert.equal((await deviceById(localBalikpapan, moving.device_id))?.active, 0);
+	assert.equal((await deviceById(localSamarinda, moving.device_id))?.active, 1);
+	await db
+		.prepare('DELETE FROM antrean_notification_devices WHERE device_id=? AND cabang_id=?')
+		.bind(moving.device_id, branch)
+		.run();
+	await remote
+		.prepare('DELETE FROM antrean_notification_devices WHERE device_id=? AND cabang_id=?')
+		.bind(moving.device_id, other)
+		.run();
 	const mismatched = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
 		'sign',
 		'verify'

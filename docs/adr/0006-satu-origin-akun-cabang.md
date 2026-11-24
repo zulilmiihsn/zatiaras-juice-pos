@@ -153,7 +153,13 @@ keras yang terbukti tidak ada jaminan tagihan nol.
   registry; jangan menambahkan binding Samarinda ke backend lain. Pisahkan penjadwalan
   notifikasi/retensi dari alarm kasir dan gunakan kembali fungsi maintenance yang ada.
   Log terstruktur dari koordinator dan gateway perlu tetap berguna saat D1 gagal,
-  tanpa menjadikan notifikasi atau observability syarat commit.
+  tanpa menjadikan notifikasi atau observability syarat commit. Tahap pertama backend
+  lintas akun memakai registry di D1 cabangnya untuk pembacaan Antrean saat aplikasi terbuka.
+  Konfigurasi lama tetap memakai registry terpusat. Web Push pada backend lintas akun sengaja
+  tidak aktif, termasuk jika kunci VAPID tersedia: perlu desain pencabutan langganan lintas
+  akun agar perangkat yang pindah tidak menerima notifikasi cabang lama. Saat cutover, sesi dan
+  pengiriman lama tetap harus dinonaktifkan melalui prosedur operator; mode baru tidak mencabut
+  langganan lama di akun tetangga.
 - **Backup:** pertahankan validasi ketat alat lama. Perluas input inventori untuk
   memverifikasi identitas akun dan D1 per cabang dengan kredensial terbatas; gunakan ulang
   verifikasi manifest, checksum, dan drill restore. Drill staging menguji paritas struktur
