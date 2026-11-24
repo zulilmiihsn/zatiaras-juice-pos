@@ -3,6 +3,7 @@ import test from 'node:test';
 import { acceptBranchRelay, createBranchIngress } from '../lib/server/branchIngress';
 import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployment';
 import type { BranchId } from '../lib/server/branchResolver';
+import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
 
 const origin = 'https://kasir.example.test';
 const routeSecret = 'r'.repeat(32);
@@ -145,6 +146,28 @@ test('gambar publik hanya dirutekan lewat key bercabang; jalur arsip dan tulis t
 	assert.equal((await image('produk/berau/1234.webp', { method: 'POST' })).status, 401);
 	assert.equal((await handle(new Request(`${origin}/api/archive/download`))).status, 401);
 	assert.deepEqual(called, ['berau']);
+});
+
+test('penyimpanan bersama hanya menerima key gambar dan arsip milik cabang', () => {
+	for (const branch of ['samarinda', 'balikpapan', 'berau'] as const) {
+		assert.equal(isBranchStorageKey(branch, `produk/${branch}/1234-abcd.webp`), true);
+		assert.equal(
+			isBranchStorageKey(branch, `arsip/${branch}/2025/arsip-${branch}-sebelum-2025-1234abcd.json`),
+			true
+		);
+		for (const key of [
+			'produk/1234.webp',
+			`produk/${branch}/../abcd.webp`,
+			`arsip/${branch}/2025/../../secret.json`,
+			`arsip/${branch}/2025/data.txt`,
+			`arsip/${branch}/2025/arsip-berau-sebelum-2025.json`,
+			`private/${branch}/x`,
+			'produk/unknown/1234.webp',
+			'produk/berau/1234.webp?x'
+		])
+			assert.equal(isBranchStorageKey(branch, key), false, key);
+	}
+	assert.equal(isBranchStorageKey('samarinda', 'produk/berau/1234.webp'), false);
 });
 
 test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie', async () => {
