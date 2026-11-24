@@ -52,6 +52,7 @@ export function buildBranchStagingConfigs({ gateway, backends, main, publicAsset
 	for (const [index, branch] of branches.entries()) {
 		const target = targets[index];
 		const config = common(target, 'backend');
+		config.observability = { enabled: true, logs: { enabled: true, invocation_logs: false } };
 		Object.assign(config.vars, {
 			BRANCH_ACCOUNT_IDENTITY: branch,
 			KIOSK_PRODUCTION_PILOT: branch,

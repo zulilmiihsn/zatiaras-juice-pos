@@ -62,6 +62,12 @@ async function seed(branch, passwordHash, migrations) {
 		)
 		.bind(branch)
 		.run();
+	await db
+		.prepare(
+			"INSERT INTO profil (id,cabang_id,username,password,role) VALUES(?,?,'pemilik',?,'pemilik')"
+		)
+		.bind(`${branch}-owner`, branch, passwordHash)
+		.run();
 	const namespace = await runtime.getDurableObjectNamespace('REALTIME_HUB', branch);
 	const hub = namespace.get(namespace.idFromName(`cashier:${branch}`));
 	const project = (action) =>
@@ -193,6 +199,9 @@ try {
 		const { db } = await seed(branch, passwordHash, migrations);
 		assert.equal((await runtime.dispatchFetch(backendOrigin(branch) + '/login')).status, 401);
 		const browser = browserCaller();
+		const anonymous = await browser.fetch('/api/perangkat-kasir');
+		assert.equal(anonymous.status, 401);
+		await anonymous.body?.cancel();
 		const csrf = await browser.fetch('/api/csrf');
 		assert.equal(csrf.status, 200);
 		const { token } = await csrf.json();
@@ -210,6 +219,26 @@ try {
 		const login = await loginTo(branch);
 		assert.equal(login.status, 200, `${branch}: login ${await login.clone().text()}`);
 		assert.deepEqual(await login.json(), { success: true, scope: 'operasional' });
+		const forbidden = await browser.fetch('/api/perangkat-kasir');
+		assert.equal(forbidden.status, 403);
+		await forbidden.body?.cancel();
+		const owner = browserCaller();
+		const ownerToken = (await (await owner.fetch('/api/csrf')).json()).token;
+		const ownerLogin = await owner.fetch('/api/veriflogin', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'x-csrf-token': ownerToken },
+			body: JSON.stringify({ branch, username: 'pemilik', password })
+		});
+		assert.equal(ownerLogin.status, 200);
+		await ownerLogin.body?.cancel();
+		const other = branches.find((target) => target !== branch);
+		const foreign = await owner.fetch(`/api/perangkat-kasir?branch=${other}`);
+		assert.equal(foreign.status, 403);
+		await foreign.body?.cancel();
+		const statusResponse = await owner.fetch('/api/perangkat-kasir');
+		assert.equal(statusResponse.status, 200);
+		assert.equal(statusResponse.headers.get('cache-control'), 'no-store');
+		assert.deepEqual(await statusResponse.json(), { shift: 'closed', pending: 0, paused: false });
 		assert.match(browser.cookies.get('__Host-zatiaras_branch'), new RegExp(`^${branch}\\.`));
 		const status = await browser.fetch('/operasional');
 		assert.equal(status.status, 200);

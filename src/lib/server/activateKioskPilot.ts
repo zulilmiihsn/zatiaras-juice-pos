@@ -45,6 +45,36 @@ export async function changeKioskPilot(
 		);
 }
 
+export async function getKioskPilotStatus(
+	platform: App.Platform | undefined,
+	branch: BranchContext
+) {
+	if (!kioskPilotEnvironment(platform?.env, branch)) throw error(404, 'Pilot kios tidak tersedia');
+	const hub = platform?.env.REALTIME_HUB;
+	if (!hub) throw error(503, 'Koordinator kios belum tersedia');
+	const response = await hub
+		.get(hub.idFromName(`cashier:${branch}`))
+		.fetch(
+			new Request('https://cashier.internal/projection/status', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ branch })
+			})
+		)
+		.catch(() => null);
+	if (!response?.ok) throw error(503, 'Status koordinator belum tersedia');
+	const status = await response.json().catch(() => null);
+	if (
+		!status ||
+		!['uninitialized', 'closed', 'open'].includes(status.shift) ||
+		typeof status.paused !== 'boolean' ||
+		!Number.isSafeInteger(status.pending) ||
+		status.pending < 0
+	)
+		throw error(503, 'Status koordinator tidak valid');
+	return { shift: status.shift, paused: status.paused, pending: status.pending };
+}
+
 /** Only the private coordinator binding can fence the branch. Retry the same handoff on interruption. */
 export async function initializeKioskPilot(
 	env: App.Platform['env'],

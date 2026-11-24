@@ -1,6 +1,7 @@
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 import { getD1Database, type BranchContext } from './branchResolver';
 import { KIOSK_SHIFT_PIN } from './kioskShiftPin';
+import { readKioskProjectionStatus } from './kioskProjectionQueue';
 
 /** Stop the coordinator before releasing the D1 fence. An interrupted rollback stays paused. */
 export async function rollbackKioskPilot(
@@ -10,11 +11,10 @@ export async function rollbackKioskPilot(
 ) {
 	const db = getD1Database(env, branch);
 	await storage.transaction(async (tx) => {
-		if ((await tx.get('shift:active')) !== null)
+		const status = await readKioskProjectionStatus(tx);
+		if (status.shift !== 'closed')
 			throw new Error('Mode kios harus diinisialisasi dan shift harus tutup');
-		const tail = (await tx.get<number>('projection:tail')) ?? 0;
-		const ack = (await tx.get<number>('projection:ack')) ?? 0;
-		if (tail !== ack) throw new Error('Sinkronisasi kios belum selesai');
+		if (status.pending !== 0) throw new Error('Sinkronisasi kios belum selesai');
 		// This conflicts with concurrent opens that read policy and write the active shift.
 		await tx.put('shift:open-policy', 'rolled-back');
 		await tx.delete(KIOSK_SHIFT_PIN);

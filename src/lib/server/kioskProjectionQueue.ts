@@ -9,6 +9,30 @@ export interface ProjectionTransaction extends Partial<
 }
 type Kind = 'shift-opened' | 'sale-recorded' | 'shift-closed';
 
+/** This is a coordinator snapshot, not proof that the phones have emptied their local queues. */
+export async function readKioskProjectionStatus(tx: Pick<ProjectionTransaction, 'get'>) {
+	const [active, policy, tail, ack] = await Promise.all([
+		tx.get('shift:active'),
+		tx.get('shift:open-policy'),
+		tx.get<number>('projection:tail'),
+		tx.get<number>('projection:ack')
+	]);
+	const end = tail ?? 0;
+	const confirmed = ack ?? 0;
+	if (
+		!Number.isSafeInteger(end) ||
+		!Number.isSafeInteger(confirmed) ||
+		confirmed < 0 ||
+		end < confirmed
+	)
+		throw new Error('Posisi antrean sinkronisasi tidak valid');
+	return {
+		shift: active === undefined ? 'uninitialized' : active === null ? 'closed' : 'open',
+		paused: policy === 'rolled-back',
+		pending: end - confirmed
+	} as const;
+}
+
 /** Never delay a previously armed alarm when new sales arrive. */
 export async function armKioskProjection(tx: ProjectionTransaction, at: number) {
 	if (!tx.getAlarm || !tx.setAlarm) throw new Error('Alarm proyeksi tidak tersedia');

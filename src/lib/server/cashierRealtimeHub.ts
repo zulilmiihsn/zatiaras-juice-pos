@@ -23,7 +23,8 @@ import { initializeKioskShift } from './initializeKioskShift';
 import { readKioskInventorySeed } from './kioskInventory';
 import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandoff';
 import { drainKioskProjection } from './kioskD1Projection';
-import { armKioskProjection } from './kioskProjectionQueue';
+import { armKioskProjection, readKioskProjectionStatus } from './kioskProjectionQueue';
+import { isD1DailyLimit } from './d1DailyLimit';
 import { CoordinatedCashierAuth } from './coordinatedCashierAuth';
 import { RealtimeDurableObject as RealtimeHub } from './realtimeDurableObject.js';
 
@@ -58,15 +59,18 @@ export class RealtimeDurableObject extends RealtimeHub {
 		if (!shouldDrain) return;
 		try {
 			await this.drainProjection(branch);
-		} catch {
-			console.warn('[kiosk-projection] Sinkronisasi tertunda', branch);
+		} catch (cause) {
+			console.warn({
+				event: 'kiosk_projection_deferred',
+				branch,
+				reason: isD1DailyLimit(cause) ? 'd1_daily_limit' : 'projection_failed'
+			});
 			return;
 		}
 		await this.state.storage.transaction(async (tx) => {
-			const tail = (await tx.get<number>('projection:tail')) ?? 0;
-			const ack = (await tx.get<number>('projection:ack')) ?? 0;
+			const status = await readKioskProjectionStatus(tx);
 			// Keep refreshing prices off-shift, but avoid one alarm per minute when the outbox is empty.
-			if (tail === ack) await tx.setAlarm(Date.now() + 60 * 60000);
+			if (status.pending === 0) await tx.setAlarm(Date.now() + 60 * 60000);
 		});
 	}
 
@@ -133,6 +137,16 @@ export class RealtimeDurableObject extends RealtimeHub {
 				Date.now()
 			);
 			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
+		}
+		if (url.pathname === '/projection/status') {
+			const branch = branchContext(normalizeBranch(body.branch));
+			if (
+				!kioskPilotEnvironment(this.env, branch) ||
+				(this.env.BRANCH_ACCOUNT_MODE === 'backend' && this.env.BRANCH_ACCOUNT_IDENTITY !== branch)
+			)
+				return Response.json({ ok: false }, { status: 404 });
+			const status = await this.state.storage.transaction(readKioskProjectionStatus);
+			return Response.json(status, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/projection/drain') {
 			const branch = branchContext(normalizeBranch(body.branch));

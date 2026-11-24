@@ -98,7 +98,13 @@ Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum melulu
   yang sama untuk rollback dan gate cutover, dengan perubahan kebijakan rollback tetap
   atomik. Paparkan hanya ringkasan yang dibutuhkan dan lindungi lewat jalur operator yang
   terotorisasi untuk cabang itu. Ini tidak membuktikan antrean IndexedDB HP kosong; periksa
-  keduanya sesudah penulisan dibekukan.
+  keduanya sesudah penulisan dibekukan. Implementasi pertama menyediakan tombol
+  **Periksa status koordinator** pada pengaturan pemilik (`GET /api/perangkat-kasir`),
+  dengan hasil tanpa cache dan terikat ke sesi cabang. Jika autentikasi atau koordinator
+  tidak tersedia, status tidak diketahui, bukan kosong. Hasil adalah snapshot, bukan kunci
+  cutover. Backend staging mengaktifkan Workers Logs untuk log aplikasi; filter
+  `event=kiosk_projection_deferred` per cabang membedakan `d1_daily_limit` dan
+  `projection_failed`. Alert otomatis dan sinyal dari gateway masih terpisah.
 - **Notifikasi dan maintenance:** selain handler terjadwal yang belum dijalankan wrapper,
   `orderNotifications/repository.ts` memakai registry perangkat di `DB_SAMARINDA_GROUP`
   (atau `DB`). Ini tidak tersedia di backend Balikpapan dan Berau. Selesaikan semantik
