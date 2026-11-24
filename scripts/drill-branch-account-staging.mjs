@@ -70,11 +70,19 @@ function accountClient(branch) {
 				WRANGLER_WRITE_LOGS: 'false'
 			}
 		});
-		// Wrangler can print signed download URLs. Do not publish subprocess output.
-		if (result.error || result.status !== 0)
-			throw new Error(
-				`${branch}: Wrangler ${operation} gagal (${result.error?.code ?? result.status})`
+		if (result.error || result.status !== 0) {
+			const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+			// Allowlist diagnostic markers; never publish raw SQL or signed download URLs.
+			const indicators = new Set(
+				output.match(
+					/\b(?:SQLITE_[A-Z_]+|D1_ERROR|FOREIGN KEY constraint failed|UNIQUE constraint failed|no such table|table already exists|not authorized|Authentication error|database is full|daily limit)\b/gi
+				) ?? []
 			);
+			for (const [, code] of output.matchAll(/\[code:\s*(\d+)\]/gi)) indicators.add(`code:${code}`);
+			throw new Error(
+				`${branch}: Wrangler ${operation} gagal (${result.error?.code ?? result.status}); ${[...indicators].join(', ') || 'tidak ada indikator yang dikenali'}`
+			);
+		}
 	};
 	return { account, api, run };
 }
