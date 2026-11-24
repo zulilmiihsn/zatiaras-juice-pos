@@ -11,7 +11,14 @@ function stagingOrigin(worker) {
 }
 
 /** Explicit account IDs avoid inheriting Wrangler's default account on a multi-account machine. */
-export function buildBranchStagingConfigs({ gateway, backends, main, publicAssets }) {
+export function buildBranchStagingConfigs({
+	gateway,
+	backends,
+	main,
+	publicAssets,
+	sharedStorage,
+	storageMain
+}) {
 	if (!main || !publicAssets) throw new Error('Bundle dan salinan aset publik wajib tersedia');
 	const publicOrigin = stagingOrigin(gateway);
 	const targets = branches.map((branch) => backends?.[branch]);
@@ -76,5 +83,31 @@ export function buildBranchStagingConfigs({ gateway, backends, main, publicAsset
 		config.migrations = [{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] }];
 		backendConfigs[branch] = config;
 	}
-	return { gateway: frontend, backends: backendConfigs };
+	let storage;
+	if (sharedStorage !== undefined) {
+		if (
+			!storageMain ||
+			sharedStorage?.bucketName !== 'zpos-shared-assets-staging' ||
+			targets.some((target) => target.bucketName !== undefined) ||
+			gateway.accountId !== accounts[0]
+		)
+			throw new Error('Konfigurasi R2 bersama staging tidak valid');
+		const name = 'zpos-storage-staging';
+		const origin = stagingOrigin({ name, subdomain: gateway.subdomain });
+		if ([publicOrigin, ...origins].includes(origin))
+			throw new Error('Origin R2 staging bertabrakan');
+		storage = {
+			name,
+			main: storageMain,
+			account_id: gateway.accountId,
+			compatibility_date: '2026-06-29',
+			compatibility_flags: ['nodejs_compat'],
+			workers_dev: true,
+			preview_urls: false,
+			r2_buckets: [{ binding: 'STORAGE', bucket_name: sharedStorage.bucketName }]
+		};
+		for (const config of Object.values(backendConfigs)) config.vars.BRANCH_STORAGE_ORIGIN = origin;
+		backendConfigs.samarinda.services = [{ binding: 'BRANCH_STORAGE_LOCAL', service: name }];
+	}
+	return { gateway: frontend, backends: backendConfigs, storage };
 }

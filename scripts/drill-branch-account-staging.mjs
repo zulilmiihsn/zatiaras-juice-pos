@@ -22,6 +22,7 @@ assert.ok(RUNNER_TEMP);
 const { backends } = buildBranchStagingConfigs({
 	...JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}'),
 	main: 'unused',
+	storageMain: 'unused',
 	publicAssets: 'unused'
 });
 const production = await readFile('wrangler.pages.jsonc', 'utf8');

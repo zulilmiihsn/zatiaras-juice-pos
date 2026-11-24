@@ -82,7 +82,7 @@ Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum melulu
 ### Keputusan R2 bersama akun Samarinda
 
 Pemilik menerima bahwa R2 menjadi sumber kegagalan dan pemakaian bersama; database D1
-cabang tetap di akun masing-masing. R2 bersama **belum diterapkan**. Gunakan satu Worker
+cabang tetap di akun masing-masing. R2 bersama belum diaktifkan di Cloudflare. Gunakan satu Worker
 penyimpanan internal di akun Samarinda, dengan binding ke bucket privat; gateway kasir tetap
 bebas binding data. Worker backend tiap cabang memanggil boundary penyimpanan lewat koneksi
 terautentikasi dan kredensial berbeda per cabang. Layanan penyimpanan menentukan identitas
@@ -97,7 +97,13 @@ akses gambar anonim terbatas ke format gambar publik dan cabang pada key. Batasi
 request dan jaga streaming, metadata MIME, serta hasil readback arsip. Jika R2 atau relay
 mati, arsip tidak boleh menghapus ledger dan transaksi kasir yang sudah sah tetap sah.
 
-Untuk staging, buat bucket khusus sintetis di akun Samarinda saja setelah verifikasi nama,
+Untuk staging, inventori menerima `sharedStorage.bucketName` dengan nama tepat
+`zpos-shared-assets-staging`. Workflow memverifikasi bucket yang sudah ada, memasang
+`zpos-storage-staging` sebelum backend, dan menurunkan secret terpisah per cabang dari kunci
+staging. Samarinda memakai service binding; dua akun lain memakai relay HTTPS. Mode bersama
+menolak binding bucket per cabang bersamaan.
+
+Buat bucket khusus sintetis di akun Samarinda saja setelah verifikasi nama,
 akun, izin dan kondisi billing. Jangan memberi akses worker uji ke bucket produksi. Uji
 isolasi antar-cabang, spoof/replay, objek hilang, R2 gagal/tidak cocok saat readback, stream
 terputus, serta archive/restore dengan D1 dan Workerd; bersihkan hanya objek dan resource uji

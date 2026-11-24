@@ -98,6 +98,36 @@ await test('branch staging gateway has no data bindings and backends are account
 		{ binding: 'STORAGE', bucket_name: 'zpos-berau-assets-staging' }
 	]);
 	assert.throws(() => withBucket('zatiaras-assets'), /bucket R2 staging tidak valid/);
+	const storageInput = {
+		...input,
+		storageMain: '/fixture/storage.ts',
+		sharedStorage: { bucketName: 'zpos-shared-assets-staging' }
+	};
+	const shared = buildBranchStagingConfigs(storageInput);
+	assert.equal(shared.storage.account_id, backends.samarinda.accountId);
+	assert.deepEqual(shared.storage.r2_buckets, [
+		{ binding: 'STORAGE', bucket_name: 'zpos-shared-assets-staging' }
+	]);
+	assert.equal(shared.storage.d1_databases, undefined);
+	assert.equal(shared.gateway.r2_buckets, undefined);
+	assert.deepEqual(shared.backends.samarinda.services, [
+		{ binding: 'BRANCH_STORAGE_LOCAL', service: shared.storage.name }
+	]);
+	for (const config of Object.values(shared.backends)) {
+		assert.equal(config.r2_buckets, undefined);
+		assert.equal(
+			config.vars.BRANCH_STORAGE_ORIGIN,
+			'https://zpos-storage-staging.samarinda.workers.dev'
+		);
+	}
+	assert.throws(
+		() =>
+			buildBranchStagingConfigs({
+				...storageInput,
+				sharedStorage: { bucketName: 'zatiaras-assets' }
+			}),
+		/R2 bersama staging tidak valid/
+	);
 	assert.throws(
 		() =>
 			buildBranchStagingConfigs({ ...input, gateway: { ...input.gateway, name: 'zatiaraspos' } }),

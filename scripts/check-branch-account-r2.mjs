@@ -6,6 +6,7 @@ assert.equal(process.env.GITHUB_REF, 'refs/heads/release/branch-account-staging'
 const { backends } = buildBranchStagingConfigs({
 	...JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}'),
 	main: 'unused',
+	storageMain: 'unused',
 	publicAssets: 'unused'
 });
 

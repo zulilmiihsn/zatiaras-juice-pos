@@ -17,6 +17,7 @@ const marker = join(process.env.RUNNER_TEMP, 'zpos-restore-berau');
 const configs = buildBranchStagingConfigs({
 	...JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}'),
 	main: 'unused',
+	storageMain: 'unused',
 	publicAssets: 'unused'
 });
 const { samarinda, berau } = configs.backends;

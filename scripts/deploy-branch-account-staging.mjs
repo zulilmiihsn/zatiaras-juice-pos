@@ -65,6 +65,7 @@ try {
 	const configs = buildBranchStagingConfigs({
 		...inventory,
 		main: resolve('staging/branch-account-worker.mjs'),
+		storageMain: resolve('staging/branch-storage-worker.ts'),
 		publicAssets
 	});
 	const prod = await readFile('wrangler.pages.jsonc', 'utf8');
@@ -113,8 +114,35 @@ try {
 		wrangler(name, file, token, ['secret', 'bulk'], JSON.stringify(secrets));
 		console.log(`${name}: Worker dan secret staging tersedia`);
 	}
+	if (configs.storage) {
+		const [bucket] = configs.storage.r2_buckets;
+		const response = await fetch(
+			`https://api.cloudflare.com/client/v4/accounts/${configs.storage.account_id}/r2/buckets/${bucket.bucket_name}`,
+			{
+				headers: { authorization: `Bearer ${tokens.samarinda}` },
+				signal: AbortSignal.timeout(12000)
+			}
+		);
+		const identity = await response.json();
+		if (!response.ok || !identity.success || identity.result?.name !== bucket.bucket_name)
+			throw new Error(
+				`Identitas bucket R2 bersama staging tidak terverifikasi (HTTP ${response.status})`
+			);
+		await deploy(
+			'storage',
+			configs.storage,
+			tokens.samarinda,
+			Object.fromEntries(
+				branches.map((branch) => [
+					`STORAGE_SECRET_${branch.toUpperCase()}`,
+					derive(`storage:${branch}`)
+				])
+			)
+		);
+	}
 	for (const branch of branches) {
 		await deploy(branch, configs.backends[branch], tokens[branch], {
+			...(configs.storage ? { BRANCH_STORAGE_SECRET: derive(`storage:${branch}`) } : {}),
 			BRANCH_RELAY_SECRET: derive(`relay:${branch}`),
 			POS_PRICE_SIGNING_KEY: derive(`price:${branch}`)
 		});

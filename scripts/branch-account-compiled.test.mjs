@@ -14,18 +14,32 @@ import { wranglerInvocation } from './wrangler-cli.mjs';
 const branches = ['samarinda', 'balikpapan', 'berau'];
 const publicOrigin = 'https://kasir.branch.test';
 const backendOrigin = (branch) => `https://${branch}.branch.test`;
+const storageOrigin = 'https://storage.branch.test';
 const secret = () => randomBytes(32).toString('hex');
+const storageKeys = Object.fromEntries(branches.map((branch) => [branch, secret()]));
 const relayKeys = Object.fromEntries(branches.map((branch) => [branch, secret()]));
 const dbBinding = (branch) => `DB_${branch.toUpperCase()}_GROUP`;
 const fixtures = await mkdtemp(join(tmpdir(), 'zpos-branch-compiled-'));
 let runtime;
 let unavailableBackend = backendOrigin('berau');
+let corruptArchiveReadback = false;
+function sendToStorage(request) {
+	const url = new URL(request.url);
+	if (url.origin !== storageOrigin) return new Response(null, { status: 502 });
+	if (
+		corruptArchiveReadback &&
+		request.method === 'GET' &&
+		url.searchParams.get('key')?.startsWith('arsip/')
+	)
+		return new Response('{}', { headers: { 'content-type': 'application/json' } });
+	return runtime.dispatchFetch(request);
+}
 
-async function buildWorker() {
-	const name = 'owned-branch-account-test';
-	const config = join(fixtures, 'wrangler.json');
-	const source = resolve('staging/branch-account-worker.mjs');
-	const out = join(fixtures, 'bundle');
+async function buildWorker(entry) {
+	const name = `owned-${entry.split('.')[0]}`;
+	const config = join(fixtures, `${name}.json`);
+	const source = resolve('staging', entry);
+	const out = join(fixtures, name);
 	await writeFile(
 		config,
 		JSON.stringify({
@@ -44,7 +58,7 @@ async function buildWorker() {
 	});
 	if (result.error) throw result.error;
 	assert.equal(result.status, 0, result.stderr || result.stdout);
-	return join(out, 'branch-account-worker.js');
+	return join(out, `${entry.split('.')[0]}.js`);
 }
 
 async function seed(branch, passwordHash, migrations) {
@@ -106,7 +120,8 @@ function browserCaller() {
 }
 
 try {
-	const scriptPath = await buildWorker();
+	const scriptPath = await buildWorker('branch-account-worker.mjs');
+	const storageScript = await buildWorker('branch-storage-worker.ts');
 	const assetDirectory = join(fixtures, 'assets');
 	await snapshotBuiltAssets(resolve('.svelte-kit/cloudflare'), assetDirectory);
 	const common = {
@@ -157,17 +172,37 @@ try {
 						)
 					}
 				},
+				{
+					modules: true,
+					compatibilityDate: common.compatibilityDate,
+					compatibilityFlags: common.compatibilityFlags,
+					scriptPath: storageScript,
+					modulesRoot: fixtures,
+					name: 'storage',
+					routes: [storageOrigin + '/*'],
+					r2Buckets: { STORAGE: 'assets-shared' },
+					bindings: Object.fromEntries(
+						branches.map((branch) => [
+							`STORAGE_SECRET_${branch.toUpperCase()}`,
+							storageKeys[branch]
+						])
+					)
+				},
 				...branches.map((branch) => ({
 					...common,
 					name: branch,
 					routes: [backendOrigin(branch) + '/*'],
 					d1Databases: { [dbBinding(branch)]: randomUUID() },
-					r2Buckets: { STORAGE: `assets-${branch}` },
+					...(branch === 'samarinda'
+						? { serviceBindings: { BRANCH_STORAGE_LOCAL: sendToStorage } }
+						: { outboundService: sendToStorage }),
 					durableObjects: { REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true } },
 					bindings: {
 						...shared,
 						BRANCH_ACCOUNT_MODE: 'backend',
 						BRANCH_ACCOUNT_IDENTITY: branch,
+						BRANCH_STORAGE_ORIGIN: storageOrigin,
+						BRANCH_STORAGE_SECRET: storageKeys[branch],
 						BRANCH_RELAY_SECRET: relayKeys[branch],
 						KIOSK_PRODUCTION_PILOT: branch,
 						KIOSK_PROJECTION_BRANCHES: branch,
@@ -199,7 +234,7 @@ try {
 		if (branch === 'berau') unavailableBackend = '';
 		const { db } = await seed(branch, passwordHash, migrations);
 		const key = `produk/${branch}/1234.webp`;
-		const bucket = await runtime.getR2Bucket('STORAGE', branch);
+		const bucket = await runtime.getR2Bucket('STORAGE', 'storage');
 		await bucket.put(key, branch, { httpMetadata: { contentType: 'image/webp' } });
 		const image = await browserCaller().fetch(`/api/upload?${new URLSearchParams({ key })}`);
 		assert.equal(image.status, 200);
@@ -314,7 +349,65 @@ try {
 		);
 		assert.equal(wrongReport.status, 403);
 		await wrongReport.body?.cancel();
-		console.log(`branch-account-compiled: ${branch} login, struk, shift dan D1 cocok`);
+		const oldId = 'archive-shared-fixture';
+		await db
+			.prepare(
+				"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,nominal,jenis) VALUES(?,?,'2024-06-01T02:00:00Z','manual','pemasukan',3000,'usaha')"
+			)
+			.bind(oldId, branch)
+			.run();
+		const csrfOwner = (await (await owner.fetch('/api/csrf')).json()).token;
+		const archived = await owner.fetch('/api/archive', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'x-csrf-token': csrfOwner },
+			body: JSON.stringify({ before_year: 2025 })
+		});
+		const result = await archived.json();
+		assert.equal(archived.status, 200, JSON.stringify(result));
+		assert.equal(result.count, 1);
+		assert.match(result.key, new RegExp(`^arsip/${branch}/`));
+		const snapshot = await bucket.get(result.key);
+		assert.equal(snapshot.customMetadata.branch, branch);
+		assert.equal(
+			await db
+				.prepare('SELECT id FROM buku_kas WHERE cabang_id=? AND id=?')
+				.bind(branch, oldId)
+				.first('id'),
+			null
+		);
+		const download = await owner.fetch(
+			`/api/archive/download?${new URLSearchParams({ job_id: result.job_id })}`
+		);
+		assert.equal(download.status, 200);
+		assert.deepEqual(await download.json(), await snapshot.json());
+		if (branch === 'berau') {
+			await db
+				.prepare(
+					"INSERT INTO buku_kas(id,cabang_id,waktu,sumber,tipe,nominal,jenis) VALUES('archive-corrupt',?,'2023-06-01T02:00:00Z','manual','pemasukan',3000,'usaha')"
+				)
+				.bind(branch)
+				.run();
+			corruptArchiveReadback = true;
+			try {
+				const failed = await owner.fetch('/api/archive', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json', 'x-csrf-token': csrfOwner },
+					body: JSON.stringify({ before_year: 2024 })
+				});
+				assert.equal(failed.status, 500);
+				await failed.body?.cancel();
+				assert.equal(
+					await db
+						.prepare("SELECT nominal FROM buku_kas WHERE cabang_id=? AND id='archive-corrupt'")
+						.bind(branch)
+						.first('nominal'),
+					3000
+				);
+			} finally {
+				corruptArchiveReadback = false;
+			}
+		}
+		console.log(`branch-account-compiled: ${branch} login, struk, shift, D1 dan arsip R2 cocok`);
 	}
 } finally {
 	try {
