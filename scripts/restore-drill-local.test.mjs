@@ -11,6 +11,7 @@ import {
 	main
 } from './restore-drill-local.mjs';
 import { drillFixtureSql, drillFixtureBaselineOptions } from './test-fixtures/drill-dump.mjs';
+import { orderedDrillSql } from './ordered-drill-sql.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -53,6 +54,31 @@ function injectLegacyCorruption(a, sql) {
 		for (const trigger of triggers) a.db.exec(trigger.sql);
 	}
 }
+
+await test('ordered staging restore preserves all rows with foreign keys and active kiosk fences', async () => {
+	for (const branch of ['samarinda', 'balikpapan', 'berau']) {
+		const source = memAdapter();
+		const target = memAdapter();
+		try {
+			source.db.exec(drillFixtureSql(undefined, branch));
+			source.db.exec(
+				`UPDATE sesi_toko SET is_active=0; INSERT INTO produk(id,cabang_id,nama,harga) VALUES('p','${branch}','uji',10000); INSERT INTO kiosk_shift_cutover VALUES('${branch}')`
+			);
+			target.db.exec(`PRAGMA foreign_keys=ON; BEGIN; ${orderedDrillSql(source.db)} COMMIT;`);
+			assertDrillParity(await captureDrillParity(source), await captureDrillParity(target));
+			assert.throws(
+				() =>
+					target.db.exec(
+						`INSERT INTO produk(id,cabang_id,nama,harga) VALUES('q','${branch}','uji',10000)`
+					),
+				/KIOS_INVENTORY_FENCED/
+			);
+		} finally {
+			source.close();
+			target.close();
+		}
+	}
+});
 
 async function temporaryDump(sql = drillFixtureSql(), referenceOptions) {
 	const dir = mkdtempSync(join(tmpdir(), 'zatiaras-drill-cli-test-'));

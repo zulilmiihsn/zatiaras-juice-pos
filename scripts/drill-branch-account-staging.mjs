@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { orderedDrillSql } from './ordered-drill-sql.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -119,7 +120,7 @@ function accountClient(branch) {
 	return { account, api, run };
 }
 
-async function inspectDump(file) {
+async function inspectDump(file, orderedFile) {
 	const sql = await readFile(file, 'utf8');
 	assertSafeDrillSql(sql);
 	const db = new DatabaseSync(':memory:', { enableForeignKeyConstraints: false });
@@ -136,6 +137,7 @@ async function inspectDump(file) {
 				)
 				.all()
 		);
+		if (orderedFile) await writeFile(orderedFile, orderedDrillSql(db), { flag: 'wx', mode: 0o600 });
 		return { parity, schema, sha256: createHash('sha256').update(sql).digest('hex') };
 	} finally {
 		db.close();
@@ -174,14 +176,11 @@ async function drill(branch, dir) {
 		'--output',
 		backup
 	]);
-	const expected = await inspectDump(backup);
-	// Report only statement ordering; the SQL dump itself contains sensitive values.
-	const dump = await readFile(backup, 'utf8');
-	const firstTrigger = dump.search(/\bCREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b/i);
-	const lastInsert = [...dump.matchAll(/\bINSERT\s+(?:OR\s+\w+\s+)?INTO\b/gi)].at(-1)?.index ?? -1;
-	console.log(
-		`${branch}: indikasi trigger sebelum INSERT terakhir (scan teks): ${firstTrigger >= 0 && firstTrigger < lastInsert}`
-	);
+	const ordered = join(dir, `${branch}-ordered.sql`);
+	const expected = await inspectDump(backup, ordered);
+	const replay = await inspectDump(ordered);
+	assertDrillParity(expected.parity, replay.parity);
+	assert.ok(replay.schema === expected.schema, 'Schema replay lokal berbeda');
 	const scratch = await api('POST', '', { name: scratchName });
 	assert.match(scratch.uuid ?? '', /^[a-f0-9-]{36}$/);
 	assert.ok(
@@ -202,7 +201,7 @@ async function drill(branch, dir) {
 			'--config',
 			scratchConfig,
 			'--file',
-			backup
+			ordered
 		]);
 		const restoredFile = join(dir, `${branch}-restored.sql`);
 		run('export scratch', [
