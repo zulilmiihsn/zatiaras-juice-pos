@@ -48,6 +48,37 @@ Gunakan workflow **Deploy** dengan target `branch-account-staging`, SHA dan run 
 
 Workflow memverifikasi identitas D1 dari API sebelum deploy, menyalin hanya aset publik, lalu memasang backend terlebih dahulu dan gateway terakhir. Tidak ada perubahan skema atau penghapusan database di workflow. Apabila deploy terhenti sebagian, periksa Worker yang sudah terpasang lalu ulangi SHA yang sama dengan inventori dan kunci yang sama. Jangan jalankan target `staging` biasa untuk stack lintas akun.
 
+## Audit kesiapan sebelum migrasi produksi
+
+Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum meluluskan cutover**:
+
+- **Arsip dan aset R2 — blocker:** konfigurasi backend staging hanya mengikat D1 dan
+  koordinator; tidak ada `STORAGE`. `archiveUseCase.ts` memerlukan bucket untuk menyimpan,
+  membaca kembali, dan mengunduh arsip; endpoint upload juga memerlukannya. Akses lintas
+  akun, inventaris objek, pemindahan, otorisasi cabang, backup dan restore R2 harus dirancang
+  serta diuji sebelum mengalihkan cabang. Dump D1 tidak mencadangkan objek R2.
+- **Laporan dan pemilik — belum terbukti:** `reportQueries.ts` menerima konteks cabang,
+  dan backend hanya punya satu binding D1. Ini mendukung laporan per cabang, tetapi bukan
+  bukti laporan gabungan lintas cabang maupun perpindahan sesi pemilik. Inventarisasi kontrak
+  UI dan uji login/pergantian cabang pada gateway. Jangan menampilkan hasil sebagian sebagai
+  gabungan lengkap jika satu cabang gagal.
+- **Antrean — blocker operasional:** alarm koordinator mencatat penundaan dan mencoba lagi;
+  `rollbackKioskPilot.ts` memeriksa `projection:tail === projection:ack` secara atomik sebelum
+  membuka jalur lama. Namun belum ada pemeriksaan status antrean read-only untuk operator pada
+  gateway lintas akun. Menutup shift atau melihat transaksi terbaru di D1 bukan bukti bahwa
+  seluruh antrean kosong. Jangan memicu rollback atau menghapus data sebagai cara memeriksanya.
+- **Monitoring dan pekerjaan terjadwal — blocker:** staging mencatat kegagalan proyeksi di log,
+  tetapi belum ada dashboard/alert terverifikasi untuk umur antrean, kegagalan alarm, kuota,
+  backend, dan gateway. Wrapper staging tidak menjalankan `scheduled` pada
+  `realtimeWorker.js`; pekerjaan notifikasi dan retensi perlu inventaris, penjadwalan yang
+  scoped per cabang, serta uji pemulihan dan deduplikasi sebelum produksi.
+- **Backup dan restore — parsial:** drill staging 24 November 2026 berhasil mengekspor dan
+  restore masing-masing D1 ke D1 sementara di akun terkait, membandingkan isi tabel serta
+  schema, lalu menghapus target sementara. Ini bukan backup produksi yang dapat dipulihkan;
+  belum mencakup R2 atau state Durable Object. Alat backup produksi saat ini memvalidasi
+  tiga shard dari konfigurasi lama dan belum diuji untuk tiga akun. Backup produksi baru dan
+  restore drill dengan baseline terverifikasi tetap wajib menjelang cutover.
+
 ## Prasyarat produksi
 
 Pastikan kelayakan penggunaan beberapa akun Free untuk satu usaha dengan Cloudflare. Uji backup/restore per akun dan cocokkan stok, nomor pesanan, omzet, serta struk. Pindahkan satu cabang setelah shift tutup dan semua antrean HP serta koordinator kosong. Jangan biarkan deployment lama dan baru menerima penjualan cabang yang sama. Setelah transaksi pertama di tujuan, rollback bukan sekadar mengganti tujuan gateway: rekonsiliasi perubahan dulu. Belum ada resource atau kredensial akun baru yang diperlukan untuk tahap lokal.
