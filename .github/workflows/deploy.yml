@@ -38,6 +38,10 @@ on:
         description: Periksa akses R2 staging (baca saja, tanpa deploy atau billing)
         type: boolean
         default: false
+      branch_r2_prepare:
+        description: Siapkan bucket Standard kosong untuk R2 staging di Samarinda
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
@@ -59,9 +63,10 @@ jobs:
           BRANCH_SMOKE: ${{ inputs.branch_smoke }}
           BRANCH_RESTORE: ${{ inputs.branch_restore }}
           BRANCH_R2_CHECK: ${{ inputs.branch_r2_check }}
+          BRANCH_R2_PREPARE: ${{ inputs.branch_r2_prepare }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
           if (( branch_modes > 1 )); then exit 1; fi
@@ -161,7 +166,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -202,6 +207,13 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/check-branch-account-r2.mjs
+
+      - name: Prepare shared staging R2 bucket
+        if: inputs.target == 'branch-account-staging' && inputs.branch_r2_prepare
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/check-branch-account-r2.mjs --prepare
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'

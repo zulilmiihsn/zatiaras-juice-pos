@@ -1,4 +1,5 @@
 const branches = ['samarinda', 'balikpapan', 'berau'];
+export const SHARED_STAGING_BUCKET = 'zpos-shared-assets-staging';
 const accountId = /^[a-f0-9]{32}$/;
 const databaseId = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const workerName = /^zpos-[a-z0-9-]+-staging$/;
@@ -87,7 +88,7 @@ export function buildBranchStagingConfigs({
 	if (sharedStorage !== undefined) {
 		if (
 			!storageMain ||
-			sharedStorage?.bucketName !== 'zpos-shared-assets-staging' ||
+			sharedStorage?.bucketName !== SHARED_STAGING_BUCKET ||
 			targets.some((target) => target.bucketName !== undefined) ||
 			gateway.accountId !== accounts[0]
 		)

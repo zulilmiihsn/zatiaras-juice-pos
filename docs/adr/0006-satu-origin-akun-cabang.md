@@ -103,8 +103,11 @@ Untuk staging, inventori menerima `sharedStorage.bucketName` dengan nama tepat
 staging. Samarinda memakai service binding; dua akun lain memakai relay HTTPS. Mode bersama
 menolak binding bucket per cabang bersamaan.
 
-Buat bucket khusus sintetis di akun Samarinda saja setelah verifikasi nama,
-akun, izin dan kondisi billing. Jangan memberi akses worker uji ke bucket produksi. Uji
+Gunakan `branch_r2_prepare=true` pada workflow **Deploy** untuk menyiapkan bucket kosong
+khusus sintetis di akun Samarinda. Mode ini bukan deploy: ia tidak mengunggah objek, mengaktifkan
+langganan, mengubah billing, atau menyentuh bucket lain. Buat hanya jika R2 sudah aktif dan
+jumlah bucket masih dalam batas gratis, lalu verifikasi bucket Standard dan tidak memiliki domain
+publik. Setelah berhasil, baru tambahkan `sharedStorage.bucketName` ke inventori staging. Jangan memberi akses worker uji ke bucket produksi. Uji
 isolasi antar-cabang, spoof/replay, objek hilang, R2 gagal/tidak cocok saat readback, stream
 terputus, serta archive/restore dengan D1 dan Workerd; bersihkan hanya objek dan resource uji
 yang identitasnya terverifikasi. Key lama tanpa cabang memerlukan inventaris dan migrasi
