@@ -228,7 +228,8 @@ try {
 		assert.equal(login.status, 200, `${branch}: login ${await login.clone().text()}`);
 		assert.deepEqual(await login.json(), { success: true, scope: 'operasional' });
 		const forbidden = await browser.fetch('/api/perangkat-kasir');
-		assert.equal(forbidden.status, 403);
+		// Operational-only kiosk sessions are rejected before normal owner role checks.
+		assert.equal(forbidden.status, 401);
 		await forbidden.body?.cancel();
 		const owner = browserCaller();
 		const ownerToken = (await (await owner.fetch('/api/csrf')).json()).token;
