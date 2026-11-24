@@ -29,8 +29,14 @@ export function createBranchStorageClient(
 		const headers = new Headers({ 'x-storage-secret': secret });
 		if (options?.httpMetadata?.contentType)
 			headers.set('content-type', options.httpMetadata.contentType);
-		if (options?.customMetadata)
-			headers.set('x-storage-metadata', JSON.stringify(options.customMetadata));
+		if (options?.customMetadata) {
+			const bytes = new TextEncoder().encode(JSON.stringify(options.customMetadata));
+			if (bytes.length > 3072) throw new Error('Metadata penyimpanan terlalu besar');
+			headers.set(
+				'x-storage-metadata',
+				btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''))
+			);
+		}
 		const result = await transport(
 			new Request(target, {
 				method,

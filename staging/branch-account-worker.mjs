@@ -3,6 +3,7 @@ import pagesRoutes from '../.svelte-kit/cloudflare/_routes.json';
 import { createBranchIngress, acceptBranchRelay } from '../src/lib/server/branchIngress.ts';
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
 import { SESSION_COOKIE } from '../src/lib/server/sessionStore.ts';
+import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
 export { RealtimeDurableObject } from '../src/lib/server/cashierRealtimeHub.ts';
 
 const isPublicAsset = (path) =>
@@ -22,7 +23,13 @@ export default {
 		if (deployment.mode === 'backend') {
 			const accepted = acceptBranchRelay(request, deployment);
 			if (!accepted) return new Response(null, { status: 401 });
-			return app.fetch(accepted, env, context);
+			let backendEnv;
+			try {
+				backendEnv = withBranchStorage(env, deployment.branch);
+			} catch {
+				return new Response('Penyimpanan cabang belum siap', { status: 503 });
+			}
+			return app.fetch(accepted, backendEnv, context);
 		}
 
 		const url = new URL(request.url);

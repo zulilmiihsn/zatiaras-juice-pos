@@ -6,6 +6,7 @@ import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
 import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
 import { createBranchStorageClient } from '../lib/server/branchStorageClient';
+import { withBranchStorage } from '../lib/server/branchStorageEnvironment';
 
 const origin = 'https://kasir.example.test';
 const routeSecret = 'r'.repeat(32);
@@ -295,9 +296,9 @@ test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat rela
 	assert.equal(await client.get(key), null);
 	await client.put(key, '{"test":true}', {
 		httpMetadata: { contentType: 'application/json' },
-		customMetadata: { branch: 'berau', sha256: '1234' }
+		customMetadata: { branch: 'berau', sha256: '1234', uploaded_by: 'Kasir É' }
 	});
-	assert.deepEqual(metadata, { branch: 'berau', sha256: '1234' });
+	assert.deepEqual(metadata, { branch: 'berau', sha256: '1234', uploaded_by: 'Kasir É' });
 	assert.equal(await (await client.get(key))!.text(), '{"test":true}');
 	await assert.rejects(() =>
 		client.put(key, '{}', {
@@ -315,6 +316,33 @@ test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat rela
 	assert.throws(() =>
 		createBranchStorageClient('berau', 'http://storage.test', secrets.get('berau')!, gateway)
 	);
+});
+
+test('adapter hanya aktif pada backend dengan konfigurasi lengkap dan tidak menimpa bucket lokal', () => {
+	const original = { OTHER: 1 };
+	assert.equal(withBranchStorage(original, 'berau'), original);
+	assert.throws(() =>
+		withBranchStorage({ BRANCH_STORAGE_ORIGIN: 'https://storage.test' }, 'berau')
+	);
+	assert.throws(() =>
+		withBranchStorage(
+			{
+				BRANCH_STORAGE_ORIGIN: 'https://storage.test',
+				BRANCH_STORAGE_SECRET: 's'.repeat(32),
+				STORAGE: {}
+			},
+			'berau'
+		)
+	);
+	const result = withBranchStorage(
+		{
+			BRANCH_STORAGE_ORIGIN: 'https://storage.test',
+			BRANCH_STORAGE_SECRET: 's'.repeat(32),
+			BRANCH_STORAGE_LOCAL: { fetch: async () => new Response(null, { status: 404 }) }
+		},
+		'berau'
+	);
+	assert.ok(result.STORAGE);
 });
 
 test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie', async () => {

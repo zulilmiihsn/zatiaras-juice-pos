@@ -80,7 +80,8 @@ export function createBranchStorageGateway(
 				if (rawMetadata.length > 4096) return new Response(null, { status: 400 });
 				let decoded: unknown;
 				try {
-					decoded = JSON.parse(rawMetadata);
+					const bytes = Uint8Array.from(atob(rawMetadata), (value) => value.charCodeAt(0));
+					decoded = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
 				} catch {
 					return new Response(null, { status: 400 });
 				}
@@ -91,7 +92,9 @@ export function createBranchStorageGateway(
 					entries.length > 8 ||
 					entries.some(
 						([name, value]) =>
-							!/^[a-z][a-z0-9_]{0,31}$/.test(name) || typeof value !== 'string' || value.length > 256
+							!/^[a-z][a-z0-9_]{0,31}$/.test(name) ||
+							typeof value !== 'string' ||
+							value.length > 256
 					)
 				)
 					return new Response(null, { status: 400 });
