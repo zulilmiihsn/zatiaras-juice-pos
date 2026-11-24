@@ -7,6 +7,7 @@ import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
 import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
 import { createBranchStorageClient } from '../lib/server/branchStorageClient';
 import { withBranchStorage } from '../lib/server/branchStorageEnvironment';
+import storageWorker from '../../staging/branch-storage-worker';
 
 const origin = 'https://kasir.example.test';
 const routeSecret = 'r'.repeat(32);
@@ -315,6 +316,36 @@ test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat rela
 	);
 	assert.throws(() =>
 		createBranchStorageClient('berau', 'http://storage.test', secrets.get('berau')!, gateway)
+	);
+});
+
+test('worker R2 menolak konfigurasi hilang dan identitas palsu', async () => {
+	const request = new Request('https://storage.test/object?key=produk%2Fberau%2F1234.png');
+	assert.equal((await storageWorker.fetch(request, {})).status, 503);
+	const env = {
+		STORAGE: { get: async () => null },
+		STORAGE_SECRET_SAMARINDA: 's'.repeat(32),
+		STORAGE_SECRET_BALIKPAPAN: 'b'.repeat(32),
+		STORAGE_SECRET_BERAU: 'r'.repeat(32)
+	};
+	assert.equal((await storageWorker.fetch(request, env)).status, 401);
+	assert.equal(
+		(
+			await storageWorker.fetch(
+				new Request(request, { headers: { 'x-storage-secret': env.STORAGE_SECRET_BERAU } }),
+				env
+			)
+		).status,
+		404
+	);
+	assert.equal(
+		(
+			await storageWorker.fetch(request, {
+				...env,
+				STORAGE_SECRET_BERAU: env.STORAGE_SECRET_SAMARINDA
+			})
+		).status,
+		503
 	);
 });
 
