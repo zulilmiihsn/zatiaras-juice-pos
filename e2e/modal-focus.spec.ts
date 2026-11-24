@@ -33,7 +33,8 @@ async function loginAsOwner(page: Page) {
 	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 	const response = await loginResponse;
 	expect(response.ok()).toBe(true);
-	await expect(page).toHaveURL(/\/$/);
+	// The successful login also prepares the device before navigating to the dashboard.
+	await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
 }
 
 async function dialogContainsFocus(page: Page, dialogName: string): Promise<boolean> {
@@ -530,6 +531,11 @@ test('browser back and forward preserve page positions when leaving an open moda
 		.getByRole('link', { name: 'Laporan', exact: true })
 		.evaluate((node) => node.click());
 	await expect(page).toHaveURL(/\/laporan$/);
+	// URL changes before the report's async content necessarily makes the page scrollable.
+	await expect(page.getByRole('heading', { name: 'Laporan Keuangan' })).toBeVisible();
+	await expect
+		.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight))
+		.toBeGreaterThanOrEqual(300);
 	await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'auto' }));
 	expect(await page.evaluate(() => window.scrollY)).toBe(300);
 	await page
