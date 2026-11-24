@@ -78,6 +78,26 @@ function accountClient(branch) {
 					/\b(?:SQLITE_[A-Z_]+|D1_ERROR|FOREIGN KEY constraint failed|UNIQUE constraint failed|no such table|table already exists|not authorized|Authentication error|database is full|daily limit)\b/gi
 				) ?? []
 			);
+			const categories = [
+				['missing-table', /no such table/i],
+				['missing-column', /no such column/i],
+				['missing-function', /no such function/i],
+				['missing-index', /no such index/i],
+				['schema-object-exists', /already exists/i],
+				['sql-syntax', /syntax error|incomplete input/i],
+				['foreign-key', /foreign key constraint failed/i],
+				['unique-constraint', /unique constraint failed/i],
+				['not-null', /not null constraint failed/i],
+				['check-constraint', /check constraint failed/i],
+				['transaction-nesting', /cannot start a transaction within a transaction/i],
+				['transaction-missing', /no transaction is active/i],
+				['unsupported-pragma', /not authorized|not permitted|unsupported|prohibited/i],
+				['quota', /quota|limit exceeded|exceeded.*limit/i],
+				['too-many-variables', /too many sql variables/i],
+				['readonly', /readonly|read.only database/i],
+				['database-locked', /database (?:is )?locked/i]
+			];
+			for (const [label, pattern] of categories) if (pattern.test(output)) indicators.add(label);
 			for (const [, code] of output.matchAll(/\[code:\s*(\d+)\]/gi)) indicators.add(`code:${code}`);
 			throw new Error(
 				`${branch}: Wrangler ${operation} gagal (${result.error?.code ?? result.status}); ${[...indicators].join(', ') || 'tidak ada indikator yang dikenali'}`
