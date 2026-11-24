@@ -78,6 +78,18 @@ function accountClient(branch) {
 					/\b(?:SQLITE_[A-Z_]+|D1_ERROR|FOREIGN KEY constraint failed|UNIQUE constraint failed|no such table|table already exists|not authorized|Authentication error|database is full|daily limit)\b/gi
 				) ?? []
 			);
+			// These fixed trigger errors come from the repository's migrations, not user data.
+			const triggerErrors = [
+				'KIOS_SHIFT_STILL_OPEN',
+				'KIOS_CUTOVER_IMMUTABLE',
+				'KIOS_CUTOVER_PAUSED',
+				'KIOS_INVENTORY_FENCED',
+				'INVALID_STOCK_POLICY_INSERT',
+				'INVALID_STOCK_POLICY_TRANSITION',
+				'STOCK_POLICY_CONFLICT',
+				'INVALID_NOMOR_HARIAN'
+			];
+			for (const code of triggerErrors) if (output.includes(code)) indicators.add(code);
 			const categories = [
 				['missing-table', /no such table/i],
 				['missing-column', /no such column/i],
@@ -163,6 +175,13 @@ async function drill(branch, dir) {
 		backup
 	]);
 	const expected = await inspectDump(backup);
+	// Report only statement ordering; the SQL dump itself contains sensitive values.
+	const dump = await readFile(backup, 'utf8');
+	const firstTrigger = dump.search(/\bCREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b/i);
+	const lastInsert = [...dump.matchAll(/\bINSERT\s+(?:OR\s+\w+\s+)?INTO\b/gi)].at(-1)?.index ?? -1;
+	console.log(
+		`${branch}: indikasi trigger sebelum INSERT terakhir (scan teks): ${firstTrigger >= 0 && firstTrigger < lastInsert}`
+	);
 	const scratch = await api('POST', '', { name: scratchName });
 	assert.match(scratch.uuid ?? '', /^[a-f0-9-]{36}$/);
 	assert.ok(
