@@ -79,6 +79,45 @@ Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum melulu
   tiga shard dari konfigurasi lama dan belum diuji untuk tiga akun. Backup produksi baru dan
   restore drill dengan baseline terverifikasi tetap wajib menjelang cutover.
 
+### Verifikasi lanjutan dan rancangan perbaikan
+
+- **R2:** menambah binding saja belum cukup. `GET /api/upload?key=...` melayani gambar
+  katalog publik, tetapi ingress tanpa sesi hanya menyediakan login, CSRF, dan aset build.
+  Gunakan bucket privat dan binding `STORAGE` pada backend tiap cabang jika R2 tersedia
+  dalam batas biaya yang disetujui. Migrasikan objek dengan key, checksum, dan metadata
+  tetap; rekonsiliasi referensi `archive_jobs.object_key` dan katalog sebelum cutover.
+  Untuk gambar publik, hanya rutekan GET dengan key gambar yang lolos kebijakan yang sudah
+  ada. Pisahkan pemeriksaan ini dari akses unduh arsip, yang tetap membutuhkan sesi cabang.
+- **Laporan:** `GET /api/reports/aggregate` mengakses satu `BranchContext`; pemilik biasa
+  tidak dapat meminta cabang berbeda dari sesi. `admin` dapat melewati pemeriksaan itu,
+  tetapi backend tetap tidak memiliki binding cabang lain. Pertahankan kontrak laporan
+  per cabang melalui login ke cabang tujuan. Inventarisasi pemakaian override admin lama;
+  jangan membuat agregasi lintas akun atau memperluas izin sebagai efek samping migrasi.
+- **Antrean:** sediakan pemeriksaan internal read-only pada koordinator yang membaca status
+  shift dan `projection:tail`/`projection:ack` dalam satu snapshot. Gunakan ulang helper
+  yang sama untuk rollback dan gate cutover, dengan perubahan kebijakan rollback tetap
+  atomik. Paparkan hanya ringkasan yang dibutuhkan dan lindungi lewat jalur operator yang
+  terotorisasi untuk cabang itu. Ini tidak membuktikan antrean IndexedDB HP kosong; periksa
+  keduanya sesudah penulisan dibekukan.
+- **Notifikasi dan maintenance:** selain handler terjadwal yang belum dijalankan wrapper,
+  `orderNotifications/repository.ts` memakai registry perangkat di `DB_SAMARINDA_GROUP`
+  (atau `DB`). Ini tidak tersedia di backend Balikpapan dan Berau. Selesaikan semantik
+  satu perangkat yang berpindah cabang dan delivery satu peristiwa sebelum memindahkan
+  registry; jangan menambahkan binding Samarinda ke backend lain. Pisahkan penjadwalan
+  notifikasi/retensi dari alarm kasir dan gunakan kembali fungsi maintenance yang ada.
+  Log terstruktur dari koordinator dan gateway perlu tetap berguna saat D1 gagal,
+  tanpa menjadikan notifikasi atau observability syarat commit.
+- **Backup:** pertahankan validasi ketat alat lama. Perluas input inventori untuk
+  memverifikasi identitas akun dan D1 per cabang dengan kredensial terbatas; gunakan ulang
+  verifikasi manifest, checksum, dan drill restore. Drill staging menguji paritas struktur
+  dan isi tabel aplikasi, bukan pemulihan R2, state koordinator, atau promosi backup ke
+  penyimpanan jangka panjang. Jangan memakai Time Travel sebagai satu-satunya cara
+  memindahkan data antar akun.
+
+Urutan pengerjaan: status antrean dan monitoring minimum; R2 dan uji gambar/arsip;
+kontrak laporan serta notifikasi/retensi; lalu simulasi migrasi satu cabang lengkap
+beserta backup, restore, dan rollback. Kegagalan di salah satu gate menghentikan cutover.
+
 ## Prasyarat produksi
 
 Pastikan kelayakan penggunaan beberapa akun Free untuk satu usaha dengan Cloudflare. Uji backup/restore per akun dan cocokkan stok, nomor pesanan, omzet, serta struk. Pindahkan satu cabang setelah shift tutup dan semua antrean HP serta koordinator kosong. Jangan biarkan deployment lama dan baru menerima penjualan cabang yang sama. Setelah transaksi pertama di tujuan, rollback bukan sekadar mengganti tujuan gateway: rekonsiliasi perubahan dulu. Belum ada resource atau kredensial akun baru yang diperlukan untuk tahap lokal.
