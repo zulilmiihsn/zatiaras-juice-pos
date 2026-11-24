@@ -5,6 +5,7 @@ import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployme
 import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
 import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
+import { createBranchStorageClient } from '../lib/server/branchStorageClient';
 
 const origin = 'https://kasir.example.test';
 const routeSecret = 'r'.repeat(32);
@@ -245,6 +246,75 @@ test('relay R2 membatasi identitas, cabang, operasi, ukuran dan kegagalan bucket
 	const failed = await request(secrets.get('berau')!, own);
 	assert.equal(failed.status, 503);
 	assert.equal(await failed.text(), '');
+});
+
+test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat relay gagal', async () => {
+	const secrets = new Map<BranchId, string>([
+		['samarinda', 's'.repeat(32)],
+		['balikpapan', 'b'.repeat(32)],
+		['berau', 'r'.repeat(32)]
+	]);
+	let stored: Uint8Array | undefined;
+	let metadata: Record<string, string> | undefined;
+	let fail = false;
+	const gateway = createBranchStorageGateway(
+		{
+			async put(_key, value, options) {
+				if (fail) throw new Error('storage down');
+				stored = value;
+				metadata = options.customMetadata;
+			},
+			async get() {
+				if (fail) throw new Error('storage down');
+				const bytes = stored;
+				return bytes
+					? {
+							body: new ReadableStream({
+								start(c) {
+									c.enqueue(bytes);
+									c.close();
+								}
+							}),
+							httpMetadata: { contentType: 'application/json' }
+						}
+					: null;
+			},
+			async delete() {
+				stored = undefined;
+			}
+		},
+		secrets
+	);
+	const client = createBranchStorageClient(
+		'berau',
+		'https://storage.test',
+		secrets.get('berau')!,
+		gateway
+	);
+	const key = 'arsip/berau/2025/arsip-berau-sebelum-2025-1234abcd.json';
+	assert.equal(await client.get(key), null);
+	await client.put(key, '{"test":true}', {
+		httpMetadata: { contentType: 'application/json' },
+		customMetadata: { branch: 'berau', sha256: '1234' }
+	});
+	assert.deepEqual(metadata, { branch: 'berau', sha256: '1234' });
+	assert.equal(await (await client.get(key))!.text(), '{"test":true}');
+	await assert.rejects(() =>
+		client.put(key, '{}', {
+			httpMetadata: { contentType: 'application/json' },
+			customMetadata: { branch: 'samarinda' }
+		})
+	);
+	await assert.rejects(() => client.get('produk/samarinda/1234.png'));
+	fail = true;
+	await assert.rejects(() => client.get(key), /sementara tidak tersedia/);
+	await assert.rejects(
+		() => client.put(key, '{}', { httpMetadata: { contentType: 'application/json' } }),
+		/sementara tidak tersedia/
+	);
+	assert.throws(() =>
+		createBranchStorageClient('berau', 'http://storage.test', secrets.get('berau')!, gateway)
+	);
 });
 
 test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie', async () => {

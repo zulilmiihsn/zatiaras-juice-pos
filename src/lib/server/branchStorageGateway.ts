@@ -12,7 +12,7 @@ interface SharedBucket {
 	put(
 		key: string,
 		value: Uint8Array,
-		options: { httpMetadata: { contentType: string } }
+		options: { httpMetadata: { contentType: string }; customMetadata?: Record<string, string> }
 	): Promise<unknown>;
 	delete(key: string): Promise<void>;
 }
@@ -74,7 +74,31 @@ export function createBranchStorageGateway(
 				request,
 				archive ? ARCHIVE_CHUNK_MAX_BYTES : PRODUCT_IMAGE_MAX_BYTES
 			);
-			await bucket.put(key, bytes, { httpMetadata: { contentType } });
+			const rawMetadata = request.headers.get('x-storage-metadata');
+			let customMetadata: Record<string, string> | undefined;
+			if (rawMetadata) {
+				if (rawMetadata.length > 4096) return new Response(null, { status: 400 });
+				let decoded: unknown;
+				try {
+					decoded = JSON.parse(rawMetadata);
+				} catch {
+					return new Response(null, { status: 400 });
+				}
+				if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded))
+					return new Response(null, { status: 400 });
+				const entries = Object.entries(decoded);
+				if (
+					entries.length > 8 ||
+					entries.some(
+						([name, value]) =>
+							!/^[a-z][a-z0-9_]{0,31}$/.test(name) || typeof value !== 'string' || value.length > 256
+					)
+				)
+					return new Response(null, { status: 400 });
+				customMetadata = Object.fromEntries(entries) as Record<string, string>;
+				if (customMetadata.branch !== branch) return new Response(null, { status: 403 });
+			}
+			await bucket.put(key, bytes, { httpMetadata: { contentType }, customMetadata });
 			return new Response(null, { status: 204 });
 		} catch (cause) {
 			if (cause instanceof RequestBodyError) return new Response(null, { status: cause.status });
