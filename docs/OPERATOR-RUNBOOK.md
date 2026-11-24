@@ -63,7 +63,42 @@ menguji di workerd disposable. Backup lama memerlukan `--expect-migration <nama.
 Durasi terakhir: 15–23 detik per shard. Target pemulihan: RTO ≤ 1 jam; RPO = data
 sejak backup terakhir.
 
-### 2.4 Restore sungguhan
+### 2.4 Persiapan pindah akun per cabang
+
+Jalankan satu cabang per giliran. D1 di akun tujuan harus tetap tidak menerima trafik kasir
+selama persiapan. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
+memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun
+memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
+melonggarkan validasi backup produksi agar menerima sembarang target.
+
+1. **Bekukan sumber cabang:** tutup shift, pastikan antrean semua HP dan koordinator kosong,
+   lalu blokir penulisan di sumber tanpa membuka tujuan untuk kasir. Catat waktu, akun dan ID
+   D1 sumber/tujuan, rute gateway aktif, serta identitas backup. Pastikan akun lain tidak ikut
+   dibekukan. Jika antrean tidak bisa diperiksa atau dikuras, hentikan cutover.
+2. **Backup dan baseline:** jalankan §1 dan §2.1. Simpan manifest, hash baseline, dan SQL
+   di luar repo. Ekspor arsip R2 yang relevan secara terpisah dan verifikasi bisa dibaca;
+   dump D1 tidak mencakup arsip maupun antrean Durable Object.
+3. **Uji restore:** jalankan §2.2 termasuk `--d1`, lalu §2.3 di akun tujuan tanpa rute kasir.
+   Cocokkan jumlah dan hash tabel, stok, buku kas, nomor pesanan, struk, serta shift tertutup.
+   Gunakan inventori D1 tujuan yang eksplisit; identifikasi ulang akun dan ID sebelum impor.
+   Jangan lanjut jika target sementara, manifest, arsip, atau paritas belum terverifikasi.
+4. **Satu penulis:** baru setelah tujuan lolos, arahkan gateway cabang ke tujuan dan buka
+   penulisan hanya di sana. Pastikan jalur langsung maupun lama tidak bisa menerima jualan
+   untuk cabang yang sama. Simpan bukti penjualan pertama dan pastikan penyimpanan struk serta
+   sinkronisasi D1 bekerja sebelum memindah cabang berikutnya.
+
+**Rollback sebelum ada penulisan bisnis di tujuan:** tutup akses tulis tujuan dan buktikan
+antrean koordinator tujuan kosong serta tidak ada perubahan bisnis sejak baseline. Kembalikan
+rute ke sumber, verifikasi login dan stok, lalu buka penulisan sumber. Jangan membuka dua sisi.
+
+**Rollback setelah ada penulisan bisnis di tujuan atau statusnya belum pasti:** jangan sekadar
+mengganti rute atau memulihkan dump lama. Bekukan kedua sisi, simpan bukti dan backup tujuan,
+kuras antrean jika aman, lalu rekonsiliasi transaksi, stok, shift, nomor pesanan, struk, dan
+arsip sejak cutover. Uji pemulihan perubahan itu pada salinan dan verifikasi idempotensi sebelum
+membuka satu sisi saja. Jika paritas belum terbukti, pertahankan penutupan dan eskalasi. Jangan
+melepas pagar database atau mereset Durable Object untuk memaksa rollback.
+
+### 2.5 Restore sungguhan
 
 Destruktif. Hanya dengan persetujuan pemilik untuk target yang disebut eksplisit:
 
