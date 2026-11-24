@@ -1,6 +1,7 @@
 import type { BranchId } from './branchResolver';
 import { bodyErrorResponse, readJsonBody, RequestBodyError } from './requestBody';
 import { constantTimeEqual } from './secureCompare';
+import { extractBranchFromProductImageKey, isPublicProductImageKey } from './r2ObjectPolicy';
 
 const ROUTE_COOKIE = '__Host-zatiaras_branch';
 const RELAY_KEY = 'x-zatiaras-relay-key';
@@ -121,7 +122,16 @@ export function createBranchIngress(options: IngressOptions) {
 
 		let branch: BranchId;
 		let proxied: Request;
-		if (login) {
+		if (request.method === 'GET' && url.pathname === '/api/upload') {
+			const key = url.searchParams.get('key');
+			if (!isPublicProductImageKey(key)) return new Response(null, { status: 404 });
+			const target = extractBranchFromProductImageKey(key);
+			if (!target || !routes.has(target as BranchId)) return new Response(null, { status: 404 });
+			branch = target as BranchId;
+			// Public images do not need cookies, origin credentials, or alternate query fields.
+			url.search = new URLSearchParams({ key }).toString();
+			proxied = new Request(url, { method: 'GET', signal: request.signal });
+		} else if (login) {
 			let body: unknown;
 			try {
 				body = await readJsonBody(incoming, LOGIN_BODY_LIMIT);

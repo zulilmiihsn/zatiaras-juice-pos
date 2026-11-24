@@ -51,6 +51,10 @@ function fixture() {
 			assert.equal(internal.headers.get('x-zatiaras-relay-key'), null);
 			assert.equal(internal.headers.get('x-zatiaras-relay-branch'), null);
 			assert.equal(new URL(internal.url).origin, origin);
+			if (url.pathname === '/api/upload' && request.method === 'GET') {
+				assert.equal(internal.headers.get('cookie'), null);
+				assert.equal(internal.headers.get('authorization'), null);
+			}
 			if (outages.has(branch)) throw new Error('Backend offline');
 			if (url.pathname === '/api/veriflogin') {
 				assert.equal(internal.headers.get('origin'), origin);
@@ -116,6 +120,31 @@ test('satu origin mengikat rute pada sesi dan mempertahankan cookie, path, serta
 		401
 	);
 	assert.deepEqual(called, ['berau', 'berau']);
+});
+
+test('gambar publik hanya dirutekan lewat key bercabang; jalur arsip dan tulis tetap butuh sesi', async () => {
+	const { handle, called } = fixture();
+	const image = (key: string, init?: RequestInit) =>
+		handle(
+			new Request(`${origin}/api/upload?${new URLSearchParams({ key, branch: 'samarinda' })}`, init)
+		);
+	const valid = await image('produk/berau/1234.webp', {
+		headers: { cookie: 'fixture', authorization: 'fixture' }
+	});
+	assert.equal(valid.status, 200);
+	const data = await valid.json();
+	assert.equal(data.branch, 'berau');
+	assert.deepEqual([...new URL(data.url).searchParams], [['key', 'produk/berau/1234.webp']]);
+	for (const key of [
+		'arsip/berau/data.json',
+		'produk/1234.webp',
+		'produk/berau/../abcd.webp',
+		'produk/unknown/1234.webp'
+	])
+		assert.equal((await image(key)).status, 404);
+	assert.equal((await image('produk/berau/1234.webp', { method: 'POST' })).status, 401);
+	assert.equal((await handle(new Request(`${origin}/api/archive/download`))).status, 401);
+	assert.deepEqual(called, ['berau']);
 });
 
 test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie', async () => {

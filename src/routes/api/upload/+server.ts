@@ -24,6 +24,11 @@ export async function GET({ url, platform }) {
 		return json({ error: 'Not found' }, { status: 404 });
 	}
 
+	if (
+		platform?.env?.BRANCH_ACCOUNT_MODE === 'backend' &&
+		extractBranchFromProductImageKey(key) !== platform.env.BRANCH_ACCOUNT_IDENTITY
+	)
+		return json({ error: 'Not found' }, { status: 404 });
 	const object = await bucket.get(key);
 	if (!object) {
 		return json({ error: 'Not found' }, { status: 404 });

@@ -1,4 +1,5 @@
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
+import type { BranchId } from '$lib/server/branchResolver';
 
 declare global {
 	// Diisi vite.config.ts (define) dari version di package.json.
@@ -26,6 +27,8 @@ declare global {
 				DB_BALIKPAPAN_GROUP?: D1Database;
 				DB_BERAU_GROUP?: D1Database;
 				STORAGE?: R2Bucket;
+				BRANCH_ACCOUNT_MODE?: 'gateway' | 'backend';
+				BRANCH_ACCOUNT_IDENTITY?: BranchId;
 				// DurableObjectNamespace dibiarkan longgar: tipe Cloudflare-nya menyeret
 				// signature fetch/Request CF yang bentrok dengan DOM Request di publisher.
 				REALTIME_HUB?: {

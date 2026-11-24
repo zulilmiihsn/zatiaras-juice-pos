@@ -55,6 +55,7 @@ await test('branch staging gateway has no data bindings and backends are account
 	const configs = buildBranchStagingConfigs(input);
 	assert.equal(configs.gateway.d1_databases, undefined);
 	assert.equal(configs.gateway.durable_objects, undefined);
+	assert.equal(configs.gateway.r2_buckets, undefined);
 	assert.equal(configs.gateway.triggers, undefined);
 	for (const branch of branches) {
 		const config = configs.backends[branch];
@@ -65,6 +66,7 @@ await test('branch staging gateway has no data bindings and backends are account
 		);
 		assert.equal(config.vars.KIOSK_PROJECTION_BRANCHES, branch);
 		assert.equal(config.triggers, undefined);
+		assert.equal(config.r2_buckets, undefined);
 		assert.equal(
 			config.vars.BRANCH_PUBLIC_ORIGIN,
 			'https://zpos-gateway-staging.samarinda.workers.dev'
@@ -87,6 +89,15 @@ await test('branch staging gateway has no data bindings and backends are account
 			}),
 		/akun backend berbeda/
 	);
+	const withBucket = (bucketName) =>
+		buildBranchStagingConfigs({
+			...input,
+			backends: { ...backends, berau: { ...backends.berau, bucketName } }
+		});
+	assert.deepEqual(withBucket('zpos-berau-assets-staging').backends.berau.r2_buckets, [
+		{ binding: 'STORAGE', bucket_name: 'zpos-berau-assets-staging' }
+	]);
+	assert.throws(() => withBucket('zatiaras-assets'), /bucket R2 staging tidak valid/);
 	assert.throws(
 		() =>
 			buildBranchStagingConfigs({ ...input, gateway: { ...input.gateway, name: 'zatiaraspos' } }),

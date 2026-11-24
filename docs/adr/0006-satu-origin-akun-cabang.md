@@ -88,6 +88,11 @@ Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum melulu
   tetap; rekonsiliasi referensi `archive_jobs.object_key` dan katalog sebelum cutover.
   Untuk gambar publik, hanya rutekan GET dengan key gambar yang lolos kebijakan yang sudah
   ada. Pisahkan pemeriksaan ini dari akses unduh arsip, yang tetap membutuhkan sesi cabang.
+  Staging menerima `backends.<cabang>.bucketName` opsional dengan nama tepat
+  `zpos-<cabang>-assets-staging`. Deploy memeriksa bucket yang sudah ada di akun terkait,
+  bukan membuatnya. Gambar dengan key lama `produk/<id>.<ext>` tidak memiliki identitas
+  cabang dan tidak dirutekan; inventarisasi, salin ke key bercabang dan perbarui referensinya
+  sebelum live. Jangan memilih bucket fallback untuk key lama.
 - **Laporan:** `GET /api/reports/aggregate` mengakses satu `BranchContext`; pemilik biasa
   tidak dapat meminta cabang berbeda dari sesi. `admin` dapat melewati pemeriksaan itu,
   tetapi backend tetap tidak memiliki binding cabang lain. Pertahankan kontrak laporan

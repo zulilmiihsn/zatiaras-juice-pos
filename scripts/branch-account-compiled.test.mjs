@@ -162,6 +162,7 @@ try {
 					name: branch,
 					routes: [backendOrigin(branch) + '/*'],
 					d1Databases: { [dbBinding(branch)]: randomUUID() },
+					r2Buckets: { STORAGE: `assets-${branch}` },
 					durableObjects: { REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true } },
 					bindings: {
 						...shared,
@@ -197,6 +198,13 @@ try {
 	for (const branch of branches) {
 		if (branch === 'berau') unavailableBackend = '';
 		const { db } = await seed(branch, passwordHash, migrations);
+		const key = `produk/${branch}/1234.webp`;
+		const bucket = await runtime.getR2Bucket('STORAGE', branch);
+		await bucket.put(key, branch, { httpMetadata: { contentType: 'image/webp' } });
+		const image = await browserCaller().fetch(`/api/upload?${new URLSearchParams({ key })}`);
+		assert.equal(image.status, 200);
+		assert.equal(image.headers.get('content-type'), 'image/webp');
+		assert.equal(await image.text(), branch);
 		assert.equal((await runtime.dispatchFetch(backendOrigin(branch) + '/login')).status, 401);
 		const browser = browserCaller();
 		const anonymous = await browser.fetch('/api/perangkat-kasir');
@@ -296,6 +304,15 @@ try {
 				.first('stok'),
 			4
 		);
+		const day = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		const report = await owner.fetch(`/api/reports/aggregate?start_date=${day}&end_date=${day}`);
+		assert.equal(report.status, 200);
+		assert.equal((await report.json()).summary.pendapatan, 10000);
+		const wrongReport = await owner.fetch(
+			`/api/reports/aggregate?branch=${other}&start_date=${day}&end_date=${day}`
+		);
+		assert.equal(wrongReport.status, 403);
+		await wrongReport.body?.cancel();
 		console.log(`branch-account-compiled: ${branch} login, struk, shift dan D1 cocok`);
 	}
 } finally {

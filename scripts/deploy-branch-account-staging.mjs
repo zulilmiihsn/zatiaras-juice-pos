@@ -71,6 +71,7 @@ try {
 	for (const branch of branches) {
 		const config = configs.backends[branch];
 		const [db] = config.d1_databases;
+		const bucket = config.r2_buckets?.[0]?.bucket_name;
 		if (db.database_name !== `zpos-${branch}-staging` || prod.includes(db.database_id))
 			throw new Error(`${branch}: target D1 bukan staging khusus`);
 		const response = await fetch(
@@ -87,6 +88,17 @@ try {
 			throw new Error(
 				`${branch}: identitas D1 staging tidak terverifikasi (HTTP ${response.status})`
 			);
+		if (bucket) {
+			const r2 = await fetch(
+				`https://api.cloudflare.com/client/v4/accounts/${config.account_id}/r2/buckets/${bucket}`,
+				{
+					headers: { authorization: `Bearer ${tokens[branch]}` },
+					signal: AbortSignal.timeout(12000)
+				}
+			);
+			if (!r2.ok || (await r2.json()).result?.name !== bucket)
+				throw new Error(`${branch}: identitas R2 staging tidak terverifikasi (HTTP ${r2.status})`);
+		}
 	}
 	if (
 		configs.gateway.name !== 'zpos-gateway-staging' ||

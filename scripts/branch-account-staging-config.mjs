@@ -52,6 +52,11 @@ export function buildBranchStagingConfigs({ gateway, backends, main, publicAsset
 	for (const [index, branch] of branches.entries()) {
 		const target = targets[index];
 		const config = common(target, 'backend');
+		if (target.bucketName !== undefined) {
+			if (target.bucketName !== `zpos-${branch}-assets-staging`)
+				throw new Error(`${branch}: bucket R2 staging tidak valid`);
+			config.r2_buckets = [{ binding: 'STORAGE', bucket_name: target.bucketName }];
+		}
 		config.observability = { enabled: true, logs: { enabled: true, invocation_logs: false } };
 		Object.assign(config.vars, {
 			BRANCH_ACCOUNT_IDENTITY: branch,
