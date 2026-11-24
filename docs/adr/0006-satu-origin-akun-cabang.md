@@ -79,12 +79,39 @@ Audit kode dan konfigurasi, bukan bukti smoke produksi. Hasil ini **belum melulu
   tiga shard dari konfigurasi lama dan belum diuji untuk tiga akun. Backup produksi baru dan
   restore drill dengan baseline terverifikasi tetap wajib menjelang cutover.
 
+### Keputusan R2 bersama akun Samarinda
+
+Pemilik menerima bahwa R2 menjadi sumber kegagalan dan pemakaian bersama; database D1
+cabang tetap di akun masing-masing. R2 bersama **belum diterapkan**. Gunakan satu Worker
+penyimpanan internal di akun Samarinda, dengan binding ke bucket privat; gateway kasir tetap
+bebas binding data. Worker backend tiap cabang memanggil boundary penyimpanan lewat koneksi
+terautentikasi dan kredensial berbeda per cabang. Layanan penyimpanan menentukan identitas
+cabang dari kredensial, bukan parameter atau nama key yang diberikan pemanggil.
+
+Operasi hanya `get`, `put`, dan `delete` yang diperlukan aplikasi. Batasi key gambar ke
+`produk/<cabang>/...` sesuai `r2ObjectPolicy.ts`; batasi key arsip ke bentuk kanonik
+`arsip/<cabang>/<tahun>/...` yang dihasilkan `archiveSnapshot.ts`. Dilarang `list`, key
+legacy tanpa cabang, namespace lain, dan akses antar-cabang. Relay tidak menerima URL tujuan
+arbitrer. Backend tetap memeriksa auth pengguna sebelum mengunduh arsip atau mengubah objek;
+akses gambar anonim terbatas ke format gambar publik dan cabang pada key. Batasi ukuran
+request dan jaga streaming, metadata MIME, serta hasil readback arsip. Jika R2 atau relay
+mati, arsip tidak boleh menghapus ledger dan transaksi kasir yang sudah sah tetap sah.
+
+Untuk staging, buat bucket khusus sintetis di akun Samarinda saja setelah verifikasi nama,
+akun, izin dan kondisi billing. Jangan memberi akses worker uji ke bucket produksi. Uji
+isolasi antar-cabang, spoof/replay, objek hilang, R2 gagal/tidak cocok saat readback, stream
+terputus, serta archive/restore dengan D1 dan Workerd; bersihkan hanya objek dan resource uji
+yang identitasnya terverifikasi. Key lama tanpa cabang memerlukan inventaris dan migrasi
+referensi terpisah sebelum cutover, bukan fallback yang melemahkan isolasi. Pantau biaya dan
+pemakaian agregat seluruh cabang; jatah Free bukan batas otomatis dan tanpa mekanisme batas
+keras yang terbukti tidak ada jaminan tagihan nol.
+
 ### Verifikasi lanjutan dan rancangan perbaikan
 
 - **R2:** menambah binding saja belum cukup. `GET /api/upload?key=...` melayani gambar
   katalog publik, tetapi ingress tanpa sesi hanya menyediakan login, CSRF, dan aset build.
-  Gunakan bucket privat dan binding `STORAGE` pada backend tiap cabang jika R2 tersedia
-  dalam batas biaya yang disetujui. Migrasikan objek dengan key, checksum, dan metadata
+  Gunakan boundary penyimpanan bersama yang dijelaskan di atas, tanpa memberikan binding
+  bucket produksi langsung kepada backend di akun lain. Migrasikan objek dengan key, checksum, dan metadata
   tetap; rekonsiliasi referensi `archive_jobs.object_key` dan katalog sebelum cutover.
   Untuk gambar publik, hanya rutekan GET dengan key gambar yang lolos kebijakan yang sudah
   ada. Pisahkan pemeriksaan ini dari akses unduh arsip, yang tetap membutuhkan sesi cabang.
