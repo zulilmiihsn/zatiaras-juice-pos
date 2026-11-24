@@ -4,6 +4,7 @@ import { acceptBranchRelay, createBranchIngress } from '../lib/server/branchIngr
 import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployment';
 import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
+import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
 
 const origin = 'https://kasir.example.test';
 const routeSecret = 'r'.repeat(32);
@@ -168,6 +169,82 @@ test('penyimpanan bersama hanya menerima key gambar dan arsip milik cabang', () 
 			assert.equal(isBranchStorageKey(branch, key), false, key);
 	}
 	assert.equal(isBranchStorageKey('samarinda', 'produk/berau/1234.webp'), false);
+});
+
+test('relay R2 membatasi identitas, cabang, operasi, ukuran dan kegagalan bucket', async () => {
+	const secrets = new Map<BranchId, string>([
+		['samarinda', 's'.repeat(32)],
+		['balikpapan', 'b'.repeat(32)],
+		['berau', 'r'.repeat(32)]
+	]);
+	let value: Uint8Array | undefined;
+	let fail = false;
+	const handle = createBranchStorageGateway(
+		{
+			async put(_key, bytes) {
+				if (fail) throw new Error('secret');
+				value = bytes;
+			},
+			async get() {
+				if (fail) throw new Error('secret');
+				return value
+					? {
+							body: new ReadableStream({
+								start(c) {
+									c.enqueue(value!);
+									c.close();
+								}
+							}),
+							httpMetadata: { contentType: 'image/png' }
+						}
+					: null;
+			},
+			async delete() {
+				value = undefined;
+			}
+		},
+		secrets
+	);
+	const request = (
+		secret: string,
+		key: string,
+		method = 'GET',
+		body?: Uint8Array,
+		contentType = 'image/png'
+	) =>
+		handle(
+			new Request(`https://storage.test/object?${new URLSearchParams({ key })}`, {
+				method,
+				headers: { 'x-storage-secret': secret, 'content-type': contentType },
+				body: body ? new Uint8Array(body).buffer : undefined
+			})
+		);
+	const own = 'produk/berau/1234.png';
+	assert.equal((await request('invalid', own)).status, 401);
+	assert.equal((await request(secrets.get('samarinda')!, own)).status, 404);
+	assert.equal((await request(secrets.get('berau')!, own, 'PUT', new Uint8Array([1]))).status, 204);
+	assert.deepEqual(
+		[...new Uint8Array(await (await request(secrets.get('berau')!, own)).arrayBuffer())],
+		[1]
+	);
+	assert.equal(
+		(await request(secrets.get('berau')!, own, 'PUT', new Uint8Array(5 * 1024 * 1024 + 1))).status,
+		413
+	);
+	assert.equal(
+		(
+			await request(
+				secrets.get('berau')!,
+				'arsip/berau/2025/arsip-berau-sebelum-2025-1234abcd.json',
+				'DELETE'
+			)
+		).status,
+		403
+	);
+	fail = true;
+	const failed = await request(secrets.get('berau')!, own);
+	assert.equal(failed.status, 503);
+	assert.equal(await failed.text(), '');
 });
 
 test('rute yang gagal tidak diteruskan ke cabang lain dan tidak membuat cookie', async () => {
