@@ -30,6 +30,10 @@ on:
         description: Uji isolasi branch-account-staging tanpa deploy ulang
         type: boolean
         default: false
+      branch_restore:
+        description: Uji backup dan restore branch-account-staging ke D1 sementara
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
@@ -49,8 +53,10 @@ jobs:
         env:
           RELEASE_TARGET: ${{ inputs.target }}
           BRANCH_SMOKE: ${{ inputs.branch_smoke }}
+          BRANCH_RESTORE: ${{ inputs.branch_restore }}
         run: |
-          if [[ "$BRANCH_SMOKE" == true ]]; then
+          if [[ "$BRANCH_SMOKE" == true && "$BRANCH_RESTORE" == true ]]; then exit 1; fi
+          if [[ "$BRANCH_SMOKE" == true || "$BRANCH_RESTORE" == true ]]; then
             [[ "$RELEASE_TARGET" == branch-account-staging && "$RELEASE_SOURCE_REF" == release/branch-account-staging && "$GITHUB_REF" == refs/heads/release/branch-account-staging ]] || exit 1
           fi
           [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
@@ -146,7 +152,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -169,6 +175,15 @@ jobs:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/smoke-branch-account-staging.mjs --restore
+
+      - name: Drill backup and restore on temporary staging D1
+        if: inputs.target == 'branch-account-staging' && inputs.branch_restore
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/drill-branch-account-staging.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
