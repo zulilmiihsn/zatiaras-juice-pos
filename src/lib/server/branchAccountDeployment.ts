@@ -16,8 +16,12 @@ export function readBranchAccountDeployment(env: Record<string, unknown>) {
 	if (env.BRANCH_ACCOUNT_MODE === 'gateway') {
 		if (bound.length || env.REALTIME_HUB || env.STORAGE)
 			throw new Error('Gateway tidak boleh memiliki binding data cabang');
+		const state = env.BRANCH_CUTOVER_STATE;
+		if (state !== undefined && state !== 'paused' && state !== 'open')
+			throw new Error('Status peralihan cabang tidak valid');
 		return {
 			mode: 'gateway',
+			paused: state === 'paused',
 			publicOrigin,
 			routeSecret: required(env, 'BRANCH_ROUTE_SECRET'),
 			backends: new Map(

@@ -31,13 +31,14 @@ const loginRequest = (branch: string) =>
 		body: JSON.stringify({ branch, username: 'kasir', password: 'uji' })
 	});
 
-function fixture() {
+function fixture(paused = false) {
 	const called: string[] = [];
 	const outages = new Set<BranchId>();
 	const handle = createBranchIngress({
 		origin,
 		backends,
 		routeSecret,
+		paused,
 		sessionCookie,
 		servePublic: async () => reply(),
 		forward: async (request) => {
@@ -79,6 +80,22 @@ function fixture() {
 	});
 	return { handle, called, outages };
 }
+
+test('mode jeda menutup akses ketiga cabang sebelum menyentuh backend', async () => {
+	const { handle, called } = fixture(true);
+	for (const branch of ['samarinda', 'balikpapan', 'berau']) {
+		const response = await handle(loginRequest(branch));
+		assert.equal(response.status, 503);
+		assert.equal(response.headers.get('cache-control'), 'no-store');
+		assert.equal(response.headers.has('set-cookie'), false);
+	}
+	assert.equal(
+		(await handle(new Request(`${origin}/operasional?/sale`, { method: 'POST' }))).status,
+		503
+	);
+	assert.equal((await handle(new Request(`${origin}/login`))).status, 503);
+	assert.deepEqual(called, []);
+});
 
 test('satu origin mengikat rute pada sesi dan mempertahankan cookie, path, serta body', async () => {
 	const { handle, called } = fixture();
@@ -404,6 +421,15 @@ test('konfigurasi gagal tertutup bila gateway atau backend membawa binding caban
 		)
 	);
 	assert.equal(readBranchAccountDeployment(gatewayWithRoutes).mode, 'gateway');
+	const paused = readBranchAccountDeployment({
+		...gatewayWithRoutes,
+		BRANCH_CUTOVER_STATE: 'paused'
+	});
+	assert.equal(paused.mode === 'gateway' && paused.paused, true);
+	assert.throws(
+		() => readBranchAccountDeployment({ ...gatewayWithRoutes, BRANCH_CUTOVER_STATE: 'unexpected' }),
+		/Status peralihan/
+	);
 	assert.throws(
 		() => readBranchAccountDeployment({ ...gatewayWithRoutes, DB_SAMARINDA_GROUP: {} }),
 		/gateway tidak boleh/i

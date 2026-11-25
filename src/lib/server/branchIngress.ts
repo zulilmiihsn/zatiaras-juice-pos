@@ -17,6 +17,7 @@ interface IngressOptions {
 	origin: string;
 	backends: ReadonlyMap<BranchId, Backend>;
 	routeSecret: string;
+	paused?: boolean;
 	sessionCookie: string;
 	servePublic: (request: Request) => Promise<Response>;
 	forward?: (request: Request) => Promise<Response>;
@@ -110,6 +111,14 @@ export function createBranchIngress(options: IngressOptions) {
 	return async (request: Request) => {
 		const url = new URL(request.url);
 		if (url.origin !== origin) return new Response(null, { status: 421 });
+		if (options.paused)
+			return Response.json(
+				{ success: false, message: 'Kasir sedang dalam pemeliharaan' },
+				{
+					status: 503,
+					headers: { 'cache-control': 'no-store', 'retry-after': '60' }
+				}
+			);
 		const headers = new Headers(request.headers);
 		headers.delete(RELAY_KEY);
 		headers.delete(RELAY_BRANCH);

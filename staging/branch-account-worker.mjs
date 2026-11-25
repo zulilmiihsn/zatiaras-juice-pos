@@ -57,6 +57,7 @@ export default {
 		try {
 			ingress = createBranchIngress({
 				origin: deployment.publicOrigin,
+				paused: deployment.paused,
 				backends: deployment.backends,
 				routeSecret: deployment.routeSecret,
 				sessionCookie: SESSION_COOKIE,
