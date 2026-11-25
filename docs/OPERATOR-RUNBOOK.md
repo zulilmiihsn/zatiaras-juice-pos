@@ -66,7 +66,12 @@ sejak backup terakhir.
 ### 2.4 Persiapan pindah akun per cabang
 
 Jalankan satu cabang per giliran. D1 di akun tujuan harus tetap tidak menerima trafik kasir
-selama persiapan. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
+selama persiapan. Mode `branch_production_d1_prepare=true` pada workflow **Deploy** target
+`branch-account-staging` hanya menyiapkan tujuan kosong `zatiaraspos-samarinda`,
+`zatiaraspos-balikpapan`, dan `zatiaraspos-berau` di akun yang diverifikasi via inventori.
+Mode itu tidak memasang binding, mengimpor data, menjalankan migrasi, atau memindahkan URL.
+Jika izin atau slot Free gagal, hentikan dan periksa inventori; jangan hapus database lain
+untuk memberi ruang. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
 memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun
 memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
 melonggarkan validasi backup produksi agar menerima sembarang target.
