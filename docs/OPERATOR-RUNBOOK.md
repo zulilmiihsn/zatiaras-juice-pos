@@ -113,7 +113,11 @@ Jangan jalankan latihan ini melalui gateway kasir yang sedang melayani transaksi
 
 - **Bukti lokal:** `pnpm test:shift-workerd` mensimulasikan batas D1, membuktikan rollback
   menolak antrean yang belum terproyeksi, lalu memverifikasi sinkronisasi dan pembukaan
-  kembali jalur lama di Workerd. Ini bukan bukti pemindahan data antara dua deployment.
+  kembali jalur lama di Workerd. `pnpm test:branch-account-compiled` juga memakai tiga D1
+  disposable untuk latihan Balikpapan: pagar di sumber, replay snapshot ke backend tujuan,
+  satu transaksi melalui gateway, antrean kosong, lalu paritas snapshot tujuan pada salinan
+  rollback sebelum jalur lama dibuka di salinan saja. Ini latihan lokal, bukan bukti
+  perpindahan rute atau backup produksi di Cloudflare.
 - **Bukti live yang masih diperlukan:** uji satu cabang pada resource sementara dari backup
   dan baseline awal. Setelah aktivasi tujuan, buktikan sumber tidak menerima penjualan;
   kirim satu transaksi sintetis dua kali di tujuan, tutup shift, dan verifikasi D1, stok, struk,

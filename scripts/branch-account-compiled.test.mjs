@@ -4,12 +4,19 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import bcrypt from 'bcryptjs';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { snapshotBuiltAssets } from './test-fixtures/compiled-browser.mjs';
 import { wranglerInvocation } from './wrangler-cli.mjs';
+import {
+	assertDrillParity,
+	captureDrillParity,
+	copyToD1,
+	drillIdentifier
+} from './restore-drill-local.mjs';
 
 const branches = ['samarinda', 'balikpapan', 'berau'];
 const publicOrigin = 'https://kasir.branch.test';
@@ -62,27 +69,71 @@ async function buildWorker(entry) {
 	return join(out, `${entry.split('.')[0]}.js`);
 }
 
+function d1Adapter(db) {
+	return { all: async (sql) => (await db.prepare(sql).all()).results };
+}
+
+/** Mirrors the staging export/replay assertions on synthetic, local D1 only. */
+async function restoreOwnedSnapshot(source, target) {
+	const adapter = d1Adapter(source);
+	const before = await captureDrillParity(adapter);
+	const snapshot = new DatabaseSync(':memory:', { enableForeignKeyConstraints: false });
+	try {
+		const objects = await adapter.all(
+			"SELECT type,name,sql FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' ORDER BY type,name"
+		);
+		for (const type of ['table', 'index'])
+			for (const object of objects.filter((o) => o.type === type)) snapshot.exec(object.sql);
+		for (const table of Object.keys(before)) {
+			const identifier = drillIdentifier(table);
+			const columns = snapshot
+				.prepare(`PRAGMA table_info(${identifier})`)
+				.all()
+				.map((c) => c.name);
+			const insert = snapshot.prepare(
+				`INSERT INTO ${identifier} (${columns.map(drillIdentifier).join(',')}) VALUES (${columns.map(() => '?').join(',')})`
+			);
+			for (const row of await adapter.all(`SELECT * FROM ${identifier}`))
+				insert.run(...columns.map((column) => row[column]));
+		}
+		for (const object of objects.filter((o) => o.type === 'trigger')) snapshot.exec(object.sql);
+		assert.equal(snapshot.prepare('PRAGMA foreign_key_check').all().length, 0);
+		await copyToD1(snapshot, target);
+		assertDrillParity(before, await captureDrillParity(d1Adapter(target)));
+	} finally {
+		snapshot.close();
+	}
+}
+
 async function seed(branch, passwordHash, migrations) {
 	const db = await runtime.getD1Database(dbBinding(branch), branch);
-	for (const schema of migrations) await db.batch(schema.map((sql) => db.prepare(sql)));
-	await db
+	const source =
+		branch === 'balikpapan'
+			? await runtime.getD1Database('LEGACY_FIXTURE', 'cutover-fixtures')
+			: db;
+	for (const schema of migrations) await source.batch(schema.map((sql) => source.prepare(sql)));
+	await source
 		.prepare(
 			"INSERT INTO profil (id,cabang_id,username,password,role) VALUES(?,?,'kasir',?,'kasir')"
 		)
 		.bind(`${branch}-cashier`, branch, passwordHash)
 		.run();
-	await db
+	await source
 		.prepare(
 			"INSERT INTO produk (id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES('juice',?,'Jus Uji',10000,5,1,0,1)"
 		)
 		.bind(branch)
 		.run();
-	await db
+	await source
 		.prepare(
 			"INSERT INTO profil (id,cabang_id,username,password,role) VALUES(?,?,'pemilik',?,'pemilik')"
 		)
 		.bind(`${branch}-owner`, branch, passwordHash)
 		.run();
+	if (source !== db) {
+		await source.prepare('INSERT INTO kiosk_shift_cutover(cabang_id) VALUES(?)').bind(branch).run();
+		await restoreOwnedSnapshot(source, db);
+	}
 	const namespace = await runtime.getDurableObjectNamespace('REALTIME_HUB', branch);
 	const hub = namespace.get(namespace.idFromName(`cashier:${branch}`));
 	const project = (action) =>
@@ -93,7 +144,7 @@ async function seed(branch, passwordHash, migrations) {
 	const activation = await project('activate-production');
 	assert.equal(activation.status, 200, `${branch}: aktivasi fixture`);
 	assert.deepEqual(await activation.json(), { ok: true, status: 'initialized' });
-	return { db };
+	return { db, source };
 }
 
 function browserCaller() {
@@ -189,6 +240,11 @@ try {
 						])
 					)
 				},
+				{
+					...common,
+					name: 'cutover-fixtures',
+					d1Databases: { LEGACY_FIXTURE: randomUUID(), ROLLBACK_FIXTURE: randomUUID() }
+				},
 				...branches.map((branch) => ({
 					...common,
 					name: branch,
@@ -246,7 +302,7 @@ try {
 			});
 		assert.equal((await boot()).status, 204);
 		assert.equal((await boot()).status, 204);
-		const { db } = await seed(branch, passwordHash, migrations);
+		const { db, source } = await seed(branch, passwordHash, migrations);
 		const key = `produk/${branch}/1234.webp`;
 		const bucket = await runtime.getR2Bucket('STORAGE', 'storage');
 		await bucket.put(key, branch, { httpMetadata: { contentType: 'image/webp' } });
@@ -363,6 +419,53 @@ try {
 		);
 		assert.equal(wrongReport.status, 403);
 		await wrongReport.body?.cancel();
+		if (source !== db) {
+			const legacyOpen = (target) =>
+				target
+					.prepare(
+						"INSERT INTO sesi_toko(id,cabang_id,waktu_buka,kas_awal,is_active) VALUES('legacy-reopened',?,'2026-01-01T00:00:00Z',0,1)"
+					)
+					.bind(branch)
+					.run();
+			await assert.rejects(() => legacyOpen(source), /KIOS_CUTOVER_PAUSED/);
+			await assert.rejects(() => legacyOpen(db), /KIOS_CUTOVER_PAUSED/);
+			const [coordinator, rollback] = await Promise.all([
+				owner.fetch('/api/perangkat-kasir'),
+				runtime.getD1Database('ROLLBACK_FIXTURE', 'cutover-fixtures')
+			]);
+			assert.equal(coordinator.status, 200);
+			assert.deepEqual(await coordinator.json(), { shift: 'closed', pending: 0, paused: false });
+			await restoreOwnedSnapshot(db, rollback);
+			const readLedger = (target) =>
+				target
+					.prepare(
+						'SELECT nominal,receipt_snapshot,nomor_harian FROM buku_kas WHERE cabang_id=? AND id_sesi_toko=?'
+					)
+					.bind(branch, shiftId)
+					.all();
+			const [original, restored, legacy] = await Promise.all([
+				readLedger(db),
+				readLedger(rollback),
+				readLedger(source)
+			]);
+			assert.equal(original.results.length, 1);
+			assert.equal(original.results[0].nominal, 10000);
+			assert.ok(original.results[0].receipt_snapshot);
+			assert.ok(original.results[0].nomor_harian > 0);
+			assert.deepEqual(restored.results, original.results);
+			assert.deepEqual(legacy.results, []);
+			// Reopen only the verified rollback copy. Both other local D1s remain fenced.
+			await rollback
+				.prepare('DELETE FROM kiosk_shift_cutover WHERE cabang_id=?')
+				.bind(branch)
+				.run();
+			await legacyOpen(rollback);
+			await assert.rejects(() => legacyOpen(db), /KIOS_CUTOVER_PAUSED/);
+			await assert.rejects(() => legacyOpen(source), /KIOS_CUTOVER_PAUSED/);
+			console.log(
+				'cutover-fixtures: Balikpapan export/replay ulang menyimpan transaksi, struk, nomor pesanan, dan stok'
+			);
+		}
 		const oldId = 'archive-shared-fixture';
 		await db
 			.prepare(
