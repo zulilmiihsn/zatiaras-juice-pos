@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
 import { snapshotBuiltAssets } from './test-fixtures/compiled-browser.mjs';
-import { wranglerInvocation } from './wrangler-cli.mjs';
+import { wrangler } from './deploy-branch-worker-cli.mjs';
 
 if (process.env.GITHUB_ACTIONS !== 'true')
 	throw new Error('Deploy staging lintas akun hanya melalui workflow GitHub');
@@ -23,43 +22,6 @@ if (Object.values(tokens).some((token) => !token))
 	throw new Error('Token akun staging belum lengkap');
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const temporary = await mkdtemp(join(tmpdir(), 'zpos-branch-deploy-'));
-
-function wrangler(name, config, token, args, input) {
-	const run = wranglerInvocation([...args, '--config', config]);
-	// Only the credential of the current deployment crosses the subprocess boundary.
-	const env = Object.fromEntries(
-		Object.entries(process.env).filter(([name]) =>
-			/^(PATH|HOME|USERPROFILE|SYSTEMROOT|WINDIR|TEMP|TMP|TMPDIR|APPDATA|LOCALAPPDATA)$/i.test(name)
-		)
-	);
-	const result = spawnSync(run.command, run.args, {
-		...run.options,
-		env: {
-			...env,
-			CLOUDFLARE_API_TOKEN: token,
-			WRANGLER_SEND_METRICS: 'false',
-			WRANGLER_WRITE_LOGS: 'false'
-		},
-		input,
-		timeout: 90_000
-	});
-	if (result.error || result.status !== 0) {
-		// Secret upload receives derived values on stdin; never include its CLI output in logs.
-		const details =
-			input === undefined
-				? (result.stderr ?? '')
-						.replaceAll(token, '[REDACTED]')
-						.replaceAll('\u001b', '')
-						.replace(/https?:\/\/[^\s)\]"']+/g, '[URL]')
-						.replaceAll('\r', '')
-						.trim()
-						.slice(-1800)
-				: '';
-		throw new Error(
-			`${name}: Wrangler ${args.join(' ')} gagal (${result.error?.code ?? result.status})${details ? `\n${details}` : ''}`
-		);
-	}
-}
 
 try {
 	const publicAssets = join(temporary, 'assets');
