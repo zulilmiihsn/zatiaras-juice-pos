@@ -46,6 +46,10 @@ on:
         description: Uji gambar dan arsip sintetis pada R2 bersama staging
         type: boolean
         default: false
+      branch_maintenance_check:
+        description: Verifikasi eksekusi maintenance lewat log staging (baca saja)
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
@@ -69,9 +73,10 @@ jobs:
           BRANCH_R2_CHECK: ${{ inputs.branch_r2_check }}
           BRANCH_R2_PREPARE: ${{ inputs.branch_r2_prepare }}
           BRANCH_R2_SMOKE: ${{ inputs.branch_r2_smoke }}
+          BRANCH_MAINTENANCE_CHECK: ${{ inputs.branch_maintenance_check }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
           if (( branch_modes > 1 )); then exit 1; fi
@@ -171,7 +176,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -228,6 +233,15 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/smoke-shared-r2-staging.mjs
+
+      - name: Verify live branch maintenance execution
+        if: inputs.target == 'branch-account-staging' && inputs.branch_maintenance_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/check-branch-maintenance-staging.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
