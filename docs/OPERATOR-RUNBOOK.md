@@ -63,23 +63,30 @@ menguji di workerd disposable. Backup lama memerlukan `--expect-migration <nama.
 Durasi terakhir: 15–23 detik per shard. Target pemulihan: RTO ≤ 1 jam; RPO = data
 sejak backup terakhir.
 
-### 2.4 Persiapan pindah akun per cabang
+### 2.4 Persiapan cutover tiga cabang dalam satu jendela
 
-Jalankan satu cabang per giliran. D1 di akun tujuan harus tetap tidak menerima trafik kasir
-selama persiapan. Mode `branch_production_d1_prepare=true` pada workflow **Deploy** target
+Pengujian boleh bertahap, tetapi produksi tidak memakai pilot. Samarinda, Balikpapan, dan Berau
+beralih dalam satu jendela dan dibuka bersama setelah seluruh pemeriksaan lulus. D1 tujuan tidak
+menerima trafik kasir selama persiapan. Mode `branch_production_d1_prepare=true` pada workflow **Deploy** target
 `branch-account-staging` hanya menyiapkan tujuan kosong `zatiaraspos-samarinda`,
 `zatiaraspos-balikpapan`, dan `zatiaraspos-berau` di akun yang diverifikasi via inventori.
 Mode itu tidak memasang binding, mengimpor data, menjalankan migrasi, atau memindahkan URL.
+`branch_production_d1_check=true` memeriksa ulang ketiganya tanpa membuat database baru.
+Siapkan kandidat gateway untuk URL produksi yang sama dengan `BRANCH_CUTOVER_STATE=paused`;
+kandidat tidak boleh dipromosikan ke trafik live sebelum jendela disepakati. Gate ini menolak
+trafik gateway baru, bukan pengganti penguncian jalur penulisan lama.
 Jika izin atau slot Free gagal, hentikan dan periksa inventori; jangan hapus database lain
 untuk memberi ruang. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
 memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun
 memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
 melonggarkan validasi backup produksi agar menerima sembarang target.
 
-1. **Bekukan sumber cabang:** tutup shift, pastikan antrean semua HP dan koordinator kosong,
-   lalu blokir penulisan di sumber tanpa membuka tujuan untuk kasir. Catat waktu, akun dan ID
-   D1 sumber/tujuan, rute gateway aktif, serta identitas backup. Pastikan akun lain tidak ikut
-   dibekukan. Jika antrean tidak bisa diperiksa atau dikuras, hentikan cutover.
+1. **Bekukan ketiga sumber:** hentikan penerimaan transaksi baru, selesaikan shift dan kuras
+   antrean koordinator serta setiap HP. Cocokkan penjualan dari POS sementara secara terpisah;
+   jangan impor ulang tanpa memeriksa duplikasi. Setelah itu blokir penulisan pada semua jalur
+   lama, termasuk endpoint dan pekerjaan terjadwal yang bisa menghasilkan transaksi. Catat
+   waktu, akun dan ID D1 sumber/tujuan, rute aktif, serta identitas backup. Hentikan cutover
+   jika satu cabang masih menerima penulisan atau tidak bisa membuktikan antrean kosong.
 2. **Backup dan baseline:** jalankan §1 dan §2.1. Simpan manifest, hash baseline, dan SQL
    di luar repo. Ekspor arsip R2 yang relevan secara terpisah dan verifikasi bisa dibaca;
    dump D1 tidak mencakup arsip maupun antrean Durable Object.
@@ -87,10 +94,12 @@ melonggarkan validasi backup produksi agar menerima sembarang target.
    Cocokkan jumlah dan hash tabel, stok, buku kas, nomor pesanan, struk, serta shift tertutup.
    Gunakan inventori D1 tujuan yang eksplisit; identifikasi ulang akun dan ID sebelum impor.
    Jangan lanjut jika target sementara, manifest, arsip, atau paritas belum terverifikasi.
-4. **Satu penulis:** baru setelah tujuan lolos, arahkan gateway cabang ke tujuan dan buka
-   penulisan hanya di sana. Pastikan jalur langsung maupun lama tidak bisa menerima jualan
-   untuk cabang yang sama. Simpan bukti penjualan pertama dan pastikan penyimpanan struk serta
-   sinkronisasi D1 bekerja sebelum memindah cabang berikutnya.
+4. **Satu penulis, satu pelepasan:** pasang seluruh tujuan pada gateway dalam keadaan jeda,
+   verifikasi rute dan backend yang tepat untuk ketiga cabang, lalu buka gateway sekaligus hanya
+   jika semuanya lulus. Pastikan jalur langsung maupun lama tak bisa menerima penjualan.
+   Observasi versi aktif dari URL produksi dan simpan bukti penjualan, struk, stok, dan
+   sinkronisasi D1 pertama tiap cabang. Bila pemeriksaan gagal, pertahankan jeda; jangan buka
+   sebagian cabang.
 
 **Rollback sebelum ada penulisan bisnis di tujuan:** tutup akses tulis tujuan dan buktikan
 antrean koordinator tujuan kosong serta tidak ada perubahan bisnis sejak baseline. Kembalikan

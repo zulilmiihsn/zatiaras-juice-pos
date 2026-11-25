@@ -14,6 +14,7 @@ const live = await readFile('wrangler.pages.jsonc', 'utf8');
 const stagingIds = Object.values(backends).map((config) => config.d1_databases[0].database_id);
 const maxFreeDatabases = 10;
 const targets = [];
+const checkOnly = process.argv.includes('--check-only');
 
 function client(branch, config) {
 	const token = process.env[`BRANCH_CF_TOKEN_${branch.toUpperCase()}`];
@@ -92,16 +93,22 @@ for (const [branch, config] of Object.entries(backends)) {
 		assertDestination(existing, name);
 		await assertEmpty(read, existing, name);
 	} else {
+		assert.ok(!checkOnly, `${branch}: D1 tujuan ${name} belum tersedia`);
 		assert.ok(count < maxFreeDatabases, `${branch}: tidak ada slot D1 Free`);
 	}
 	targets.push({ branch, read, name, existing });
 }
 
 for (const { branch, read, name, existing } of targets) {
-	const db = existing ?? (await read('', { name })).result;
-	assertDestination(db, name);
-	await assertEmpty(read, db, name);
+	if (!existing) {
+		assert.ok(!checkOnly);
+		const created = (await read('', { name })).result;
+		assertDestination(created, name);
+		await assertEmpty(read, created, name);
+	}
 	console.log(
-		`${branch}: D1 kosong ${name} terverifikasi (${existing ? 'sudah ada' : 'baru dibuat'}); tanpa binding trafik`
+		`${branch}: D1 kosong ${name} terverifikasi (${existing ? 'sudah ada' : 'baru dibuat'})`
 	);
 }
+if (checkOnly)
+	console.log('Preflight tujuan lulus untuk semua cabang; tidak ada data atau rute yang diubah.');
