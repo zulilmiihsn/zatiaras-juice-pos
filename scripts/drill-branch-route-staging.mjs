@@ -94,12 +94,22 @@ async function deploy(resource, step) {
 		);
 }
 async function verify(resource, expected) {
+	const observations = new Set();
 	for (const delay of [0, 1000, 2000, 4000, 8000, 16000]) {
 		if (delay) await sleep(delay);
 		const response = await fetch(`${resource.origin}/probe`, {
 			redirect: 'manual',
 			signal: AbortSignal.timeout(8_000)
 		});
+		const step = response.headers.get('x-zpos-drill-step');
+		const upstream = response.headers.get('x-zpos-drill-upstream');
+		observations.add(
+			[
+				response.status,
+				/^(source|target|paused|cross-account|local)$/.test(step ?? '') ? step : '-',
+				/^(\d{3}|unexpected|fetch-failed)$/.test(upstream ?? '') ? upstream : '-'
+			].join('/')
+		);
 		if (response.status === (expected === 'paused' ? 503 : 200)) {
 			const body = await response.json().catch(() => null);
 			if (body?.from === expected) return;
@@ -107,7 +117,9 @@ async function verify(resource, expected) {
 			await response.body?.cancel();
 		}
 	}
-	throw new Error(`${resource.name}: respons fixture ${expected} tidak terverifikasi`);
+	throw new Error(
+		`${resource.name}: respons fixture ${expected} tidak terverifikasi; HTTP/step/upstream: ${[...observations].join(', ')}`
+	);
 }
 
 const failures = [];
