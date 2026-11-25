@@ -118,6 +118,10 @@ Jangan jalankan latihan ini melalui gateway kasir yang sedang melayani transaksi
   satu transaksi melalui gateway, antrean kosong, lalu paritas snapshot tujuan pada salinan
   rollback sebelum jalur lama dibuka di salinan saja. Ini latihan lokal, bukan bukti
   perpindahan rute atau backup produksi di Cloudflare.
+- **Latihan rute live:** mode `branch_route_drill=true` memindahkan satu gateway khusus
+  latihan dari service binding lokal ke backend lintas akun dan kembali lagi. Fase jeda
+  harus teramati dari URL latihan yang sama. Worker sementara tidak punya D1, R2, atau sesi
+  pengguna, dan dibersihkan setelah latihan. Hasil ini membuktikan rute, bukan migrasi data.
 - **Bukti live yang masih diperlukan:** uji satu cabang pada resource sementara dari backup
   dan baseline awal. Setelah aktivasi tujuan, buktikan sumber tidak menerima penjualan;
   kirim satu transaksi sintetis dua kali di tujuan, tutup shift, dan verifikasi D1, stok, struk,
