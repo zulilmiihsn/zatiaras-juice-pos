@@ -427,6 +427,15 @@ test('konfigurasi gagal tertutup bila gateway atau backend membawa binding caban
 	});
 	assert.equal(paused.mode === 'gateway' && paused.paused, true);
 	assert.throws(
+		() =>
+			readBranchAccountDeployment({
+				...gatewayWithRoutes,
+				BRANCH_PRODUCTION_CANDIDATE: 'yes',
+				BRANCH_CUTOVER_STATE: 'open'
+			}),
+		/Kandidat produksi wajib tetap dijeda/
+	);
+	assert.throws(
 		() => readBranchAccountDeployment({ ...gatewayWithRoutes, BRANCH_CUTOVER_STATE: 'unexpected' }),
 		/Status peralihan/
 	);

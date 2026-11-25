@@ -72,9 +72,13 @@ menerima trafik kasir selama persiapan. Mode `branch_production_d1_prepare=true`
 `zatiaraspos-balikpapan`, dan `zatiaraspos-berau` di akun yang diverifikasi via inventori.
 Mode itu tidak memasang binding, mengimpor data, menjalankan migrasi, atau memindahkan URL.
 `branch_production_d1_check=true` memeriksa ulang ketiganya tanpa membuat database baru.
-Siapkan kandidat gateway untuk URL produksi yang sama dengan `BRANCH_CUTOVER_STATE=paused`;
-kandidat tidak boleh dipromosikan ke trafik live sebelum jendela disepakati. Gate ini menolak
-trafik gateway baru, bukan pengganti penguncian jalur penulisan lama.
+Gunakan `branch_production_candidate=true` untuk menyiapkan tiga backend dan gateway kandidat
+pada hostname `workers.dev` khusus, tanpa route produksi. Mode ini memerlukan secret khusus
+`BRANCH_PRODUCTION_PREP_KEY` (32 byte acak dalam hex), hanya menerima D1 tujuan kosong, dan
+menguji penolakan trafik sebelum menyatakan kandidat siap. Tidak ada binding R2 produksi atau
+alarm pemeliharaan di tahap ini. Kandidat wajib `BRANCH_CUTOVER_STATE=paused` dan tidak bisa
+langsung dibuka lewat konfigurasi kandidat. Pemasangan gateway pada URL kasir produksi yang
+sama adalah pekerjaan cutover terpisah; jeda kandidat bukan pengganti penguncian jalur lama.
 Jika izin atau slot Free gagal, hentikan dan periksa inventori; jangan hapus database lain
 untuk memberi ruang. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
 memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun

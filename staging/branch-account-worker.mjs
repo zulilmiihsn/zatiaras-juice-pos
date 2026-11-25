@@ -39,6 +39,11 @@ export default {
 			}
 			const accepted = acceptBranchRelay(request, deployment);
 			if (!accepted) return new Response(null, { status: 401 });
+			if (deployment.candidate)
+				return new Response(null, {
+					status: 503,
+					headers: { 'cache-control': 'no-store', 'x-zpos-candidate': 'paused' }
+				});
 			let backendEnv;
 			try {
 				backendEnv = withBranchStorage(env, deployment.branch);

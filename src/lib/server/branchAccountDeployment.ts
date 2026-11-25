@@ -12,6 +12,9 @@ function required(env: Record<string, unknown>, key: string) {
 /** Reject accidental shared resources instead of silently operating with weaker isolation. */
 export function readBranchAccountDeployment(env: Record<string, unknown>) {
 	const publicOrigin = required(env, 'BRANCH_PUBLIC_ORIGIN');
+	const candidate = env.BRANCH_PRODUCTION_CANDIDATE === 'yes';
+	if (candidate && env.BRANCH_CUTOVER_STATE !== 'paused')
+		throw new Error('Kandidat produksi wajib tetap dijeda');
 	const bound = bindings.filter((name) => env[name] != null);
 	if (env.BRANCH_ACCOUNT_MODE === 'gateway') {
 		if (bound.length || env.REALTIME_HUB || env.STORAGE)
@@ -44,6 +47,7 @@ export function readBranchAccountDeployment(env: Record<string, unknown>) {
 			throw new Error('Backend hanya boleh memakai D1 dan koordinator cabangnya sendiri');
 		return {
 			mode: 'backend',
+			candidate,
 			publicOrigin,
 			branch,
 			secret: required(env, 'BRANCH_RELAY_SECRET')

@@ -9,6 +9,7 @@ import {
 } from './staging.mjs';
 
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
+import { buildBranchProductionCandidateConfigs } from './branch-production-candidate-config.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const production = ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc'].map(read);
@@ -133,6 +134,59 @@ await test('branch staging gateway has no data bindings and backends are account
 			buildBranchStagingConfigs({ ...input, gateway: { ...input.gateway, name: 'zatiaraspos' } }),
 		/staging tidak valid/
 	);
+});
+
+await test('production candidates remain paused and never bind active or staging resources', () => {
+	const names = ['samarinda', 'balikpapan', 'berau'];
+	const id = (n) => `${String(n).repeat(8)}-1111-4111-8111-111111111111`;
+	const backends = Object.fromEntries(
+		names.map((branch, i) => [
+			branch,
+			{
+				name: `zpos-${branch}-staging`,
+				subdomain: branch,
+				accountId: String(i + 1).repeat(32),
+				databaseId: id(i + 1)
+			}
+		])
+	);
+	const destinations = Object.fromEntries(
+		names.map((branch, i) => [branch, { name: `zatiaraspos-${branch}`, id: id(i + 4) }])
+	);
+	const input = {
+		inventory: { gateway: { ...backends.samarinda, name: 'zpos-gateway-staging' }, backends },
+		destinations,
+		main: 'fixture',
+		publicAssets: 'fixture',
+		liveConfig: production.join('\n')
+	};
+	const { gateway, backends: configs } = buildBranchProductionCandidateConfigs(input);
+	assert.equal(gateway.vars.BRANCH_CUTOVER_STATE, 'paused');
+	assert.equal(gateway.vars.BRANCH_PRODUCTION_CANDIDATE, 'yes');
+	assert.equal(gateway.routes, undefined);
+	assert.equal(gateway.d1_databases, undefined);
+	for (const branch of names) {
+		const worker = configs[branch];
+		assert.deepEqual(
+			worker.d1_databases.map(({ database_id }) => database_id),
+			[destinations[branch].id]
+		);
+		assert.equal(worker.account_id, backends[branch].accountId);
+		assert.equal(worker.vars.BRANCH_CUTOVER_STATE, 'paused');
+		assert.equal(worker.r2_buckets, undefined);
+		assert.equal(worker.triggers, undefined);
+		assert.equal(worker.routes, undefined);
+	}
+	for (const unsafeId of [backends.berau.databaseId, ...productionIds]) {
+		assert.throws(
+			() =>
+				buildBranchProductionCandidateConfigs({
+					...input,
+					destinations: { ...destinations, berau: { ...destinations.berau, id: unsafeId } }
+				}),
+			/D1 kandidat bukan tujuan produksi terpisah/
+		);
+	}
 });
 
 await test('every staging config binds all three shards', () => {
