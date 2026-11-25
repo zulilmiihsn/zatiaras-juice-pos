@@ -76,6 +76,21 @@ async function verifyPaused(label, origin) {
 	throw new Error(`Pages preview ${label} belum terverifikasi: ${[...observations].join(', ')}`);
 }
 
+const visibilityDelays = [0, 2000, 4000, 8000, 16000, 30000];
+async function findProject() {
+	for (const delay of visibilityDelays) {
+		if (delay) await sleep(delay);
+		const current = await api(`/${name}`);
+		if (!current) continue;
+		assert.ok(
+			current.name === name && current.production_branch === productionBranch,
+			'Identitas project fixture tidak cocok'
+		);
+		return current;
+	}
+	return null;
+}
+
 let started = false;
 const failures = [];
 try {
@@ -116,14 +131,32 @@ try {
 	started = true;
 	const created = await api('', 'POST', { name, production_branch: productionBranch });
 	assert.ok(created.name === name && created.production_branch === productionBranch);
-	wranglerPages(name, dir, token, gateway.account_id, [
-		'deploy',
-		'public',
-		'--project-name',
-		name,
-		'--branch',
-		previewBranch
-	]);
+	assert.ok(await findProject(), 'Project Pages belum terlihat setelah dibuat');
+	let uploadError;
+	for (const delay of visibilityDelays) {
+		if (delay) await sleep(delay);
+		try {
+			wranglerPages(name, dir, token, gateway.account_id, [
+				'deploy',
+				'public',
+				'--project-name',
+				name,
+				'--branch',
+				previewBranch
+			]);
+			uploadError = undefined;
+			break;
+		} catch (error) {
+			// A missing project means no upload happened; other failures may have created a deployment.
+			if (
+				!(error instanceof Error) ||
+				!error.message.includes(`The Pages project "${name}" does not exist.`)
+			)
+				throw error;
+			uploadError = error;
+		}
+	}
+	if (uploadError) throw uploadError;
 	const list = await api(`/${name}/deployments?env=preview&per_page=2`);
 	const deployment = list.find(
 		(entry) =>
@@ -164,13 +197,22 @@ try {
 } finally {
 	if (started) {
 		try {
-			const current = await api(`/${name}`);
+			const current = await findProject();
 			if (current) {
 				assert.ok(
 					current.name === name && current.production_branch === productionBranch,
 					'Identitas project tidak cocok untuk cleanup'
 				);
 				await api(`/${name}`, 'DELETE');
+				let removed = false;
+				for (const delay of visibilityDelays) {
+					if (delay) await sleep(delay);
+					if (!(await api(`/${name}`))) {
+						removed = true;
+						break;
+					}
+				}
+				assert.ok(removed, 'Penghapusan project Pages belum terverifikasi');
 				console.log('Project Pages fixture dibersihkan');
 			}
 		} catch (error) {
