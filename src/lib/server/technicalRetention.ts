@@ -69,7 +69,7 @@ export async function cleanLocalRegistryDevices(
 	now: number,
 	budget: AuditBudget
 ): Promise<number> {
-	if (branch !== 'samarinda' || budget.remaining <= 0) return 0;
+	if (budget.remaining <= 0) return 0;
 	budget.remaining--;
 	budget.used++;
 	try {

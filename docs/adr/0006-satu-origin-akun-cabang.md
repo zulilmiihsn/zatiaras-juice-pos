@@ -159,7 +159,10 @@ keras yang terbukti tidak ada jaminan tagihan nol.
   tidak aktif, termasuk jika kunci VAPID tersedia: perlu desain pencabutan langganan lintas
   akun agar perangkat yang pindah tidak menerima notifikasi cabang lama. Saat cutover, sesi dan
   pengiriman lama tetap harus dinonaktifkan melalui prosedur operator; mode baru tidak mencabut
-  langganan lama di akun tetangga.
+  langganan lama di akun tetangga. Eksekutor maintenance lama kini mendukung mode satu cabang:
+  audit outbox, retensi teknis, dan tombstone perangkat hanya dibaca/ditulis di cabang backend.
+  Penyaringan cabang tetap ada di setiap operasi, dan scheduler produksi lama tidak berubah.
+  Pemicu otomatis untuk backend staging belum disambungkan.
 - **Backup:** pertahankan validasi ketat alat lama. Perluas input inventori untuk
   memverifikasi identitas akun dan D1 per cabang dengan kredensial terbatas; gunakan ulang
   verifikasi manifest, checksum, dan drill restore. Drill staging menguji paritas struktur

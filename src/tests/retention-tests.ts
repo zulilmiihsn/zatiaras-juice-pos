@@ -354,6 +354,46 @@ await test('bounded technical retention preserves exact cutoff, active reference
 		await f.close();
 	}
 });
+await test('backend maintenance only drains and retains its own branch, including its local notification registry', async () => {
+	const f = await fixture();
+	try {
+		const env = { ...f.env, BRANCH_ACCOUNT_MODE: 'backend', BRANCH_ACCOUNT_IDENTITY: 'balikpapan' };
+		await enqueue(f.bal, 'local-audit', 'balikpapan');
+		await enqueue(f.bal, 'foreign-audit', 'berau');
+		await enqueue(f.sam, 'other-database-audit', 'samarinda');
+		for (const [id, branch] of [
+			['local-dead', 'balikpapan'],
+			['foreign-dead', 'berau']
+		]) {
+			await f.bal
+				.prepare(
+					`INSERT INTO antrean_notification_devices
+				(device_id,token_hash,cabang_id,user_id,session_id,context_id,active,sound_enabled,expires_at,baseline_cursor,seen_cursor,delivered_cursor,dispatch_cursor,updated_at)
+				VALUES(?,'hash',?,'operator','session','context',0,1,?,0,0,0,0,?)`
+				)
+				.bind(id, branch, OLD_MS, OLD_MS)
+				.run();
+		}
+		await assert.rejects(() =>
+			worker.scheduled(
+				{ cron: '0 3 * * *', scheduledTime: NOW },
+				{ ...env, BRANCH_ACCOUNT_IDENTITY: 'unknown' }
+			)
+		);
+		assert.equal(await count(f.bal, 'audit_log_outbox'), 2);
+		const result = await worker.scheduled({ cron: '0 3 * * *', scheduledTime: NOW }, env);
+		assert.equal(result?.missingBindings, 0);
+		assert.equal(result?.delivered, 1);
+		assert.equal(await count(f.bal, 'audit_logs', "id='local-audit'"), 1);
+		assert.equal(await count(f.bal, 'audit_log_outbox', "id='foreign-audit'"), 1);
+		assert.equal(await count(f.sam, 'audit_log_outbox'), 1);
+		assert.equal(await count(f.bal, 'antrean_notification_devices', "device_id='local-dead'"), 0);
+		assert.equal(await count(f.bal, 'antrean_notification_devices', "device_id='foreign-dead'"), 1);
+	} finally {
+		await f.close();
+	}
+});
+
 await test('minute audit recovery bypasses an entire failed quota without running daily retention', async () => {
 	const f = await fixture();
 	try {

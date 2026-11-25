@@ -1,5 +1,11 @@
 import { dispatchOrderNotifications } from './orderNotifications/delivery';
-import { BRANCH_GROUPS, branchContext, getD1Database } from './branchResolver';
+import {
+	BRANCH_GROUPS,
+	branchContext,
+	getBranchDbBinding,
+	getD1Database,
+	normalizeBranch
+} from './branchResolver';
 import { drainAuditOutbox } from './auditDrain';
 import { cleanTechnicalRows, cleanLocalRegistryDevices } from './technicalRetention';
 import { drainConfiguredKioskBranch } from './scheduledKioskProjection';
@@ -34,7 +40,14 @@ export default {
 	async scheduled(event, env) {
 		const now = event.scheduledTime ?? Date.now();
 		if (!Number.isFinite(now) || ![DAILY_CRON, MINUTE_CRON].includes(event.cron ?? '')) return;
-		for (const branch of Object.values(BRANCH_GROUPS).flat()) {
+		const localBranch =
+			env.BRANCH_ACCOUNT_MODE === 'backend' ? normalizeBranch(env.BRANCH_ACCOUNT_IDENTITY) : null;
+		/** @type {[string, readonly import('./branchResolver').BranchId[]][]} */
+		const groups = localBranch
+			? [[getBranchDbBinding(localBranch), [localBranch]]]
+			: Object.entries(BRANCH_GROUPS);
+		// In branch mode the cashier alarm owns projection and background Web Push stays disabled.
+		for (const branch of localBranch ? [] : Object.values(BRANCH_GROUPS).flat()) {
 			if (event.cron === MINUTE_CRON) await drainConfiguredKioskBranch(env, branch);
 			try {
 				await dispatchOrderNotifications(env, branchContext(branch), { now });
@@ -76,7 +89,7 @@ export default {
 			foreignRegistryTombstonesHeld: true
 		};
 		// Rotating both shard and sibling order prevents a bounded poisoned head from owning every tick.
-		for (const [binding, group] of rotate(Object.entries(BRANCH_GROUPS), turn)) {
+		for (const [binding, group] of rotate(groups, turn)) {
 			const branches = rotate(group, turn);
 			let db;
 			try {
@@ -107,7 +120,7 @@ export default {
 						now,
 						retentionBudget
 					);
-					if (binding === 'DB_SAMARINDA_GROUP')
+					if (localBranch || binding === 'DB_SAMARINDA_GROUP')
 						report.deleted += await cleanLocalRegistryDevices(
 							db,
 							branchContext(branch),
