@@ -2,7 +2,15 @@ import { spawnSync } from 'node:child_process';
 import { wranglerInvocation } from './wrangler-cli.mjs';
 
 export function wrangler(name, config, token, args, input) {
-	const run = wranglerInvocation([...args, '--config', config]);
+	return runWrangler(name, token, [...args, '--config', config], input);
+}
+
+export function wranglerPages(name, cwd, token, args) {
+	return runWrangler(name, token, ['pages', ...args, '--cwd', cwd]);
+}
+
+function runWrangler(name, token, args, input) {
+	const run = wranglerInvocation(args);
 	// Only the credential of the current deployment crosses the subprocess boundary.
 	const env = Object.fromEntries(
 		Object.entries(process.env).filter(([name]) =>

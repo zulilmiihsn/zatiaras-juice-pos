@@ -3,7 +3,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
-import { wrangler } from './deploy-branch-worker-cli.mjs';
+import { wrangler, wranglerPages } from './deploy-branch-worker-cli.mjs';
 
 const { GITHUB_ACTIONS, GITHUB_REF, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, RUNNER_TEMP } = process.env;
 assert.equal(GITHUB_ACTIONS, 'true');
@@ -88,8 +88,7 @@ try {
 	started = true;
 	const created = await api('', 'POST', { name, production_branch: productionBranch });
 	assert.ok(created.name === name && created.production_branch === productionBranch);
-	wrangler(name, deployConfig, token, [
-		'pages',
+	wranglerPages(name, dir, token, [
 		'deploy',
 		publicFiles,
 		'--project-name',
