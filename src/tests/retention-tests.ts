@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import worker from '../lib/server/realtimeWorker.js';
+import { BranchMaintenanceAlarm } from '../lib/server/branchMaintenanceAlarm';
 import { createTestD1 } from './helpers/testD1';
 import { flushAuditLogOutbox as flushCanonicalOutbox } from '../lib/server/auditLog';
 import { RETENTION_ROWS_PER_TABLE } from '../lib/server/technicalRetention';
@@ -390,6 +391,67 @@ await test('backend maintenance only drains and retains its own branch, includin
 		assert.equal(await count(f.bal, 'antrean_notification_devices', "device_id='local-dead'"), 0);
 		assert.equal(await count(f.bal, 'antrean_notification_devices', "device_id='foreign-dead'"), 1);
 	} finally {
+		await f.close();
+	}
+});
+
+await test('maintenance alarm arms once, re-arms on tick, and only runs daily cleanup once per day', async () => {
+	const f = await fixture();
+	const originalNow = Date.now;
+	let now = NOW;
+	let next: number | null = null;
+	const data = new Map<string, unknown>();
+	const HOUR = 3_600_000;
+	const alarm = new BranchMaintenanceAlarm(
+		{
+			storage: {
+				async get<T>(key: string) {
+					return data.get(key) as T | undefined;
+				},
+				async put<T>(key: string, value: T) {
+					data.set(key, value);
+				},
+				async getAlarm() {
+					return next;
+				},
+				async setAlarm(time: number | Date) {
+					next = Number(time);
+				}
+			}
+		},
+		{ ...f.env, BRANCH_ACCOUNT_MODE: 'backend', BRANCH_ACCOUNT_IDENTITY: 'balikpapan' }
+	);
+	const start = () =>
+		alarm.fetch(new Request('https://maintenance.internal/start', { method: 'POST' }));
+	try {
+		Date.now = () => now;
+		assert.equal((await start()).status, 204);
+		assert.equal(next, NOW + HOUR);
+		now += HOUR;
+		assert.equal((await start()).status, 204);
+		assert.equal(next, now);
+		const oldError = () =>
+			f.bal
+				.prepare(
+					"INSERT INTO error_events(id,cabang_id,source,message,created_at) VALUES('old','balikpapan','owned','old',?)"
+				)
+				.bind(OLD)
+				.run();
+		await oldError();
+		await alarm.alarm();
+		assert.equal(next, now + HOUR);
+		assert.equal(await count(f.bal, 'error_events'), 0);
+		await oldError();
+		await enqueue(f.bal, 'hourly', 'balikpapan');
+		now += HOUR;
+		await alarm.alarm();
+		assert.equal(await count(f.bal, 'error_events'), 1);
+		assert.equal(await count(f.bal, 'audit_logs', "id='hourly'"), 1);
+		now += 24 * HOUR;
+		await alarm.alarm();
+		assert.equal(await count(f.bal, 'error_events'), 0);
+	} finally {
+		Date.now = originalNow;
 		await f.close();
 	}
 });

@@ -144,8 +144,19 @@ try {
 		await deploy(branch, configs.backends[branch], tokens[branch], {
 			...(configs.storage ? { BRANCH_STORAGE_SECRET: derive(`storage:${branch}`) } : {}),
 			BRANCH_RELAY_SECRET: derive(`relay:${branch}`),
+			BRANCH_MAINTENANCE_SECRET: derive(`maintenance:${branch}`),
 			POS_PRICE_SIGNING_KEY: derive(`price:${branch}`)
 		});
+		const origin = configs.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
+		const started = await fetch(new URL('/internal/maintenance/start', origin), {
+			method: 'POST',
+			redirect: 'manual',
+			headers: { 'x-maintenance-secret': derive(`maintenance:${branch}`) },
+			signal: AbortSignal.timeout(12000)
+		});
+		if (started.status !== 204)
+			throw new Error(`${branch}: alarm maintenance belum aktif (HTTP ${started.status})`);
+		console.log(`${branch}: alarm maintenance staging aktif`);
 	}
 	await deploy('gateway', configs.gateway, tokens.samarinda, {
 		BRANCH_ROUTE_SECRET: derive('route'),

@@ -162,7 +162,11 @@ keras yang terbukti tidak ada jaminan tagihan nol.
   langganan lama di akun tetangga. Eksekutor maintenance lama kini mendukung mode satu cabang:
   audit outbox, retensi teknis, dan tombstone perangkat hanya dibaca/ditulis di cabang backend.
   Penyaringan cabang tetap ada di setiap operasi, dan scheduler produksi lama tidak berubah.
-  Pemicu otomatis untuk backend staging belum disambungkan.
+  Deploy backend staging mengaktifkan alarm DO pemeliharaan lewat endpoint yang hanya menerima
+  secret terpisah per cabang. Alarm menguras audit tiap jam dan menilai retensi teknis sekali
+  per hari operasional mulai 03.00 UTC, tanpa menambah Cron atau memakai alarm kasir.
+  Deploy gagal tertutup bila alarm tidak berhasil diaktifkan; pengulangan tidak menunda alarm
+  yang sudah dipasang.
 - **Backup:** pertahankan validasi ketat alat lama. Perluas input inventori untuk
   memverifikasi identitas akun dan D1 per cabang dengan kredensial terbatas; gunakan ulang
   verifikasi manifest, checksum, dan drill restore. Drill staging menguji paritas struktur

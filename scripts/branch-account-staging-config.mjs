@@ -79,9 +79,15 @@ export function buildBranchStagingConfigs({
 			}
 		];
 		config.durable_objects = {
-			bindings: [{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' }]
+			bindings: [
+				{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' },
+				{ name: 'BRANCH_MAINTENANCE', class_name: 'BranchMaintenanceAlarm' }
+			]
 		};
-		config.migrations = [{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] }];
+		config.migrations = [
+			{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] },
+			{ tag: 'v2', new_sqlite_classes: ['BranchMaintenanceAlarm'] }
+		];
 		backendConfigs[branch] = config;
 	}
 	let storage;

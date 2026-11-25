@@ -114,6 +114,7 @@ export function createBranchIngress(options: IngressOptions) {
 		headers.delete(RELAY_KEY);
 		headers.delete(RELAY_BRANCH);
 		headers.delete(RELAY_CLIENT_IP);
+		headers.delete('x-maintenance-secret');
 		headers.delete('host');
 		const incoming = new Request(request, { headers });
 		const login = request.method === 'POST' && url.pathname === LOGIN_PATH;

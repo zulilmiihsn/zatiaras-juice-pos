@@ -4,6 +4,8 @@ import { createBranchIngress, acceptBranchRelay } from '../src/lib/server/branch
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
 import { SESSION_COOKIE } from '../src/lib/server/sessionStore.ts';
 import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
+import { constantTimeEqual } from '../src/lib/server/secureCompare.ts';
+export { BranchMaintenanceAlarm } from '../src/lib/server/branchMaintenanceAlarm.ts';
 export { RealtimeDurableObject } from '../src/lib/server/cashierRealtimeHub.ts';
 
 const isPublicAsset = (path) =>
@@ -21,6 +23,20 @@ export default {
 			return new Response('Konfigurasi aplikasi cabang belum siap', { status: 503 });
 		}
 		if (deployment.mode === 'backend') {
+			if (new URL(request.url).pathname === '/internal/maintenance/start') {
+				const secret = env.BRANCH_MAINTENANCE_SECRET;
+				if (
+					request.method !== 'POST' ||
+					typeof secret !== 'string' ||
+					secret.length < 32 ||
+					!constantTimeEqual(request.headers.get('x-maintenance-secret') ?? '', secret)
+				)
+					return new Response(null, { status: 404 });
+				if (!env.BRANCH_MAINTENANCE) return new Response(null, { status: 503 });
+				return env.BRANCH_MAINTENANCE.get(
+					env.BRANCH_MAINTENANCE.idFromName(deployment.branch)
+				).fetch(new Request('https://maintenance.internal/start', { method: 'POST' }));
+			}
 			const accepted = acceptBranchRelay(request, deployment);
 			if (!accepted) return new Response(null, { status: 401 });
 			let backendEnv;

@@ -16,6 +16,7 @@ const publicOrigin = 'https://kasir.branch.test';
 const backendOrigin = (branch) => `https://${branch}.branch.test`;
 const storageOrigin = 'https://storage.branch.test';
 const secret = () => randomBytes(32).toString('hex');
+const maintenanceSecret = secret();
 const storageKeys = Object.fromEntries(branches.map((branch) => [branch, secret()]));
 const relayKeys = Object.fromEntries(branches.map((branch) => [branch, secret()]));
 const dbBinding = (branch) => `DB_${branch.toUpperCase()}_GROUP`;
@@ -196,11 +197,15 @@ try {
 					...(branch === 'samarinda'
 						? { serviceBindings: { BRANCH_STORAGE_LOCAL: sendToStorage } }
 						: { outboundService: sendToStorage }),
-					durableObjects: { REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true } },
+					durableObjects: {
+						REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true },
+						BRANCH_MAINTENANCE: { className: 'BranchMaintenanceAlarm', useSQLite: true }
+					},
 					bindings: {
 						...shared,
 						BRANCH_ACCOUNT_MODE: 'backend',
 						BRANCH_ACCOUNT_IDENTITY: branch,
+						BRANCH_MAINTENANCE_SECRET: maintenanceSecret,
 						BRANCH_STORAGE_ORIGIN: storageOrigin,
 						BRANCH_STORAGE_SECRET: storageKeys[branch],
 						BRANCH_RELAY_SECRET: relayKeys[branch],
@@ -232,6 +237,15 @@ try {
 	await asset.body?.cancel();
 	for (const branch of branches) {
 		if (branch === 'berau') unavailableBackend = '';
+		const maintenance = backendOrigin(branch) + '/internal/maintenance/start';
+		assert.equal((await runtime.dispatchFetch(maintenance, { method: 'POST' })).status, 404);
+		const boot = () =>
+			runtime.dispatchFetch(maintenance, {
+				method: 'POST',
+				headers: { 'x-maintenance-secret': maintenanceSecret }
+			});
+		assert.equal((await boot()).status, 204);
+		assert.equal((await boot()).status, 204);
 		const { db } = await seed(branch, passwordHash, migrations);
 		const key = `produk/${branch}/1234.webp`;
 		const bucket = await runtime.getR2Bucket('STORAGE', 'storage');
