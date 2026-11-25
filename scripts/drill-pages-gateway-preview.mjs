@@ -78,8 +78,7 @@ try {
 		deployConfig,
 		JSON.stringify({
 			name,
-			account_id: gateway.account_id,
-			pages_build_output_dir: publicFiles,
+			pages_build_output_dir: 'public',
 			compatibility_date: '2026-06-29',
 			compatibility_flags: ['nodejs_compat']
 		}),
@@ -88,9 +87,9 @@ try {
 	started = true;
 	const created = await api('', 'POST', { name, production_branch: productionBranch });
 	assert.ok(created.name === name && created.production_branch === productionBranch);
-	wranglerPages(name, dir, token, [
+	wranglerPages(name, dir, token, gateway.account_id, [
 		'deploy',
-		publicFiles,
+		'public',
 		'--project-name',
 		name,
 		'--branch',

@@ -5,11 +5,12 @@ export function wrangler(name, config, token, args, input) {
 	return runWrangler(name, token, [...args, '--config', config], input);
 }
 
-export function wranglerPages(name, cwd, token, args) {
-	return runWrangler(name, token, ['pages', ...args, '--cwd', cwd]);
+export function wranglerPages(name, cwd, token, account, args) {
+	if (!/^[a-f0-9]{32}$/.test(account)) throw new Error('Akun Pages tidak valid');
+	return runWrangler(name, token, ['pages', ...args, '--cwd', cwd], undefined, account);
 }
 
-function runWrangler(name, token, args, input) {
+function runWrangler(name, token, args, input, account) {
 	const run = wranglerInvocation(args);
 	// Only the credential of the current deployment crosses the subprocess boundary.
 	const env = Object.fromEntries(
@@ -22,6 +23,7 @@ function runWrangler(name, token, args, input) {
 		env: {
 			...env,
 			CLOUDFLARE_API_TOKEN: token,
+			...(account ? { CLOUDFLARE_ACCOUNT_ID: account } : {}),
 			WRANGLER_SEND_METRICS: 'false',
 			WRANGLER_WRITE_LOGS: 'false'
 		},
