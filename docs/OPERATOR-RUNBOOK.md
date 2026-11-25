@@ -98,6 +98,26 @@ arsip sejak cutover. Uji pemulihan perubahan itu pada salinan dan verifikasi ide
 membuka satu sisi saja. Jika paritas belum terbukti, pertahankan penutupan dan eskalasi. Jangan
 melepas pagar database atau mereset Durable Object untuk memaksa rollback.
 
+#### Latihan cutover dan rollback tanpa gangguan kasir
+
+Jangan menjalankan rollback mode kios pada koordinator staging yang masih dipakai
+untuk pengujian kasir. Rollback menandai kebijakan `rolled-back`; aktivasi ulang menolak snapshot yang
+sama. Untuk latihan live, sediakan D1 sementara dan namespace koordinator baru, gunakan data
+sintetis serta rute uji terpisah, lalu cocokkan ID akun/resource sebelum membuat perubahan.
+Jangan jalankan latihan ini melalui gateway kasir yang sedang melayani transaksi.
+
+- **Bukti lokal:** `pnpm test:shift-workerd` mensimulasikan batas D1, membuktikan rollback
+  menolak antrean yang belum terproyeksi, lalu memverifikasi sinkronisasi dan pembukaan
+  kembali jalur lama di Workerd. Ini bukan bukti pemindahan data antara dua deployment.
+- **Bukti live yang masih diperlukan:** uji satu cabang pada resource sementara dari backup
+  dan baseline awal. Setelah aktivasi tujuan, buktikan sumber tidak menerima penjualan;
+  kirim satu transaksi sintetis dua kali di tujuan, tutup shift, dan verifikasi D1, stok, struk,
+  nomor pesanan, serta status antrean. Rollback setelah transaksi memerlukan rekonsiliasi ke
+  salinan sumber. Buka kembali hanya satu jalur setelah saldo dan jumlah transaksi cocok.
+- **Pemeliharaan:** respons aktivasi alarm saat deploy membuktikan jadwal tersimpan, bukan
+  pekerjaan selesai. Cek event `[audit-maintenance]` dan hasil audit/retensi per backend pada
+  tick pertama sebelum menilai pemeliharaan staging lulus.
+
 ### 2.5 Restore sungguhan
 
 Destruktif. Hanya dengan persetujuan pemilik untuk target yang disebut eksplisit:
