@@ -4,7 +4,11 @@ import { createBranchIngress } from '../src/lib/server/branchIngress';
 export default {
 	fetch(request: Request) {
 		const url = new URL(request.url);
-		if (!/^cutover-check\.zpos-pages-drill-\d{1,16}-\d{1,4}\.pages\.dev$/.test(url.hostname))
+		if (
+			!/^(?:cutover-check|[a-f0-9]{8})\.zpos-pages-drill-\d{1,16}-\d{1,4}\.pages\.dev$/.test(
+				url.hostname
+			)
+		)
 			return new Response(null, { status: 421 });
 		return createBranchIngress({
 			origin: url.origin,

@@ -47,6 +47,35 @@ async function api(path, method = 'GET', payload) {
 		);
 	return data.result;
 }
+async function verifyPaused(label, origin) {
+	const observations = new Set();
+	for (const delay of [0, 2000, 4000, 8000, 16000, 30000, 30000]) {
+		if (delay) await sleep(delay);
+		try {
+			const response = await fetch(`${origin}/login`, {
+				redirect: 'manual',
+				signal: AbortSignal.timeout(8_000)
+			});
+			observations.add(`HTTP ${response.status}`);
+			const body = await response.json().catch(() => null);
+			if (
+				response.status === 503 &&
+				response.headers.get('cache-control') === 'no-store' &&
+				body?.message === 'Kasir sedang dalam pemeliharaan'
+			) {
+				console.log(`Pages preview ${label}: gateway dijeda terverifikasi`);
+				return;
+			}
+		} catch (error) {
+			const code = error?.cause?.code ?? error?.name;
+			observations.add(
+				typeof code === 'string' && /^[A-Z][A-Z0-9_/-]{1,60}$/i.test(code) ? code : 'fetch gagal'
+			);
+		}
+	}
+	throw new Error(`Pages preview ${label} belum terverifikasi: ${[...observations].join(', ')}`);
+}
+
 let started = false;
 const failures = [];
 try {
@@ -96,33 +125,27 @@ try {
 		previewBranch
 	]);
 	const list = await api(`/${name}/deployments?env=preview&per_page=2`);
-	assert.ok(
-		list.some(
-			(entry) =>
-				entry.environment === 'preview' &&
-				entry.deployment_trigger?.metadata?.branch === previewBranch
-		),
-		'Deployment belum terkonfirmasi sebagai preview'
+	const deployment = list.find(
+		(entry) =>
+			entry.environment === 'preview' &&
+			entry.deployment_trigger?.metadata?.branch === previewBranch
 	);
+	assert.ok(deployment, 'Deployment belum terkonfirmasi sebagai preview');
+	const immutable = new URL(deployment.url);
+	const prefix = immutable.hostname.split('.')[0];
+	assert.match(prefix, /^[a-f0-9]{8}$/);
+	assert.equal(immutable.origin, `https://${prefix}.${name}.pages.dev`);
 	const origin = `https://${previewBranch}.${name}.pages.dev`;
-	let status;
-	for (const delay of [0, 2000, 4000, 8000, 16000]) {
-		if (delay) await sleep(delay);
-		const response = await fetch(origin + '/login', {
-			redirect: 'manual',
-			signal: AbortSignal.timeout(8_000)
-		});
-		status = response.status;
-		const body = await response.json().catch(() => null);
-		if (
-			status === 503 &&
-			response.headers.get('cache-control') === 'no-store' &&
-			body?.message === 'Kasir sedang dalam pemeliharaan'
-		)
-			break;
-		status = undefined;
-	}
-	assert.equal(status, 503, 'Gateway belum terverifikasi pada alias Pages preview');
+	const readiness = await Promise.allSettled([
+		verifyPaused('deployment', immutable.origin),
+		verifyPaused('alias', origin)
+	]);
+	const errors = readiness.filter((result) => result.status === 'rejected');
+	if (errors.length)
+		throw new AggregateError(
+			errors.map((result) => result.reason),
+			'Preview belum siap'
+		);
 	for (const branch of ['samarinda', 'balikpapan', 'berau']) {
 		const response = await fetch(origin + '/api/veriflogin', {
 			method: 'POST',
