@@ -85,6 +85,24 @@ memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pind
 memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
 melonggarkan validasi backup produksi agar menerima sembarang target.
 
+Sebelum jadwal, jalankan `branch_cutover_preflight=true`. Mode ini membaca identitas sumber,
+jumlah shift, bucket R2, dan referensi deployment Pages aktif tanpa menulis data produksi.
+Ini juga menguji jeda ingress pada project Pages sementara yang tidak memiliki binding data,
+bukan mengalihkan project `zatiaraspos` atau membuktikan akses objek pada R2 produksi.
+Jika ada pemeriksaan yang belum terverifikasi, jangan menandai gate lulus.
+
+Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
+
+| Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |
+| ---------- | -------------------------------------- | ------------------------- | ----------------- | ------------------------------- |
+| Samarinda  |                                        |                           |                   |                                 |
+| Balikpapan |                                        |                           |                   |                                 |
+| Berau      |                                        |                           |                   |                                 |
+
+Sebelum membekukan penulisan, siapkan folder backup di luar repo dengan izin akses terbatas
+serta salinan pada media terpisah. Simpan ID rollback Pages yang sudah diperiksa ulang,
+konfigurasi binding, dan checksum backup bersama bukti operator; jangan simpan secret.
+
 1. **Bekukan ketiga sumber:** hentikan penerimaan transaksi baru, selesaikan shift dan kuras
    antrean koordinator serta setiap HP. Cocokkan penjualan dari POS sementara secara terpisah;
    jangan impor ulang tanpa memeriksa duplikasi. Setelah itu blokir penulisan pada semua jalur

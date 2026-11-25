@@ -66,6 +66,10 @@ on:
         description: Deploy kandidat produksi tertutup tanpa mengubah rute aktif
         type: boolean
         default: false
+      branch_cutover_preflight:
+        description: Periksa produksi baca-saja dan uji gateway pada Pages preview terisolasi
+        type: boolean
+        default: false
       branch_route_drill:
         description: Latihan pindah dan rollback rute pada Worker sintetis sementara
         type: boolean
@@ -98,10 +102,11 @@ jobs:
           BRANCH_PRODUCTION_D1_PREPARE: ${{ inputs.branch_production_d1_prepare }}
           BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check }}
           BRANCH_PRODUCTION_CANDIDATE: ${{ inputs.branch_production_candidate }}
+          BRANCH_CUTOVER_PREFLIGHT: ${{ inputs.branch_cutover_preflight }}
           BRANCH_ROUTE_DRILL: ${{ inputs.branch_route_drill }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_ROUTE_DRILL"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
           if (( branch_modes > 1 )); then exit 1; fi
@@ -201,7 +206,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_route_drill
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -278,9 +283,9 @@ jobs:
         run: node scripts/check-branch-d1-schema-staging.mjs
 
       - name: Prepare or verify empty branch production D1 destinations (no traffic)
-        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_d1_prepare || inputs.branch_production_d1_check)
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_d1_prepare || inputs.branch_production_d1_check || inputs.branch_cutover_preflight)
         env:
-          BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check }}
+          BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check || inputs.branch_cutover_preflight }}
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
@@ -309,6 +314,20 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
         run: node scripts/deploy-branch-production-candidate.mjs
+
+      - name: Read production source and rollback reference only
+        if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/check-production-cutover-preflight.mjs
+
+      - name: Probe isolated Pages preview for the paused gateway
+        if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/drill-pages-gateway-preview.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'
