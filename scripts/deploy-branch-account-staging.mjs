@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
 import { snapshotBuiltAssets } from './test-fixtures/compiled-browser.mjs';
 import { wranglerInvocation } from './wrangler-cli.mjs';
@@ -148,14 +149,24 @@ try {
 			POS_PRICE_SIGNING_KEY: derive(`price:${branch}`)
 		});
 		const origin = configs.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
-		const started = await fetch(new URL('/internal/maintenance/start', origin), {
-			method: 'POST',
-			redirect: 'manual',
-			headers: { 'x-maintenance-secret': derive(`maintenance:${branch}`) },
-			signal: AbortSignal.timeout(12000)
-		});
-		if (started.status !== 204)
-			throw new Error(`${branch}: alarm maintenance belum aktif (HTTP ${started.status})`);
+		const target = new URL('/internal/maintenance/start', origin);
+		let status;
+		// Deploy and secret upload return before the new version necessarily reaches the edge.
+		// Start is idempotent; retry only responses compatible with a still-propagating version.
+		for (const delay of [0, 2000, 4000, 8000, 16000]) {
+			if (delay) await sleep(delay);
+			const response = await fetch(target, {
+				method: 'POST',
+				redirect: 'manual',
+				headers: { 'x-maintenance-secret': derive(`maintenance:${branch}`) },
+				signal: AbortSignal.timeout(12000)
+			});
+			status = response.status;
+			await response.body?.cancel();
+			if (status === 204 || ![404, 503].includes(status)) break;
+		}
+		if (status !== 204)
+			throw new Error(`${branch}: alarm maintenance belum aktif (HTTP ${status})`);
 		console.log(`${branch}: alarm maintenance staging aktif`);
 	}
 	await deploy('gateway', configs.gateway, tokens.samarinda, {
