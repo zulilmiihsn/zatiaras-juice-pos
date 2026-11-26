@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
-import { buildBranchProductionCandidateConfigs } from './branch-production-candidate-config.mjs';
+import {
+	buildBranchProductionCandidateConfigs,
+	legacyProductionOrigin,
+	productionStorageName
+} from './branch-production-candidate-config.mjs';
 import { snapshotBuiltAssets } from './test-fixtures/compiled-browser.mjs';
 import { wrangler } from './deploy-branch-worker-cli.mjs';
 
@@ -15,6 +19,15 @@ const master = process.env.BRANCH_PRODUCTION_PREP_KEY;
 assert.ok(/^[a-f0-9]{64}$/.test(master ?? ''), 'Kunci kandidat produksi tidak tersedia');
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
+const connectPaused = process.argv.includes('--connect-paused');
+async function assertLegacyPaused() {
+	const response = await fetch(`${legacyProductionOrigin}/login`, {
+		redirect: 'error',
+		signal: AbortSignal.timeout(12_000)
+	});
+	assert.equal(response.status, 503);
+	assert.equal((await response.json()).message, 'Kasir sedang dalam pemeliharaan');
+}
 const liveConfig = await readFile('wrangler.pages.jsonc', 'utf8');
 const staging = buildBranchStagingConfigs({
 	...inventory,
@@ -49,6 +62,17 @@ async function cloud(branch, path, sql) {
 	return data.result;
 }
 
+if (connectPaused) {
+	await assertLegacyPaused();
+	const storage = await cloud('samarinda', `workers/scripts/${productionStorageName}/settings`);
+	assert.ok(
+		storage.bindings?.some(
+			({ type, name, text }) =>
+				type === 'plain_text' && name === 'STORAGE_PRODUCTION_READ_ONLY' && text === 'yes'
+		),
+		'Relay produksi baca-saja belum siap'
+	);
+}
 const destinations = {};
 for (const branch of branches) {
 	const [source] = staging.backends[branch].d1_databases;
@@ -72,7 +96,8 @@ try {
 		destinations,
 		main: resolve('staging/branch-account-worker.mjs'),
 		publicAssets,
-		liveConfig
+		liveConfig,
+		connectPaused
 	});
 	for (const branch of branches) {
 		const { id, name } = destinations[branch];
@@ -81,30 +106,42 @@ try {
 		const [result] = await cloud(
 			branch,
 			`d1/database/${id}/query`,
-			"SELECT count(*) n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'"
+			connectPaused
+				? `SELECT (SELECT count(*) FROM profil WHERE cabang_id='${branch}') AS profiles,
+				  (SELECT count(*) FROM sesi_toko WHERE cabang_id='${branch}' AND is_active=1) AS shifts,
+				  (SELECT count(*) FROM kiosk_shift_cutover WHERE cabang_id='${branch}') AS managed`
+				: "SELECT count(*) n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'"
 		);
+		const row = result.results?.[0];
 		assert.ok(
-			result.success && result.results?.[0]?.n === 0,
-			`${branch}: kandidat hanya menerima D1 kosong`
+			result.success &&
+				(connectPaused ? row?.profiles > 0 && row.shifts === 0 && row.managed === 0 : row?.n === 0),
+			`${branch}: kondisi D1 tidak sesuai tahap kandidat`
 		);
 	}
 	// Never overwrite a worker outside this setup, even when the name is identical.
-	for (const [branch, worker] of [
-		...Object.entries(config.backends),
-		['samarinda', config.gateway]
-	]) {
+	const workers = Object.entries(config.backends);
+	if (!connectPaused) workers.push(['samarinda', config.gateway]);
+	for (const [branch, worker] of workers) {
 		const list = await cloud(branch, 'workers/scripts');
-		if (!list.some(({ id }) => id === worker.name)) continue;
+		if (!list.some(({ id }) => id === worker.name)) {
+			assert.ok(!connectPaused, `${worker.name}: kandidat tertutup belum ada`);
+			continue;
+		}
 		const settings = await cloud(branch, `workers/scripts/${worker.name}/settings`);
 		const vars = new Map(
 			settings.bindings
 				?.filter(({ type }) => type === 'plain_text')
 				.map(({ name, text }) => [name, text])
 		);
+		const previousOrigin = vars.get('BRANCH_PUBLIC_ORIGIN');
 		assert.ok(
 			vars.get('BRANCH_PRODUCTION_CANDIDATE') === 'yes' &&
 				vars.get('BRANCH_CUTOVER_STATE') === 'paused' &&
-				vars.get('BRANCH_PUBLIC_ORIGIN') === worker.vars.BRANCH_PUBLIC_ORIGIN,
+				vars.get('BRANCH_ACCOUNT_MODE') === worker.vars.BRANCH_ACCOUNT_MODE &&
+				vars.get('BRANCH_ACCOUNT_IDENTITY') === worker.vars.BRANCH_ACCOUNT_IDENTITY &&
+				(previousOrigin === worker.vars.BRANCH_PUBLIC_ORIGIN ||
+					(connectPaused && previousOrigin === config.gateway.vars.BRANCH_PUBLIC_ORIGIN)),
 			`${worker.name}: resource yang sudah ada bukan kandidat yang cocok`
 		);
 	}
@@ -133,7 +170,10 @@ try {
 	}
 	for (const branch of branches) {
 		const secret = derive(`candidate-relay:${branch}`);
-		await deploy(branch, config.backends[branch], { BRANCH_RELAY_SECRET: secret });
+		await deploy(branch, config.backends[branch], {
+			BRANCH_RELAY_SECRET: secret,
+			...(connectPaused ? { BRANCH_STORAGE_SECRET: derive(`production-storage:${branch}`) } : {})
+		});
 		const host = config.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
 		await verify(`${host}/login`, 401);
 		await verify(
@@ -142,27 +182,40 @@ try {
 			{ 'x-zatiaras-relay-key': secret, 'x-zatiaras-relay-branch': branch },
 			(response) => response.headers.get('x-zpos-candidate') === 'paused'
 		);
-		console.log(`${branch}: backend kandidat menolak trafik; D1 tujuan kosong`);
+		if (connectPaused) {
+			const probe = `${host}/internal/cutover/connection`;
+			await verify(probe, 401);
+			await verify(probe, 204, {
+				'x-zatiaras-relay-key': secret,
+				'x-zatiaras-relay-branch': branch
+			});
+			console.log(`${branch}: D1 hasil impor dan relay R2 terhubung; trafik kasir ditolak`);
+		} else console.log(`${branch}: backend kandidat menolak trafik; D1 tujuan kosong`);
 	}
-	await deploy('samarinda', config.gateway, {
-		BRANCH_ROUTE_SECRET: derive('candidate-route'),
-		...Object.fromEntries(
-			branches.map((branch) => [
-				`BRANCH_RELAY_${branch.toUpperCase()}`,
-				derive(`candidate-relay:${branch}`)
-			])
-		)
-	});
-	await verify(
-		`${config.gateway.vars.BRANCH_PUBLIC_ORIGIN}/login`,
-		503,
-		undefined,
-		async (response) => {
-			const body = await response.json().catch(() => null);
-			return body?.message === 'Kasir sedang dalam pemeliharaan';
-		}
-	);
-	console.log('Gateway kandidat terverifikasi dijeda; tidak ada rute produksi yang diubah');
+	if (connectPaused) {
+		await assertLegacyPaused();
+		console.log('Ketiga backend terhubung dan tertutup. Pages produksi tidak diubah.');
+	} else {
+		await deploy('samarinda', config.gateway, {
+			BRANCH_ROUTE_SECRET: derive('candidate-route'),
+			...Object.fromEntries(
+				branches.map((branch) => [
+					`BRANCH_RELAY_${branch.toUpperCase()}`,
+					derive(`candidate-relay:${branch}`)
+				])
+			)
+		});
+		await verify(
+			`${config.gateway.vars.BRANCH_PUBLIC_ORIGIN}/login`,
+			503,
+			undefined,
+			async (response) => {
+				const body = await response.json().catch(() => null);
+				return body?.message === 'Kasir sedang dalam pemeliharaan';
+			}
+		);
+		console.log('Gateway kandidat terverifikasi dijeda; tidak ada rute produksi yang diubah');
+	}
 } finally {
 	await rm(temporary, { recursive: true, force: true });
 }

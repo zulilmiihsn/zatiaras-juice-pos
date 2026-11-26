@@ -5,6 +5,7 @@ import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployme
 import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
 import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
+import { checkPausedBranchConnection } from '../lib/server/pausedBranchConnection';
 import { createBranchStorageClient } from '../lib/server/branchStorageClient';
 import { withBranchStorage } from '../lib/server/branchStorageEnvironment';
 import storageWorker from '../../staging/branch-storage-worker';
@@ -379,6 +380,45 @@ test('worker R2 menolak konfigurasi hilang dan identitas palsu', async () => {
 		).status,
 		503
 	);
+});
+
+await test('probe tertutup hanya membaca D1 cabang dan R2; shift aktif atau relay gagal menolak kesiapan', async () => {
+	let shifts = 0;
+	let relayStatus = 404;
+	let reads = 0;
+	const env = {
+		DB_SAMARINDA_GROUP: {
+			prepare(sql: string) {
+				assert.match(sql, /^SELECT COUNT\(\*\).*WHERE cabang_id = \?/);
+				return {
+					bind(branch: string) {
+						assert.equal(branch, 'samarinda');
+						return { first: async () => ({ shifts }) };
+					}
+				};
+			}
+		},
+		BRANCH_STORAGE_ORIGIN: 'https://storage.test',
+		BRANCH_STORAGE_SECRET: 'storage'.repeat(6),
+		BRANCH_STORAGE_LOCAL: {
+			async fetch(request: Request) {
+				reads++;
+				assert.equal(request.method, 'GET');
+				assert.match(new URL(request.url).searchParams.get('key') ?? '', /^produk\/samarinda\//);
+				return new Response(null, { status: relayStatus });
+			}
+		}
+	};
+	assert.equal((await checkPausedBranchConnection(env, 'samarinda')).status, 204);
+	assert.equal(reads, 1);
+	assert.equal((await checkPausedBranchConnection(env, 'berau')).status, 503);
+	shifts = 1;
+	assert.equal((await checkPausedBranchConnection(env, 'samarinda')).status, 503);
+	assert.equal(reads, 1);
+	shifts = 0;
+	relayStatus = 401;
+	assert.equal((await checkPausedBranchConnection(env, 'samarinda')).status, 503);
+	assert.equal(reads, 2);
 });
 
 test('adapter hanya aktif pada backend dengan konfigurasi lengkap dan tidak menimpa bucket lokal', () => {

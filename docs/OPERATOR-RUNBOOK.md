@@ -101,6 +101,12 @@ menguji penolakan akses lintas cabang dan penulisan, serta mengecek bahwa URL ka
 jeda. Mode ini tidak menghubungkan gateway atau backend produksi baru, tidak menyalin
 objek, dan tidak membuka layanan.
 
+Setelah ketiga impor ekspor-balik lulus dan relay itu terverifikasi, jalankan
+`branch_production_connect_paused=true`. Mode ini hanya menyambungkan backend kandidat
+yang sudah tertutup ke D1 tujuan dan relay R2. Probe privat membuktikan pembacaan scoped
+D1 dan R2, sementara login langsung maupun relay login tetap ditolak. Mode ini tidak
+merilis Pages, mengaktifkan alarm maintenance, atau mengizinkan penjualan.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

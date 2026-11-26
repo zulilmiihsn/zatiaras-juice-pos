@@ -2,13 +2,17 @@ import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
 
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 
-/** Candidate only: no live route, storage, maintenance, or open mode is representable. */
+export const legacyProductionOrigin = 'https://zatiaraspos.pages.dev';
+export const productionStorageName = 'zatiaraspos-storage';
+
+/** Candidate only: no public routing change, maintenance, or open mode is representable. */
 export function buildBranchProductionCandidateConfigs({
 	inventory,
 	destinations,
 	main,
 	publicAssets,
-	liveConfig
+	liveConfig,
+	connectPaused = false
 }) {
 	const { gateway, backends } = buildBranchStagingConfigs({
 		gateway: inventory.gateway,
@@ -23,6 +27,7 @@ export function buildBranchProductionCandidateConfigs({
 		throw Error('Akun utama kandidat tidak cocok');
 	const name = 'zatiaraspos-gateway-candidate';
 	const publicOrigin = `https://${name}.${inventory.gateway.subdomain}.workers.dev`;
+	const storageOrigin = `https://${productionStorageName}.${inventory.gateway.subdomain}.workers.dev`;
 	const stageIds = new Set(
 		Object.values(backends).map((config) => config.d1_databases[0].database_id)
 	);
@@ -72,7 +77,21 @@ export function buildBranchProductionCandidateConfigs({
 			...common,
 			name: worker,
 			account_id: backend.account_id,
-			vars: { ...gate, BRANCH_ACCOUNT_MODE: 'backend', BRANCH_ACCOUNT_IDENTITY: branch },
+			vars: {
+				...gate,
+				BRANCH_ACCOUNT_MODE: 'backend',
+				BRANCH_ACCOUNT_IDENTITY: branch,
+				...(connectPaused
+					? {
+							BRANCH_PUBLIC_ORIGIN: legacyProductionOrigin,
+							BRANCH_STORAGE_ORIGIN: storageOrigin,
+							BRANCH_CONNECTION_PROBE: 'yes'
+						}
+					: {})
+			},
+			...(connectPaused && branch === 'samarinda'
+				? { services: [{ binding: 'BRANCH_STORAGE_LOCAL', service: productionStorageName }] }
+				: {}),
 			d1_databases: [
 				{
 					binding: backend.d1_databases[0].binding,

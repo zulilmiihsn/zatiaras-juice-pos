@@ -177,6 +177,28 @@ await test('production candidates remain paused and never bind active or staging
 		assert.equal(worker.triggers, undefined);
 		assert.equal(worker.routes, undefined);
 	}
+	const connected = buildBranchProductionCandidateConfigs({ ...input, connectPaused: true });
+	assert.deepEqual(connected.gateway, gateway, 'Connecting backend must not change any gateway');
+	for (const branch of names) {
+		const worker = connected.backends[branch];
+		assert.equal(worker.vars.BRANCH_CUTOVER_STATE, 'paused');
+		assert.equal(worker.vars.BRANCH_PRODUCTION_CANDIDATE, 'yes');
+		assert.equal(worker.vars.BRANCH_CONNECTION_PROBE, 'yes');
+		assert.equal(worker.vars.BRANCH_PUBLIC_ORIGIN, 'https://zatiaraspos.pages.dev');
+		assert.equal(
+			worker.vars.BRANCH_STORAGE_ORIGIN,
+			'https://zatiaraspos-storage.samarinda.workers.dev'
+		);
+		assert.deepEqual(
+			worker.services,
+			branch === 'samarinda'
+				? [{ binding: 'BRANCH_STORAGE_LOCAL', service: 'zatiaraspos-storage' }]
+				: undefined
+		);
+		assert.equal(worker.r2_buckets, undefined);
+		assert.equal(worker.triggers, undefined);
+		assert.equal(worker.routes, undefined);
+	}
 	for (const unsafeId of [backends.berau.databaseId, ...productionIds]) {
 		assert.throws(
 			() =>

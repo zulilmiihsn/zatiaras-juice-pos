@@ -5,6 +5,7 @@ import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDepl
 import { SESSION_COOKIE } from '../src/lib/server/sessionStore.ts';
 import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
 import { constantTimeEqual } from '../src/lib/server/secureCompare.ts';
+import { checkPausedBranchConnection } from '../src/lib/server/pausedBranchConnection.ts';
 export { BranchMaintenanceAlarm } from '../src/lib/server/branchMaintenanceAlarm.ts';
 export { RealtimeDurableObject } from '../src/lib/server/cashierRealtimeHub.ts';
 
@@ -39,11 +40,18 @@ export default {
 			}
 			const accepted = acceptBranchRelay(request, deployment);
 			if (!accepted) return new Response(null, { status: 401 });
-			if (deployment.candidate)
+			if (deployment.candidate) {
+				if (
+					env.BRANCH_CONNECTION_PROBE === 'yes' &&
+					accepted.method === 'GET' &&
+					new URL(accepted.url).pathname === '/internal/cutover/connection'
+				)
+					return checkPausedBranchConnection(env, deployment.branch);
 				return new Response(null, {
 					status: 503,
 					headers: { 'cache-control': 'no-store', 'x-zpos-candidate': 'paused' }
 				});
+			}
 			let backendEnv;
 			try {
 				backendEnv = withBranchStorage(env, deployment.branch);
