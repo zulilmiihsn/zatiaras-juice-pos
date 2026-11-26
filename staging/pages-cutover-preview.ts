@@ -1,15 +1,30 @@
 import { createBranchIngress } from '../src/lib/server/branchIngress';
+import { constantTimeEqual } from '../src/lib/server/secureCompare';
 
-/** Isolated Pages fixture: a real ingress gate, without app data or a reachable backend. */
+const fixtureRoot = /^zpos-pages-drill-\d{1,16}-\d{1,4}\.pages\.dev$/;
+
+/** The disposable hostname can relay a gated smoke test only to the staging gateway. */
 export default {
-	fetch(request: Request) {
+	fetch(request: Request, env?: { PAGES_SMOKE_KEY?: string; STAGING_GATEWAY?: Fetcher }) {
 		const url = new URL(request.url);
-		if (
-			!/^(?:(?:cutover-check|[a-f0-9]{8})\.)?zpos-pages-drill-\d{1,16}-\d{1,4}\.pages\.dev$/.test(
-				url.hostname
+		if (!fixtureRoot.test(url.hostname)) return new Response(null, { status: 421 });
+		const key = request.headers.get('x-zpos-pages-smoke');
+		if (key !== null) {
+			if (
+				!env?.STAGING_GATEWAY ||
+				!env.PAGES_SMOKE_KEY ||
+				!constantTimeEqual(key, env.PAGES_SMOKE_KEY)
 			)
-		)
-			return new Response(null, { status: 421 });
+				return new Response(null, { status: 404 });
+			const staging = new URL('https://zpos-gateway-staging.zulilmiihsn.workers.dev');
+			staging.pathname = url.pathname;
+			staging.search = url.search;
+			const upstream = new Request(new Request(staging, request), { redirect: 'manual' });
+			upstream.headers.delete('x-zpos-pages-smoke');
+			if (upstream.headers.get('origin') === url.origin)
+				upstream.headers.set('origin', staging.origin);
+			return env.STAGING_GATEWAY.fetch(upstream);
+		}
 		return createBranchIngress({
 			origin: url.origin,
 			paused: true,

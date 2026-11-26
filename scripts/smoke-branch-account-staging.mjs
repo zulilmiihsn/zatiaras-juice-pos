@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import bcrypt from 'bcryptjs';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
@@ -58,13 +59,14 @@ const getBerau = () => cloudflare('berau', subdomainPath);
 const setBerau = (enabled) =>
 	cloudflare('berau', subdomainPath, { enabled, previews_enabled: false });
 
-function browser() {
+function browser(origin = gateway, key) {
 	const cookies = new Map();
 	return async (path, init = {}) => {
 		const headers = new Headers(init.headers);
-		if (init.method) headers.set('origin', gateway);
+		if (init.method) headers.set('origin', origin);
+		if (key) headers.set('x-zpos-pages-smoke', key);
 		headers.set('cookie', [...cookies].map(([key, value]) => `${key}=${value}`).join('; '));
-		const response = await fetch(gateway + path, {
+		const response = await fetch(origin + path, {
 			...init,
 			headers,
 			redirect: 'manual',
@@ -115,7 +117,21 @@ async function restoreBerau() {
 	throw new Error('Pemulihan Berau belum terverifikasi');
 }
 
-async function smoke() {
+async function smoke({ pagesOrigin, pagesKey } = {}) {
+	if (pagesOrigin) {
+		assert.match(pagesOrigin, /^https:\/\/zpos-pages-drill-\d{1,16}-\d{1,4}\.pages\.dev$/);
+		assert.match(pagesKey, /^[a-f0-9]{64}$/);
+		for (const branch of ['samarinda', 'balikpapan', 'berau']) {
+			const response = await login(
+				browser(pagesOrigin, pagesKey),
+				branch,
+				`smoke-${randomUUID()}`,
+				'invalid'
+			);
+			assert.equal(response.status, 401, `${branch}: login uji Pages tidak mencapai backend`);
+			assert.equal((await response.json()).code, 'INVALID_CREDENTIALS');
+		}
+	}
 	const identity = await cloudflare('samarinda', databasePath);
 	assert.equal(identity.name, 'zpos-samarinda-staging');
 	assert.equal(identity.uuid, db.database_id);
@@ -141,14 +157,10 @@ async function smoke() {
 		await bcrypt.hash(password, 10),
 		'kasir'
 	]);
-	const call = browser();
+	const call = browser(pagesOrigin, pagesKey);
 	const session = await login(call, 'samarinda', id, password);
 	assert.equal(session.status, 200, 'Login Samarinda gagal; Berau tidak diubah');
 	assert.equal((await session.json()).scope, 'operasional');
-	const original = await getBerau();
-	assert.equal(original.enabled, true);
-	assert.equal(original.previews_enabled, false);
-	assert.equal((await probeBerau()).healthy, true);
 	const action = async (name, fields, expected) => {
 		const result = await call(`/operasional?/${name}`, {
 			method: 'POST',
@@ -157,13 +169,7 @@ async function smoke() {
 		assert.equal(result.status, 200, `Aksi ${name} gagal`);
 		assert.ok((await result.text()).includes(expected), `Aksi ${name} tidak terkonfirmasi`);
 	};
-	await writeFile(marker, '', { flag: 'wx', mode: 0o600 });
-	try {
-		await setBerau(false);
-		await sleep(5000);
-		const down = await probeBerau();
-		assert.ok([404, 502, 503].includes(down.status), 'Gangguan Berau belum terkonfirmasi');
-		console.log(`Akses Berau staging gagal sebagaimana disimulasikan (HTTP ${down.status})`);
+	const transact = async () => {
 		await action('open', { id, openingCash: '100000' }, 'Pembukaan shift terkonfirmasi');
 		try {
 			const sale = {
@@ -181,12 +187,28 @@ async function smoke() {
 		} finally {
 			await action('close', { id, confirm: 'yes' }, 'Shift ditutup');
 		}
-		assert.ok(
-			[404, 502, 503].includes((await probeBerau()).status),
-			'Gangguan tidak bertahan selama transaksi'
-		);
-	} finally {
-		await restoreBerau();
+	};
+	if (pagesOrigin) await transact();
+	else {
+		const original = await getBerau();
+		assert.equal(original.enabled, true);
+		assert.equal(original.previews_enabled, false);
+		assert.equal((await probeBerau()).healthy, true);
+		await writeFile(marker, '', { flag: 'wx', mode: 0o600 });
+		try {
+			await setBerau(false);
+			await sleep(5000);
+			const down = await probeBerau();
+			assert.ok([404, 502, 503].includes(down.status), 'Gangguan Berau belum terkonfirmasi');
+			console.log(`Akses Berau staging gagal sebagaimana disimulasikan (HTTP ${down.status})`);
+			await transact();
+			assert.ok(
+				[404, 502, 503].includes((await probeBerau()).status),
+				'Gangguan tidak bertahan selama transaksi'
+			);
+		} finally {
+			await restoreBerau();
+		}
 	}
 	const deadline = Date.now() + 45_000;
 	let closed;
@@ -213,5 +235,11 @@ async function smoke() {
 	);
 }
 
-if (process.argv.includes('--restore')) await restoreBerau();
-else await smoke();
+export function smokeFromPages(pagesOrigin, pagesKey) {
+	return smoke({ pagesOrigin, pagesKey });
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+	if (process.argv.includes('--restore')) await restoreBerau();
+	else await smoke();
+}

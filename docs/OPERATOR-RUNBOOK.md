@@ -87,8 +87,11 @@ melonggarkan validasi backup produksi agar menerima sembarang target.
 
 Sebelum jadwal, jalankan `branch_cutover_preflight=true`. Mode ini membaca identitas sumber,
 jumlah shift, bucket R2, dan referensi deployment Pages aktif tanpa menulis data produksi.
-Ini juga menguji jeda ingress pada project Pages sementara yang tidak memiliki binding data,
-bukan mengalihkan project `zatiaraspos` atau membuktikan akses objek pada R2 produksi.
+Ini juga menguji jeda ingress pada hostname utama project Pages sementara. Relay terotorisasi
+khusus uji memakai service binding ke gateway staging: cek autentikasi ketiga cabang, lalu
+uji buka shift, penjualan, struk, retry, dan tutup shift dengan data sintetis Samarinda.
+Project sementara tidak memiliki binding data dan dihapus setelah uji. Hasil ini tidak
+membuktikan jalur langsung project `zatiaraspos`, TLS alias preview, atau akses R2 produksi.
 Jika ada pemeriksaan yang belum terverifikasi, jangan menandai gate lulus.
 
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:

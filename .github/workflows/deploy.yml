@@ -67,7 +67,7 @@ on:
         type: boolean
         default: false
       branch_cutover_preflight:
-        description: Periksa produksi baca-saja dan uji gateway pada Pages preview terisolasi
+        description: Periksa produksi baca-saja dan jalankan smoke staging lewat Pages terisolasi
         type: boolean
         default: false
       branch_route_drill:
@@ -322,7 +322,7 @@ jobs:
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
         run: node scripts/check-production-cutover-preflight.mjs
 
-      - name: Probe isolated Pages preview for the paused gateway
+      - name: Run staging smoke through an isolated Pages hostname
         if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}

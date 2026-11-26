@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import { smokeFromPages } from './smoke-branch-account-staging.mjs';
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -23,7 +25,7 @@ const token = process.env.BRANCH_CF_TOKEN_SAMARINDA;
 assert.ok(token);
 const name = `zpos-pages-drill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}`;
 const productionBranch = 'hold-unused';
-const previewBranch = 'cutover-check';
+const pagesKey = randomBytes(32).toString('hex');
 const root = `https://api.cloudflare.com/client/v4/accounts/${gateway.account_id}/pages/projects`;
 const dir = await mkdtemp(join(RUNNER_TEMP, 'zpos-pages-preview-'));
 
@@ -122,6 +124,7 @@ try {
 		deployConfig,
 		JSON.stringify({
 			name,
+			services: [{ binding: 'STAGING_GATEWAY', service: gateway.name }],
 			pages_build_output_dir: 'public',
 			compatibility_date: '2026-06-29',
 			compatibility_flags: ['nodejs_compat']
@@ -132,6 +135,11 @@ try {
 	const created = await api('', 'POST', { name, production_branch: productionBranch });
 	assert.ok(created.name === name && created.production_branch === productionBranch);
 	assert.ok(await findProject(), 'Project Pages belum terlihat setelah dibuat');
+	await api(`/${name}`, 'PATCH', {
+		deployment_configs: {
+			production: { env_vars: { PAGES_SMOKE_KEY: { type: 'secret_text', value: pagesKey } } }
+		}
+	});
 	function upload(branch) {
 		wranglerPages(name, dir, token, gateway.account_id, [
 			'deploy',
@@ -142,8 +150,7 @@ try {
 			branch
 		]);
 	}
-	// Bootstrap the disposable project's default hostname before testing its preview aliases.
-	// Both deployments use the same paused bundle without production bindings.
+	// Use the disposable project's stable hostname; preview aliases are not a production route.
 	let uploadError;
 	for (const delay of visibilityDelays) {
 		if (delay) await sleep(delay);
@@ -171,30 +178,19 @@ try {
 		),
 		'Deployment hostname utama fixture belum terkonfirmasi'
 	);
-	await verifyPaused('hostname utama fixture', `https://${name}.pages.dev`);
-	upload(previewBranch);
-	const list = await api(`/${name}/deployments?env=preview&per_page=2`);
-	const deployment = list.find(
-		(entry) =>
-			entry.environment === 'preview' &&
-			entry.deployment_trigger?.metadata?.branch === previewBranch
+	const origin = `https://${name}.pages.dev`;
+	await verifyPaused('hostname utama fixture', origin);
+	assert.equal(
+		(
+			await fetch(`${origin}/login`, {
+				headers: { 'x-zpos-pages-smoke': 'invalid' },
+				redirect: 'manual',
+				signal: AbortSignal.timeout(8000)
+			})
+		).status,
+		404,
+		'Relay smoke harus menolak otorisasi yang salah'
 	);
-	assert.ok(deployment, 'Deployment belum terkonfirmasi sebagai preview');
-	const immutable = new URL(deployment.url);
-	const prefix = immutable.hostname.split('.')[0];
-	assert.match(prefix, /^[a-f0-9]{8}$/);
-	assert.equal(immutable.origin, `https://${prefix}.${name}.pages.dev`);
-	const origin = `https://${previewBranch}.${name}.pages.dev`;
-	const readiness = await Promise.allSettled([
-		verifyPaused('deployment', immutable.origin),
-		verifyPaused('alias', origin)
-	]);
-	const errors = readiness.filter((result) => result.status === 'rejected');
-	if (errors.length)
-		throw new AggregateError(
-			errors.map((result) => result.reason),
-			'Preview belum siap'
-		);
 	for (const branch of ['samarinda', 'balikpapan', 'berau']) {
 		const response = await fetch(origin + '/api/veriflogin', {
 			method: 'POST',
@@ -205,9 +201,8 @@ try {
 		assert.equal(response.status, 503);
 		assert.equal((await response.json()).message, 'Kasir sedang dalam pemeliharaan');
 	}
-	console.log(
-		'Pages preview terverifikasi: login ketiga cabang tetap dijeda pada satu alias; tanpa binding data'
-	);
+	console.log('Pages terisolasi: login publik ketiga cabang tetap dijeda');
+	await smokeFromPages(origin, pagesKey);
 } catch (error) {
 	failures.push(error);
 } finally {
