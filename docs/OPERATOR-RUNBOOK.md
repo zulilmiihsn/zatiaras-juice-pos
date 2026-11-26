@@ -94,6 +94,13 @@ Project sementara tidak memiliki binding data dan dihapus setelah uji. Hasil ini
 membuktikan jalur langsung project `zatiaraspos`, TLS alias preview, atau akses R2 produksi.
 Jika ada pemeriksaan yang belum terverifikasi, jangan menandai gate lulus.
 
+Setelah URL kasir lama dijeda dan backup R2 terverifikasi, jalankan
+`branch_production_storage_readonly=true`. Mode ini hanya menyiapkan Worker relay terpisah
+pada bucket produksi `zatiaras-assets` di Samarinda. Ia membandingkan byte gambar produksi,
+menguji penolakan akses lintas cabang dan penulisan, serta mengecek bahwa URL kasir tetap
+jeda. Mode ini tidak menghubungkan gateway atau backend produksi baru, tidak menyalin
+objek, dan tidak membuka layanan.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

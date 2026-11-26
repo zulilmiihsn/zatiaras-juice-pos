@@ -18,7 +18,8 @@ export default {
 					['samarinda', env.STORAGE_SECRET_SAMARINDA],
 					['balikpapan', env.STORAGE_SECRET_BALIKPAPAN],
 					['berau', env.STORAGE_SECRET_BERAU]
-				])
+				]),
+				{ readOnly: env.STORAGE_PRODUCTION_READ_ONLY === 'yes' }
 			);
 		} catch {
 			return new Response(null, { status: 503 });

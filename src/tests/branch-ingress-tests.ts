@@ -199,32 +199,31 @@ test('relay R2 membatasi identitas, cabang, operasi, ukuran dan kegagalan bucket
 	]);
 	let value: Uint8Array | undefined;
 	let fail = false;
-	const handle = createBranchStorageGateway(
-		{
-			async put(_key, bytes) {
-				if (fail) throw new Error('secret');
-				value = bytes;
-			},
-			async get() {
-				if (fail) throw new Error('secret');
-				return value
-					? {
-							body: new ReadableStream({
-								start(c) {
-									c.enqueue(value!);
-									c.close();
-								}
-							}),
-							httpMetadata: { contentType: 'image/png' }
-						}
-					: null;
-			},
-			async delete() {
-				value = undefined;
-			}
+	const bucket: Parameters<typeof createBranchStorageGateway>[0] = {
+		async put(_key, bytes) {
+			if (fail) throw new Error('secret');
+			value = bytes;
 		},
-		secrets
-	);
+		async get() {
+			if (fail) throw new Error('secret');
+			return value
+				? {
+						body: new ReadableStream({
+							start(c) {
+								c.enqueue(value!);
+								c.close();
+							}
+						}),
+						httpMetadata: { contentType: 'image/png' }
+					}
+				: null;
+		},
+		async delete() {
+			value = undefined;
+		}
+	};
+	const handle = createBranchStorageGateway(bucket, secrets);
+	const readOnly = createBranchStorageGateway(bucket, secrets, { readOnly: true });
 	const request = (
 		secret: string,
 		key: string,
@@ -240,9 +239,25 @@ test('relay R2 membatasi identitas, cabang, operasi, ukuran dan kegagalan bucket
 			})
 		);
 	const own = 'produk/berau/1234.png';
+	const probe = (method: string, secret: string) =>
+		readOnly(
+			new Request(`https://storage.test/object?key=${own}`, {
+				method,
+				headers: { 'x-storage-secret': secret, 'content-type': 'image/png' },
+				body: method === 'PUT' ? new Uint8Array([9]) : undefined
+			})
+		);
+	assert.equal((await probe('PUT', secrets.get('berau')!)).status, 405);
+	assert.equal(value, undefined, 'Read-only PUT cannot touch the bucket');
 	assert.equal((await request('invalid', own)).status, 401);
 	assert.equal((await request(secrets.get('samarinda')!, own)).status, 404);
 	assert.equal((await request(secrets.get('berau')!, own, 'PUT', new Uint8Array([1]))).status, 204);
+	assert.equal((await probe('DELETE', secrets.get('berau')!)).status, 405);
+	assert.equal((await probe('GET', secrets.get('samarinda')!)).status, 404);
+	assert.deepEqual(
+		[...new Uint8Array(await (await probe('GET', secrets.get('berau')!)).arrayBuffer())],
+		[1]
+	);
 	assert.deepEqual(
 		[...new Uint8Array(await (await request(secrets.get('berau')!, own)).arrayBuffer())],
 		[1]

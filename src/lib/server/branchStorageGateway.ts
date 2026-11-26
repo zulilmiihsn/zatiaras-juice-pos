@@ -20,7 +20,8 @@ interface SharedBucket {
 /** Transport is internal only; authorization is based on the per-branch key, not caller input. */
 export function createBranchStorageGateway(
 	bucket: SharedBucket,
-	secrets: ReadonlyMap<BranchId, string>
+	secrets: ReadonlyMap<BranchId, string>,
+	{ readOnly = false } = {}
 ) {
 	if (
 		secrets.size !== 3 ||
@@ -43,6 +44,7 @@ export function createBranchStorageGateway(
 			!isBranchStorageKey(branch, key)
 		)
 			return new Response(null, { status: 404 });
+		if (readOnly && request.method !== 'GET') return new Response(null, { status: 405 });
 		if (!['GET', 'PUT', 'DELETE'].includes(request.method))
 			return new Response(null, { status: 405 });
 		try {
