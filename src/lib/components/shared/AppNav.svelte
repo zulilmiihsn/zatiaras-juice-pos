@@ -114,9 +114,9 @@
 				</span>
 			</a>
 		{:else}
-			<!-- Tab biasa -->
+			<!-- Ukuran target sentuh tidak boleh ikut dianimasikan saat viewport berubah. -->
 			<a
-				class="group relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-center self-stretch rounded-2xl py-1 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none active:scale-95 md:h-auto md:w-full md:flex-none md:py-2.5 lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 {nav.sidebarOnly
+				class="group relative flex h-full min-w-[44px] flex-1 cursor-pointer flex-col items-center justify-center self-stretch rounded-2xl py-1 transition duration-150 focus-visible:ring-2 focus-visible:ring-pink-500/60 focus-visible:outline-none active:scale-95 md:h-auto md:w-full md:min-w-0 md:flex-none md:py-2.5 lg:flex-row lg:justify-start lg:gap-3 lg:px-3.5 {nav.sidebarOnly
 					? 'max-md:hidden'
 					: ''} {isActive
 					? 'text-pink-600 md:bg-pink-50'

@@ -68,6 +68,9 @@ let readinessCache: {
 	result: Promise<OrderNotificationConfig>;
 } | null = null;
 export async function notificationConfig(env: NotificationEnv): Promise<OrderNotificationConfig> {
+	// A local registry cannot revoke a subscription registered in another account on device handoff.
+	if (env?.BRANCH_ACCOUNT_MODE === 'backend')
+		return { vapid_public_key: null, push_configured: false };
 	if (
 		readinessCache &&
 		readinessCache.publicKey === env?.VAPID_PUBLIC_KEY &&

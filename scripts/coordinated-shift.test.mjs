@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { build } from 'vite';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 
+const branchOrigin = process.argv.includes('--branch-origin');
 const dir = await mkdtemp(join(tmpdir(), 'shift-workerd-'));
 let runtime;
 try {
@@ -352,14 +353,23 @@ try {
 	);
 	assert.equal((await post('berau', 'open', input)).status, 'replayed');
 	assert.equal((await post('samarinda', 'open', input)).status, 'uninitialized');
+	const backends = new Map();
 	for (const branch of ['balikpapan', 'samarinda', 'berau']) {
 		const db = await initDb(branch);
+		backends.set(branch, {
+			db,
+			bridge: (path, body) =>
+				runtime.dispatchFetch(new URL(`/${branch}${path}?recovery`, address), {
+					method: 'POST',
+					body: JSON.stringify(body)
+				})
+		});
 		const post = (branch, action, input) => send(branch, action, input, '?recovery');
 		for (const [index, quota] of ['read', 'write'].entries()) {
 			if (index === 0) {
 				await db
 					.prepare(
-						`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','${branch}','Jus',10000,17,1,0,1)`
+						`INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice','${branch}','Jus',10000,20,1,0,1)`
 					)
 					.run();
 				assert.equal((await post(branch, 'activate', null)).failed, true);
@@ -405,14 +415,14 @@ try {
 				});
 			}
 			await post(branch, 'quota', quota);
+			if (index === 0 && (branchOrigin || process.argv.includes('--browser')))
+				await db
+					.prepare(
+						`INSERT INTO profil(id,cabang_id,username,password,role) VALUES (?, '${branch}', ?, ?, 'kasir')`
+					)
+					.bind(profile.userId, profile.username, profile.verifier)
+					.run();
 			if (process.argv.includes('--browser')) {
-				if (index === 0)
-					await db
-						.prepare(
-							`INSERT INTO profil(id,cabang_id,username,password,role) VALUES (?, '${branch}', ?, ?, 'kasir')`
-						)
-						.bind(profile.userId, profile.username, profile.verifier)
-						.run();
 				const { exerciseKioskBrowser } = await import('./fixtures/kiosk-browser.mjs');
 				await exerciseKioskBrowser({
 					db,
@@ -510,7 +520,7 @@ try {
 						.prepare(`SELECT stok FROM produk WHERE cabang_id='${branch}' AND id='juice'`)
 						.first()
 				).stok,
-				15 - 2 * index
+				18 - 2 * index
 			);
 		}
 		const device = await post(branch, 'device/enroll', profile);
@@ -573,7 +583,7 @@ try {
 				.prepare("SELECT stok FROM produk WHERE cabang_id=? AND id='juice'")
 				.bind(branch)
 				.first('stok'),
-			1
+			4
 		);
 		await post(branch, 'fixture-catalog-retry-now', null);
 		const expiring = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -589,6 +599,49 @@ try {
 		assert.ok(
 			Date.parse(await post(branch, 'fixture-catalog', null)) > Date.now() + 47 * 60 * 60 * 1000
 		);
+	}
+	const recovery = (branch, action, input) => send(branch, action, input, '?recovery');
+	if (branchOrigin) {
+		const { exerciseBranchOrigin } = await import('./fixtures/kiosk-browser.mjs');
+		const readTotals = async (branch) => ({
+			...(await backends
+				.get(branch)
+				.db.prepare('SELECT COUNT(*) AS n, SUM(nominal) AS total FROM buku_kas WHERE cabang_id=?')
+				.bind(branch)
+				.first())
+		});
+		const before = new Map();
+		for (const branch of backends.keys()) before.set(branch, await readTotals(branch));
+		await exerciseBranchOrigin({
+			backends,
+			password,
+			username: profile.username,
+			setQuota: (branch, fault) => recovery(branch, 'quota', fault),
+			verify: async (branches) => {
+				for (const branch of branches) {
+					assert.deepEqual(await recovery(branch, 'project', null), { ok: true });
+					assert.equal(await recovery(branch, 'projection-peek', null), null);
+					const previous = before.get(branch);
+					const actual = await readTotals(branch);
+					assert.deepEqual(actual, { n: previous.n + 1, total: previous.total + 10000 });
+					assert.equal(
+						await backends
+							.get(branch)
+							.db.prepare('SELECT COUNT(*) AS n FROM sesi_toko WHERE cabang_id=? AND is_active=1')
+							.bind(branch)
+							.first('n'),
+						0
+					);
+					before.set(branch, actual);
+				}
+				assert.deepEqual(await readTotals('samarinda'), before.get('samarinda'));
+			}
+		});
+		await recovery('samarinda', 'quota', null);
+		console.log('branch-origin: read/write/both quota isolated behind one origin');
+	}
+	for (const [branch, { db }] of backends) {
+		const post = recovery;
 		if (process.argv.includes('--browser')) {
 			await db
 				.prepare(
@@ -603,7 +656,7 @@ try {
 				username: 'pemilik-uji',
 				password,
 				rollback: true,
-				bridge: (path, body) => {
+				bridge: async (path, body) => {
 					if (path === '/device/enroll') {
 						assert.equal(body.userId, 'fixture-owner');
 						assert.equal(body.username, 'pemilik-uji');
@@ -615,10 +668,16 @@ try {
 					if (path !== '/projection/rollback-production')
 						return Response.json({ ok: false }, { status: 404 });
 					assert.deepEqual(body, { branch });
-					return runtime.dispatchFetch(new URL(`/${branch}/rollback?recovery`, address), {
-						method: 'POST',
-						body: JSON.stringify(body)
-					});
+					const response = await runtime.dispatchFetch(
+						new URL(`/${branch}/rollback?recovery`, address),
+						{
+							method: 'POST',
+							body: JSON.stringify(body)
+						}
+					);
+					const outcome = await response.clone().json();
+					if (outcome.failed) console.error(`${branch}: ${outcome.error}`);
+					return response;
 				}
 			});
 		} else {

@@ -96,7 +96,8 @@ export async function recordCoordinatedSale(
 	userId: string,
 	raw: unknown,
 	now: number,
-	stockPolicyEpoch?: string
+	stockPolicyEpoch?: string,
+	alarmAt?: number
 ) {
 	const input = parseSale(raw);
 	const key = `sale:request:${input.id}`;
@@ -165,7 +166,7 @@ export async function recordCoordinatedSale(
 			orderDate,
 			stockPolicyEpoch
 		} satisfies Record);
-		await enqueueKioskProjection(tx, 'sale-recorded', key);
+		await enqueueKioskProjection(tx, 'sale-recorded', key, alarmAt);
 		return { status: 'recorded', receipt, orderNumber } as const;
 	});
 }

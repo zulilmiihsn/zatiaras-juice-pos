@@ -1,4 +1,4 @@
-import { enqueueKioskProjection } from './kioskProjectionQueue';
+import { enqueueKioskProjection, type ProjectionTransaction } from './kioskProjectionQueue';
 import { normalizeMoney } from '$lib/utils/money';
 
 export interface OpenShift {
@@ -8,10 +8,7 @@ export interface OpenShift {
 	openedAt: number;
 }
 
-interface ShiftTransaction {
-	get<T>(key: string): Promise<T | undefined>;
-	put<T>(key: string, value: T): Promise<void>;
-}
+type ShiftTransaction = ProjectionTransaction;
 
 interface SaleTotals {
 	cashSales: number;
@@ -74,7 +71,11 @@ export async function readCoordinatedShift(tx: Pick<ShiftTransaction, 'get'>) {
 }
 
 /** Run inside the branch object's storage.transaction. Only a reconciled branch may open. */
-export async function openCoordinatedShift(tx: ShiftTransaction, input: OpenShift) {
+export async function openCoordinatedShift(
+	tx: ShiftTransaction,
+	input: OpenShift,
+	alarmAt?: number
+) {
 	if (
 		!/^[a-zA-Z0-9_-]{1,128}$/.test(input.id) ||
 		!input.userId ||
@@ -98,7 +99,7 @@ export async function openCoordinatedShift(tx: ShiftTransaction, input: OpenShif
 	const shift = active ?? { ...input, openingCash: normalizeMoney(input.openingCash) };
 	if (!active) {
 		await tx.put('shift:active', shift);
-		await enqueueKioskProjection(tx, 'shift-opened', key);
+		await enqueueKioskProjection(tx, 'shift-opened', key, alarmAt);
 	}
 	// Keep even the second HP's receipt: a delayed retry after close must not reopen the shop.
 	await tx.put(key, { userId: input.userId, shift });
@@ -116,7 +117,8 @@ export async function closeCoordinatedShift(
 	tx: ShiftTransaction,
 	id: string,
 	userId: string,
-	now: number
+	now: number,
+	alarmAt?: number
 ) {
 	const key = 'shift:closed:' + id;
 	const prior = await tx.get<ClosedShift>(key);
@@ -131,6 +133,6 @@ export async function closeCoordinatedShift(
 	};
 	await tx.put(key, shift);
 	await tx.put('shift:active', null);
-	await enqueueKioskProjection(tx, 'shift-closed', key);
+	await enqueueKioskProjection(tx, 'shift-closed', key, alarmAt);
 	return { status: 'closed', shift } as const;
 }

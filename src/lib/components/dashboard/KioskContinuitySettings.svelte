@@ -35,6 +35,23 @@
 			busy = false;
 		}
 	}
+	async function checkCoordinator() {
+		if (busy) return;
+		busy = true;
+		setupMessage = 'Memeriksa koordinator…';
+		try {
+			const response = await fetch('/api/perangkat-kasir', { cache: 'no-store' });
+			if (!response.ok) throw new Error('Status tidak tersedia');
+			const status = await response.json();
+			const shift =
+				status.shift === 'closed' ? 'tutup' : status.shift === 'open' ? 'buka' : 'belum aktif';
+			setupMessage = `Shift koordinator: ${shift}. ${status.pending} catatan menunggu sinkronisasi.${status.paused ? ' Koordinator dijeda.' : ''}`;
+		} catch {
+			setupMessage = 'Status koordinator belum tersedia. Jangan anggap antrean kosong.';
+		} finally {
+			busy = false;
+		}
+	}
 	async function prepareCatalog() {
 		if (busy) return;
 		busy = true;
@@ -65,6 +82,10 @@
 			{#if kioskPilot}
 				<div class="grid gap-2">
 					<p>Aktifkan sekali setelah semua HP kasir berhasil login seperti biasa.</p>
+					<button type="button" class="w-fit underline" disabled={busy} onclick={checkCoordinator}>
+						Periksa status koordinator
+					</button>
+					<p>Status koordinator tidak mencakup antrean offline di HP kasir.</p>
 					<label class="flex items-start gap-2">
 						<input type="checkbox" bind:checked={confirmed} disabled={busy} />
 						<span>Shift sudah tutup, antrean semua HP kosong, dan stok sudah dicocokkan.</span>

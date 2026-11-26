@@ -200,7 +200,7 @@ try {
 	await test('actual handler with execution context responds while realtime is held; retained tasks then settle', async () => {
 		const f = await fixture();
 		const releases: Array<() => void> = [];
-		const signals: AbortSignal[] = [];
+		const requests: Request[] = [];
 		const retained: Promise<unknown>[] = [];
 		let published!: () => void;
 		const ready = new Promise<void>((resolve) => {
@@ -228,14 +228,14 @@ try {
 							'Hold only the actual post-commit consumer'
 						);
 						return new Promise<Response>((resolve, reject) => {
-							signals.push(request.signal);
+							requests.push(request);
 							const abort = () => reject(request.signal.reason);
 							request.signal.addEventListener('abort', abort, { once: true });
 							releases.push(() => {
 								request.signal.removeEventListener('abort', abort);
 								resolve(new Response(null, { status: 204 }));
 							});
-							if (signals.length === 2) published();
+							if (requests.length === 2) published();
 						});
 					}
 				})
@@ -262,8 +262,8 @@ try {
 			assert.equal((await response).status, 200);
 			assert.equal(await f.count('audit_log_outbox'), 1);
 			assert.ok(
-				signals.every((signal) => !signal.aborted),
-				`Publish still owned by context: ${JSON.stringify(signals.map((signal) => ({ aborted: signal.aborted, reason: signal.reason instanceof Error ? signal.reason.message : String(signal.reason) })))}`
+				requests.every(({ signal }) => !signal.aborted),
+				`Publish still owned by context: ${JSON.stringify(requests.map(({ signal }) => ({ aborted: signal.aborted, reason: signal.reason instanceof Error ? signal.reason.message : String(signal.reason) })))}`
 			);
 		} finally {
 			for (const release of releases) release();
@@ -275,7 +275,7 @@ try {
 	await test('actual HTTP without context remains bounded, aborts held publish, preserves committed sale and replay intent', async () => {
 		const f = await fixture();
 		const releases: Array<() => void> = [];
-		const signals: AbortSignal[] = [];
+		const requests: Request[] = [];
 		try {
 			f.env.REALTIME_HUB = {
 				idFromName: () => 'id',
@@ -292,7 +292,8 @@ try {
 								})
 							);
 						assert.equal(new URL(request.url).pathname, '/publish');
-						signals.push(request.signal);
+						// Keep the in-flight Request alive, as a transport would; Node links its signal weakly.
+						requests.push(request);
 						return new Promise<Response>((resolve) =>
 							releases.push(() => resolve(new Response(null, { status: 204 })))
 						);
@@ -306,9 +307,9 @@ try {
 				performance.now() - start <
 					POST_COMMIT_EFFECTS_TIMEOUT_MS + REALTIME_PUBLISH_TIMEOUT_MS + 5000
 			);
-			assert.equal(signals.length, 2);
+			assert.equal(requests.length, 2);
 			assert.ok(
-				signals.every((signal) => signal.aborted),
+				requests.every(({ signal }) => signal.aborted),
 				'Both actual requests are aborted even when mock ignores signals'
 			);
 			assert.equal(await f.count('buku_kas'), 1);

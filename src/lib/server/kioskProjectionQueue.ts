@@ -1,18 +1,57 @@
 import type { DurableObjectStorage } from '@cloudflare/workers-types';
 
 type Storage = Pick<DurableObjectStorage, 'transaction'>;
-interface Tx {
+export interface ProjectionTransaction extends Partial<
+	Pick<DurableObjectStorage, 'getAlarm' | 'setAlarm'>
+> {
 	get<T>(key: string): Promise<T | undefined>;
 	put<T>(key: string, value: T): Promise<void>;
 }
 type Kind = 'shift-opened' | 'sale-recorded' | 'shift-closed';
 
+/** This is a coordinator snapshot, not proof that the phones have emptied their local queues. */
+export async function readKioskProjectionStatus(tx: Pick<ProjectionTransaction, 'get'>) {
+	const [active, policy, tail, ack] = await Promise.all([
+		tx.get('shift:active'),
+		tx.get('shift:open-policy'),
+		tx.get<number>('projection:tail'),
+		tx.get<number>('projection:ack')
+	]);
+	const end = tail ?? 0;
+	const confirmed = ack ?? 0;
+	if (
+		!Number.isSafeInteger(end) ||
+		!Number.isSafeInteger(confirmed) ||
+		confirmed < 0 ||
+		end < confirmed
+	)
+		throw new Error('Posisi antrean sinkronisasi tidak valid');
+	return {
+		shift: active === undefined ? 'uninitialized' : active === null ? 'closed' : 'open',
+		paused: policy === 'rolled-back',
+		pending: end - confirmed
+	} as const;
+}
+
+/** Never delay a previously armed alarm when new sales arrive. */
+export async function armKioskProjection(tx: ProjectionTransaction, at: number) {
+	if (!tx.getAlarm || !tx.setAlarm) throw new Error('Alarm proyeksi tidak tersedia');
+	const current = await tx.getAlarm();
+	if (current === null || current > at) await tx.setAlarm(at);
+}
+
 /** Outbox references immutable records written in the same transaction. */
-export async function enqueueKioskProjection(tx: Tx, kind: Kind, recordKey: string) {
+export async function enqueueKioskProjection(
+	tx: ProjectionTransaction,
+	kind: Kind,
+	recordKey: string,
+	alarmAt?: number
+) {
 	const sequence = ((await tx.get<number>('projection:tail')) ?? 0) + 1;
 	if (!Number.isSafeInteger(sequence)) throw new Error('Antrean sinkronisasi melebihi batas aman');
 	await tx.put(`projection:event:${sequence}`, { sequence, kind, recordKey });
 	await tx.put('projection:tail', sequence);
+	if (alarmAt !== undefined) await armKioskProjection(tx, alarmAt);
 }
 
 export interface KioskProjectionEvent {

@@ -23,6 +23,8 @@ import { initializeKioskShift } from './initializeKioskShift';
 import { readKioskInventorySeed } from './kioskInventory';
 import { readKioskOrderHandoff, seedKioskOrderHandoff } from './kioskOrderHandoff';
 import { drainKioskProjection } from './kioskD1Projection';
+import { armKioskProjection, readKioskProjectionStatus } from './kioskProjectionQueue';
+import { isD1DailyLimit } from './d1DailyLimit';
 import { CoordinatedCashierAuth } from './coordinatedCashierAuth';
 import { RealtimeDurableObject as RealtimeHub } from './realtimeDurableObject.js';
 
@@ -36,6 +38,56 @@ export class RealtimeDurableObject extends RealtimeHub {
 	) {
 		super(state, env);
 	}
+	private projectionAlarmAt(now: number) {
+		return this.env.BRANCH_ACCOUNT_MODE === 'backend' ? now + 5000 : undefined;
+	}
+
+	async alarm() {
+		if (this.env.BRANCH_ACCOUNT_MODE !== 'backend') return;
+		const branch = branchContext(normalizeBranch(this.env.BRANCH_ACCOUNT_IDENTITY));
+		if (!kioskPilotEnvironment(this.env, branch)) return;
+		const shouldDrain = await this.state.storage.transaction(async (tx) => {
+			if (
+				(await tx.get('shift:active')) === undefined ||
+				(await tx.get('shift:open-policy')) === 'rolled-back'
+			)
+				return false;
+			// Reserve a durable retry before touching D1; retries must survive restarts and quota outages.
+			await armKioskProjection(tx, Date.now() + 60000);
+			return true;
+		});
+		if (!shouldDrain) return;
+		try {
+			await this.drainProjection(branch);
+		} catch (cause) {
+			console.warn({
+				event: 'kiosk_projection_deferred',
+				branch,
+				reason: isD1DailyLimit(cause) ? 'd1_daily_limit' : 'projection_failed'
+			});
+			return;
+		}
+		await this.state.storage.transaction(async (tx) => {
+			const status = await readKioskProjectionStatus(tx);
+			// Keep refreshing prices off-shift, but avoid one alarm per minute when the outbox is empty.
+			if (status.pending === 0) await tx.setAlarm(Date.now() + 60 * 60000);
+		});
+	}
+
+	private async drainProjection(branch: ReturnType<typeof branchContext>) {
+		if (kioskPilotEnvironment(this.env, branch)) {
+			try {
+				await refreshKioskCatalogIfDue(this.state.storage, branch, Date.now(), () =>
+					buildKioskCatalog({ env: this.env }, branch)
+				);
+			} catch {
+				// Keep the last valid snapshot and continue draining independently.
+				console.warn('[kiosk-catalog] Penyegaran tertunda', branch);
+			}
+		}
+		await drainKioskProjection(this.state.storage, { env: this.env }, branch);
+	}
+
 	override async fetch(request: Request) {
 		const url = new URL(request.url);
 		if (url.origin !== 'https://cashier.internal') return super.fetch(request);
@@ -54,6 +106,10 @@ export class RealtimeDurableObject extends RealtimeHub {
 				switchPath[1] === 'rollback'
 					? await rollbackKioskPilot(this.env, this.state.storage, branch)
 					: await initializeKioskPilot(this.env, this.state.storage, branch, Date.now(), target);
+			if (switchPath[1] === 'activate' && this.env.BRANCH_ACCOUNT_MODE === 'backend')
+				await this.state.storage.transaction((tx) =>
+					armKioskProjection(tx, Date.now() + 60 * 60000)
+				);
 			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/projection/prepare-numbering') {
@@ -82,19 +138,19 @@ export class RealtimeDurableObject extends RealtimeHub {
 			);
 			return Response.json({ ok: true, ...result }, { headers: { 'cache-control': 'no-store' } });
 		}
+		if (url.pathname === '/projection/status') {
+			const branch = branchContext(normalizeBranch(body.branch));
+			if (
+				!kioskPilotEnvironment(this.env, branch) ||
+				(this.env.BRANCH_ACCOUNT_MODE === 'backend' && this.env.BRANCH_ACCOUNT_IDENTITY !== branch)
+			)
+				return Response.json({ ok: false }, { status: 404 });
+			const status = await this.state.storage.transaction(readKioskProjectionStatus);
+			return Response.json(status, { headers: { 'cache-control': 'no-store' } });
+		}
 		if (url.pathname === '/projection/drain') {
 			const branch = branchContext(normalizeBranch(body.branch));
-			if (kioskPilotEnvironment(this.env, branch)) {
-				try {
-					await refreshKioskCatalogIfDue(this.state.storage, branch, Date.now(), () =>
-						buildKioskCatalog({ env: this.env }, branch)
-					);
-				} catch {
-					// Keep the last valid snapshot and continue draining independently.
-					console.warn('[kiosk-catalog] Penyegaran tertunda', branch);
-				}
-			}
-			await drainKioskProjection(this.state.storage, { env: this.env }, branch);
+			await this.drainProjection(branch);
 			return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
 		}
 		if (url.pathname === '/device/refresh-pilot-catalog') {
@@ -208,7 +264,8 @@ export class RealtimeDurableObject extends RealtimeHub {
 								items
 							},
 							now,
-							isPosCatalogSnapshot(snapshot) ? snapshot.stock_policy?.epoch_token : undefined
+							isPosCatalogSnapshot(snapshot) ? snapshot.stock_policy?.epoch_token : undefined,
+							this.projectionAlarmAt(now)
 						))
 					};
 				} catch (error) {
@@ -250,7 +307,13 @@ export class RealtimeDurableObject extends RealtimeHub {
 									: await tx.get(KIOSK_SHIFT_PIN))
 							)
 								return { status: 'policy-blocked' };
-							return closeCoordinatedShift(tx, id, identity.userId, now);
+							return closeCoordinatedShift(
+								tx,
+								id,
+								identity.userId,
+								now,
+								this.projectionAlarmAt(now)
+							);
 						}))
 					};
 					break;
@@ -275,12 +338,16 @@ export class RealtimeDurableObject extends RealtimeHub {
 								: await tx.get(KIOSK_SHIFT_PIN))
 						)
 							return { status: 'policy-blocked' };
-						return openCoordinatedShift(tx, {
-							id: body.id,
-							openingCash: body.openingCash,
-							userId: identity.userId,
-							openedAt
-						});
+						return openCoordinatedShift(
+							tx,
+							{
+								id: body.id,
+								openingCash: body.openingCash,
+								userId: identity.userId,
+								openedAt
+							},
+							this.projectionAlarmAt(openedAt)
+						);
 					}))
 				};
 				break;

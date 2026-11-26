@@ -2,9 +2,17 @@ import { json, error } from '@sveltejs/kit';
 import { requireAuthSession, requireExactRole, requireSessionBranch } from '$lib/server/apiAuth';
 import { readJsonBody, bodyErrorResponse, RequestBodyError } from '$lib/server/requestBody';
 import { enrollCashierDevice } from '$lib/server/enrollCashierDevice';
-import { changeKioskPilot } from '$lib/server/activateKioskPilot';
+import { changeKioskPilot, getKioskPilotStatus } from '$lib/server/activateKioskPilot';
 import { prepareKioskCatalog } from '$lib/server/prepareKioskCatalog';
 import type { RequestHandler } from './$types';
+export const GET: RequestHandler = async ({ locals, platform, url }) => {
+	requireExactRole(requireAuthSession(locals).role, ['pemilik']);
+	const branch = requireSessionBranch(locals, url.searchParams.get('branch'));
+	return json(await getKioskPilotStatus(platform, branch), {
+		headers: { 'Cache-Control': 'no-store' }
+	});
+};
+
 export const PUT: RequestHandler = async ({ locals, platform }) => {
 	requireExactRole(requireAuthSession(locals).role, ['pemilik']);
 	const branch = requireSessionBranch(locals);

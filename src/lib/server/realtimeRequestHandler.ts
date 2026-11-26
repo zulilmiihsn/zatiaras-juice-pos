@@ -1,6 +1,7 @@
 import { getAuthSession } from './authSessionReader';
 import { requireSessionBranch } from './apiAuth';
 import type { BranchContext } from './branchResolver';
+import { cutoverMaintenanceResponse, isLegacyCutoverPaused } from './cutoverMaintenance';
 
 function realtimeJson(error: string, status: number): Response {
 	return new Response(JSON.stringify({ error }), {
@@ -41,6 +42,8 @@ export async function handleRealtimeRequest(
 	request: Request,
 	env: App.Platform['env'] | undefined
 ): Promise<Response | null> {
+	// The compiled Pages wrapper calls this before dispatching to SvelteKit or the realtime DO.
+	if (isLegacyCutoverPaused(env?.LEGACY_CUTOVER_STATE)) return cutoverMaintenanceResponse();
 	const url = new URL(request.url);
 	if (url.pathname !== '/api/realtime') return null;
 	if (request.method !== 'GET') return realtimeJson('Method not allowed', 405);

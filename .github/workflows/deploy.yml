@@ -21,15 +21,64 @@ on:
         options:
           - production
           - staging
+          - branch-account-staging
       staging_ref:
         description: Ref staging (main atau release/*; diabaikan untuk produksi)
         required: false
         default: main
+      branch_smoke:
+        description: Uji isolasi branch-account-staging tanpa deploy ulang
+        type: boolean
+        default: false
+      branch_restore:
+        description: Uji backup dan restore branch-account-staging ke D1 sementara
+        type: boolean
+        default: false
+      branch_r2_check:
+        description: Periksa akses R2 staging (baca saja, tanpa deploy atau billing)
+        type: boolean
+        default: false
+      branch_r2_prepare:
+        description: Siapkan bucket Standard kosong untuk R2 staging di Samarinda
+        type: boolean
+        default: false
+      branch_r2_smoke:
+        description: Uji gambar dan arsip sintetis pada R2 bersama staging
+        type: boolean
+        default: false
+      branch_maintenance_check:
+        description: Verifikasi eksekusi maintenance lewat log staging (baca saja)
+        type: boolean
+        default: false
+      branch_schema_check:
+        description: Bandingkan tabel dan skema tiga D1 staging (baca saja)
+        type: boolean
+        default: false
+      branch_production_d1_prepare:
+        description: Buat hanya tiga D1 tujuan produksi kosong, tanpa deploy atau migrasi
+        type: boolean
+        default: false
+      branch_production_d1_check:
+        description: Verifikasi tiga D1 tujuan masih kosong tanpa membuat atau mengubah D1
+        type: boolean
+        default: false
+      branch_production_candidate:
+        description: Deploy kandidat produksi tertutup tanpa mengubah rute aktif
+        type: boolean
+        default: false
+      branch_cutover_preflight:
+        description: Periksa produksi baca-saja dan jalankan smoke staging lewat Pages terisolasi
+        type: boolean
+        default: false
+      branch_route_drill:
+        description: Latihan pindah dan rollback rute pada Worker sintetis sementara
+        type: boolean
+        default: false
 
 env:
   RELEASE_COMMIT_SHA: ${{ inputs.sha }}
   RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
-  RELEASE_SOURCE_REF: ${{ inputs.target == 'staging' && inputs.staging_ref || 'main' }}
+  RELEASE_SOURCE_REF: ${{ inputs.target != 'production' && inputs.staging_ref || 'main' }}
 
 jobs:
   verify:
@@ -43,11 +92,31 @@ jobs:
       - name: Validate Release Inputs
         env:
           RELEASE_TARGET: ${{ inputs.target }}
+          BRANCH_SMOKE: ${{ inputs.branch_smoke }}
+          BRANCH_RESTORE: ${{ inputs.branch_restore }}
+          BRANCH_R2_CHECK: ${{ inputs.branch_r2_check }}
+          BRANCH_R2_PREPARE: ${{ inputs.branch_r2_prepare }}
+          BRANCH_R2_SMOKE: ${{ inputs.branch_r2_smoke }}
+          BRANCH_MAINTENANCE_CHECK: ${{ inputs.branch_maintenance_check }}
+          BRANCH_SCHEMA_CHECK: ${{ inputs.branch_schema_check }}
+          BRANCH_PRODUCTION_D1_PREPARE: ${{ inputs.branch_production_d1_prepare }}
+          BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check }}
+          BRANCH_PRODUCTION_CANDIDATE: ${{ inputs.branch_production_candidate }}
+          BRANCH_CUTOVER_PREFLIGHT: ${{ inputs.branch_cutover_preflight }}
+          BRANCH_ROUTE_DRILL: ${{ inputs.branch_route_drill }}
         run: |
+          branch_modes=0
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
+            if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
+          done
+          if (( branch_modes > 1 )); then exit 1; fi
+          if (( branch_modes == 1 )); then
+            [[ "$RELEASE_TARGET" == branch-account-staging && "$RELEASE_SOURCE_REF" == release/branch-account-staging && "$GITHUB_REF" == refs/heads/release/branch-account-staging ]] || exit 1
+          fi
           [[ "$RELEASE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || (echo "Invalid release SHA" && exit 1)
           [[ "$RELEASE_CI_RUN_ID" =~ ^[0-9]+$ ]] || (echo "Invalid CI run ID" && exit 1)
           case "$RELEASE_TARGET" in
-            production|staging) ;;
+            production|staging|branch-account-staging) ;;
             *) echo "Invalid deployment target"; exit 1 ;;
           esac
           case "$RELEASE_SOURCE_REF" in
@@ -96,6 +165,9 @@ jobs:
     needs: [verify]
     if: inputs.dry_run == 'false'
     environment: ${{ inputs.target }}
+    concurrency:
+      group: deploy-${{ inputs.target }}
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: read
@@ -132,6 +204,130 @@ jobs:
 
       - name: Verify Artifact Provenance
         run: node scripts/preflight-release.mjs --verify-only
+
+      - name: Deploy isolated branch account staging
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/deploy-branch-account-staging.mjs
+
+      - name: Smoke test isolated branch account staging
+        if: inputs.target == 'branch-account-staging' && inputs.branch_smoke
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/smoke-branch-account-staging.mjs
+
+      - name: Recover Berau staging if smoke was interrupted
+        if: always() && inputs.target == 'branch-account-staging' && inputs.branch_smoke
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/smoke-branch-account-staging.mjs --restore
+
+      - name: Drill backup and restore on temporary staging D1
+        if: inputs.target == 'branch-account-staging' && inputs.branch_restore
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/drill-branch-account-staging.mjs
+
+      - name: Check existing R2 access without changes
+        if: inputs.target == 'branch-account-staging' && inputs.branch_r2_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/check-branch-account-r2.mjs
+
+      - name: Prepare shared staging R2 bucket
+        if: inputs.target == 'branch-account-staging' && inputs.branch_r2_prepare
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/check-branch-account-r2.mjs --prepare
+
+      - name: Test shared R2 through live staging application
+        if: inputs.target == 'branch-account-staging' && inputs.branch_r2_smoke
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/smoke-shared-r2-staging.mjs
+
+      - name: Verify live branch maintenance execution
+        if: inputs.target == 'branch-account-staging' && inputs.branch_maintenance_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/check-branch-maintenance-staging.mjs
+
+      - name: Compare live D1 staging schemas
+        if: inputs.target == 'branch-account-staging' && inputs.branch_schema_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/check-branch-d1-schema-staging.mjs
+
+      - name: Prepare or verify empty branch production D1 destinations (no traffic)
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_d1_prepare || inputs.branch_production_d1_check || inputs.branch_cutover_preflight)
+        env:
+          BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check || inputs.branch_cutover_preflight }}
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: |
+          if [[ "$BRANCH_PRODUCTION_D1_CHECK" == true ]]; then
+            node scripts/prepare-branch-production-d1.mjs --check-only
+          else
+            node scripts/prepare-branch-production-d1.mjs
+          fi
+
+      - name: Drill live branch route cutover on temporary Workers
+        if: inputs.target == 'branch-account-staging' && inputs.branch_route_drill
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+        run: node scripts/drill-branch-route-staging.mjs
+
+      - name: Prepare paused production candidate Workers (no active route)
+        if: inputs.target == 'branch-account-staging' && inputs.branch_production_candidate
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+          BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
+          BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
+        run: node scripts/deploy-branch-production-candidate.mjs
+
+      - name: Read production source and rollback reference only
+        if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/check-production-cutover-preflight.mjs
+
+      - name: Run staging smoke through an isolated Pages hostname
+        if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
+        run: node scripts/drill-pages-gateway-preview.mjs
 
       - name: Provision Antrean VAPID secrets
         if: inputs.target == 'production'

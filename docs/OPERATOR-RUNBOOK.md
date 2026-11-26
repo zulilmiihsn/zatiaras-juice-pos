@@ -63,7 +63,115 @@ menguji di workerd disposable. Backup lama memerlukan `--expect-migration <nama.
 Durasi terakhir: 15–23 detik per shard. Target pemulihan: RTO ≤ 1 jam; RPO = data
 sejak backup terakhir.
 
-### 2.4 Restore sungguhan
+### 2.4 Persiapan cutover tiga cabang dalam satu jendela
+
+Pengujian boleh bertahap, tetapi produksi tidak memakai pilot. Samarinda, Balikpapan, dan Berau
+beralih dalam satu jendela dan dibuka bersama setelah seluruh pemeriksaan lulus. D1 tujuan tidak
+menerima trafik kasir selama persiapan. Mode `branch_production_d1_prepare=true` pada workflow **Deploy** target
+`branch-account-staging` hanya menyiapkan tujuan kosong `zatiaraspos-samarinda`,
+`zatiaraspos-balikpapan`, dan `zatiaraspos-berau` di akun yang diverifikasi via inventori.
+Mode itu tidak memasang binding, mengimpor data, menjalankan migrasi, atau memindahkan URL.
+`branch_production_d1_check=true` memeriksa ulang ketiganya tanpa membuat database baru.
+Gunakan `branch_production_candidate=true` untuk menyiapkan tiga backend dan gateway kandidat
+pada hostname `workers.dev` khusus, tanpa route produksi. Mode ini memerlukan secret khusus
+`BRANCH_PRODUCTION_PREP_KEY` (32 byte acak dalam hex), hanya menerima D1 tujuan kosong, dan
+menguji penolakan trafik sebelum menyatakan kandidat siap. Tidak ada binding R2 produksi atau
+alarm pemeliharaan di tahap ini. Kandidat wajib `BRANCH_CUTOVER_STATE=paused` dan tidak bisa
+langsung dibuka lewat konfigurasi kandidat. Pemasangan gateway pada URL kasir produksi yang
+sama adalah pekerjaan cutover terpisah; jeda kandidat bukan pengganti penguncian jalur lama.
+Jika izin atau slot Free gagal, hentikan dan periksa inventori; jangan hapus database lain
+untuk memberi ruang. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
+memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun
+memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
+melonggarkan validasi backup produksi agar menerima sembarang target.
+
+Sebelum jadwal, jalankan `branch_cutover_preflight=true`. Mode ini membaca identitas sumber,
+jumlah shift, bucket R2, dan referensi deployment Pages aktif tanpa menulis data produksi.
+Ini juga menguji jeda ingress pada hostname utama project Pages sementara. Relay terotorisasi
+khusus uji memakai service binding ke gateway staging: cek autentikasi ketiga cabang, lalu
+uji buka shift, penjualan, struk, retry, dan tutup shift dengan data sintetis Samarinda.
+Project sementara tidak memiliki binding data dan dihapus setelah uji. Hasil ini tidak
+membuktikan jalur langsung project `zatiaraspos`, TLS alias preview, atau akses R2 produksi.
+Jika ada pemeriksaan yang belum terverifikasi, jangan menandai gate lulus.
+
+Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
+
+| Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |
+| ---------- | -------------------------------------- | ------------------------- | ----------------- | ------------------------------- |
+| Samarinda  |                                        |                           |                   |                                 |
+| Balikpapan |                                        |                           |                   |                                 |
+| Berau      |                                        |                           |                   |                                 |
+
+Sebelum membekukan penulisan, siapkan folder backup di luar repo dengan izin akses terbatas
+serta salinan pada media terpisah. Simpan ID rollback Pages yang sudah diperiksa ulang,
+konfigurasi binding, dan checksum backup bersama bukti operator; jangan simpan secret.
+
+1. **Bekukan ketiga sumber:** hentikan penerimaan transaksi baru, selesaikan shift dan kuras
+   antrean koordinator serta setiap HP. Cocokkan penjualan dari POS sementara secara terpisah;
+   jangan impor ulang tanpa memeriksa duplikasi. Setelah itu blokir penulisan pada semua jalur
+   lama, termasuk endpoint dan pekerjaan terjadwal yang bisa menghasilkan transaksi. Catat
+   waktu, akun dan ID D1 sumber/tujuan, rute aktif, serta identitas backup. Hentikan cutover
+   jika satu cabang masih menerima penulisan atau tidak bisa membuktikan antrean kosong.
+   Kandidat pagar lama memakai `LEGACY_CUTOVER_STATE=paused` pada **Pages dan Worker realtime**
+   secara terpisah. Pages menolak request dinamis sebelum dispatch, sementara Worker realtime
+   melewati Cron yang dapat menulis D1. Setelah rilis pagar yang terverifikasi, buktikan penolakan
+   dari URL lama dan versi Worker yang aktif. Tunggu request yang sudah terlanjur berjalan dan
+   pastikan penulis eksternal, alarm kios bila aktif, serta pekerjaan operator berhenti. Pagar HTTP
+   dan Cron saja tidak memblokir kredensial API D1 atau pekerjaan yang sudah berjalan.
+2. **Backup dan baseline:** jalankan §1 dan §2.1. Simpan manifest, hash baseline, dan SQL
+   di luar repo. Ekspor arsip R2 yang relevan secara terpisah dan verifikasi bisa dibaca;
+   dump D1 tidak mencakup arsip maupun antrean Durable Object.
+3. **Uji restore:** jalankan §2.2 termasuk `--d1`, lalu §2.3 di akun tujuan tanpa rute kasir.
+   Cocokkan jumlah dan hash tabel, stok, buku kas, nomor pesanan, struk, serta shift tertutup.
+   Gunakan inventori D1 tujuan yang eksplisit; identifikasi ulang akun dan ID sebelum impor.
+   Jangan lanjut jika target sementara, manifest, arsip, atau paritas belum terverifikasi.
+4. **Satu penulis, satu pelepasan:** pasang seluruh tujuan pada gateway dalam keadaan jeda,
+   verifikasi rute dan backend yang tepat untuk ketiga cabang, lalu buka gateway sekaligus hanya
+   jika semuanya lulus. Pastikan jalur langsung maupun lama tak bisa menerima penjualan.
+   Observasi versi aktif dari URL produksi dan simpan bukti penjualan, struk, stok, dan
+   sinkronisasi D1 pertama tiap cabang. Bila pemeriksaan gagal, pertahankan jeda; jangan buka
+   sebagian cabang.
+
+**Rollback sebelum ada penulisan bisnis di tujuan:** tutup akses tulis tujuan dan buktikan
+antrean koordinator tujuan kosong serta tidak ada perubahan bisnis sejak baseline. Kembalikan
+rute ke sumber, verifikasi login dan stok, lalu buka penulisan sumber. Jangan membuka dua sisi.
+
+**Rollback setelah ada penulisan bisnis di tujuan atau statusnya belum pasti:** jangan sekadar
+mengganti rute atau memulihkan dump lama. Bekukan kedua sisi, simpan bukti dan backup tujuan,
+kuras antrean jika aman, lalu rekonsiliasi transaksi, stok, shift, nomor pesanan, struk, dan
+arsip sejak cutover. Uji pemulihan perubahan itu pada salinan dan verifikasi idempotensi sebelum
+membuka satu sisi saja. Jika paritas belum terbukti, pertahankan penutupan dan eskalasi. Jangan
+melepas pagar database atau mereset Durable Object untuk memaksa rollback.
+
+#### Latihan cutover dan rollback tanpa gangguan kasir
+
+Jangan menjalankan rollback mode kios pada koordinator staging yang masih dipakai
+untuk pengujian kasir. Rollback menandai kebijakan `rolled-back`; aktivasi ulang menolak snapshot yang
+sama. Untuk latihan live, sediakan D1 sementara dan namespace koordinator baru, gunakan data
+sintetis serta rute uji terpisah, lalu cocokkan ID akun/resource sebelum membuat perubahan.
+Jangan jalankan latihan ini melalui gateway kasir yang sedang melayani transaksi.
+
+- **Bukti lokal:** `pnpm test:shift-workerd` mensimulasikan batas D1, membuktikan rollback
+  menolak antrean yang belum terproyeksi, lalu memverifikasi sinkronisasi dan pembukaan
+  kembali jalur lama di Workerd. `pnpm test:branch-account-compiled` juga memakai tiga D1
+  disposable untuk latihan Balikpapan: pagar di sumber, replay snapshot ke backend tujuan,
+  satu transaksi melalui gateway, antrean kosong, lalu paritas snapshot tujuan pada salinan
+  rollback sebelum jalur lama dibuka di salinan saja. Ini latihan lokal, bukan bukti
+  perpindahan rute atau backup produksi di Cloudflare.
+- **Latihan rute live:** mode `branch_route_drill=true` memindahkan satu gateway khusus
+  latihan dari service binding lokal ke backend lintas akun dan kembali lagi. Fase jeda
+  harus teramati dari URL latihan yang sama. Worker sementara tidak punya D1, R2, atau sesi
+  pengguna, dan dibersihkan setelah latihan. Hasil ini membuktikan rute, bukan migrasi data.
+- **Bukti live yang masih diperlukan:** uji satu cabang pada resource sementara dari backup
+  dan baseline awal. Setelah aktivasi tujuan, buktikan sumber tidak menerima penjualan;
+  kirim satu transaksi sintetis dua kali di tujuan, tutup shift, dan verifikasi D1, stok, struk,
+  nomor pesanan, serta status antrean. Rollback setelah transaksi memerlukan rekonsiliasi ke
+  salinan sumber. Buka kembali hanya satu jalur setelah saldo dan jumlah transaksi cocok.
+- **Pemeliharaan:** respons aktivasi alarm saat deploy membuktikan jadwal tersimpan, bukan
+  pekerjaan selesai. Cek event `[audit-maintenance]` dan hasil audit/retensi per backend pada
+  tick pertama sebelum menilai pemeliharaan staging lulus.
+
+### 2.5 Restore sungguhan
 
 Destruktif. Hanya dengan persetujuan pemilik untuk target yang disebut eksplisit:
 

@@ -72,6 +72,22 @@ export async function readJsonBody(
 	}
 }
 
+export async function readBinaryBody(request: Request, maxBytes: number): Promise<Uint8Array> {
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for await (const chunk of readBoundedChunks(request, maxBytes)) {
+		chunks.push(chunk);
+		total += chunk.byteLength;
+	}
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return bytes;
+}
+
 /** Batas berlaku sebelum parser multipart mengalokasikan seluruh form dan File. */
 export async function readFormDataBody(request: Request, maxBytes: number): Promise<FormData> {
 	const chunks: Uint8Array[] = [];
