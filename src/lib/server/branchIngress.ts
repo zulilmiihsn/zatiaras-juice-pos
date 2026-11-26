@@ -1,6 +1,7 @@
 import type { BranchId } from './branchResolver';
 import { bodyErrorResponse, readJsonBody, RequestBodyError } from './requestBody';
 import { constantTimeEqual } from './secureCompare';
+import { cutoverMaintenanceResponse } from './cutoverMaintenance';
 import { extractBranchFromProductImageKey, isPublicProductImageKey } from './r2ObjectPolicy';
 
 const ROUTE_COOKIE = '__Host-zatiaras_branch';
@@ -111,14 +112,7 @@ export function createBranchIngress(options: IngressOptions) {
 	return async (request: Request) => {
 		const url = new URL(request.url);
 		if (url.origin !== origin) return new Response(null, { status: 421 });
-		if (options.paused)
-			return Response.json(
-				{ success: false, message: 'Kasir sedang dalam pemeliharaan' },
-				{
-					status: 503,
-					headers: { 'cache-control': 'no-store', 'retry-after': '60' }
-				}
-			);
+		if (options.paused) return cutoverMaintenanceResponse();
 		const headers = new Headers(request.headers);
 		headers.delete(RELAY_KEY);
 		headers.delete(RELAY_BRANCH);

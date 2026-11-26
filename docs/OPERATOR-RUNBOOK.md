@@ -109,6 +109,12 @@ konfigurasi binding, dan checksum backup bersama bukti operator; jangan simpan s
    lama, termasuk endpoint dan pekerjaan terjadwal yang bisa menghasilkan transaksi. Catat
    waktu, akun dan ID D1 sumber/tujuan, rute aktif, serta identitas backup. Hentikan cutover
    jika satu cabang masih menerima penulisan atau tidak bisa membuktikan antrean kosong.
+   Kandidat pagar lama memakai `LEGACY_CUTOVER_STATE=paused` pada **Pages dan Worker realtime**
+   secara terpisah. Pages menolak request dinamis sebelum dispatch, sementara Worker realtime
+   melewati Cron yang dapat menulis D1. Setelah rilis pagar yang terverifikasi, buktikan penolakan
+   dari URL lama dan versi Worker yang aktif. Tunggu request yang sudah terlanjur berjalan dan
+   pastikan penulis eksternal, alarm kios bila aktif, serta pekerjaan operator berhenti. Pagar HTTP
+   dan Cron saja tidak memblokir kredensial API D1 atau pekerjaan yang sudah berjalan.
 2. **Backup dan baseline:** jalankan §1 dan §2.1. Simpan manifest, hash baseline, dan SQL
    di luar repo. Ekspor arsip R2 yang relevan secara terpisah dan verifikasi bisa dibaca;
    dump D1 tidak mencakup arsip maupun antrean Durable Object.

@@ -28,6 +28,7 @@ declare global {
 				DB_BERAU_GROUP?: D1Database;
 				STORAGE?: R2Bucket;
 				BRANCH_ACCOUNT_MODE?: 'gateway' | 'backend';
+				LEGACY_CUTOVER_STATE?: 'open' | 'paused';
 				BRANCH_ACCOUNT_IDENTITY?: BranchId;
 				// DurableObjectNamespace dibiarkan longgar: tipe Cloudflare-nya menyeret
 				// signature fetch/Request CF yang bentrok dengan DOM Request di publisher.

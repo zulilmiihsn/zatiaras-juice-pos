@@ -81,6 +81,24 @@ async function tick(
 	await worker.scheduled({ cron, scheduledTime: NOW }, env);
 }
 
+await test('legacy cutover pause retains audit and skips the scheduled writer', async () => {
+	const f = await fixture();
+	try {
+		await enqueue(f.sam, 'pause-audit');
+		const env = { ...f.env, LEGACY_CUTOVER_STATE: 'paused' };
+		for (const cron of ['* * * * *', '0 3 * * *']) {
+			assert.equal(await worker.scheduled({ cron, scheduledTime: NOW }, env), undefined);
+			assert.equal(await count(f.sam, 'audit_log_outbox', "id='pause-audit'"), 1);
+			assert.equal(await count(f.sam, 'audit_logs', "id='pause-audit'"), 0);
+		}
+		await tick(f.env, '* * * * *');
+		assert.equal(await count(f.sam, 'audit_log_outbox', "id='pause-audit'"), 0);
+		assert.equal(await count(f.sam, 'audit_logs', "id='pause-audit'"), 1);
+	} finally {
+		await f.close();
+	}
+});
+
 await test('scheduled audit preserves original event time, zero and complete canonical envelope; minute does not clean', async () => {
 	const f = await fixture();
 	try {
