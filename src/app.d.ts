@@ -26,6 +26,7 @@ declare global {
 				DB_BALIKPAPAN_GROUP?: D1Database;
 				DB_BERAU_GROUP?: D1Database;
 				STORAGE?: R2Bucket;
+				LEGACY_CUTOVER_STATE?: 'open' | 'paused';
 				// DurableObjectNamespace dibiarkan longgar: tipe Cloudflare-nya menyeret
 				// signature fetch/Request CF yang bentrok dengan DOM Request di publisher.
 				REALTIME_HUB?: {

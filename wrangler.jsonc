@@ -4,6 +4,7 @@
 	"compatibility_date": "2026-06-29",
 	"compatibility_flags": ["nodejs_compat"],
 	"pages_build_output_dir": ".svelte-kit/cloudflare",
+	"vars": { "LEGACY_CUTOVER_STATE": "paused" },
 
 	"d1_databases": [
 		{
