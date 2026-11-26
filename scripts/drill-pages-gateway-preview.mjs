@@ -132,18 +132,23 @@ try {
 	const created = await api('', 'POST', { name, production_branch: productionBranch });
 	assert.ok(created.name === name && created.production_branch === productionBranch);
 	assert.ok(await findProject(), 'Project Pages belum terlihat setelah dibuat');
+	function upload(branch) {
+		wranglerPages(name, dir, token, gateway.account_id, [
+			'deploy',
+			'public',
+			'--project-name',
+			name,
+			'--branch',
+			branch
+		]);
+	}
+	// Bootstrap the disposable project's default hostname before testing its preview aliases.
+	// Both deployments use the same paused bundle without production bindings.
 	let uploadError;
 	for (const delay of visibilityDelays) {
 		if (delay) await sleep(delay);
 		try {
-			wranglerPages(name, dir, token, gateway.account_id, [
-				'deploy',
-				'public',
-				'--project-name',
-				name,
-				'--branch',
-				previewBranch
-			]);
+			upload(productionBranch);
 			uploadError = undefined;
 			break;
 		} catch (error) {
@@ -157,6 +162,17 @@ try {
 		}
 	}
 	if (uploadError) throw uploadError;
+	const stable = await api(`/${name}/deployments?env=production&per_page=2`);
+	assert.ok(
+		stable.some(
+			(entry) =>
+				entry.environment === 'production' &&
+				entry.deployment_trigger?.metadata?.branch === productionBranch
+		),
+		'Deployment hostname utama fixture belum terkonfirmasi'
+	);
+	await verifyPaused('hostname utama fixture', `https://${name}.pages.dev`);
+	upload(previewBranch);
 	const list = await api(`/${name}/deployments?env=preview&per_page=2`);
 	const deployment = list.find(
 		(entry) =>
