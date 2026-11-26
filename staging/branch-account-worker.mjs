@@ -1,8 +1,8 @@
 import app from '../.svelte-kit/cloudflare/_worker.js';
 import pagesRoutes from '../.svelte-kit/cloudflare/_routes.json';
-import { createBranchIngress, acceptBranchRelay } from '../src/lib/server/branchIngress.ts';
+import { acceptBranchRelay } from '../src/lib/server/branchIngress.ts';
+import { createBranchGateway } from '../src/lib/server/branchGateway.ts';
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
-import { SESSION_COOKIE } from '../src/lib/server/sessionStore.ts';
 import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
 import { constantTimeEqual } from '../src/lib/server/secureCompare.ts';
 import { checkPausedBranchConnection } from '../src/lib/server/pausedBranchConnection.ts';
@@ -68,19 +68,9 @@ export default {
 			return env.ASSETS.fetch(request);
 		let ingress;
 		try {
-			ingress = createBranchIngress({
-				origin: deployment.publicOrigin,
-				paused: deployment.paused,
-				backends: deployment.backends,
-				routeSecret: deployment.routeSecret,
-				sessionCookie: SESSION_COOKIE,
-				servePublic: (incoming) => app.fetch(incoming, env, context),
-				// Same-account workers.dev requests use the private service binding.
-				forward: (outgoing) =>
-					new URL(outgoing.url).origin === env.BRANCH_LOCAL_ORIGIN
-						? env.BRANCH_LOCAL_BACKEND.fetch(outgoing)
-						: fetch(outgoing)
-			});
+			ingress = createBranchGateway(deployment, env, (incoming) =>
+				app.fetch(incoming, env, context)
+			);
 		} catch {
 			return new Response('Konfigurasi gateway belum siap', { status: 503 });
 		}

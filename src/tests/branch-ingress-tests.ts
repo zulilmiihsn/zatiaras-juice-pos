@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { acceptBranchRelay, createBranchIngress } from '../lib/server/branchIngress';
+import { createBranchGateway } from '../lib/server/branchGateway';
 import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployment';
 import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
@@ -31,6 +32,43 @@ const loginRequest = (branch: string) =>
 		},
 		body: JSON.stringify({ branch, username: 'kasir', password: 'uji' })
 	});
+
+await test('gateway Pages dan Worker memakai binding privat tanpa fallback untuk backend satu akun', async () => {
+	const config = {
+		mode: 'gateway',
+		paused: false,
+		publicOrigin: origin,
+		routeSecret,
+		backends
+	} as const;
+	const contacted: string[] = [];
+	const env = {
+		BRANCH_LOCAL_ORIGIN: backends.get('samarinda')!.origin,
+		BRANCH_LOCAL_BACKEND: {
+			async fetch(request: Request) {
+				contacted.push(`local:${request.headers.get('x-zatiaras-relay-branch')}`);
+				return reply();
+			}
+		}
+	};
+	const remote = async (request: Request) => {
+		contacted.push(`remote:${request.headers.get('x-zatiaras-relay-branch')}`);
+		return reply();
+	};
+	const gateway = createBranchGateway(config, env, async () => reply(), remote);
+	assert.equal((await gateway(loginRequest('samarinda'))).status, 204);
+	assert.equal((await gateway(loginRequest('berau'))).status, 204);
+	const missing = createBranchGateway(
+		config,
+		{ BRANCH_LOCAL_ORIGIN: env.BRANCH_LOCAL_ORIGIN },
+		async () => reply(),
+		remote
+	);
+	assert.equal((await missing(loginRequest('samarinda'))).status, 503);
+	const paused = createBranchGateway({ ...config, paused: true }, env, async () => reply(), remote);
+	assert.equal((await paused(loginRequest('balikpapan'))).status, 503);
+	assert.deepEqual(contacted, ['local:samarinda', 'remote:berau']);
+});
 
 function fixture(paused = false) {
 	const called: string[] = [];
