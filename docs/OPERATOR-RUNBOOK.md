@@ -15,6 +15,21 @@ cabang. Jalankan dari working tree bersih. Semua perintah remote memerlukan
 - Rollback aplikasi tidak mengembalikan schema D1.
 - Simpan backup di luar repository, di media berbeda dari sumber.
 
+## Jeda produksi untuk cutover tiga cabang
+
+Rilis jeda mengatur `LEGACY_CUTOVER_STATE=paused` pada Pages dan Worker realtime.
+Jangan rilis sebelum semua HP sudah mengirim transaksi tertunda dan operator menghentikan
+penjualan pada POS lama. Workflow memastikan tidak ada shift aktif dan tidak ada pagar kios
+pada ketiga database sumber sebelum deploy. Ia kemudian memverifikasi respons pemeliharaan
+`503` dari URL kasir yang sama dan membaca ulang status shift.
+
+Jeda hanya menutup jalur Pages dan Cron realtime yang tercakup rilis. Sebelum backup final,
+pastikan request yang sudah berjalan selesai dan penulis eksternal maupun pekerjaan manual
+berhenti. Rilis ini tidak menyentuh data, R2, atau D1 tujuan. Bila harus membatalkan sebelum
+membuka jalur baru, pulihkan **kedua** deployment produksi yang sudah disiapkan untuk rollback;
+jangan hanya membuka Pages sementara Worker realtime masih pada versi jeda. Setelah jalur
+baru menerima transaksi, rollback memerlukan rekonsiliasi data, bukan sekadar mengganti versi.
+
 ## 1. Backup tiga shard
 
 ```powershell

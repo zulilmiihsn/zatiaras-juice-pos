@@ -4,6 +4,7 @@ import { drainAuditOutbox } from './auditDrain';
 import { cleanTechnicalRows, cleanLocalRegistryDevices } from './technicalRetention';
 import { drainConfiguredKioskBranch } from './scheduledKioskProjection';
 import { checkOpsAlerts } from './opsAlerts';
+import { isLegacyCutoverPaused } from './cutoverMaintenance';
 export { RealtimeDurableObject } from './cashierRealtimeHub';
 const DAILY_CRON = '0 3 * * *';
 const MINUTE_CRON = '* * * * *';
@@ -32,6 +33,7 @@ export default {
 	 * @param {Record<string,unknown>} env
 	 */
 	async scheduled(event, env) {
+		if (isLegacyCutoverPaused(env.LEGACY_CUTOVER_STATE)) return;
 		const now = event.scheduledTime ?? Date.now();
 		if (!Number.isFinite(now) || ![DAILY_CRON, MINUTE_CRON].includes(event.cron ?? '')) return;
 		for (const branch of Object.values(BRANCH_GROUPS).flat()) {

@@ -220,6 +220,24 @@ async function sourceTests() {
 		const { handleRealtimeRequest: handler } = await import(
 			pathToFileURL(join(directory, 'auth.mjs')).href
 		);
+		await test('compiled legacy pause denies Pages and realtime before invoking a binding', async () => {
+			for (const [method, path] of [
+				['GET', '/login'],
+				['POST', '/api/pos/transaction'],
+				['PATCH', '/api/sesi-toko'],
+				['GET', '/api/realtime']
+			]) {
+				const request = new Request('https://local.invalid' + path, { method });
+				const result = await handler(request, { LEGACY_CUTOVER_STATE: 'paused' });
+				assert.equal(result.status, 503);
+				assert.equal(result.headers.get('cache-control'), 'no-store');
+				assert.equal((await result.json()).message, 'Kasir sedang dalam pemeliharaan');
+			}
+			assert.equal(
+				await handler(new Request('https://local.invalid/login'), { LEGACY_CUTOVER_STATE: 'open' }),
+				null
+			);
+		});
 		for (const mutation of [
 			'unknown-role',
 			'deleted-profile',

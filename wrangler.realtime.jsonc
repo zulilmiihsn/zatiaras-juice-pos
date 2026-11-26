@@ -4,6 +4,7 @@
 	"main": "src/lib/server/realtimeWorker.js",
 	"compatibility_date": "2026-06-29",
 	"compatibility_flags": ["nodejs_compat"],
+	"vars": { "LEGACY_CUTOVER_STATE": "paused" },
 
 	"durable_objects": {
 		"bindings": [
