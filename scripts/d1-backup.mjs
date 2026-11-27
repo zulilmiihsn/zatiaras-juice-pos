@@ -12,9 +12,16 @@ import {
 	stat,
 	writeFile
 } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import {
+	canonicalizeExternalPath,
+	normalizeForCompare,
+	REPO_ROOT,
+	WORKSPACE_ROOT
+} from './external-backup-path.mjs';
+export { canonicalizeExternalPath, REPO_ROOT, WORKSPACE_ROOT };
 
 export const CONFIG_FILE = 'wrangler.pages.jsonc';
 const BRANCHES = ['samarinda', 'balikpapan', 'berau'];
@@ -37,22 +44,8 @@ const OS_ENV_KEYS = Object.freeze([
 const MAX_CHILD_OUTPUT = 1024 * 1024;
 const SQL_PREFIX = /^\s*(?:--|PRAGMA\b|CREATE\s+TABLE\b|INSERT\s+INTO\b|BEGIN\s+TRANSACTION\b)/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MODULE_FILE = fileURLToPath(import.meta.url);
-export const REPO_ROOT = resolve(dirname(MODULE_FILE), '..');
-export const WORKSPACE_ROOT = resolve(REPO_ROOT, '..');
 const require = createRequire(import.meta.url);
 const WRANGLER_CLI = join(dirname(require.resolve('wrangler/package.json')), 'bin', 'wrangler.js');
-
-function normalizeForCompare(value) {
-	const normalized = resolve(value).replace(/[\\/]+$/, '');
-	return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-}
-
-function isInsideOrEqual(candidate, parent) {
-	const childValue = normalizeForCompare(candidate);
-	const parentValue = normalizeForCompare(parent);
-	return childValue === parentValue || childValue.startsWith(`${parentValue}${sep}`);
-}
 
 export function stripJsonc(input) {
 	return input
@@ -99,66 +92,6 @@ export function parseArgs(argv) {
 			throw new Error('--env-file hanya untuk --legacy-source');
 	}
 	return parsed;
-}
-
-async function nearestExistingAncestor(targetPath, fs = {}) {
-	const pathLstat = fs.lstat ?? lstat;
-	let cursor = resolve(targetPath);
-	const suffix = [];
-	while (true) {
-		try {
-			await pathLstat(cursor);
-			return { ancestor: cursor, suffix: suffix.reverse() };
-		} catch (error) {
-			if (error?.code !== 'ENOENT') throw error;
-			const parent = dirname(cursor);
-			if (parent === cursor) throw new Error('Tidak menemukan ancestor tujuan yang ada');
-			suffix.push(cursor.slice(parent.length + (parent.endsWith(sep) ? 0 : 1)));
-			cursor = parent;
-		}
-	}
-}
-
-export async function canonicalizeExternalPath(
-	targetPath,
-	{ repoRoot = REPO_ROOT, workspaceRoot = WORKSPACE_ROOT, mustExist = false, fs = {} } = {}
-) {
-	if (!targetPath || !isAbsolute(targetPath)) {
-		throw new Error('Tujuan wajib berupa path absolut');
-	}
-	const pathRealpath = fs.realpath ?? realpath;
-	const pathLstat = fs.lstat ?? lstat;
-	const absolute = resolve(targetPath);
-	const { ancestor, suffix } = await nearestExistingAncestor(absolute, fs);
-	const canonicalAncestor = await pathRealpath(ancestor);
-	const canonicalCandidate = resolve(canonicalAncestor, ...suffix);
-	for (const forbidden of [repoRoot, workspaceRoot]) {
-		const canonicalForbidden = await pathRealpath(forbidden).catch(() => resolve(forbidden));
-		if (isInsideOrEqual(canonicalCandidate, canonicalForbidden)) {
-			throw new Error('Tujuan harus berada di luar repository dan workspace');
-		}
-	}
-	if (mustExist) {
-		const targetStat = await pathLstat(absolute);
-		if (targetStat.isSymbolicLink?.()) {
-			const resolvedTarget = await pathRealpath(absolute);
-			for (const forbidden of [repoRoot, workspaceRoot]) {
-				const canonicalForbidden = await pathRealpath(forbidden).catch(() => resolve(forbidden));
-				if (isInsideOrEqual(resolvedTarget, canonicalForbidden)) {
-					throw new Error('Tujuan symlink/junction mengarah ke workspace');
-				}
-			}
-		}
-		const resolvedTarget = await pathRealpath(absolute);
-		for (const forbidden of [repoRoot, workspaceRoot]) {
-			const canonicalForbidden = await pathRealpath(forbidden).catch(() => resolve(forbidden));
-			if (isInsideOrEqual(resolvedTarget, canonicalForbidden)) {
-				throw new Error('Tujuan ter-resolve ke dalam repository/workspace');
-			}
-		}
-		return resolvedTarget;
-	}
-	return canonicalCandidate;
 }
 
 export function validateD1Config(configOrText) {
