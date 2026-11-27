@@ -44,6 +44,11 @@ assert.ok(token);
 const name = 'zatiaraspos';
 const connectionPath = '/internal/cutover/connection';
 const probeKey = derive(`candidate-pages-probe:${sha}`);
+const openPublic = process.argv.includes('--open-public');
+if (openPublic)
+	assert.equal(process.env.BRANCH_PUBLIC_OPEN_ACK, 'ACTIVATION_STOCK_CUTOFF_CONFIRMED');
+const previousGate = openPublic ? 'new' : 'legacy';
+const backendOrigins = new Map();
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 
 async function cloud(branch, path, method = 'GET') {
@@ -86,6 +91,15 @@ function fetchOrigin(path, init, origin = legacyProductionOrigin) {
 }
 async function verifyGate(kind) {
 	const response = await fetchOrigin('/login');
+	if (kind === 'open') {
+		const matched =
+			response.status === 200 &&
+			response.headers.get('x-zpos-gateway') === 'branch-open' &&
+			(response.headers.get('content-type') ?? '').startsWith('text/html') &&
+			/Masuk untuk memulai sesi kasir/.test(await response.text());
+		if (!response.bodyUsed) await response.body?.cancel();
+		return matched;
+	}
 	const matched =
 		response.status === 503 &&
 		response.headers.get('cache-control') === 'no-store' &&
@@ -103,10 +117,10 @@ async function waitGate(kind, expectedId) {
 			// Pages API visibility and edge propagation can lag the completed upload.
 		}
 	}
-	throw Error(`URL pemeliharaan belum terverifikasi (${kind})`);
+	throw Error(`Status URL kasir belum terverifikasi (${kind})`);
 }
 const before = await canonical();
-assert.ok(await verifyGate('legacy'), 'URL lama wajib dijeda sebelum Pages dialihkan');
+assert.ok(await verifyGate(previousGate), 'URL wajib berada dalam tahap jeda yang sesuai');
 const destinations = {};
 for (const branch of branches) {
 	const name = `zatiaraspos-${branch}`;
@@ -134,6 +148,7 @@ try {
 	);
 	for (const branch of branches) {
 		const origin = gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
+		backendOrigins.set(branch, origin);
 		const response = await fetchOrigin(
 			connectionPath,
 			{
@@ -142,7 +157,23 @@ try {
 			origin
 		);
 		await response.body?.cancel();
-		assert.equal(response.status, 204, `${branch}: backend tertutup belum terverifikasi`);
+		assert.equal(response.status, 204, `${branch}: probe backend belum terverifikasi`);
+		if (openPublic) {
+			assert.equal(response.headers.get('x-zpos-operational-ready'), 'yes');
+			assert.equal(response.headers.get('x-zpos-coordinator-shift'), 'closed');
+			const login = await fetchOrigin(
+				'/login',
+				{
+					headers: {
+						'x-zatiaras-relay-key': relays[branch],
+						'x-zatiaras-relay-branch': branch
+					}
+				},
+				origin
+			);
+			assert.equal(login.status, 200, `${branch}: backend belum siap melayani relay`);
+			assert.ok(/Masuk untuk memulai sesi kasir/.test(await login.text()));
+		}
 	}
 	await snapshotBuiltAssets(source, publicDir);
 	const routes = JSON.parse(await readFile(join(source, '_routes.json'), 'utf8'));
@@ -197,7 +228,11 @@ try {
 			pages_build_output_dir: 'public',
 			compatibility_date: gateway.compatibility_date,
 			compatibility_flags: gateway.compatibility_flags,
-			vars: { ...gateway.vars, BRANCH_PUBLIC_ORIGIN: legacyProductionOrigin },
+			vars: {
+				...gateway.vars,
+				BRANCH_PUBLIC_ORIGIN: legacyProductionOrigin,
+				...(openPublic ? { BRANCH_PRODUCTION_CANDIDATE: 'no', BRANCH_CUTOVER_STATE: 'open' } : {})
+			},
 			services: [{ binding: 'BRANCH_LOCAL_BACKEND', service: backends.samarinda.name }],
 			d1_databases: [],
 			r2_buckets: [],
@@ -225,6 +260,7 @@ try {
 		})
 	);
 	assert.equal((await canonical()).id, before.id, 'Pages berubah sebelum upload');
+	assert.ok(await verifyGate(previousGate), 'Jeda berubah sebelum upload');
 	uploadAttempted = true;
 	wranglerPages(name, dir, token, account, [
 		'deploy',
@@ -246,27 +282,52 @@ try {
 		}
 	}
 	assert.ok(active, 'Deployment Pages baru belum terkonfirmasi');
-	await waitGate('new', active.id);
-	for (const branch of branches) {
-		const denied = await fetchOrigin('/api/veriflogin', {
+	await waitGate(openPublic ? 'open' : 'new', active.id);
+	if (openPublic) {
+		const blocked = await fetchOrigin(connectionPath + '?branch=samarinda', {
+			headers: { 'x-zpos-cutover-probe': probeKey }
+		});
+		assert.equal(blocked.status, 404, 'Probe tertutup tidak boleh aktif pada gateway publik');
+		await blocked.body?.cancel();
+		const csrf = await fetchOrigin('/api/csrf');
+		assert.equal(csrf.status, 200);
+		const data = await csrf.json();
+		assert.ok(typeof data?.token === 'string' && data.token.length > 0, 'CSRF publik belum siap');
+		const invalidBranch = await fetchOrigin('/api/veriflogin', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ branch })
+			body: JSON.stringify({ branch: 'not-a-branch' })
 		});
-		assert.equal(denied.status, 503);
-		assert.equal(denied.headers.get('x-zpos-gateway'), 'branch-paused');
-		await denied.body?.cancel();
-		const path = `${connectionPath}?${new URLSearchParams({ branch })}`;
-		assert.equal((await fetchOrigin(path)).status, 404, 'Probe tanpa otorisasi harus ditolak');
-		const proof = await fetchOrigin(path, { headers: { 'x-zpos-cutover-probe': probeKey } });
-		assert.equal(proof.status, 204, `${branch}: Pages belum mencapai backend tertutup`);
-		assert.equal(proof.headers.get('cache-control'), 'no-store');
-		console.log(`${branch}: rute Pages produksi ke D1/R2 terverifikasi, login tetap ditolak`);
-	}
+		assert.equal(
+			invalidBranch.status,
+			400,
+			'Login cabang tidak dikenal harus ditolak sebelum relay'
+		);
+		await invalidBranch.body?.cancel();
+		console.log(
+			'URL kasir terbuka, login dan CSRF terverifikasi; tidak membuat transaksi produksi.'
+		);
+	} else
+		for (const branch of branches) {
+			const denied = await fetchOrigin('/api/veriflogin', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ branch })
+			});
+			assert.equal(denied.status, 503);
+			assert.equal(denied.headers.get('x-zpos-gateway'), 'branch-paused');
+			await denied.body?.cancel();
+			const path = `${connectionPath}?${new URLSearchParams({ branch })}`;
+			assert.equal((await fetchOrigin(path)).status, 404, 'Probe tanpa otorisasi harus ditolak');
+			const proof = await fetchOrigin(path, { headers: { 'x-zpos-cutover-probe': probeKey } });
+			assert.equal(proof.status, 204, `${branch}: Pages belum mencapai backend tertutup`);
+			assert.equal(proof.headers.get('cache-control'), 'no-store');
+			console.log(`${branch}: rute Pages produksi ke D1/R2 terverifikasi, login tetap ditolak`);
+		}
 	assert.equal((await canonical()).id, active.id, 'Deployment Pages berubah selama probe');
 	await appendFile(
 		process.env.GITHUB_STEP_SUMMARY,
-		`Pages branch gateway (paused): \`${active.id}\`\n`
+		`Pages branch gateway (${openPublic ? 'open' : 'paused'}): \`${active.id}\`\n`
 	);
 } catch (failure) {
 	if (uploadAttempted) {
@@ -284,8 +345,12 @@ try {
 					'POST'
 				);
 			}
-			await waitGate('legacy', before.id);
-			console.log('Pages kembali ke deployment pemeliharaan lama; backend tetap tertutup.');
+			await waitGate(previousGate, before.id);
+			console.log(
+				openPublic
+					? 'Pages kembali dijeda pada gateway cabang. Pertahankan otoritas D1/DO baru; jangan buka jalur lama.'
+					: 'Pages kembali ke deployment pemeliharaan lama; backend tetap tertutup.'
+			);
 		} catch (rollbackError) {
 			throw new AggregateError(
 				[failure, rollbackError],
@@ -296,4 +361,30 @@ try {
 	throw failure;
 } finally {
 	await rm(dir, { recursive: true, force: true });
+}
+
+// Run after route verification and outside rollback: maintenance cannot make valid sales unsafe.
+if (openPublic) {
+	const failed = [];
+	for (const [branch, origin] of backendOrigins) {
+		try {
+			const result = await fetchOrigin(
+				'/internal/maintenance/start',
+				{
+					method: 'POST',
+					headers: { 'x-maintenance-secret': derive(`production-maintenance:${branch}`) }
+				},
+				origin
+			);
+			await result.body?.cancel();
+			if (result.status !== 204) throw new Error('Alarm belum terverifikasi');
+			console.log(`${branch}: alarm maintenance aktif`);
+		} catch {
+			failed.push(branch);
+		}
+	}
+	if (failed.length)
+		throw new Error(
+			`Kasir sudah dibuka; alarm maintenance belum terverifikasi: ${failed.join(', ')}`
+		);
 }

@@ -50,13 +50,16 @@ export default {
 				return deployment.candidate
 					? activatePausedBranch(accepted, env, deployment.branch)
 					: new Response(null, { status: 404 });
-			if (deployment.candidate) {
+			if (path === PAUSED_CONNECTION_PATH) {
 				if (
 					env.BRANCH_CONNECTION_PROBE === 'yes' &&
 					accepted.method === 'GET' &&
-					path === PAUSED_CONNECTION_PATH
+					(deployment.candidate || env.BRANCH_OPERATIONAL_READY === 'yes')
 				)
 					return checkPausedBranchConnection(env, deployment.branch);
+				return new Response(null, { status: 404 });
+			}
+			if (deployment.candidate) {
 				return new Response(null, {
 					status: 503,
 					headers: { 'cache-control': 'no-store', 'x-zpos-candidate': 'paused' }

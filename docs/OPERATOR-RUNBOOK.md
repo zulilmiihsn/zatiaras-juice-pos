@@ -136,7 +136,16 @@ lalu memakai use case aktivasi koordinator yang sama (katalog, stok, nomor awal,
 D1). Setiap cabang harus berakhir dengan shift tertutup dan antrean nol. Halaman Pages
 berstatus jeda sebelum dan sesudah; alarm belum dinyalakan. Jika terhenti, jangan hapus
 fence atau membuka satu cabang; periksa status D1 dan koordinator sebelum memutuskan retry
-atau rollback. Opening publik adalah tahap terpisah.
+atau rollback. Pembukaan publik adalah tahap terpisah.
+
+`branch_public_open_ack=ACTIVATION_STOCK_CUTOFF_CONFIRMED` hanya digunakan setelah seluruh
+aktivasi lulus dan penyerahan POS sementara dicatat. Workflow lebih dulu membuktikan D1
+sudah dipagari dan ketiga backend siap melayani relay ketika Pages masih dijeda. Satu
+upload Pages membuka URL yang sama bagi semua cabang. Jika verifikasi URL gagal setelah
+upload, rollback hanya ke **gateway cabang yang dijeda**, bukan POS lama. Jika ada trafik
+saat itu, pertahankan otoritas D1/DO baru dan lakukan rekonsiliasi; jangan mengandalkan
+rollback Pages untuk membatalkan transaksi. Mulai alarm maintenance hanya setelah gateway
+publik terverifikasi. Kegagalan alarm dilaporkan tanpa membatalkan pembukaan atau penjualan.
 
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 

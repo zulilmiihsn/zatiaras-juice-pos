@@ -5,7 +5,7 @@ const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 export const legacyProductionOrigin = 'https://zatiaraspos.pages.dev';
 export const productionStorageName = 'zatiaraspos-storage';
 
-/** Candidate only: no public routing change, maintenance, or open mode is representable. */
+/** Backend handoff can enable relay traffic, but this builder never opens the public origin. */
 export function buildBranchProductionCandidateConfigs({
 	inventory,
 	destinations,
@@ -13,8 +13,11 @@ export function buildBranchProductionCandidateConfigs({
 	publicAssets,
 	liveConfig,
 	connectPaused = false,
-	prepareOperational = false
+	prepareOperational = false,
+	serveOperational = false
 }) {
+	if (serveOperational && !prepareOperational)
+		throw new Error('Backend layanan memerlukan konfigurasi operasional');
 	if (prepareOperational && !connectPaused)
 		throw new Error('Persiapan operasional memerlukan backend yang terhubung dan tertutup');
 	const { gateway, backends } = buildBranchStagingConfigs({
@@ -97,6 +100,9 @@ export function buildBranchProductionCandidateConfigs({
 							KIOSK_PRODUCTION_PILOT: branch,
 							KIOSK_PROJECTION_BRANCHES: branch
 						}
+					: {}),
+				...(serveOperational
+					? { BRANCH_PRODUCTION_CANDIDATE: 'no', BRANCH_CUTOVER_STATE: 'open' }
 					: {})
 			},
 			...(connectPaused && branch === 'samarinda'

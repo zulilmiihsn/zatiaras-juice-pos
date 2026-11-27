@@ -70,6 +70,10 @@ on:
         description: Pasang gateway baru pada URL produksi dan verifikasi rute tanpa membuka kasir
         type: boolean
         default: false
+      branch_public_open_ack:
+        description: Isi ACTIVATION_STOCK_CUTOFF_CONFIRMED setelah ketiga aktivasi dan cutoff terverifikasi
+        type: string
+        default: ''
       branch_activation_ack:
         description: Isi STOCK_AND_CUTOFF_CONFIRMED hanya setelah operator mengonfirmasi stok dan cutoff POS sementara
         type: string
@@ -129,6 +133,7 @@ jobs:
           BRANCH_PRODUCTION_CONNECT_PAUSED: ${{ inputs.branch_production_connect_paused }}
           BRANCH_PRODUCTION_OPERATIONAL_PREP: ${{ inputs.branch_production_operational_prep }}
           BRANCH_ACTIVATION_ACK: ${{ inputs.branch_activation_ack }}
+          BRANCH_PUBLIC_OPEN_ACK: ${{ inputs.branch_public_open_ack }}
           BRANCH_PRODUCTION_PAGES_PAUSED: ${{ inputs.branch_production_pages_paused }}
           BRANCH_PRODUCTION_STORAGE_READONLY: ${{ inputs.branch_production_storage_readonly }}
           BRANCH_PRODUCTION_STORAGE_WRITES: ${{ inputs.branch_production_storage_writes }}
@@ -141,6 +146,10 @@ jobs:
           done
           if [[ -n "$BRANCH_ACTIVATION_ACK" ]]; then
             [[ "$BRANCH_ACTIVATION_ACK" == STOCK_AND_CUTOFF_CONFIRMED ]] || exit 1
+            branch_modes=$((branch_modes + 1))
+          fi
+          if [[ -n "$BRANCH_PUBLIC_OPEN_ACK" ]]; then
+            [[ "$BRANCH_PUBLIC_OPEN_ACK" == ACTIVATION_STOCK_CUTOFF_CONFIRMED ]] || exit 1
             branch_modes=$((branch_modes + 1))
           fi
           if (( branch_modes > 1 )); then exit 1; fi
@@ -240,7 +249,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && inputs.branch_public_open_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -339,12 +348,13 @@ jobs:
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
         run: node scripts/drill-branch-route-staging.mjs
 
-      - name: Prepare, connect, or activate closed production backend Workers
-        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_candidate || inputs.branch_production_connect_paused || inputs.branch_production_operational_prep || inputs.branch_activation_ack != '')
+      - name: Deploy production backends while the public origin remains closed
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_candidate || inputs.branch_production_connect_paused || inputs.branch_production_operational_prep || inputs.branch_activation_ack != '' || inputs.branch_public_open_ack != '')
         env:
           CONNECT_PAUSED: ${{ inputs.branch_production_connect_paused }}
           PREPARE_OPERATIONAL: ${{ inputs.branch_production_operational_prep }}
           BRANCH_ACTIVATION_ACK: ${{ inputs.branch_activation_ack }}
+          BRANCH_PUBLIC_OPEN_ACK: ${{ inputs.branch_public_open_ack }}
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
@@ -355,17 +365,22 @@ jobs:
           if [[ "$CONNECT_PAUSED" == true ]]; then args+=(--connect-paused); fi
           if [[ "$PREPARE_OPERATIONAL" == true ]]; then args+=(--prepare-operational); fi
           if [[ "$BRANCH_ACTIVATION_ACK" == STOCK_AND_CUTOFF_CONFIRMED ]]; then args+=(--activate-closed); fi
+          if [[ "$BRANCH_PUBLIC_OPEN_ACK" == ACTIVATION_STOCK_CUTOFF_CONFIRMED ]]; then args+=(--serve-operational); fi
           node scripts/deploy-branch-production-candidate.mjs "${args[@]}"
 
-      - name: Route the production Pages origin to closed branch backends
-        if: inputs.target == 'branch-account-staging' && inputs.branch_production_pages_paused
+      - name: Deploy the production Pages gateway after backend verification
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_pages_paused || inputs.branch_public_open_ack != '')
         env:
+          BRANCH_PUBLIC_OPEN_ACK: ${{ inputs.branch_public_open_ack }}
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
           BRANCH_CF_TOKEN_BALIKPAPAN: ${{ secrets.BRANCH_CF_TOKEN_BALIKPAPAN }}
           BRANCH_CF_TOKEN_BERAU: ${{ secrets.BRANCH_CF_TOKEN_BERAU }}
-        run: node scripts/deploy-production-pages-paused.mjs
+        run: |
+          args=()
+          if [[ "$BRANCH_PUBLIC_OPEN_ACK" == ACTIVATION_STOCK_CUTOFF_CONFIRMED ]]; then args+=(--open-public); fi
+          node scripts/deploy-production-branch-pages.mjs "${args[@]}"
 
       - name: Read production source and rollback reference only
         if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}

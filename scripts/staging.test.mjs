@@ -227,6 +227,30 @@ await test('production candidates remain paused and never bind active or staging
 		assert.equal(worker.triggers, undefined);
 		assert.equal(worker.routes, undefined);
 	}
+	assert.throws(
+		() => buildBranchProductionCandidateConfigs({ ...input, serveOperational: true }),
+		/memerlukan konfigurasi operasional/
+	);
+	const serving = buildBranchProductionCandidateConfigs({
+		...input,
+		connectPaused: true,
+		prepareOperational: true,
+		serveOperational: true
+	});
+	assert.deepEqual(
+		serving.gateway,
+		gateway,
+		'Enabling authenticated relay must not open public Pages'
+	);
+	for (const branch of names) {
+		const worker = serving.backends[branch];
+		assert.equal(worker.vars.BRANCH_CUTOVER_STATE, 'open');
+		assert.equal(worker.vars.BRANCH_PRODUCTION_CANDIDATE, 'no');
+		assert.equal(worker.vars.BRANCH_OPERATIONAL_READY, 'yes');
+		assert.deepEqual(worker.d1_databases, prepared.backends[branch].d1_databases);
+		assert.deepEqual(worker.durable_objects, prepared.backends[branch].durable_objects);
+		assert.equal(worker.routes, undefined);
+	}
 	for (const unsafeId of [backends.berau.databaseId, ...productionIds]) {
 		assert.throws(
 			() =>

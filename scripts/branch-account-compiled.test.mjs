@@ -174,6 +174,7 @@ function browserCaller() {
 
 try {
 	const scriptPath = await buildWorker('branch-account-worker.mjs');
+	const pagesScript = await buildWorker('branch-account-pages.mjs');
 	const storageScript = await buildWorker('branch-storage-worker.ts');
 	const assetDirectory = join(fixtures, 'assets');
 	await snapshotBuiltAssets(resolve('.svelte-kit/cloudflare'), assetDirectory);
@@ -187,6 +188,26 @@ try {
 		assets: { directory: assetDirectory, binding: 'ASSETS', run_worker_first: true }
 	};
 	const shared = { BRANCH_PUBLIC_ORIGIN: publicOrigin };
+	const pagesOrigin = (state) => `https://pages-${state}.example.test`;
+	const pagesFixtures = ['paused', 'open'].map((state) => ({
+		...common,
+		scriptPath: pagesScript,
+		name: `pages-${state}`,
+		routes: [`${pagesOrigin(state)}/*`],
+		bindings: {
+			BRANCH_PUBLIC_ORIGIN: pagesOrigin(state),
+			BRANCH_ACCOUNT_MODE: 'gateway',
+			BRANCH_PRODUCTION_CANDIDATE: state === 'paused' ? 'yes' : 'no',
+			BRANCH_CUTOVER_STATE: state,
+			BRANCH_ROUTE_SECRET: secret(),
+			...Object.fromEntries(
+				branches.flatMap((branch) => [
+					[`BRANCH_ORIGIN_${branch.toUpperCase()}`, backendOrigin(branch)],
+					[`BRANCH_RELAY_${branch.toUpperCase()}`, relayKeys[branch]]
+				])
+			)
+		}
+	}));
 	const readyOrigin = 'https://berau-ready.example.test';
 	const backend = (branch, name = branch, origin = backendOrigin(branch)) => ({
 		...common,
@@ -282,11 +303,30 @@ try {
 					d1Databases: { LEGACY_FIXTURE: randomUUID(), ROLLBACK_FIXTURE: randomUUID() }
 				},
 				...branches.map((branch) => backend(branch)),
-				readyBackend
+				readyBackend,
+				...pagesFixtures
 			]
 		})
 	);
 	await runtime.ready;
+	const pausedPage = await runtime.dispatchFetch(pagesOrigin('paused') + '/login');
+	assert.equal(pausedPage.status, 503);
+	assert.equal(pausedPage.headers.get('x-zpos-gateway'), 'branch-paused');
+	assert.equal((await pausedPage.json()).message, 'Kasir sedang dalam pemeliharaan');
+	const openPage = await runtime.dispatchFetch(pagesOrigin('open') + '/login');
+	assert.equal(openPage.status, 200);
+	assert.equal(openPage.headers.get('x-zpos-gateway'), 'branch-open');
+	assert.match(await openPage.text(), /Masuk untuk memulai sesi kasir/);
+	const csrf = await runtime.dispatchFetch(pagesOrigin('open') + '/api/csrf');
+	assert.equal(csrf.status, 200);
+	assert.ok(typeof (await csrf.json()).token === 'string');
+	const unknown = await runtime.dispatchFetch(pagesOrigin('open') + '/api/veriflogin', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ branch: 'not-a-branch' })
+	});
+	assert.equal(unknown.status, 400);
+	await unknown.body?.cancel();
 	const migrations = [];
 	for (const file of (await readdir('drizzle')).filter((file) => file.endsWith('.sql')).sort()) {
 		migrations.push(

@@ -18,9 +18,18 @@ export default {
 		const probe = await probePausedGateway(request, deployment, env);
 		if (probe) return probe;
 		const response = await ingress(request);
-		if (!deployment.paused || response.status !== 503) return response;
+		const marker =
+			deployment.paused && response.status === 503
+				? 'branch-paused'
+				: !deployment.paused &&
+					  response.status === 200 &&
+					  request.method === 'GET' &&
+					  new URL(request.url).pathname === '/login'
+					? 'branch-open'
+					: null;
+		if (!marker) return response;
 		const marked = new Response(response.body, response);
-		marked.headers.set('x-zpos-gateway', 'branch-paused');
+		marked.headers.set('x-zpos-gateway', marker);
 		return marked;
 	}
 };

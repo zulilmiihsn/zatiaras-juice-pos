@@ -20,6 +20,11 @@ assert.ok(/^[a-f0-9]{64}$/.test(master ?? ''), 'Kunci kandidat produksi tidak te
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
 const activateClosed = process.argv.includes('--activate-closed');
+const serveOperational = process.argv.includes('--serve-operational');
+if (serveOperational) {
+	assert.ok(!activateClosed);
+	assert.equal(process.env.BRANCH_PUBLIC_OPEN_ACK, 'ACTIVATION_STOCK_CUTOFF_CONFIRMED');
+}
 if (activateClosed) {
 	assert.equal(process.env.BRANCH_ACTIVATION_ACK, 'STOCK_AND_CUTOFF_CONFIRMED');
 	assert.ok(process.env.GITHUB_STEP_SUMMARY);
@@ -27,7 +32,8 @@ if (activateClosed) {
 }
 const activationKey = (branch) =>
 	derive(`candidate-activation:${process.env.RELEASE_COMMIT_SHA}:${branch}`);
-const prepareOperational = activateClosed || process.argv.includes('--prepare-operational');
+const prepareOperational =
+	activateClosed || serveOperational || process.argv.includes('--prepare-operational');
 const connectPaused = prepareOperational || process.argv.includes('--connect-paused');
 async function assertProductionPaused() {
 	const response = await fetch(`${legacyProductionOrigin}/login`, {
@@ -129,7 +135,8 @@ try {
 		publicAssets,
 		liveConfig,
 		connectPaused,
-		prepareOperational
+		prepareOperational,
+		serveOperational
 	});
 	for (const branch of branches) {
 		const { id, name } = destinations[branch];
@@ -150,7 +157,9 @@ try {
 				(connectPaused
 					? row?.profiles > 0 &&
 						row.shifts === 0 &&
-						(row.managed === 0 || (activateClosed && row.managed === 1))
+						(serveOperational
+							? row.managed === 1
+							: row.managed === 0 || (activateClosed && row.managed === 1))
 					: row?.n === 0),
 			`${branch}: kondisi D1 tidak sesuai tahap kandidat`
 		);
@@ -171,16 +180,22 @@ try {
 				.map(({ name, text }) => [name, text])
 		);
 		const previousOrigin = vars.get('BRANCH_PUBLIC_ORIGIN');
-		assert.ok(
+		const candidate =
 			vars.get('BRANCH_PRODUCTION_CANDIDATE') === 'yes' &&
-				vars.get('BRANCH_CUTOVER_STATE') === 'paused' &&
+			vars.get('BRANCH_CUTOVER_STATE') === 'paused';
+		const alreadyServing =
+			serveOperational &&
+			vars.get('BRANCH_PRODUCTION_CANDIDATE') === 'no' &&
+			vars.get('BRANCH_CUTOVER_STATE') === 'open';
+		assert.ok(
+			(candidate || alreadyServing) &&
 				vars.get('BRANCH_ACCOUNT_MODE') === worker.vars.BRANCH_ACCOUNT_MODE &&
 				vars.get('BRANCH_ACCOUNT_IDENTITY') === worker.vars.BRANCH_ACCOUNT_IDENTITY &&
 				(prepareOperational
 					? vars.get('BRANCH_CONNECTION_PROBE') === 'yes' &&
 						previousOrigin === legacyProductionOrigin
 					: vars.get('BRANCH_OPERATIONAL_READY') !== 'yes') &&
-				(!activateClosed || vars.get('BRANCH_OPERATIONAL_READY') === 'yes') &&
+				(!(activateClosed || serveOperational) || vars.get('BRANCH_OPERATIONAL_READY') === 'yes') &&
 				(previousOrigin === worker.vars.BRANCH_PUBLIC_ORIGIN ||
 					(connectPaused && previousOrigin === config.gateway.vars.BRANCH_PUBLIC_ORIGIN)),
 			`${worker.name}: resource yang sudah ada bukan kandidat yang cocok`
@@ -217,15 +232,20 @@ try {
 			...(prepareOperational
 				? { POS_PRICE_SIGNING_KEY: derive(`production-price:${branch}`) }
 				: {}),
-			...(activateClosed ? { BRANCH_ACTIVATION_SECRET: activationKey(branch) } : {})
+			...(activateClosed ? { BRANCH_ACTIVATION_SECRET: activationKey(branch) } : {}),
+			...(serveOperational
+				? { BRANCH_MAINTENANCE_SECRET: derive(`production-maintenance:${branch}`) }
+				: {})
 		});
 		const host = config.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
 		await verify(`${host}/login`, 401);
 		await verify(
 			`${host}/login`,
-			503,
+			serveOperational ? 200 : 503,
 			{ 'x-zatiaras-relay-key': secret, 'x-zatiaras-relay-branch': branch },
-			(response) => response.headers.get('x-zpos-candidate') === 'paused'
+			serveOperational
+				? async (response) => /Masuk untuk memulai sesi kasir/.test(await response.text())
+				: (response) => response.headers.get('x-zpos-candidate') === 'paused'
 		);
 		if (connectPaused) {
 			const probe = `${host}/internal/cutover/connection`;
@@ -238,13 +258,17 @@ try {
 					'x-zatiaras-relay-branch': branch
 				},
 				prepareOperational
-					? (response) => response.headers.get('x-zpos-operational-ready') === 'yes'
+					? (response) =>
+							response.headers.get('x-zpos-operational-ready') === 'yes' &&
+							(!serveOperational || response.headers.get('x-zpos-coordinator-shift') === 'closed')
 					: undefined
 			);
 			console.log(
-				prepareOperational
-					? `${branch}: koordinator kosong, katalog bertanda tangan lolos, dan binding maintenance siap; kasir tetap tertutup`
-					: `${branch}: D1 hasil impor dan relay R2 terhubung; trafik kasir ditolak`
+				serveOperational
+					? `${branch}: backend siap melayani relay, koordinator tertutup, dan akses publik tetap dijeda`
+					: prepareOperational
+						? `${branch}: koordinator kosong, katalog bertanda tangan lolos, dan binding maintenance siap; kasir tetap tertutup`
+						: `${branch}: D1 hasil impor dan relay R2 terhubung; trafik kasir ditolak`
 			);
 		} else console.log(`${branch}: backend kandidat menolak trafik; D1 tujuan kosong`);
 	}
@@ -275,7 +299,7 @@ try {
 			}
 			await assertProductionPaused();
 		}
-		console.log('Ketiga backend terhubung dan tertutup. Pages produksi tidak diubah.');
+		console.log('Ketiga backend terverifikasi. Pages produksi tetap dijeda.');
 	} else {
 		await deploy('samarinda', config.gateway, {
 			BRANCH_ROUTE_SECRET: derive('candidate-route'),
