@@ -51,6 +51,13 @@ function balancedAnd(terms) {
 	const middle = Math.floor(terms.length / 2);
 	return `(${balancedAnd(terms.slice(0, middle))} AND ${balancedAnd(terms.slice(middle))})`;
 }
+// Restore rows are owned by the job in both schemas. A legacy row with no owning job
+// must veto a wipe rather than being silently ignored.
+function branchCount(table, branchSql) {
+	return table === 'archive_restore_rows'
+		? `SELECT COUNT(*) FROM archive_restore_rows r LEFT JOIN archive_restore_jobs j ON j.id=r.job_id WHERE j.cabang_id=${branchSql} OR j.id IS NULL OR j.cabang_id IS NOT json_extract(r.data_json,'$.cabang_id')`
+		: `SELECT COUNT(*) FROM ${table} WHERE cabang_id=${branchSql}`;
+}
 function assertIntent(args) {
 	if (!validBranch(args.branch))
 		throw new Error('--branch wajib salah satu: samarinda, balikpapan, berau');
@@ -114,7 +121,7 @@ export async function assertBackupCoversBranch(manifestPath, branch, options = {
 		},
 		(mem) => {
 			for (const table of ARCHIVE_GUARD_TABLES)
-				if (mem.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE cabang_id=?`).get(branch).n > 0)
+				if (mem.prepare(`SELECT (${branchCount(table, '?')}) AS n`).get(branch).n > 0)
 					throw new Error('Backup berisi arsip/restore intent: perlu review operator, bukan wipe');
 			return Object.fromEntries(
 				WIPE_TABLES.map((table) => [
@@ -138,10 +145,10 @@ export async function assertBackupCoversBranch(manifestPath, branch, options = {
 export function countSql(table, branch) {
 	if (![...WIPE_TABLES, ...ARCHIVE_GUARD_TABLES].includes(table))
 		throw new Error('Tabel wipe tidak diizinkan');
-	return { sql: `SELECT COUNT(*) AS n FROM ${table} WHERE cabang_id = ?`, params: [branch] };
+	return { sql: `SELECT (${branchCount(table, '?')}) AS n`, params: [branch] };
 }
 export function deleteSql(table, branch) {
-	countSql(table, branch);
+	if (!WIPE_TABLES.includes(table)) throw new Error('Tabel tidak boleh dihapus lewat wipe');
 	return { sql: `DELETE FROM ${table} WHERE cabang_id = ?`, params: [branch] };
 }
 /** All-field source equality and archive guards precede every DELETE, in the SAME transaction.
@@ -156,7 +163,7 @@ export function buildWipeSql(branch, source) {
 	const guard = (condition, reason) =>
 		statements.push(`SELECT CASE WHEN (${condition}) THEN 1 ELSE json(${literal(reason)}) END;`);
 	for (const table of ARCHIVE_GUARD_TABLES)
-		guard(`(SELECT COUNT(*) FROM ${table} WHERE ${scope})=0`, `WIPE_ARCHIVE:${table}`);
+		guard(`(${branchCount(table, literal(branch))})=0`, `WIPE_ARCHIVE:${table}`);
 	for (const table of WIPE_TABLES) {
 		const state = source[table];
 		if (
@@ -245,7 +252,7 @@ function runWrangler(binding, args, options, spawn = spawnSync) {
 }
 async function targetCounts(binding, branch, options) {
 	const tables = [...new Set([...ARCHIVE_GUARD_TABLES, ...WIPE_TABLES])];
-	const query = `SELECT ${tables.map((table) => `(SELECT COUNT(*) FROM ${table} WHERE cabang_id=${literal(branch)}) AS ${identifier(table)}`).join(', ')}`;
+	const query = `SELECT ${tables.map((table) => `(${branchCount(table, literal(branch))}) AS ${identifier(table)}`).join(', ')}`;
 	const result = runWrangler(binding, ['--command', query, '--json'], options);
 	const row = JSON.parse(result.stdout)?.[0]?.results?.[0];
 	if (!row) throw new Error('Wipe count tidak valid; hentikan tanpa mutasi');

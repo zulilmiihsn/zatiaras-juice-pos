@@ -11,6 +11,8 @@ import {
 	WIPE_TABLES,
 	assertBackupCoversBranch,
 	buildWipeSql,
+	countSql,
+	deleteSql,
 	wipeBranchHistory,
 	WIPE_MAX_SQL_BYTES
 } from './wipe-branch-history.mjs';
@@ -287,6 +289,38 @@ await test('async read/dry-run are awaited, malformed counts fail closed, no app
 		);
 	} finally {
 		rmSync(f.dir, { recursive: true, force: true });
+	}
+});
+await test('restore row guard preserves ownership before and after 0051', () => {
+	const db = new DatabaseSync(':memory:');
+	try {
+		db.exec(
+			readFileSync(new URL('../drizzle/0042_archive_restore_staging.sql', import.meta.url), 'utf8')
+		);
+		const digest = '0'.repeat(64);
+		db.prepare(
+			`INSERT INTO archive_restore_jobs VALUES('job','berau','arc',?,1,0,'staging','2026-01-01',NULL)`
+		).run(digest);
+		db.prepare(`INSERT INTO archive_restore_rows VALUES('job','berau','buku_kas','row',?)`).run(
+			JSON.stringify({ id: 'row', cabang_id: 'berau' })
+		);
+		const count = (branch) => {
+			const { sql, params } = countSql('archive_restore_rows', branch);
+			return db.prepare(sql).get(...params).n;
+		};
+		assert.equal(count('berau'), 1);
+		assert.equal(count('samarinda'), 0);
+		db.exec(
+			readFileSync(
+				new URL('../drizzle/0051_archive_restore_row_branch.sql', import.meta.url),
+				'utf8'
+			)
+		);
+		assert.equal(count('berau'), 1);
+		assert.equal(count('samarinda'), 0);
+		assert.throws(() => deleteSql('archive_restore_rows', 'berau'), /tidak boleh dihapus/);
+	} finally {
+		db.close();
 	}
 });
 await test('archive/restore intent blocks BEFORE apply', async () => {
