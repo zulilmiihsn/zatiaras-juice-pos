@@ -545,6 +545,16 @@ objek dihapus di luar aplikasi, dan belum menjadi prosedur hapus manual. Saat pe
 dirilis, perbarui relay R2 sebelum backend cabang agar backend dengan adapter tidak bergantung
 pada relay lama yang masih mengizinkan overwrite.
 
+Untuk relay produksi yang **sudah aktif**, jalankan **Deploy** dari artifact CI yang hijau
+pada `release/branch-account-staging`, dengan `target=branch-account-staging` dan
+`branch_production_storage_harden=true`. Jalankan dry-run dahulu. Mode ini memeriksa kasir
+`branch-open`, bucket dan mode relay, serta mencatat ID versi relay lama di ringkasan run
+sebelum update. Mode ini tidak menulis atau menghapus objek R2, tidak mengganti secret,
+dan tidak men-deploy Worker kasir, Pages, atau D1. Jika pemeriksaan sesudah deploy gagal
+setelah versi berubah, cek kesehatan relay dan pulihkan versi sebelumnya di **Workers →
+`zatiaraspos-storage` → Deployments**; jangan rollback gateway kasir atau mengaktifkan
+penulis legacy. Jangan jalankan deploy relay lain bersamaan.
+
 ### Dashboard saat PWA dibuka kembali
 
 Dashboard meminta data terbaru saat halaman kembali terlihat/fokus, dipulihkan browser,

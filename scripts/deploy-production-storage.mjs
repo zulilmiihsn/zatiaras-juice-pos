@@ -16,7 +16,9 @@ assert.ok(process.env.RUNNER_TEMP);
 const key = process.env.BRANCH_PRODUCTION_PREP_KEY;
 const token = process.env.BRANCH_CF_TOKEN_SAMARINDA;
 const enableWrites = process.argv.includes('--enable-writes');
-if (enableWrites) assert.ok(process.env.GITHUB_STEP_SUMMARY);
+const hardenLive = process.argv.includes('--harden-live');
+assert.ok(!(enableWrites && hardenLive), 'Mode relay tidak boleh digabung');
+if (enableWrites || hardenLive) assert.ok(process.env.GITHUB_STEP_SUMMARY);
 assert.ok(/^[a-f0-9]{64}$/.test(key ?? ''), 'Kunci persiapan produksi tidak valid');
 assert.ok(token);
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
@@ -85,6 +87,24 @@ async function checkPaused() {
 		}
 	}
 }
+async function checkOpen() {
+	const response = await fetch(`${legacyProductionOrigin}/login`, {
+		redirect: 'error',
+		signal: AbortSignal.timeout(10_000)
+	});
+	await response.body?.cancel();
+	assert.equal(response.status, 200);
+	assert.equal(response.headers.get('x-zpos-gateway'), 'branch-open');
+}
+async function activeVersion() {
+	const { deployments } = await data(`workers/scripts/${name}/deployments`);
+	const active = deployments?.[0]?.versions;
+	assert.equal(active?.length, 1, 'Menolak mengubah relay dengan beberapa versi aktif');
+	assert.equal(active[0].percentage, 100);
+	const version = active[0].version_id;
+	assert.match(version ?? '', /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);
+	return version;
+}
 function fetchRelay(secret, objectKey, method = 'GET', body) {
 	return fetch(`${origin}/object?${new URLSearchParams({ key: objectKey })}`, {
 		method,
@@ -104,7 +124,8 @@ async function probe(secret, objectKey, status, method, body) {
 	assert.equal(response.status, status, 'Respons isolasi relay tidak sesuai');
 }
 const bucketPath = `r2/buckets/${bucketName}`;
-await checkPaused();
+const checkGateway = hardenLive ? checkOpen : checkPaused;
+await checkGateway();
 const bucket = await data(bucketPath);
 assert.equal(bucket.name, bucketName);
 assert.equal(bucket.storage_class, 'Standard');
@@ -116,15 +137,17 @@ const images = objects.filter(({ key }) =>
 assert.ok(images.length > 0, 'Gambar Samarinda untuk uji baca tidak tersedia');
 const scripts = await data('workers/scripts');
 const exists = scripts.some(({ id }) => id === name);
-if (enableWrites) assert.ok(exists, 'Relay read-only harus sudah terpasang');
-if (exists) {
+if (enableWrites || hardenLive) assert.ok(exists, 'Relay produksi harus sudah terpasang');
+async function assertBindings(expectedReadOnly) {
 	const settings = await data(`workers/scripts/${name}/settings`);
 	assert.ok(
 		settings.bindings?.some(
 			({ type, name, text }) =>
-				type === 'plain_text' && name === 'STORAGE_PRODUCTION_READ_ONLY' && text === 'yes'
+				type === 'plain_text' &&
+				name === 'STORAGE_PRODUCTION_READ_ONLY' &&
+				text === (expectedReadOnly ? 'yes' : 'no')
 		),
-		'Menolak menimpa Worker yang bukan relay read-only'
+		'Mode relay saat ini tidak cocok dengan tahap deploy'
 	);
 	assert.ok(
 		settings.bindings?.some(
@@ -133,7 +156,20 @@ if (exists) {
 		),
 		'Relay tidak menunjuk bucket yang diizinkan'
 	);
+	if (hardenLive) {
+		assert.equal(settings.bindings.length, 2 + Object.keys(secrets).length);
+		for (const branch of Object.keys(secrets)) {
+			assert.ok(
+				settings.bindings.some(
+					({ type, name }) =>
+						type === 'secret_text' && name === `STORAGE_SECRET_${branch.toUpperCase()}`
+				),
+				`${branch}: binding secret relay tidak sesuai`
+			);
+		}
+	}
 }
+if (exists) await assertBindings(!hardenLive);
 const dir = await mkdtemp(join(process.env.RUNNER_TEMP, 'zpos-production-storage-'));
 const readOnlyTestKey = `produk/samarinda/${randomUUID()}.png`;
 async function deploy(readOnly) {
@@ -153,6 +189,11 @@ async function deploy(readOnly) {
 		}),
 		{ mode: 0o600, flag: 'wx' }
 	);
+	if (hardenLive) {
+		// Preserve the live runtime settings and all existing secrets; only this script is updated.
+		wrangler(name, config, token, ['deploy', '--keep-vars']);
+		return;
+	}
 	wrangler(name, config, token, ['deploy']);
 	wrangler(
 		name,
@@ -220,11 +261,28 @@ async function verifySyntheticWrites(branch) {
 	);
 }
 let writableAttempted = false;
+let priorVersion;
 try {
+	if (hardenLive) {
+		await waitMode(false);
+		await probe(secrets.samarinda, images[0].key, 200);
+		priorVersion = await activeVersion();
+		await appendFile(
+			process.env.GITHUB_STEP_SUMMARY,
+			`Versi relay sebelum update: \`${priorVersion}\`\n`
+		);
+		await checkGateway();
+		assert.equal(await activeVersion(), priorVersion, 'Relay berubah selama preflight');
+	}
 	if (enableWrites) await waitMode(true);
 	writableAttempted = enableWrites;
-	await deploy(!enableWrites);
-	await waitMode(!enableWrites);
+	const readOnly = !(enableWrites || hardenLive);
+	await deploy(readOnly);
+	await waitMode(readOnly);
+	if (hardenLive) {
+		assert.notEqual(await activeVersion(), priorVersion, 'Versi relay belum berubah');
+		await assertBindings(false);
+	}
 	const example = images[0].key;
 	await probe('invalid', example, 401);
 	for (const branch of ['balikpapan', 'berau']) await probe(secrets[branch], example, 404);
@@ -246,11 +304,17 @@ try {
 	if (enableWrites) {
 		for (const branch of Object.keys(backends)) await verifySyntheticWrites(branch);
 	}
-	await checkPaused();
+	await checkGateway();
 	console.log(
-		`${images.length} gambar asli cocok; relay R2 ${enableWrites ? 'siap baca-tulis' : 'baca-saja'}. URL kasir tetap dijeda.`
+		hardenLive
+			? `${images.length} gambar asli cocok; relay anti-timpa dirilis, kasir tetap buka.`
+			: `${images.length} gambar asli cocok; relay R2 ${enableWrites ? 'siap baca-tulis' : 'baca-saja'}. URL kasir tetap dijeda.`
 	);
 } catch (failure) {
+	if (hardenLive && priorVersion)
+		console.error(
+			`Jika versi baru sempat aktif dan relay bermasalah, tinjau rollback relay ke ${priorVersion}. Jangan ubah gateway kasir.`
+		);
 	if (writableAttempted) {
 		try {
 			await deploy(true);
