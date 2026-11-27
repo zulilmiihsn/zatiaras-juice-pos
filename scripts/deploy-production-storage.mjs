@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
 import { wrangler } from './deploy-branch-worker-cli.mjs';
+import {
+	legacyProductionOrigin,
+	productionStorageName
+} from './branch-production-candidate-config.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
 assert.equal(process.env.GITHUB_REF, 'refs/heads/release/branch-account-staging');
 assert.ok(process.env.RUNNER_TEMP);
 const key = process.env.BRANCH_PRODUCTION_PREP_KEY;
 const token = process.env.BRANCH_CF_TOKEN_SAMARINDA;
+const enableWrites = process.argv.includes('--enable-writes');
+if (enableWrites) assert.ok(process.env.GITHUB_STEP_SUMMARY);
 assert.ok(/^[a-f0-9]{64}$/.test(key ?? ''), 'Kunci persiapan produksi tidak valid');
 assert.ok(token);
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
@@ -25,7 +31,7 @@ const account = gateway.account_id;
 assert.equal(account, backends.samarinda.account_id);
 assert.match(account, /^[a-f0-9]{26}f4ce43$/);
 const bucketName = 'zatiaras-assets';
-const name = 'zatiaraspos-storage';
+const name = productionStorageName;
 const origin = `https://${name}.${inventory.gateway.subdomain}.workers.dev`;
 const secrets = Object.fromEntries(
 	Object.keys(backends).map((branch) => [
@@ -49,27 +55,51 @@ async function data(path) {
 	return result.result;
 }
 async function checkPaused() {
-	const response = await fetch('https://zatiaraspos.pages.dev/login', {
+	const response = await fetch(`${legacyProductionOrigin}/login`, {
 		redirect: 'error',
 		signal: AbortSignal.timeout(10_000)
 	});
 	assert.equal(response.status, 503);
 	assert.equal((await response.json()).message, 'Kasir sedang dalam pemeliharaan');
+	if (enableWrites) {
+		assert.equal(response.headers.get('x-zpos-gateway'), 'branch-paused');
+		const project = await data('pages/projects/zatiaraspos');
+		assert.equal(project.subdomain, new URL(legacyProductionOrigin).hostname);
+		assert.equal(project.canonical_deployment?.environment, 'production');
+		const sha = project.canonical_deployment?.deployment_trigger?.metadata?.commit_hash;
+		assert.match(sha ?? '', /^[a-f0-9]{40}$/);
+		const keyForProbe = createHmac('sha256', key)
+			.update(`candidate-pages-probe:${sha}`)
+			.digest('hex');
+		for (const branch of Object.keys(backends)) {
+			const probe = await fetch(
+				`${legacyProductionOrigin}/internal/cutover/connection?${new URLSearchParams({ branch })}`,
+				{
+					headers: { 'x-zpos-cutover-probe': keyForProbe },
+					redirect: 'error',
+					signal: AbortSignal.timeout(11_000)
+				}
+			);
+			await probe.body?.cancel();
+			assert.equal(probe.status, 204, `${branch}: gateway belum mencapai backend tertutup`);
+		}
+	}
 }
-function fetchRelay(secret, objectKey, method = 'GET') {
+function fetchRelay(secret, objectKey, method = 'GET', body) {
 	return fetch(`${origin}/object?${new URLSearchParams({ key: objectKey })}`, {
 		method,
-		// An invalid MIME means that even an incorrectly writable relay cannot write the probe.
+		// Mode probes omit the body and carry an invalid MIME; only synthetic fixtures can write.
 		headers: {
 			'x-storage-secret': secret,
-			...(method === 'PUT' ? { 'content-type': 'invalid/probe' } : {})
+			...(method === 'PUT' ? { 'content-type': body ? 'image/png' : 'invalid/probe' } : {})
 		},
+		body,
 		redirect: 'manual',
 		signal: AbortSignal.timeout(12_000)
 	});
 }
-async function probe(secret, objectKey, status, method) {
-	const response = await fetchRelay(secret, objectKey, method);
+async function probe(secret, objectKey, status, method, body) {
+	const response = await fetchRelay(secret, objectKey, method, body);
 	await response.body?.cancel();
 	assert.equal(response.status, status, 'Respons isolasi relay tidak sesuai');
 }
@@ -85,7 +115,9 @@ const images = objects.filter(({ key }) =>
 );
 assert.ok(images.length > 0, 'Gambar Samarinda untuk uji baca tidak tersedia');
 const scripts = await data('workers/scripts');
-if (scripts.some(({ id }) => id === name)) {
+const exists = scripts.some(({ id }) => id === name);
+if (enableWrites) assert.ok(exists, 'Relay read-only harus sudah terpasang');
+if (exists) {
 	const settings = await data(`workers/scripts/${name}/settings`);
 	assert.ok(
 		settings.bindings?.some(
@@ -103,8 +135,9 @@ if (scripts.some(({ id }) => id === name)) {
 	);
 }
 const dir = await mkdtemp(join(process.env.RUNNER_TEMP, 'zpos-production-storage-'));
-try {
-	const config = join(dir, 'wrangler.json');
+const readOnlyTestKey = `produk/samarinda/${randomUUID()}.png`;
+async function deploy(readOnly) {
+	const config = join(dir, readOnly ? 'readonly.json' : 'writable.json');
 	await writeFile(
 		config,
 		JSON.stringify({
@@ -115,7 +148,7 @@ try {
 			compatibility_flags: gateway.compatibility_flags,
 			workers_dev: true,
 			preview_urls: false,
-			vars: { STORAGE_PRODUCTION_READ_ONLY: 'yes' },
+			vars: { STORAGE_PRODUCTION_READ_ONLY: readOnly ? 'yes' : 'no' },
 			r2_buckets: [{ binding: 'STORAGE', bucket_name: bucketName }]
 		}),
 		{ mode: 0o600, flag: 'wx' }
@@ -135,16 +168,63 @@ try {
 			)
 		)
 	);
-	const testKey = `produk/samarinda/${randomUUID()}.png`;
+}
+async function waitMode(readOnly) {
+	// An invalid MIME never writes. It returns 405 before parsing in read-only mode, or 415 when writable.
+	const expected = readOnly ? 405 : 415;
 	let status;
 	for (const delay of [0, 2000, 4000, 8000, 16000]) {
 		if (delay) await sleep(delay);
-		const response = await fetchRelay(secrets.samarinda, testKey, 'PUT');
+		const response = await fetchRelay(secrets.samarinda, readOnlyTestKey, 'PUT');
 		status = response.status;
 		await response.body?.cancel();
-		if (status === 405) break;
+		if (status === expected) break;
 	}
-	assert.equal(status, 405, 'Relay belum membuktikan mode read-only');
+	assert.equal(status, expected, 'Mode relay belum terverifikasi');
+}
+async function verifySyntheticWrites(branch) {
+	const objectKey = `produk/${branch}/${randomUUID()}.png`;
+	const png = Buffer.from(
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=',
+		'base64'
+	);
+	await probe(secrets[branch], objectKey, 404);
+	await appendFile(process.env.GITHUB_STEP_SUMMARY, `Fixture R2 ditargetkan: \`${objectKey}\`\n`);
+	let failure;
+	try {
+		await probe(secrets[branch], objectKey, 204, 'PUT', png);
+		const response = await fetchRelay(secrets[branch], objectKey);
+		assert.equal(response.status, 200);
+		assert.equal(response.headers.get('content-type'), 'image/png');
+		assert.ok(png.equals(Buffer.from(await response.arrayBuffer())), 'Isi fixture R2 berubah');
+		for (const other of Object.keys(backends).filter((name) => name !== branch)) {
+			await probe(secrets[other], objectKey, 404);
+			await probe(secrets[other], objectKey, 404, 'DELETE');
+		}
+	} catch (error) {
+		failure = error;
+	}
+	try {
+		await probe(secrets[branch], objectKey, 204, 'DELETE');
+		await probe(secrets[branch], objectKey, 404);
+	} catch (error) {
+		throw new AggregateError(
+			failure ? [failure, error] : [error],
+			`Fixture R2 perlu pembersihan manual: ${objectKey}`
+		);
+	}
+	await appendFile(process.env.GITHUB_STEP_SUMMARY, `Fixture R2 bersih: \`${objectKey}\`\n`);
+	if (failure) throw failure;
+	console.log(
+		`${branch}: tulis, baca balik, isolasi, dan pembersihan gambar sintetis terverifikasi`
+	);
+}
+let writableAttempted = false;
+try {
+	if (enableWrites) await waitMode(true);
+	writableAttempted = enableWrites;
+	await deploy(!enableWrites);
+	await waitMode(!enableWrites);
 	const example = images[0].key;
 	await probe('invalid', example, 401);
 	for (const branch of ['balikpapan', 'berau']) await probe(secrets[branch], example, 404);
@@ -163,10 +243,27 @@ try {
 			'Isi objek R2 dari relay berbeda'
 		);
 	}
+	if (enableWrites) {
+		for (const branch of Object.keys(backends)) await verifySyntheticWrites(branch);
+	}
 	await checkPaused();
 	console.log(
-		`${images.length} gambar produksi terverifikasi melalui relay read-only; penulisan dan akses lintas cabang ditolak. URL kasir tetap dijeda.`
+		`${images.length} gambar asli cocok; relay R2 ${enableWrites ? 'siap baca-tulis' : 'baca-saja'}. URL kasir tetap dijeda.`
 	);
+} catch (failure) {
+	if (writableAttempted) {
+		try {
+			await deploy(true);
+			await waitMode(true);
+			console.log('Relay kembali ke baca-saja.');
+		} catch (rollbackError) {
+			throw new AggregateError(
+				[failure, rollbackError],
+				'Status relay belum pasti; jangan buka kasir'
+			);
+		}
+	}
+	throw failure;
 } finally {
 	await rm(dir, { recursive: true, force: true });
 }

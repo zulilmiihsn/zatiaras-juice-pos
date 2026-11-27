@@ -19,7 +19,11 @@ export default {
 					['balikpapan', env.STORAGE_SECRET_BALIKPAPAN],
 					['berau', env.STORAGE_SECRET_BERAU]
 				]),
-				{ readOnly: env.STORAGE_PRODUCTION_READ_ONLY === 'yes' }
+				{
+					readOnly:
+						env.STORAGE_PRODUCTION_READ_ONLY !== undefined &&
+						env.STORAGE_PRODUCTION_READ_ONLY !== 'no'
+				}
 			);
 		} catch {
 			return new Response(null, { status: 503 });

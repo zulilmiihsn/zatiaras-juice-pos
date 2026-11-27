@@ -115,6 +115,13 @@ Pages lama di ringkasan run. Jika verifikasi gagal setelah upload, coba rollback
 bila versi aktif berasal dari rilis tersebut; bila rollback tidak terverifikasi, jangan
 membuka atau mengulang deploy sebelum status diperiksa. Worker realtime lama tetap dijeda.
 
+`branch_production_storage_writes=true` memerlukan gateway baru tetap dijeda dan ketiga
+probe privat lulus. Mode ini hanya mengubah relay R2. Uji baca-tulis memakai objek sintetis
+acak per cabang, menolak akses/penghapusan lintas cabang, lalu menghapus dan memverifikasi
+hilangnya objek uji. Jika verifikasi gagal, kembalikan relay ke baca-saja; apabila workflow
+melaporkan kebutuhan pembersihan manual, hapus hanya key fixture yang dicatat. Mode ini
+tidak membuka akses kasir atau mengubah data D1.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

@@ -488,6 +488,35 @@ test('worker R2 menolak konfigurasi hilang dan identitas palsu', async () => {
 	);
 });
 
+await test('worker R2 harus secara eksplisit keluar dari mode read-only produksi', async () => {
+	let puts = 0;
+	const env = {
+		STORAGE: {
+			put: async () => {
+				puts++;
+			}
+		},
+		STORAGE_SECRET_SAMARINDA: 's'.repeat(32),
+		STORAGE_SECRET_BALIKPAPAN: 'b'.repeat(32),
+		STORAGE_SECRET_BERAU: 'r'.repeat(32)
+	};
+	const put = (readOnly: string, secret = env.STORAGE_SECRET_BERAU) =>
+		storageWorker.fetch(
+			new Request('https://storage.test/object?key=produk%2Fberau%2F1234.png', {
+				method: 'PUT',
+				headers: { 'x-storage-secret': secret, 'content-type': 'image/png' },
+				body: new Uint8Array([1])
+			}),
+			{ ...env, STORAGE_PRODUCTION_READ_ONLY: readOnly }
+		);
+	assert.equal((await put('yes')).status, 405);
+	assert.equal((await put('invalid')).status, 405);
+	assert.equal((await put('no', env.STORAGE_SECRET_SAMARINDA)).status, 404);
+	assert.equal(puts, 0);
+	assert.equal((await put('no')).status, 204);
+	assert.equal(puts, 1);
+});
+
 await test('probe tertutup hanya membaca D1 cabang dan R2; shift aktif atau relay gagal menolak kesiapan', async () => {
 	let shifts = 0;
 	let relayStatus = 404;
