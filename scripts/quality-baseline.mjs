@@ -53,6 +53,8 @@ const routeDbImports = files
 
 const codes = new Set();
 for (const f of files) {
+	// Test assertions can name Node errno codes that are never emitted by the API.
+	if (relative(SRC, f).startsWith(`tests${sep}`)) continue;
 	const text = readFileSync(f, 'utf8');
 	for (const m of text.matchAll(/code:\s*'([A-Z_]+)'/g)) codes.add(m[1]);
 }
