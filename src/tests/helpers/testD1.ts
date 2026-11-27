@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import type { D1Database } from '@cloudflare/workers-types';
 
 /** Actual migrated SQL; use --d1 to verify the same cases in local workerd. */
-export async function createTestD1(workers = process.argv.includes('--d1')) {
+export async function createTestD1(workers = process.argv.includes('--d1'), stopBefore?: string) {
 	let db: D1Database;
 	let close: () => void | Promise<void>;
 	if (workers) {
@@ -64,9 +64,13 @@ export async function createTestD1(workers = process.argv.includes('--d1')) {
 		close = () => sql.close();
 	}
 	try {
-		for (const file of readdirSync('drizzle')
+		const files = readdirSync('drizzle')
 			.filter((f) => f.endsWith('.sql'))
-			.sort()) {
+			.sort();
+		if (stopBefore && !files.includes(stopBefore))
+			throw new Error(`Unknown test migration: ${stopBefore}`);
+		for (const file of files) {
+			if (file === stopBefore) break;
 			const statements = readFileSync(resolve('drizzle', file), 'utf8')
 				.split('--> statement-breakpoint')
 				.map((s) => s.trim())
