@@ -129,6 +129,15 @@ verifikasi tanda tangan. Probe tidak menerbitkan katalog, menginisialisasi stok/
 menyalakan alarm, atau mencatat transaksi. Uji penjualan dan sinkronisasi tetap memakai
 fixture terisolasi, bukan data produksi.
 
+Setelah operator mengonfirmasi stok yang akan dipakai koordinator dan cutoff POS sementara,
+catat setiap cabang di luar repo. Jalankan `branch_activation_ack=STOCK_AND_CUTOFF_CONFIRMED`
+hanya untuk aktivasi tertutup. Mode ini memverifikasi ketiga kandidat sebelum aktivasi,
+lalu memakai use case aktivasi koordinator yang sama (katalog, stok, nomor awal, dan fence
+D1). Setiap cabang harus berakhir dengan shift tertutup dan antrean nol. Halaman Pages
+berstatus jeda sebelum dan sesudah; alarm belum dinyalakan. Jika terhenti, jangan hapus
+fence atau membuka satu cabang; periksa status D1 dan koordinator sebelum memutuskan retry
+atau rollback. Opening publik adalah tahap terpisah.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

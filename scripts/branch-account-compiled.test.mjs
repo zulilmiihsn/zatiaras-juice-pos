@@ -214,7 +214,9 @@ try {
 		}
 	});
 	const readyBackend = backend('berau', 'berau-ready', readyOrigin);
+	const activationSecret = secret();
 	Object.assign(readyBackend.bindings, {
+		BRANCH_ACTIVATION_SECRET: activationSecret,
 		BRANCH_PRODUCTION_CANDIDATE: 'yes',
 		BRANCH_CUTOVER_STATE: 'paused',
 		BRANCH_CONNECTION_PROBE: 'yes',
@@ -309,6 +311,7 @@ try {
 	const readiness = await runtime.dispatchFetch(readyProbe, { headers });
 	assert.equal(readiness.status, 204, 'Production-style preparation must not need a live shift');
 	assert.equal(readiness.headers.get('x-zpos-operational-ready'), 'yes');
+	assert.equal(readiness.headers.get('x-zpos-coordinator-shift'), 'uninitialized');
 	assert.equal((await runtime.dispatchFetch(readyOrigin + '/login', { headers })).status, 503);
 	assert.equal(
 		(
@@ -331,6 +334,47 @@ try {
 			.first('stok'),
 		5
 	);
+	const activatePath = readyOrigin + '/internal/cutover/activate';
+	const activate = (key, method = 'POST') =>
+		runtime.dispatchFetch(activatePath, {
+			method,
+			headers: { ...headers, 'x-zpos-cutover-activation': key }
+		});
+	assert.equal(
+		(
+			await runtime.dispatchFetch(activatePath, {
+				method: 'POST',
+				headers: { 'x-zpos-cutover-activation': activationSecret }
+			})
+		).status,
+		401
+	);
+	assert.equal((await activate('invalid')).status, 404);
+	assert.equal((await activate(activationSecret, 'GET')).status, 404);
+	assert.equal(
+		await preparedDb
+			.prepare("SELECT count(*) AS n FROM kiosk_shift_cutover WHERE cabang_id='berau'")
+			.first('n'),
+		0
+	);
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const activation = await activate(activationSecret);
+		assert.equal(activation.status, 204);
+		assert.equal(activation.headers.get('x-zpos-coordinator-shift'), 'closed');
+	}
+	assert.equal(
+		await preparedDb
+			.prepare("SELECT count(*) AS n FROM kiosk_shift_cutover WHERE cabang_id='berau'")
+			.first('n'),
+		1
+	);
+	assert.equal(
+		await preparedDb
+			.prepare("SELECT count(*) AS n FROM sesi_toko WHERE cabang_id='berau' AND is_active=1")
+			.first('n'),
+		0
+	);
+	assert.equal((await runtime.dispatchFetch(readyOrigin + '/login', { headers })).status, 503);
 	const loginPage = await runtime.dispatchFetch(publicOrigin + '/login');
 	assert.equal(loginPage.status, 200);
 	assert.match(await loginPage.text(), /Masuk untuk memulai sesi kasir/);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -19,7 +19,15 @@ const master = process.env.BRANCH_PRODUCTION_PREP_KEY;
 assert.ok(/^[a-f0-9]{64}$/.test(master ?? ''), 'Kunci kandidat produksi tidak tersedia');
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
-const prepareOperational = process.argv.includes('--prepare-operational');
+const activateClosed = process.argv.includes('--activate-closed');
+if (activateClosed) {
+	assert.equal(process.env.BRANCH_ACTIVATION_ACK, 'STOCK_AND_CUTOFF_CONFIRMED');
+	assert.ok(process.env.GITHUB_STEP_SUMMARY);
+	assert.match(process.env.RELEASE_COMMIT_SHA ?? '', /^[a-f0-9]{40}$/);
+}
+const activationKey = (branch) =>
+	derive(`candidate-activation:${process.env.RELEASE_COMMIT_SHA}:${branch}`);
+const prepareOperational = activateClosed || process.argv.includes('--prepare-operational');
 const connectPaused = prepareOperational || process.argv.includes('--connect-paused');
 async function assertProductionPaused() {
 	const response = await fetch(`${legacyProductionOrigin}/login`, {
@@ -139,7 +147,11 @@ try {
 		const row = result.results?.[0];
 		assert.ok(
 			result.success &&
-				(connectPaused ? row?.profiles > 0 && row.shifts === 0 && row.managed === 0 : row?.n === 0),
+				(connectPaused
+					? row?.profiles > 0 &&
+						row.shifts === 0 &&
+						(row.managed === 0 || (activateClosed && row.managed === 1))
+					: row?.n === 0),
 			`${branch}: kondisi D1 tidak sesuai tahap kandidat`
 		);
 	}
@@ -168,6 +180,7 @@ try {
 					? vars.get('BRANCH_CONNECTION_PROBE') === 'yes' &&
 						previousOrigin === legacyProductionOrigin
 					: vars.get('BRANCH_OPERATIONAL_READY') !== 'yes') &&
+				(!activateClosed || vars.get('BRANCH_OPERATIONAL_READY') === 'yes') &&
 				(previousOrigin === worker.vars.BRANCH_PUBLIC_ORIGIN ||
 					(connectPaused && previousOrigin === config.gateway.vars.BRANCH_PUBLIC_ORIGIN)),
 			`${worker.name}: resource yang sudah ada bukan kandidat yang cocok`
@@ -201,7 +214,10 @@ try {
 		await deploy(branch, config.backends[branch], {
 			BRANCH_RELAY_SECRET: secret,
 			...(connectPaused ? { BRANCH_STORAGE_SECRET: derive(`production-storage:${branch}`) } : {}),
-			...(prepareOperational ? { POS_PRICE_SIGNING_KEY: derive(`production-price:${branch}`) } : {})
+			...(prepareOperational
+				? { POS_PRICE_SIGNING_KEY: derive(`production-price:${branch}`) }
+				: {}),
+			...(activateClosed ? { BRANCH_ACTIVATION_SECRET: activationKey(branch) } : {})
 		});
 		const host = config.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
 		await verify(`${host}/login`, 401);
@@ -234,6 +250,31 @@ try {
 	}
 	if (connectPaused) {
 		await assertProductionPaused();
+		if (activateClosed) {
+			for (const branch of branches) {
+				const host = config.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
+				const response = await fetch(`${host}/internal/cutover/activate`, {
+					method: 'POST',
+					headers: {
+						'x-zatiaras-relay-key': derive(`candidate-relay:${branch}`),
+						'x-zatiaras-relay-branch': branch,
+						'x-zpos-cutover-activation': activationKey(branch)
+					},
+					redirect: 'error',
+					signal: AbortSignal.timeout(30_000)
+				});
+				assert.equal(response.status, 204, `${branch}: aktivasi belum pasti; pertahankan jeda`);
+				assert.equal(response.headers.get('x-zpos-coordinator-shift'), 'closed');
+				await appendFile(
+					process.env.GITHUB_STEP_SUMMARY,
+					`- ${branch}: koordinator aktif, shift tertutup dan fence D1 terverifikasi.\n`
+				);
+				console.log(
+					`${branch}: koordinator aktif dengan shift tertutup dan fence D1 terverifikasi`
+				);
+			}
+			await assertProductionPaused();
+		}
 		console.log('Ketiga backend terhubung dan tertutup. Pages produksi tidak diubah.');
 	} else {
 		await deploy('samarinda', config.gateway, {

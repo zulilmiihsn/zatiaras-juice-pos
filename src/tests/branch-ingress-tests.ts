@@ -524,11 +524,13 @@ await test('probe tertutup hanya membaca D1 cabang dan R2; shift aktif atau rela
 	const env = {
 		DB_SAMARINDA_GROUP: {
 			prepare(sql: string) {
-				assert.match(sql, /^SELECT COUNT\(\*\).*WHERE cabang_id = \?/);
+				assert.match(sql, /^SELECT\s+\(SELECT COUNT\(\*\) FROM sesi_toko WHERE cabang_id = \?/);
+				assert.match(sql, /FROM kiosk_shift_cutover WHERE cabang_id = \?/);
 				return {
-					bind(branch: string) {
+					bind(branch: string, fenceBranch: string) {
 						assert.equal(branch, 'samarinda');
-						return { first: async () => ({ shifts }) };
+						assert.equal(fenceBranch, branch);
+						return { first: async () => ({ shifts, managed: 0 }) };
 					}
 				};
 			}

@@ -5,7 +5,11 @@ import { createBranchGateway, PAUSED_CONNECTION_PATH } from '../src/lib/server/b
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
 import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
 import { constantTimeEqual } from '../src/lib/server/secureCompare.ts';
-import { checkPausedBranchConnection } from '../src/lib/server/pausedBranchConnection.ts';
+import {
+	activatePausedBranch,
+	checkPausedBranchConnection,
+	PAUSED_ACTIVATION_PATH
+} from '../src/lib/server/pausedBranchConnection.ts';
 export { BranchMaintenanceAlarm } from '../src/lib/server/branchMaintenanceAlarm.ts';
 export { RealtimeDurableObject } from '../src/lib/server/cashierRealtimeHub.ts';
 
@@ -41,11 +45,16 @@ export default {
 			}
 			const accepted = acceptBranchRelay(request, deployment);
 			if (!accepted) return new Response(null, { status: 401 });
+			const path = new URL(accepted.url).pathname;
+			if (path === PAUSED_ACTIVATION_PATH)
+				return deployment.candidate
+					? activatePausedBranch(accepted, env, deployment.branch)
+					: new Response(null, { status: 404 });
 			if (deployment.candidate) {
 				if (
 					env.BRANCH_CONNECTION_PROBE === 'yes' &&
 					accepted.method === 'GET' &&
-					new URL(accepted.url).pathname === PAUSED_CONNECTION_PATH
+					path === PAUSED_CONNECTION_PATH
 				)
 					return checkPausedBranchConnection(env, deployment.branch);
 				return new Response(null, {
