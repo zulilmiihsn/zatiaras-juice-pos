@@ -527,6 +527,16 @@ bukan izin menghapus: saat penghapusan diterapkan, versi juga harus terlindungi 
 pergantian **setelah** pemeriksaan terakhir, dan salinan terpisah harus masih dapat
 dipulihkan.
 
+**Jangan gunakan `DELETE` REST R2 dengan `If-Match` sebagai pengaman.** Pada uji bucket
+staging, objek sintetis ditimpa dengan payload berukuran sama dan ETag berbeda. `DELETE`
+dengan ETag lama mengembalikan HTTP 200 dan menghapus objek pengganti. Uji hanya memakai satu
+key sintetis yang unik dan memastikan key tersebut tidak tersisa; produksi tidak disentuh.
+Daftar [operasi kondisional R2 S3](https://developers.cloudflare.com/r2/api/s3/conditional-operations/)
+juga tidak mencantumkan `DeleteObject`. Jangan menggantinya dengan pola `HEAD` lalu `DELETE`:
+penulisan masih bisa terjadi di antaranya. Sebelum menambah hapus manual, buktikan bahwa
+jalur penulisan dan penghapusan dikendalikan bersama dan tidak ada jalur tulis lain yang
+bisa mengganti objek yang sedang diproses.
+
 ### Dashboard saat PWA dibuka kembali
 
 Dashboard meminta data terbaru saat halaman kembali terlihat/fokus, dipulihkan browser,
