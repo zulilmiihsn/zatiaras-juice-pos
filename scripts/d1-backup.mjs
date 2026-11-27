@@ -8,6 +8,7 @@ import {
 	readFile,
 	realpath,
 	rename,
+	rm,
 	stat,
 	writeFile
 } from 'node:fs/promises';
@@ -16,11 +17,12 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 export const CONFIG_FILE = 'wrangler.pages.jsonc';
-export const EXPECTED_BINDINGS = Object.freeze([
-	'DB_SAMARINDA_GROUP',
-	'DB_BALIKPAPAN_GROUP',
-	'DB_BERAU_GROUP'
-]);
+const BRANCHES = ['samarinda', 'balikpapan', 'berau'];
+export const EXPECTED_BINDINGS = Object.freeze(
+	BRANCHES.map((branch) => `DB_${branch.toUpperCase()}_GROUP`)
+);
+const LEGACY_BACKUP_SCHEMA = 'zatiaraspos-d1-backup-v1';
+const ACTIVE_BACKUP_SCHEMA = 'zatiaraspos-d1-backup-v2';
 export const BACKUP_ENV_KEYS = Object.freeze(['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID']);
 const OS_ENV_KEYS = Object.freeze([
 	'PATH',
@@ -60,11 +62,21 @@ export function stripJsonc(input) {
 }
 
 export function parseArgs(argv) {
-	const parsed = { outputDir: null, envFile: null, verifyManifest: null };
+	const parsed = {
+		outputDir: null,
+		envFile: null,
+		verifyManifest: null,
+		activeInventory: null,
+		legacySource: false
+	};
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
 		if (index === 0 && arg === '--') continue;
-		if (!['--output-dir', '--env-file', '--verify-manifest'].includes(arg)) {
+		if (arg === '--legacy-source') {
+			parsed.legacySource = true;
+			continue;
+		}
+		if (!['--output-dir', '--env-file', '--verify-manifest', '--active-inventory'].includes(arg)) {
 			throw new Error(`Argumen tidak diizinkan: ${arg}`);
 		}
 		const value = argv[index + 1];
@@ -73,12 +85,18 @@ export function parseArgs(argv) {
 		if (arg === '--output-dir') parsed.outputDir = value;
 		if (arg === '--env-file') parsed.envFile = value;
 		if (arg === '--verify-manifest') parsed.verifyManifest = value;
+		if (arg === '--active-inventory') parsed.activeInventory = value;
 	}
-	if (parsed.verifyManifest && (parsed.outputDir || parsed.envFile)) {
-		throw new Error('--verify-manifest tidak dapat digabung dengan argumen backup');
+	if (parsed.verifyManifest && (parsed.outputDir || parsed.envFile || parsed.legacySource)) {
+		throw new Error('--verify-manifest tidak dapat digabung dengan argumen ekspor');
 	}
-	if (!parsed.verifyManifest && !parsed.outputDir) {
-		throw new Error('--output-dir absolut di luar repository/workspace wajib diisi');
+	if (!parsed.verifyManifest) {
+		if (!parsed.outputDir)
+			throw new Error('--output-dir absolut di luar repository/workspace wajib diisi');
+		if (Boolean(parsed.activeInventory) === parsed.legacySource)
+			throw new Error('Pilih tepat satu: --active-inventory atau --legacy-source');
+		if (parsed.activeInventory && parsed.envFile)
+			throw new Error('--env-file hanya untuk --legacy-source');
 	}
 	return parsed;
 }
@@ -172,6 +190,64 @@ export function validateD1Config(configOrText) {
 	}));
 }
 
+function hasExactKeys(value, keys) {
+	return (
+		value &&
+		typeof value === 'object' &&
+		!Array.isArray(value) &&
+		Object.keys(value).length === keys.length &&
+		keys.every((key) => Object.hasOwn(value, key))
+	);
+}
+
+/** The trusted inventory pins one active D1 identity per account; it contains references, never tokens. */
+export async function loadActiveBackupInventory(inventoryFile, options = {}) {
+	const path = await canonicalizeExternalPath(inventoryFile, { ...options, mustExist: true });
+	const raw = await (options.fs?.readFile ?? readFile)(path, 'utf8');
+	let inventory;
+	try {
+		inventory = JSON.parse(raw);
+	} catch {
+		throw new Error('Inventaris D1 aktif bukan JSON valid');
+	}
+	if (
+		!hasExactKeys(inventory, ['schema', 'branches']) ||
+		inventory.schema !== 'zatiaraspos-d1-active-inventory-v1' ||
+		!hasExactKeys(inventory.branches, BRANCHES)
+	)
+		throw new Error('Inventaris wajib memuat tepat tiga cabang aktif');
+	const result = BRANCHES.map((branch, index) => {
+		const item = inventory.branches[branch];
+		if (
+			!hasExactKeys(item, ['account_id', 'database_id', 'token_env_file', 'token_env_key']) ||
+			typeof item.account_id !== 'string' ||
+			!/^[a-f0-9]{32}$/.test(item.account_id) ||
+			typeof item.database_id !== 'string' ||
+			!UUID_PATTERN.test(item.database_id) ||
+			typeof item.token_env_file !== 'string' ||
+			!isAbsolute(item.token_env_file) ||
+			!['CLOUDFLARE_API_TOKEN', `BRANCH_CF_TOKEN_${branch.toUpperCase()}`].includes(
+				item.token_env_key
+			)
+		)
+			throw new Error(`Referensi D1 aktif tidak valid: ${branch}`);
+		return {
+			binding: EXPECTED_BINDINGS[index],
+			name: `zatiaraspos-${branch}`,
+			id: item.database_id.toLowerCase(),
+			accountId: item.account_id,
+			tokenEnvFile: item.token_env_file,
+			tokenEnvKey: item.token_env_key
+		};
+	});
+	if (
+		new Set(result.map((item) => item.id)).size !== BRANCHES.length ||
+		new Set(result.map((item) => item.accountId)).size !== BRANCHES.length
+	)
+		throw new Error('D1 aktif wajib berada pada tiga akun dan ID database yang berbeda');
+	return result;
+}
+
 export async function loadAllowlistedEnv(envFile, keys, { processEnv = process.env } = {}) {
 	const allowed = new Set(keys);
 	const values = {};
@@ -253,7 +329,8 @@ export function createRtkRunner({ spawn = spawnSync } = {}) {
 			windowsHide: true
 		});
 		const stdout = redactValues(result.stdout, secrets);
-		const stderr = redactValues(result.stderr, secrets);
+		// A failed export can include a presigned download URL, independent of the API token.
+		const stderr = redactValues(result.stderr, secrets).replace(/https?:\/\/[^\s)"']+/g, '[URL]');
 		if (result.error) throw new Error(redactValues(result.error.message, secrets));
 		if (result.status !== 0) {
 			throw new Error(`RTK/Wrangler gagal (${result.status}): ${stderr.slice(0, 500)}`);
@@ -344,7 +421,7 @@ async function verifySqlFile(path, fs = {}) {
 }
 
 function exactManifestEntries(manifest) {
-	if (!manifest || manifest.schema !== 'zatiaraspos-d1-backup-v1') {
+	if (!manifest || ![LEGACY_BACKUP_SCHEMA, ACTIVE_BACKUP_SCHEMA].includes(manifest.schema)) {
 		throw new Error('Schema manifest tidak dikenali');
 	}
 	if (!Array.isArray(manifest.shards) || manifest.shards.length !== 3) {
@@ -368,6 +445,7 @@ export async function verifyManifest(
 		repoRoot = REPO_ROOT,
 		workspaceRoot = WORKSPACE_ROOT,
 		configText,
+		activeInventory,
 		fs = {},
 		requireComplete = false
 	} = {}
@@ -397,9 +475,14 @@ export async function verifyManifest(
 	}
 	const manifest = JSON.parse(await pathReadFile(canonicalManifest, 'utf8'));
 	const shards = exactManifestEntries(manifest);
-	const configured = validateD1Config(
-		configText ?? (await pathReadFile(resolve(repoRoot, CONFIG_FILE), 'utf8'))
-	);
+	const active = manifest.schema === ACTIVE_BACKUP_SCHEMA;
+	if (active !== Boolean(activeInventory))
+		throw new Error(
+			'Manifest aktif wajib diverifikasi dengan --active-inventory; manifest lama tidak menggunakannya'
+		);
+	const configured = active
+		? await loadActiveBackupInventory(activeInventory, { repoRoot, workspaceRoot, fs })
+		: validateD1Config(configText ?? (await pathReadFile(resolve(repoRoot, CONFIG_FILE), 'utf8')));
 	const byBinding = new Map(configured.map((entry) => [entry.binding, entry]));
 	for (const entry of shards) {
 		const expected = byBinding.get(entry.binding);
@@ -407,6 +490,7 @@ export async function verifyManifest(
 			!expected ||
 			entry.name !== expected.name ||
 			entry.database_id !== expected.id ||
+			(active && entry.account_id !== expected.accountId) ||
 			entry.version !== 'production' ||
 			typeof entry.file !== 'string' ||
 			entry.file !== entry.file.replaceAll('\\', '/') ||
@@ -442,6 +526,7 @@ export async function verifyManifest(
 export async function runBackup({
 	outputDir,
 	envFile,
+	activeInventory,
 	repoRoot = REPO_ROOT,
 	workspaceRoot = WORKSPACE_ROOT,
 	configText,
@@ -456,16 +541,47 @@ export async function runBackup({
 	const pathChmod = fs.chmod ?? chmod;
 	const pathWriteFile = fs.writeFile ?? writeFile;
 	const pathReadFile = fs.readFile ?? readFile;
+	const pathRm = fs.rm ?? rm;
 	const canonicalTarget = await canonicalizeExternalPath(outputDir, {
 		repoRoot,
 		workspaceRoot,
 		fs
 	});
-	const config = validateD1Config(
-		configText ?? (await pathReadFile(resolve(repoRoot, CONFIG_FILE), 'utf8'))
+	if (activeInventory && (envFile || configText))
+		throw new Error('Backup aktif tidak memakai konfigurasi atau kredensial legacy');
+	const legacyConfig = activeInventory
+		? null
+		: (configText ?? (await pathReadFile(resolve(repoRoot, CONFIG_FILE), 'utf8')));
+	const config = activeInventory
+		? await loadActiveBackupInventory(activeInventory, { repoRoot, workspaceRoot, fs })
+		: validateD1Config(legacyConfig);
+	const legacySecrets = activeInventory
+		? null
+		: await loadAllowlistedEnv(envFile, BACKUP_ENV_KEYS, { processEnv });
+	const credentials = await Promise.all(
+		config.map(async (database) => {
+			if (!activeInventory) return legacySecrets;
+			const credentialFile = await canonicalizeExternalPath(database.tokenEnvFile, {
+				repoRoot,
+				workspaceRoot,
+				fs,
+				mustExist: true
+			});
+			const values = await loadAllowlistedEnv(
+				credentialFile,
+				[database.tokenEnvKey, 'CLOUDFLARE_ACCOUNT_ID'],
+				{ processEnv: {} }
+			);
+			const token = values[database.tokenEnvKey];
+			if (
+				!token ||
+				(values.CLOUDFLARE_ACCOUNT_ID && values.CLOUDFLARE_ACCOUNT_ID !== database.accountId)
+			)
+				throw new Error(`Kredensial D1 aktif tidak cocok: ${database.binding}`);
+			return { CLOUDFLARE_API_TOKEN: token, CLOUDFLARE_ACCOUNT_ID: database.accountId };
+		})
 	);
-	const secrets = await loadAllowlistedEnv(envFile, BACKUP_ENV_KEYS, { processEnv });
-	const childEnv = buildBackupChildEnv(secrets, processEnv);
+	const secrets = credentials.flatMap((credential) => Object.values(credential));
 	const safeTimestamp = now().toISOString().replace(/[:.]/g, '-');
 	const runDir = join(canonicalTarget, `backup-${safeTimestamp}-${uuid()}`);
 	let runCreated = false;
@@ -483,53 +599,92 @@ export async function runBackup({
 		runCreated = true;
 		await pathChmod(runDir, 0o700).catch(() => undefined);
 		const shards = [];
-		for (const database of config) {
-			const infoArgs = [
-				'pnpm',
-				'exec',
-				'wrangler',
-				'd1',
-				'info',
-				database.name,
-				'--config',
-				CONFIG_FILE,
-				'--json'
-			];
-			const infoResult = await runner(infoArgs, { cwd: repoRoot, env: childEnv, secrets });
-			const identity = parseAndVerifyInfo(infoResult.stdout, database);
-			const file = `${database.binding.toLowerCase()}.sql`;
-			const outputPath = join(runDir, file);
-			await runner(
-				[
+		const targetDir = activeInventory ? join(runDir, '.targets') : null;
+		if (targetDir) await pathMkdir(targetDir, { mode: 0o700 });
+		try {
+			const targets = [];
+			for (const [index, database] of config.entries()) {
+				const configPath = targetDir ? join(targetDir, `${database.binding}.json`) : CONFIG_FILE;
+				if (targetDir)
+					await pathWriteFile(
+						configPath,
+						JSON.stringify({
+							account_id: database.accountId,
+							d1_databases: [
+								{
+									binding: database.binding,
+									database_name: database.name,
+									database_id: database.id
+								}
+							]
+						}),
+						{ flag: 'wx', mode: 0o600 }
+					);
+				const childSecrets = credentials[index];
+				targets.push({
+					database,
+					configPath,
+					options: {
+						cwd: repoRoot,
+						env: buildBackupChildEnv(childSecrets, processEnv),
+						secrets: childSecrets
+					}
+				});
+			}
+			// Stop before exporting any shard if even one configured identity does not match.
+			for (const { database, configPath, options } of targets) {
+				const infoArgs = [
 					'pnpm',
 					'exec',
 					'wrangler',
 					'd1',
-					'export',
+					'info',
 					database.name,
 					'--config',
-					CONFIG_FILE,
-					'--remote',
-					'--skip-confirmation',
-					'--output',
-					outputPath
-				],
-				{ cwd: repoRoot, env: childEnv, secrets }
-			);
-			const verified = await verifySqlFile(outputPath, fs);
-			shards.push({
-				binding: database.binding,
-				name: database.name,
-				database_id: database.id,
-				version: identity.version,
-				file,
-				bytes: verified.bytes,
-				sha256: verified.sha256,
-				exported_at: now().toISOString()
-			});
+					configPath,
+					'--json'
+				];
+				const infoResult = await runner(infoArgs, options);
+				parseAndVerifyInfo(infoResult.stdout, database);
+			}
+			for (const { database, configPath, options } of targets) {
+				const file = `${database.binding.toLowerCase()}.sql`;
+				const outputPath = join(runDir, file);
+				await runner(
+					[
+						'pnpm',
+						'exec',
+						'wrangler',
+						'd1',
+						'export',
+						database.name,
+						'--config',
+						configPath,
+						'--remote',
+						'--skip-confirmation',
+						'--output',
+						outputPath
+					],
+					options
+				);
+				const verified = await verifySqlFile(outputPath, fs);
+				shards.push({
+					binding: database.binding,
+					name: database.name,
+					database_id: database.id,
+					...(activeInventory ? { account_id: database.accountId } : {}),
+					version: 'production',
+					file,
+					bytes: verified.bytes,
+					sha256: verified.sha256,
+					exported_at: now().toISOString()
+				});
+			}
+		} finally {
+			if (targetDir) await pathRm(targetDir, { recursive: true, force: true });
 		}
 		const manifest = {
-			schema: 'zatiaraspos-d1-backup-v1',
+			schema: activeInventory ? ACTIVE_BACKUP_SCHEMA : LEGACY_BACKUP_SCHEMA,
 			created_at: now().toISOString(),
 			shards
 		};
@@ -539,7 +694,8 @@ export async function runBackup({
 		await verifyManifest(manifestPath, {
 			repoRoot,
 			workspaceRoot,
-			configText: configText ?? (await pathReadFile(resolve(repoRoot, CONFIG_FILE), 'utf8')),
+			configText: legacyConfig,
+			activeInventory,
 			fs
 		});
 		const completePath = join(runDir, 'COMPLETE');
@@ -565,11 +721,18 @@ export async function runBackup({
 export async function main(argv = process.argv.slice(2)) {
 	const args = parseArgs(argv);
 	if (args.verifyManifest) {
-		const result = await verifyManifest(args.verifyManifest);
+		const result = await verifyManifest(args.verifyManifest, {
+			activeInventory: args.activeInventory,
+			requireComplete: Boolean(args.activeInventory)
+		});
 		console.log(`PASS manifest verified: ${result.manifestPath} (${result.shardCount} shards)`);
 		return;
 	}
-	const result = await runBackup({ outputDir: args.outputDir, envFile: args.envFile });
+	const result = await runBackup({
+		outputDir: args.outputDir,
+		envFile: args.envFile,
+		activeInventory: args.activeInventory
+	});
 	console.log(`PASS backup complete: ${result.manifestPath} (${result.shardCount} shards)`);
 }
 

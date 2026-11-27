@@ -1,8 +1,8 @@
 # Runbook Operator — ZatiarasPOS
 
 Prosedur operasi produksi: backup, restore, migrasi, deploy, rollback, dan operasi
-cabang. Jalankan dari working tree bersih. Semua perintah remote memerlukan
-`.env` berisi kredensial Cloudflare (lihat `.env.example`).
+cabang. Jalankan dari working tree bersih. Simpan kredensial Cloudflare di luar repo.
+Backup aktif membaca referensi file env dari inventaris; prosedur lama memakai file env akun sumber.
 
 ## 0. Aturan dasar
 
@@ -15,20 +15,36 @@ cabang. Jalankan dari working tree bersih. Semua perintah remote memerlukan
 - Rollback aplikasi tidak mengembalikan schema D1.
 - Simpan backup di luar repository, di media berbeda dari sumber.
 
-## 1. Backup tiga shard
+## 1. Backup tiga D1 aktif
+
+Simpan inventaris tepercaya di luar repo dan workspace. Schema JSON
+`zatiaraspos-d1-active-inventory-v1` memiliki `branches` dengan tepat tiga key:
+`samarinda`, `balikpapan`, dan `berau`. Setiap cabang berisi `account_id`, `database_id`,
+`token_env_file` (path absolut ke file env di luar workspace), dan `token_env_key`
+(`CLOUDFLARE_API_TOKEN` atau `BRANCH_CF_TOKEN_<CABANG>`). Jangan isi nilai token dalam
+inventaris. Cocokkan inventaris dengan binding D1 pada Worker aktif sebelum menambah atau
+mengubah tujuan. Nama database diturunkan dari cabang (`zatiaraspos-<cabang>`).
 
 ```powershell
-pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
-pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
+rtk pnpm d1:backup -- --active-inventory "<ABSOLUTE_INVENTORY.json>" --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>"
+rtk pnpm d1:backup -- --active-inventory "<ABSOLUTE_INVENTORY.json>" --verify-manifest "<output-dir>\<run-id>\manifest.sha256.json"
 ```
 
-Lulus bila file `COMPLETE` terbit dan ketiga binding (`DB_SAMARINDA_GROUP`,
-`DB_BALIKPAPAN_GROUP`, `DB_BERAU_GROUP`) terverifikasi. Durasi terakhir: sekitar 40 detik
-untuk tiga shard.
+Ekspor hanya berjalan setelah ketiga identitas D1 terverifikasi. `COMPLETE` berarti ketiga
+file SQL dan manifest v2 lulus pembacaan ulang dan SHA-256. Ekspor berturutan saat kasir
+aktif bukan snapshot atomik lintas cabang, dan tidak mencakup R2 atau antrean Durable Object.
+Simpan inventaris yang sesuai dengan backup untuk verifikasi tanpa kredensial Cloudflare.
+
+`--legacy-source --env-file <file>` hanya untuk mengekspor tiga database lama dari
+`wrangler.pages.jsonc`, bukan backup transaksi baru. Untuk manifest lama (v1), verifikasi
+tanpa `--active-inventory`.
 
 ## 2. Restore
 
 ### 2.1 Baseline tepercaya dari DB live
+
+Perintah baseline/restore di bagian ini masih mengacu ke inventaris legacy. Jangan
+menggunakannya pada tiga D1 aktif sebelum alur pemulihan lintas akun diuji.
 
 Ambil segera setelah backup, saat tidak ada transaksi. Alat ini hanya membaca dan gagal
 tertutup bila ada penulisan di antara backup dan capture.
@@ -80,10 +96,8 @@ alarm pemeliharaan di tahap ini. Kandidat wajib `BRANCH_CUTOVER_STATE=paused` da
 langsung dibuka lewat konfigurasi kandidat. Pemasangan gateway pada URL kasir produksi yang
 sama adalah pekerjaan cutover terpisah; jeda kandidat bukan pengganti penguncian jalur lama.
 Jika izin atau slot Free gagal, hentikan dan periksa inventori; jangan hapus database lain
-untuk memberi ruang. Jangan menganggap `d1:backup` otomatis memilih akun baru: alat tersebut
-memvalidasi tiga shard produksi dari `wrangler.pages.jsonc`. Backup setelah pindah akun
-memerlukan pemetaan akun, ID D1, dan kredensial per cabang yang sudah diuji; jangan
-melonggarkan validasi backup produksi agar menerima sembarang target.
+untuk memberi ruang. Setelah pindah akun, gunakan inventaris backup aktif di §1. Untuk
+backup sumber lama sebelum cutover, pilih `--legacy-source` secara eksplisit.
 
 Sebelum jadwal, jalankan `branch_cutover_preflight=true`. Mode ini membaca identitas sumber,
 jumlah shift, bucket R2, dan referensi deployment Pages aktif tanpa menulis data produksi.
@@ -564,10 +578,11 @@ duplikat; event realtime lintas cabang.
 
 ## 9. Wipe riwayat transaksi uji (satu cabang)
 
-Destruktif; rollback satu-satunya adalah restore dari backup.
+Destruktif; rollback satu-satunya adalah restore dari backup. Perintah berikut hanya
+untuk konfigurasi lama; jangan jalankan pada D1 aktif lintas akun.
 
 ```powershell
-pnpm d1:backup -- --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
+rtk pnpm d1:backup -- --legacy-source --output-dir "<ABSOLUTE_PATH_OUTSIDE_WORKSPACE>" --env-file .env
 pnpm d1:backup -- --verify-manifest <output-dir>\<run-id>\manifest.sha256.json
 pnpm d1:wipe-history --branch <cabang> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run
 # Sesudah persetujuan pemilik:

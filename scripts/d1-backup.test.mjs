@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -70,8 +70,30 @@ function fakeRunner({ mismatch = false, zeroByte = false, secrets = [] } = {}) {
 	return { runner, calls };
 }
 
+test('backup CLI requires an explicit active inventory or legacy source', () => {
+	assert.throws(() => parseArgs(['--output-dir', 'D:\\outside']), /active-inventory|legacy-source/);
+	assert.equal(
+		parseArgs(['--output-dir', 'D:\\outside', '--active-inventory', 'D:\\inventory.json'])
+			.activeInventory,
+		'D:\\inventory.json'
+	);
+	assert.throws(() =>
+		parseArgs([
+			'--output-dir',
+			'D:\\outside',
+			'--active-inventory',
+			'D:\\inventory.json',
+			'--env-file',
+			'legacy.env'
+		])
+	);
+});
+
 test('accepts the pnpm argument separator only in the first position', () => {
-	assert.equal(parseArgs(['--', '--output-dir', 'D:\\outside']).outputDir, 'D:\\outside');
+	assert.equal(
+		parseArgs(['--', '--legacy-source', '--output-dir', 'D:\\outside']).outputDir,
+		'D:\\outside'
+	);
 	assert.throws(() => parseArgs(['--output-dir', 'D:\\outside', '--']));
 });
 
@@ -119,6 +141,141 @@ test('rejects symlink or junction destinations resolving into workspace', async 
 					mustExist: true
 				}),
 			/workspace/
+		);
+	} finally {
+		await box.cleanup();
+	}
+});
+
+async function activeFixture(box) {
+	const branches = ['samarinda', 'balikpapan', 'berau'];
+	const inventory = { schema: 'zatiaraspos-d1-active-inventory-v1', branches: {} };
+	const tokens = [];
+	for (const [i, branch] of branches.entries()) {
+		const token = `fixture-credential-${branch}`;
+		tokens.push(token);
+		const account = String(i + 1).repeat(32);
+		const id = `${i + 4}0000000-0000-4000-8000-00000000000${i + 1}`;
+		const key = `BRANCH_CF_TOKEN_${branch.toUpperCase()}`;
+		const file = join(box.external, `${branch}.env`);
+		await writeFile(file, `${key}=${token}\nCLOUDFLARE_ACCOUNT_ID=${account}\n`);
+		inventory.branches[branch] = {
+			account_id: account,
+			database_id: id,
+			token_env_file: file,
+			token_env_key: key
+		};
+	}
+	const activeInventory = join(box.external, 'active.json');
+	const save = () => writeFile(activeInventory, JSON.stringify(inventory));
+	await save();
+	return {
+		branches,
+		inventory,
+		tokens,
+		save,
+		options: { activeInventory, repoRoot: box.repo, workspaceRoot: box.workspace },
+		outputDir: join(box.external, 'backups')
+	};
+}
+
+function activeRunner(fixture, mismatch) {
+	const operations = [];
+	const runner = async (args, { env }) => {
+		const [operation, name] = args.slice(4, 6);
+		operations.push(operation);
+		const branch = fixture.branches.find((b) => name === `zatiaraspos-${b}`);
+		assert.ok(branch);
+		const i = fixture.branches.indexOf(branch);
+		assert.equal(JSON.stringify(args).includes(fixture.tokens[i]), false);
+		const expected = fixture.inventory.branches[branch];
+		assert.deepEqual(env, {
+			CLOUDFLARE_ACCOUNT_ID: expected.account_id,
+			CLOUDFLARE_API_TOKEN: fixture.tokens[i]
+		});
+		const config = JSON.parse(await readFile(args[args.indexOf('--config') + 1], 'utf8'));
+		assert.deepEqual(config, {
+			account_id: expected.account_id,
+			d1_databases: [
+				{ binding: EXPECTED_BINDINGS[i], database_name: name, database_id: expected.database_id }
+			]
+		});
+		if (operation === 'info')
+			return {
+				stdout: JSON.stringify({
+					name,
+					uuid:
+						branch === mismatch
+							? fixture.inventory.branches.samarinda.database_id
+							: expected.database_id
+				})
+			};
+		assert.equal(operation, 'export');
+		await writeFile(args[args.indexOf('--output') + 1], 'PRAGMA foreign_keys=OFF;\n');
+		return { stdout: '' };
+	};
+	return { operations, runner };
+}
+
+test('active backup pins all account/database identities and never mixes credentials', async () => {
+	const box = await sandbox();
+	try {
+		const fx = await activeFixture(box);
+		const fake = activeRunner(fx);
+		const result = await runBackup({
+			...fx.options,
+			outputDir: fx.outputDir,
+			processEnv: {},
+			runner: fake.runner
+		});
+		assert.deepEqual(fake.operations, ['info', 'info', 'info', 'export', 'export', 'export']);
+		const verified = await verifyManifest(result.manifestPath, {
+			...fx.options,
+			requireComplete: true
+		});
+		assert.equal(verified.manifest.schema, 'zatiaraspos-d1-backup-v2');
+		assert.deepEqual(
+			verified.manifest.shards.map(({ account_id }) => account_id),
+			fx.branches.map((b) => fx.inventory.branches[b].account_id)
+		);
+		assert.ok(!JSON.stringify(verified.manifest).includes('fixture-credential-'));
+		assert.ok(!(await readdir(result.runDir)).includes('.targets'));
+		await assert.rejects(
+			verifyManifest(result.manifestPath, { repoRoot: box.repo, workspaceRoot: box.workspace }),
+			/--active-inventory/
+		);
+		verified.manifest.shards[2].account_id = verified.manifest.shards[1].account_id;
+		await writeFile(result.manifestPath, JSON.stringify(verified.manifest));
+		await assert.rejects(
+			verifyManifest(result.manifestPath, fx.options),
+			/Entry manifest tidak valid/
+		);
+	} finally {
+		await box.cleanup();
+	}
+});
+
+test('active backup checks all identities before exporting and rejects a duplicate account', async () => {
+	const box = await sandbox();
+	try {
+		const fx = await activeFixture(box);
+		const fake = activeRunner(fx, 'berau');
+		await assert.rejects(
+			runBackup({ ...fx.options, outputDir: fx.outputDir, processEnv: {}, runner: fake.runner }),
+			/Identitas D1 DB_BERAU_GROUP/
+		);
+		assert.deepEqual(fake.operations, ['info', 'info', 'info']);
+		const [failedId] = await readdir(fx.outputDir);
+		assert.deepEqual(await readdir(join(fx.outputDir, failedId)), ['FAILED.json']);
+		fx.inventory.branches.berau.account_id = fx.inventory.branches.balikpapan.account_id;
+		await fx.save();
+		await assert.rejects(
+			runBackup({
+				...fx.options,
+				outputDir: fx.outputDir,
+				runner: async () => assert.fail('runner must not execute')
+			}),
+			/tiga akun/
 		);
 	} finally {
 		await box.cleanup();
@@ -202,6 +359,40 @@ test('default child runner always uses RTK, shell false, and rejects unsafe D1 o
 		() =>
 			runner(['pnpm', 'exec', 'wrangler', 'd1', 'execute', 'db-1', '--command', 'DELETE FROM x']),
 		/allowlist/
+	);
+});
+
+test('Wrangler failures cannot disclose an export URL or API token', async () => {
+	const token = 'fixture-token';
+	const runner = createRtkRunner({
+		spawn: () => ({
+			status: 1,
+			stdout: '',
+			stderr: `Download failed https://export.invalid/secret?signature=fixture ${token}`
+		})
+	});
+	await assert.rejects(
+		() =>
+			runner(
+				[
+					'pnpm',
+					'exec',
+					'wrangler',
+					'd1',
+					'export',
+					'db-1',
+					'--remote',
+					'--skip-confirmation',
+					'--output',
+					'private.sql'
+				],
+				{ secrets: { token } }
+			),
+		(error) => {
+			assert.match(error.message, /Download failed \[URL\] \[REDACTED\]/);
+			assert.doesNotMatch(error.message, /signature=|fixture-token/);
+			return true;
+		}
 	);
 });
 
