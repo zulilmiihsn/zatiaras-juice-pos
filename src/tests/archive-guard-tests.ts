@@ -8,8 +8,11 @@ const { db, close } = await createTestD1();
 const objects = new Map<string, string>();
 let onUpload: () => Promise<void> = async () => {};
 let corrupt = false;
+let conflict = false;
 const storage = {
-	async put(key: string, value: string) {
+	async put(key: string, value: string, options: { onlyIf: { etagDoesNotMatch: string } }) {
+		assert.equal(options.onlyIf.etagDoesNotMatch, '*');
+		if (conflict) return null;
 		objects.set(key, value);
 		await onUpload();
 	},
@@ -34,6 +37,7 @@ async function archive(year = 2026) {
 async function reset(count: number) {
 	objects.clear();
 	corrupt = false;
+	conflict = false;
 	onUpload = async () => {};
 	await db.batch(
 		[
@@ -74,6 +78,15 @@ async function totals() {
 	};
 }
 try {
+	await reset(1);
+	conflict = true;
+	await assert.rejects(
+		() => archive(),
+		(e: { status?: number }) => e.status === 409
+	);
+	assert.deepEqual(await totals(), { rows: 1, amount: 0, active: 0 });
+	assert.equal(objects.size, 0);
+
 	// A preview range must never be silently ignored by the legacy mutating endpoint.
 	await reset(1);
 	await assert.rejects(

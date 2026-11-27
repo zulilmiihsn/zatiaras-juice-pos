@@ -47,6 +47,8 @@ export function createBranchStorageClient(
 			})
 		);
 		if (method === 'GET' && result.status === 404) return null;
+		// Match the native R2 put result when an archive key already exists.
+		if (method === 'PUT' && key.startsWith('arsip/') && result.status === 412) return null;
 		if (!result.ok) throw new Error('Penyimpanan cabang sementara tidak tersedia');
 		return result;
 	}
@@ -67,7 +69,8 @@ export function createBranchStorageClient(
 					: value instanceof Uint8Array
 						? new Uint8Array(value).buffer
 						: value;
-			await send('PUT', key, body, options);
+			const response = await send('PUT', key, body, options);
+			if (!response) return null;
 		},
 		async delete(key: string) {
 			await send('DELETE', key);

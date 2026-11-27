@@ -528,6 +528,14 @@ penulisan masih bisa terjadi di antaranya. Sebelum menambah hapus manual, buktik
 jalur penulisan dan penghapusan dikendalikan bersama dan tidak ada jalur tulis lain yang
 bisa mengganti objek yang sedang diproses.
 
+Untuk jalur aplikasi, snapshot baru dibuat dengan syarat atomik bahwa key belum ada.
+Relay menolak overwrite, termasuk upload dengan byte yang sama, dan tetap melarang hapus
+arsip. Tabrakan key membatalkan chunk tanpa menghapus detail transaksi dari D1. Perlindungan
+ini tidak mengunci dashboard/API R2 bagi admin, tidak mencegah penggunaan ulang key setelah
+objek dihapus di luar aplikasi, dan belum menjadi prosedur hapus manual. Saat perubahan ini
+dirilis, perbarui relay R2 sebelum backend cabang agar backend dengan adapter tidak bergantung
+pada relay lama yang masih mengizinkan overwrite.
+
 ### Dashboard saat PWA dibuka kembali
 
 Dashboard meminta data terbaru saat halaman kembali terlihat/fokus, dipulihkan browser,
