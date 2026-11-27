@@ -1,7 +1,7 @@
 import app from '../.svelte-kit/cloudflare/_worker.js';
 import pagesRoutes from '../.svelte-kit/cloudflare/_routes.json';
 import { acceptBranchRelay } from '../src/lib/server/branchIngress.ts';
-import { createBranchGateway } from '../src/lib/server/branchGateway.ts';
+import { createBranchGateway, PAUSED_CONNECTION_PATH } from '../src/lib/server/branchGateway.ts';
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
 import { withBranchStorage } from '../src/lib/server/branchStorageEnvironment.ts';
 import { constantTimeEqual } from '../src/lib/server/secureCompare.ts';
@@ -44,7 +44,7 @@ export default {
 				if (
 					env.BRANCH_CONNECTION_PROBE === 'yes' &&
 					accepted.method === 'GET' &&
-					new URL(accepted.url).pathname === '/internal/cutover/connection'
+					new URL(accepted.url).pathname === PAUSED_CONNECTION_PATH
 				)
 					return checkPausedBranchConnection(env, deployment.branch);
 				return new Response(null, {

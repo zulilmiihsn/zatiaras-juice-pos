@@ -1,6 +1,6 @@
 import app from '../.svelte-kit/cloudflare/_worker.js';
 import { readBranchAccountDeployment } from '../src/lib/server/branchAccountDeployment.ts';
-import { createBranchGateway } from '../src/lib/server/branchGateway.ts';
+import { createBranchGateway, probePausedGateway } from '../src/lib/server/branchGateway.ts';
 
 // Pages serves the exclusions in the generated _routes.json before reaching this entry.
 export default {
@@ -15,6 +15,8 @@ export default {
 		} catch {
 			return new Response('Konfigurasi gateway belum siap', { status: 503 });
 		}
+		const probe = await probePausedGateway(request, deployment, env);
+		if (probe) return probe;
 		const response = await ingress(request);
 		if (!deployment.paused || response.status !== 503) return response;
 		const marked = new Response(response.body, response);

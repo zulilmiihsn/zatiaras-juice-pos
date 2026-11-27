@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { acceptBranchRelay, createBranchIngress } from '../lib/server/branchIngress';
-import { createBranchGateway } from '../lib/server/branchGateway';
+import {
+	createBranchGateway,
+	PAUSED_CONNECTION_PATH,
+	probePausedGateway
+} from '../lib/server/branchGateway';
 import { readBranchAccountDeployment } from '../lib/server/branchAccountDeployment';
 import type { BranchId } from '../lib/server/branchResolver';
 import { isBranchStorageKey } from '../lib/server/branchStoragePolicy';
@@ -68,6 +72,70 @@ await test('gateway Pages dan Worker memakai binding privat tanpa fallback untuk
 	const paused = createBranchGateway({ ...config, paused: true }, env, async () => reply(), remote);
 	assert.equal((await paused(loginRequest('balikpapan'))).status, 503);
 	assert.deepEqual(contacted, ['local:samarinda', 'remote:berau']);
+});
+
+await test('probe Pages hanya meneruskan path baca yang tetap ketika gateway terkunci', async () => {
+	const probeKey = 'probe'.repeat(8);
+	const env = { BRANCH_PRODUCTION_CANDIDATE: 'yes', BRANCH_GATEWAY_PROBE_SECRET: probeKey };
+	const deployment = {
+		mode: 'gateway',
+		paused: true,
+		publicOrigin: origin,
+		routeSecret,
+		backends
+	} as const;
+	const reached: string[] = [];
+	const forward = async (request: Request) => {
+		const url = new URL(request.url);
+		assert.equal(url.pathname, PAUSED_CONNECTION_PATH);
+		assert.equal(url.search, '');
+		assert.equal(request.method, 'GET');
+		assert.equal(request.headers.get('x-zpos-cutover-probe'), null);
+		assert.equal(request.headers.get('cookie'), null);
+		const branch = request.headers.get('x-zatiaras-relay-branch') as BranchId;
+		assert.equal(url.origin, backends.get(branch)?.origin);
+		assert.equal(request.headers.get('x-zatiaras-relay-key'), backends.get(branch)?.secret);
+		reached.push(branch);
+		return new Response(null, { status: branch === 'berau' ? 503 : 204 });
+	};
+	const request = (search: string, key = probeKey, method = 'GET', from = origin) =>
+		new Request(`${from}${PAUSED_CONNECTION_PATH}?${search}`, {
+			method,
+			headers: { 'x-zpos-cutover-probe': key, cookie: 'ambient=ignored' }
+		});
+	for (const invalid of [
+		request('branch=samarinda', 'invalid'),
+		request('branch=samarinda', probeKey, 'POST'),
+		request('branch=samarinda', probeKey, 'GET', 'https://wrong.test'),
+		request('branch=samarinda&branch=berau')
+	]) {
+		assert.equal((await probePausedGateway(invalid, deployment, env, forward))?.status, 404);
+	}
+	assert.equal(
+		(
+			await probePausedGateway(
+				request('branch=samarinda'),
+				{ ...deployment, paused: false },
+				env,
+				forward
+			)
+		)?.status,
+		404
+	);
+	assert.deepEqual(reached, []);
+	assert.equal(
+		await probePausedGateway(new Request(`${origin}/login`), deployment, env, forward),
+		null
+	);
+	assert.equal(
+		(await probePausedGateway(request('branch=samarinda'), deployment, env, forward))?.status,
+		204
+	);
+	assert.equal(
+		(await probePausedGateway(request('branch=berau'), deployment, env, forward))?.status,
+		503
+	);
+	assert.deepEqual(reached, ['samarinda', 'berau']);
 });
 
 function fixture(paused = false) {

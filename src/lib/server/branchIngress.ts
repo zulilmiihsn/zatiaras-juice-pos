@@ -39,6 +39,22 @@ function withOrigin(url: URL, origin: string) {
 	return destination;
 }
 
+export function relayBranchRequest(
+	request: Request,
+	branch: BranchId,
+	backend: Backend,
+	clientIp?: string | null
+) {
+	const relay = new Request(withOrigin(new URL(request.url), backend.origin), request);
+	relay.headers.set(RELAY_KEY, backend.secret);
+	relay.headers.set(RELAY_BRANCH, branch);
+	// Cloudflare may replace the IP header on cross-account subrequests.
+	if (clientIp && /^[a-f0-9:.]{3,45}$/i.test(clientIp))
+		relay.headers.set(RELAY_CLIENT_IP, clientIp);
+	// Redirects must go back to the browser, never resend service credentials upstream.
+	return new Request(relay, { redirect: 'manual' });
+}
+
 function cookie(headers: Headers, name: string) {
 	return headers
 		.get('cookie')
@@ -180,17 +196,11 @@ export function createBranchIngress(options: IngressOptions) {
 
 		const backend = routes.get(branch);
 		if (!backend) return unavailable();
-		const relay = new Request(withOrigin(url, backend.origin), proxied);
-		relay.headers.set(RELAY_KEY, backend.secret);
-		relay.headers.set(RELAY_BRANCH, branch);
-		// Cloudflare may replace the IP header on cross-account subrequests.
-		const clientIp = request.headers.get(EDGE_CLIENT_IP);
-		if (clientIp && /^[a-f0-9:.]{3,45}$/i.test(clientIp))
-			relay.headers.set(RELAY_CLIENT_IP, clientIp);
 		let response: Response;
 		try {
-			// Redirects must go back to the browser, never resend service credentials upstream.
-			response = await forward(new Request(relay, { redirect: 'manual' }));
+			response = await forward(
+				relayBranchRequest(proxied, branch, backend, request.headers.get(EDGE_CLIENT_IP))
+			);
 		} catch {
 			return unavailable();
 		}

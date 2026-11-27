@@ -107,6 +107,14 @@ yang sudah tertutup ke D1 tujuan dan relay R2. Probe privat membuktikan pembacaa
 D1 dan R2, sementara login langsung maupun relay login tetap ditolak. Mode ini tidak
 merilis Pages, mengaktifkan alarm maintenance, atau mengizinkan penjualan.
 
+`branch_production_pages_paused=true` baru dijalankan setelah ketiga probe backend tertutup
+lulus. Mode ini memasang gateway pada `https://zatiaraspos.pages.dev` menggunakan artefak
+CI, tanpa binding D1/R2 di Pages. Dari URL yang sama, verifikasi login publik tetap `503`,
+dan probe privat hanya bisa membaca status ketiga backend. Workflow merekam deployment
+Pages lama di ringkasan run. Jika verifikasi gagal setelah upload, coba rollback hanya
+bila versi aktif berasal dari rilis tersebut; bila rollback tidak terverifikasi, jangan
+membuka atau mengulang deploy sebelum status diperiksa. Worker realtime lama tetap dijeda.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

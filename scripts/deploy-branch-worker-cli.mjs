@@ -5,9 +5,9 @@ export function wrangler(name, config, token, args, input) {
 	return runWrangler(name, token, [...args, '--config', config], input);
 }
 
-export function wranglerPages(name, cwd, token, account, args) {
+export function wranglerPages(name, cwd, token, account, args, input) {
 	if (!/^[a-f0-9]{32}$/.test(account)) throw new Error('Akun Pages tidak valid');
-	return runWrangler(name, token, ['pages', ...args, '--cwd', cwd], undefined, account);
+	return runWrangler(name, token, ['pages', ...args, '--cwd', cwd], input, account);
 }
 
 function runWrangler(name, token, args, input, account) {
