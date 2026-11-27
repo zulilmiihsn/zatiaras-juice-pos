@@ -400,8 +400,13 @@ test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat rela
 	let fail = false;
 	const gateway = createBranchStorageGateway(
 		{
-			async put(_key, value, options) {
+			async put(
+				_key,
+				value,
+				options: { customMetadata?: Record<string, string>; onlyIf?: { etagDoesNotMatch: string } }
+			) {
 				if (fail) throw new Error('storage down');
+				if (stored && options.onlyIf?.etagDoesNotMatch === '*') return null;
 				stored = value;
 				metadata = options.customMetadata;
 			},
@@ -440,6 +445,13 @@ test('adapter R2 meneruskan metadata dan readback serta gagal tertutup saat rela
 	});
 	assert.deepEqual(metadata, { branch: 'berau', sha256: '1234', uploaded_by: 'Kasir É' });
 	assert.equal(await (await client.get(key))!.text(), '{"test":true}');
+	const replacements = await Promise.all([
+		client.put(key, '{"test":null}', { httpMetadata: { contentType: 'application/json' } }),
+		client.put(key, '{"test":true}', { httpMetadata: { contentType: 'application/json' } })
+	]);
+	assert.deepEqual(replacements, [null, null]);
+	assert.equal(await (await client.get(key))!.text(), '{"test":true}');
+	assert.deepEqual(metadata, { branch: 'berau', sha256: '1234', uploaded_by: 'Kasir É' });
 	await assert.rejects(() =>
 		client.put(key, '{}', {
 			httpMetadata: { contentType: 'application/json' },

@@ -12,7 +12,11 @@ interface SharedBucket {
 	put(
 		key: string,
 		value: Uint8Array,
-		options: { httpMetadata: { contentType: string }; customMetadata?: Record<string, string> }
+		options: {
+			httpMetadata: { contentType: string };
+			customMetadata?: Record<string, string>;
+			onlyIf?: { etagDoesNotMatch: string };
+		}
 	): Promise<unknown>;
 	delete(key: string): Promise<void>;
 }
@@ -103,8 +107,13 @@ export function createBranchStorageGateway(
 				customMetadata = Object.fromEntries(entries) as Record<string, string>;
 				if (customMetadata.branch !== branch) return new Response(null, { status: 403 });
 			}
-			await bucket.put(key, bytes, { httpMetadata: { contentType }, customMetadata });
-			return new Response(null, { status: 204 });
+			// Enforce immutability at the relay even when the branch caller is older.
+			const stored = await bucket.put(key, bytes, {
+				httpMetadata: { contentType },
+				customMetadata,
+				...(archive && { onlyIf: { etagDoesNotMatch: '*' } })
+			});
+			return new Response(null, { status: archive && stored === null ? 412 : 204 });
 		} catch (cause) {
 			if (cause instanceof RequestBodyError) return new Response(null, { status: cause.status });
 			// Do not leak provider errors, credentials, or object contents.

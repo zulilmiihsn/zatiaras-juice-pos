@@ -176,7 +176,9 @@ async function uploadAndVerifySnapshot(
 	const { bucket, branch, year } = ctx;
 	const { content, checksum, key } = snapshot;
 	// Kalau put gagal, error dilempar & JANGAN hapus apa pun dari DB.
-	await bucket.put(key, content, {
+	const stored = await bucket.put(key, content, {
+		// Native bindings must also reject overwrites. The shared relay enforces this itself.
+		onlyIf: { etagDoesNotMatch: '*' },
 		httpMetadata: { contentType: 'application/json' },
 		customMetadata: {
 			branch,
@@ -186,6 +188,8 @@ async function uploadAndVerifySnapshot(
 			sha256: checksum
 		}
 	});
+	if (stored === null)
+		throw new ArchiveUseCaseError(409, 'Key arsip sudah dipakai. Data transaksi tidak dihapus.');
 
 	const readback = await bucket.get(key);
 	if (!readback) {

@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { compareArchiveVersion } from '../../scripts/archive-object-version.mjs';
+import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
+import type { BranchId } from '../lib/server/branchResolver';
 import {
 	previewArchiveRetention,
 	verifyArchiveCopy,
@@ -175,7 +177,34 @@ test('local Workerd R2 rejects an older copy after a synthetic object is overwri
 		const bucket = await fixture.getR2Bucket('ARCHIVE_FIXTURE');
 		const key = 'arsip/samarinda/2026/arsip-samarinda-sebelum-2026-a1b2c3d4.json';
 		const original = JSON.stringify(archive);
-		await bucket.put(key, original);
+		const secrets = new Map<BranchId, string>([
+			['samarinda', 's'.repeat(32)],
+			['balikpapan', 'b'.repeat(32)],
+			['berau', 'r'.repeat(32)]
+		]);
+		const gateway = createBranchStorageGateway(
+			{
+				get: async () => {
+					throw new Error('Test reads through the bucket fixture directly');
+				},
+				put: (key, value, options) => bucket.put(key, new Uint8Array(value).buffer, options),
+				delete: (key) => bucket.delete(key)
+			},
+			secrets
+		);
+		const request = (method: string, body?: string) =>
+			gateway(
+				new Request(`https://storage.test/object?${new URLSearchParams({ key })}`, {
+					method,
+					body,
+					headers: {
+						'content-type': 'application/json',
+						'x-storage-secret': secrets.get('samarinda')!
+					}
+				})
+			);
+		const writes = await Promise.all([request('PUT', original), request('PUT', original)]);
+		assert.deepEqual(writes.map((response) => response.status).sort(), [204, 412]);
 		const metadata = async (selected: string) => {
 			const o = await bucket.head(selected);
 			return o
@@ -193,7 +222,13 @@ test('local Workerd R2 rejects an older copy after a synthetic object is overwri
 		};
 		const proof = { ...captured, sha256: createHash('sha256').update(original).digest('hex') };
 		assert.equal(await compareArchiveVersion(proof, reader), 'matched');
-		await bucket.put(key, original.replace('1000', '9000'));
+		const updated = original.replace('1000', '9000');
+		const [overwrite, deletion] = await Promise.all([request('PUT', updated), request('DELETE')]);
+		assert.equal(overwrite.status, 412);
+		assert.equal(deletion.status, 403);
+		assert.equal(await compareArchiveVersion(proof, reader), 'matched');
+		// Simulate a privileged write outside the relay, which the preview must still reject.
+		await bucket.put(key, updated);
 		assert.equal(await compareArchiveVersion(proof, reader), 'changed');
 	} finally {
 		await fixture.dispose();
