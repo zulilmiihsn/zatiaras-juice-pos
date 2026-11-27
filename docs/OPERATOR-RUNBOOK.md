@@ -519,10 +519,13 @@ rtk pnpm r2:archive-retention preview "<ABSOLUTE_BACKUP_PATH>\manifest.r2.json"
 
 Manifest backup yang diterima berskema `zatiaraspos-r2-backup-v1` dan memerlukan `COMPLETE`
 tanpa `FAILED.json`. Jangan edit manifest atau `archive-retention-proof.json`. Bukti lokal
-ini hanya menandai arsip untuk review, tidak mengotorisasi penghapusan, tidak membandingkan
-versi objek R2 sekarang, dan tidak menambah jadwal Windows atau Cloudflare. Penghapusan
-baru boleh dirancang setelah prosedur mengikat versi objek R2 yang sama dan memastikan
-salinan terpisah tetap bisa dipulihkan.
+ini hanya menandai arsip untuk review dan tidak menambah jadwal Windows atau Cloudflare.
+Pembanding untuk smoke R2 staging membaca metadata sebelum dan sesudah membaca byte.
+Key, ukuran, ETag, waktu modifikasi, dan SHA-256 harus cocok. Objek yang berubah atau
+hilang, kegagalan baca, dan bukti sebelum 24 jam tidak menghasilkan kecocokan. Ini tetap
+bukan izin menghapus: saat penghapusan diterapkan, versi juga harus terlindungi dari
+pergantian **setelah** pemeriksaan terakhir, dan salinan terpisah harus masih dapat
+dipulihkan.
 
 ### Dashboard saat PWA dibuka kembali
 
