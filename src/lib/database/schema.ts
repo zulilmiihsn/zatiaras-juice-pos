@@ -665,15 +665,11 @@ export const archiveRestoreRows = sqliteTable(
 		job_id: text('job_id')
 			.notNull()
 			.references(() => archiveRestoreJobs.id),
-		cabang_id: text('cabang_id').notNull(),
 		kind: text('kind').notNull(),
 		row_id: text('row_id').notNull(),
 		data_json: text('data_json').notNull()
 	},
-	(table) => [
-		primaryKey({ columns: [table.job_id, table.kind, table.row_id] }),
-		index('archive_restore_rows_branch_job').on(table.cabang_id, table.job_id, table.kind)
-	]
+	(table) => [primaryKey({ columns: [table.job_id, table.kind, table.row_id] })]
 );
 
 export const archiveJobItems = sqliteTable(

@@ -838,7 +838,8 @@ export function buildRestoreChunks(archive, opts = {}, maxRows = DEFAULT_RESTORE
 	const jobId = sha256Hex(JSON.stringify([branch, archiveId]));
 	const job = `id=${sqlVal(jobId)} AND cabang_id=${sqlVal(branch)} AND sha256=${sqlVal(digest)}`;
 	const active = `EXISTS (SELECT 1 FROM archive_restore_jobs WHERE ${job} AND status='staging')`;
-	const rowsWhere = `r.job_id=${sqlVal(jobId)} AND r.cabang_id=${sqlVal(branch)}`;
+	// Every staging query is gated by the scoped parent job; children share its branch.
+	const rowsWhere = `r.job_id=${sqlVal(jobId)}`;
 	/** @param {string} condition @param {string} reason */
 	const guard = (condition, reason) =>
 		`SELECT CASE WHEN (${condition}) THEN 1 ELSE json(${sqlVal(reason)}) END;`;
@@ -879,7 +880,7 @@ export function buildRestoreChunks(archive, opts = {}, maxRows = DEFAULT_RESTORE
 					`NOT (${active}) OR NOT EXISTS (SELECT 1 FROM ${input} x CROSS JOIN archive_restore_rows r WHERE ${rowsWhere} AND r.kind=json_extract(x.value,'$.kind') AND r.row_id=json_extract(x.value,'$.row_id') AND r.data_json IS NOT json_extract(x.value,'$.data_json'))`,
 					'RESTORE_STAGE_CONFLICT'
 				),
-				`INSERT INTO archive_restore_rows(job_id,cabang_id,kind,row_id,data_json) SELECT ${sqlVal(jobId)},${sqlVal(branch)},json_extract(value,'$.kind'),json_extract(value,'$.row_id'),json_extract(value,'$.data_json') FROM ${input} WHERE ${active} ON CONFLICT DO NOTHING;`
+				`INSERT INTO archive_restore_rows(job_id,kind,row_id,data_json) SELECT ${sqlVal(jobId)},json_extract(value,'$.kind'),json_extract(value,'$.row_id'),json_extract(value,'$.data_json') FROM ${input} WHERE ${active} ON CONFLICT DO NOTHING;`
 			];
 			assertRestoreSqlBudget(statements);
 			return statements;
@@ -948,7 +949,7 @@ export function buildRestoreChunks(archive, opts = {}, maxRows = DEFAULT_RESTORE
 	);
 	final.push(
 		guard(
-			`NOT EXISTS (SELECT 1 FROM archive_restore_rows r CROSS JOIN archive_restore_rows h ON h.job_id=r.job_id AND h.cabang_id=r.cabang_id AND h.kind='buku_kas' AND h.row_id=${value('buku_kas_id')} WHERE ${rowsWhere} AND r.kind='transaksi_kasir' AND ${active} AND json_extract(h.data_json,'$.sumber')='pos' AND NOT EXISTS (SELECT 1 FROM penjualan_produk_harian s WHERE s.cabang_id=${sqlVal(branch)} AND s.tanggal_penjualan=date(datetime(COALESCE(${value('created_at')},json_extract(h.data_json,'$.waktu')),'+8 hours')) AND s.produk_id=COALESCE(${value('produk_id')},'custom:'||${value('nama_produk')})))`,
+			`NOT EXISTS (SELECT 1 FROM archive_restore_rows r CROSS JOIN archive_restore_rows h ON h.job_id=r.job_id AND h.kind='buku_kas' AND h.row_id=${value('buku_kas_id')} WHERE ${rowsWhere} AND r.kind='transaksi_kasir' AND ${active} AND json_extract(h.data_json,'$.sumber')='pos' AND NOT EXISTS (SELECT 1 FROM penjualan_produk_harian s WHERE s.cabang_id=${sqlVal(branch)} AND s.tanggal_penjualan=date(datetime(COALESCE(${value('created_at')},json_extract(h.data_json,'$.waktu')),'+8 hours')) AND s.produk_id=COALESCE(${value('produk_id')},'custom:'||${value('nama_produk')})))`,
 			'RESTORE_MISSING_PRODUCT_SUMMARY'
 		)
 	);
@@ -974,7 +975,7 @@ export function buildRestoreChunks(archive, opts = {}, maxRows = DEFAULT_RESTORE
 		`UPDATE archive_restore_jobs SET status='completed',committed_at=created_at WHERE ${job} AND status='staging';`
 	);
 	final.push(
-		`DELETE FROM archive_restore_rows WHERE job_id=${sqlVal(jobId)} AND cabang_id=${sqlVal(branch)} AND EXISTS (SELECT 1 FROM archive_restore_jobs WHERE ${job} AND status='completed');`
+		`DELETE FROM archive_restore_rows WHERE job_id=${sqlVal(jobId)} AND EXISTS (SELECT 1 FROM archive_restore_jobs WHERE ${job} AND status='completed');`
 	);
 	assertRestoreSqlBudget(final);
 	return {

@@ -104,6 +104,15 @@ for (const file of files) {
 	}
 }
 
+assert.deepEqual(
+	db
+		.prepare('PRAGMA table_info(archive_restore_rows)')
+		.all()
+		.map(({ name }) => name),
+	['job_id', 'kind', 'row_id', 'data_json'],
+	'Ownership of restore staging rows is derived from the job'
+);
+
 const legacyPurchase = db
 	.prepare(
 		`SELECT request_fingerprint, delta_jumlah, stok_setelah, operation_key

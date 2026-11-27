@@ -77,6 +77,94 @@ async function snapshot(tables = liveTables) {
 async function count(table = 'buku_kas') {
 	return db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first('n');
 }
+async function verifyStagedRestoreUpgrade() {
+	const migration = '0051_archive_restore_row_branch.sql';
+	const { db: legacy, close: dispose } = await createTestD1(undefined, migration);
+	try {
+		const plan = buildRestoreChunks(archiveOf(1, 1000), { now: fixedNow });
+		await applyRestoreStages(db, plan);
+		const payload = await db
+			.prepare('SELECT data_json FROM archive_restore_rows WHERE job_id=?')
+			.bind(plan.jobId)
+			.first<string>('data_json');
+		assert.ok(payload);
+		await legacy.prepare(plan.chunks[0].statements[0]).run();
+		const foreign = JSON.stringify({
+			...JSON.parse(payload),
+			id: 'wrong-branch',
+			cabang_id: 'berau'
+		});
+		const stageLegacy = (branch: string, id: string, json: string) =>
+			legacy
+				.prepare(
+					"INSERT INTO archive_restore_rows(job_id,cabang_id,kind,row_id,data_json) VALUES(?,?,'buku_kas',?,?)"
+				)
+				.bind(plan.jobId, branch, id, json);
+		await legacy.batch([
+			stageLegacy('samarinda', 'chunk-bk-0', payload),
+			stageLegacy('berau', 'wrong-branch', foreign)
+		]);
+		const upgrade = () =>
+			legacy.batch(
+				readFileSync(join('drizzle', migration), 'utf8')
+					.split('--> statement-breakpoint')
+					.map((s) => s.trim())
+					.filter(Boolean)
+					.map((sql) => legacy.prepare(sql))
+			);
+		await assert.rejects(upgrade(), /CHECK constraint|D1_ERROR/);
+		assert.equal(
+			await legacy
+				.prepare("SELECT cabang_id FROM archive_restore_rows WHERE row_id='wrong-branch'")
+				.first('cabang_id'),
+			'berau'
+		);
+		await legacy
+			.prepare("DELETE FROM archive_restore_rows WHERE job_id=? AND row_id='wrong-branch'")
+			.bind(plan.jobId)
+			.run();
+		await upgrade();
+		assert.equal(
+			await legacy
+				.prepare('SELECT data_json FROM archive_restore_rows WHERE job_id=?')
+				.bind(plan.jobId)
+				.first('data_json'),
+			payload
+		);
+		assert.equal(await legacy.prepare('SELECT COUNT(*) AS n FROM buku_kas').first('n'), 0);
+		for (const write of [
+			legacy
+				.prepare(
+					"INSERT INTO archive_restore_rows(job_id,kind,row_id,data_json) VALUES(?,'buku_kas','wrong-branch',?)"
+				)
+				.bind(plan.jobId, foreign),
+			legacy
+				.prepare(
+					"UPDATE archive_restore_rows SET data_json=json_set(data_json,'$.cabang_id','berau') WHERE job_id=?"
+				)
+				.bind(plan.jobId),
+			legacy
+				.prepare("UPDATE archive_restore_jobs SET cabang_id='berau' WHERE id=?")
+				.bind(plan.jobId)
+		])
+			await assert.rejects(write.run(), /RESTORE_ROW_BRANCH_MISMATCH/);
+		await applyRestorePlan(legacy, plan);
+		await applyRestorePlan(legacy, plan);
+		assert.equal(
+			await legacy
+				.prepare("SELECT COUNT(*) AS n FROM buku_kas WHERE cabang_id='samarinda' AND nominal=1000")
+				.first('n'),
+			1
+		);
+		assert.equal(
+			await legacy.prepare('SELECT COUNT(*) AS n FROM archive_restore_rows').first('n'),
+			0
+		);
+	} finally {
+		await dispose();
+		await reset();
+	}
+}
 async function representativeBudgetRegression(sales: number) {
 	await reset();
 	const receipt = JSON.stringify({
@@ -301,6 +389,7 @@ function actualCliRegression() {
 }
 
 try {
+	await verifyStagedRestoreUpgrade();
 	actualCliRegression();
 	const small = archiveOf(3, 5000);
 	const single = buildRestoreChunks(small, { now: fixedNow }, 100);
@@ -455,7 +544,7 @@ try {
 	await representativeBudgetRegression(11000);
 	await representativeBudgetRegression(22000);
 	console.log(
-		'restore-chunk-tests: staging/atomic-final/legacy-parity/zero-live-crash/late-conflict/late-rollback/retry/concurrency/budget passed',
+		'restore-chunk-tests: staging/upgrade/atomic-final/legacy-parity/zero-live-crash/late-conflict/late-rollback/retry/concurrency/budget passed',
 		process.argv.includes('--d1') ? '(workerd D1)' : '(SQLite)'
 	);
 } finally {
