@@ -70,6 +70,10 @@ on:
         description: Pasang gateway baru pada URL produksi dan verifikasi rute tanpa membuka kasir
         type: boolean
         default: false
+      branch_production_operational_prep:
+        description: Siapkan koordinator dan katalog ketiga backend tanpa membuka atau mengaktifkan penjualan
+        type: boolean
+        default: false
       branch_production_connect_paused:
         description: Hubungkan backend tertutup ke D1 hasil impor dan R2, tanpa mengubah Pages
         type: boolean
@@ -119,6 +123,7 @@ jobs:
           BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check }}
           BRANCH_PRODUCTION_CANDIDATE: ${{ inputs.branch_production_candidate }}
           BRANCH_PRODUCTION_CONNECT_PAUSED: ${{ inputs.branch_production_connect_paused }}
+          BRANCH_PRODUCTION_OPERATIONAL_PREP: ${{ inputs.branch_production_operational_prep }}
           BRANCH_PRODUCTION_PAGES_PAUSED: ${{ inputs.branch_production_pages_paused }}
           BRANCH_PRODUCTION_STORAGE_READONLY: ${{ inputs.branch_production_storage_readonly }}
           BRANCH_PRODUCTION_STORAGE_WRITES: ${{ inputs.branch_production_storage_writes }}
@@ -126,7 +131,7 @@ jobs:
           BRANCH_ROUTE_DRILL: ${{ inputs.branch_route_drill }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_PRODUCTION_STORAGE_WRITES" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_OPERATIONAL_PREP" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_PRODUCTION_STORAGE_WRITES" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
           if (( branch_modes > 1 )); then exit 1; fi
@@ -226,7 +231,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -326,9 +331,10 @@ jobs:
         run: node scripts/drill-branch-route-staging.mjs
 
       - name: Prepare or connect closed production backend Workers
-        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_candidate || inputs.branch_production_connect_paused)
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_candidate || inputs.branch_production_connect_paused || inputs.branch_production_operational_prep)
         env:
           CONNECT_PAUSED: ${{ inputs.branch_production_connect_paused }}
+          PREPARE_OPERATIONAL: ${{ inputs.branch_production_operational_prep }}
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
@@ -337,6 +343,7 @@ jobs:
         run: |
           args=()
           if [[ "$CONNECT_PAUSED" == true ]]; then args+=(--connect-paused); fi
+          if [[ "$PREPARE_OPERATIONAL" == true ]]; then args+=(--prepare-operational); fi
           node scripts/deploy-branch-production-candidate.mjs "${args[@]}"
 
       - name: Route the production Pages origin to closed branch backends

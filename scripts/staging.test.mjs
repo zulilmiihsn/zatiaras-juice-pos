@@ -199,6 +199,34 @@ await test('production candidates remain paused and never bind active or staging
 		assert.equal(worker.triggers, undefined);
 		assert.equal(worker.routes, undefined);
 	}
+	assert.throws(
+		() => buildBranchProductionCandidateConfigs({ ...input, prepareOperational: true }),
+		/backend yang terhubung/
+	);
+	const prepared = buildBranchProductionCandidateConfigs({
+		...input,
+		connectPaused: true,
+		prepareOperational: true
+	});
+	assert.deepEqual(prepared.gateway, gateway);
+	for (const branch of names) {
+		const worker = prepared.backends[branch];
+		assert.equal(worker.vars.BRANCH_CUTOVER_STATE, 'paused');
+		assert.equal(worker.vars.BRANCH_PRODUCTION_CANDIDATE, 'yes');
+		assert.equal(worker.vars.BRANCH_OPERATIONAL_READY, 'yes');
+		assert.equal(worker.vars.KIOSK_PROJECTION_BRANCHES, branch);
+		assert.equal(worker.vars.KIOSK_PRODUCTION_PILOT, branch);
+		assert.deepEqual(worker.durable_objects.bindings, [
+			{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' },
+			{ name: 'BRANCH_MAINTENANCE', class_name: 'BranchMaintenanceAlarm' }
+		]);
+		assert.deepEqual(worker.migrations[1], {
+			tag: 'v2',
+			new_sqlite_classes: ['BranchMaintenanceAlarm']
+		});
+		assert.equal(worker.triggers, undefined);
+		assert.equal(worker.routes, undefined);
+	}
 	for (const unsafeId of [backends.berau.databaseId, ...productionIds]) {
 		assert.throws(
 			() =>

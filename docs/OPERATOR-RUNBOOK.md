@@ -122,6 +122,13 @@ hilangnya objek uji. Jika verifikasi gagal, kembalikan relay ke baca-saja; apabi
 melaporkan kebutuhan pembersihan manual, hapus hanya key fixture yang dicatat. Mode ini
 tidak membuka akses kasir atau mengubah data D1.
 
+`branch_production_operational_prep=true` memasang binding koordinator, kunci harga,
+dan binding maintenance untuk setiap backend yang tetap tertutup. Probe privat memastikan
+koordinator belum diinisialisasi, antrean proyeksi kosong, dan satu token katalog lolos
+verifikasi tanda tangan. Probe tidak menerbitkan katalog, menginisialisasi stok/shift,
+menyalakan alarm, atau mencatat transaksi. Uji penjualan dan sinkronisasi tetap memakai
+fixture terisolasi, bukan data produksi.
+
 Catat bukti per cabang di luar repo dan jangan isi kolom sebagai lulus tanpa hasil:
 
 | Cabang     | Shift tutup / antrean HP dan DO kosong | Rekap POS sementara cocok | Backup + baseline | Paritas kas, stok, struk, nomor |

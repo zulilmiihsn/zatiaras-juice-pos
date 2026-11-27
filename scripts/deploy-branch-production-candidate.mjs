@@ -19,14 +19,35 @@ const master = process.env.BRANCH_PRODUCTION_PREP_KEY;
 assert.ok(/^[a-f0-9]{64}$/.test(master ?? ''), 'Kunci kandidat produksi tidak tersedia');
 const derive = (purpose) => createHmac('sha256', master).update(purpose).digest('hex');
 const inventory = JSON.parse(process.env.BRANCH_STAGING_INVENTORY ?? '{}');
-const connectPaused = process.argv.includes('--connect-paused');
-async function assertLegacyPaused() {
+const prepareOperational = process.argv.includes('--prepare-operational');
+const connectPaused = prepareOperational || process.argv.includes('--connect-paused');
+async function assertProductionPaused() {
 	const response = await fetch(`${legacyProductionOrigin}/login`, {
 		redirect: 'error',
 		signal: AbortSignal.timeout(12_000)
 	});
 	assert.equal(response.status, 503);
 	assert.equal((await response.json()).message, 'Kasir sedang dalam pemeliharaan');
+	if (prepareOperational) {
+		assert.equal(response.headers.get('x-zpos-gateway'), 'branch-paused');
+		const project = await cloud('samarinda', 'pages/projects/zatiaraspos');
+		assert.equal(project.subdomain, new URL(legacyProductionOrigin).hostname);
+		assert.equal(project.canonical_deployment?.environment, 'production');
+		const sha = project.canonical_deployment?.deployment_trigger?.metadata?.commit_hash;
+		assert.match(sha ?? '', /^[a-f0-9]{40}$/);
+		for (const branch of branches) {
+			const probe = await fetch(
+				`${legacyProductionOrigin}/internal/cutover/connection?${new URLSearchParams({ branch })}`,
+				{
+					headers: { 'x-zpos-cutover-probe': derive(`candidate-pages-probe:${sha}`) },
+					redirect: 'error',
+					signal: AbortSignal.timeout(14_000)
+				}
+			);
+			await probe.body?.cancel();
+			assert.equal(probe.status, 204, `${branch}: rute privat Pages belum siap`);
+		}
+	}
 }
 const liveConfig = await readFile('wrangler.pages.jsonc', 'utf8');
 const staging = buildBranchStagingConfigs({
@@ -63,14 +84,16 @@ async function cloud(branch, path, sql) {
 }
 
 if (connectPaused) {
-	await assertLegacyPaused();
+	await assertProductionPaused();
 	const storage = await cloud('samarinda', `workers/scripts/${productionStorageName}/settings`);
 	assert.ok(
 		storage.bindings?.some(
 			({ type, name, text }) =>
-				type === 'plain_text' && name === 'STORAGE_PRODUCTION_READ_ONLY' && text === 'yes'
+				type === 'plain_text' &&
+				name === 'STORAGE_PRODUCTION_READ_ONLY' &&
+				text === (prepareOperational ? 'no' : 'yes')
 		),
-		'Relay produksi baca-saja belum siap'
+		'Relay produksi belum pada mode yang diperlukan'
 	);
 }
 const destinations = {};
@@ -97,7 +120,8 @@ try {
 		main: resolve('staging/branch-account-worker.mjs'),
 		publicAssets,
 		liveConfig,
-		connectPaused
+		connectPaused,
+		prepareOperational
 	});
 	for (const branch of branches) {
 		const { id, name } = destinations[branch];
@@ -140,6 +164,10 @@ try {
 				vars.get('BRANCH_CUTOVER_STATE') === 'paused' &&
 				vars.get('BRANCH_ACCOUNT_MODE') === worker.vars.BRANCH_ACCOUNT_MODE &&
 				vars.get('BRANCH_ACCOUNT_IDENTITY') === worker.vars.BRANCH_ACCOUNT_IDENTITY &&
+				(prepareOperational
+					? vars.get('BRANCH_CONNECTION_PROBE') === 'yes' &&
+						previousOrigin === legacyProductionOrigin
+					: vars.get('BRANCH_OPERATIONAL_READY') !== 'yes') &&
 				(previousOrigin === worker.vars.BRANCH_PUBLIC_ORIGIN ||
 					(connectPaused && previousOrigin === config.gateway.vars.BRANCH_PUBLIC_ORIGIN)),
 			`${worker.name}: resource yang sudah ada bukan kandidat yang cocok`
@@ -172,7 +200,8 @@ try {
 		const secret = derive(`candidate-relay:${branch}`);
 		await deploy(branch, config.backends[branch], {
 			BRANCH_RELAY_SECRET: secret,
-			...(connectPaused ? { BRANCH_STORAGE_SECRET: derive(`production-storage:${branch}`) } : {})
+			...(connectPaused ? { BRANCH_STORAGE_SECRET: derive(`production-storage:${branch}`) } : {}),
+			...(prepareOperational ? { POS_PRICE_SIGNING_KEY: derive(`production-price:${branch}`) } : {})
 		});
 		const host = config.gateway.vars[`BRANCH_ORIGIN_${branch.toUpperCase()}`];
 		await verify(`${host}/login`, 401);
@@ -185,15 +214,26 @@ try {
 		if (connectPaused) {
 			const probe = `${host}/internal/cutover/connection`;
 			await verify(probe, 401);
-			await verify(probe, 204, {
-				'x-zatiaras-relay-key': secret,
-				'x-zatiaras-relay-branch': branch
-			});
-			console.log(`${branch}: D1 hasil impor dan relay R2 terhubung; trafik kasir ditolak`);
+			await verify(
+				probe,
+				204,
+				{
+					'x-zatiaras-relay-key': secret,
+					'x-zatiaras-relay-branch': branch
+				},
+				prepareOperational
+					? (response) => response.headers.get('x-zpos-operational-ready') === 'yes'
+					: undefined
+			);
+			console.log(
+				prepareOperational
+					? `${branch}: koordinator kosong, katalog bertanda tangan lolos, dan binding maintenance siap; kasir tetap tertutup`
+					: `${branch}: D1 hasil impor dan relay R2 terhubung; trafik kasir ditolak`
+			);
 		} else console.log(`${branch}: backend kandidat menolak trafik; D1 tujuan kosong`);
 	}
 	if (connectPaused) {
-		await assertLegacyPaused();
+		await assertProductionPaused();
 		console.log('Ketiga backend terhubung dan tertutup. Pages produksi tidak diubah.');
 	} else {
 		await deploy('samarinda', config.gateway, {

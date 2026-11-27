@@ -27,6 +27,7 @@ export default {
 			if (new URL(request.url).pathname === '/internal/maintenance/start') {
 				const secret = env.BRANCH_MAINTENANCE_SECRET;
 				if (
+					deployment.candidate ||
 					request.method !== 'POST' ||
 					typeof secret !== 'string' ||
 					secret.length < 32 ||

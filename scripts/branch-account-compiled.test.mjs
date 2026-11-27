@@ -105,8 +105,8 @@ async function restoreOwnedSnapshot(source, target) {
 	}
 }
 
-async function seed(branch, passwordHash, migrations) {
-	const db = await runtime.getD1Database(dbBinding(branch), branch);
+async function seed(branch, passwordHash, migrations, worker = branch, activate = true) {
+	const db = await runtime.getD1Database(dbBinding(branch), worker);
 	const source =
 		branch === 'balikpapan'
 			? await runtime.getD1Database('LEGACY_FIXTURE', 'cutover-fixtures')
@@ -134,7 +134,8 @@ async function seed(branch, passwordHash, migrations) {
 		await source.prepare('INSERT INTO kiosk_shift_cutover(cabang_id) VALUES(?)').bind(branch).run();
 		await restoreOwnedSnapshot(source, db);
 	}
-	const namespace = await runtime.getDurableObjectNamespace('REALTIME_HUB', branch);
+	if (!activate) return { db, source };
+	const namespace = await runtime.getDurableObjectNamespace('REALTIME_HUB', worker);
 	const hub = namespace.get(namespace.idFromName(`cashier:${branch}`));
 	const project = (action) =>
 		hub.fetch(`https://cashier.internal/projection/${action}`, {
@@ -186,6 +187,39 @@ try {
 		assets: { directory: assetDirectory, binding: 'ASSETS', run_worker_first: true }
 	};
 	const shared = { BRANCH_PUBLIC_ORIGIN: publicOrigin };
+	const readyOrigin = 'https://berau-ready.example.test';
+	const backend = (branch, name = branch, origin = backendOrigin(branch)) => ({
+		...common,
+		name,
+		routes: [origin + '/*'],
+		d1Databases: { [dbBinding(branch)]: randomUUID() },
+		...(branch === 'samarinda'
+			? { serviceBindings: { BRANCH_STORAGE_LOCAL: sendToStorage } }
+			: { outboundService: sendToStorage }),
+		durableObjects: {
+			REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true },
+			BRANCH_MAINTENANCE: { className: 'BranchMaintenanceAlarm', useSQLite: true }
+		},
+		bindings: {
+			...shared,
+			BRANCH_ACCOUNT_MODE: 'backend',
+			BRANCH_ACCOUNT_IDENTITY: branch,
+			BRANCH_MAINTENANCE_SECRET: maintenanceSecret,
+			BRANCH_STORAGE_ORIGIN: storageOrigin,
+			BRANCH_STORAGE_SECRET: storageKeys[branch],
+			BRANCH_RELAY_SECRET: relayKeys[branch],
+			KIOSK_PRODUCTION_PILOT: branch,
+			KIOSK_PROJECTION_BRANCHES: branch,
+			POS_PRICE_SIGNING_KEY: secret()
+		}
+	});
+	const readyBackend = backend('berau', 'berau-ready', readyOrigin);
+	Object.assign(readyBackend.bindings, {
+		BRANCH_PRODUCTION_CANDIDATE: 'yes',
+		BRANCH_CUTOVER_STATE: 'paused',
+		BRANCH_CONNECTION_PROBE: 'yes',
+		BRANCH_OPERATIONAL_READY: 'yes'
+	});
 	runtime = new Miniflare(
 		convertV4MiniflareOptions({
 			workers: [
@@ -245,31 +279,8 @@ try {
 					name: 'cutover-fixtures',
 					d1Databases: { LEGACY_FIXTURE: randomUUID(), ROLLBACK_FIXTURE: randomUUID() }
 				},
-				...branches.map((branch) => ({
-					...common,
-					name: branch,
-					routes: [backendOrigin(branch) + '/*'],
-					d1Databases: { [dbBinding(branch)]: randomUUID() },
-					...(branch === 'samarinda'
-						? { serviceBindings: { BRANCH_STORAGE_LOCAL: sendToStorage } }
-						: { outboundService: sendToStorage }),
-					durableObjects: {
-						REALTIME_HUB: { className: 'RealtimeDurableObject', useSQLite: true },
-						BRANCH_MAINTENANCE: { className: 'BranchMaintenanceAlarm', useSQLite: true }
-					},
-					bindings: {
-						...shared,
-						BRANCH_ACCOUNT_MODE: 'backend',
-						BRANCH_ACCOUNT_IDENTITY: branch,
-						BRANCH_MAINTENANCE_SECRET: maintenanceSecret,
-						BRANCH_STORAGE_ORIGIN: storageOrigin,
-						BRANCH_STORAGE_SECRET: storageKeys[branch],
-						BRANCH_RELAY_SECRET: relayKeys[branch],
-						KIOSK_PRODUCTION_PILOT: branch,
-						KIOSK_PROJECTION_BRANCHES: branch,
-						POS_PRICE_SIGNING_KEY: secret()
-					}
-				}))
+				...branches.map((branch) => backend(branch)),
+				readyBackend
 			]
 		})
 	);
@@ -285,6 +296,41 @@ try {
 	}
 	const password = randomUUID();
 	const passwordHash = await bcrypt.hash(password, 4);
+	const { db: preparedDb } = await seed(
+		'berau',
+		passwordHash,
+		migrations,
+		readyBackend.name,
+		false
+	);
+	const readyProbe = readyOrigin + '/internal/cutover/connection';
+	const headers = { 'x-zatiaras-relay-key': relayKeys.berau, 'x-zatiaras-relay-branch': 'berau' };
+	assert.equal((await runtime.dispatchFetch(readyProbe)).status, 401);
+	const readiness = await runtime.dispatchFetch(readyProbe, { headers });
+	assert.equal(readiness.status, 204, 'Production-style preparation must not need a live shift');
+	assert.equal(readiness.headers.get('x-zpos-operational-ready'), 'yes');
+	assert.equal((await runtime.dispatchFetch(readyOrigin + '/login', { headers })).status, 503);
+	assert.equal(
+		(
+			await runtime.dispatchFetch(readyOrigin + '/internal/maintenance/start', {
+				method: 'POST',
+				headers: { 'x-maintenance-secret': maintenanceSecret }
+			})
+		).status,
+		404
+	);
+	assert.equal(
+		await preparedDb
+			.prepare("SELECT count(*) AS n FROM kiosk_shift_cutover WHERE cabang_id='berau'")
+			.first('n'),
+		0
+	);
+	assert.equal(
+		await preparedDb
+			.prepare("SELECT stok FROM produk WHERE cabang_id='berau' AND id='juice'")
+			.first('stok'),
+		5
+	);
 	const loginPage = await runtime.dispatchFetch(publicOrigin + '/login');
 	assert.equal(loginPage.status, 200);
 	assert.match(await loginPage.text(), /Masuk untuk memulai sesi kasir/);

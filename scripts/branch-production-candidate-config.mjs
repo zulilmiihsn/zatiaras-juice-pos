@@ -12,8 +12,11 @@ export function buildBranchProductionCandidateConfigs({
 	main,
 	publicAssets,
 	liveConfig,
-	connectPaused = false
+	connectPaused = false,
+	prepareOperational = false
 }) {
+	if (prepareOperational && !connectPaused)
+		throw new Error('Persiapan operasional memerlukan backend yang terhubung dan tertutup');
 	const { gateway, backends } = buildBranchStagingConfigs({
 		gateway: inventory.gateway,
 		backends: inventory.backends,
@@ -87,6 +90,13 @@ export function buildBranchProductionCandidateConfigs({
 							BRANCH_STORAGE_ORIGIN: storageOrigin,
 							BRANCH_CONNECTION_PROBE: 'yes'
 						}
+					: {}),
+				...(prepareOperational
+					? {
+							BRANCH_OPERATIONAL_READY: 'yes',
+							KIOSK_PRODUCTION_PILOT: branch,
+							KIOSK_PROJECTION_BRANCHES: branch
+						}
 					: {})
 			},
 			...(connectPaused && branch === 'samarinda'
@@ -100,9 +110,19 @@ export function buildBranchProductionCandidateConfigs({
 				}
 			],
 			durable_objects: {
-				bindings: [{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' }]
+				bindings: [
+					{ name: 'REALTIME_HUB', class_name: 'RealtimeDurableObject' },
+					...(prepareOperational
+						? [{ name: 'BRANCH_MAINTENANCE', class_name: 'BranchMaintenanceAlarm' }]
+						: [])
+				]
 			},
-			migrations: [{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] }]
+			migrations: [
+				{ tag: 'v1', new_sqlite_classes: ['RealtimeDurableObject'] },
+				...(prepareOperational
+					? [{ tag: 'v2', new_sqlite_classes: ['BranchMaintenanceAlarm'] }]
+					: [])
+			]
 		};
 	}
 	return config;
