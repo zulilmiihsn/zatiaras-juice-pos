@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
+import { compareArchiveVersion } from './archive-object-version.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
 assert.equal(process.env.GITHUB_REF, 'refs/heads/release/branch-account-staging');
@@ -21,6 +22,37 @@ const png = Buffer.from(
 	'base64'
 );
 const day = new Date(Date.UTC(2020, 0, 1 + randomInt(0, 366))).toISOString().slice(0, 10);
+const bucket = storage.r2_buckets[0].bucket_name;
+assert.equal(bucket, 'zpos-shared-assets-staging');
+const storageToken = process.env.BRANCH_CF_TOKEN_SAMARINDA;
+assert.ok(storageToken);
+async function stagingArchiveMetadata(key) {
+	assert.match(key, /^arsip\/(samarinda|balikpapan|berau)\//);
+	const url = `https://api.cloudflare.com/client/v4/accounts/${storage.account_id}/r2/buckets/${bucket}/objects?${new URLSearchParams({ prefix: key, per_page: '10' })}`;
+	const response = await fetch(url, {
+		headers: { authorization: `Bearer ${storageToken}` },
+		redirect: 'error',
+		signal: AbortSignal.timeout(12_000)
+	});
+	const data = await response.json();
+	assert.ok(
+		response.ok && data.success && Array.isArray(data.result) && !data.result_info?.is_truncated,
+		'Metadata arsip staging belum terverifikasi'
+	);
+	const actual = data.result.filter((object) => object.key === key);
+	assert.ok(actual.length <= 1);
+	if (!actual.length) return null;
+	const { size, etag, last_modified: lastModified } = actual[0];
+	assert.ok(
+		Number.isSafeInteger(size) &&
+			size > 0 &&
+			typeof etag === 'string' &&
+			etag &&
+			typeof lastModified === 'string' &&
+			Number.isFinite(Date.parse(lastModified))
+	);
+	return { key, size, etag, lastModified };
+}
 
 function d1Client(branch, config) {
 	const [db] = config.d1_databases;
@@ -146,9 +178,8 @@ for (const [branch, config] of Object.entries(backends)) {
 		assert.equal(result.count, 1);
 		assert.match(result.key, new RegExp(`^arsip/${branch}/`));
 		assert.ok(result.job_id);
-		const download = await owner(
-			`/api/archive/download?${new URLSearchParams({ job_id: result.job_id })}`
-		);
+		const downloadPath = `/api/archive/download?${new URLSearchParams({ job_id: result.job_id })}`;
+		const download = await owner(downloadPath);
 		assert.equal(download.status, 200);
 		const bytes = Buffer.from(await download.arrayBuffer());
 		assert.equal(
@@ -156,6 +187,28 @@ for (const [branch, config] of Object.entries(backends)) {
 			download.headers.get('x-archive-sha256')
 		);
 		assert.equal(JSON.parse(bytes.toString('utf8')).buku_kas[0]?.id, id);
+		const captured = await stagingArchiveMetadata(result.key);
+		assert.ok(captured && captured.size === bytes.length);
+		const sha256 = createHash('sha256').update(bytes).digest('hex');
+		const reader = {
+			metadata: stagingArchiveMetadata,
+			async read(key, size) {
+				assert.equal(key, result.key);
+				assert.equal(size, bytes.length);
+				const response = await owner(downloadPath);
+				if (response.status === 404) return null;
+				assert.equal(response.status, 200);
+				return new Uint8Array(await response.arrayBuffer());
+			}
+		};
+		assert.equal(await compareArchiveVersion({ ...captured, sha256 }, reader), 'matched');
+		assert.equal(
+			await compareArchiveVersion({ ...captured, sha256: '0'.repeat(64) }, reader),
+			'changed'
+		);
+		console.log(
+			`${branch}: salinan cocok dengan versi dan byte objek R2 staging; checksum yang berbeda ditolak`
+		);
 		assert.deepEqual(
 			await db.query('SELECT id FROM buku_kas WHERE cabang_id=? AND id=?', [branch, id]),
 			[]

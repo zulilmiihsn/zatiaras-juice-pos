@@ -4,9 +4,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
+import { compareArchiveVersion } from '../../scripts/archive-object-version.mjs';
 import {
 	previewArchiveRetention,
-	verifyArchiveCopy
+	verifyArchiveCopy,
+	verifyCurrentArchiveCopies
 } from '../../scripts/plan-r2-archive-retention';
 
 const verifiedAt = Date.parse('2026-11-27T02:00:00.000Z');
@@ -53,7 +56,9 @@ async function fixture() {
 				key: 'arsip/samarinda/2026/arsip-samarinda-sebelum-2026-a1b2c3d4.json',
 				file: '000001.bin',
 				size: Buffer.byteLength(body),
-				sha256: createHash('sha256').update(body).digest('hex')
+				sha256: createHash('sha256').update(body).digest('hex'),
+				etag: 'synthetic-etag',
+				last_modified: '2026-11-26T03:00:00.000Z'
 			}
 		]
 	};
@@ -86,6 +91,112 @@ test('24 hours starts at verified copy, and preview never changes or deletes the
 		assert.equal(await readFile(f.file, 'utf8'), JSON.stringify(archive));
 	} finally {
 		await f.cleanup();
+	}
+});
+
+test('remote read requires a mature proof and refuses changed versions or bytes', async () => {
+	const f = await fixture();
+	try {
+		await verifyArchiveCopy(f.path, verifiedAt);
+		const object = f.data.objects[0];
+		const original = {
+			key: object.key,
+			size: object.size,
+			etag: object.etag,
+			lastModified: object.last_modified
+		};
+		const due = verifiedAt + oneDay;
+		let metadataCalls = 0;
+		const matches = {
+			async metadata(key: string) {
+				assert.equal(key, object.key);
+				metadataCalls++;
+				return original;
+			},
+			async read(key: string, size: number) {
+				assert.equal(key, object.key);
+				assert.equal(size, object.size);
+				return readFile(f.file);
+			}
+		};
+		assert.deepEqual((await verifyCurrentArchiveCopies(f.path, matches, due - 1)).checks, []);
+		assert.equal(metadataCalls, 0);
+		assert.deepEqual((await verifyCurrentArchiveCopies(f.path, matches, due)).checks, [
+			{ branch: 'samarinda', match: 'matched' }
+		]);
+		assert.equal(metadataCalls, 2);
+		let reads = 0;
+		const race = {
+			...matches,
+			async metadata() {
+				return ++reads === 1 ? original : { ...original, lastModified: '2026-11-26T03:00:00.001Z' };
+			}
+		};
+		assert.equal((await verifyCurrentArchiveCopies(f.path, race, due)).checks[0].match, 'changed');
+		const changed = { ...matches, read: async () => new Uint8Array(object.size) };
+		assert.equal(
+			(await verifyCurrentArchiveCopies(f.path, changed, due)).checks[0].match,
+			'changed'
+		);
+		assert.equal(
+			(await verifyCurrentArchiveCopies(f.path, { ...matches, metadata: async () => null }, due))
+				.checks[0].match,
+			'missing'
+		);
+		assert.equal(
+			(
+				await verifyCurrentArchiveCopies(
+					f.path,
+					{
+						...matches,
+						metadata: async () => {
+							throw new Error('offline');
+						}
+					},
+					due
+				)
+			).checks[0].match,
+			'unverified'
+		);
+	} finally {
+		await f.cleanup();
+	}
+});
+
+test('local Workerd R2 rejects an older copy after a synthetic object is overwritten', async () => {
+	const fixture = new Miniflare(
+		convertV4MiniflareOptions({
+			modules: true,
+			script: '',
+			r2Buckets: { ARCHIVE_FIXTURE: 'local-archive-proof' }
+		})
+	);
+	try {
+		const bucket = await fixture.getR2Bucket('ARCHIVE_FIXTURE');
+		const key = 'arsip/samarinda/2026/arsip-samarinda-sebelum-2026-a1b2c3d4.json';
+		const original = JSON.stringify(archive);
+		await bucket.put(key, original);
+		const metadata = async (selected: string) => {
+			const o = await bucket.head(selected);
+			return o
+				? { key: o.key, etag: o.etag, lastModified: o.uploaded.toISOString(), size: o.size }
+				: null;
+		};
+		const captured = await metadata(key);
+		assert.ok(captured);
+		const reader = {
+			metadata,
+			async read(selected: string) {
+				const o = await bucket.get(selected);
+				return o ? new Uint8Array(await o.arrayBuffer()) : null;
+			}
+		};
+		const proof = { ...captured, sha256: createHash('sha256').update(original).digest('hex') };
+		assert.equal(await compareArchiveVersion(proof, reader), 'matched');
+		await bucket.put(key, original.replace('1000', '9000'));
+		assert.equal(await compareArchiveVersion(proof, reader), 'changed');
+	} finally {
+		await fixture.dispose();
 	}
 });
 

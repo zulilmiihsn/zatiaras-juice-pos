@@ -9,6 +9,7 @@ import { isBranchStorageKey } from '../src/lib/server/branchStoragePolicy';
 import { ARCHIVE_CHUNK_MAX_BYTES } from '../src/lib/server/archiveChunkReader';
 import { canonicalizeExternalPath } from './external-backup-path.mjs';
 import { validateArchive } from './restore-archive-lib.mjs';
+import { compareArchiveVersion } from './archive-object-version.mjs';
 
 const HOUR = 3600_000;
 const AGE_MS = 24 * HOUR;
@@ -65,6 +66,8 @@ async function inspectBackup(source: string) {
 		archiveId: string;
 		sha256: string;
 		size: number;
+		etag: string;
+		lastModified: string;
 		file: string;
 	}[] = [];
 	const seen = new Set<string>();
@@ -76,7 +79,7 @@ async function inspectBackup(source: string) {
 		if (!item.key.startsWith('arsip/')) continue;
 		const key = item.key;
 		const branch = branches.find((value) => key.startsWith(`arsip/${value}/`));
-		const { file, size, sha256: expected } = item;
+		const { file, size, sha256: expected, etag, last_modified: lastModified } = item;
 		if (
 			!branch ||
 			!isBranchStorageKey(branch, key) ||
@@ -87,6 +90,10 @@ async function inspectBackup(source: string) {
 			!Number.isSafeInteger(size) ||
 			size <= 0 ||
 			size > ARCHIVE_CHUNK_MAX_BYTES ||
+			typeof etag !== 'string' ||
+			!etag ||
+			typeof lastModified !== 'string' ||
+			!Number.isFinite(Date.parse(lastModified)) ||
 			typeof expected !== 'string' ||
 			!/^[a-f0-9]{64}$/.test(expected)
 		)
@@ -113,7 +120,7 @@ async function inspectBackup(source: string) {
 			throw new Error(
 				'Salinan tidak cocok dengan identitas arsip atau tidak lolos validasi restore'
 			);
-		objects.push({ key, branch, archiveId, sha256: expected, size, file });
+		objects.push({ key, branch, archiveId, sha256: expected, size, etag, lastModified, file });
 	}
 	return {
 		dir,
@@ -147,7 +154,7 @@ export async function verifyArchiveCopy(source: string, now = Date.now()) {
 	};
 }
 
-export async function previewArchiveRetention(source: string, now = Date.now()) {
+async function loadReview(source: string, now: number) {
 	const backup = await inspectBackup(source);
 	const proofPath = join(backup.dir, PROOF);
 	await regularFile(proofPath);
@@ -166,13 +173,36 @@ export async function previewArchiveRetention(source: string, now = Date.now()) 
 		throw new Error('Bukti verifikasi tidak cocok dengan backup');
 	const reviewedAfter = proof.verified_at + AGE_MS;
 	return {
+		objects: backup.objects,
 		reviewedAfter: new Date(reviewedAfter).toISOString(),
-		readyForReview: now >= reviewedAfter,
+		readyForReview: now >= reviewedAfter
+	};
+}
+
+export async function previewArchiveRetention(source: string, now = Date.now()) {
+	const { objects, ...review } = await loadReview(source, now);
+	return {
+		...review,
 		branches: branches.map((branch) => ({
 			branch,
-			archives: backup.objects.filter((object) => object.branch === branch).length
+			archives: objects.filter((object) => object.branch === branch).length
 		}))
 	};
+}
+
+/** Verify bytes and version after the local 24-hour hold; a match still cannot authorize deletion. */
+export async function verifyCurrentArchiveCopies(
+	source: string,
+	reader: Parameters<typeof compareArchiveVersion>[1],
+	now = Date.now()
+) {
+	const { objects, ...review } = await loadReview(source, now);
+	const checks = [];
+	if (review.readyForReview) {
+		for (const object of objects)
+			checks.push({ branch: object.branch, match: await compareArchiveVersion(object, reader) });
+	}
+	return { ...review, checks };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
