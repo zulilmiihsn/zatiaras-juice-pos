@@ -28,8 +28,11 @@ import { RealtimeDurableObject } from '../../src/lib/server/cashierRealtimeHub';
 export class ShiftFixture {
 	constructor(
 		private ctx: DurableObjectState,
-		private env: Partial<Record<BranchDbBinding, D1Database>>
-	) {}
+		private env: Partial<Record<BranchDbBinding, D1Database>> & { FIXTURE_NOW?: number }
+	) {
+		const now = env.FIXTURE_NOW;
+		if (typeof now === 'number') Date.now = () => now;
+	}
 	async fetch(req: Request) {
 		if (new URL(req.url).pathname.endsWith('/seed-closed')) {
 			await this.ctx.storage.put('shift:active', null);

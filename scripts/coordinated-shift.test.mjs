@@ -1,6 +1,6 @@
 // Local workerd and disposable D1 only. No deployment credentials or network service.
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
@@ -9,6 +9,159 @@ import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 const branchOrigin = process.argv.includes('--branch-origin');
 const dir = await mkdtemp(join(tmpdir(), 'shift-workerd-'));
 let runtime;
+function shiftRuntime(persistence, bindings = {}) {
+	return new Miniflare(
+		convertV4MiniflareOptions({
+			modules: true,
+			scriptPath: join(dir, 'worker.mjs'),
+			modulesRoot: dir,
+			compatibilityDate: '2026-06-29',
+			compatibilityFlags: ['nodejs_compat'],
+			bindings,
+			d1Databases: {
+				DB_SAMARINDA_GROUP: 'kiosk-test-samarinda',
+				DB_BALIKPAPAN_GROUP: 'kiosk-test-balikpapan',
+				DB_BERAU_GROUP: 'kiosk-test-berau'
+			},
+			resourcePersistencePath: persistence,
+			durableObjects: { SHIFT: { className: 'ShiftFixture', useSQLite: true } }
+		})
+	);
+}
+async function migrateFixture(db) {
+	for (const name of (await readdir('drizzle')).filter((name) => name.endsWith('.sql')).sort()) {
+		const statements = (await readFile(join('drizzle', name), 'utf8'))
+			.split('--> statement-breakpoint')
+			.map((sql) => sql.trim())
+			.filter(Boolean);
+		await db.batch(statements.map((sql) => db.prepare(sql)));
+	}
+}
+
+async function verifyCoordinatorSnapshotRecovery(profile, password) {
+	const branch = 'berau';
+	const source = join(dir, 'snapshot-source');
+	const restored = join(dir, 'snapshot-target');
+	const snapshot = join(dir, 'saved-do');
+	const now = Date.parse('2026-11-27T10:00:00.000Z');
+	const withFixture = async (persistence, work) => {
+		const fixture = shiftRuntime(persistence, { FIXTURE_NOW: now });
+		try {
+			const address = await fixture.ready;
+			const db = await fixture.getD1Database('DB_BERAU_GROUP');
+			const post = async (action, body = null) => {
+				const response = await fixture.dispatchFetch(
+					new URL(`/${branch}/${action}?recovery`, address),
+					{ method: 'POST', body: JSON.stringify(body) }
+				);
+				assert.ok(response.ok, `Fixture ${action} HTTP ${response.status}`);
+				return response.json();
+			};
+			return await work(db, post);
+		} finally {
+			await fixture.dispose();
+		}
+	};
+	const ledger = (db, shiftId) =>
+		db
+			.prepare(
+				'SELECT id, nominal, nomor_harian, receipt_snapshot FROM buku_kas WHERE cabang_id=? AND id_sesi_toko=?'
+			)
+			.bind(branch, shiftId)
+			.all();
+	const stock = (db) =>
+		db
+			.prepare("SELECT stok FROM produk WHERE cabang_id=? AND id='juice'")
+			.bind(branch)
+			.first('stok');
+	const before = await withFixture(source, async (db, post) => {
+		await migrateFixture(db);
+		await db
+			.prepare(
+				"INSERT INTO produk(id,cabang_id,nama,harga,stok,lacak_stok,lacak_bahan,is_active) VALUES ('juice',?,'Jus',10000,20,1,0,1)"
+			)
+			.bind(branch)
+			.run();
+		await post('sale-token');
+		assert.deepEqual(await post('activate'), { ok: true, status: 'initialized' });
+		const { token } = await post('device/enroll', profile);
+		const session = await post('device/login', { token, username: profile.username, password });
+		assert.ok(session.ok);
+		const auth = { branch, token, sid: session.sid };
+		await post('quota', 'write');
+		const opened = await post('device/shift-open', {
+			...auth,
+			id: 'snapshot-shift',
+			openingCash: 0
+		});
+		assert.equal(opened.status, 'opened');
+		const shiftId = opened.shift.id;
+		const sale = await post('device/sale', {
+			...auth,
+			id: 'snapshot-sale',
+			shiftId,
+			productId: 'juice',
+			qty: 1,
+			unitPrice: 10000,
+			payment: 'tunai',
+			cash: 12000
+		});
+		assert.equal(sale.status, 'recorded');
+		assert.equal(sale.receipt.total_amount, 10000);
+		assert.equal(sale.receipt.committed_at, new Date(now).toISOString());
+		assert.equal((await post('device/shift-close', { ...auth, id: shiftId })).status, 'closed');
+		const first = await post('projection-peek');
+		assert.equal(first.kind, 'shift-opened');
+		assert.equal((await post('project')).failed, true);
+		assert.deepEqual(await post('projection-peek'), first);
+		assert.equal((await ledger(db, shiftId)).results.length, 0);
+		assert.equal(await stock(db), 20);
+		return { auth, shiftId, sale, first };
+	});
+	// Workerd is stopped. Copy the DO journal separately from D1's independent SQL state.
+	await cp(join(source, 'do'), snapshot, { recursive: true });
+	await mkdir(restored);
+	await cp(join(source, 'd1'), join(restored, 'd1'), { recursive: true });
+	await cp(snapshot, join(restored, 'do'), { recursive: true });
+	await rename(source, join(dir, 'parked-source'));
+
+	const verifyReplay = (alreadyProjected) =>
+		withFixture(restored, async (db, post) => {
+			assert.deepEqual(await post('projection-peek'), before.first);
+			assert.equal((await post('device/session', before.auth)).shiftStatus.state, 'closed');
+			assert.equal((await ledger(db, before.shiftId)).results.length, alreadyProjected ? 1 : 0);
+			assert.equal(await stock(db), alreadyProjected ? 19 : 20);
+			await post('quota', null);
+			assert.deepEqual(await post('project'), { ok: true });
+			assert.equal(await post('projection-peek'), null);
+			assert.equal(await stock(db), 19);
+			const entries = (await ledger(db, before.shiftId)).results;
+			assert.equal(entries.length, 1);
+			assert.equal(entries[0].nominal, 10000);
+			assert.equal(entries[0].nomor_harian, before.sale.orderNumber);
+			assert.deepEqual(JSON.parse(entries[0].receipt_snapshot), before.sale.receipt);
+			const details = await db
+				.prepare('SELECT COUNT(*) AS n FROM transaksi_kasir WHERE cabang_id=? AND buku_kas_id=?')
+				.bind(branch, entries[0].id)
+				.first('n');
+			assert.equal(details, 1);
+			const shift = await db
+				.prepare('SELECT is_active,waktu_tutup FROM sesi_toko WHERE cabang_id=? AND id=?')
+				.bind(branch, before.shiftId)
+				.first();
+			assert.equal(shift.is_active, 0);
+			assert.equal(shift.waktu_tutup, new Date(now).toISOString());
+		});
+	await verifyReplay(false);
+	// Keep committed D1, but replay the exact earlier journal snapshot to model a lost acknowledgement.
+	await rename(join(restored, 'do'), join(dir, 'parked-drained-do'));
+	await cp(snapshot, join(restored, 'do'), { recursive: true });
+	await verifyReplay(true);
+	console.log(
+		'coordinated-shift: restored a stopped DO snapshot and replayed it against committed D1; order, receipt and stock stayed exact'
+	);
+}
+
 try {
 	await build({
 		configFile: false,
@@ -25,22 +178,7 @@ try {
 			copyPublicDir: false
 		}
 	});
-	runtime = new Miniflare(
-		convertV4MiniflareOptions({
-			modules: true,
-			scriptPath: join(dir, 'worker.mjs'),
-			modulesRoot: dir,
-			compatibilityDate: '2026-06-29',
-			compatibilityFlags: ['nodejs_compat'],
-			d1Databases: {
-				DB_SAMARINDA_GROUP: 'kiosk-test-samarinda',
-				DB_BALIKPAPAN_GROUP: 'kiosk-test-balikpapan',
-				DB_BERAU_GROUP: 'kiosk-test-berau'
-			},
-			resourcePersistencePath: join(dir, 'state'),
-			durableObjects: { SHIFT: { className: 'ShiftFixture', useSQLite: true } }
-		})
-	);
+	runtime = shiftRuntime(join(dir, 'state'));
 	const address = await runtime.ready;
 	const send = async (branch, action, input, scope = '') => {
 		const res = await runtime.dispatchFetch(new URL(`/${branch}/${action}${scope}`, address), {
@@ -54,13 +192,7 @@ try {
 	const post = send;
 	const initDb = async (branch) => {
 		const db = await runtime.getD1Database(`DB_${branch.toUpperCase()}_GROUP`);
-		for (const name of (await readdir('drizzle')).filter((name) => name.endsWith('.sql')).sort()) {
-			const statements = (await readFile(join('drizzle', name), 'utf8'))
-				.split('--> statement-breakpoint')
-				.map((sql) => sql.trim())
-				.filter(Boolean);
-			await db.batch(statements.map((sql) => db.prepare(sql)));
-		}
+		await migrateFixture(db);
 		return db;
 	};
 	const { hash } = await import('bcryptjs');
@@ -701,6 +833,8 @@ try {
 			.run();
 		console.log(`coordinated-shift: ${branch} quota recovery and rollback verified`);
 	}
+	if (!branchOrigin && !process.argv.includes('--browser'))
+		await verifyCoordinatorSnapshotRecovery(profile, password);
 	console.log('coordinated-shift: quota recovery and rollback verified on local workerd');
 } finally {
 	try {
