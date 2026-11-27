@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
@@ -26,14 +26,18 @@ const bucket = storage.r2_buckets[0].bucket_name;
 assert.equal(bucket, 'zpos-shared-assets-staging');
 const storageToken = process.env.BRANCH_CF_TOKEN_SAMARINDA;
 assert.ok(storageToken);
-async function stagingArchiveMetadata(key) {
-	assert.match(key, /^arsip\/(samarinda|balikpapan|berau)\//);
-	const url = `https://api.cloudflare.com/client/v4/accounts/${storage.account_id}/r2/buckets/${bucket}/objects?${new URLSearchParams({ prefix: key, per_page: '10' })}`;
-	const response = await fetch(url, {
+const objectsUrl = `https://api.cloudflare.com/client/v4/accounts/${storage.account_id}/r2/buckets/${bucket}/objects`;
+function stagingObjects(suffix, method = 'GET') {
+	return fetch(objectsUrl + suffix, {
+		method,
 		headers: { authorization: `Bearer ${storageToken}` },
 		redirect: 'error',
 		signal: AbortSignal.timeout(12_000)
 	});
+}
+async function stagingArchiveMetadata(key) {
+	assert.match(key, /^arsip\/(samarinda|balikpapan|berau)\//);
+	const response = await stagingObjects(`?${new URLSearchParams({ prefix: key, per_page: '10' })}`);
 	const data = await response.json();
 	assert.ok(
 		response.ok && data.success && Array.isArray(data.result) && !data.result_info?.is_truncated,
@@ -109,6 +113,65 @@ function browser() {
 		return response;
 	};
 }
+
+async function smokeArchiveCreateOnly() {
+	const master = process.env.BRANCH_STAGING_KEY;
+	assert.ok(master && master.length >= 32, 'Kunci relay staging tidak tersedia');
+	assert.equal(storage.name, 'zpos-storage-staging');
+	const relay = new URL(origin);
+	assert.match(relay.hostname, /^zpos-gateway-staging\.[a-z0-9-]+\.workers\.dev$/);
+	relay.hostname = relay.hostname.replace(/^zpos-gateway-staging\./, 'zpos-storage-staging.');
+	relay.pathname = '/object';
+	const id = randomUUID();
+	const key = `arsip/samarinda/2020/arsip-samarinda-sebelum-2020-${id.slice(0, 8)}.json`;
+	relay.searchParams.set('key', key);
+	const secret = createHmac('sha256', master).update('storage:samarinda').digest('hex');
+	const content = (version) => JSON.stringify({ fixture: id, version });
+	async function send(method, body) {
+		const response = await fetch(relay, {
+			method,
+			body,
+			headers: { 'x-storage-secret': secret, 'content-type': 'application/json' },
+			redirect: 'error',
+			signal: AbortSignal.timeout(12_000)
+		});
+		return { status: response.status, body: await response.text() };
+	}
+	assert.equal(await stagingArchiveMetadata(key), null);
+	try {
+		const first = await Promise.allSettled([send('PUT', content(1)), send('PUT', content(2))]);
+		const statuses = first.map((result) =>
+			result.status === 'fulfilled' ? result.value.status : 0
+		);
+		assert.deepEqual([...statuses].sort(), [204, 412]);
+		const winner = content(statuses.indexOf(204) + 1);
+		const before = await stagingArchiveMetadata(key);
+		assert.ok(before);
+		const [overwrite, deletion] = await Promise.all([send('PUT', content(3)), send('DELETE')]);
+		assert.equal(overwrite.status, 412);
+		assert.equal(deletion.status, 403);
+		assert.deepEqual(await send('GET'), { status: 200, body: winner });
+		assert.deepEqual(await stagingArchiveMetadata(key), before);
+		console.log(
+			'R2 staging: satu pembuat menang; overwrite dan hapus ditolak; byte dan metadata tetap.'
+		);
+	} finally {
+		if (await stagingArchiveMetadata(key)) {
+			const target = `/${encodeURIComponent(key)}`;
+			const readback = await stagingObjects(target);
+			assert.ok(
+				readback.ok && [content(1), content(2), content(3)].includes(await readback.text()),
+				'Cleanup menolak objek yang bukan fixture'
+			);
+			const cleanup = await stagingObjects(target, 'DELETE');
+			await cleanup.body?.cancel();
+			assert.ok(cleanup.ok);
+		}
+		assert.equal(await stagingArchiveMetadata(key), null);
+	}
+}
+
+await smokeArchiveCreateOnly();
 
 let previousJob;
 for (const [branch, config] of Object.entries(backends)) {
