@@ -46,6 +46,10 @@ on:
         description: Uji gambar dan arsip sintetis pada R2 bersama staging
         type: boolean
         default: false
+      branch_backup_readiness_check:
+        description: Baca status kesiapan antrean koordinator produksi tanpa mengubah kasir
+        type: boolean
+        default: false
       branch_maintenance_check:
         description: Verifikasi eksekusi maintenance lewat log staging (baca saja)
         type: boolean
@@ -126,6 +130,7 @@ jobs:
           BRANCH_R2_PREPARE: ${{ inputs.branch_r2_prepare }}
           BRANCH_R2_SMOKE: ${{ inputs.branch_r2_smoke }}
           BRANCH_MAINTENANCE_CHECK: ${{ inputs.branch_maintenance_check }}
+          BRANCH_BACKUP_READINESS: ${{ inputs.branch_backup_readiness_check }}
           BRANCH_SCHEMA_CHECK: ${{ inputs.branch_schema_check }}
           BRANCH_PRODUCTION_D1_PREPARE: ${{ inputs.branch_production_d1_prepare }}
           BRANCH_PRODUCTION_D1_CHECK: ${{ inputs.branch_production_d1_check }}
@@ -141,7 +146,7 @@ jobs:
           BRANCH_ROUTE_DRILL: ${{ inputs.branch_route_drill }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_OPERATIONAL_PREP" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_PRODUCTION_STORAGE_WRITES" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_BACKUP_READINESS" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_OPERATIONAL_PREP" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_PRODUCTION_STORAGE_WRITES" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
           if [[ -n "$BRANCH_ACTIVATION_ACK" ]]; then
@@ -249,7 +254,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && inputs.branch_public_open_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_backup_readiness_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && inputs.branch_public_open_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -381,6 +386,13 @@ jobs:
           args=()
           if [[ "$BRANCH_PUBLIC_OPEN_ACK" == ACTIVATION_STOCK_CUTOFF_CONFIRMED ]]; then args+=(--open-public); fi
           node scripts/deploy-production-branch-pages.mjs "${args[@]}"
+
+      - name: Check active production branch backup readiness (read-only)
+        if: inputs.target == 'branch-account-staging' && inputs.branch_backup_readiness_check
+        env:
+          BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
+          BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
+        run: node scripts/check-active-branch-backup-readiness.mjs
 
       - name: Read production source and rollback reference only
         if: ${{ !cancelled() && inputs.target == 'branch-account-staging' && inputs.branch_cutover_preflight }}

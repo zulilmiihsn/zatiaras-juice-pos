@@ -10,6 +10,7 @@ import {
 
 import { buildBranchStagingConfigs } from './branch-account-staging-config.mjs';
 import { buildBranchProductionCandidateConfigs } from './branch-production-candidate-config.mjs';
+import { checkActiveBranchBackupReadiness } from './check-active-branch-backup-readiness.mjs';
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const production = ['wrangler.jsonc', 'wrangler.pages.jsonc', 'wrangler.realtime.jsonc'].map(read);
@@ -261,6 +262,63 @@ await test('production candidates remain paused and never bind active or staging
 			/D1 kandidat bukan tujuan produksi terpisah/
 		);
 	}
+});
+
+await test('backup readiness treats only an authenticated closed/empty proof as verified', async () => {
+	const branches = ['samarinda', 'balikpapan', 'berau'];
+	const backends = Object.fromEntries(
+		branches.map((branch, index) => [
+			branch,
+			{
+				name: `zpos-${branch}-staging`,
+				subdomain: branch,
+				accountId: String(index + 1).repeat(32),
+				databaseId: `${index + 1}0000000-1111-4111-8111-111111111111`
+			}
+		])
+	);
+	const inventory = { gateway: { ...backends.samarinda, name: 'zpos-gateway-staging' }, backends };
+	const markers = {
+		'cache-control': 'no-store',
+		'x-zpos-operational-ready': 'yes',
+		'x-zpos-coordinator-shift': 'closed'
+	};
+	const sentKeys = new Set();
+	const results = await checkActiveBranchBackupReadiness(
+		inventory,
+		'a'.repeat(64),
+		async (url, init) => {
+			const branch = init.headers['x-zatiaras-relay-branch'];
+			assert.equal(url.origin, `https://zatiaraspos-${branch}-candidate.${branch}.workers.dev`);
+			assert.equal(url.pathname, '/internal/cutover/connection');
+			assert.equal(url.search, '');
+			assert.equal(init.method, 'GET');
+			assert.equal(init.redirect, 'error');
+			assert.match(init.headers['x-zatiaras-relay-key'], /^[a-f0-9]{64}$/);
+			sentKeys.add(init.headers['x-zatiaras-relay-key']);
+			if (branch === 'samarinda') return new Response(null, { status: 204, headers: markers });
+			if (branch === 'balikpapan')
+				return new Response(null, {
+					status: 204,
+					headers: { ...markers, 'x-zpos-coordinator-shift': 'uninitialized' }
+				});
+			return new Response(null, { status: 503 });
+		}
+	);
+	assert.equal(sentKeys.size, 3);
+	assert.deepEqual(results, [
+		{ branch: 'samarinda', verified: true, httpStatus: 204 },
+		{ branch: 'balikpapan', verified: false, httpStatus: 204 },
+		{ branch: 'berau', verified: false, httpStatus: 503 }
+	]);
+	const disconnected = await checkActiveBranchBackupReadiness(
+		inventory,
+		'b'.repeat(64),
+		async () => {
+			throw new Error('network');
+		}
+	);
+	assert.ok(disconnected.every((row) => !row.verified && row.httpStatus === null));
 });
 
 await test('every staging config binds all three shards', () => {

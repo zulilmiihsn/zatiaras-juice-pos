@@ -35,6 +35,15 @@ file SQL dan manifest v2 lulus pembacaan ulang dan SHA-256. Ekspor berturutan sa
 aktif bukan snapshot atomik lintas cabang, dan tidak mencakup R2 atau antrean Durable Object.
 Simpan inventaris yang sesuai dengan backup untuk verifikasi tanpa kredensial Cloudflare.
 
+Sesudah shift tutup, jalankan workflow **Deploy** dengan `target=branch-account-staging`
+dan `branch_backup_readiness_check=true`. Mode baca-saja memakai probe privat yang sudah
+ada, bukan men-deploy aplikasi. Hanya bukti shift tertutup dan antrean koordinator nol
+berstatus terverifikasi. Respons `503`, gangguan jaringan, atau respons tanpa marker
+adalah **belum terverifikasi**, bukan jumlah antrean. Untuk angka persis, pemilik membuka
+**Pengaturan → Mode cadangan kasir → Periksa status koordinator** di setiap cabang.
+Cek antrean HP terpisah. Status pada satu waktu tidak mengesahkan backup dari waktu lain;
+catat waktu pemeriksaan dan backup, dan jangan mengklaim cakupan antrean dari manifest SQL.
+
 `--legacy-source --env-file <file>` hanya untuk mengekspor tiga database lama dari
 `wrangler.pages.jsonc`, bukan backup transaksi baru. Untuk manifest lama (v1), verifikasi
 tanpa `--active-inventory`.
