@@ -496,6 +496,25 @@ menghapus file unduhan. Jika terputus, pilih rentang yang sama untuk melanjutkan
 bila tidak ada transaksi aktif tersisa, bagian arsip rentang yang sama tersedia
 untuk diunduh ulang. Arsip lama berbasis batas tahun tetap dapat dipulihkan.
 
+#### Persiapan retensi arsip (tanpa penghapusan)
+
+Gunakan backup R2 lengkap yang disimpan di luar bucket dan di luar workspace. Proses
+`verify` mencocokkan byte salinan, checksum SHA-256, cabang, dan kontrak restore, lalu
+menyimpan bukti pertama. `preview` memeriksa ulang salinan; 24 jam dihitung sejak bukti
+itu dibuat, bukan sejak arsip dibuat atau diunduh.
+
+```powershell
+rtk pnpm r2:archive-retention verify "<ABSOLUTE_BACKUP_PATH>\manifest.r2.json"
+rtk pnpm r2:archive-retention preview "<ABSOLUTE_BACKUP_PATH>\manifest.r2.json"
+```
+
+Manifest backup yang diterima berskema `zatiaraspos-r2-backup-v1` dan memerlukan `COMPLETE`
+tanpa `FAILED.json`. Jangan edit manifest atau `archive-retention-proof.json`. Bukti lokal
+ini hanya menandai arsip untuk review, tidak mengotorisasi penghapusan, tidak membandingkan
+versi objek R2 sekarang, dan tidak menambah jadwal Windows atau Cloudflare. Penghapusan
+baru boleh dirancang setelah prosedur mengikat versi objek R2 yang sama dan memastikan
+salinan terpisah tetap bisa dipulihkan.
+
 ### Dashboard saat PWA dibuka kembali
 
 Dashboard meminta data terbaru saat halaman kembali terlihat/fokus, dipulihkan browser,

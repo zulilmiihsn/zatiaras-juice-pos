@@ -172,6 +172,9 @@ jobs:
       - name: Run Archive Restore Suite
         run: pnpm test:archive-restore
 
+      - name: Run Archive Retention Proof Suite
+        run: pnpm test:archive-retention
+
       - name: Run Archive Usecase Suite
         run: pnpm test:archive-usecase
 
