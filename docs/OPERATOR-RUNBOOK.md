@@ -547,7 +547,7 @@ pada relay lama yang masih mengizinkan overwrite.
 
 Untuk relay produksi yang **sudah aktif**, jalankan **Deploy** dari artifact CI yang hijau
 pada `release/branch-account-staging`, dengan `target=branch-account-staging` dan
-`branch_production_storage_harden=true`. Jalankan dry-run dahulu. Mode ini memeriksa kasir
+`branch_production_storage_writes=harden`. Jalankan dry-run dahulu. Mode ini memeriksa kasir
 `branch-open`, bucket dan mode relay, serta mencatat ID versi relay lama di ringkasan run
 sebelum update. Mode ini tidak menulis atau menghapus objek R2, tidak mengganti secret,
 dan tidak men-deploy Worker kasir, Pages, atau D1. Jika pemeriksaan sesudah deploy gagal

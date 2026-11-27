@@ -90,14 +90,14 @@ on:
         description: Hubungkan backend tertutup ke D1 hasil impor dan R2, tanpa mengubah Pages
         type: boolean
         default: false
-      branch_production_storage_harden:
-        description: Perbarui relay R2 aktif saja, tanpa menjeda kasir atau mengaktifkan hapus arsip
-        type: boolean
-        default: false
       branch_production_storage_writes:
-        description: Aktifkan dan uji tulis relay R2 sementara gateway kasir tetap terkunci
-        type: boolean
-        default: false
+        description: 'Relay R2: true untuk uji cutover saat kasir dijeda, harden untuk anti-timpa saat kasir buka'
+        type: choice
+        default: 'false'
+        options:
+          - 'false'
+          - 'true'
+          - harden
       branch_production_storage_readonly:
         description: Pasang dan verifikasi relay R2 produksi read-only tanpa mengubah URL kasir
         type: boolean
@@ -145,15 +145,19 @@ jobs:
           BRANCH_PUBLIC_OPEN_ACK: ${{ inputs.branch_public_open_ack }}
           BRANCH_PRODUCTION_PAGES_PAUSED: ${{ inputs.branch_production_pages_paused }}
           BRANCH_PRODUCTION_STORAGE_READONLY: ${{ inputs.branch_production_storage_readonly }}
-          BRANCH_PRODUCTION_STORAGE_WRITES: ${{ inputs.branch_production_storage_writes }}
-          BRANCH_PRODUCTION_STORAGE_HARDEN: ${{ inputs.branch_production_storage_harden }}
+          BRANCH_PRODUCTION_STORAGE_MODE: ${{ inputs.branch_production_storage_writes }}
           BRANCH_CUTOVER_PREFLIGHT: ${{ inputs.branch_cutover_preflight }}
           BRANCH_ROUTE_DRILL: ${{ inputs.branch_route_drill }}
         run: |
           branch_modes=0
-          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_BACKUP_READINESS" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_OPERATIONAL_PREP" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_PRODUCTION_STORAGE_WRITES" "$BRANCH_PRODUCTION_STORAGE_HARDEN" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
+          for mode in "$BRANCH_SMOKE" "$BRANCH_RESTORE" "$BRANCH_R2_CHECK" "$BRANCH_R2_PREPARE" "$BRANCH_R2_SMOKE" "$BRANCH_MAINTENANCE_CHECK" "$BRANCH_BACKUP_READINESS" "$BRANCH_SCHEMA_CHECK" "$BRANCH_PRODUCTION_D1_PREPARE" "$BRANCH_PRODUCTION_D1_CHECK" "$BRANCH_PRODUCTION_CANDIDATE" "$BRANCH_PRODUCTION_CONNECT_PAUSED" "$BRANCH_PRODUCTION_OPERATIONAL_PREP" "$BRANCH_PRODUCTION_PAGES_PAUSED" "$BRANCH_PRODUCTION_STORAGE_READONLY" "$BRANCH_CUTOVER_PREFLIGHT" "$BRANCH_ROUTE_DRILL"; do
             if [[ "$mode" == true ]]; then branch_modes=$((branch_modes + 1)); fi
           done
+          case "$BRANCH_PRODUCTION_STORAGE_MODE" in
+            false) ;;
+            true|harden) branch_modes=$((branch_modes + 1)) ;;
+            *) exit 1 ;;
+          esac
           if [[ -n "$BRANCH_ACTIVATION_ACK" ]]; then
             [[ "$BRANCH_ACTIVATION_ACK" == STOCK_AND_CUTOFF_CONFIRMED ]] || exit 1
             branch_modes=$((branch_modes + 1))
@@ -259,7 +263,7 @@ jobs:
         run: node scripts/preflight-release.mjs --verify-only
 
       - name: Deploy isolated branch account staging
-        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_backup_readiness_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && inputs.branch_public_open_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && !inputs.branch_production_storage_writes && !inputs.branch_production_storage_harden && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
+        if: inputs.target == 'branch-account-staging' && !inputs.branch_smoke && !inputs.branch_restore && !inputs.branch_r2_check && !inputs.branch_r2_prepare && !inputs.branch_r2_smoke && !inputs.branch_maintenance_check && !inputs.branch_backup_readiness_check && !inputs.branch_schema_check && !inputs.branch_production_d1_prepare && !inputs.branch_production_d1_check && !inputs.branch_production_candidate && !inputs.branch_production_connect_paused && !inputs.branch_production_operational_prep && inputs.branch_activation_ack == '' && inputs.branch_public_open_ack == '' && !inputs.branch_production_pages_paused && !inputs.branch_production_storage_readonly && inputs.branch_production_storage_writes == 'false' && !inputs.branch_cutover_preflight && !inputs.branch_route_drill
         env:
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_STAGING_KEY: ${{ secrets.BRANCH_STAGING_KEY }}
@@ -408,17 +412,16 @@ jobs:
         run: node scripts/check-production-cutover-preflight.mjs
 
       - name: Deploy and verify the production R2 relay
-        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_storage_readonly || inputs.branch_production_storage_writes || inputs.branch_production_storage_harden)
+        if: inputs.target == 'branch-account-staging' && (inputs.branch_production_storage_readonly || inputs.branch_production_storage_writes == 'true' || inputs.branch_production_storage_writes == 'harden')
         env:
-          ENABLE_WRITES: ${{ inputs.branch_production_storage_writes }}
-          HARDEN_LIVE: ${{ inputs.branch_production_storage_harden }}
+          STORAGE_MODE: ${{ inputs.branch_production_storage_writes }}
           BRANCH_STAGING_INVENTORY: ${{ vars.BRANCH_STAGING_INVENTORY }}
           BRANCH_PRODUCTION_PREP_KEY: ${{ secrets.BRANCH_PRODUCTION_PREP_KEY }}
           BRANCH_CF_TOKEN_SAMARINDA: ${{ secrets.BRANCH_CF_TOKEN_SAMARINDA }}
         run: |
           args=()
-          if [[ "$ENABLE_WRITES" == true ]]; then args+=(--enable-writes); fi
-          if [[ "$HARDEN_LIVE" == true ]]; then args+=(--harden-live); fi
+          if [[ "$STORAGE_MODE" == true ]]; then args+=(--enable-writes); fi
+          if [[ "$STORAGE_MODE" == harden ]]; then args+=(--harden-live); fi
           node scripts/deploy-production-storage.mjs "${args[@]}"
 
       - name: Run staging smoke through an isolated Pages hostname
