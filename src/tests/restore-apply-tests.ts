@@ -254,6 +254,22 @@ function cliPreflightRegressions() {
 		);
 		assert.equal(mismatch.status, 1);
 		assert.match(mismatch.stderr, /CHECKSUM MISMATCH/);
+		const remote = spawnSync(
+			process.execPath,
+			[
+				'scripts/restore-archive.mjs',
+				'--file',
+				join(directory, 'must-not-open.json'),
+				'--remote',
+				'--apply',
+				'--expect-sha256',
+				'0'.repeat(64)
+			],
+			{ encoding: 'utf8', timeout: 30000 }
+		);
+		assert.equal(remote.status, 1);
+		assert.match(remote.stderr, /Restore remote dinonaktifkan/);
+		assert.doesNotMatch(remote.stdout + remote.stderr, /ENOENT|\[RESTORE\]/);
 	} finally {
 		rmSync(directory, { recursive: true, force: true });
 	}

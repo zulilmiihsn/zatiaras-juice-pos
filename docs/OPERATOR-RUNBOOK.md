@@ -249,20 +249,22 @@ Jangan jalankan latihan ini melalui gateway kasir yang sedang melayani transaksi
 
 ### 2.5 Restore sungguhan
 
-Destruktif. Hanya dengan persetujuan pemilik untuk target yang disebut eksplisit:
+Jangan pakai `d1:restore --live`, `rollback-migration --live`, atau CLI arsip dari
+checkout lama untuk D1 aktif tiga akun: konfigurasi bawaan masih menunjuk shard legacy.
+Restore penuh produksi memerlukan prosedur terpisah yang membuktikan identitas akun dan
+D1 tujuan, membekukan penulis/koordinator yang relevan, dan melindungi transaksi setelah snapshot.
 
-```powershell
-CONFIRM_D1_RESTORE=<binding> pnpm d1:restore -- --database <binding> --file <backup.sql>
-```
-
-Restore arsip R2 memakai `node scripts/restore-archive.mjs --file <archive.json> --dry-run`
-dulu; apply memerlukan `--expect-sha256` yang disetujui.
+Untuk arsip JSON, pakai `node scripts/restore-archive.mjs --file <archive.json> --dry-run`.
+Apply yang tersedia hanya untuk Workerd lokal dengan skema mutakhir dan `--expect-sha256`
+yang disetujui. `--remote --apply` ditolak; kompatibilitas CLI dengan `0051` tidak berarti
+jalur restore produksi sudah disertifikasi.
 
 ## 3. Migrasi schema
 
-Migrasi tidak pernah ikut deploy. Tabel `d1_migrations` di ketiga shard produksi mencatat
-migrasi yang sudah diterapkan (0000–0044 per 22 Oktober 2026), jadi jalur utama memakai
-ledger itu:
+Migrasi tidak pernah ikut deploy. Sumber rilis topologi tiga akun adalah
+`release/branch-account-staging`; produksi aktif sudah mencatat `0051`–`0053` di ketiga
+D1. Jangan jalankan migrasi dari checkout yang tidak memuat riwayat tersebut. Ledger
+`d1_migrations` tetap menjadi sumber versi tiap target:
 
 1. Backup dan verifikasi (§1).
 2. Tinjau isi SQL migrasi baru. Pastikan aditif atau punya rencana rollback.
@@ -271,20 +273,17 @@ ledger itu:
    node scripts/migrate-production.mjs
    ```
    Tanpa `--apply` skrip hanya memvalidasi. `pnpm d1:migrate` menerapkan ke D1 lokal.
-4. Terapkan migrasi yang belum tercatat ke ketiga shard, berurutan, berhenti di kegagalan pertama:
-   ```powershell
-   pnpm d1:migrate:live
-   ```
+4. Terapkan hanya migrasi yang sudah ditinjau dan belum tercatat ke tiga D1 aktif, dengan
+   inventaris aktif per akun, satu D1 sekali jalan. Catat SQL dan nama migrasi dalam batch
+   D1 yang sama, readback tiap target, dan berhenti pada kegagalan pertama. `pnpm
+d1:migrate:live` bawaan mengacu ke konfigurasi legacy, bukan runner tiga akun.
 5. Verifikasi tabel/kolom baru dengan `SELECT`/`PRAGMA table_info` per shard, dan pastikan
    `SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 1` menunjuk migrasi terbaru.
 6. Baru deploy aplikasi yang membutuhkan schema itu.
 
-Jangan menerapkan file migrasi dengan `wrangler d1 execute --file`: cara itu tidak mencatat ke
-`d1_migrations`, sehingga `d1:migrate:live` berikutnya akan mencoba menerapkannya ulang.
-Bila terpaksa (darurat), catat nama file itu ke `d1_migrations` di shard yang sama sesudahnya.
-
-Rollback schema memakai `node scripts/rollback-migration.mjs --shard <BINDING> --backup-manifest <manifest> --expect-baseline <baseline.json> --expect-baseline-sha256 <hash> --dry-run`
-(default dry-run; `--live --apply` hanya dengan persetujuan).
+Jangan terapkan `wrangler d1 execute --file` yang tidak mencatat `d1_migrations` di batch
+sama. Untuk rollback D1 aktif, ikuti prosedur khusus migrasi yang sudah diuji; jangan
+menimpa penjualan baru dengan snapshot lama.
 
 ### 3.1 Kesehatan data sebelum migrasi enforcement
 

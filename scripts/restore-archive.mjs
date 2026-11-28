@@ -16,9 +16,12 @@ import { withSqlSnapshot, wranglerInvocation } from './wrangler-cli.mjs';
 /** Never use local marker files as proof of a DB commit: job/digest/checkpoints live in the target DB. */
 export async function main(argv = process.argv.slice(2), deps = {}) {
 	const args = parseRestoreArgs(argv);
+	// wrangler.pages.jsonc points at the retired shards, not the active branch accounts.
+	if (args.remote && args.apply)
+		throw new Error('Restore remote dinonaktifkan: CLI ini tidak menargetkan D1 aktif tiga cabang');
 	if (!args.file)
 		throw new Error(
-			'Usage: --file <archive.json> [--dry-run|--apply --expect-sha256 <approved-hash>] [--local|--remote] [--binding <BINDING>]'
+			'Usage: --file <archive.json> [--dry-run|--apply --expect-sha256 <approved-hash> --local] [--binding <BINDING>]'
 		);
 	const raw = readFileSync(args.file, 'utf8');
 	const sha256 = sha256Hex(raw);
@@ -50,12 +53,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 	if (!args.expectSha256)
 		throw new Error('Apply membutuhkan --expect-sha256 approved; dry-run dahulu');
 	const spawn = deps.spawn ?? spawnSync;
-	function* phases() {
-		if (args.remote)
-			for (const chunk of planned.chunks) yield { name: `stage-${chunk.index}`, sql: chunk.sql };
-		yield { name: 'final-atomic', sql: planned.final.sql };
-	}
-	if (!args.remote) {
+	{
 		// Reuse one workerd for all bounded stages instead of hundreds of Wrangler startups.
 		const getPlatformProxy = deps.getPlatformProxy ?? (await import('wrangler')).getPlatformProxy;
 		const proxy = await getPlatformProxy({
@@ -82,13 +80,13 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 			await proxy.dispose();
 		}
 	}
-	for (const phase of phases()) {
-		const result = await withSqlSnapshot(phase.sql, async (file) => {
+	{
+		const result = await withSqlSnapshot(planned.final.sql, async (file) => {
 			const invocation = wranglerInvocation([
 				'd1',
 				'execute',
 				binding,
-				args.remote ? '--remote' : '--local',
+				'--local',
 				'--config',
 				'wrangler.pages.jsonc',
 				`--file=${file}`,
@@ -99,9 +97,8 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 		});
 		if (result.status !== 0 || result.error)
 			throw new Error(
-				`Restore ${phase.name} gagal; live ledger belum difinalisasi atau commit final ambigu. Ulangi sumber/digest/target sama; jangan ganti key atau partial apply.`
+				'Restore final gagal; ledger belum difinalisasi atau commit final ambigu. Ulangi sumber/digest/target sama; jangan ganti key atau partial apply.'
 			);
-		console.log(`[RESTORE] ${phase.name} committed.`);
 	}
 	console.log(
 		'RESTORE COMPLETED: one atomic live commit; target job/digest makes retry idempotent. Source archive retained.'
