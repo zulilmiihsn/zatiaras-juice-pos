@@ -97,9 +97,10 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 		});
 		if (result.status !== 0 || result.error)
 			throw new Error(
-				'Restore final gagal; ledger belum difinalisasi atau commit final ambigu. Ulangi sumber/digest/target sama; jangan ganti key atau partial apply.'
+				'Restore final-atomic gagal; live ledger belum difinalisasi atau commit final ambigu. Ulangi sumber/digest/target sama; jangan ganti key atau partial apply.'
 			);
 	}
+	console.log('[RESTORE] final-atomic committed.');
 	console.log(
 		'RESTORE COMPLETED: one atomic live commit; target job/digest makes retry idempotent. Source archive retained.'
 	);
