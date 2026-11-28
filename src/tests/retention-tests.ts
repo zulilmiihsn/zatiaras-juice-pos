@@ -4,7 +4,8 @@ import worker from '../lib/server/realtimeWorker.js';
 import { BranchMaintenanceAlarm } from '../lib/server/branchMaintenanceAlarm';
 import { createTestD1 } from './helpers/testD1';
 import { flushAuditLogOutbox as flushCanonicalOutbox } from '../lib/server/auditLog';
-import { RETENTION_ROWS_PER_TABLE } from '../lib/server/technicalRetention';
+import { cleanTechnicalRows, RETENTION_ROWS_PER_TABLE } from '../lib/server/technicalRetention';
+import { branchContext } from '../lib/server/branchResolver';
 import { AUDIT_SINK_CONFLICT_ATTEMPTS } from '../lib/server/auditDrain';
 
 const NOW = Date.UTC(2026, 6, 3, 3);
@@ -288,6 +289,37 @@ await test('distinct shard scopes retain misplaced tenant rows and drain backlog
 		assert.equal(await count(f.ber, 'audit_log_outbox', "cabang_id='berau'"), 0);
 	} finally {
 		await f.close();
+	}
+});
+
+await test('metric deletion keeps actual instants, unknown dates and other branches scoped', async () => {
+	const { db, close } = await createTestD1();
+	try {
+		const cutoff = NOW - 90 * 86400000;
+		const shifted = (hours: number, offset: string) =>
+			new Date(cutoff + hours * 3600000).toISOString().replace('Z', offset);
+		const insert = `INSERT INTO request_metrics(id,cabang_id,method,path,status,duration_ms,created_at)
+			VALUES(?,?,'GET','/fixture',200,5,?)`;
+		await db.batch([
+			db.prepare(insert).bind('old-offset', 'samarinda', shifted(1, '+02:00')),
+			db.prepare(insert).bind('new-offset', 'samarinda', shifted(-1, '-02:00')),
+			db.prepare(insert).bind('boundary', 'samarinda', new Date(cutoff).toISOString()),
+			db.prepare(insert).bind('invalid', 'samarinda', 'not-a-date'),
+			db.prepare(insert).bind('missing', 'samarinda', null),
+			db.prepare(insert).bind('foreign', 'berau', OLD)
+		]);
+		const budget = { remaining: 2, used: 0 };
+		assert.equal(await cleanTechnicalRows(db, branchContext('samarinda'), NOW, budget), 1);
+		assert.deepEqual(budget, { remaining: 0, used: 2 });
+		const { results } = await db
+			.prepare('SELECT id FROM request_metrics ORDER BY id')
+			.all<{ id: string }>();
+		assert.deepEqual(
+			results.map((row) => row.id),
+			['boundary', 'foreign', 'invalid', 'missing', 'new-offset']
+		);
+	} finally {
+		await close();
 	}
 });
 

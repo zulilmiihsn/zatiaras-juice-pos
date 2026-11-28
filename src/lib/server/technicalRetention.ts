@@ -43,9 +43,12 @@ export async function cleanTechnicalRows(
 		budget.remaining--;
 		budget.used++;
 		try {
+			// The inner query still uses the branch index. For metrics, delete its selected
+			// rowids directly instead of walking the branch index a second time.
+			const target = plan.table === 'request_metrics' ? 'request_metrics NOT INDEXED' : plan.table;
 			const result = await db
 				.prepare(
-					`DELETE FROM ${plan.table} WHERE cabang_id=? AND rowid IN (SELECT rowid FROM ${plan.table} WHERE cabang_id=? AND ${plan.predicate} ORDER BY rowid LIMIT ?)`
+					`DELETE FROM ${target} WHERE cabang_id=? AND rowid IN (SELECT rowid FROM ${plan.table} WHERE cabang_id=? AND ${plan.predicate} ORDER BY rowid LIMIT ?)`
 				)
 				.bind(
 					branch,

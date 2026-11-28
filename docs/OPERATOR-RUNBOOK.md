@@ -613,6 +613,12 @@ duplikat; event realtime lintas cabang.
 
 ## 7. Monitoring stok per cabang
 
+Pembersihan `request_metrics` tetap menghapus metrik cabang yang lebih tua dari 90 hari,
+FIFO menurut `rowid`, maksimal 5.000 per giliran. Pemilihan tetap memakai indeks waktu
+per cabang; langkah `DELETE` mengambil `rowid` terpilih langsung agar tidak memindai
+indeks cabang untuk kedua kalinya. Ini tidak mengubah pembacaan monitor/alert atau
+menambah indeks. Seleksi tetap menafsirkan offset waktu dengan `julianday`.
+
 - Diubah pemilik di `/pengaturan/pemilik/stok`. Tersedia untuk semua cabang; gate pilot
   `stock_feature_rollout` sudah dihapus (migrasi 0047).
 - Sebelum menonaktifkan, pastikan antrean offline semua perangkat cabang kosong. Sisa
