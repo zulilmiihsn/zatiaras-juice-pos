@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { compareArchiveVersion } from '../../scripts/archive-object-version.mjs';
+import { buildRestoreChunks } from '../../scripts/restore-archive-lib.mjs';
+import { applyRestorePlan } from './helpers/restorePlan';
+import { createTestD1 } from './helpers/testD1';
 import { createBranchStorageGateway } from '../lib/server/branchStorageGateway';
 import type { BranchId } from '../lib/server/branchResolver';
 import {
@@ -91,6 +94,34 @@ test('24 hours starts at verified copy, and preview never changes or deletes the
 		]);
 		await assert.rejects(verifyArchiveCopy(f.path, verifiedAt + oneDay), { code: 'EEXIST' });
 		assert.equal(await readFile(f.file, 'utf8'), JSON.stringify(archive));
+	} finally {
+		await f.cleanup();
+	}
+});
+
+test('verified independent copy restores twice without access to the R2 source', async () => {
+	const f = await fixture();
+	try {
+		await verifyArchiveCopy(f.path, verifiedAt);
+		const bytes = await readFile(f.file);
+		const sha256 = createHash('sha256').update(bytes).digest('hex');
+		assert.equal(sha256, f.data.objects[0].sha256);
+		const plan = buildRestoreChunks(JSON.parse(bytes.toString('utf8')), { sha256 });
+		const { db, close } = await createTestD1(true);
+		try {
+			await applyRestorePlan(db, plan);
+			await applyRestorePlan(db, plan);
+			const { results } = await db
+				.prepare('SELECT id,cabang_id,nominal FROM buku_kas ORDER BY id')
+				.all();
+			assert.deepEqual(
+				results.map((row) => ({ ...row })),
+				[{ id: 'bk-1', cabang_id: 'samarinda', nominal: 1000 }]
+			);
+			assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results, []);
+		} finally {
+			await close();
+		}
 	} finally {
 		await f.cleanup();
 	}
