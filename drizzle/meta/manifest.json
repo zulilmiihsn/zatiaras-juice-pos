@@ -50,5 +50,6 @@
 	"0048_shift_cutover_fence.sql": "d498ff4318ac22946a54ee86a7b520570c0d25848eb5bd44c94531524a380ca7",
 	"0049_kiosk_managed_shift.sql": "c2943664febaf863fa175c0ef3c44a245c9b7cb55e77d85f09a83cfd337dc7ec",
 	"0050_kiosk_inventory_fence.sql": "1f4020255263d5cdda95267366e1f9fbf84ec91fe441d71ef25bf9b72e01f91b",
-	"0051_archive_restore_row_branch.sql": "349ef97cadc0bfc4d2da01bccf14c6490680823d87bed7c093a521b3b306c281"
+	"0051_archive_restore_row_branch.sql": "349ef97cadc0bfc4d2da01bccf14c6490680823d87bed7c093a521b3b306c281",
+	"0052_drop_request_metrics_branch_path_index.sql": "cc78f7f1cc260ffed7f44361f4c64992199b2e27c14d69ac0879afdf51681bdb"
 }

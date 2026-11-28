@@ -83,6 +83,14 @@ for (const file of files) {
 		file === '0042_archive_restore_staging.sql'
 			? JSON.stringify(db.prepare('SELECT * FROM buku_kas ORDER BY id').all())
 			: null;
+	const metricsUpgrade = file === '0052_drop_request_metrics_branch_path_index.sql';
+	if (metricsUpgrade)
+		db.exec(`INSERT INTO request_metrics (id, cabang_id, method, path, status, duration_ms, created_at)
+			VALUES ('metrics-a','samarinda','GET','/api/produk',200,2,'2026-11-01T00:00:00.000Z'),
+			       ('metrics-b','berau','POST','/api/pos',503,51,'2026-11-01T00:00:01.000Z');`);
+	const beforeMetrics = metricsUpgrade
+		? db.prepare('SELECT * FROM request_metrics ORDER BY id').all()
+		: null;
 	const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
 	const statements = content
 		.split('--> statement-breakpoint')
@@ -101,6 +109,16 @@ for (const file of files) {
 		assert.equal(db.prepare('SELECT COUNT(*) AS n FROM archive_restore_jobs').get()?.n, 0);
 		assert.equal(db.prepare('SELECT COUNT(*) AS n FROM archive_restore_rows').get()?.n, 0);
 		db.exec("DELETE FROM buku_kas WHERE id='upgrade-staging-history'");
+	}
+	if (beforeMetrics) {
+		assert.deepEqual(db.prepare('SELECT * FROM request_metrics ORDER BY id').all(), beforeMetrics);
+		const indexes = db
+			.prepare('PRAGMA index_list(request_metrics)')
+			.all()
+			.map((row) => row.name);
+		assert.ok(indexes.includes('idx_request_metrics_branch_created'));
+		assert.ok(!indexes.includes('idx_request_metrics_branch_path'));
+		db.exec("DELETE FROM request_metrics WHERE id IN ('metrics-a','metrics-b')");
 	}
 }
 

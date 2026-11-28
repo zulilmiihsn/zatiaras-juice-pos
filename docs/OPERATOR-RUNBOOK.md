@@ -354,6 +354,23 @@ Bandingkan ulang seluruh baris dan trigger. Rollback tidak menghapus catatan `d1
 rencanakan forward-fix secara terpisah dan jangan mengaktifkan kembali penulisan sampai verifikasi
 selesai.
 
+### 3.4 Migrasi 0052: hapus indeks path telemetri
+
+`0052` hanya menghapus `idx_request_metrics_branch_path`. Kolom, baris, kebijakan
+retensi, dan indeks monitoring `idx_request_metrics_branch_created` tetap. Halaman
+indeks dapat dipakai ulang; jangan menganggap ukuran file D1 langsung mengecil.
+
+Sebelum rilis: pastikan tidak ada konsumen eksternal yang mengandalkan indeks path,
+verifikasi perubahan di D1 staging, dan ambil backup baru ketiga D1 aktif. Cek bahwa
+`0051` adalah migrasi terakhir dan indeks path serta indeks waktu ada di setiap target.
+Terapkan ke satu D1 aktif pada satu waktu; catat `0052` dalam `d1_migrations` di batch yang
+sama. Verifikasi indeks path tidak ada, indeks waktu masih ada, monitoring berjalan, dan
+hentikan rollout jika salah satu target gagal. Jangan arahkan migrasi ke shard legacy.
+
+Jika indeks ternyata masih dibutuhkan, pulihkan lewat migrasi lanjutan yang menjalankan
+`CREATE INDEX idx_request_metrics_branch_path ON request_metrics(cabang_id, path);`.
+Jangan restore seluruh D1 atau hapus catatan `0052` hanya untuk mengembalikan indeks.
+
 ## 4. Deploy aplikasi
 
 1. Pastikan CI hijau pada commit HEAD `main`. Workflow Deploy menolak SHA selain HEAD.

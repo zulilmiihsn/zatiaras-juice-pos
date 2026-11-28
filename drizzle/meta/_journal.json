@@ -365,6 +365,13 @@
 			"when": 1795737600000,
 			"tag": "0051_archive_restore_row_branch",
 			"breakpoints": true
+		},
+		{
+			"idx": 52,
+			"version": "6",
+			"when": 1795824000000,
+			"tag": "0052_drop_request_metrics_branch_path_index",
+			"breakpoints": true
 		}
 	]
 }

@@ -917,10 +917,7 @@ export const requestMetrics = sqliteTable(
 		role: text('role'),
 		created_at: text('created_at').default(now())
 	},
-	(table) => [
-		index('idx_request_metrics_branch_created').on(table.cabang_id, table.created_at),
-		index('idx_request_metrics_branch_path').on(table.cabang_id, table.path)
-	]
+	(table) => [index('idx_request_metrics_branch_created').on(table.cabang_id, table.created_at)]
 );
 
 export const d1BackupRuns = sqliteTable(
