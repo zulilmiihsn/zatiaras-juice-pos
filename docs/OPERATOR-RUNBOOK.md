@@ -371,6 +371,22 @@ Jika indeks ternyata masih dibutuhkan, pulihkan lewat migrasi lanjutan yang menj
 `CREATE INDEX idx_request_metrics_branch_path ON request_metrics(cabang_id, path);`.
 Jangan restore seluruh D1 atau hapus catatan `0052` hanya untuk mengembalikan indeks.
 
+### 3.5 Migrasi 0053: hapus indeks duplikat ringkasan penjualan
+
+`0053` hanya menghapus `idx_daily_sales_branch_date_range`. Indeks unik
+`idx_daily_sales_branch_date` tetap melayani rentang tanggal dan menjaga satu ringkasan
+per cabang/tanggal untuk upsert POS. Tidak ada perubahan baris atau kontrak laporan.
+
+Sesudah `0052`, verifikasi kedua indeks mempunyai key `(cabang_id, tanggal_penjualan)` dan
+indeks yang dipertahankan unik; uji laporan rentang tanggal dan upsert POS di D1 staging.
+Gunakan backup baru dan verifikasi setiap target aktif. Bila perlu pulihkan indeks lewat
+migrasi lanjutan, gunakan:
+
+```sql
+CREATE INDEX idx_daily_sales_branch_date_range
+ON ringkasan_penjualan_harian(cabang_id, tanggal_penjualan);
+```
+
 ## 4. Deploy aplikasi
 
 1. Pastikan CI hijau pada commit HEAD `main`. Workflow Deploy menolak SHA selain HEAD.

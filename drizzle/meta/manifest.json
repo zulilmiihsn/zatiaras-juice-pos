@@ -51,5 +51,6 @@
 	"0049_kiosk_managed_shift.sql": "c2943664febaf863fa175c0ef3c44a245c9b7cb55e77d85f09a83cfd337dc7ec",
 	"0050_kiosk_inventory_fence.sql": "1f4020255263d5cdda95267366e1f9fbf84ec91fe441d71ef25bf9b72e01f91b",
 	"0051_archive_restore_row_branch.sql": "349ef97cadc0bfc4d2da01bccf14c6490680823d87bed7c093a521b3b306c281",
-	"0052_drop_request_metrics_branch_path_index.sql": "cc78f7f1cc260ffed7f44361f4c64992199b2e27c14d69ac0879afdf51681bdb"
+	"0052_drop_request_metrics_branch_path_index.sql": "cc78f7f1cc260ffed7f44361f4c64992199b2e27c14d69ac0879afdf51681bdb",
+	"0053_drop_duplicate_daily_sales_index.sql": "ea1c0c7e39d72d96ad2b0d93f1311db25dd432abb70aebbda366057fabb4de40"
 }

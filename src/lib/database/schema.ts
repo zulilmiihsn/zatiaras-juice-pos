@@ -760,10 +760,7 @@ export const dailySalesSummary = sqliteTable(
 		updated_at: text('updated_at').default(now())
 	},
 	(table) => [
-		// Unique index melindungi satu summary per cabang/tanggal. Index range lama
-		// dipertahankan sampai migrasi produksi eksplisit dapat menghapusnya dengan aman.
-		uniqueIndex('idx_daily_sales_branch_date').on(table.cabang_id, table.tanggal_penjualan),
-		index('idx_daily_sales_branch_date_range').on(table.cabang_id, table.tanggal_penjualan)
+		uniqueIndex('idx_daily_sales_branch_date').on(table.cabang_id, table.tanggal_penjualan)
 	]
 );
 

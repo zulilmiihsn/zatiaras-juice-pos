@@ -372,6 +372,13 @@
 			"when": 1795824000000,
 			"tag": "0052_drop_request_metrics_branch_path_index",
 			"breakpoints": true
+		},
+		{
+			"idx": 53,
+			"version": "6",
+			"when": 1795824000001,
+			"tag": "0053_drop_duplicate_daily_sales_index",
+			"breakpoints": true
 		}
 	]
 }

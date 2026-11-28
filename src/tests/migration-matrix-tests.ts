@@ -91,6 +91,13 @@ for (const file of files) {
 	const beforeMetrics = metricsUpgrade
 		? db.prepare('SELECT * FROM request_metrics ORDER BY id').all()
 		: null;
+	const summaryUpgrade = file === '0053_drop_duplicate_daily_sales_index.sql';
+	if (summaryUpgrade)
+		db.exec(`INSERT INTO ringkasan_penjualan_harian (id,cabang_id,tanggal_penjualan,penjualan_kotor)
+			VALUES ('summary-a','samarinda','2026-11-01',3000),('summary-b','berau','2026-11-01',7000);`);
+	const reportRange = `SELECT id, penjualan_kotor FROM ringkasan_penjualan_harian
+		WHERE cabang_id='samarinda' AND tanggal_penjualan BETWEEN '2026-11-01' AND '2026-11-30' ORDER BY tanggal_penjualan`;
+	const beforeSummary = summaryUpgrade ? db.prepare(reportRange).all() : null;
 	const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
 	const statements = content
 		.split('--> statement-breakpoint')
@@ -119,6 +126,31 @@ for (const file of files) {
 		assert.ok(indexes.includes('idx_request_metrics_branch_created'));
 		assert.ok(!indexes.includes('idx_request_metrics_branch_path'));
 		db.exec("DELETE FROM request_metrics WHERE id IN ('metrics-a','metrics-b')");
+	}
+	if (beforeSummary) {
+		assert.deepEqual(db.prepare(reportRange).all(), beforeSummary);
+		const indexes = db.prepare('PRAGMA index_list(ringkasan_penjualan_harian)').all();
+		assert.ok(
+			indexes.some((row) => row.name === 'idx_daily_sales_branch_date' && row.unique === 1)
+		);
+		assert.ok(!indexes.some((row) => row.name === 'idx_daily_sales_branch_date_range'));
+		db.exec(`INSERT INTO ringkasan_penjualan_harian (id,cabang_id,tanggal_penjualan,penjualan_kotor)
+			VALUES ('summary-retry','samarinda','2026-11-01',2000)
+			ON CONFLICT(cabang_id,tanggal_penjualan) DO UPDATE SET penjualan_kotor=penjualan_kotor+excluded.penjualan_kotor;`);
+		assert.deepEqual(
+			db
+				.prepare(reportRange)
+				.all()
+				.map((row) => ({ ...row })),
+			[{ id: 'summary-a', penjualan_kotor: 5000 }]
+		);
+		assert.equal(
+			db
+				.prepare("SELECT penjualan_kotor FROM ringkasan_penjualan_harian WHERE id='summary-b'")
+				.get()?.penjualan_kotor,
+			7000
+		);
+		db.exec("DELETE FROM ringkasan_penjualan_harian WHERE id IN ('summary-a','summary-b')");
 	}
 }
 
